@@ -104,6 +104,8 @@ function renderLobby() {
   const typeTile = ([type, label], icon) => tile(type, icon, t(label === 'orgBeisMedrash' ? 'lobbyBatei' : label),
     t('lobbyOrgSub', { n: (state.lists[type] || []).length, p: currentCount(type, '') }));
   const open = ORG_FIELDS.find(([n]) => n === lobbyOpen);
+  const areas = state.lists.area || [];
+  const areaCount = (a) => state.contacts.filter((c) => c.area === a && isAlive(c.is_alive) && (isTrue(c.is_active) || c.is_active === '')).length;
   main.innerHTML = `
     <div class="lobby-head"><img src="img/logo.png" alt="" class="lobby-logo"><h1>${h(umbrellaName())}</h1>
       <p class="muted">${h(t('lobbyHello', { email: state.email }))}</p></div>
@@ -112,12 +114,17 @@ function renderLobby() {
       ${typeTile(ORG_FIELDS[0], '🕍')}
       ${typeTile(ORG_FIELDS[1], '📖')}
       ${typeTile(ORG_FIELDS[2], '🤝')}
+      ${tile('area', '📍', t('area'), t('lobbyAreaSub', { n: areas.length }))}
     </div>
     ${open ? `<div class="lobby-choose">
       <span class="muted">${h(t('lobbyChoose'))}</span>
       <button type="button" class="btn" data-scope-type="${open[0]}" data-scope-value="">${h(t('lobbyAllOf', { name: t(open[1] === 'orgBeisMedrash' ? 'lobbyBatei' : open[1]) }))}</button>
       ${(state.lists[open[0]] || []).map((v) => `<button type="button" class="btn primary" data-scope-type="${open[0]}" data-scope-value="${h(v)}">${h(v)}
         <span class="count-pill">${currentCount(open[0], v)}</span></button>`).join('')}
+    </div>` : ''}
+    ${lobbyOpen === 'area' ? `<div class="lobby-choose">
+      <span class="muted">${h(t('lobbyChoose'))}</span>
+      ${areas.map((a) => `<button type="button" class="btn primary" data-area="${h(a)}">${h(a)} <span class="count-pill">${areaCount(a)}</span></button>`).join('')}
     </div>` : ''}
     <div class="lobby-row">
       ${tile('lists', '📋', t('readyLists'), t('lobbyListsSub', { n: state.savedLists.length }))}
@@ -131,15 +138,28 @@ function renderLobby() {
 
 function lobbyClick(e) {
   const pick = e.target.closest('[data-scope-type]');
+  $('#area-filter').value = ''; // יעדע בחירה אין לאבי הייבט אן פון ניי
   if (pick) {
     lobbyOpen = '';
     enterScope({ type: pick.dataset.scopeType, value: pick.dataset.scopeValue });
     showView('contacts');
     return;
   }
+  const area = e.target.closest('[data-area]');
+  if (area) {
+    // געגנט: פון כלל מוסדות (אלע רעקארדס), מיט דעם פילטער אויף דעם געגנט
+    lobbyOpen = '';
+    setScope(null);
+    refreshAll();
+    showView('contacts');
+    $('#area-filter').value = area.dataset.area;
+    renderList();
+    return;
+  }
   const b = e.target.closest('[data-tile]');
   if (!b) return;
   const key = b.dataset.tile;
+  if (key === 'area') { lobbyOpen = lobbyOpen === 'area' ? '' : 'area'; renderLobby(); return; }
   if (key === 'umbrella') { lobbyOpen = ''; enterScope(null); showView('contacts'); return; }
   if (ORG_FIELDS.some(([n]) => n === key)) { lobbyOpen = lobbyOpen === key ? '' : key; renderLobby(); return; }
   if (key === 'lists') { openOverview(); return; }
