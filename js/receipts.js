@@ -314,9 +314,8 @@ function docHtml(c) {
   const sig = String(det.signature_img || '');
   const logo = orgLogo(c.org);
   const legal = det.legal_name || c.org;
-  const he = det.org_name_he || c.org;
+  const he = det.org_name_he || '';
   const isInv = c.kind === 'invoice';
-  const is501 = det.is_501c3 === '' || det.is_501c3 == null || isTrue(det.is_501c3);
   const issued = String(c.issued_at || '').slice(0, 10);
   const heDate = issued ? `${isoToHebrewText(issued)} לפ"ק` : '';
   const A = isInv ? INVOICE_A : (det.letter_a || DEFAULTS.letter_a);
@@ -328,12 +327,13 @@ function docHtml(c) {
   const middle = c.forText ? `בסך של ${money(c.amount)} ${c.forText}` : `בסך של ${money(c.amount)} ב${forWhat(c)}`;
   const body = `${fillText(A, c, ct)} ${middle} ${fillText(B, c, ct)}`;
   const multi = c.list.length > 1;
-  const title = { receipt: 'OFFICIAL RECEIPT', invoice: 'INVOICE · PLEDGE', year: `YEAR-END STATEMENT ${c.period}`, campaign: 'OFFICIAL RECEIPT' }[c.kind];
+  const title = { receipt: det.coupon_title || 'OFFICIAL RECEIPT', invoice: 'INVOICE · PLEDGE', year: `YEAR-END STATEMENT ${c.period}`, campaign: det.coupon_title || 'OFFICIAL RECEIPT' }[c.kind];
   const taxLine = isInv ? `Please make checks payable to ${legal}.`
-    : `${is501 ? `${taxEntity} is a 501(c)(3) tax-exempt organization${ein ? ` (EIN ${ein})` : ''}. All contributions are tax deductible. ` : ''}No goods or services were provided by the above donee organization in consideration in whole or in part for ${multi ? 'these contributions' : 'this contribution'}.`;
+    : String(det.tax_text || TAX_DEFAULT).replace(/\{NAME\}/g, taxEntity).replace(/\{EIN\}/g, ein || '—')
+      .replace('this contribution', multi ? 'these contributions' : 'this contribution');
   return `<section class="rc-doc">
     ${banner ? `<div class="rd-banner"><img src="${banner}" alt=""></div>`
-      : `<div class="rd-band">${logo ? `<img src="${logo}" alt="">` : ''}<div><div class="rd-band-he" dir="rtl">${h(he)}</div><div class="rd-band-en">${h(legal)}</div></div></div>`}
+      : `<div class="rd-band">${logo ? `<img src="${logo}" alt="">` : ''}<div>${he ? `<div class="rd-band-he" dir="rtl">${h(he)}</div>` : ''}<div class="rd-band-en">${h(legal)}</div></div></div>`}
     <div class="rd-letter" dir="rtl">
       <div class="rd-date">${h(heDate)}</div>
       <div class="rd-sal">${h(salLine)}</div>
@@ -348,8 +348,8 @@ function docHtml(c) {
           <div class="cp-tag">${h(title)}</div>
           <div class="cp-org">${h(legal)}</div>
           <div class="cp-addr">${[det.address, det.city_state_zip].filter(Boolean).map(h).join('<br>')}</div>
-          <div class="cp-tel">${det.phone ? `TEL: ${h(det.phone)}` : ''}${det.fax ? `<br>FAX: ${h(det.fax)}` : ''}${ein ? `<br>EIN: ${h(ein)}` : ''}</div>
-          <div class="cp-from-label">${isInv ? 'Bill to' : 'Received from'}</div>
+          <div class="cp-tel">${[det.phone ? `TEL: ${h(det.phone)}` : '', det.fax ? `FAX: ${h(det.fax)}` : '', det.email ? h(det.email) : '', det.website ? h(det.website) : '', ein ? `EIN: ${h(ein)}` : ''].filter(Boolean).join('<br>')}</div>
+          <div class="cp-from-label">${isInv ? 'Bill to' : h(det.received_label || 'Received from')}</div>
           <div class="cp-from"><b><bdi dir="auto">${h(name)}</bdi></b>${addr.map((l) => `<br>${h(l)}`).join('')}</div>
         </div>
         <div class="cp-mid">
@@ -364,9 +364,9 @@ function docHtml(c) {
         </div>
         <div class="cp-side">
           ${logo ? `<div class="cp-logo"><img src="${logo}" alt=""></div>` : ''}
-          <div class="cp-he" dir="rtl">${h(he)}</div>
+          ${he ? `<div class="cp-he" dir="rtl">${h(he)}</div>` : ''}
           ${det.sub_line ? `<div class="cp-sub" dir="rtl">${h(det.sub_line)}</div>` : ''}
-          <div class="cp-yi" dir="rtl">${h(det.thanks_yi || '')}</div>
+          ${det.thanks_yi ? `<div class="cp-yi" dir="rtl">${h(det.thanks_yi)}</div>` : ''}
         </div>
       </div>
       <div class="cp-foot" dir="rtl">${h(det.footer_line || DEFAULTS.footer_line)}</div>
@@ -407,27 +407,39 @@ export async function printForDonation(d) {
 
 
 // ---------- די פרטים פון א ארגון (וואס שטייט אויף דער קבלה) ----------
-const DET_EN = [
-  ['legal_name', 'rcfLegal', 'Khal Ungvar Inc.', true],
-  ['address', 'rcfAddress', '5306 16th Avenue', true],
-  ['city_state_zip', 'rcfCity', 'Brooklyn, NY 11204', true],
-  ['phone', 'rcfPhone', '(718) 851-0806'],
-  ['fax', 'rcfFax', '(718) 851-2660'],
-  ['email', 'rcfEmail', 'office@example.org'],
-  ['website', 'rcfWebsite', ''],
-  ['ein', 'rcfEin', '00-0000000'],
-  ['signer_name', 'rcfSigner', ''],
-  ['signer_title', 'rcfSignerTitle', 'Treasurer'],
-  ['receipt_prefix', 'rcfPrefix', 'BP'],
-  ['receipt_note', 'rcfNote', ''],
+// אלע פעלדער, אין דער סדר ווי זיי שטייען אויף דער קבלה (פון אויבן ביז אונטן).
+// [שליסל, באשרייבונג, דיפאלט (ווערט אריינגעשטעלט אין פעלד), סארט, ריכטונג]
+const TAX_DEFAULT = '{NAME} is a 501(c)(3) tax-exempt organization (EIN {EIN}). All contributions are tax deductible. No goods or services were provided by the above donee organization in consideration in whole or in part for this contribution.';
+const SECTIONS = [
+  ['rcS3', [
+    ['coupon_title', 'rcfCouponTitle', 'OFFICIAL RECEIPT', '', 'ltr'],
+    ['legal_name', 'rcfLegal', '', 'req', 'ltr'],
+    ['address', 'rcfAddress', '', 'req', 'ltr'],
+    ['city_state_zip', 'rcfCity', '', 'req', 'ltr'],
+    ['phone', 'rcfPhone', '', '', 'ltr'],
+    ['fax', 'rcfFax', '', '', 'ltr'],
+    ['email', 'rcfEmail', '', '', 'ltr'],
+    ['website', 'rcfWebsite', '', '', 'ltr'],
+    ['ein', 'rcfEin', '', '', 'ltr'],
+    ['received_label', 'rcfReceivedLabel', 'Received from', '', 'ltr'],
+  ]],
+  ['rcS4', [
+    ['tax_text', 'rcfTax', TAX_DEFAULT, 'area', 'ltr'],
+    ['receipt_note', 'rcfNote', '', '', 'ltr'],
+  ]],
+  ['rcS5', [
+    ['org_name_he', 'rcfNameHe', '', '', 'rtl'],
+    ['sub_line', 'rcfSubLine', '', '', 'rtl'],
+    ['thanks_yi', 'rcfThanks', '', '', 'rtl'],
+  ]],
+  ['rcS6', [
+    ['footer_line', 'rcfFooter', DEFAULTS.footer_line, 'wide', 'rtl'],
+  ]],
+  ['rcS7', [
+    ['receipt_prefix', 'rcfPrefix', '', '', 'ltr'],
+  ]],
 ];
-// דער קופאן אויף לשון קודש
-const DET_HE = [
-  ['org_name_he', 'rcfNameHe', 'קהל אונגוואר'],
-  ['sub_line', 'rcfSubLine', 'נתייסד ע"י ...'],
-  ['thanks_yi', 'rcfThanks', 'בס"ד'],
-  ['footer_line', 'rcfFooter', DEFAULTS.footer_line],
-];
+const ALL_FIELDS = SECTIONS.flatMap(([, f]) => f.map((x) => x[0]));
 // דער בריוו
 const LETTER = ['letter_salutation', 'salutation_suffix', 'letter_a', 'letter_b', 'letter_closing', 'signer_he'];
 
@@ -439,74 +451,110 @@ export function openOrgDetails(org) {
   const dlg = $('#orgdet-dialog');
   const form = $('#orgdet-form');
   const det = orgDetailsOf(org) || {};
-  const img = { header_img: joinImg(det, 'header_img'), signature_img: String(det.signature_img || '') };
+  const um = orgDetailsOf(umbrellaName()) || {};
+  const img = { header_img: joinImg(det, 'header_img'), signature_img: String(det.signature_img || ''), logo: orgLogo(org) };
   const yearly = state.yearly.filter((y) => y.org === org);
   const yimg = Object.fromEntries(yearly.map((y) => [y.series, joinImg(y, 'header_img')]));
-  const is501 = det.is_501c3 === '' || det.is_501c3 == null || isTrue(det.is_501c3);
-  const field = ([k, l, ph, kind], dir) => `<label class="${kind === 'area' || k === 'legal_name' || k === 'footer_line' ? 'wide' : ''}">${h(t(l))}${kind === true ? ' *' : ''}
-      ${kind === 'area' ? `<textarea name="${k}" rows="5" dir="${dir}" placeholder="${h(ph)}">${h(det[k] || '')}</textarea>`
-        : `<input name="${k}" value="${h(det[k] || '')}" placeholder="${h(ph)}" dir="${dir}"${kind === true ? ' required' : ''}>`}</label>`;
-  const imgBox = (key, label, src, hint) => `<div class="od-img" data-img="${key}"><b>${h(label)}</b><span class="hint-line">${h(hint)}</span>
+  const val = (k, def) => (det[k] != null && det[k] !== '' ? det[k] : def);
+  const field = ([k, l, def, kind, dir]) => {
+    const hint = k === 'ein' ? t('rcfEinHint', { ein: um.ein || '—' }) : k === 'org_name_he' ? t('rcfNameHeHint', { org }) : k === 'tax_text' ? t('rcfTaxHint', { NAME: '{NAME}', EIN: '{EIN}' }) : '';
+    return `<label class="${kind === 'area' || kind === 'wide' || k === 'legal_name' ? 'wide' : ''}">${h(t(l))}${kind === 'req' ? ' *' : ''}
+      ${kind === 'area' ? `<textarea name="${k}" rows="4" dir="${dir}">${h(val(k, def))}</textarea>`
+        : `<input name="${k}" value="${h(val(k, def))}" dir="${dir}"${kind === 'req' ? ' required' : ''}>`}
+      ${hint ? `<span class="hint-line">${h(hint)}</span>` : ''}</label>`;
+  };
+  const imgBox = (key, label, src, hint) => `<div class="od-img" data-img="${key}"><b>${h(label)}</b>${hint ? `<span class="hint-line">${h(hint)}</span>` : ''}
       <div class="od-prev">${src ? `<img src="${src}" alt="">` : '<span class="muted small">—</span>'}</div>
-      <label class="btn small-btn">${h(t(src ? 'admLogoChange' : 'admLogoUpload'))}<input type="file" accept="image/*" hidden></label>
-      ${src ? `<button type="button" class="linkish" data-img-del>${h(t('admLogoRemove'))}</button>` : ''}</div>`;
+      <div class="od-img-btns"><label class="btn small-btn">${h(t(src ? 'admLogoChange' : 'admLogoUpload'))}<input type="file" accept="image/*" hidden></label>
+      ${src ? `<button type="button" class="linkish" data-img-del>${h(t('admLogoRemove'))}</button>` : ''}</div></div>`;
+  const sec = (key, inner) => `<section class="od-section"><h3 class="od-sec">${h(t(key))}</h3>${inner}</section>`;
   form.innerHTML = `<button type="button" class="x-close" data-close aria-label="${h(t('close'))}">✕</button>
     <h2>🧾 ${h(t('rcDetailsTitle'))}</h2>
     <label class="wide org-pick">${h(t('forOrg'))} ${orgSelect('org', org, 'id="od-org"')}</label>
-    <p class="hint-line">${h(t('rcDetailsHint'))}</p>
-    <h3 class="od-sec">${h(t('rcSecImages'))}</h3>
-    <div class="od-imgs">
-      ${imgBox('header_img', t('rcfBanner'), img.header_img, t('rcfBannerHint'))}
-      ${imgBox('signature_img', t('rcfSignature'), img.signature_img, t('rcfSignatureHint'))}
-      ${imgBox('logo', t('rcfLogo'), orgLogo(org), t('rcfLogoHint'))}
-    </div>
-    ${yearly.length ? `<h3 class="od-sec">${h(t('rcSecCampBanners'))}</h3><p class="hint-line">${h(t('rcCampBannersHint'))}</p>
-      <div class="od-imgs">${yearly.map((y) => imgBox(`y:${y.series}`, `🔁 ${y.series}`, yimg[y.series], '')).join('')}</div>` : ''}
-    <h3 class="od-sec">✉ ${h(t('rcSecLetter'))}</h3>
-    <div class="od-letter" dir="rtl">
-      <div class="od-date">📅 ${h(isoToHebrewText(new Date().toISOString().slice(0, 10)))} לפ"ק <span class="muted small">(${h(t('rcAuto'))})</span></div>
-      <div class="od-sal">
-        <input name="letter_salutation" value="${h(det.letter_salutation || DEFAULTS.letter_salutation)}">
-        <span class="od-auto">${h(t('rcSalName'))}</span>
-        <input name="salutation_suffix" class="od-short" value="${h(det.salutation_suffix ?? DEFAULTS.salutation_suffix)}">
+    <p class="hint-line">${h(t('rcDetailsHint2', { org }))}</p>
+    <div class="od-layout">
+      <div class="od-fields">
+        ${sec('rcS1', `<div class="od-imgs">${imgBox('header_img', t('rcfBanner'), img.header_img, t('rcfBannerHint'))}
+          ${yearly.map((y) => imgBox(`y:${y.series}`, `🔁 ${y.series}`, yimg[y.series], t('rcCampBannersHint'))).join('')}</div>`)}
+        ${sec('rcS2', `<div class="od-letter" dir="rtl">
+          <div class="od-date">📅 ${h(isoToHebrewText(new Date().toISOString().slice(0, 10)))} לפ"ק <span class="muted small">(${h(t('rcAuto'))})</span></div>
+          <div class="od-sal">
+            <input name="letter_salutation" value="${h(val('letter_salutation', DEFAULTS.letter_salutation))}">
+            <span class="od-auto">${h(t('rcSalName'))}</span>
+            <input name="salutation_suffix" class="od-short" value="${h(det.salutation_suffix ?? DEFAULTS.salutation_suffix)}">
+          </div>
+          ${historyOf(det).length ? `<label class="od-hist">${h(t('rcHistory'))}
+            <select id="od-history"><option value=""></option>${historyOf(det).map((x, i) => `<option value="${i}">${h(`${x.a} … ${x.b}`.slice(0, 90))}</option>`).join('')}</select></label>` : ''}
+          <textarea name="letter_a" rows="3">${h(val('letter_a', DEFAULTS.letter_a))}</textarea>
+          <div class="od-auto od-middle">${h(t('rcMiddle'))}</div>
+          <textarea name="letter_b" rows="5">${h(val('letter_b', DEFAULTS.letter_b))}</textarea>
+          <div class="od-center"><input name="letter_closing" value="${h(val('letter_closing', DEFAULTS.letter_closing))}"></div>
+          <div class="od-center">${imgBox('signature_img', t('rcfSignature'), img.signature_img, t('rcfSignatureHint'))}</div>
+          <div class="od-center"><input name="signer_he" value="${h(val('signer_he', DEFAULTS.signer_he))}"></div>
+        </div>`)}
+        ${SECTIONS.map(([key, fields]) => sec(key, `${key === 'rcS5' ? `<div class="od-imgs">${imgBox('logo', t('rcfLogo'), img.logo, t('rcfLogoHint'))}</div>` : ''}
+          <div class="grid od-grid">${fields.map(field).join('')}</div>`)).join('')}
       </div>
-      ${historyOf(det).length ? `<label class="od-hist">${h(t('rcHistory'))}
-        <select id="od-history"><option value=""></option>${historyOf(det).map((x, i) => `<option value="${i}">${h(`${x.a} … ${x.b}`.slice(0, 90))}</option>`).join('')}</select></label>` : ''}
-      <textarea name="letter_a" rows="3">${h(det.letter_a || DEFAULTS.letter_a)}</textarea>
-      <div class="od-auto od-middle">${h(t('rcMiddle'))}</div>
-      <textarea name="letter_b" rows="5">${h(det.letter_b || DEFAULTS.letter_b)}</textarea>
-      <div class="od-center"><input name="letter_closing" value="${h(det.letter_closing || DEFAULTS.letter_closing)}"></div>
-      <div class="od-center od-sigprev">${img.signature_img ? `<img src="${img.signature_img}" alt="">` : `<span class="muted small">${h(t('rcfSignature'))} —</span>`}</div>
-      <div class="od-center"><input name="signer_he" value="${h(det.signer_he || DEFAULTS.signer_he)}"></div>
+      <aside class="od-live"><div class="od-live-head">👁 ${h(t('rcLive'))}</div><div class="od-live-box"><div class="od-live-scale"></div></div></aside>
     </div>
-    <h3 class="od-sec">${h(t('rcSecCoupon'))}</h3>
-    <div class="grid od-grid">${DET_HE.map((x) => field(x, 'rtl')).join('')}</div>
-    <h3 class="od-sec">${h(t('rcSecEnglish'))}</h3>
-    <div class="grid od-grid">${DET_EN.map((x) => field(x, 'ltr')).join('')}</div>
-    <label class="check"><input type="checkbox" name="is_501c3"${is501 ? ' checked' : ''}> ${h(t('rcf501'))}</label>
     <div class="actions"><span class="spacer"></span>
-      <button type="button" class="btn" id="od-preview">👁 ${h(t('rcPreview'))}</button>
+      <button type="button" class="btn" id="od-preview">🖨 ${h(t('rcPreview'))}</button>
       <button type="button" class="btn" data-close>${h(t('cancelBtn'))}</button>
       <button type="submit" class="btn primary">${h(t('saveBtn'))}</button></div>`;
   $$('[data-close]', form).forEach((b) => { b.onclick = () => dlg.close(); });
   $('#od-org', form).onchange = (e) => { dlg.close(); openOrgDetails(e.target.value); };
   const changedY = new Set();
   let logoChanged = false;
-  img.logo = orgLogo(org);
   $('#od-history', form)?.addEventListener('change', (e) => {
     const x = historyOf(det)[Number(e.target.value)];
     if (!x) return;
     form.elements.letter_a.value = x.a;
     form.elements.letter_b.value = x.b;
+    live();
   });
+  const collect = () => {
+    const o = { org: $('#od-org', form).value };
+    ALL_FIELDS.forEach((k) => { o[k] = form.elements[k].value.trim(); });
+    LETTER.forEach((k) => { o[k] = form.elements[k].value.trim(); });
+    const hist = historyOf(det).filter((x) => !(x.a === o.letter_a && x.b === o.letter_b));
+    o.letter_history = JSON.stringify([{ a: o.letter_a, b: o.letter_b }, ...hist].slice(0, 12));
+    o.receipt_prefix = o.receipt_prefix.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    Object.assign(o, splitImg(img.header_img || '', 'header_img'), { signature_img: img.signature_img || '' });
+    return o;
+  };
+  // א פראבע-קבלה מיט וואס שטייט יעצט אינעם פארם (נישט אפגעהיט)
+  const sample = (fn) => {
+    const o = collect();
+    const keep = state.orgDetails;
+    const keepLogo = state.orgLogos?.[o.org];
+    if (logoChanged && state.orgLogos) state.orgLogos[o.org] = img.logo;
+    state.orgDetails = [...keep.filter((x) => x.org !== o.org), o];
+    const y = state.yearly.find((x) => x.org === o.org && yimg[x.series]);
+    const savedY = y ? { ...y } : null;
+    if (y) Object.assign(y, splitImg(yimg[y.series], 'header_img'));
+    const fake = { donation_id: 0, amount_usd: 180, is_paid: true, paid_date: new Date().toISOString().slice(0, 10), payment_method: "צ'ק", check_number: '1001', campaign: y ? `${y.series} תשפ"ז` : '', event_tags: 'נדבה' };
+    try {
+      return fn({ kind: 'receipt', org: o.org, contact_id: '', donor_name: 'Mr. & Mrs. Sample Donor', ids: [], amount: 180, period: '', list: [fake], receipt_no: `${o.receipt_prefix || 'R'}-0000`, issued_at: new Date().toISOString().slice(0, 10), reprint: false });
+    } finally {
+      state.orgDetails = keep;
+      if (logoChanged && state.orgLogos) state.orgLogos[o.org] = keepLogo;
+      if (y) Object.assign(y, savedY);
+    }
+  };
+  let timer = null;
+  const live = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { $('.od-live-scale', form).innerHTML = sample((d) => docHtml(d)); }, 150);
+  };
+  form.oninput = live;
   $$('.od-img[data-img]', form).forEach((box) => {
     const key = box.dataset.img;
     const show = (src) => { $('.od-prev', box).innerHTML = src ? `<img src="${src}" alt="">` : '<span class="muted small">—</span>'; };
     const set = (src) => {
       if (key.startsWith('y:')) { yimg[key.slice(2)] = src; changedY.add(key.slice(2)); } else img[key] = src;
       if (key === 'logo') logoChanged = true;
-      if (key === 'signature_img') $('.od-sigprev', form).innerHTML = src ? `<img src="${src}" alt="">` : '—';
       show(src);
+      live();
     };
     $('input[type=file]', box).onchange = async (e) => {
       const file = e.target.files[0];
@@ -518,33 +566,7 @@ export function openOrgDetails(org) {
     };
     $('[data-img-del]', box)?.addEventListener('click', () => set(''));
   });
-  const collect = () => {
-    const o = { org: $('#od-org', form).value, is_501c3: form.elements.is_501c3.checked };
-    [...DET_EN, ...DET_HE].forEach(([k]) => { o[k] = form.elements[k].value.trim(); });
-    LETTER.forEach((k) => { o[k] = form.elements[k].value.trim(); });
-    // זכרון: די טעקסטן וואס מ'האט שוין גענוצט (ביז 12)
-    const hist = historyOf(det).filter((x) => !(x.a === o.letter_a && x.b === o.letter_b));
-    o.letter_history = JSON.stringify([{ a: o.letter_a, b: o.letter_b }, ...hist].slice(0, 12));
-    o.receipt_prefix = o.receipt_prefix.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    Object.assign(o, splitImg(img.header_img || '', 'header_img'), { signature_img: img.signature_img || '' });
-    return o;
-  };
-  $('#od-preview', form).onclick = () => {
-    // א פראבע: א קבלה פון $180 מיט די פרטים פונעם פארם (נישט אפגעהיט, נישט קיין נומער)
-    const o = collect();
-    const keep = state.orgDetails;
-    const keepLogo = state.orgLogos?.[o.org];
-    if (logoChanged && state.orgLogos) state.orgLogos[o.org] = img.logo;
-    state.orgDetails = [...keep.filter((x) => x.org !== o.org), o];
-    const y = state.yearly.find((x) => x.org === o.org && yimg[x.series]);
-    const fake = { donation_id: 0, amount_usd: 180, is_paid: true, paid_date: new Date().toISOString().slice(0, 10), payment_method: "צ'ק", check_number: '1001', campaign: y ? `${y.series} ${'תשפ"ז'}` : '', event_tags: '' };
-    const savedY = y ? { ...y } : null;
-    if (y) Object.assign(y, splitImg(yimg[y.series], 'header_img'));
-    printDocs([{ kind: 'receipt', org: o.org, contact_id: '', donor_name: 'Mr. & Mrs. Sample Donor', ids: [], amount: 180, period: '', list: [fake], receipt_no: `${o.receipt_prefix || 'R'}-0000`, issued_at: new Date().toISOString().slice(0, 10), reprint: false }]);
-    state.orgDetails = keep;
-    if (logoChanged && state.orgLogos) state.orgLogos[o.org] = keepLogo;
-    if (y) Object.assign(y, savedY);
-  };
+  $('#od-preview', form).onclick = () => sample((d) => printDocs([d]));
   form.onsubmit = async (e) => {
     e.preventDefault();
     const o = collect();
@@ -562,6 +584,7 @@ export function openOrgDetails(org) {
     } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
   };
   if (!dlg.open) dlg.showModal();
+  live();
 }
 
 /** פאר אדמין: א ליסטע פון אלע ארגונים — ווער האט שוין פרטים פאר קבלות. */

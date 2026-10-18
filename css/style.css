@@ -991,3 +991,15 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 .rc-for input { flex: 1; font: inherit; padding: 6px 9px; border: 1px solid var(--line); border-radius: 8px; }
 .rd-close, .rd-sig { padding-inline-start: 0 !important; text-align: center; }
 .rd-sig { display: flex; flex-direction: column; align-items: center; }
+/* פרטים פאר קבלות: פעלדער + לעבעדיגע פראבע */
+#orgdet-dialog { max-width: min(1280px, 96vw); width: 96vw; }
+.od-layout { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 18px; align-items: start; }
+.od-section { border-top: 1px solid var(--line); padding-top: 6px; margin-top: 8px; }
+.od-live { position: sticky; top: 0; }
+.od-live-head { font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+.od-live-box { position: relative; direction: ltr; width: 400px; height: 535px; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+.od-live-scale { position: absolute; left: 0; top: 0; width: 7.5in; transform: scale(.52); transform-origin: top left; direction: ltr; padding: 14px; }
+.od-img-btns { display: flex; gap: 8px; align-items: center; }
+.od-letter .od-img { align-items: center; background: #fff; }
+.od-letter .od-prev { height: 60px; width: 220px; }
+@media (max-width: 1000px) { .od-layout { grid-template-columns: 1fr; } .od-live { position: static; } }
