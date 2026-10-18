@@ -1,6 +1,6 @@
 // אריינלייגן א סך קאנטאקטן פון Excel (נאר בעל הבית, אין אדמין ← מנהלים, גבאים און צוטריט):
 // 1) אראפלאדן א דוגמא-טעקע  2) אנפילן / אריינקלעבן  3) ארויפלאדן ← א פריוויו מיט פראבלעמען ← אריינלייגן.
-import { state, loadAll, importContacts, mergeContacts, addListValue, importDonations } from './data.js';
+import { state, loadAll, importContacts, mergeContacts, addListValue, importDonations, removeTagSeries } from './data.js';
 import { yearFromLabel, fromHebrew, monthsOf } from './hebdate.js';
 import { umbrellaName } from './scope.js';
 import { t } from './i18n.js';
@@ -155,19 +155,32 @@ function mapHeaders(head) {
 }
 
 function existingIndex() {
-  const names = new Map(); const phones = new Map(); const emails = new Map();
+  const names = new Map(); const phones = new Map(); const emails = new Map(); const addrs = new Map();
   state.contacts.forEach((c) => {
     const k = normalize(`${c.first_name_he} ${c.last_name_he}`);
     if (k.trim()) names.set(k, c.contact_id);
     const en = `${c.first_name_en || ''} ${c.last_name_en || ''}`.trim().toLowerCase();
     if (c.first_name_en && c.last_name_en) names.set(`en:${en}`, c.contact_id);
+    // פאמיליע נאמען + אדרעס (פאר רשימות מיט נאר ראשי-תיבות, למשל א חתונה-רשימה)
+    const ak = addrKey(c);
+    if (ak) {
+      [lastKeyEn(c.last_name_en), normalize(c.last_name_he || '')].filter(Boolean).forEach((lk) => {
+        const k = `${lk}|${ak}`;
+        addrs.set(k, [...(addrs.get(k) || []), c]);
+      });
+    }
   });
   state.phones.forEach((p, id) => {
     ['mobile', 'home_phone', 'wife_mobile', 'other_phone'].forEach((k) => { const d = digits(p[k]).slice(-10); if (d.length >= 7) phones.set(d, id); });
     ['email_1', 'email_2'].forEach((k) => { const e = String(p[k] || '').trim().toLowerCase(); if (e) emails.set(e, id); });
   });
-  return { names, phones, emails };
+  return { names, phones, emails, addrs };
 }
+
+const lastKeyEn = (s) => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
+const initials = (s) => String(s || '').trim().split(/[\s.]+/).filter(Boolean).map((w) => w[0].toUpperCase()).join('');
+/** "M S" און "Moshe Shmuel" — פאסט; "M" און "Yoel" — נישט */
+const initialsFit = (a, b) => { const x = initials(a); const y = initials(b); return !x || !y || x.startsWith(y) || y.startsWith(x); };
 
 /** די אדרעס פאר פארגלייכן (נאר די גאס און נומער) */
 const addrKey = (c) => String(c.address || '').toLowerCase().replace(/[^a-z0-9\u0590-\u05FF]/g, '')
@@ -307,6 +320,15 @@ function buildRows(table) {
       out.status = 'dup'; withMerge(byName, sameAddr ? 'merge' : 'skip'); if (!sameAddr) out.action = 'skip';
       out.note = t('impDupName', { id: byName, addr: exAddr || '—' }); return out;
     }
+    // 3) דער זעלבער פאמיליע-נאמען אין דער זעלבער אדרעס, און די ערשטע אותיות פאסן — דער זעלבער מענטש
+    if (myAddr) {
+      const cands = [...(idx.addrs.get(`${lastKeyEn(contact.last_name_en)}|${myAddr}`) || []), ...(idx.addrs.get(`${normalize(contact.last_name_he || '')}|${myAddr}`) || [])]
+        .filter((c, k, arr) => arr.indexOf(c) === k && initialsFit(c.first_name_en, contact.first_name_en));
+      if (cands.length === 1) {
+        out.status = 'dup'; withMerge(cands[0].contact_id, 'merge');
+        out.note = t('impDupAddr', { id: cands[0].contact_id, name: [cands[0].first_name_en, cands[0].last_name_en].filter(Boolean).join(' ') || cands[0].last_name_he }); return out;
+      }
+    }
     const phoneInFile = ph.map((d) => seen.phones.get(d)).find(Boolean);
     if (phoneInFile) { out.status = 'dup'; out.action = 'skip'; out.note = t('impDupFile', { n: phoneInFile }); return out; }
     const nameInFile = seen.names.get(nk);
@@ -370,12 +392,41 @@ export function importBoxHtml() {
       <li>${h(t('impStep2'))}</li>
       <li>${h(t('impStep3'))} <label class="btn small-btn primary">⬆ ${h(t('impUploadBtn'))}<input type="file" id="imp-file" accept=".xlsx,.csv" hidden></label></li>
     </ol>
-    <div id="imp-preview"></div>`;
+    <div id="imp-preview"></div>
+    <div id="imp-old-wrap"></div>`;
+}
+
+/** דער קעסטל "אויסמעקן אלע אלטע: טעג'ס" (ווייזט זיך נאר ווען עס זענען דא אזעלכע) */
+function renderOld(box, ui) {
+  const wrap = $('#imp-old-wrap', box);
+  if (!wrap) return;
+  const n = oldTagsCount();
+  wrap.innerHTML = n ? `<div class="imp-old">🏷 ${h(t('impOldTags', { n }))}
+    <button type="button" class="btn small-btn danger" id="imp-del-old">🗑 ${h(t('impOldDel'))}</button></div>` : '';
+  const del = $('#imp-del-old', wrap);
+  if (!del) return;
+  del.onclick = async () => {
+    if (!confirm(t('impOldConfirm', { n: oldTagsCount() }))) return;
+    del.disabled = true;
+    try {
+      const done = await removeTagSeries(OLD_PREFIX, (a, b) => { del.textContent = `${a} / ${b}`; });
+      await loadAll();
+      ui.refreshAll?.();
+      ui.toast(t('impOldDone', { n: done }));
+      renderOld(box, ui);
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); del.disabled = false; }
+  };
+}
+
+const OLD_PREFIX = 'אלטע:';
+function oldTagsCount() {
+  return state.contacts.filter((c) => String(c.community_tags || '').split(',').some((x) => x.trim().startsWith(OLD_PREFIX))).length;
 }
 
 export function wireImport(box, ui) {
   if (!box) return;
   $('#imp-template', box).onclick = () => downloadTemplate();
+  renderOld(box, ui);
   $('#imp-file', box).onchange = async (e) => {
     const file = e.target.files[0];
     e.target.value = '';
@@ -498,6 +549,7 @@ function renderPreview(box, ui) {
       parsed = null;
       const msg = [nDon ? t('impDonsDone', { n: nDon }) : '', res ? t('impDone', { n: list.length, first: res.first, last: res.last }) : '', mergedN ? t('impMerged', { n: mergedN }) : ''].filter(Boolean).join(' · ');
       prev.innerHTML = `<p class="drive-ok">✓ ${h(msg)}</p>`;
+      renderOld(box, ui);
       ui.toast(msg);
     } catch (err) {
       ui.toast(ui.friendlyError(err), 'error');

@@ -349,6 +349,35 @@ export async function importDonations(list, onProgress = () => {}) {
   return rowsOut.length;
 }
 
+/**
+ * בעל הבית: מעקט אויס א גאנצע סעריע טעג'ס (למשל אלע "אלטע: …") — ביי אלע קאנטאקטן און פון דער רשימה.
+ * די אנדערע טעג'ס בלייבן. גיט צוריק וויפיל קאנטאקטן זענען געטוישט געווארן.
+ */
+export async function removeTagSeries(prefix, onProgress = () => {}) {
+  if (!state.isOwner) throw new Error(t('adminOnly'));
+  const has = (x) => x.startsWith(prefix);
+  const cIds = (await readColumn('Contacts', 'A')).map(String);
+  const stamp = nowStamp();
+  const data = [];
+  [...state.contacts, ...(state.trash || [])].forEach((c) => {
+    const tags = String(c.community_tags || '').split(',').map((x) => x.trim()).filter(Boolean);
+    if (!tags.some(has)) return;
+    const row = cIds.indexOf(String(c.contact_id));
+    if (row < 1) return;
+    const after = { ...c, community_tags: tags.filter((x) => !has(x)).join(', '), updated_at: stamp, updated_by: state.email };
+    delete after._row;
+    data.push({ range: `Contacts!A${row + 1}`, values: [objectToRow(state.headers.Contacts, after)] });
+  });
+  for (let i = 0; i < data.length; i += 150) {
+    await batchUpdate(data.slice(i, i + 150));
+    onProgress(Math.min(i + 150, data.length), data.length);
+  }
+  const list = rawListColumn('community_tag').filter((x) => String(x || '').trim() && !has(String(x).trim()));
+  await saveListColumns({ community_tag: list });
+  await logChanges('contact', 'tags', '', null, null, `removed tag series "${prefix}" from ${data.length} contacts`);
+  return data.length;
+}
+
 /** שומר רק את הקוויטל של איש קשר (טקסט עם שורות). */
 export async function saveKvitel(contact, text) {
   const row = await findRow('Contacts', contact.contact_id);
