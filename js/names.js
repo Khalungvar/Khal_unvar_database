@@ -187,7 +187,7 @@ const EN_FIRST = {
   'קלונימוס': 'Kalman Kalonymus',
   'שלום': 'Sholom Shalom Sholem Shulem',
   'שלמה': 'Shlomo Shloime Shlome Solomon Sol',
-  'שלום': 'Sholom Shalom Sholem',
+  'שלום': 'Sholom Shalom Sholem Shulem',
   'יוסף': 'Yosef Yossef Joseph Yossi Yosi Yoseph Yossel',
   'חיים': 'Chaim Haim Chayim Hyman',
   'יעקב': 'Yaakov Yakov Yankev Yankel Jacob Yanky Yaacov',
