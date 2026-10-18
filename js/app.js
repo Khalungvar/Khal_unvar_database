@@ -800,20 +800,54 @@ function showPhoto(box, data) {
   img.hidden = !data;
   if (data) img.src = data;
   $('.photo-ph', box).hidden = Boolean(data);
+  box.title = t(data ? 'photoTipView' : 'photoTip');
   $('#card-body .photo-del').hidden = !data;
+}
+
+/** א גרויס בילד (לייטבאקס), מיט "טוישן" און "אוועקנעמען". */
+function openPhotoView(src, { name = '', onChange, onRemove } = {}) {
+  let dlg = $('#photo-view');
+  if (!dlg) {
+    dlg = document.createElement('dialog');
+    dlg.id = 'photo-view';
+    document.body.append(dlg);
+    dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+  }
+  dlg.innerHTML = `<button type="button" class="x-close" aria-label="${h(t('close'))}">✕</button>
+    <img src="${src}" alt="${h(name)}">
+    <div class="pv-bar"><b dir="auto">${h(name)}</b><span class="spacer"></span>
+      ${onChange ? `<button type="button" class="btn" data-pv="change">📷 ${h(t('photoChange'))}</button>` : ''}
+      ${onRemove ? `<button type="button" class="btn danger" data-pv="remove">🗑 ${h(t('photoRemove'))}</button>` : ''}</div>`;
+  $('.x-close', dlg).onclick = () => dlg.close();
+  const ch = $('[data-pv=change]', dlg);
+  if (ch) ch.onclick = () => { dlg.close(); onChange(); };
+  const rm = $('[data-pv=remove]', dlg);
+  if (rm) rm.onclick = () => { dlg.close(); onRemove(); };
+  dlg.showModal();
 }
 
 function wirePhoto(c) {
   const box = $('#card-body .card-photo');
   if (!box) return;
   const id = String(c.contact_id);
+  // ווען עס איז שוין דא א בילד: א קליק ווייזט עס גרויס (נישט קלייבן א נייעם)
+  box.onclick = (e) => {
+    const img = $('img', box);
+    if (img.hidden || !img.src || e.target.tagName === 'INPUT') return;
+    e.preventDefault();
+    openPhotoView(img.src, {
+      name: fullNameHe(c),
+      onChange: () => $('input', box).click(),
+      onRemove: () => $('#card-body .photo-del').click(),
+    });
+  };
   getPhoto(id).then((data) => { if (String(currentCardId) === id) showPhoto(box, data); }).catch(() => {});
   $('input', box).onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     box.classList.add('loading');
     try {
-      const data = await shrinkImage(file, 360);
+      const data = await shrinkImage(file, 600, 45000, true);
       let driveId = '';
       try {
         driveId = await saveOriginalToDrive(file, 'Photos', `${id} ${fullNameHe(c)}`);

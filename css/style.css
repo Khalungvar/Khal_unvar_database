@@ -1027,3 +1027,9 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 .warn-text { color: #b45309; }
 .rc-who { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .rc-who input { min-width: 180px; }
+/* א בילד גרויס */
+#photo-view { border: none; border-radius: 14px; padding: 0; background: #111; max-width: min(92vw, 900px); overflow: hidden; }
+#photo-view::backdrop { background: rgba(0, 0, 0, .75); }
+#photo-view img { display: block; max-width: min(92vw, 900px); max-height: 78vh; margin: 0 auto; object-fit: contain; }
+#photo-view .x-close { position: absolute; top: 8px; inset-inline-end: 8px; z-index: 1; }
+#photo-view .pv-bar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--surface); color: var(--ink); flex-wrap: wrap; }
