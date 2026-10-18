@@ -60,7 +60,7 @@
 |---|---|---|
 | Contact_ID | קישור לאיש קשר | |
 | תאריך לועזי + תאריך עברי | תאריך | ✅ הוחלט: שני השדות; ממלאים אחד והשני מתמלא אוטומטית |
-| מאורע | רשימה | ❓ צריך רשימה |
+| מאורע | תגיות (בחירה מרובה) + הערה | ✅ הוחלט: תגיות מאורע (כולל קמפיינים בעתיד, כתגיות) + שדה הערה חופשי לידו. ❓ רשימת התגיות |
 | סכום | דולר | |
 | סוג תשלום | צ'ק (מס' צ'ק) / אשראי (4 ספרות אחרונות בלבד) / מזומן / אחר + טקסט | |
 | לע"נ / לכבוד | בחירה + טקסט | |
@@ -95,11 +95,11 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 
 - **Contacts:** contact_id, title_he, first_name_he, last_name_he, is_alive, marital_status, title_en, first_name_en, last_name_en, wife_name_he, wife_name_en, wife_is_rebbetzin, wife_is_alive, wife_in_neshei, community_tags, photo_url, address, city, state, zip, country, is_active, created_at, updated_at, updated_by
 - **Phones:** contact_id, mobile, mobile_tags, home_phone, home_phone_tags, wife_mobile, wife_mobile_tags, other_phone, other_phone_tags, email_1, email_1_tags, email_2, email_2_tags, comments
-- **Donations:** donation_id, contact_id, date, hebrew_date, event, amount_usd, payment_method, check_number, card_last4, payment_note, dedication_type, dedication_text, created_at, created_by
+- **Donations:** donation_id, contact_id, date, hebrew_date, event_tags, event_note, amount_usd, payment_method, check_number, card_last4, payment_note, dedication_type, dedication_text, created_at, created_by
 - **Relations:** relation_id, contact_id_a, relation_type, contact_id_b
 - **Yahrzeit:** yahrzeit_id, contact_id, hebrew_day, hebrew_month, hebrew_year, deceased_name, deceased_father_name, relation_to_contact, deceased_contact_id
 - **Settings:** admin_email, note
-- **Lists:** title_he, title_en, marital_status, event, payment_method, dedication_type, relation_type, community_tag, title_he_default_en, title_en_default_he, phone_tag, email_tag
+- **Lists:** title_he, title_en, marital_status, event_tag, payment_method, dedication_type, relation_type, community_tag, title_he_default_en, title_en_default_he, phone_tag, email_tag
 
 עקרונות: מחיקה רכה (is_active), עבודה דרך התוכנה ולא ישירות בגליון, רשימות האפשרויות נערכות בלשונית Lists.
 
@@ -111,7 +111,6 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 - כמעט אף פעם לא שולחים לכולם; צריך כלי לבחירת קבוצות מתוך המאגר (סינון לפי תגיות, חי/נפטר, עיר וכו') ולהפקת רשימה/מדבקות. ייתוכנן בנפרד.
 
 ## שאלות פתוחות
-3. רשימת המאורעות לתרומות.
 4. רשימת הקשרים המשפחתיים.
 - ייבוא הרשימה הקיימת: באיזה פורמט היא? (אקסל / גוגל שיטס / אחר)
 - חשבון הגוגל הנפרד לתמונות: לחבר בהמשך, ולשתף את התיקייה עם הגבאים.
