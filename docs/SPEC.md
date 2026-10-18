@@ -48,7 +48,11 @@
 | מדינה (Country) | טקסט | ✅ הוחלט: ברירת מחדל USA. מדינה אחרת → סטייט ו-ZIP טקסט חופשי, ושורת מדינה במדבקה |
 
 ### 2. טלפונים ואימייל (Phones)
-Contact_ID, טלפון סלולרי, טלפון בבית, טלפון נוסף, טלפון משרד, פלאפון אשתו, אימייל
+✅ הוחלט: פלאפון אישי, טלפון בבית, פלאפון אישה, פלאפון נוסף (מה הוא — רושמים בהערות), אימייל 1, אימייל 2, הערות, תגיות טלפון.
+- פורמט: מקלידים ספרות, התוכנה מסדרת ל-(845) 555-1234. מספר מחו"ל נשמר כמו שהוקלד.
+- אזהרה אם מספר כבר שייך לאיש קשר אחר (חשוב לזיהוי SMS).
+- תצוגה: טלפונים ואימייל מוצגים רק בכרטיס האישי, ובפילטרים / קבוצות טקסט (Text groups).
+- ❓ תגיות טלפון: לכל מספר בנפרד או לכל איש הקשר? ואילו תגיות?
 
 ### 3. תרומות (Donations)
 | שדה | סוג | הערות |
@@ -89,7 +93,7 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 קובץ: Khal_unvar_database. שורה 1 = כותרות באנגלית, הנתונים מתחילים בשורה 2.
 
 - **Contacts:** contact_id, title_he, first_name_he, last_name_he, is_alive, marital_status, title_en, first_name_en, last_name_en, wife_name_he, wife_name_en, wife_is_rebbetzin, wife_is_alive, wife_in_neshei, community_tags, photo_url, address, city, state, zip, country, is_active, created_at, updated_at, updated_by
-- **Phones:** contact_id, mobile, home_phone, other_phone, office_phone, wife_mobile, email
+- **Phones:** contact_id, mobile, home_phone, wife_mobile, other_phone, email_1, email_2, comments, phone_tags
 - **Donations:** donation_id, contact_id, date, event, amount_usd, payment_method, check_number, card_last4, payment_note, dedication_type, dedication_text, created_at, created_by
 - **Relations:** relation_id, contact_id_a, relation_type, contact_id_b
 - **Yahrzeit:** yahrzeit_id, contact_id, hebrew_day, hebrew_month, hebrew_year, deceased_name, deceased_father_name, relation_to_contact, deceased_contact_id
