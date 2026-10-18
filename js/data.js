@@ -17,7 +17,8 @@ export const state = {
   occasions: [],
   orgNotes: [],
   campaigns: [],
-  savedLists: [],    // רשימות שמורות (תנאים + עמודות)     // { campaign, org } — לאיזה ארגון שייך כל קאמפיין      // לשונית "ארגון": תיבות טקסט לכל איש קשר     // מאורעות: יארצייט, געבורטסטאג, חתונה...
+  savedLists: [],
+  mailTemplates: [], // Mail Merge: אפגעהיטענע עיצובים פון קאנווערטן / לעיבלס    // רשימות שמורות (תנאים + עמודות)     // { campaign, org } — לאיזה ארגון שייך כל קאמפיין      // לשונית "ארגון": תיבות טקסט לכל איש קשר     // מאורעות: יארצייט, געבורטסטאג, חתונה...
   lists: {},         // { title_he: [...], ... }
   titleHeToEn: {},
   titleEnToHe: {},
@@ -70,7 +71,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -83,6 +84,10 @@ export async function loadAll() {
   const donations = rowsToObjects(tabs.Donations);
   state.headers.Donations = donations.header;
   state.donations = donations.objects;
+
+  const mt = rowsToObjects(tabs.MailTemplates || []);
+  state.headers.MailTemplates = mt.header;
+  state.mailTemplates = mt.objects;
 
   const saved = rowsToObjects(tabs.SavedLists);
   state.headers.SavedLists = saved.header;
@@ -193,6 +198,30 @@ export async function saveDonations(list) {
   }));
   await appendRows('Donations', rows);
   return rows.length;
+}
+
+/** שומר רשומה כללית (חדשה או קיימת) לפי שדה ה-ID. מחזיר את ה-ID. */
+export async function saveRecord(tab, idField, record) {
+  const stamp = nowStamp();
+  const r = { ...record, updated_at: stamp, updated_by: state.email };
+  delete r._row;
+  if (!r[idField]) {
+    const ids = (await readColumn(tab, 'A')).slice(1).map(Number).filter(Number.isFinite);
+    r[idField] = Math.max(0, ...ids) + 1;
+    r.created_at = stamp;
+    r.created_by = state.email;
+    await appendRow(tab, objectToRow(state.headers[tab], r));
+  } else {
+    const row = await findRow(tab, r[idField]);
+    if (!row) throw new Error(t('notFound'));
+    await updateRow(tab, row, objectToRow(state.headers[tab], r));
+  }
+  return r[idField];
+}
+
+export async function deleteRecord(tab, idField, record) {
+  const row = await findRow(tab, record[idField]);
+  if (row) await updateRow(tab, row, state.headers[tab].map(() => ''));
 }
 
 /** שומר רשימה (חדשה או קיימת). מחזיר את ה-list_id. */

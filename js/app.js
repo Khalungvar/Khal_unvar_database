@@ -22,6 +22,7 @@ import {
 } from './campaigns.js';
 import { initLists, renderListsSide, renderBuilder, openOverview } from './lists.js';
 import { initAdmin, renderAdmin, adminDirty } from './admin.js';
+import { initMailMerge, renderMailMerge, openMailMerge } from './mailmerge.js';
 import {
   nextOccurrence, daysBetween, todayIso, monthKeyFromHe,
 } from './hebdate.js';
@@ -175,6 +176,7 @@ function lobbyClick(e) {
   if (key === 'umbrella') { lobbyOpen = ''; enterScope(null); showView('contacts'); return; }
   if (ORG_FIELDS.some(([n]) => n === key)) { lobbyOpen = lobbyOpen === key ? '' : key; renderLobby(); return; }
   if (key === 'lists') { openOverview(); return; }
+  if (key === 'mailmerge') { openMailMerge(); return; }
   // נדבות / לוח המאורעות: א באזונדערער בלאט פון אלע רעקארדס — אן די לשוניות
   if (key === 'donations' || key === 'occasions') {
     enterScope(null);
@@ -224,6 +226,7 @@ function showView(name) {
   if (name === 'campaign') renderCampaignMain();
   if (name === 'admin') renderAdmin();
   if (name === 'lobby') renderLobby();
+  if (name === 'mailmerge') renderMailMerge();
   if (name === 'lists') renderBuilder();
   renderListsSide();
   $('#btn-admin')?.classList.toggle('on', name === 'admin');
@@ -1338,6 +1341,7 @@ function start() {
   });
   initCampaigns({ showView, tagPicker, wireTagPicker, readTags, toast, friendlyError, refreshAll });
   initAdmin({ toast, friendlyError, refreshAll });
+  initMailMerge({ showView, fullNameHe, toast, friendlyError });
   initLists({ showView, fullNameHe, phonesOf, contactById, pickerLabel, openCard, toast, friendlyError, refreshAll });
   $('#btn-admin').onclick = () => showView('admin');
   closeOnBackdrop($('#form-dialog'), closeForm);

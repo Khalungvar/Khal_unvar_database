@@ -436,7 +436,7 @@ function exportCsv(name, cols, rows) {
 }
 
 // ---------- איבערבליק: אלע רשימות + גרייטע רשימות ----------
-function templates() {
+export function templates() {
   return [
     { key: 'tplMail', criteria: { has: { address: true } }, columns: ['mailing', 'address', 'city', 'state', 'zip'] },
     { key: 'tplUnpaid', criteria: { unpaid: true }, columns: ['name_he', 'mobile', 'don_unpaid'] },
@@ -456,12 +456,12 @@ function templates() {
   }));
 }
 
-function savedInScope() {
+export function savedInScope() {
   const sc = getScope();
   return state.savedLists.filter((l) => !l.scope || !sc || l.scope === scopeKey(sc));
 }
 
-function parseSaved(l) {
+export function parseSaved(l) {
   let cr = EMPTY();
   try { cr = { ...EMPTY(), ...JSON.parse(l.criteria || '{}') }; } catch { /* ריק */ }
   cr.has = { ...EMPTY().has, ...cr.has };
