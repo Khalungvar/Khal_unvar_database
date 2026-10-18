@@ -248,3 +248,7 @@ fieldset > label.neshei-row, .neshei-row {
   cursor: pointer; font-size: 15px; color: var(--ink);
 }
 .neshei-row img { height: 60px; width: auto; }
+
+.wife-title { display: flex; flex-direction: column; gap: 6px; align-self: end; padding-bottom: 6px; }
+.wife-title .check { font-size: 15px; color: var(--ink); }
+input[type="radio"] { width: auto !important; margin: 0; accent-color: var(--accent); }

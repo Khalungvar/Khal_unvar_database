@@ -295,9 +295,9 @@ function openForm(c = {}) {
 
     <fieldset><legend>${t('secWife')}</legend>
       <div class="grid">
-        <div class="check-with-note">
-          <span class="hint-line">${t('rebbetzinNote')}</span>
-          <label class="check"><input type="checkbox" name="wife_is_rebbetzin" ${isTrue(c.wife_is_rebbetzin) ? 'checked' : ''}> Rebbetzin</label>
+        <div class="wife-title">
+          <label class="check"><input type="radio" name="wife_title" value="mrs" ${isTrue(c.wife_is_rebbetzin) ? '' : 'checked'}> Mrs.</label>
+          <label class="check"><input type="radio" name="wife_title" value="rebbetzin" ${isTrue(c.wife_is_rebbetzin) ? 'checked' : ''}> Rebbetzin</label>
         </div>
         <label>${t('wifeNameHe')}<input name="wife_name_he" dir="rtl" value="${v('wife_name_he')}"></label>
         <label>Wife's name<input name="wife_name_en" dir="ltr" value="${v('wife_name_en')}"></label>
@@ -476,7 +476,7 @@ function collect(form, original) {
     legal_first_name: val('legal_first_name'),
     wife_name_he: val('wife_name_he'),
     wife_name_en: val('wife_name_en'),
-    wife_is_rebbetzin: form.elements.wife_is_rebbetzin.checked,
+    wife_is_rebbetzin: form.elements.wife_title.value === 'rebbetzin',
     wife_is_alive: !form.elements.wife_deceased.checked,
     wife_in_neshei: form.elements.wife_in_neshei.checked,
     community_tags: readTags(form, 'community_tags'),
