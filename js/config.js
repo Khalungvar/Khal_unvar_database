@@ -30,6 +30,9 @@ export const CONFIG = {
 // הרשאה לדרייב — רק לקבצים שהאתר עצמו יוצר. מבקשים אותה רק כשמעלים בפעם הראשונה.
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
+// שיקן אימעילס דורך Gmail פונעם אקאונט וואס איז אריין (מ'בעט עס ערשט ביים ערשטן שיקן).
+export const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
+
 export const SCOPES = [
   'openid',
   'https://www.googleapis.com/auth/userinfo.email',

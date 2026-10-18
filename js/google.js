@@ -1,7 +1,7 @@
 // לוגאין עם גוגל וגישה לגוגל שיטס.
 // גוגל נותנת "מפתח כניסה" (טוקן) שתקף שעה אחת. שומרים אותו בדפדפן עד שהוא פג,
 // כדי שרענון של הדף לא ידרוש התחברות מחדש. אחרי שעה מבקשים לחיצה אחת לחידוש.
-import { CONFIG, SCOPES, DRIVE_SCOPE } from './config.js';
+import { CONFIG, SCOPES, DRIVE_SCOPE, GMAIL_SCOPE } from './config.js';
 
 const STORE = 'khal-auth';
 let tokenClient = null;
@@ -112,6 +112,30 @@ export function ensureDriveScope() {
     tokenClient.requestAccessToken({
       scope: `${SCOPES} ${DRIVE_SCOPE}`, include_granted_scopes: true, prompt: 'consent', login_hint: hintEmail || undefined,
     });
+  });
+}
+
+// ---------- Gmail: שיקן אימעילס ----------
+export function hasGmailScope() {
+  return grantedScopes.split(' ').includes(GMAIL_SCOPE);
+}
+
+/** בעט (איין מאל) די הרשאה צו שיקן אימעילס. גלייך פון א קליק! */
+export function ensureGmailScope() {
+  if (hasGmailScope()) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    pendingResolve = resolve;
+    pendingReject = reject;
+    tokenClient.requestAccessToken({
+      scope: `${SCOPES} ${GMAIL_SCOPE}`, include_granted_scopes: true, prompt: 'consent', login_hint: hintEmail || undefined,
+    });
+  });
+}
+
+/** שיקט איין אימעיל (א פולשטענדיגער MIME טעקסט). ביז ~35MB. */
+export async function gmailSend(mime) {
+  return authFetch('https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=media', {
+    method: 'POST', headers: { 'Content-Type': 'message/rfc822' }, body: mime,
   });
 }
 
