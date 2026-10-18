@@ -122,17 +122,38 @@ function cardHtml(def, key) {
   </section>`;
 }
 
+// דריי לשוניות: 1 = רשימות און סעטינגס · 2 = מנהלים, גבאים און צוטריט · 3 = בקשות פון די גבאים
+let admTab = 'lists';
+const PEOPLE_TAB = new Set(['admPeople']);
+
 export function renderAdmin() {
   const main = $('#admin-main');
   if (!main) return;
   if (!state.isAdmin) { main.innerHTML = `<p class="empty">${h(t('adminOnly'))}</p>`; return; }
   const defs = [];
-  main.innerHTML = `<h2>${t('adminTitle')}</h2><p class="muted">${t('adminHint')}</p>`
-    + GROUPS.map((g) => `<div class="adm-group" data-g="${g.title}"><h3 class="adm-group-title">${h(t(g.title))}</h3><div class="adm-grid">${
+  const tabBtn = (key, label) => `<button type="button" data-adm-tab="${key}" class="${admTab === key ? 'on' : ''}">${h(t(label))}</button>`;
+  main.innerHTML = `<h2>${t('adminTitle')}</h2>
+    <nav class="adm-tabs">${tabBtn('lists', 'admTabLists')}${tabBtn('people', 'admTabPeople')}${tabBtn('requests', 'admTabRequests')}</nav>
+    <p class="muted adm-intro" data-tab="lists">${t('adminHint')}</p>`
+    + GROUPS.map((g) => `<div class="adm-group" data-tab="${PEOPLE_TAB.has(g.title) ? 'people' : 'lists'}" data-g="${g.title}"><h3 class="adm-group-title">${h(t(g.title))}</h3><div class="adm-grid">${
       g.lists.map((def) => { defs.push(def); return cardHtml(def, defs.length - 1); }).join('')}</div></div>`).join('')
-    + `<div class="adm-group" id="adm-sharing"></div>`
+    + `<div class="adm-group" id="adm-sharing" data-tab="people"></div>`
     + campaignsAdminHtml()
-    + logosHtml();
+    + logosHtml()
+    + `<div class="adm-group" data-tab="requests"><div class="soon-box"><h3>${h(t('admTabRequests'))}</h3><p class="muted">${h(t('admRequestsSoon'))}</p></div></div>`;
+  // לאגאס און קאמפיינען געהערן צו לשונית 1
+  $$('.adm-group:not([data-tab])', main).forEach((g) => { g.dataset.tab = 'lists'; });
+  const showTab = () => {
+    $$('[data-tab]', main).forEach((el) => { el.hidden = el.dataset.tab !== admTab; });
+    $$('[data-adm-tab]', main).forEach((b) => b.classList.toggle('on', b.dataset.admTab === admTab));
+  };
+  showTab();
+  $('.adm-tabs', main).onclick = (e) => {
+    const b = e.target.closest('[data-adm-tab]');
+    if (!b) return;
+    admTab = b.dataset.admTab;
+    showTab();
+  };
   wireLogos(main);
   wireCampaignsAdmin(main);
   $('[data-g="admPeople"]', main)?.after($('#adm-sharing', main));

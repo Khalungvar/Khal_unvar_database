@@ -874,3 +874,8 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 .share-ok { color: #2f7a3e; font-weight: 600; }
 .share-no { color: #a8650a; font-weight: 600; }
 .share-extra td { background: #fbf3e6; }
+
+.adm-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0 16px; border-bottom: 1.5px solid var(--gold); }
+.adm-tabs button { font: inherit; font-size: 16px; font-weight: 600; border: 1px solid var(--line); border-bottom: 0; background: transparent;
+  color: var(--muted); padding: 9px 22px; border-radius: 10px 10px 0 0; cursor: pointer; margin-bottom: -1.5px; }
+.adm-tabs button.on { background: var(--surface); color: var(--accent); border-color: var(--gold); border-bottom: 1.5px solid var(--surface); }
