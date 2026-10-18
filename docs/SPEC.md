@@ -98,12 +98,13 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 - **Donations:** donation_id, contact_id, date, event, amount_usd, payment_method, check_number, card_last4, payment_note, dedication_type, dedication_text, created_at, created_by
 - **Relations:** relation_id, contact_id_a, relation_type, contact_id_b
 - **Yahrzeit:** yahrzeit_id, contact_id, hebrew_day, hebrew_month, hebrew_year, deceased_name, deceased_father_name, relation_to_contact, deceased_contact_id
+- **Settings:** admin_email, note
 - **Lists:** title_he, title_en, marital_status, event, payment_method, dedication_type, relation_type, community_tag, title_he_default_en, title_en_default_he, phone_tag, email_tag
 
 עקרונות: מחיקה רכה (is_active), עבודה דרך התוכנה ולא ישירות בגליון, רשימות האפשרויות נערכות בלשונית Lists.
 
 ## הרשאות
-- **מנהלים (ADMIN):** החשבון האישי של הבעלים (8510089@gmail.com) + חשבון הפרויקט (khalungvardatabase@gmail.com). מאשרים כל תגית חדשה (קהילה, טלפון, אימייל), עורכים רשימות והגדרות.
+- **מנהלים (ADMIN):** החשבון האישי של הבעלים + חשבון הפרויקט. רשימת המנהלים נשמרת בלשונית Settings בגליון (לא בקוד הציבורי). מאשרים כל תגית חדשה (קהילה, טלפון, אימייל), עורכים רשימות והגדרות.
 - **גבאי:** עובד על הנתונים, יכול להציע תגית חדשה מכל סוג (ממתינה לאישור מנהל).
 
 ## לעתיד: רשימות דיוור
