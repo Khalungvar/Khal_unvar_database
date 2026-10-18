@@ -9,7 +9,7 @@ import { escapeHtml as h, splitTags, joinTags, nowStamp } from './util.js';
 import { todayIso } from './hebdate.js';
 import { openBuilder, openOverview } from './lists.js';
 import { money, donorName, openDonationForm } from './donations.js';
-import { myRequestsHtml, wireMyRequests } from './requests.js';
+import { myRequestsHtml, wireMyRequests, pendingRequests } from './requests.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -18,6 +18,7 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 let box = 'inbox'; // 'inbox' | 'sent'
 let openMsg = '';
 let lastUnread = -1;
+let lastReq = -1;
 
 export function initPersonal(helpers) {
   ui = helpers;
@@ -29,6 +30,9 @@ export function initPersonal(helpers) {
       const n = unreadCount();
       if (lastUnread >= 0 && n > lastUnread) ui.toast(t('pmNewMessage'));
       lastUnread = n;
+      const r = state.isAdmin ? pendingRequests().length : 0;
+      if (lastReq >= 0 && r > lastReq) ui.toast(t('rqNewToast'));
+      lastReq = r;
       ui.updateBadges?.();
       if (!$('.view[data-view="personal"]').hidden) renderPersonal();
     } catch { /* שטיל — מען פרובירט נאכאמאל */ }

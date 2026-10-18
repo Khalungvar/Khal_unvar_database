@@ -418,13 +418,19 @@ export async function savePhoto(contactId, data, driveId = '') {
 
 /** לייענט נאר די מעסעדזשעס (פאר א שנעלע בדיקה יעדע פאר מינוט). */
 export async function reloadMessages() {
-  const tabs = await readTabs(['Messages', 'Tasks', 'OrgLogos']);
+  const tabs = await readTabs(['Messages', 'Tasks', 'Requests']);
   const msgs = rowsToObjects(tabs.Messages || []);
   state.headers.Messages = msgs.header;
   state.messages = msgs.objects;
   const tasks = rowsToObjects(tabs.Tasks || []);
   state.headers.Tasks = tasks.header;
   state.tasks = tasks.objects;
+  // בקשות פון די גבאים — אז דער מנהל זאל זען א נייע בקשה אן "דערפרישן"
+  if (tabs.Requests) {
+    const rq = rowsToObjects(tabs.Requests);
+    state.headers.Requests = rq.header;
+    state.requests = rq.objects.filter((r) => String(r.request_id || '').trim());
+  }
 }
 
 /** אלע באנוצער (מנהלים + גבאים): [{ email, name, role }] */
