@@ -7,6 +7,10 @@
 - **הנתונים:** גוגל שיטס. הנתונים לא נשמרים בקוד.
 - **כניסה:** כל גבאי נכנס עם חשבון הגוגל שלו. ההרשאות נקבעות לפי שיתוף הגליון.
 
+## לוח חסויות קאווע (הוחלט)
+- מסך לכל שנה עברית: כל החודשים (13 בשנה מעוברת). לכל חודש: מי לקח (כולל חלוקה בין כמה), ימים/שבועות שנלקחו בנפרד, מה פנוי (מודגש), ומה שולם/לא שולם.
+- אזהרה כשרושמים חסות על תקופה שכבר תפוסה.
+
 ## חשבונות (הוחלט)
 - **החשבון האישי של הבעלים:** הבעלים של הגוגל שיטס. אם משהו קורה לחשבון הפרויקט, הנתונים נשמרים.
 - **חשבון גוגל חדש לפרויקט** (לא לשימוש יומיומי): עורך בגוגל שיטס (שיתוף), הדרייב שלו לתמונות, Google Voice שלו ל-SMS, ופרויקט Google Cloud (הלוגאין).
@@ -60,8 +64,10 @@
 |---|---|---|
 | Contact_ID | קישור לאיש קשר | |
 | תאריך לועזי + תאריך עברי | תאריך | ✅ הוחלט: שני השדות; ממלאים אחד והשני מתמלא אוטומטית |
-| מאורע | תגיות (בחירה מרובה) + שנה + הערה | ✅ הוחלט: תגית + שנה + הערה. השנה (למשל תשפ"ז) מתמלאת אוטומטית מהתאריך העברי וניתנת לשינוי. קמפיינים בעתיד = תגיות. תגיות: דינער, פת שחרית, סיעטס, עליות, נדרים ונדבות, קאווע, נר למאור, קמחא דפסחא. (דינער, פת שחרית, סיעטס, קאווע, קמחא דפסחא — חוזרים כל שנה. קאווע מחולק ל-12 חודשים.) ❓ קאווע: איך עובדים התשלומים החודשיים |
+| מאורע | תגיות (בחירה מרובה) + שנה + הערה | ✅ הוחלט: תגית + שנה + הערה. השנה (למשל תשפ"ז) מתמלאת אוטומטית מהתאריך העברי וניתנת לשינוי. קמפיינים בעתיד = תגיות. תגיות: דינער, פת שחרית, סיעטס, עליות, נדרים ונדבות, קאווע, נר למאור, קמחא דפסחא. (דינער, פת שחרית, סיעטס, קאווע, קמחא דפסחא — חוזרים כל שנה. קאווע מחולק ל-12 חודשים.) קאווע = חסויות על תקופות (ראה למטה). פת שחרית = דינער לכולל, פעם בשנה. נר למאור = חד-שנתי. |
+| תקופת חסות (מ- / עד) | תאריכים עבריים | ✅ הוחלט: לתגית קאווע. חודש שלם / שבוע / יום / חצי חודש — הכול כטווח מתאריך עד תאריך |
 | סכום | דולר | |
+| שולם? | V | ✅ הוחלט: סימון אם שולם + תאריך תשלום (מתמלא אוטומטית בסימון). מאפשר רשימת "לא שולם" |
 | סוג תשלום | צ'ק (מס' צ'ק) / אשראי (4 ספרות אחרונות בלבד) / מזומן / אחר + טקסט | |
 | לע"נ / לכבוד | בחירה + טקסט | |
 
@@ -95,7 +101,7 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 
 - **Contacts:** contact_id, title_he, first_name_he, last_name_he, is_alive, marital_status, title_en, first_name_en, last_name_en, wife_name_he, wife_name_en, wife_is_rebbetzin, wife_is_alive, wife_in_neshei, community_tags, photo_url, address, city, state, zip, country, is_active, created_at, updated_at, updated_by
 - **Phones:** contact_id, mobile, mobile_tags, home_phone, home_phone_tags, wife_mobile, wife_mobile_tags, other_phone, other_phone_tags, email_1, email_1_tags, email_2, email_2_tags, comments
-- **Donations:** donation_id, contact_id, date, hebrew_date, event_tags, event_year, event_note, amount_usd, payment_method, check_number, card_last4, payment_note, dedication_type, dedication_text, created_at, created_by
+- **Donations:** donation_id, contact_id, date, hebrew_date, event_tags, event_year, event_note, sponsor_from, sponsor_to, amount_usd, is_paid, paid_date, payment_method, check_number, card_last4, payment_note, dedication_type, dedication_text, created_at, created_by
 - **Relations:** relation_id, contact_id_a, relation_type, contact_id_b
 - **Yahrzeit:** yahrzeit_id, contact_id, hebrew_day, hebrew_month, hebrew_year, deceased_name, deceased_father_name, relation_to_contact, deceased_contact_id
 - **Settings:** admin_email, note
