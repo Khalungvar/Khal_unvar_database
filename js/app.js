@@ -1,6 +1,6 @@
 // מסך אנשי הקשר: התחברות, חיפוש, כרטיס אישי, הוספה ועריכה.
 import {
-  initAuth, requestToken, signOut, getUserEmail, hasSavedSession, setOnExpire, rememberEmail,
+  initAuth, requestToken, signOut, getUserEmail, hasSavedSession, setOnExpire, rememberEmail, hasSheetsScope,
 } from './google.js';
 import {
   state, loadAll, displayName, orgLogo, NESHEI_ORG, getHistory, getPhoto, savePhoto, saveOriginalToDrive, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
@@ -316,6 +316,7 @@ function showLoginProblem(err) {
   const who = state.email || '';
   let text;
   if (err.code === 'not-registered') text = t('notRegistered', { email: who });
+  else if ((err.status === 403 || err.status === 404) && !hasSheetsScope()) text = t('scopeMissing');
   else if (err.status === 403 || err.status === 404) text = t('noAccessLogin', { email: who });
   else text = friendlyError(err);
   box.textContent = text;

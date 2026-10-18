@@ -91,6 +91,11 @@ export function requestToken(prompt = '') {
   });
 }
 
+/** האט דער באנוצער דערלויבט "Google Sheets"? (אין גוגל'ס פענצטער קען מען אויסמעקן א הרשאה) */
+export function hasSheetsScope() {
+  return !grantedScopes || grantedScopes.includes('https://www.googleapis.com/auth/spreadsheets');
+}
+
 export function hasDriveScope() {
   return grantedScopes.includes(DRIVE_SCOPE);
 }
