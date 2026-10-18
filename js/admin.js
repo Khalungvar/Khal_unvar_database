@@ -1,6 +1,8 @@
 // עמוד אדמין: כל הרשימות של האתר במקום אחד — ארגונים, טעג'ס, אופני תשלום, טיטלען, געגנטן, קרבות, מנהלים.
 // הכל נשמר בגליון (לשונית Lists / Settings). רק מנהל רואה את העמוד ויכול לשמור.
-import { state, loadAll, saveListColumns, saveAdmins, rawListColumn } from './data.js';
+import {
+  state, loadAll, saveListColumns, saveSettingsColumns, rawListColumn, rawSettingsColumn,
+} from './data.js';
 import { t } from './i18n.js';
 import { splitTags, escapeHtml as h } from './util.js';
 
@@ -34,6 +36,10 @@ const GROUPS = [
     { cols: ['title_en', 'title_en_default_he'], label: 'admTitleEn', sub: ['admTitleHeFor'] },
     { cols: ['marital_status'], label: 'marital', locked: ['נשוי', 'בחור', 'גרוש', 'אלמן'] },
     { cols: ['area', 'area_zips', 'area_keywords'], label: 'area', sub: ['admZips', 'admKeywords'] },
+  ] },
+  { title: 'admPeople', lists: [
+    { cols: ['admin_email', 'note'], label: 'admAdmins', sub: ['admNote'], source: 'settings', emails: true, hint: 'admAdminsHint' },
+    { cols: ['gabbai_name', 'gabbai_email', 'gabbai_phone'], label: 'admGabbaim', sub: ['colEmail', 'colMobile'], source: 'settings', hint: 'admGabbaimHint' },
   ] },
   { title: 'admFamily', lists: [
     { cols: ['relation_type', 'relation_reverse'], label: 'admRelations', sub: ['admReverse'] },
@@ -73,7 +79,7 @@ function usage(col, value) {
 }
 
 function rowsOf(def) {
-  const cols = def.cols.map((c) => rawListColumn(c));
+  const cols = def.cols.map((c) => (def.source === 'settings' ? rawSettingsColumn(c) : rawListColumn(c)));
   const n = Math.max(0, ...cols.map((c) => c.length));
   const rows = [];
   for (let i = 0; i < n; i += 1) {
@@ -84,12 +90,12 @@ function rowsOf(def) {
 }
 
 function rowHtml(def, r) {
-  const locked = (def.locked || []).includes(r[0]);
+  const locked = (def.locked || []).includes(r[0]) || (def.emails && r[0].toLowerCase() === state.email);
   const used = r[0] ? usage(def.cols[0], r[0]) : 0;
   return `<tr data-orig="${h(r[0])}">
     ${def.cols.map((c, j) => `<td><input data-col="${h(c)}" value="${h(r[j] || '')}" ${j === 0 && locked ? 'readonly title="' + h(t('admLocked')) + '"' : ''}
-      ${j > 0 ? `placeholder="${h(t(def.sub[j - 1]))}" dir="${c === 'area_zips' || c.endsWith('_en') ? 'ltr' : 'auto'}"` : ''}></td>`).join('')}
-    <td class="adm-used">${used ? h(t('admUsed', { n: used })) : ''}${locked ? ' 🔒' : ''}</td>
+      ${j > 0 ? `placeholder="${h(t(def.sub[j - 1]))}"` : ''} dir="${/email|phone|zips|_en$/.test(c) ? 'ltr' : 'auto'}"></td>`).join('')}
+    <td class="adm-used">${def.emails && locked ? h(t('admYou')) : used ? h(t('admUsed', { n: used })) : ''}${locked ? ' 🔒' : ''}</td>
     <td class="adm-btns">
       <button type="button" class="linkish adm-up" title="↑">↑</button>
       <button type="button" class="linkish adm-down" title="↓">↓</button>
@@ -99,9 +105,9 @@ function rowHtml(def, r) {
 }
 
 function cardHtml(def, key) {
-  return `<section class="adm-card" data-key="${key}">
+  return `<section class="adm-card${def.cols.length > 1 ? ' adm-wide' : ''}" data-key="${key}">
     <h3>${h(t(def.label))} <span class="muted small">(${rowsOf(def).length})</span></h3>
-    ${def.sub ? `<p class="hint-line">${def.sub.map((s) => h(t(s))).join(' · ')}</p>` : ''}
+    ${def.hint ? `<p class="hint-line">${h(t(def.hint))}</p>` : def.sub ? `<p class="hint-line">${def.sub.map((s) => h(t(s))).join(' · ')}</p>` : ''}
     <table class="adm-table"><tbody>${rowsOf(def).map((r) => rowHtml(def, r)).join('')}</tbody></table>
     <div class="adm-actions">
       <button type="button" class="btn small-btn adm-add">${t('admAdd')}</button>
@@ -119,21 +125,9 @@ export function renderAdmin() {
   main.innerHTML = `<h2>${t('adminTitle')}</h2><p class="muted">${t('adminHint')}</p>`
     + GROUPS.map((g) => `<div class="adm-group"><h3 class="adm-group-title">${h(t(g.title))}</h3><div class="adm-grid">${
       g.lists.map((def) => { defs.push(def); return cardHtml(def, defs.length - 1); }).join('')}</div></div>`).join('')
-    + `<div class="adm-group"><h3 class="adm-group-title">${t('admAdmins')}</h3><div class="adm-grid">
-        <section class="adm-card" data-key="admins">
-          <h3>${t('admAdmins')}</h3>
-          <p class="hint-line">${t('admAdminsHint')}</p>
-          <table class="adm-table"><tbody>${(state.admins || []).map((e) => `<tr data-orig="${h(e)}"><td><input data-col="admin_email" dir="ltr" value="${h(e)}"></td>
-            <td class="adm-used">${e === state.email ? h(t('admYou')) : ''}</td>
-            <td class="adm-btns">${e === state.email ? '' : `<button type="button" class="linkish adm-del">✕</button>`}</td></tr>`).join('')}</tbody></table>
-          <div class="adm-actions">
-            <button type="button" class="btn small-btn adm-add">${t('admAdd')}</button>
-            <span class="spacer"></span>
-            <button type="button" class="btn small-btn primary adm-save" hidden>${t('saveBtn')}</button>
-          </div>
-        </section></div></div>`;
+    ;
 
-  $$('.adm-card', main).forEach((card) => wireCard(card, card.dataset.key === 'admins' ? null : defs[Number(card.dataset.key)]));
+  $$('.adm-card', main).forEach((card) => wireCard(card, defs[Number(card.dataset.key)]));
 }
 
 function wireCard(card, def) {
@@ -145,15 +139,14 @@ function wireCard(card, def) {
     if (e.target.closest('.adm-up') && tr.previousElementSibling) { tr.parentNode.insertBefore(tr, tr.previousElementSibling); dirty(); }
     if (e.target.closest('.adm-down') && tr.nextElementSibling) { tr.parentNode.insertBefore(tr.nextElementSibling, tr); dirty(); }
     if (e.target.closest('.adm-del')) {
-      const used = def ? usage(def.cols[0], tr.dataset.orig) : 0;
+      const used = usage(def.cols[0], tr.dataset.orig);
       if (used && !confirm(t('admDeleteUsed', { name: tr.dataset.orig, n: used }))) return;
       tr.remove();
       dirty();
     }
   });
   $('.adm-add', card).onclick = () => {
-    if (def) body.insertAdjacentHTML('beforeend', rowHtml(def, def.cols.map(() => '')));
-    else body.insertAdjacentHTML('beforeend', '<tr data-orig=""><td><input data-col="admin_email" dir="ltr" placeholder="name@gmail.com"></td><td></td><td class="adm-btns"><button type="button" class="linkish adm-del">✕</button></td></tr>');
+    body.insertAdjacentHTML('beforeend', rowHtml(def, def.cols.map(() => '')));
     $$('tr', body).at(-1).querySelector('input').focus();
     dirty();
   };
@@ -162,20 +155,20 @@ function wireCard(card, def) {
     const firsts = rows.map((r) => r[0]);
     const dup = firsts.find((v, i) => firsts.indexOf(v) !== i);
     if (dup) { ui.toast(t('admDuplicate', { name: dup }), 'error'); return; }
-    const renamed = $$('tr', body).some((tr) => tr.dataset.orig && $('input', tr).value.trim() !== tr.dataset.orig);
+    const renamed = !def.source && $$('tr', body).some((tr) => tr.dataset.orig && $('input', tr).value.trim() !== tr.dataset.orig);
     if (renamed && !confirm(t('admRenameWarn'))) return;
     const btn = $('.adm-save', card);
     btn.disabled = true;
     btn.textContent = t('saving');
     try {
-      if (def) {
-        const columns = {};
-        def.cols.forEach((c, j) => { columns[c] = rows.map((r) => r[j] || ''); });
-        await saveListColumns(columns);
-      } else {
-        if (!firsts.includes(state.email)) firsts.unshift(state.email); // אי אפשר להוריד את עצמך
-        await saveAdmins(firsts.map((e) => e.toLowerCase()));
+      if (def.emails) {
+        rows.forEach((r) => { r[0] = r[0].toLowerCase(); });
+        if (!rows.some((r) => r[0] === state.email)) rows.unshift([state.email, '']); // אי אפשר להוריד את עצמך
       }
+      const columns = {};
+      def.cols.forEach((c, j) => { columns[c] = rows.map((r) => r[j] || ''); });
+      if (def.source === 'settings') await saveSettingsColumns(columns);
+      else await saveListColumns(columns);
       await loadAll();
       ui.refreshAll();
       renderAdmin();

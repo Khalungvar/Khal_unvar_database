@@ -541,3 +541,6 @@ dialog.sheet.full { width: min(1200px, 96vw); max-width: 96vw; max-height: 94vh;
   .lb-form, .lb-result-head, .camp-page-head, .no-print, #scope-bar { display: none !important; }
   .lb-table { font-size: 11px; }
 }
+
+.adm-card.adm-wide { grid-column: span 2; }
+@media (max-width: 760px) { .adm-card.adm-wide { grid-column: auto; } }

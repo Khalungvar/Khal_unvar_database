@@ -107,6 +107,8 @@ export async function loadAll() {
   Object.assign(state, parseLists(tabs.Lists));
 
   const settings = rowsToObjects(tabs.Settings).objects;
+  const [sHead = [], ...sBody] = tabs.Settings || [];
+  state.rawSettings = Object.fromEntries(sHead.filter(Boolean).map((hd) => [hd, sBody.map((r) => String(r[sHead.indexOf(hd)] ?? '').trim())]));
   const admins = settings.map((s) => String(s.admin_email || '').trim().toLowerCase()).filter(Boolean);
   state.admins = admins;
   state.isAdmin = admins.includes(state.email);
@@ -359,15 +361,27 @@ export async function saveListColumns(columns) {
   }
 }
 
-/** מנהל בלבד: רשימת המנהלים (לשונית Settings, עמודה admin_email). */
-export async function saveAdmins(emails) {
+/** מנהל בלבד: כותב מחדש עמודות שלמות בלשונית Settings (מנהלים, גבאים). */
+export async function saveSettingsColumns(columns) {
   if (!state.isAdmin) throw new Error(t('adminOnly'));
   const rows = (await readTabs(['Settings'])).Settings;
-  const col = Math.max(0, (rows[0] || []).indexOf('admin_email'));
-  const oldLen = rows.slice(1).reduce((n, r, i) => (String(r[col] ?? '').trim() ? i + 1 : n), 0);
-  const len = Math.max(oldLen, emails.length, 1);
-  const L = columnLetter(col);
-  await updateRange(`Settings!${L}2:${L}${len + 1}`, Array.from({ length: len }, (_, i) => [emails[i] ?? '']));
+  const header = rows[0] || [];
+  for (const [name, values] of Object.entries(columns)) {
+    let col = header.indexOf(name);
+    if (col < 0) {
+      col = header.length;
+      header.push(name);
+      await updateCell(`Settings!${columnLetter(col)}1`, name);
+    }
+    const oldLen = rows.slice(1).reduce((n, r, i) => (String(r[col] ?? '').trim() ? i + 1 : n), 0);
+    const len = Math.max(oldLen, values.length, 1);
+    const L = columnLetter(col);
+    await updateRange(`Settings!${L}2:${L}${len + 1}`, Array.from({ length: len }, (_, i) => [values[i] ?? '']));
+  }
+}
+
+export function rawSettingsColumn(name) {
+  return state.rawSettings?.[name] || [];
 }
 
 /** הערכים הגולמיים של עמודה (כולל שורות ריקות באמצע, כדי לשמור על ההתאמה בין עמודות). */
