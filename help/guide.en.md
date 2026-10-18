@@ -187,6 +187,9 @@ Keywords: import, excel, upload, list, many contacts, template
 4. **Tag for all** (default "אלטע רשימה צו דורכגיין") — so you know where they came from, and can filter by that tag.
 5. For ones that already exist choose: **➕ new**, **⤵ merge** (only adds what is missing — tags, phone, email, notes; nothing is overwritten), or **✕ skip**.
 6. **📥 Import**.
+- **Families**: the same "Family key" on several rows (e.g. a father and a son). On the son, write in "Relation" — **זון פון** (son of); he is linked to the father (the row without a relation).
+- **Birthday**: a Hebrew date (e.g. ו' אדר ב' תשס"ג) or an English date — becomes a "Birthday" occasion.
+- **Kollel — former**: TRUE = he already left.
 
 ## Admin (admins only)
 Keywords: admin, settings, admin lists, tags, logo, gabbai, access

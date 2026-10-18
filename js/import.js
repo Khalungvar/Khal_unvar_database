@@ -1,7 +1,7 @@
 // אריינלייגן א סך קאנטאקטן פון Excel (נאר בעל הבית, אין אדמין ← מנהלים, גבאים און צוטריט):
 // 1) אראפלאדן א דוגמא-טעקע  2) אנפילן / אריינקלעבן  3) ארויפלאדן ← א פריוויו מיט פראבלעמען ← אריינלייגן.
-import { state, loadAll, importContacts, mergeContacts, addListValue, importDonations, removeTagSeries } from './data.js';
-import { yearFromLabel, fromHebrew, monthsOf } from './hebdate.js';
+import { state, loadAll, importContacts, mergeContacts, addListValue, importDonations, removeTagSeries, importRelations, importOccasions } from './data.js';
+import { yearFromLabel, fromHebrew, monthsOf, toHebrew, monthHe, yearLabel, monthKeyFromHe } from './hebdate.js';
 import { umbrellaName } from './scope.js';
 import { parseOrgTags, mergeOrgTags, entry as otEntry, OLD_GROUP } from './orgtags.js';
 import { t } from './i18n.js';
@@ -36,6 +36,7 @@ const FIELDS = [
   ['email_2', 'אימעיל 2', 'Email 2', 'p', '', ''],
   ['beis_medrash', 'ביהמ"ד', 'Beis medrash', 'c', '', ''],
   ['kollel', 'כולל/ישיבה', 'Kollel', 'c', '', ''],
+  ['kollel_former', 'כולל/ישיבה — געווען (פריער)', 'Kollel — former', 'c', '', ''],
   ['organization', 'ארגון', 'Organization', 'c', '', ''],
   ['community_tags', 'טעג\'ס (מיט קאמע)', 'Tags (comma separated)', 'c', '', ''],
   ['area', 'געגנט', 'Area', 'c', '', ''],
@@ -44,8 +45,32 @@ const FIELDS = [
   ['deceased', 'נפטר', 'Deceased', 'c', '', ''],
   ['wife_in_neshei', 'נשי אונגוואר', 'Neshei', 'c', '', ''],
   ['wife_is_rebbetzin', 'רביצין', 'Rebbetzin', 'c', '', ''],
+  // 'x' = נישט קיין פעלד אינעם קאנטאקט: פאמיליע (קשרים צווישן שורות) און געבורטסטאג (א מאורע)
+  ['family', 'פאמיליע-שליסל', 'Family key', 'x', '', ''],
+  ['relation', 'קשר צום ראש פון דער פאמיליע', 'Relation to family head', 'x', '', ''],
+  ['birthday', 'געבורטסטאג (תאריך עברי)', 'Birthday (Hebrew date)', 'x', '', ''],
 ];
-const BOOL_FIELDS = new Set(['deceased', 'wife_in_neshei', 'wife_is_rebbetzin']);
+const BOOL_FIELDS = new Set(['deceased', 'wife_in_neshei', 'wife_is_rebbetzin', 'kollel_former']);
+const BIRTHDAY = 'געבורטסטאג';
+
+/** "ו' אדר ב' תשס"ג" / "כ"ח שבט" (אן א יאר) / "2003-01-06" → { day, month (אויף עברית), year (תשס"ג / '') } */
+export function parseBirthday(text) {
+  const s = String(text || '').trim();
+  if (!s) return null;
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (iso) {
+    const hd = toHebrew(s.slice(0, 10));
+    return hd ? { day: hd.d, month: monthHe(hd.m), year: yearLabel(hd.y) } : null;
+  }
+  const months = ["אדר א'", "אדר ב'", 'תשרי', 'חשון', 'כסלו', 'טבת', 'שבט', 'אדר', 'ניסן', 'אייר', 'סיון', 'תמוז', 'אב', 'אלול'];
+  const m = months.find((x) => s.includes(` ${x}`));
+  if (!m) return null;
+  const [dayPart, rest] = [s.slice(0, s.indexOf(` ${m}`)), s.slice(s.indexOf(` ${m}`) + m.length + 1)];
+  const day = yearFromLabel(dayPart) - 5000;
+  const y = rest.trim();
+  if (!(day >= 1 && day <= 30)) return null;
+  return { day, month: m, year: y && yearFromLabel(y) ? y : '' };
+}
 const yes = (v) => /^(true|yes|y|x|1|כן|יא|✓)$/i.test(String(v || '').trim());
 // נדבות: א קאלום "נדבה: דינער השנתי תשפ"ו" (אדער "Donation: …") מיט א סכום ביי יעדן
 const DON_HEAD = /^\s*(?:נדבה|donation)\s*[:：]\s*(.+?)\s*$/i;
@@ -229,8 +254,13 @@ function mergePatch(id, row, overlay = null) {
       if (merged !== mergeOrgTags(ex.org_tags, '')) { c[k] = merged; changed.push(k); }
       return;
     }
-    if (k === 'community_tags') {
-      const old = splitTags(ex.community_tags);
+    if (k.endsWith('_former')) {
+      const base = k.replace(/_former$/, '');
+      if (base in c && !String(ex[base] ?? '').trim()) { c[k] = v; changed.push(k); }
+      return;
+    }
+    if (k === 'community_tags' || ((k === 'kollel' || k === 'beis_medrash' || k === 'organization') && String(ex[k] ?? '').trim())) {
+      const old = splitTags(ex[k]);
       const add = splitTags(v).filter((x) => !old.includes(x));
       if (add.length) { c[k] = joinTags([...old, ...add]); changed.push(k); }
       return;
@@ -270,7 +300,7 @@ function buildRows(table) {
   const seen = { names: new Map(), phones: new Map() };
   const rows = body.map((r, i) => {
     const contact = {}; const phones = {};
-    const dons = [];
+    const dons = []; const extra = {};
     keys.forEach((k, j) => {
       if (!k) return;
       let v = String(r[j] ?? '').trim();
@@ -284,6 +314,7 @@ function buildRows(table) {
         return;
       }
       const f = FIELDS.find((x) => x[0] === k);
+      if (f[3] === 'x') { if (v) extra[k] = v; return; }
       if (['mobile', 'home_phone', 'wife_mobile', 'other_phone'].includes(k)) v = formatPhone(v);
       if (k === 'zip' && /^\d{3,4}$/.test(v)) v = v.padStart(5, '0'); // Excel פארלירט די נול פון פארנט
       if (k.startsWith('email')) v = v.toLowerCase();
@@ -298,7 +329,11 @@ function buildRows(table) {
     });
     if (!contact.area && (contact.zip || contact.city)) contact.area = detectArea(state.areas || [], contact);
     if (autoFill) fillNames(contact);
-    const out = { n: i + 2, contact, phones, status: 'ok', note: '', action: 'add', dons };
+    const out = { n: i + 2, contact, phones, status: 'ok', note: '', action: 'add', dons, extra };
+    if (extra.birthday) {
+      out.bday = parseBirthday(extra.birthday);
+      if (!out.bday) out.bdayBad = true;
+    }
     if (!contact.first_name_he || !contact.last_name_he) { out.action = 'skip'; out.status = 'error'; out.note = t('impNeedName'); return out; }
     if (contact.unverified_fields) out.auto = new Set(contact.unverified_fields.split(', '));
     const nk = normalize(`${contact.first_name_he} ${contact.last_name_he}`);
@@ -328,7 +363,7 @@ function buildRows(table) {
       out.note = t('impDupName', { id: byName, addr: exAddr || '—' }); return out;
     }
     // 3) דער זעלבער פאמיליע-נאמען אין דער זעלבער אדרעס, און די ערשטע אותיות פאסן — דער זעלבער מענטש
-    if (myAddr) {
+    if (myAddr && !extra.family) {
       const cands = [...(idx.addrs.get(`${lastKeyEn(contact.last_name_en)}|${myAddr}`) || []), ...(idx.addrs.get(`${normalize(contact.last_name_he || '')}|${myAddr}`) || [])]
         .filter((c, k, arr) => arr.indexOf(c) === k && initialsFit(c.first_name_en, contact.first_name_en));
       if (cands.length === 1) {
@@ -462,6 +497,9 @@ function renderPreview(box, ui) {
   const enOf = (r) => ['first_name_en', 'last_name_en'].map((k) => A(r, k)).filter(Boolean).join(' ');
   const nAuto = rows.filter((r) => r.auto).length;
   const nDons = rows.reduce((a, r) => a + (r.dons?.length || 0), 0);
+  const nFam = new Set(rows.map((r) => r.extra?.family).filter(Boolean)).size;
+  const nBday = rows.filter((r) => r.bday).length;
+  const badBday = rows.filter((r) => r.bdayBad);
   // די פראבלעמען קודם (ראזע, דערנאך געל) — כדי מ'זאל זיי זען גלייך
   const rank = { error: 0, maybe: 1, dup: 2, ok: 3 };
   const shown = [...rows].sort((a, b) => rank[a.status] - rank[b.status] || a.n - b.n).slice(0, 300);
@@ -473,10 +511,13 @@ function renderPreview(box, ui) {
       ${bad + dup ? `<button type="button" class="btn small-btn" id="imp-xl-bad">⬇ ${h(t('impBadXl'))}</button>` : ''}</div>
     ${nAuto ? `<p class="hint-line">✎ ${h(t('impAutoNote', { n: nAuto }))}</p>` : ''}
     ${nDons ? `<p class="hint-line">💲 ${h(t('impDonsNote', { n: nDons }))}</p>` : ''}
+    ${nFam ? `<p class="hint-line">👪 ${h(t('impFamNote', { n: nFam }))}</p>` : ''}
+    ${nBday ? `<p class="hint-line">🎂 ${h(t('impBdayNote', { n: nBday }))}</p>` : ''}
+    ${badBday.length ? `<p class="warn-text small">🎂 ${h(t('impBdayBad', { rows: badBday.map((r) => `${r.n} (${r.extra.birthday})`).join(', ') }))}</p>` : ''}
     ${unknown.length ? `<p class="warn-text small">${h(t('impUnknownCols', { cols: unknown.join(', ') }))}</p>` : ''}
     ${dup + maybe ? `<p class="hint-line">☑ ${h(t('impPickHint'))}</p>` : ''}
     <label class="check"><input type="checkbox" id="imp-auto"${autoFill ? ' checked' : ''}> ${h(t('impAutoFill'))}</label>
-    <label class="imp-tag">🏷 ${h(t('impTagLabel'))} <input id="imp-tag" dir="rtl" value="${h(t('impDefaultTag'))}"></label>
+    <label class="imp-tag">🏷 ${h(t('impTagLabel'))} <input id="imp-tag" dir="rtl" value="${nFam ? '' : h(t('impDefaultTag'))}"></label>
     <p class="hint-line">${h(t('impTagHint'))}</p>
     <div class="imp-table-wrap"><table class="lapsed-table imp-table"><thead><tr><th>#</th><th>${h(t('impColName'))}</th><th>${h(t('impColEn'))}</th><th>${h(t('impColAddr'))}</th><th>${h(t('impColPhone'))}</th><th></th></tr></thead>
       <tbody>${shown.map((r) => `<tr class="imp-${r.status}"><td class="muted small">${r.n}${r.status === 'dup' || r.status === 'maybe' ? `<br>${actionSelect(r)}` : ''}</td><td>${nameOf(r)}</td>
@@ -554,10 +595,39 @@ function renderPreview(box, ui) {
       merges.forEach((r) => (r.dons || []).forEach((d) => donRows.push({ contact_id: r.matchId, ...d })));
       let nDon = 0;
       if (donRows.length) nDon = await addDonations(donRows, prog);
+      // דער נומער פון יעדער שורה אינעם מאגר: א נייער — פון res.first; א געמערדזשטער / איבערגעלאזטער — matchId
+      const idOf = new Map();
+      list.forEach((r, i) => { if (res) idOf.set(r, res.first + i); });
+      rows.forEach((r) => { if (!idOf.has(r) && r.matchId && r.status !== 'error') idOf.set(r, r.matchId); });
+      // פאמיליעס: יעדער אין דער גרופע מיט א "קשר" ווערט פארבונדן מיטן ראש (דער אן א קשר)
+      const fams = new Map();
+      rows.forEach((r) => { const k = r.extra?.family; if (k && idOf.has(r)) fams.set(k, [...(fams.get(k) || []), r]); });
+      const pairs = [];
+      fams.forEach((members) => {
+        const head = members.find((r) => !r.extra.relation);
+        if (!head) return;
+        members.forEach((r) => { if (r !== head && r.extra.relation) pairs.push([idOf.get(r), r.extra.relation.trim(), idOf.get(head)]); });
+      });
+      const nRel = pairs.length ? await importRelations(pairs) : 0;
+      // געבורטסטאג → א מאורע (נאר אויב ער האט נאך נישט קיין געבורטסטאג)
+      const occ = [];
+      rows.forEach((r) => {
+        const id = idOf.get(r);
+        if (!r.bday || !id) return;
+        if ((state.occasions || []).some((o) => String(o.contact_id) === String(id) && o.occasion_type === BIRTHDAY && o.relation === 'ער אליין')) return;
+        const head = r.extra.family && (fams.get(r.extra.family) || []).find((x) => !x.extra.relation);
+        occ.push({
+          contact_id: id, occasion_type: BIRTHDAY, person_name: r.contact.first_name_he || '', relation: 'ער אליין', ben_bat: 'בן',
+          father_name: head && head !== r ? head.contact.first_name_he || '' : '',
+          hebrew_day: r.bday.day, hebrew_month: r.bday.month, hebrew_year: r.bday.year,
+        });
+      });
+      if (occ.length && !(state.lists.occasion_type || []).includes(BIRTHDAY)) await addListValue('occasion_type', BIRTHDAY);
+      const nOcc = occ.length ? await importOccasions(occ) : 0;
       await loadAll();
       ui.refreshAll?.();
       parsed = null;
-      const msg = [nDon ? t('impDonsDone', { n: nDon }) : '', res ? t('impDone', { n: list.length, first: res.first, last: res.last }) : '', mergedN ? t('impMerged', { n: mergedN }) : ''].filter(Boolean).join(' · ');
+      const msg = [nRel ? t('impRelDone', { n: nRel }) : '', nOcc ? t('impBdayDone', { n: nOcc }) : '', nDon ? t('impDonsDone', { n: nDon }) : '', res ? t('impDone', { n: list.length, first: res.first, last: res.last }) : '', mergedN ? t('impMerged', { n: mergedN }) : ''].filter(Boolean).join(' · ');
       prev.innerHTML = `<p class="drive-ok">✓ ${h(msg)}</p>`;
       renderOld(box, ui);
       ui.toast(msg);

@@ -350,6 +350,41 @@ export async function importDonations(list, onProgress = () => {}) {
 }
 
 /**
+ * בעל הבית: קשרים פון אן Excel (למשל א תלמיד ← "זון פון" ← דער טאטע). pairs = [[a, type, b]].
+ * דער פארקערטער קשר ווערט אויך צוגעלייגט; וואס איז שוין דא — נישט טאפלט.
+ */
+export async function importRelations(pairs) {
+  if (!state.isOwner) throw new Error(t('adminOnly'));
+  const ids = (await readColumn('Relations', 'A')).slice(1).map(Number).filter(Number.isFinite);
+  let id = Math.max(0, ...ids) + 1;
+  const stamp = nowStamp();
+  const have = new Set(state.relations.map((r) => `${r.contact_id_a}|${r.relation_type}|${r.contact_id_b}`));
+  const out = [];
+  const add = (a, ty, b) => {
+    const k = `${a}|${ty}|${b}`;
+    if (!ty || have.has(k) || String(a) === String(b)) return;
+    have.add(k);
+    out.push(objectToRow(state.headers.Relations, { relation_id: id++, contact_id_a: a, relation_type: ty, contact_id_b: b, created_at: stamp, created_by: state.email }));
+  };
+  pairs.forEach(([a, ty, b]) => { add(a, ty, b); add(b, state.relationReverse[ty], a); });
+  for (let i = 0; i < out.length; i += 250) await appendRows('Relations', out.slice(i, i + 250));
+  if (out.length) await logChanges('relation', 'import', '', null, null, `imported ${out.length} relations`);
+  return out.length;
+}
+
+/** בעל הבית: מאורעות פון אן Excel (למשל געבורטסטאג). list = [{ contact_id, occasion_type, … }] */
+export async function importOccasions(list) {
+  if (!state.isOwner) throw new Error(t('adminOnly'));
+  const ids = (await readColumn('Occasions', 'A')).slice(1).map(Number).filter(Number.isFinite);
+  let id = Math.max(0, ...ids) + 1;
+  const stamp = nowStamp();
+  const out = list.map((o) => objectToRow(state.headers.Occasions, { ...o, occasion_id: id++, created_at: stamp, created_by: state.email, updated_at: stamp, updated_by: state.email }));
+  for (let i = 0; i < out.length; i += 250) await appendRows('Occasions', out.slice(i, i + 250));
+  if (out.length) await logChanges('occasion', 'import', '', null, null, `imported ${out.length} occasions`);
+  return out.length;
+}
+
+/**
  * בעל הבית: מעקט אויס א גאנצע גרופע פון "תגיות נוספות" (למשל "אלטע רשימה") — ביי אלע קאנטאקטן און פון דער רשימה.
  * אלע אנדערע טעג'ס בלייבן. גיט צוריק וויפיל קאנטאקטן זענען געטוישט געווארן.
  */
