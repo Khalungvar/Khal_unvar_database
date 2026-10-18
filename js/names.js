@@ -181,7 +181,7 @@ const EN_FIRST = {
   'שאול': 'Shaul Saul',
   'שבתי': 'Shabsi Shabtai',
   'מנשה': 'Menashe Manis',
-  'משולם': 'Meshulem Meshulam Shulem',
+  'משולם': 'Meshulem Meshulam',
   'זושא': 'Zusha Zisha',
   'אלטר': 'Alter',
   'קלונימוס': 'Kalman Kalonymus',
