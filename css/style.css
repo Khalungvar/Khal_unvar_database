@@ -910,35 +910,62 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 .od-grid label.wide { grid-column: 1 / -1; }
 .od-grid input, .od-grid textarea { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
 
-/* דער דאקומענט — נאר ביים דרוקן */
+/* דער דאקומענט — נאר ביים דרוקן: בריוו אויבן, קופאן אונטן */
 #rc-print-area { display: none; }
-.rc-doc { font-family: Georgia, 'Times New Roman', serif; color: #1d1d1d; direction: ltr; text-align: left; font-size: 11pt; line-height: 1.45;
-  width: 7.3in; margin: 0 auto; }
-.rc-head { display: flex; align-items: center; gap: 16px; border-bottom: 2px solid #7a1219; padding-bottom: 10px; }
-.rc-logo { width: 80px; height: 80px; object-fit: contain; }
-.rc-org { flex: 1; font-size: 9.5pt; color: #444; }
-.rc-legal { font-size: 15pt; font-weight: bold; color: #7a1219; }
-.rc-yi { font-family: 'Frank Ruhl Libre', 'David', serif; font-size: 12pt; color: #7a1219; align-self: flex-start; }
-.rc-titlebar { display: flex; justify-content: space-between; align-items: flex-start; margin: 18px 0 10px; }
-.rc-titlebar h1 { font-size: 18pt; margin: 0; letter-spacing: .5px; }
-.rc-meta td { padding: 1px 0 1px 10px; font-size: 10pt; }
-.rc-meta td:first-child { color: #666; }
-.rc-copy { color: #999; font-size: 9pt; }
-.rc-to { margin: 8px 0 16px; }
-.rc-label { font-size: 9pt; text-transform: uppercase; letter-spacing: 1px; color: #777; }
-.rc-name { font-weight: bold; font-size: 12pt; }
-.rc-lines { width: 100%; border-collapse: collapse; }
-.rc-lines th { text-align: left; font-size: 9.5pt; color: #555; border-bottom: 1.5px solid #333; padding: 5px 6px; }
-.rc-lines td { padding: 6px; border-bottom: 1px solid #ddd; vertical-align: top; }
-.rc-lines .amt { text-align: right; white-space: nowrap; }
-.rc-lines tfoot td { font-weight: bold; border-bottom: 0; border-top: 1.5px solid #333; font-size: 12pt; }
-.rc-tax { margin-top: 18px; font-size: 10pt; }
-.rc-note { font-size: 10pt; color: #444; }
-.rc-sign { margin-top: 36px; width: 2.8in; font-size: 10pt; }
-.rc-sigline { border-bottom: 1px solid #333; height: 30px; margin-bottom: 4px; }
-.rc-muted { color: #666; }
+.rc-doc { font-family: 'Frank Ruhl Libre', 'David', Georgia, serif; color: #1f1a17; width: 7.5in; height: 10in; margin: 0 auto;
+  display: flex; flex-direction: column; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.rd-banner img { width: 100%; max-height: 2.7in; object-fit: cover; object-position: top; display: block; border-radius: 6px; }
+.rd-band { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 10px;
+  background: linear-gradient(135deg, #7a1219, #4d0b10); color: #f6e7c1; }
+.rd-band img { width: 64px; height: 64px; object-fit: contain; background: #fffaf0; border-radius: 8px; padding: 4px; }
+.rd-band-he { font-size: 22pt; font-weight: 700; }
+.rd-band-en { font-family: Georgia, serif; font-size: 11pt; letter-spacing: 1px; opacity: .9; }
+.rd-letter { flex: 1; font-size: 12.5pt; line-height: 1.55; text-align: justify; padding: 10px 6px 0; }
+.rd-letter p { margin: 0 0 10px; }
+.rd-date { font-size: 11pt; color: #555; margin-bottom: 8px; }
+.rd-sal { font-weight: 700; margin-bottom: 8px; }
+.rd-close { margin-top: 12px; padding-inline-start: 2.2in; }
+.rd-sig { padding-inline-start: 2.2in; }
+.rd-sig img { max-height: 0.55in; max-width: 2.2in; display: block; }
+.rd-sigspace { height: 0.4in; }
+.rd-cut { border-top: 1.5px dashed #b9a37a; margin: 10px 0 12px; position: relative; height: 0; }
+.rd-cut span { position: absolute; left: 10px; top: -10px; background: #fff; color: #a08a5c; font-size: 13pt; padding: 0 4px; }
+.cp { direction: ltr; border: 2px solid #b8892b; border-radius: 12px; background: #fbf5e6; overflow: hidden; font-family: Georgia, 'Times New Roman', serif; }
+.cp-main { display: grid; grid-template-columns: 2.3in 1fr 1.55in; }
+.cp-left { padding: 12px 14px; direction: ltr; text-align: left; border-right: 1px solid #e3d3ad; }
+.cp-tag { display: inline-block; background: #7a1219; color: #fff3d6; font-size: 9pt; font-weight: 700; letter-spacing: 1.5px; padding: 3px 10px; border-radius: 4px; }
+.cp-org { font-size: 14pt; font-weight: 700; color: #7a1219; margin-top: 8px; font-variant: small-caps; }
+.cp-addr, .cp-tel { font-size: 9.5pt; color: #333; margin-top: 3px; }
+.cp-from-label { margin-top: 12px; font-size: 8.5pt; letter-spacing: 1px; text-transform: uppercase; color: #8a7448; border-bottom: 1px solid #d8c69c; }
+.cp-from { font-size: 10.5pt; margin-top: 4px; line-height: 1.35; }
+.cp-mid { padding: 12px 14px; direction: ltr; text-align: left; display: flex; flex-direction: column; gap: 7px; }
+.cp-row { display: flex; align-items: center; gap: 8px; }
+.cp-lbl { width: 0.95in; font-size: 9.5pt; color: #6b5a3a; }
+.cp-amount { flex: 1; background: #fff; border: 1.5px solid #7a1219; border-radius: 6px; padding: 4px 10px; font-size: 15pt; font-weight: 700; color: #7a1219; }
+.cp-field { flex: 1; background: #fff; border: 1px solid #d8c69c; border-radius: 6px; padding: 3px 10px; font-size: 10.5pt; }
+.cp-pay { display: flex; gap: 14px; font-size: 10.5pt; padding-left: 1in; }
+.cp-box.on { color: #7a1219; font-weight: 700; }
+.cp-purposes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 10px; font-family: 'Frank Ruhl Libre', 'David', serif; font-size: 9.5pt; color: #444; }
+.cp-purposes .on { color: #7a1219; font-weight: 700; }
+.cp-lines { width: 100%; border-collapse: collapse; font-size: 9pt; }
+.cp-lines td { border-bottom: 1px solid #e3d3ad; padding: 2px 4px; }
+.cp-lines .amt { text-align: right; }
+.cp-note { font-size: 9.5pt; background: #fff; border: 1px solid #d8c69c; border-radius: 6px; padding: 3px 8px; }
+.cp-tax { font-size: 7.8pt; color: #555; line-height: 1.3; }
+.cp-side { background: linear-gradient(160deg, #e9d7a6, #c9a24f); padding: 12px 10px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.cp-logo img { width: 1.05in; height: 1.05in; object-fit: contain; }
+.cp-he { font-family: 'Frank Ruhl Libre', 'David', serif; font-size: 16pt; font-weight: 700; color: #4d0b10; line-height: 1.1; }
+.cp-sub { font-size: 8.5pt; color: #4d3a14; line-height: 1.3; }
+.cp-yi { font-size: 9.5pt; color: #7a1219; }
+.cp-foot { background: #7a1219; color: #f6e7c1; text-align: center; font-family: 'Frank Ruhl Libre', 'David', serif; font-size: 10.5pt; padding: 5px 10px; }
+/* פארעם פאר די פרטים */
+.od-sec { margin: 14px 0 4px; color: var(--accent); font-size: 16px; }
+.od-imgs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.od-img { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.od-prev { width: 100%; height: 90px; display: flex; align-items: center; justify-content: center; background: repeating-conic-gradient(#f3eee4 0 25%, #fff 0 50%) 0 0/14px 14px; border-radius: 6px; overflow: hidden; }
+.od-prev img { max-width: 100%; max-height: 90px; object-fit: contain; }
 @media print {
-  @page { size: letter; margin: 0.6in; }
+  @page { size: letter; margin: 0.5in; }
   body.printing-rc > *:not(#rc-print-area) { display: none !important; }
   body.printing-rc { background: #fff !important; }
   body.printing-rc #rc-print-area { display: block !important; }

@@ -155,7 +155,7 @@ export function detectArea(areas, { zip = '', city = '', neighborhood = '', coun
  * בילד → קליינע data URL וואס פאסט אריין אין א צעל אין גוגל שיטס (ביז ~45,000 אותיות).
  * פרובירט קודם PNG (האלט די דורכזיכטיגקייט פון א לאגא), דערנאך JPEG.
  */
-export function shrinkImage(file, maxPx, limit = 45000) {
+export function shrinkImage(file, maxPx, limit = 45000, jpegFirst = false) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -169,6 +169,16 @@ export function shrinkImage(file, maxPx, limit = 45000) {
         ctx.drawImage(img, 0, 0, cv.width, cv.height);
         return cv;
       };
+      // פאר גרויסע בילדער (באנערס) — JPEG קודם, כדי עס זאל בלייבן שארף
+      if (jpegFirst) {
+        for (let px = maxPx; px >= 300; px = Math.round(px * 0.85)) {
+          const cv0 = draw(px, true);
+          for (let q = 0.9; q > 0.5; q -= 0.1) {
+            const url = cv0.toDataURL('image/jpeg', q);
+            if (url.length <= limit) { resolve(url); return; }
+          }
+        }
+      }
       for (let px = maxPx; px >= 120; px = Math.round(px * 0.8)) {
         const url = draw(px).toDataURL('image/png');
         if (url.length <= limit) { resolve(url); return; }
