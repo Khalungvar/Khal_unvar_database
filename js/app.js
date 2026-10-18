@@ -264,12 +264,16 @@ function openForm(c = {}) {
     ${cityStateDatalists()}
 
     <fieldset><legend>${t('secDetails')}</legend>
+      <p class="hint-line">${t('requiredNote')}</p>
       <div class="grid">
         <label>${t('title')}<select name="title_he" dir="rtl">${options(state.lists.title_he, c.title_he)}</select></label>
         <label>${t('firstHe')}<input name="first_name_he" dir="rtl" required value="${v('first_name_he')}" placeholder="יוסף חיים"></label>
         <label>${t('lastHe')}<input name="last_name_he" dir="rtl" required value="${v('last_name_he')}"></label>
+      </div>
+      <div class="grid status-row">
         <label>${t('marital')}<select name="marital_status">${options(state.lists.marital_status, c.marital_status || (isNew ? 'נשוי' : ''), maritalLabel)}</select></label>
         <label class="check"><input type="checkbox" name="deceased" ${!isAlive(c.is_alive) ? 'checked' : ''}> ${t('deceased')}</label>
+        <label class="check"><input type="checkbox" name="inactive" ${!isNew && c.is_active !== '' && !isTrue(c.is_active) ? 'checked' : ''}> ${t('inactive')}</label>
       </div>
     </fieldset>
 
@@ -324,8 +328,6 @@ function openForm(c = {}) {
     </fieldset>
 
     <div class="actions">
-      ${!isNew && (isTrue(c.is_active) || c.is_active === '') ? `<button type="button" class="btn danger" id="btn-deactivate">${t('deactivate')}</button>` : ''}
-      ${!isNew && c.is_active !== '' && !isTrue(c.is_active) ? `<button type="button" class="btn" id="btn-activate">${t('activate')}</button>` : ''}
       <span class="spacer"></span>
       <button type="button" class="btn" id="btn-cancel">${t('cancel')}</button>
       <button type="submit" class="btn primary" id="btn-save">${t('save')}</button>
@@ -396,12 +398,6 @@ function wireForm(form, original) {
   wireAddressAutocomplete(form);
 
   $('#btn-cancel', form).onclick = () => $('#form-dialog').close();
-  const setActive = (active) => async () => {
-    if (!active && !confirm(t('confirmDeactivate'))) return;
-    await submit(form, original, active);
-  };
-  $('#btn-deactivate', form)?.addEventListener('click', setActive(false));
-  $('#btn-activate', form)?.addEventListener('click', setActive(true));
   form.onsubmit = (e) => { e.preventDefault(); submit(form, original); };
 }
 
@@ -489,9 +485,9 @@ function collect(form, original) {
   return { contact, phones };
 }
 
-async function submit(form, original, setActive) {
+async function submit(form, original) {
   const { contact, phones } = collect(form, original);
-  if (setActive !== undefined) contact.is_active = setActive;
+  contact.is_active = !form.elements.inactive.checked;
 
   if (!contact.first_name_he || !contact.last_name_he) {
     toast(t('required'), 'error');

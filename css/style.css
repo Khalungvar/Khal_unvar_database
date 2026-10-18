@@ -235,3 +235,6 @@ fieldset > label { display: flex; flex-direction: column; gap: 4px; font-size: 1
 }
 .lang-switch button.on { background: var(--accent); color: var(--accent-ink); }
 .login-card .lang-switch { margin-top: 14px; }
+
+.hint-line { margin: -2px 0 8px; font-size: 12px; color: var(--muted); }
+.status-row { margin-top: 10px; }
