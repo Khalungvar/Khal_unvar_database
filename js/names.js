@@ -163,6 +163,29 @@ export function suggestLastName(he, contacts) {
 
 // אנדערע ענגלישע אויסלייגן פון אידישע נעמען (פאר ענגליש → אידיש)
 const EN_FIRST = {
+  'כתריאל': 'Kasriel Casriel Katriel Kasrial',
+  'בונים': 'Bunim Bunem',
+  'ליפא': 'Lipa Lipe',
+  'פייוויש': 'Feivish Feivel Fivel Feival',
+  'גדליה': 'Gedalya Gedalia',
+  'חנוך': 'Chanoch Henoch Heinich',
+  'יקותיאל': 'Yekusiel Yekutiel Kusiel',
+  'שרגא': 'Shraga Feivel',
+  'אלחנן': 'Elchonon Elchanan',
+  'אנשיל': 'Anshel',
+  'אריה': 'Aryeh Arye Ari',
+  'עזריאל': 'Azriel',
+  'עזרא': 'Ezra',
+  'טוביה': 'Tuvia Tuvya Tobias',
+  'מתתיהו': 'Matisyahu Mattisyahu Matis',
+  'שאול': 'Shaul Saul',
+  'שבתי': 'Shabsi Shabtai',
+  'מנשה': 'Menashe Manis',
+  'משולם': 'Meshulem Meshulam Shulem',
+  'זושא': 'Zusha Zisha',
+  'אלטר': 'Alter',
+  'קלונימוס': 'Kalman Kalonymus',
+  'שלום': 'Sholom Shalom Sholem Shulem',
   'שלמה': 'Shlomo Shloime Shlome Solomon Sol',
   'שלום': 'Sholom Shalom Sholem',
   'יוסף': 'Yosef Yossef Joseph Yossi Yosi Yoseph Yossel',
@@ -238,6 +261,18 @@ const EN_FIRST = {
   'פייגא': 'Faigy Feiga Faige',
 };
 
+const EN_MULTI = {
+  'ben zion': 'בן ציון',
+  'benzion': 'בן ציון',
+  'bentzion': 'בן ציון',
+  'ben tzion': 'בן ציון',
+  'ben-zion': 'בן ציון',
+  'aryeh leib': 'אריה לייב',
+  'zev wolf': 'זאב וואלף',
+  'chaim yosef': 'חיים יוסף',
+  'yosef chaim': 'יוסף חיים',
+};
+
 // ---------- פון ענגליש צו אידיש (פארקערט) — למשל פאר אן אלטע רשימה וואס איז נאר אויף ענגליש ----------
 const lc = (s) => String(s || '').trim().toLowerCase();
 
@@ -262,6 +297,7 @@ function reverseDictRaw(contacts, pairs, base) {
   const best = new Map();
   counts.forEach((m, e) => best.set(e, [...m.entries()].sort((a, b) => b[1] - a[1])[0][0]));
   Object.entries(base).forEach(([he, en]) => { if (!best.has(lc(en))) best.set(lc(en), he); });
+  if (base === COMMON) Object.entries(EN_MULTI).forEach(([en, he]) => { if (!best.has(en)) best.set(en, he); });
   if (base === COMMON) Object.entries(EN_FIRST).forEach(([he, ens]) => ens.split(' ').forEach((en) => { if (!best.has(lc(en))) best.set(lc(en), he); }));
   return best;
 }
