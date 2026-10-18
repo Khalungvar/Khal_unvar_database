@@ -264,3 +264,6 @@ input[type="radio"] { width: auto !important; margin: 0; accent-color: var(--acc
 .add-family-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-top: 10px; }
 .add-family-row label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
 .add-family-row label.grow { flex: 1 1 220px; }
+
+/* מילוי אוטומטי שעוד לא נבדק */
+input.suggested { color: var(--muted); font-style: italic; background: var(--chip); }

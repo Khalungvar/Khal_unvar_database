@@ -9,6 +9,7 @@ import { suggest, details, placesEnabled, placesError } from './places.js';
 import {
   t, setLang, getLang, applyStatic, maritalLabel, relationLabel,
 } from './i18n.js';
+import { suggestFirstName, suggestLastName } from './names.js';
 import {
   normalize, digits, formatPhone, isTrue, isAlive, splitTags, joinTags,
   gematriaCodes, primaryCode, parseCodeQuery, mailingName, escapeHtml as h,
@@ -461,6 +462,20 @@ function wireForm(form, original) {
       }
     });
   });
+
+  // הצעת שם באנגלית לפי העברית — רק כשהשדה באנגלית ריק. מוצג באפור עד שמשנים או מאשרים.
+  const suggestInto = (heName, enName, fn) => {
+    f(heName).addEventListener('blur', () => {
+      const en = f(enName);
+      if (en.value.trim()) return;
+      const guess = fn(f(heName).value, state.contacts);
+      if (guess) { en.value = guess; en.classList.add('suggested'); en.title = t('suggestedTip'); }
+    });
+    f(enName).addEventListener('input', () => { f(enName).classList.remove('suggested'); f(enName).title = ''; });
+  };
+  suggestInto('first_name_he', 'first_name_en', suggestFirstName);
+  suggestInto('last_name_he', 'last_name_en', suggestLastName);
+  suggestInto('wife_name_he', 'wife_name_en', suggestFirstName);
 
   // השלמת תואר דו-כיוונית — רק כשהשני ריק
   f('title_he').addEventListener('change', () => {
