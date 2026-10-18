@@ -117,7 +117,7 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 - **Phones:** contact_id, mobile, mobile_tags, home_phone, home_phone_tags, wife_mobile, wife_mobile_tags, other_phone, other_phone_tags, email_1, email_1_tags, email_2, email_2_tags, comments
 - **Donations:** donation_id, contact_id, date, hebrew_date, event_tags, event_year, event_note, sponsor_from, sponsor_to, amount_usd, is_paid, paid_date, paid_note, payment_method, check_number, card_last4, payment_note, dedication_type, dedication_text, created_at, created_by
 - **Relations:** relation_id, contact_id_a, relation_type, contact_id_b
-- **Yahrzeit:** yahrzeit_id, contact_id, hebrew_day, hebrew_month, hebrew_year, deceased_name, deceased_father_name, relation_to_contact
+- **Yahrzeit:** yahrzeit_id, contact_id, hebrew_day, hebrew_month, hebrew_year, deceased_name, deceased_father_name, relation_to_contact, leap_year_adar
 - **Settings:** admin_email, note
 - **Lists:** title_he, title_en, marital_status, event_tag, payment_method, dedication_type, relation_type, community_tag, title_he_default_en, title_en_default_he, phone_tag, email_tag, relation_reverse, yahrzeit_relation
 
