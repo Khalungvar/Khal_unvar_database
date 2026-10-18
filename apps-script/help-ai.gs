@@ -5,7 +5,8 @@
  * לייענט דעם פירער (help/guide.md + guide.en.md) פונעם אתר, און פרעגט Gemini — וואס ענטפערט נאר לויט דעם פירער.
  *
  * דער שליסל (API key) איז נישט דא! ער שטייט נאר אין: Project Settings ← Script Properties ← GEMINI_API_KEY.
- * (נישט געמוזט: GEMINI_MODEL — דיפאלט gemini-flash-latest; DAILY_LIMIT — דיפאלט 40 שאלות א טאג פער מענטש.)
+ * (נישט געמוזט: GEMINI_MODEL — דיפאלט gemini-flash-latest; DAILY_LIMIT — דיפאלט 40 שאלות א טאג פער מענטש;
+ *  MAX_TOKENS — די לענג פונעם ענטפער, דיפאלט 4096. די נייע מאדעלן "טראכטן" אויך מיט די טאקענס — דערפאר גרויס.)
  */
 
 const SITE = 'https://khalungvar.github.io/Khal_unvar_database/';
@@ -56,7 +57,7 @@ function doPost(e) {
       payload: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: 'user', parts: [{ text: question }] }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 900 },
+        generationConfig: { temperature: 0.2, maxOutputTokens: Number(props.getProperty('MAX_TOKENS') || 4096) },
       }),
     });
     if (res.getResponseCode() !== 200) return out({ error: 'ai-' + res.getResponseCode(), detail: res.getContentText().slice(0, 300) });
