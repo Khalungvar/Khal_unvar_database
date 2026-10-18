@@ -132,10 +132,11 @@ export function renderAdmin() {
   if (!state.isAdmin) { main.innerHTML = `<p class="empty">${h(t('adminOnly'))}</p>`; return; }
   const defs = [];
   const tabBtn = (key, label) => `<button type="button" data-adm-tab="${key}" class="${admTab === key ? 'on' : ''}">${h(t(label))}</button>`;
+  if (admTab === 'people' && !state.isOwner) admTab = 'lists';
   main.innerHTML = `<h2>${t('adminTitle')}</h2>
-    <nav class="adm-tabs">${tabBtn('lists', 'admTabLists')}${tabBtn('people', 'admTabPeople')}${tabBtn('requests', 'admTabRequests')}</nav>
+    <nav class="adm-tabs">${tabBtn('lists', 'admTabLists')}${state.isOwner ? tabBtn('people', 'admTabPeople') : ''}${tabBtn('requests', 'admTabRequests')}</nav>
     <p class="muted adm-intro" data-tab="lists">${t('adminHint')}</p>`
-    + GROUPS.map((g) => `<div class="adm-group" data-tab="${PEOPLE_TAB.has(g.title) ? 'people' : 'lists'}" data-g="${g.title}"><h3 class="adm-group-title">${h(t(g.title))}</h3><div class="adm-grid">${
+    + GROUPS.filter((g) => state.isOwner || !PEOPLE_TAB.has(g.title)).map((g) => `<div class="adm-group" data-tab="${PEOPLE_TAB.has(g.title) ? 'people' : 'lists'}" data-g="${g.title}"><h3 class="adm-group-title">${h(t(g.title))}</h3><div class="adm-grid">${
       g.lists.map((def) => { defs.push(def); return cardHtml(def, defs.length - 1); }).join('')}</div></div>`).join('')
     + `<div class="adm-group" id="adm-sharing" data-tab="people"></div>`
     + `<div class="adm-group" id="adm-lock" data-tab="people-lock"></div>`
@@ -163,7 +164,7 @@ export function renderAdmin() {
   wireLogos(main);
   wireCampaignsAdmin(main);
   $('[data-g="admPeople"]', main)?.after($('#adm-sharing', main));
-  renderSharing();
+  if (state.isOwner) renderSharing();
 
   $$('.adm-card[data-key]', main).forEach((card) => wireCard(card, defs[Number(card.dataset.key)]));
 }

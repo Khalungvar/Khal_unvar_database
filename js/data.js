@@ -144,6 +144,10 @@ export async function loadAll() {
   // נאר ווער עס איז רעגיסטרירט אין אדמין (מנהל אדער גבאי) קען אריין
   const gabbaim = settings.map((s) => String(s.gabbai_email || '').trim().toLowerCase()).filter(Boolean);
   state.isAllowed = state.isAdmin || gabbaim.includes(state.email);
+  // בעל הבית (Settings → owner_email): נאר ער זעט "מנהלים, גבאים און צוטריט". די לשונית Settings איז
+  // אויך פארשלאסן אין גוגל שיטס (Protected range) — נאר ער קען זי טוישן, אפילו גלייך אין שיט.
+  const owners = settings.map((s) => String(s.owner_email || '').trim().toLowerCase()).filter(Boolean);
+  state.isOwner = owners.length ? owners.includes(state.email) : state.isAdmin;
 }
 
 /** המספר הבא, לפי מה שכתוב בגליון ממש עכשיו (למקרה שגבאי אחר הוסיף בינתיים). */
