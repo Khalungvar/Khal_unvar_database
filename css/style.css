@@ -583,3 +583,6 @@ body.lobby-mode .app-body { grid-template-columns: 1fr; }
 .lobby-choose { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--surface); border: 1px dashed var(--accent);
   border-radius: 12px; padding: 12px; }
 .soon-box { text-align: center; margin: 60px auto; max-width: 520px; }
+
+.lobby-row4 { grid-template-columns: 1fr 1fr 2fr; }
+@media (max-width: 700px) { .lobby-row4 { grid-template-columns: 1fr; } }

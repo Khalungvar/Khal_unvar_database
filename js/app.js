@@ -23,6 +23,9 @@ import {
 import { initLists, renderListsSide, renderBuilder, openOverview } from './lists.js';
 import { initAdmin, renderAdmin, adminDirty } from './admin.js';
 import {
+  nextOccurrence, daysBetween, todayIso, monthKeyFromHe,
+} from './hebdate.js';
+import {
   getScope, setScope, restoreScope, withFormer, setWithFormer, contactInScope, donationInScope, umbrellaName,
 } from './scope.js';
 import {
@@ -114,17 +117,12 @@ function renderLobby() {
       ${typeTile(ORG_FIELDS[0], '🕍')}
       ${typeTile(ORG_FIELDS[1], '📖')}
       ${typeTile(ORG_FIELDS[2], '🤝')}
-      ${tile('area', '📍', t('area'), t('lobbyAreaSub', { n: areas.length }))}
     </div>
     ${open ? `<div class="lobby-choose">
       <span class="muted">${h(t('lobbyChoose'))}</span>
       <button type="button" class="btn" data-scope-type="${open[0]}" data-scope-value="">${h(t('lobbyAllOf', { name: t(open[1] === 'orgBeisMedrash' ? 'lobbyBatei' : open[1]) }))}</button>
       ${(state.lists[open[0]] || []).map((v) => `<button type="button" class="btn primary" data-scope-type="${open[0]}" data-scope-value="${h(v)}">${h(v)}
         <span class="count-pill">${currentCount(open[0], v)}</span></button>`).join('')}
-    </div>` : ''}
-    ${lobbyOpen === 'area' ? `<div class="lobby-choose">
-      <span class="muted">${h(t('lobbyChoose'))}</span>
-      ${areas.map((a) => `<button type="button" class="btn primary" data-area="${h(a)}">${h(a)} <span class="count-pill">${areaCount(a)}</span></button>`).join('')}
     </div>` : ''}
     <div class="lobby-row">
       ${tile('lists', '📋', t('readyLists'), t('lobbyListsSub', { n: state.savedLists.length }))}
@@ -133,7 +131,25 @@ function renderLobby() {
     </div>
     <div class="lobby-row">
       ${tile('personal', '👤', t('lobbyPersonal'), t('lobbyPersonalSub'))}
-    </div>`;
+    </div>
+    <div class="lobby-row lobby-row4">
+      ${tile('area', '📍', t('area'), t('lobbyAreaSub', { n: areas.length }))}
+      ${tile('donations', '💰', t('lobbyDonations'), t('lobbyDonationsSub', { n: state.donations.length }))}
+      ${tile('occasions', '🕯', t('lobbyOccasions'), t('lobbyOccasionsSub', { n: upcomingWeek() }), 'data-wide')}
+    </div>
+    ${lobbyOpen === 'area' ? `<div class="lobby-choose">
+      <span class="muted">${h(t('lobbyChoose'))}</span>
+      ${areas.map((a) => `<button type="button" class="btn primary" data-area="${h(a)}">${h(a)} <span class="count-pill">${areaCount(a)}</span></button>`).join('')}
+    </div>` : ''}
+`;
+}
+
+/** וויפיל מאורעות זענען די קומענדיגע וואך (פאר דעם לאבי). */
+function upcomingWeek() {
+  return state.occasions.filter((o) => {
+    const next = nextOccurrence(Number(o.hebrew_day), monthKeyFromHe(o.hebrew_month), monthKeyFromHe(o.adar_in_leap));
+    return next && daysBetween(todayIso(), next) <= 7;
+  }).length;
 }
 
 function lobbyClick(e) {
@@ -163,6 +179,8 @@ function lobbyClick(e) {
   if (key === 'umbrella') { lobbyOpen = ''; enterScope(null); showView('contacts'); return; }
   if (ORG_FIELDS.some(([n]) => n === key)) { lobbyOpen = lobbyOpen === key ? '' : key; renderLobby(); return; }
   if (key === 'lists') { openOverview(); return; }
+  if (key === 'donations') { setScope(null); refreshAll(); showView('donations'); return; }
+  if (key === 'occasions') { setScope(null); refreshAll(); showView('occasions'); return; }
   showSoon(key);
 }
 
