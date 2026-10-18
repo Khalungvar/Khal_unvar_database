@@ -52,7 +52,7 @@ function search(q) {
 
 /** א ביסל markdown: רשימות, נומערן, **דיק** */
 function md(body) {
-  const inline = (x) => h(x).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+  const inline = (x) => h(x).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, '$1<i>$2</i>');
   const out = []; let list = '';
   const close = () => { if (list) { out.push(`</${list}>`); list = ''; } };
   body.split('\n').forEach((line) => {
