@@ -22,13 +22,13 @@ export const CONFIG = {
   // הקובץ המקורי נשמר בדרייב שלו, בתיקייה הזאת (עם תת-תיקיות Logos / Photos).
   DATABASE_ACCOUNT: 'khalungvardatabase@gmail.com',
   DRIVE_FOLDER: 'Khal Ungvar – Database',
+
+  // נומער פונעם פראיעקט אין Google Cloud (דער אנהייב פונעם CLIENT_ID) — פאר דעם "קלייבן א טעקע" פענצטער (Picker)
+  PROJECT_NUMBER: '73541082309',
 };
 
 // הרשאה לדרייב — רק לקבצים שהאתר עצמו יוצר. מבקשים אותה רק כשמעלים בפעם הראשונה.
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-
-// הרשאה צו שערן דעם שיט מיט די גבאים (פון אדמין). מ'בעט עס נאר ביים בעל הבית, ווען ער היט אפ מענטשן.
-export const SHARE_SCOPE = 'https://www.googleapis.com/auth/drive';
 
 export const SCOPES = [
   'openid',

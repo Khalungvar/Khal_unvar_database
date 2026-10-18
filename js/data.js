@@ -3,7 +3,7 @@
 import {
   readTabs, readColumn, readCell, appendRow, appendRows, updateRow, updateCell, updateRange,
   ensureDriveScope, hasDriveScope, driveFolder, driveUpload,
-  hasShareScope, ensureShareScope, sheetPermissions, shareSheet, unshareSheet,
+  pickSheet, sheetPermissions, shareSheet, unshareSheet,
 } from './google.js';
 import { CONFIG } from './config.js';
 import { nowStamp } from './util.js';
@@ -392,7 +392,16 @@ export function allUsers() {
 }
 
 // ---------- צוטריט צום שיט: לויט דער רשימה אין אדמין ----------
-export { hasShareScope, ensureShareScope };
+export { pickSheet };
+
+/** צי האט דער אתר שוין רשות צו פירן דעם צוטריט (מיר פרובירן צו לייענען ווער עס האט צוטריט). */
+export async function canManageSharing() {
+  if (!hasDriveScope()) return false;
+  try { await sheetPermissions(); return true; } catch (err) {
+    if (err.status === 403 || err.status === 404) return false;
+    throw err;
+  }
+}
 
 /**
  * פארגלייכט ווער עס האט צוטריט צום שיט מיט די מנהלים + גבאים אין אדמין.

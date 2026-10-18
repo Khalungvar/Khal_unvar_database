@@ -6,7 +6,7 @@ import {
 import { t } from './i18n.js';
 import { splitTags, escapeHtml as h, shrinkImage } from './util.js';
 import {
-  saveYearly, saveCampaign, deleteYearly, deleteCampaign, hasShareScope, ensureShareScope, sharingPlan, applySharing, allUsers,
+  saveYearly, saveCampaign, deleteYearly, deleteCampaign, canManageSharing, pickSheet, sharingPlan, applySharing, allUsers,
 } from './data.js';
 import { yearlySeries, allCampaigns, curYear } from './campaigns.js';
 import { orgSelect } from './donations.js';
@@ -163,7 +163,7 @@ function wireCard(card, def) {
   };
   $('.adm-save', card).onclick = async () => {
     // מנהלים/גבאים: באלד נאכן אפהיטן — שערן דעם שיט. די הרשאה מוז מען בעטן גלייך פונעם קליק.
-    const shareP = def.source === 'settings' ? ensureShareScope().then(() => true, () => false) : null;
+    const shareP = def.source === 'settings' && hasDriveScope() ? canManageSharing().catch(() => false) : null;
     const rows = $$('tr', body).map((tr) => $$('input', tr).map((i) => i.value.trim())).filter((r) => r[0]);
     const firsts = rows.map((r) => r[0]);
     const dup = firsts.find((v, i) => firsts.indexOf(v) !== i);
@@ -200,11 +200,23 @@ async function renderSharing() {
   const box = $('#adm-sharing');
   if (!box) return;
   const head = `<h3 class="adm-group-title">🔐 ${h(t('shareTitle'))}</h3><p class="hint-line">${h(t('shareHint'))}</p>`;
-  if (!hasShareScope()) {
-    box.innerHTML = `${head}<p class="drive-warn">${h(t('shareNeedConnect'))}
-      <button type="button" class="btn small-btn primary" id="share-connect">🔗 ${h(t('shareConnectBtn'))}</button></p>`;
+  // שריט 1: די קליינע דרייב הרשאה · שריט 2: קלייבן דעם שיט אין גוגל'ס פענצטער (איין מאל)
+  const connectBtn = (step) => `${head}<p class="drive-warn">${h(t(step === 1 ? 'shareNeedConnect' : 'shareNeedPick'))}
+      <button type="button" class="btn small-btn primary" id="share-connect">🔗 ${h(t(step === 1 ? 'shareConnectBtn' : 'sharePickBtn'))}</button></p>`;
+  if (!hasDriveScope()) {
+    box.innerHTML = connectBtn(1);
     $('#share-connect', box).onclick = () => {
-      ensureShareScope().then(() => renderSharing(), (err) => ui.toast(ui.friendlyError(err), 'error'));
+      connectDrive().then(() => renderSharing(), (err) => ui.toast(ui.friendlyError(err), 'error'));
+    };
+    return;
+  }
+  box.innerHTML = `${head}<p class="muted">${h(t('loading'))}</p>`;
+  let can = false;
+  try { can = await canManageSharing(); } catch (err) { box.innerHTML = `${head}<p class="drive-warn">${h(ui.friendlyError(err))}</p>`; return; }
+  if (!can) {
+    box.innerHTML = connectBtn(2);
+    $('#share-connect', box).onclick = () => {
+      pickSheet().then((ok) => { if (ok) renderSharing(); }, () => ui.toast(t('sharePickFail'), 'error'));
     };
     return;
   }

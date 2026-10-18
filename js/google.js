@@ -1,7 +1,7 @@
 // לוגאין עם גוגל וגישה לגוגל שיטס.
 // גוגל נותנת "מפתח כניסה" (טוקן) שתקף שעה אחת. שומרים אותו בדפדפן עד שהוא פג,
 // כדי שרענון של הדף לא ידרוש התחברות מחדש. אחרי שעה מבקשים לחיצה אחת לחידוש.
-import { CONFIG, SCOPES, DRIVE_SCOPE, SHARE_SCOPE } from './config.js';
+import { CONFIG, SCOPES, DRIVE_SCOPE } from './config.js';
 
 const STORE = 'khal-auth';
 let tokenClient = null;
@@ -110,19 +110,38 @@ export function ensureDriveScope() {
   });
 }
 
-export function hasShareScope() {
-  return grantedScopes.split(' ').includes(SHARE_SCOPE);
+// ---------- שערן דעם שיט ----------
+// מיר בעטן נישט די "גאנצע דרייב" הרשאה (גוגל בלאקירט עס פאר אפליקאציעס וואס זענען נישט געפרופט).
+// אנשטאט: די קליינע הרשאה (drive.file) + דער בעל הבית קלייבט איין מאל דעם שיט אין גוגל'ס "Picker" —
+// דערנאך מעג דער אתר פירן ווער עס האט צוטריט צו יענעם שיט (און נאר צו אים).
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.async = true; s.onload = resolve; s.onerror = () => reject(new Error('script'));
+    document.head.append(s);
+  });
 }
 
-/** בעט (איין מאל) די הרשאה צו שערן דעם שיט. גלייך פון א קליק! */
-export function ensureShareScope() {
-  if (hasShareScope()) return Promise.resolve();
+/** עפנט גוגל'ס פענצטער מיט נאר אונזער שיט; דער באנוצער דריקט "Select". */
+export async function pickSheet() {
+  await loadScript('https://apis.google.com/js/api.js');
+  await new Promise((resolve) => window.gapi.load('picker', resolve));
+  const P = window.google.picker;
   return new Promise((resolve, reject) => {
-    pendingResolve = resolve;
-    pendingReject = reject;
-    tokenClient.requestAccessToken({
-      scope: `${SCOPES} ${SHARE_SCOPE}`, include_granted_scopes: true, prompt: 'consent', login_hint: hintEmail || undefined,
-    });
+    const view = new P.DocsView(P.ViewId.SPREADSHEETS).setFileIds(CONFIG.SPREADSHEET_ID).setMode(P.DocsViewMode.LIST);
+    const picker = new P.PickerBuilder()
+      .addView(view)
+      .setOAuthToken(accessToken)
+      .setDeveloperKey(CONFIG.MAPS_API_KEY)
+      .setAppId(CONFIG.PROJECT_NUMBER)
+      .setCallback((data) => {
+        if (data.action === P.Action.PICKED) resolve(true);
+        else if (data.action === P.Action.CANCEL) resolve(false);
+        else if (data.action === 'error') reject(new Error('picker'));
+      })
+      .build();
+    picker.setVisible(true);
   });
 }
 
