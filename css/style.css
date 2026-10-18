@@ -482,3 +482,5 @@ dialog.sheet.full { width: min(1200px, 96vw); max-width: 96vw; max-height: 94vh;
 .scope-bar b { font-size: 18px; }
 .scope-bar .check { color: #fff; font-size: 14px; }
 .scope-bar .btn { background: #fff; color: var(--accent); border-color: #fff; }
+
+.btn-group { display: inline-flex; gap: 8px; flex-wrap: nowrap; }

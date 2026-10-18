@@ -8,22 +8,22 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="img/favicon.png">
-  <link rel="stylesheet" href="css/style.css?v=51">
+  <link rel="stylesheet" href="css/style.css?v=52">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script type="importmap">
   {"imports": {
-    "./js/app.js": "./js/app.js?v=51",
-    "./js/config.js": "./js/config.js?v=51",
-    "./js/data.js": "./js/data.js?v=51",
-    "./js/donations.js": "./js/donations.js?v=51",
-    "./js/hebdate.js": "./js/hebdate.js?v=51",
-    "./js/google.js": "./js/google.js?v=51",
-    "./js/i18n.js": "./js/i18n.js?v=51",
-    "./js/names.js": "./js/names.js?v=51",
-    "./js/occasions.js": "./js/occasions.js?v=51",
-    "./js/places.js": "./js/places.js?v=51",
-    "./js/scope.js": "./js/scope.js?v=51",
-    "./js/util.js": "./js/util.js?v=51"
+    "./js/app.js": "./js/app.js?v=52",
+    "./js/config.js": "./js/config.js?v=52",
+    "./js/data.js": "./js/data.js?v=52",
+    "./js/donations.js": "./js/donations.js?v=52",
+    "./js/hebdate.js": "./js/hebdate.js?v=52",
+    "./js/google.js": "./js/google.js?v=52",
+    "./js/i18n.js": "./js/i18n.js?v=52",
+    "./js/names.js": "./js/names.js?v=52",
+    "./js/occasions.js": "./js/occasions.js?v=52",
+    "./js/places.js": "./js/places.js?v=52",
+    "./js/scope.js": "./js/scope.js?v=52",
+    "./js/util.js": "./js/util.js?v=52"
   }}
   </script>
   <script type="module">import "./js/app.js";</script>
@@ -102,8 +102,10 @@
         <select id="don-org" aria-label="Organization"></select>
         <label class="check"><input type="checkbox" id="don-unpaid"> <span data-i18n="onlyUnpaid"></span></label>
         <span class="spacer"></span>
-        <button id="btn-campaign" class="btn" data-i18n="campaignBtn"></button>
-        <button id="btn-new-donation" class="btn primary" data-i18n="newDonation"></button>
+        <span class="btn-group">
+          <button id="btn-campaign" class="btn" data-i18n="campaignBtn"></button>
+          <button id="btn-new-donation" class="btn primary" data-i18n="newDonation"></button>
+        </span>
       </div>
       <p id="don-summary" class="muted"></p>
       <div id="don-list" class="list"></div>
