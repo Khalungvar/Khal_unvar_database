@@ -102,6 +102,7 @@ function showView(name) {
   $$('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === name));
   if (name === 'donations') { fillDonationFilters(); renderDonations(); }
   if (name === 'occasions') { fillOccasionFilters(); renderOccasions(); }
+  $('#btn-home')?.classList.toggle('on', name === 'contacts');
   if (name !== 'orgs') $$('#org-side .org-link').forEach((b) => b.classList.remove('on'));
   if (name === 'orgs') renderOrgs();
   if (name === 'campaign') renderCampaignPage();
@@ -1177,6 +1178,7 @@ function start() {
   // לחיצה על הלוגו → חזרה למסך הראשי (קאנטאקטן)
   $('.topbar .brand').style.cursor = 'pointer';
   $('.topbar .brand').onclick = () => showView('contacts');
+  $('#btn-home').onclick = () => { showView('contacts'); document.body.classList.remove('menu-open'); };
   $('#btn-menu').onclick = () => document.body.classList.toggle('menu-open');
   $('#org-main').addEventListener('click', (e) => {
     const open = e.target.closest('.org-open');

@@ -473,3 +473,5 @@ dialog.sheet.full { width: min(1200px, 96vw); max-width: 96vw; max-height: 94vh;
 .camp-org-line { white-space: nowrap; }
 
 .side-new { margin: 8px 6px 0; }
+
+.side-home { font-weight: 600; border-bottom: 1px solid var(--gold); border-radius: 8px 8px 0 0; margin-bottom: 8px; }
