@@ -311,3 +311,5 @@ dialog { position: relative; }
   margin-inline-start: 8px;
 }
 .x-close:hover { color: var(--accent); border-color: var(--accent); }
+.form-family .add-family-row { margin-top: 6px; }
+fieldset > textarea { width: 100%; }

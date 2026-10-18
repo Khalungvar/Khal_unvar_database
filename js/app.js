@@ -392,6 +392,48 @@ function orgLabels(c) {
   return ORG_FIELDS.flatMap(([name]) => splitTags(c[name]));
 }
 
+/** קשרים משפחתיים בתוך הטופס: נשמרים יחד עם איש הקשר כשלוחצים אפהיטן. */
+function wireFormFamily(form, c) {
+  const box = $('.form-family', form);
+  const existing = state.relations.filter((r) => c.contact_id && String(r.contact_id_a) === String(c.contact_id));
+  form._relAdds = [];
+  form._relRemoves = [];
+  const render = () => {
+    const rows = [
+      ...existing.filter((r) => !form._relRemoves.includes(r)).map((r) => ({ type: r.relation_type, b: r.contact_id_b, rel: r })),
+      ...form._relAdds.map((a, i) => ({ type: a.type, b: a.b, add: i })),
+    ];
+    $('.fam-list', box).innerHTML = rows.map((r, i) => {
+      const other = contactById(r.b);
+      return `<div class="kv family-row"><span>${h(relationLabel(r.type))}</span>
+        <span>${h(other ? fullNameHe(other) : `#${r.b}`)}${r.add !== undefined ? ` <em class="muted">(${t('pendingSave')})</em>` : ''}
+        <button type="button" class="icon-btn" data-i="${i}">✕</button></span></div>`;
+    }).join('');
+    $$('.fam-list .icon-btn', box).forEach((b) => {
+      b.onclick = () => {
+        const r = rows[Number(b.dataset.i)];
+        if (r.rel) form._relRemoves.push(r.rel); else form._relAdds.splice(r.add, 1);
+        form.dataset.dirty = '1';
+        render();
+      };
+    });
+  };
+  $('.rel-add', box).onclick = () => {
+    const type = $('.rel-type', box).value;
+    const m = $('.rel-contact', box).value.match(/\(#(\d+)\)/);
+    if (!type || !m || !contactById(m[1])) { toast(t('pickValid'), 'error'); return; }
+    if (String(m[1]) === String(c.contact_id ?? '')) { toast(t('relSelf'), 'error'); return; }
+    const dup = existing.some((r) => !form._relRemoves.includes(r) && r.relation_type === type && String(r.contact_id_b) === m[1])
+      || form._relAdds.some((a) => a.type === type && String(a.b) === m[1]);
+    if (dup) { toast(t('relExists'), 'error'); return; }
+    form._relAdds.push({ type, b: Number(m[1]) });
+    $('.rel-contact', box).value = '';
+    form.dataset.dirty = '1';
+    render();
+  };
+  render();
+}
+
 function openForm(c = {}) {
   const p = c.contact_id ? phonesOf(c) : {};
   const v = (k) => h(c[k] ?? '');
@@ -474,7 +516,23 @@ function openForm(c = {}) {
           <label>${label}<input name="${k}" type="email" dir="ltr" value="${h(p[k] ?? '')}"></label>
           ${tagPicker(`${k}_tags`, 'email_tag', p[`${k}_tags`])}
         </div>`).join('')}
-      <label>${h(t('commentsLabel'))}<textarea name="comments" rows="2">${h(p.comments ?? '')}</textarea></label>
+    </fieldset>
+
+    <fieldset class="form-family"><legend>${t('family')}</legend>
+      <div class="fam-list"></div>
+      <div class="add-family-row">
+        <label>${t('relationType')}<select class="rel-type">${(state.lists.relation_type || [])
+          .map((rv) => `<option value="${h(rv)}">${h(relationLabel(rv))}</option>`).join('')}</select></label>
+        <label class="grow">${t('pickContact')}<input class="rel-contact" list="dl-form-contacts" autocomplete="off"></label>
+        <button type="button" class="btn rel-add">${t('addBtn')}</button>
+      </div>
+      <datalist id="dl-form-contacts">${state.contacts
+        .filter((x) => String(x.contact_id) !== String(c.contact_id ?? '') && (isTrue(x.is_active) || x.is_active === ''))
+        .map((x) => `<option value="${h(pickerLabel(x))}">`).join('')}</datalist>
+    </fieldset>
+
+    <fieldset><legend>${t('comments')}</legend>
+      <textarea name="comments" rows="2" aria-label="${h(t('comments'))}">${h(p.comments ?? '')}</textarea>
     </fieldset>
 
     <div class="actions">
@@ -595,6 +653,8 @@ function wireForm(form, original) {
   form.addEventListener('click', (e) => { // לחיצה מחוץ לגלילה סוגרת אותה
     if (!e.target.closest('details.multi')) $$('details.multi[open]', form).forEach((d) => { d.open = false; });
   });
+
+  wireFormFamily(form, original);
 
   wireAddressAutocomplete(form);
 
@@ -730,6 +790,8 @@ async function submit(form, original) {
   btn.textContent = t('saving');
   try {
     const id = await saveContact(contact, phones);
+    for (const rel of form._relRemoves || []) await removeRelation(rel);
+    for (const add of form._relAdds || []) await addRelation(id, add.type, add.b);
     await loadAll();
     renderList();
     $('#contact-form').dataset.dirty = '';
