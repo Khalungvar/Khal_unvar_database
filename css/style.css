@@ -972,3 +972,22 @@ body.solo-mode .solo-only { display: inline-flex !important; }
   body.printing-rc .rc-doc { break-after: page; page-break-after: always; }
   body.printing-rc .rc-doc:last-child { break-after: auto; page-break-after: auto; }
 }
+/* דער בריוו אין פארעם */
+.od-letter { background: #fffdf8; border: 1px solid var(--gold); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.od-letter input, .od-letter textarea, .od-letter select { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); }
+.od-letter textarea { font-family: 'Frank Ruhl Libre', 'David', serif; font-size: 16px; line-height: 1.5; }
+.od-date { color: var(--muted); }
+.od-sal { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-weight: 700; }
+.od-sal input { flex: 0 0 170px; width: 170px; }
+.od-sal .od-short { flex: 0 0 80px; width: 80px; }
+.od-auto { background: var(--gold-soft); color: #5b4511; border-radius: 6px; padding: 4px 10px; font-size: 14px; }
+.od-middle { align-self: flex-start; }
+.od-hist { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.od-hist select { flex: 1; }
+.od-center { display: flex; justify-content: center; }
+.od-center input { text-align: center; min-width: 220px; }
+.od-sigprev img { max-height: 50px; }
+.rc-for { flex: 1 1 300px; }
+.rc-for input { flex: 1; font: inherit; padding: 6px 9px; border: 1px solid var(--line); border-radius: 8px; }
+.rd-close, .rd-sig { padding-inline-start: 0 !important; text-align: center; }
+.rd-sig { display: flex; flex-direction: column; align-items: center; }
