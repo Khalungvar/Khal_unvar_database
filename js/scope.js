@@ -80,8 +80,17 @@ export function isFormerInScope(c) {
   return Boolean(s) && s.type !== 'area' && isTrue(c[`${s.type}_former`]);
 }
 
+/** צו וועלכן יערליכן קאמפיין געהערט א נאמען ווי "קאווע תשפ"ז"? (דער לענגסטער נאמען וואס פאסט) */
+export function yearlyOf(name) {
+  const n = String(name || '');
+  return (state.yearly || []).filter((y) => n.startsWith(`${y.series} `))
+    .sort((a, b) => b.series.length - a.series.length)[0] || null;
+}
+
 export function campaignOrg(name) {
-  return name ? String(state.campaigns.find((c) => c.campaign === name)?.org || '') : '';
+  if (!name) return '';
+  const row = state.campaigns.find((c) => c.campaign === name);
+  return String(row?.org || yearlyOf(name)?.org || '');
 }
 
 /** הארגון של הנדבה: של הקאמפיין (אם מוגדר), אחרת מה שנבחר בנדבה. */

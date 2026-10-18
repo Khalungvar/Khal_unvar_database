@@ -20,6 +20,7 @@ export const state = {
   occasions: [],
   orgNotes: [],
   campaigns: [],
+  yearly: [],        // יערליכע קאמפיינען (YearlyCampaigns): { series, org, event_tags, note, active, order }
   savedLists: [],
   mailTemplates: [],
   messages: [],
@@ -77,7 +78,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -114,6 +115,10 @@ export async function loadAll() {
   const campaigns = rowsToObjects(tabs.Campaigns);
   state.headers.Campaigns = campaigns.header;
   state.campaigns = campaigns.objects;
+
+  const yearly = rowsToObjects(tabs.YearlyCampaigns || [['series']]);
+  state.headers.YearlyCampaigns = yearly.header;
+  state.yearly = yearly.objects.filter((y) => String(y.series || '').trim());
 
   const orgNotes = rowsToObjects(tabs.OrgNotes);
   state.headers.OrgNotes = orgNotes.header;
@@ -439,6 +444,18 @@ export async function saveCampaign(campaign) {
   const row = existing ? await findRow('Campaigns', c.campaign) : null;
   if (row) await updateRow('Campaigns', row, objectToRow(state.headers.Campaigns, c));
   else await appendRow('Campaigns', objectToRow(state.headers.Campaigns, c));
+}
+
+/** א יערליכער קאמפיין (די "סעריע"): לייגט צו אדער פארריכט לויט נאמען. */
+export async function saveYearly(y) {
+  const stamp = nowStamp();
+  const existing = state.yearly.find((x) => x.series === y.series);
+  const o = { ...(existing || { created_at: stamp, created_by: state.email, active: true }), ...y, updated_at: stamp, updated_by: state.email };
+  delete o._row;
+  const row = existing ? await findRow('YearlyCampaigns', o.series) : null;
+  if (row) await updateRow('YearlyCampaigns', row, objectToRow(state.headers.YearlyCampaigns, o));
+  else await appendRow('YearlyCampaigns', objectToRow(state.headers.YearlyCampaigns, o));
+  await logChanges('yearly', o.series, '', existing || {}, o);
 }
 
 /** מנהל בלבד: מוחק תרומה (מנקה את השורה בגליון). */

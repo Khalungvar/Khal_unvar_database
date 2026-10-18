@@ -783,3 +783,18 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 .hub-recent-head { display: flex; align-items: center; gap: 8px; }
 @media (max-width: 700px) { .hub-actions { grid-template-columns: 1fr; } }
 @media print { .hub-actions, .hub-back, #hub-lobby { display: none !important; } }
+
+/* ---------- יערליכע / איינמאליגע קאמפיינען ---------- */
+.nc-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0 14px; }
+.nc-kind { display: flex; flex-direction: column; gap: 4px; text-align: start; background: var(--surface); border: 2px solid var(--line, #ddd);
+  border-radius: 12px; padding: 12px 14px; font: inherit; cursor: pointer; }
+.nc-kind b { font-size: 17px; }
+.nc-kind span { font-size: 13px; color: var(--muted); }
+.nc-kind.on { border-color: var(--accent); background: #fbf3f3; box-shadow: 0 0 0 2px rgba(122,18,25,.12); }
+.warn-text { color: #a8650a; }
+.hub-camp.yearly { border-width: 1.5px; }
+.hub-camp.off { opacity: .6; }
+.series-table tr.this-year td { background: #fbf6e6; }
+.camp-stats.with-goal { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.camp-stats .hc-bar { margin-top: 4px; }
+@media (max-width: 700px) { .nc-kinds { grid-template-columns: 1fr; } .camp-stats.with-goal { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
