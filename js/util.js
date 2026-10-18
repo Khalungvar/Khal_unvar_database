@@ -125,3 +125,28 @@ export function escapeHtml(text) {
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   }[ch]));
 }
+
+const EUROPE = new Set(['GB', 'UK', 'BE', 'FR', 'DE', 'AT', 'CH', 'NL', 'HU', 'RO', 'SK', 'CZ', 'UA', 'PL',
+  'IT', 'ES', 'DK', 'SE', 'NO', 'IE', 'LU', 'LT', 'LV', 'EE', 'PT', 'GR', 'BG', 'HR', 'SI', 'RS']);
+const COUNTRY_CODES = { israel: 'IL', 'united kingdom': 'GB', england: 'GB', belgium: 'BE', france: 'FR',
+  germany: 'DE', austria: 'AT', switzerland: 'CH', netherlands: 'NL', hungary: 'HU', romania: 'RO',
+  slovakia: 'SK', ukraine: 'UA', usa: 'US', 'united states': 'US' };
+
+/**
+ * מזהה את הגעגנט (שכונה/עיר) לפי הכתובת. areas = [{ name, zips[], keywords[] }] מלשונית Lists.
+ * סדר: מדינה (ארץ ישראל / אירופה) → ZIP → שם שכונה/עיר. מחזיר '' אם לא זוהה.
+ */
+export function detectArea(areas, { zip = '', city = '', neighborhood = '', country = '' } = {}) {
+  const cc = (COUNTRY_CODES[String(country).trim().toLowerCase()] || String(country).trim().toUpperCase()).slice(0, 2);
+  if (cc && cc !== 'US') {
+    const byCountry = areas.find((a) => a.keywords.some((k) => k.toLowerCase() === `country:${cc.toLowerCase()}`))
+      || (EUROPE.has(cc) ? areas.find((a) => a.keywords.some((k) => k.toLowerCase() === 'country:eu')) : null);
+    return byCountry ? byCountry.name : '';
+  }
+  const z = String(zip).trim().slice(0, 5);
+  const byZip = z && areas.find((a) => a.zips.includes(z));
+  if (byZip) return byZip.name;
+  const text = `${neighborhood} ${city}`.toLowerCase();
+  const byName = areas.find((a) => a.keywords.some((k) => !k.startsWith('country:') && k && text.includes(k.toLowerCase())));
+  return byName ? byName.name : '';
+}

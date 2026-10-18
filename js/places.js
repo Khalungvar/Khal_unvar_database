@@ -100,6 +100,8 @@ export async function details(prediction) {
       state: get('administrative_area_level_1', true),
       zip: get('postal_code'),
       country: country === 'US' ? 'USA' : get('country'),
+      countryCode: country,
+      neighborhood: [get('neighborhood'), get('sublocality_level_1'), get('sublocality')].filter(Boolean).join(' '),
     };
   } catch (err) {
     console.error('Places details failed:', err);

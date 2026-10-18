@@ -12,7 +12,7 @@ import {
 import { suggestFirstName, suggestLastName } from './names.js';
 import {
   normalize, digits, formatPhone, isTrue, isAlive, splitTags, joinTags,
-  gematriaCodes, primaryCode, parseCodeQuery, mailingName, escapeHtml as h,
+  gematriaCodes, primaryCode, parseCodeQuery, mailingName, detectArea, escapeHtml as h,
 } from './util.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -146,15 +146,22 @@ function fillFilters() {
   sel.innerHTML = `<option value="">${h(t('allTags'))}</option>`
     + (state.lists.community_tag || []).map((tag) => `<option>${h(tag)}</option>`).join('');
   sel.value = current;
+  const areaSel = $('#area-filter');
+  const currentArea = areaSel.value;
+  areaSel.innerHTML = `<option value="">${h(t('allAreas'))}</option>`
+    + (state.lists.area || []).map((a) => `<option>${h(a)}</option>`).join('');
+  areaSel.value = currentArea;
 }
 
 function visibleContacts() {
   const query = $('#search').value;
   const tag = $('#tag-filter').value;
+  const area = $('#area-filter').value;
   const showInactive = $('#show-inactive').checked;
   return state.contacts
     .filter((c) => showInactive || isTrue(c.is_active) || c.is_active === '')
     .filter((c) => !tag || splitTags(c.community_tags).includes(tag))
+    .filter((c) => !area || c.area === area)
     .filter((c) => matches(c, query))
     .sort((a, b) => String(a.last_name_he).localeCompare(String(b.last_name_he), 'he')
       || String(a.first_name_he).localeCompare(String(b.first_name_he), 'he'));
@@ -183,7 +190,7 @@ function renderList() {
           <span class="row-name">${h(fullNameHe(c))} ${badges}</span>
           <span class="row-en" dir="ltr">${en ? unverifiedWrap(c, ['first_name_en', 'last_name_en'], h(en)) : `<em>${t('noEnName')}</em>`}</span>
         </span>
-        <span class="row-city">${h(c.city)}</span>
+        <span class="row-city">${c.area ? unverifiedWrap(c, ['area'], h(c.area)) : h(c.city)}</span>
         <span class="row-tags">${tags}</span>
       </button>`;
   }).join('');
@@ -234,7 +241,7 @@ function openCard(id) {
       ${field(t('wife'), wife)}
       ${field(t('community'), tagChips(c.community_tags))}
     </section>
-    ${address ? `<section><h3>${t('address')}</h3><p dir="ltr" class="addr">${address}</p></section>` : ''}
+    ${address || c.area ? `<section><h3>${t('address')}${c.area ? ` · ${unverifiedWrap(c, ['area'], h(c.area))}` : ''}</h3><p dir="ltr" class="addr">${address}</p></section>` : ''}
     ${phones || emails || p.comments ? `<section><h3>${t('phonesEmail')}</h3>${phones}${emails}${field(t('comments'), h(p.comments))}</section>` : ''}
     ${familySection(c)}
     <p class="meta">
@@ -418,6 +425,7 @@ function openForm(c = {}) {
         <label>State<input name="state" list="dl-state" value="${v('state')}"></label>
         <label>ZIP<input name="zip" value="${v('zip')}" inputmode="numeric"></label>
         <label>Country<input name="country" value="${v('country') || 'USA'}"></label>
+        <label class="area-field" dir="rtl">${t('area')}<select name="area">${options(state.lists.area, c.area)}</select></label>
       </div>
     </fieldset>
 
@@ -523,6 +531,23 @@ function wireForm(form, original) {
     }
   });
 
+  // געגנט: זיהוי אוטומטי לפי הכתובת (אפור עד אישור). לא דורס בחירה שכבר אושרה.
+  const suggestArea = () => {
+    const sel = f('area');
+    if (sel.value && !sel.classList.contains('suggested')) return;
+    const guess = detectArea(state.areas, {
+      zip: f('zip').value, city: f('city').value, country: f('country').value,
+      neighborhood: form.dataset.neighborhood || '',
+    });
+    if (guess && guess !== sel.value) { sel.value = guess; sel.classList.add('suggested'); sel.title = t('suggestedTip'); }
+  };
+  ['zip', 'city', 'country'].forEach((n) => f(n).addEventListener('change', suggestArea));
+  form.addEventListener('address-picked', suggestArea);
+  const confirmArea = () => { f('area').classList.remove('suggested'); f('area').title = ''; };
+  f('area').addEventListener('change', confirmArea);
+  f('area').addEventListener('mousedown', confirmArea);
+  if (!f('area').value) suggestArea(); // לאנשי קשר ישנים בלי געגנט — הצעה כשפותחים לעריכה
+
   wireAddressAutocomplete(form);
 
   $('#btn-cancel', form).onclick = () => $('#form-dialog').close();
@@ -570,6 +595,8 @@ function wireAddressAutocomplete(form) {
     form.elements.state.value = d.state;
     form.elements.zip.value = d.zip;
     form.elements.country.value = d.country || 'USA';
+    form.dataset.neighborhood = d.neighborhood || '';
+    form.dispatchEvent(new Event('address-picked'));
   });
   input.addEventListener('blur', () => setTimeout(close, 200));
 }
@@ -598,7 +625,8 @@ function collect(form, original) {
     state: val('state').toUpperCase(),
     zip: val('zip'),
     country: val('country') || 'USA',
-    unverified_fields: joinTags($$('input.suggested', form).filter((i) => i.value.trim()).map((i) => i.name)),
+    area: val('area'),
+    unverified_fields: joinTags($$('.suggested[name]', form).filter((i) => i.value.trim()).map((i) => i.name)),
   };
   delete contact._row;
 
@@ -674,6 +702,7 @@ function start() {
   $('#btn-new').onclick = () => openForm();
   $('#search').addEventListener('input', renderList);
   $('#tag-filter').addEventListener('change', renderList);
+  $('#area-filter').addEventListener('change', renderList);
   $('#show-inactive').addEventListener('change', renderList);
   $('#list').addEventListener('click', (e) => {
     const row = e.target.closest('.row');

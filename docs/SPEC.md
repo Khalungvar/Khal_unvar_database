@@ -77,6 +77,7 @@
 | סטייט | טקסט | ✅ מתמלא מההשלמה / מה-ZIP |
 | ZIP | טקסט | ✅ בארה"ב: הקלדת ZIP ממלאת עיר וסטייט (רשימה קבועה, בלי שירות חיצוני) |
 | מדינה (Country) | טקסט | ✅ הוחלט: ברירת מחדל USA. מדינה אחרת → סטייט ו-ZIP טקסט חופשי, ושורת מדינה במדבקה |
+| געגנט (Area) | בחירה מרשימה | ✅ הוחלט: שכונה/עיר לפילטרים ולתצוגה ברשימה (במקום העיר). רשימה: בארא פארק, וויליאמסבורג, פלעטבוש, מאנסי, לעייקוואוד, ארץ ישראל, אירופע. **זיהוי אוטומטי** לפי מדינה → ZIP → שם שכונה/עיר מגוגל (טבלת התאמה בלשונית Lists, עמודות O-Q: area, area_zips, area_keywords). ההצעה אפורה עד אישור; אפשר לבחור ידנית |
 
 ### 2. טלפונים ואימייל (Phones)
 ✅ הוחלט: פלאפון אישי, טלפון בבית, פלאפון אישה, פלאפון נוסף (מה הוא — רושמים בהערות), אימייל 1, אימייל 2, הערות. **לכל מספר טלפון תגיות משלו.**
@@ -129,13 +130,13 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 ## מבנה הגוגל שיטס (נוצר)
 קובץ: Khal_unvar_database. שורה 1 = כותרות באנגלית, הנתונים מתחילים בשורה 2.
 
-- **Contacts:** contact_id, title_he, first_name_he, last_name_he, is_alive, marital_status, title_en, first_name_en, last_name_en, legal_first_name, wife_name_he, wife_name_en, wife_is_rebbetzin, wife_is_alive, wife_in_neshei, community_tags, photo_url, address, city, state, zip, country, is_active, created_at, created_by, updated_at, updated_by, unverified_fields
+- **Contacts:** contact_id, title_he, first_name_he, last_name_he, is_alive, marital_status, title_en, first_name_en, last_name_en, legal_first_name, wife_name_he, wife_name_en, wife_is_rebbetzin, wife_is_alive, wife_in_neshei, community_tags, photo_url, address, city, state, zip, country, area, is_active, created_at, created_by, updated_at, updated_by, unverified_fields
 - **Phones:** contact_id, mobile, mobile_tags, home_phone, home_phone_tags, wife_mobile, wife_mobile_tags, other_phone, other_phone_tags, email_1, email_1_tags, email_2, email_2_tags, comments
 - **Donations:** donation_id, contact_id, date, hebrew_date, event_tags, event_year, event_note, sponsor_from, sponsor_to, amount_usd, is_paid, paid_date, paid_note, payment_method, check_number, card_last4, payment_note, dedication_type, dedication_text, created_at, created_by
 - **Relations:** relation_id, contact_id_a, relation_type, contact_id_b
 - **Yahrzeit:** yahrzeit_id, contact_id, hebrew_day, hebrew_month, hebrew_year, deceased_name, deceased_father_name, relation_to_contact, leap_year_adar
 - **Settings:** admin_email, note
-- **Lists:** title_he, title_en, marital_status, event_tag, payment_method, dedication_type, relation_type, community_tag, title_he_default_en, title_en_default_he, phone_tag, email_tag, relation_reverse, yahrzeit_relation
+- **Lists:** title_he, title_en, marital_status, event_tag, payment_method, dedication_type, relation_type, community_tag, title_he_default_en, title_en_default_he, phone_tag, email_tag, relation_reverse, yahrzeit_relation, area, area_zips, area_keywords
 
 עקרונות: מחיקה רכה (is_active), עבודה דרך התוכנה ולא ישירות בגליון, רשימות האפשרויות נערכות בלשונית Lists.
 

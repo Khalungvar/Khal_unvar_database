@@ -11,6 +11,7 @@ export const state = {
   headers: {},       // { Contacts: [...], Phones: [...] }
   contacts: [],      // אובייקטים, עם _row (מספר השורה בגליון)
   phones: new Map(), // contact_id → אובייקט טלפונים
+  areas: [],         // [{ name, zips, keywords }] — זיהוי געגנט לפי כתובת
   relations: [],     // { relation_id, contact_id_a, relation_type, contact_id_b, _row }
   lists: {},         // { title_he: [...], ... }
   titleHeToEn: {},
@@ -49,8 +50,13 @@ function parseLists(rows) {
     (cols[a] || []).forEach((v, i) => { if (v && cols[b]?.[i]) map[v] = cols[b][i]; });
     return map;
   };
+  const split = (v) => String(v || '').split(',').map((x) => x.trim()).filter(Boolean);
+  const areas = (cols.area || []).map((name, i) => ({
+    name, zips: split(cols.area_zips?.[i]), keywords: split(cols.area_keywords?.[i]),
+  })).filter((x) => x.name);
   return {
     lists,
+    areas,
     titleHeToEn: pair('title_he', 'title_he_default_en'),
     titleEnToHe: pair('title_en', 'title_en_default_he'),
     relationReverse: pair('relation_type', 'relation_reverse'),
