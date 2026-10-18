@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>קהל אונגוואר – מאגר</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <!-- מסך התחברות -->
+  <main id="login-view" class="login">
+    <div class="login-card">
+      <h1>קהל אונגוואר</h1>
+      <p>מאגר הקהילה</p>
+      <button id="btn-login" class="btn primary big" disabled>התחברות עם Google</button>
+      <p class="hint">רק מי שהבעלים שיתף איתו את המאגר יכול להתחבר.</p>
+    </div>
+  </main>
+
+  <!-- המסך הראשי -->
+  <div id="app-view" hidden>
+    <header class="topbar">
+      <strong class="brand">קהל אונגוואר</strong>
+      <span class="spacer"></span>
+      <span id="user-email" class="muted"></span>
+      <button id="btn-refresh" class="btn ghost" title="טעינה מחדש מהגליון">רענון</button>
+      <button id="btn-logout" class="btn ghost">יציאה</button>
+    </header>
+
+    <main class="page">
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="חיפוש: שם, טלפון, אימייל, או קוד (100 10 / ק י)" autocomplete="off">
+        <select id="tag-filter" aria-label="סינון לפי תגית"></select>
+        <label class="check"><input type="checkbox" id="show-inactive"> כולל לא פעילים</label>
+        <span class="spacer"></span>
+        <button id="btn-new" class="btn primary">+ איש קשר חדש</button>
+      </div>
+      <p id="count" class="muted"></p>
+      <div id="list" class="list"></div>
+    </main>
+  </div>
+
+  <!-- כרטיס אישי -->
+  <dialog id="card-dialog" class="sheet">
+    <div id="card-body"></div>
+    <div class="actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-close>סגירה</button>
+      <button type="button" class="btn primary" id="card-edit">עריכה</button>
+    </div>
+  </dialog>
+
+  <!-- טופס -->
+  <dialog id="form-dialog" class="sheet wide">
+    <form id="contact-form" novalidate></form>
+  </dialog>
+
+  <!-- חלון בחירה -->
+  <dialog id="choice-dialog" class="small">
+    <h3 id="choice-title"></h3>
+    <p id="choice-text"></p>
+    <div id="choice-buttons" class="actions"></div>
+  </dialog>
+
+  <div id="toast" role="status" hidden></div>
+</body>
+</html>
