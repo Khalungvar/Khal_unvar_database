@@ -3,6 +3,7 @@
 import { readTabs, readColumn, appendRow, updateRow, updateCell } from './google.js';
 import { CONFIG } from './config.js';
 import { nowStamp } from './util.js';
+import { t } from './i18n.js';
 
 export const state = {
   email: '',
@@ -99,7 +100,7 @@ export async function saveContact(contact, phones) {
     await appendRow('Contacts', objectToRow(state.headers.Contacts, c));
   } else {
     const row = await findRow('Contacts', c.contact_id);
-    if (!row) throw new Error('איש הקשר לא נמצא בגליון. ייתכן שמישהו מחק אותו. רעננו את הדף.');
+    if (!row) throw new Error(t('notFound'));
     await updateRow('Contacts', row, objectToRow(state.headers.Contacts, c));
   }
 
@@ -114,11 +115,11 @@ export async function saveContact(contact, phones) {
 
 /** מנהל בלבד: מוסיף ערך חדש לרשימה בלשונית Lists. */
 export async function addListValue(listName, value) {
-  if (!state.isAdmin) throw new Error('רק מנהל יכול להוסיף ערכים לרשימות.');
+  if (!state.isAdmin) throw new Error(t('adminOnly'));
   const tabs = await readTabs(['Lists']);
   const rows = tabs.Lists;
   const col = rows[0].indexOf(listName);
-  if (col < 0) throw new Error(`הרשימה ${listName} לא נמצאה.`);
+  if (col < 0) throw new Error(t('listMissing', { name: listName }));
   let r = 1;
   while (r < rows.length && String(rows[r][col] ?? '').trim()) r += 1;
   await updateCell(`Lists!${columnLetter(col)}${r + 1}`, value);

@@ -122,7 +122,7 @@ input[type="checkbox"] { width: auto !important; margin: 0; accent-color: var(--
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 2fr);
   gap: 12px;
   align-items: center;
-  text-align: right;
+  text-align: start;
   font: inherit;
   color: inherit;
   width: 100%;
@@ -135,7 +135,8 @@ input[type="checkbox"] { width: auto !important; margin: 0; accent-color: var(--
 .row:hover { border-color: var(--accent); }
 .row.missing-en { background: var(--warn-soft); }
 .row-main { display: flex; flex-direction: column; min-width: 0; }
-.row-name { font-weight: 500; }
+.row-name { font-weight: 500; unicode-bidi: plaintext; text-align: right; }
+html[dir="ltr"] .row-name { text-align: left; }
 .row-en { color: var(--muted); font-size: 13px; text-align: left; }
 .row-city { color: var(--muted); }
 .row-tags { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -225,3 +226,12 @@ fieldset > label { display: flex; flex-direction: column; gap: 4px; font-size: 1
   .kv { grid-template-columns: 110px 1fr; }
   #user-email { display: none; }
 }
+
+/* בחירת שפה */
+.lang-switch { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.lang-switch button {
+  font: inherit; font-size: 13px; border: 0; background: transparent; color: var(--muted);
+  padding: 4px 12px; cursor: pointer;
+}
+.lang-switch button.on { background: var(--accent); color: var(--accent-ink); }
+.login-card .lang-switch { margin-top: 14px; }

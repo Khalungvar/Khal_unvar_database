@@ -2,6 +2,7 @@
 import { initAuth, requestToken, signOut, getUserEmail } from './google.js';
 import { state, loadAll, saveContact, addListValue } from './data.js';
 import { suggest, details, placesEnabled, placesError } from './places.js';
+import { t, setLang, getLang, applyStatic, maritalLabel } from './i18n.js';
 import {
   normalize, digits, formatPhone, isTrue, isAlive, splitTags, joinTags,
   gematriaCodes, primaryCode, parseCodeQuery, mailingName, escapeHtml as h,
@@ -10,13 +11,11 @@ import {
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
-const PHONE_FIELDS = [
-  ['mobile', 'פלאפון אישי'],
-  ['home_phone', 'טלפון בבית'],
-  ['wife_mobile', 'פלאפון אישה'],
-  ['other_phone', 'פלאפון נוסף'],
-];
-const EMAIL_FIELDS = [['email_1', 'אימייל 1'], ['email_2', 'אימייל 2']];
+const PHONE_KEYS = ['mobile', 'home_phone', 'wife_mobile', 'other_phone'];
+const EMAIL_KEYS = ['email_1', 'email_2'];
+// [שדה, תווית בשפת הממשק] — מחושב בכל פעם, כדי שהתווית תתאים לשפה הנוכחית
+const phoneFields = () => PHONE_KEYS.map((k) => [k, t(k)]);
+const emailFields = () => EMAIL_KEYS.map((k) => [k, t(k)]);
 
 // ---------- הודעות ----------
 let toastTimer;
@@ -31,9 +30,9 @@ function toast(message, kind = 'info') {
 
 function friendlyError(err) {
   if (err.status === 403 || err.status === 404) {
-    return 'אין לך גישה לגליון של המאגר. בקש מהבעלים לשתף אותו עם חשבון הגוגל שלך.';
+    return t('noAccess');
   }
-  return `שגיאה: ${err.message}`;
+  return t('error', { msg: err.message });
 }
 
 /** חלון בחירה עם כמה כפתורים. מחזיר את הערך שנבחר, או null. */
@@ -65,7 +64,7 @@ async function signIn() {
     await requestToken('select_account');
     state.email = await getUserEmail();
     await loadAll();
-    $('#user-email').textContent = state.email + (state.isAdmin ? ' · מנהל' : '');
+    $('#user-email').textContent = state.email + (state.isAdmin ? ` · ${t('admin')}` : '');
     $('#login-view').hidden = true;
     $('#app-view').hidden = false;
     fillFilters();
@@ -89,7 +88,7 @@ async function refresh() {
     await loadAll();
     fillFilters();
     renderList();
-    toast('הנתונים עודכנו מהגליון');
+    toast(t('refreshed'));
   } catch (err) {
     toast(friendlyError(err), 'error');
   }
@@ -111,7 +110,7 @@ function haystack(c) {
     c.wife_name_he, c.wife_name_en, c.city, c.address, c.contact_id,
     p.email_1, p.email_2,
   ].map(normalize).join(' ');
-  const phoneDigits = PHONE_FIELDS.map(([k]) => digits(p[k])).join(' ');
+  const phoneDigits = phoneFields().map(([k]) => digits(p[k])).join(' ');
   return `${text} ${phoneDigits}`;
 }
 
@@ -132,8 +131,8 @@ function matches(c, query) {
 function fillFilters() {
   const sel = $('#tag-filter');
   const current = sel.value;
-  sel.innerHTML = '<option value="">כל התגיות</option>'
-    + (state.lists.community_tag || []).map((t) => `<option>${h(t)}</option>`).join('');
+  sel.innerHTML = `<option value="">${h(t('allTags'))}</option>`
+    + (state.lists.community_tag || []).map((tag) => `<option>${h(tag)}</option>`).join('');
   sel.value = current;
 }
 
@@ -151,26 +150,26 @@ function visibleContacts() {
 
 function renderList() {
   const list = visibleContacts();
-  $('#count').textContent = `${list.length} אנשי קשר`;
+  $('#count').textContent = t('count', { n: list.length });
   const body = $('#list');
   if (!list.length) {
-    body.innerHTML = `<p class="empty">${state.contacts.length ? 'לא נמצאו תוצאות.' : 'המאגר עדיין ריק. לחצו על "איש קשר חדש" כדי להתחיל.'}</p>`;
+    body.innerHTML = `<p class="empty">${h(state.contacts.length ? t('noResults') : t('emptyDb'))}</p>`;
     return;
   }
   body.innerHTML = list.map((c) => {
     const missingEn = !String(c.first_name_en ?? '').trim() || !String(c.last_name_en ?? '').trim();
     const badges = [
-      !isAlive(c.is_alive) ? '<span class="badge muted">נפטר</span>' : '',
-      c.is_active === false || c.is_active === 'FALSE' ? '<span class="badge muted">לא פעיל</span>' : '',
-      isTrue(c.wife_in_neshei) ? '<span class="badge">נשי</span>' : '',
+      !isAlive(c.is_alive) ? `<span class="badge muted">${t('deceased')}</span>` : '',
+      c.is_active === false || c.is_active === 'FALSE' ? `<span class="badge muted">${t('inactive')}</span>` : '',
+      isTrue(c.wife_in_neshei) ? `<span class="badge">${t('neshei')}</span>` : '',
     ].join('');
-    const tags = splitTags(c.community_tags).map((t) => `<span class="chip">${h(t)}</span>`).join('');
+    const tags = splitTags(c.community_tags).map((tag) => `<span class="chip">${h(tag)}</span>`).join('');
     const en = [c.first_name_en, c.last_name_en].filter(Boolean).join(' ');
     return `
       <button type="button" class="row${missingEn ? ' missing-en' : ''}" data-id="${h(c.contact_id)}">
         <span class="row-main">
           <span class="row-name">${h(fullNameHe(c))} ${badges}</span>
-          <span class="row-en" dir="ltr">${en ? h(en) : '<em>אין שם באנגלית</em>'}</span>
+          <span class="row-en" dir="ltr">${en ? h(en) : `<em>${t('noEnName')}</em>`}</span>
         </span>
         <span class="row-city">${h(c.city)}</span>
         <span class="row-tags">${tags}</span>
@@ -180,7 +179,7 @@ function renderList() {
 
 // ---------- כרטיס אישי ----------
 function tagChips(value) {
-  return splitTags(value).map((t) => `<span class="chip">${h(t)}</span>`).join('');
+  return splitTags(value).map((tag) => `<span class="chip">${h(tag)}</span>`).join('');
 }
 
 function openCard(id) {
@@ -191,9 +190,9 @@ function openCard(id) {
   const field = (label, value, ltr = false) => (String(value ?? '').trim()
     ? `<div class="kv"><span>${label}</span><span${ltr ? ' dir="ltr"' : ''}>${value}</span></div>` : '');
 
-  const phones = PHONE_FIELDS.map(([k, label]) => (p[k]
+  const phones = phoneFields().map(([k, label]) => (p[k]
     ? `<div class="kv"><span>${label}</span><span><a dir="ltr" href="tel:${h(digits(p[k]))}">${h(p[k])}</a> ${tagChips(p[`${k}_tags`])}</span></div>` : '')).join('');
-  const emails = EMAIL_FIELDS.map(([k, label]) => (p[k]
+  const emails = emailFields().map(([k, label]) => (p[k]
     ? `<div class="kv"><span>${label}</span><span><a dir="ltr" href="mailto:${h(p[k])}">${h(p[k])}</a> ${tagChips(p[`${k}_tags`])}</span></div>` : '')).join('');
 
   const address = [c.address, [c.city, c.state, c.zip].filter(Boolean).join(', '),
@@ -201,33 +200,33 @@ function openCard(id) {
 
   const wife = [c.wife_name_he, c.wife_name_en].some((v) => String(v).trim())
     ? `${h(c.wife_name_he)}${c.wife_name_en ? ` · <span dir="ltr">${h(c.wife_name_en)}</span>` : ''}`
-      + `${isTrue(c.wife_is_rebbetzin) ? ' · Rebbetzin' : ''}${!isAlive(c.wife_is_alive) ? ' · נפטרה' : ''}`
-      + `${isTrue(c.wife_in_neshei) ? ' · נשי אונגוואר' : ''}`
+      + `${isTrue(c.wife_is_rebbetzin) ? ' · Rebbetzin' : ''}${!isAlive(c.wife_is_alive) ? ` · ${t('deceasedF')}` : ''}`
+      + `${isTrue(c.wife_in_neshei) ? ` · ${t('nesheiFull')}` : ''}`
     : '';
 
   $('#card-body').innerHTML = `
-    <h2>${h(fullNameHe(c))}</h2>
-    <p class="sub">#${h(c.contact_id)} · קוד ${h(primaryCode(c.first_name_he, c.last_name_he))}${!isAlive(c.is_alive) ? ' · נפטר' : ''}</p>
+    <h2 dir="auto">${h(fullNameHe(c))}</h2>
+    <p class="sub">#${h(c.contact_id)} · ${t('code')} ${h(primaryCode(c.first_name_he, c.last_name_he))}${!isAlive(c.is_alive) ? ` · ${t('deceased')}` : ''}</p>
     <section>
-      ${field('מצב משפחתי', h(c.marital_status))}
-      ${field('שם באנגלית', h([c.title_en, c.first_name_en, c.last_name_en].filter(Boolean).join(' ')), true)}
-      ${field('שם חוקי (לקבלות)', h(c.legal_first_name), true)}
-      ${field('פנייה בדואר', mail ? h(mail) : '', true)}
-      ${field('אישה', wife)}
-      ${field('קשר לקהילה', tagChips(c.community_tags))}
+      ${field(t('marital'), h(maritalLabel(c.marital_status)))}
+      ${field(t('enName'), h([c.title_en, c.first_name_en, c.last_name_en].filter(Boolean).join(' ')), true)}
+      ${field(t('legalName'), h(c.legal_first_name), true)}
+      ${field(t('mailingName'), mail ? h(mail) : '', true)}
+      ${field(t('wife'), wife)}
+      ${field(t('community'), tagChips(c.community_tags))}
     </section>
-    ${address ? `<section><h3>כתובת</h3><p dir="ltr" class="addr">${address}</p></section>` : ''}
-    ${phones || emails || p.comments ? `<section><h3>טלפונים ואימייל</h3>${phones}${emails}${field('הערות', h(p.comments))}</section>` : ''}
-    ${c.updated_at ? `<p class="meta">עודכן ${h(c.updated_at)} ע"י ${h(c.updated_by)}</p>` : ''}`;
+    ${address ? `<section><h3>${t('address')}</h3><p dir="ltr" class="addr">${address}</p></section>` : ''}
+    ${phones || emails || p.comments ? `<section><h3>${t('phonesEmail')}</h3>${phones}${emails}${field(t('comments'), h(p.comments))}</section>` : ''}
+    ${c.updated_at ? `<p class="meta">${h(t('updated', { date: c.updated_at, by: c.updated_by }))}</p>` : ''}`;
 
   $('#card-edit').onclick = () => { $('#card-dialog').close(); openForm(c); };
   $('#card-dialog').showModal();
 }
 
 // ---------- טופס הוספה / עריכה ----------
-function options(list, current) {
+function options(list, current, label = (v) => v) {
   const values = [...new Set([...(list || []), ...(current ? [current] : [])])];
-  return '<option value=""></option>' + values.map((v) => `<option${v === current ? ' selected' : ''}>${h(v)}</option>`).join('');
+  return '<option value=""></option>' + values.map((v) => `<option value="${h(v)}"${v === current ? ' selected' : ''}>${h(label(v))}</option>`).join('');
 }
 
 /** בורר תגיות: לחיצה מסמנת / מבטלת. מנהל יכול להוסיף תגית חדשה לרשימה. */
@@ -235,9 +234,9 @@ function tagPicker(name, listName, value) {
   const selected = splitTags(value);
   const all = [...new Set([...(state.lists[listName] || []), ...selected])];
   return `
-    <div class="tags" data-name="${name}" data-list="${listName}">
-      ${all.map((t) => `<button type="button" class="chip toggle${selected.includes(t) ? ' on' : ''}">${h(t)}</button>`).join('')}
-      ${state.isAdmin ? '<button type="button" class="chip add">+ תגית חדשה</button>' : ''}
+    <div class="tags" dir="rtl" data-name="${name}" data-list="${listName}">
+      ${all.map((tag) => `<button type="button" class="chip toggle${selected.includes(tag) ? ' on' : ''}">${h(tag)}</button>`).join('')}
+      ${state.isAdmin ? `<button type="button" class="chip add">${h(t('newTag'))}</button>` : ''}
     </div>`;
 }
 
@@ -261,20 +260,20 @@ function openForm(c = {}) {
   const form = $('#contact-form');
 
   form.innerHTML = `
-    <h2>${isNew ? 'איש קשר חדש' : `עריכה: ${h(fullNameHe(c))}`}</h2>
+    <h2>${isNew ? t('newTitle') : h(t('editTitle', { name: fullNameHe(c) }))}</h2>
     ${cityStateDatalists()}
 
-    <fieldset><legend>פרטים</legend>
+    <fieldset><legend>${t('secDetails')}</legend>
       <div class="grid">
-        <label>תואר<select name="title_he">${options(state.lists.title_he, c.title_he)}</select></label>
-        <label>שם פרטי *<input name="first_name_he" required value="${v('first_name_he')}" placeholder="יוסף חיים"></label>
-        <label>שם משפחה *<input name="last_name_he" required value="${v('last_name_he')}"></label>
-        <label>מצב משפחתי<select name="marital_status">${options(state.lists.marital_status, c.marital_status || (isNew ? 'נשוי' : ''))}</select></label>
-        <label class="check"><input type="checkbox" name="deceased" ${!isAlive(c.is_alive) ? 'checked' : ''}> נפטר</label>
+        <label>${t('title')}<select name="title_he" dir="rtl">${options(state.lists.title_he, c.title_he)}</select></label>
+        <label>${t('firstHe')}<input name="first_name_he" dir="rtl" required value="${v('first_name_he')}" placeholder="יוסף חיים"></label>
+        <label>${t('lastHe')}<input name="last_name_he" dir="rtl" required value="${v('last_name_he')}"></label>
+        <label>${t('marital')}<select name="marital_status">${options(state.lists.marital_status, c.marital_status || (isNew ? 'נשוי' : ''), maritalLabel)}</select></label>
+        <label class="check"><input type="checkbox" name="deceased" ${!isAlive(c.is_alive) ? 'checked' : ''}> ${t('deceased')}</label>
       </div>
     </fieldset>
 
-    <fieldset><legend>אנגלית</legend>
+    <fieldset><legend>${t('secEnglish')}</legend>
       <div class="grid" dir="ltr">
         <label>Title<select name="title_en">${options(state.lists.title_en, c.title_en)}</select></label>
         <label>First name<input name="first_name_en" value="${v('first_name_en')}"></label>
@@ -283,21 +282,21 @@ function openForm(c = {}) {
       </div>
     </fieldset>
 
-    <fieldset><legend>אישה</legend>
+    <fieldset><legend>${t('secWife')}</legend>
       <div class="grid">
         <label class="check"><input type="checkbox" name="wife_is_rebbetzin" ${isTrue(c.wife_is_rebbetzin) ? 'checked' : ''}> Rebbetzin</label>
-        <label>שם האישה<input name="wife_name_he" value="${v('wife_name_he')}"></label>
+        <label>${t('wifeNameHe')}<input name="wife_name_he" dir="rtl" value="${v('wife_name_he')}"></label>
         <label>Wife's name<input name="wife_name_en" dir="ltr" value="${v('wife_name_en')}"></label>
-        <label class="check"><input type="checkbox" name="wife_deceased" ${!isAlive(c.wife_is_alive) ? 'checked' : ''}> נפטרה</label>
-        <label class="check"><input type="checkbox" name="wife_in_neshei" ${isTrue(c.wife_in_neshei) ? 'checked' : ''}> נשי אונגוואר</label>
+        <label class="check"><input type="checkbox" name="wife_deceased" ${!isAlive(c.wife_is_alive) ? 'checked' : ''}> ${t('deceasedF')}</label>
+        <label class="check"><input type="checkbox" name="wife_in_neshei" ${isTrue(c.wife_in_neshei) ? 'checked' : ''}> ${t('nesheiFull')}</label>
       </div>
     </fieldset>
 
-    <fieldset><legend>קשר לקהילה</legend>
+    <fieldset><legend>${t('community')}</legend>
       ${tagPicker('community_tags', 'community_tag', c.community_tags)}
     </fieldset>
 
-    <fieldset><legend>כתובת</legend>
+    <fieldset><legend>${t('secAddress')}</legend>
       <div class="grid" dir="ltr">
         <label class="wide">Address
           <span class="ac-wrap"><input name="address" autocomplete="off" list="${placesEnabled() ? '' : 'dl-address'}" value="${v('address')}" placeholder="${placesEnabled() ? 'Start typing an address…' : ''}">
@@ -310,26 +309,26 @@ function openForm(c = {}) {
       </div>
     </fieldset>
 
-    <fieldset><legend>טלפונים ואימייל</legend>
-      ${PHONE_FIELDS.map(([k, label]) => `
+    <fieldset><legend>${t('phonesEmail')}</legend>
+      ${phoneFields().map(([k, label]) => `
         <div class="contact-line">
           <label>${label}<input name="${k}" dir="ltr" inputmode="tel" value="${h(p[k] ?? '')}"></label>
           ${tagPicker(`${k}_tags`, 'phone_tag', p[`${k}_tags`])}
         </div>`).join('')}
-      ${EMAIL_FIELDS.map(([k, label]) => `
+      ${emailFields().map(([k, label]) => `
         <div class="contact-line">
           <label>${label}<input name="${k}" type="email" dir="ltr" value="${h(p[k] ?? '')}"></label>
           ${tagPicker(`${k}_tags`, 'email_tag', p[`${k}_tags`])}
         </div>`).join('')}
-      <label>הערות (למשל: של מי הפלאפון הנוסף)<textarea name="comments" rows="2">${h(p.comments ?? '')}</textarea></label>
+      <label>${h(t('commentsLabel'))}<textarea name="comments" rows="2">${h(p.comments ?? '')}</textarea></label>
     </fieldset>
 
     <div class="actions">
-      ${!isNew && (isTrue(c.is_active) || c.is_active === '') ? '<button type="button" class="btn danger" id="btn-deactivate">סימון כלא פעיל</button>' : ''}
-      ${!isNew && c.is_active !== '' && !isTrue(c.is_active) ? '<button type="button" class="btn" id="btn-activate">החזרה לפעיל</button>' : ''}
+      ${!isNew && (isTrue(c.is_active) || c.is_active === '') ? `<button type="button" class="btn danger" id="btn-deactivate">${t('deactivate')}</button>` : ''}
+      ${!isNew && c.is_active !== '' && !isTrue(c.is_active) ? `<button type="button" class="btn" id="btn-activate">${t('activate')}</button>` : ''}
       <span class="spacer"></span>
-      <button type="button" class="btn" id="btn-cancel">ביטול</button>
-      <button type="submit" class="btn primary" id="btn-save">שמירה</button>
+      <button type="button" class="btn" id="btn-cancel">${t('cancel')}</button>
+      <button type="submit" class="btn primary" id="btn-save">${t('save')}</button>
     </div>`;
 
   wireForm(form, c);
@@ -346,7 +345,7 @@ function wireForm(form, original) {
       if (!b) return;
       if (b.classList.contains('toggle')) { b.classList.toggle('on'); return; }
       if (b.classList.contains('add')) {
-        const value = prompt('שם התגית החדשה:');
+        const value = prompt(t('newTagPrompt'));
         if (!value || !value.trim()) return;
         try {
           await addListValue(box.dataset.list, value.trim());
@@ -355,7 +354,7 @@ function wireForm(form, original) {
           nb.className = 'chip toggle on';
           nb.textContent = value.trim();
           box.insertBefore(nb, b);
-          toast('התגית נוספה לרשימה');
+          toast(t('tagAdded'));
         } catch (err) { toast(friendlyError(err), 'error'); }
       }
     });
@@ -374,14 +373,14 @@ function wireForm(form, original) {
   // האישה נפטרה → הצעה לשנות מצב משפחתי
   f('wife_deceased').addEventListener('change', async () => {
     if (!f('wife_deceased').checked || f('marital_status').value !== 'נשוי') return;
-    const pick = await choose('מצב משפחתי', 'לשנות את המצב המשפחתי?', [
-      ['אלמן', 'אלמן', true], ['גרוש', 'גרוש'], ['', 'להשאיר נשוי'],
+    const pick = await choose(t('marital'), t('changeMarital'), [
+      ['אלמן', maritalLabel('אלמן'), true], ['גרוש', maritalLabel('גרוש')], ['', t('keepMarried')],
     ]);
     if (pick) f('marital_status').value = pick;
   });
 
   // טלפונים: עיצוב אוטומטי
-  PHONE_FIELDS.forEach(([k]) => f(k).addEventListener('blur', () => { f(k).value = formatPhone(f(k).value); }));
+  phoneFields().forEach(([k]) => f(k).addEventListener('blur', () => { f(k).value = formatPhone(f(k).value); }));
 
   // ZIP → עיר וסטייט, לפי כתובות שכבר קיימות במאגר
   f('zip').addEventListener('blur', () => {
@@ -398,7 +397,7 @@ function wireForm(form, original) {
 
   $('#btn-cancel', form).onclick = () => $('#form-dialog').close();
   const setActive = (active) => async () => {
-    if (!active && !confirm('לסמן את איש הקשר כלא פעיל? כל ההיסטוריה שלו נשמרת, והוא פשוט לא יופיע ברשימה הרגילה.')) return;
+    if (!active && !confirm(t('confirmDeactivate'))) return;
     await submit(form, original, active);
   };
   $('#btn-deactivate', form)?.addEventListener('click', setActive(false));
@@ -422,8 +421,8 @@ function wireAddressAutocomplete(form) {
       if (result === 'cap' || result === 'error') {
         if (!warned) {
           toast(result === 'cap'
-            ? 'ההשלמה של גוגל הגיעה לתקרה היומית. אפשר להמשיך להקליד ידנית.'
-            : `השלמת הכתובות לא זמינה: ${placesError() || 'שגיאה לא ידועה'}`, result === 'cap' ? 'info' : 'error');
+            ? t('capReached')
+            : t('acError', { msg: placesError() || t('unknownErr') }), result === 'cap' ? 'info' : 'error');
         }
         warned = true;
         return close();
@@ -479,11 +478,11 @@ function collect(form, original) {
   delete contact._row;
 
   const phones = { comments: val('comments') };
-  PHONE_FIELDS.forEach(([k]) => {
+  phoneFields().forEach(([k]) => {
     phones[k] = formatPhone(val(k));
     phones[`${k}_tags`] = readTags(form, `${k}_tags`);
   });
-  EMAIL_FIELDS.forEach(([k]) => {
+  emailFields().forEach(([k]) => {
     phones[k] = val(k);
     phones[`${k}_tags`] = readTags(form, `${k}_tags`);
   });
@@ -495,7 +494,7 @@ async function submit(form, original, setActive) {
   if (setActive !== undefined) contact.is_active = setActive;
 
   if (!contact.first_name_he || !contact.last_name_he) {
-    toast('חובה למלא שם פרטי ושם משפחה בעברית', 'error');
+    toast(t('required'), 'error');
     return;
   }
 
@@ -503,40 +502,47 @@ async function submit(form, original, setActive) {
   const sameName = state.contacts.find((c) => String(c.contact_id) !== String(original.contact_id ?? '')
     && normalize(c.first_name_he) === normalize(contact.first_name_he)
     && normalize(c.last_name_he) === normalize(contact.last_name_he));
-  if (sameName && !confirm(`קיים כבר איש קשר בשם הזה (#${sameName.contact_id}). להמשיך בכל זאת?`)) return;
+  if (sameName && !confirm(t('dupName', { id: sameName.contact_id }))) return;
 
   // אזהרת טלפון שכבר שייך למישהו אחר
-  for (const [k, label] of PHONE_FIELDS) {
+  for (const [k, label] of phoneFields()) {
     const d = digits(phones[k]);
     if (d.length < 7) continue;
     for (const [id, other] of state.phones) {
       if (id === String(original.contact_id ?? '')) continue;
-      if (PHONE_FIELDS.some(([ok]) => digits(other[ok]) === d)) {
+      if (phoneFields().some(([ok]) => digits(other[ok]) === d)) {
         const owner = state.contacts.find((c) => String(c.contact_id) === id);
-        if (!confirm(`ה${label} ${phones[k]} כבר רשום אצל ${owner ? fullNameHe(owner) : `#${id}`}. להמשיך?`)) return;
+        if (!confirm(t('dupPhone', { label, phone: phones[k], owner: owner ? fullNameHe(owner) : `#${id}` }))) return;
       }
     }
   }
 
   const btn = $('#btn-save', form);
   btn.disabled = true;
-  btn.textContent = 'שומר…';
+  btn.textContent = t('saving');
   try {
     const id = await saveContact(contact, phones);
     await loadAll();
     renderList();
     $('#form-dialog').close();
-    toast(original.contact_id ? 'השינויים נשמרו' : `איש הקשר נוסף (#${id})`);
+    toast(original.contact_id ? t('saved') : t('added', { id }));
   } catch (err) {
     toast(friendlyError(err), 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'שמירה';
+    btn.textContent = t('save');
   }
 }
 
 // ---------- הפעלה ----------
+function switchLang(lang) {
+  setLang(lang);
+  if (!$('#app-view').hidden) { fillFilters(); renderList(); }
+}
+
 function start() {
+  applyStatic();
+  $$('.lang-switch button').forEach((b) => { b.onclick = () => switchLang(b.dataset.lang); });
   $('#btn-login').onclick = signIn;
   $('#btn-logout').onclick = logout;
   $('#btn-refresh').onclick = refresh;
@@ -551,7 +557,7 @@ function start() {
   $$('dialog [data-close]').forEach((b) => { b.onclick = () => b.closest('dialog').close(); });
 
   initAuth().then(() => { $('#btn-login').disabled = false; })
-    .catch(() => toast('לא הצלחתי לטעון את הלוגאין של גוגל. בדקו את החיבור לאינטרנט.', 'error'));
+    .catch(() => toast(t('gisFail'), 'error'));
 }
 
 start();

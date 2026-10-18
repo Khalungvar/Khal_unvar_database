@@ -1,0 +1,203 @@
+// שפות הממשק: אידיש ואנגלית. הנתונים עצמם (שמות, תגיות, רשימות) לא מתורגמים.
+const STRINGS = {
+  yi: {
+    langName: 'אידיש',
+    appName: 'קהל אונגוואר',
+    subtitle: 'די רשימה פון דער קהילה',
+    login: 'אריינלאגירן מיט Google',
+    loginHint: 'נאר ווער עס האט באקומען צוטריט צו דער רשימה קען זיך אריינלאגירן.',
+    refresh: 'דערפרישן',
+    refreshTitle: 'נאכאמאל לאדן פונעם שיט',
+    logout: 'ארויסגיין',
+    admin: 'מנהל',
+    searchPh: 'זוכן: נאמען, טעלעפאן, אימעיל, אדער קאוד (100 10 / ק י)',
+    allTags: 'אלע טאגס',
+    inclInactive: 'אויך נישט-אקטיווע',
+    newContact: '+ נייער קאנטאקט',
+    count: '{n} קאנטאקטן',
+    noResults: 'קיין רעזולטאטן.',
+    emptyDb: 'די רשימה איז נאך ליידיג. דריקט אויף "נייער קאנטאקט" אנצוהייבן.',
+    deceased: 'נפטר',
+    deceasedF: 'נפטרה',
+    inactive: 'נישט אקטיוו',
+    neshei: 'נשי',
+    nesheiFull: 'נשי אונגוואר',
+    noEnName: 'קיין ענגליש נאמען',
+    code: 'קאוד',
+    marital: 'פאמיליע שטאנד',
+    enName: 'נאמען אויף ענגליש',
+    legalName: 'לעגאלער נאמען (פאר קבלות)',
+    mailingName: 'אדרעסירונג אויף בריוו',
+    wife: 'פרוי',
+    community: 'פארבינדונג מיט דער קהילה',
+    address: 'אדרעס',
+    phonesEmail: 'טעלעפאנען און אימעילס',
+    comments: 'באמערקונגען',
+    updated: 'דערהיינטיקט {date} דורך {by}',
+    mobile: 'אייגענער סעל',
+    home_phone: 'שטוב טעלעפאן',
+    wife_mobile: 'פרוי\'ס סעל',
+    other_phone: 'נאך א סעל',
+    email_1: 'אימעיל 1',
+    email_2: 'אימעיל 2',
+    close: 'צומאכן',
+    edit: 'רעדאגירן',
+    cancel: 'אפזאגן',
+    save: 'אפהיטן',
+    saving: 'היט אפ…',
+    deactivate: 'צייכענען ווי נישט אקטיוו',
+    activate: 'צוריק אקטיוו',
+    newTitle: 'נייער קאנטאקט',
+    editTitle: 'רעדאגירן: {name}',
+    secDetails: 'פרטים',
+    title: 'טיטל',
+    firstHe: 'ערשטער נאמען *',
+    lastHe: 'פאמיליע נאמען *',
+    secEnglish: 'ענגליש',
+    secWife: 'פרוי',
+    wifeNameHe: 'פרוי\'ס נאמען',
+    secAddress: 'אדרעס',
+    commentsLabel: 'באמערקונגען (למשל: וועמענס איז דער "נאך א סעל")',
+    newTag: '+ נייע טאג',
+    newTagPrompt: 'נאמען פון דער נייער טאג:',
+    tagAdded: 'די טאג איז צוגעלייגט געווארן',
+    changeMarital: 'טוישן דעם פאמיליע שטאנד?',
+    keepMarried: 'לאזן נשוי',
+    noAccess: 'איר האט נישט קיין צוטריט צום שיט פון דער רשימה. בעט דעם בעל הבית ער זאל עס שערן מיט אייער Google אקאונט.',
+    error: 'פעלער: {msg}',
+    gisFail: 'האב נישט געקענט לאדן דעם Google לאגין. קוקט איבער די אינטערנעט פארבינדונג.',
+    refreshed: 'די דאטן זענען דערהיינטיקט פונעם שיט',
+    capReached: 'די Google אדרעס-פארפולונג האט דערגרייכט דעם טעגליכן לימיט. מען קען ווייטער שרייבן מיט די הענט.',
+    acError: 'די אדרעס-פארפולונג ארבעט נישט: {msg}',
+    unknownErr: 'אומבאקאנטער פעלער',
+    required: 'מען מוז אריינשרייבן ערשטן נאמען און פאמיליע נאמען',
+    dupName: 'עס איז שוין דא א קאנטאקט מיט דעם נאמען (#{id}). ממשיך זיין סיי ווי?',
+    dupPhone: '{label} {phone} איז שוין רעגיסטרירט ביי {owner}. ממשיך זיין?',
+    saved: 'די ענדערונגען זענען אפגעהיט',
+    added: 'קאנטאקט צוגעלייגט (#{id})',
+    confirmDeactivate: 'צייכענען דעם קאנטאקט ווי נישט אקטיוו? די גאנצע היסטאריע בלייבט, ער וועט נאר נישט ארויסקומען אין דער געווענליכער רשימה.',
+    notFound: 'דער קאנטאקט איז נישט געפונען געווארן אין שיט. אפשר האט עמיצער אים אויסגעמעקט. דערפרישט דעם בלאט.',
+    adminOnly: 'נאר א מנהל קען צולייגן נייע ווערטער צו די רשימות.',
+    listMissing: 'די רשימה {name} איז נישט געפונען געווארן.',
+    marital_values: {},
+  },
+  en: {
+    langName: 'English',
+    appName: 'Khal Ungvar',
+    subtitle: 'Community Database',
+    login: 'Sign in with Google',
+    loginHint: 'Only people the owner has shared the database with can sign in.',
+    refresh: 'Refresh',
+    refreshTitle: 'Reload from the sheet',
+    logout: 'Sign out',
+    admin: 'Admin',
+    searchPh: 'Search: name, phone, email, or code (100 10 / ק י)',
+    allTags: 'All tags',
+    inclInactive: 'Include inactive',
+    newContact: '+ New contact',
+    count: '{n} contacts',
+    noResults: 'No results.',
+    emptyDb: 'The database is empty. Click "New contact" to get started.',
+    deceased: 'Deceased',
+    deceasedF: 'Deceased',
+    inactive: 'Inactive',
+    neshei: 'Neshei',
+    nesheiFull: 'Neshei Ungvar',
+    noEnName: 'No English name',
+    code: 'code',
+    marital: 'Marital status',
+    enName: 'English name',
+    legalName: 'Legal name (receipts)',
+    mailingName: 'Mailing name',
+    wife: 'Wife',
+    community: 'Community',
+    address: 'Address',
+    phonesEmail: 'Phones & email',
+    comments: 'Notes',
+    updated: 'Updated {date} by {by}',
+    mobile: 'Mobile',
+    home_phone: 'Home phone',
+    wife_mobile: 'Wife\'s mobile',
+    other_phone: 'Other phone',
+    email_1: 'Email 1',
+    email_2: 'Email 2',
+    close: 'Close',
+    edit: 'Edit',
+    cancel: 'Cancel',
+    save: 'Save',
+    saving: 'Saving…',
+    deactivate: 'Mark inactive',
+    activate: 'Reactivate',
+    newTitle: 'New contact',
+    editTitle: 'Edit: {name}',
+    secDetails: 'Details',
+    title: 'Title (Hebrew)',
+    firstHe: 'First name (Hebrew) *',
+    lastHe: 'Last name (Hebrew) *',
+    secEnglish: 'English',
+    secWife: 'Wife',
+    wifeNameHe: 'Wife\'s name (Hebrew)',
+    secAddress: 'Address',
+    commentsLabel: 'Notes (e.g. whose is the "other phone")',
+    newTag: '+ New tag',
+    newTagPrompt: 'Name of the new tag:',
+    tagAdded: 'Tag added',
+    changeMarital: 'Change the marital status?',
+    keepMarried: 'Keep married',
+    noAccess: 'You don\'t have access to the database sheet. Ask the owner to share it with your Google account.',
+    error: 'Error: {msg}',
+    gisFail: 'Couldn\'t load Google sign-in. Check your internet connection.',
+    refreshed: 'Data refreshed from the sheet',
+    capReached: 'Google address autocomplete reached its daily limit. You can keep typing manually.',
+    acError: 'Address autocomplete unavailable: {msg}',
+    unknownErr: 'unknown error',
+    required: 'First and last name (Hebrew) are required',
+    dupName: 'A contact with this name already exists (#{id}). Continue anyway?',
+    dupPhone: '{label} {phone} is already registered to {owner}. Continue?',
+    saved: 'Changes saved',
+    added: 'Contact added (#{id})',
+    confirmDeactivate: 'Mark this contact as inactive? All history is kept; they just won\'t appear in the regular list.',
+    notFound: 'This contact was not found in the sheet. Someone may have deleted it. Please refresh.',
+    adminOnly: 'Only an admin can add values to the lists.',
+    listMissing: 'The list {name} was not found.',
+    marital_values: { 'נשוי': 'Married', 'בחור': 'Single', 'גרוש': 'Divorced', 'אלמן': 'Widower' },
+  },
+};
+
+const KEY = 'khal-lang';
+let lang = 'yi';
+try { lang = localStorage.getItem(KEY) === 'en' ? 'en' : 'yi'; } catch { /* ignore */ }
+
+export function getLang() { return lang; }
+
+export function setLang(next) {
+  lang = next === 'en' ? 'en' : 'yi';
+  try { localStorage.setItem(KEY, lang); } catch { /* ignore */ }
+  applyStatic();
+}
+
+/** תרגום, עם החלפת {משתנים}. */
+export function t(key, vars = {}) {
+  const s = STRINGS[lang][key] ?? STRINGS.yi[key] ?? key;
+  return String(s).replace(/\{(\w+)\}/g, (_, k) => (vars[k] ?? ''));
+}
+
+/** ערך מרשימת המצב המשפחתי, מוצג בשפת הממשק (הנתון בגליון לא משתנה). */
+export function maritalLabel(value) {
+  return STRINGS[lang].marital_values[value] || value;
+}
+
+/** מעדכן את הטקסטים הקבועים בדף ואת כיוון הכתיבה. */
+export function applyStatic() {
+  const root = document.documentElement;
+  root.lang = lang === 'en' ? 'en' : 'yi';
+  root.dir = lang === 'en' ? 'ltr' : 'rtl';
+  document.title = `${t('appName')} – ${t('subtitle')}`;
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = t(el.dataset.i18nTitle); });
+  document.querySelectorAll('.lang-switch button').forEach((b) => {
+    b.classList.toggle('on', b.dataset.lang === lang);
+    b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
+  });
+}
