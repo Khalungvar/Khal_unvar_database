@@ -1,7 +1,7 @@
 // מסך אנשי הקשר: התחברות, חיפוש, כרטיס אישי, הוספה ועריכה.
 import { initAuth, requestToken, signOut, getUserEmail } from './google.js';
 import { state, loadAll, saveContact, addListValue } from './data.js';
-import { suggest, details, placesEnabled } from './places.js';
+import { suggest, details, placesEnabled, placesError } from './places.js';
 import {
   normalize, digits, formatPhone, isTrue, isAlive, splitTags, joinTags,
   gematriaCodes, primaryCode, parseCodeQuery, mailingName, escapeHtml as h,
@@ -411,28 +411,36 @@ function wireAddressAutocomplete(form) {
   const input = form.elements.address;
   const listEl = $('.ac-list', form);
   let timer;
+  let items = [];
   let warned = false;
 
   const close = () => { listEl.hidden = true; listEl.innerHTML = ''; };
   input.addEventListener('input', () => {
     clearTimeout(timer);
     timer = setTimeout(async () => {
-      const items = await suggest(input.value).catch(() => []);
-      if (items === null) {
-        if (!warned) toast('ההשלמה של גוגל הגיעה לתקרה היומית. אפשר להמשיך להקליד ידנית.');
+      const result = await suggest(input.value);
+      if (result === 'cap' || result === 'error') {
+        if (!warned) {
+          toast(result === 'cap'
+            ? 'ההשלמה של גוגל הגיעה לתקרה היומית. אפשר להמשיך להקליד ידנית.'
+            : `השלמת הכתובות לא זמינה: ${placesError() || 'שגיאה לא ידועה'}`, result === 'cap' ? 'info' : 'error');
+        }
         warned = true;
         return close();
       }
+      items = result;
       if (!items.length) return close();
-      listEl.innerHTML = items.map((it) => `<button type="button" data-id="${h(it.placeId)}">${h(it.text)}</button>`).join('');
+      listEl.innerHTML = items.map((it, i) => `<button type="button" data-i="${i}">${h(it.text)}</button>`).join('');
       listEl.hidden = false;
-    }, 350);
+    }, 300);
   });
+  listEl.addEventListener('mousedown', (e) => e.preventDefault()); // שהלחיצה לא תסגור את הרשימה לפני הבחירה
   listEl.addEventListener('click', async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
+    const item = items[Number(b.dataset.i)];
     close();
-    const d = await details(b.dataset.id).catch(() => null);
+    const d = item ? await details(item.prediction) : null;
     if (!d) { input.value = b.textContent; return; }
     form.elements.address.value = d.address;
     form.elements.city.value = d.city;
