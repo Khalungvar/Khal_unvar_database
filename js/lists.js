@@ -8,7 +8,9 @@ import {
 import {
   todayIso, nextOccurrence, daysBetween, monthKeyFromHe, isoToHebrewText,
 } from './hebdate.js';
-import { contactInScope, effectiveOrg, donationInScope, getScope } from './scope.js';
+import {
+  contactInScope, effectiveOrg, donationInScope, getScope, memberOrgs, isFormerOf,
+} from './scope.js';
 import { allCampaigns } from './campaigns.js';
 
 let ui = null;
@@ -45,7 +47,7 @@ function columnDefs() {
     ['mobile', t('colMobile'), (c) => ui.phonesOf(c).mobile || ''],
     ['home_phone', t('colHome'), (c) => ui.phonesOf(c).home_phone || ''],
     ['email', t('colEmail'), (c) => ui.phonesOf(c).email_1 || ''],
-    ['orgs', t('organizations'), (c) => ORG_TYPES.flatMap(([n]) => splitTags(c[n])).join(', ')],
+    ['orgs', t('organizations'), (c) => ORG_TYPES.flatMap(([n]) => memberOrgs(c, n)).join(', ')],
     ['tags', t('community'), (c) => splitTags(c.community_tags).join(', ')],
     ['don_total', t('colDonTotal'), (c, x) => money(x.total)],
     ['don_unpaid', t('unpaid'), (c, x) => money(x.open)],
@@ -131,7 +133,7 @@ export function evaluate(cr) {
     if (!cr.includeInactive && !(isTrue(c.is_active) || c.is_active === '')) continue;
     if (cr.orgs.length && !cr.orgs.some((key) => {
       const [type, value] = key.split('|');
-      return splitTags(c[type]).includes(value) && (cr.orgFormer || !isTrue(c[`${type}_former`]));
+      return memberOrgs(c, type).includes(value) && (cr.orgFormer || !isFormerOf(c, type, value));
     })) continue;
     if (cr.tags.length && !cr.tags.some((x) => splitTags(c.community_tags).includes(x))) continue;
     if (cr.areas.length && !cr.areas.includes(c.area)) continue;

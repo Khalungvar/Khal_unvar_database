@@ -3,7 +3,7 @@
 import { state, loadAll, saveOccasion, deleteOccasion } from './data.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, splitTags, isTrue } from './util.js';
-import { contactInScope } from './scope.js';
+import { contactInScope, memberOrgs, isFormerOf } from './scope.js';
 import {
   toHebrew, yearLabel, hebrewNumber, todayIso, monthKeyFromHe, monthHe, yearFromLabel,
   nextOccurrence, daysBetween, isoToHebrewText,
@@ -63,7 +63,7 @@ function whenText(days) {
 
 /** די טעג'ס פונעם קאנטאקט אין קליין: ארגונים (גאלד) און קהילה טעג'ס. */
 function contactTags(c) {
-  const orgs = ['beis_medrash', 'kollel', 'organization'].flatMap((n) => splitTags(c[n]).map((v) => ({ v, former: isTrue(c[`${n}_former`]) })));
+  const orgs = ['beis_medrash', 'kollel', 'organization'].flatMap((n) => memberOrgs(c, n).map((v) => ({ v, former: isFormerOf(c, n, v) })));
   const tags = splitTags(c.community_tags);
   if (!orgs.length && !tags.length) return '';
   return ` <span class="occ-tags">${orgs.map((o) => `<span class="badge org mini${o.former ? ' former' : ''}">${h(o.v)}</span>`).join('')}${tags.map((x) => `<span class="chip mini">${h(x)}</span>`).join('')}</span>`;

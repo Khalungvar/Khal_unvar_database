@@ -1,6 +1,6 @@
 // "הקשר" (סקאופ): כשנכנסים לביהמ"ד / כולל / ארגון מתפריט הצד, כל האתר מציג רק מה ששייך אליו —
 // קאנטאקטן, נדבות, קאמפיין'ס, יארצייטן — עד שיוצאים ל"הויפט בלאט" (הכללי).
-import { state } from './data.js';
+import { state, NESHEI_ORG } from './data.js';
 import { isTrue, splitTags } from './util.js';
 
 export const ORG_TYPES = ['beis_medrash', 'kollel', 'organization'];
@@ -35,6 +35,21 @@ export function setWithFormer(v) {
   state.scopeFormer = Boolean(v);
 }
 
+/**
+ * צו וועלכע ארגונים פון א סארט געהערט א מענטש. "נשי אונגוואר" (אין 'organization')
+ * ווערט באשטימט דורכן קנעפל "נעמט א חלק אין נשי אונגוואר" אין זיין כרטיס.
+ */
+export function memberOrgs(c, type) {
+  const list = splitTags(c[type]).filter((v) => v !== NESHEI_ORG);
+  if (type === 'organization' && isTrue(c.wife_in_neshei)) list.push(NESHEI_ORG);
+  return list;
+}
+
+/** איז ער א "יוצא" פון דעם ארגון? (ביי נשי — קיינמאל) */
+export function isFormerOf(c, type, value) {
+  return value !== NESHEI_ORG && isTrue(c[`${type}_former`]);
+}
+
 /** כל שמות הארגונים שבהקשר הנוכחי (אחד, או כל הסוג). */
 export function scopeOrgs() {
   const s = getScope();
@@ -48,10 +63,11 @@ export function contactInScope(c, former = withFormer()) {
   const s = getScope();
   if (!s) return true;
   if (s.type === 'area') return c.area === s.value;
-  const mine = splitTags(c[s.type]);
+  const mine = memberOrgs(c, s.type);
   const hit = s.value ? mine.includes(s.value) : mine.length > 0;
   if (!hit) return false;
-  return former || !isTrue(c[`${s.type}_former`]);
+  if (s.value) return former || !isFormerOf(c, s.type, s.value);
+  return former || !isTrue(c[`${s.type}_former`]) || mine.includes(NESHEI_ORG);
 }
 
 export function isFormerInScope(c) {

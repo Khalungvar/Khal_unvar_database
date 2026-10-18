@@ -31,6 +31,7 @@ import {
 } from './hebdate.js';
 import {
   getScope, setScope, restoreScope, withFormer, setWithFormer, contactInScope, donationInScope, umbrellaName,
+  memberOrgs, isFormerOf,
 } from './scope.js';
 import {
   normalize, digits, formatPhone, isTrue, isAlive, splitTags, joinTags,
@@ -394,8 +395,11 @@ function orgPages() {
 
 /** כמה שייכים עכשיו (לא יוצאים) לערך — או לכל הסוג אם value ריק. */
 function currentCount(name, value) {
-  return state.contacts.filter((c) => (value ? splitTags(c[name]).includes(value) : splitTags(c[name]).length)
-    && !isTrue(c[`${name}_former`])).length;
+  return state.contacts.filter((c) => {
+    const mine = memberOrgs(c, name);
+    if (value) return mine.includes(value) && !isFormerOf(c, name, value);
+    return mine.some((v) => !isFormerOf(c, name, v));
+  }).length;
 }
 
 function renderOrgs() {
@@ -450,7 +454,8 @@ function matchesOrg(c) {
   const v = $('#org-filter').value;
   if (!v) return true;
   const [name, value] = v.split('|');
-  if (!splitTags(c[name]).includes(value)) return false;
+  if (!memberOrgs(c, name).includes(value)) return false;
+  if (!isFormerOf(c, name, value)) return true;
   return $('#org-former').checked || !isTrue(c[`${name}_former`]);
 }
 
@@ -488,7 +493,6 @@ function contactRow(c) {
   const badges = [
     !isAlive(c.is_alive) ? `<span class="badge muted">${t('deceased')}</span>` : '',
     c.is_active === false || c.is_active === 'FALSE' ? `<span class="badge muted">${t('inactive')}</span>` : '',
-    isTrue(c.wife_in_neshei) ? `<span class="badge">${t('neshei')}</span>` : '',
     ...orgLabels(c).map((o) => orgChip(o, 'badge org')),
   ].join('');
   const tags = splitTags(c.community_tags).map((tag) => `<span class="chip">${h(tag)}</span>`).join('');
@@ -906,8 +910,8 @@ const ORG_FIELDS = [['beis_medrash', 'orgBeisMedrash'], ['kollel', 'orgKollel'],
 function orgRow(c) {
   return `<div class="org-row">
     ${ORG_FIELDS.map(([name, label]) => {
-      const chosen = splitTags(c[name]);
-      const all = [...new Set([...(state.lists[name] || []), ...chosen])];
+      const chosen = splitTags(c[name]).filter((v) => v !== NESHEI_ORG);
+      const all = [...new Set([...(state.lists[name] || []), ...chosen])].filter((v) => v !== NESHEI_ORG); // נשי — דורכן באזונדערן קנעפל
       return `<div class="org-select"><span class="org-head">${t(label)}
           <label class="former-toggle" title="${h(t('formerTip'))}"><input type="checkbox" name="${name}_former" ${isTrue(c[`${name}_former`]) ? 'checked' : ''}> ${t('former')}</label></span>
         <details class="multi" data-name="${name}">
@@ -925,7 +929,7 @@ function readMulti(form, name) {
 
 /** לתצוגה ברשימה ובכרטיס: [{ label, former }] — "ביהמ\"ד מאנסי", "כולל ערב"... former = יוצא (לשעבר). */
 function orgLabels(c) {
-  return ORG_FIELDS.flatMap(([name]) => splitTags(c[name]).map((label) => ({ label, former: isTrue(c[`${name}_former`]) })));
+  return ORG_FIELDS.flatMap(([name]) => memberOrgs(c, name).map((label) => ({ label, former: isFormerOf(c, name, label) })));
 }
 
 function orgChip(o, cls) {
