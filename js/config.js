@@ -17,7 +17,15 @@ export const CONFIG = {
 
   // מספר איש הקשר הראשון
   FIRST_CONTACT_ID: 1001,
+
+  // חשבון "דאטאבייס" (חשבון הפרויקט): כשמעלים תמונות / לוגאס כשמחוברים איתו,
+  // הקובץ המקורי נשמר בדרייב שלו, בתיקייה הזאת (עם תת-תיקיות Logos / Photos).
+  DATABASE_ACCOUNT: 'khalungvardatabase@gmail.com',
+  DRIVE_FOLDER: 'Khal Ungvar – Database',
 };
+
+// הרשאה לדרייב — רק לקבצים שהאתר עצמו יוצר. מבקשים אותה רק כשמעלים בפעם הראשונה.
+export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
 export const SCOPES = [
   'openid',

@@ -1,7 +1,7 @@
 // עמוד אדמין: כל הרשימות של האתר במקום אחד — ארגונים, טעג'ס, אופני תשלום, טיטלען, געגנטן, קרבות, מנהלים.
 // הכל נשמר בגליון (לשונית Lists / Settings). רק מנהל רואה את העמוד ויכול לשמור.
 import {
-  state, loadAll, saveListColumns, saveSettingsColumns, rawListColumn, rawSettingsColumn, orgLogo, saveOrgLogo,
+  state, loadAll, saveListColumns, saveSettingsColumns, rawListColumn, rawSettingsColumn, orgLogo, saveOrgLogo, saveOriginalToDrive,
 } from './data.js';
 import { t } from './i18n.js';
 import { splitTags, escapeHtml as h, shrinkImage } from './util.js';
@@ -214,7 +214,11 @@ function wireLogos(main) {
       if (!file) return;
       try {
         const data = await shrinkImage(file, 320);
-        await saveOrgLogo(org, data);
+        let driveId = '';
+        try {
+          driveId = await saveOriginalToDrive(file, 'Logos', org);
+        } catch (err) { ui.toast(t('driveFailed', { err: ui.friendlyError(err) }), 'error'); }
+        await saveOrgLogo(org, data, driveId);
         await loadAll();
         ui.refreshAll();
         renderAdmin();

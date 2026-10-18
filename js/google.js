@@ -1,7 +1,7 @@
 // לוגאין עם גוגל וגישה לגוגל שיטס.
 // גוגל נותנת "מפתח כניסה" (טוקן) שתקף שעה אחת. שומרים אותו בדפדפן עד שהוא פג,
 // כדי שרענון של הדף לא ידרוש התחברות מחדש. אחרי שעה מבקשים לחיצה אחת לחידוש.
-import { CONFIG, SCOPES } from './config.js';
+import { CONFIG, SCOPES, DRIVE_SCOPE } from './config.js';
 
 const STORE = 'khal-auth';
 let tokenClient = null;
@@ -10,15 +10,17 @@ let expiresAt = 0;
 let hintEmail = '';
 let onExpire = null;
 let expireTimer = null;
+let grantedScopes = '';
 
 function save() {
-  try { localStorage.setItem(STORE, JSON.stringify({ accessToken, expiresAt, hintEmail })); } catch { /* ignore */ }
+  try { localStorage.setItem(STORE, JSON.stringify({ accessToken, expiresAt, hintEmail, grantedScopes })); } catch { /* ignore */ }
 }
 
 function restore() {
   try {
     const d = JSON.parse(localStorage.getItem(STORE) || '{}');
     hintEmail = d.hintEmail || '';
+    grantedScopes = d.grantedScopes || '';
     if (d.accessToken && d.expiresAt > Date.now() + 60_000) {
       accessToken = d.accessToken;
       expiresAt = d.expiresAt;
@@ -65,6 +67,7 @@ export async function initAuth() {
       } else {
         accessToken = resp.access_token;
         expiresAt = Date.now() + (Number(resp.expires_in) || 3600) * 1000;
+        grantedScopes = resp.scope || grantedScopes;
         save();
         scheduleExpire();
         pendingResolve?.(accessToken);
@@ -86,6 +89,42 @@ export function requestToken(prompt = '') {
     tokenClient.requestAccessToken(hintEmail && prompt !== 'select_account'
       ? { prompt, login_hint: hintEmail } : { prompt });
   });
+}
+
+/** בעט (איין מאל) די הרשאה פאר דרייב, צוזאמען מיט די וואס זענען שוין דא. */
+export function ensureDriveScope() {
+  if (grantedScopes.includes(DRIVE_SCOPE)) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    pendingResolve = resolve;
+    pendingReject = reject;
+    tokenClient.requestAccessToken({
+      scope: `${SCOPES} ${DRIVE_SCOPE}`, include_granted_scopes: true, prompt: 'consent', login_hint: hintEmail || undefined,
+    });
+  });
+}
+
+const DRIVE = 'https://www.googleapis.com/drive/v3/files';
+
+/** געפינט (אדער שאפט) א פאלדער לויטן נאמען. parent = ID פון דעם פאלדער אויבן (אדער 'root'). */
+export async function driveFolder(name, parent = 'root') {
+  const q = `name='${name.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and '${parent}' in parents and trashed=false`;
+  const found = await authFetch(`${DRIVE}?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`);
+  if (found.files?.length) return found.files[0].id;
+  const made = await authFetch(`${DRIVE}?fields=id`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parent] }),
+  });
+  return made.id;
+}
+
+/** לייגט ארויף א טעקע (File/Blob) אין א פאלדער. גיט צוריק דעם ID. */
+export async function driveUpload(file, name, folderId) {
+  const meta = { name, parents: [folderId] };
+  const body = new FormData();
+  body.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
+  body.append('file', file);
+  const res = await authFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', body });
+  return res.id;
 }
 
 export function signOut() {

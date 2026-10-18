@@ -3,7 +3,7 @@ import {
   initAuth, requestToken, signOut, getUserEmail, hasSavedSession, setOnExpire, rememberEmail,
 } from './google.js';
 import {
-  state, loadAll, displayName, orgLogo, getPhoto, savePhoto, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
+  state, loadAll, displayName, orgLogo, getPhoto, savePhoto, saveOriginalToDrive, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
 } from './data.js';
 import { suggest, details, placesEnabled, placesError } from './places.js';
 import {
@@ -713,9 +713,13 @@ function wirePhoto(c) {
     box.classList.add('loading');
     try {
       const data = await shrinkImage(file, 360);
-      await savePhoto(id, data);
+      let driveId = '';
+      try {
+        driveId = await saveOriginalToDrive(file, 'Photos', `${id} ${fullNameHe(c)}`);
+      } catch (err) { toast(t('driveFailed', { err: friendlyError(err) }), 'error'); }
+      await savePhoto(id, data, driveId);
       showPhoto(box, data);
-      toast(t('photoSaved'));
+      toast(driveId ? t('photoSavedDrive') : t('photoSaved'));
     } catch (err) {
       toast(err.message === 'too-big' ? t('mmImageTooBig') : err.message === 'bad-image' ? t('mmImageBad') : friendlyError(err), 'error');
     } finally { box.classList.remove('loading'); e.target.value = ''; }

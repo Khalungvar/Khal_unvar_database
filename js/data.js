@@ -2,6 +2,7 @@
 // ככה הוספה או הזזה של עמודה בגליון לא שוברת את התוכנה.
 import {
   readTabs, readColumn, readCell, appendRow, appendRows, updateRow, updateCell, updateRange,
+  ensureDriveScope, driveFolder, driveUpload,
 } from './google.js';
 import { CONFIG } from './config.js';
 import { nowStamp } from './util.js';
@@ -223,12 +224,31 @@ export function orgLogo(name) {
 }
 
 /** מנהל בלבד: שומר (אדער מעקט אויס מיט '') דעם לאגא פון א ארגון. */
-export async function saveOrgLogo(org, data) {
+export async function saveOrgLogo(org, data, driveId = '') {
   if (!state.isAdmin) throw new Error(t('adminOnly'));
   const row = await findRow('OrgLogos', org);
-  const values = objectToRow(state.headers.OrgLogos, { org, logo_data: data, updated_at: nowStamp(), updated_by: state.email });
+  const values = objectToRow(state.headers.OrgLogos, { org, logo_data: data, updated_at: nowStamp(), updated_by: state.email, drive_id: driveId });
   if (row) await updateRow('OrgLogos', row, data ? values : state.headers.OrgLogos.map(() => ''));
   else if (data) await appendRow('OrgLogos', values);
+}
+
+// ---------- דרייב פון "דאטאבייס" ----------
+/** איז דער באנוצער יעצט דער "דאטאבייס" חשבון? (נאר דעמאלט ווערט דער אריגינאל געשפייכלט אין דרייב) */
+export function isDatabaseAccount() {
+  return state.email === String(CONFIG.DATABASE_ACCOUNT || '').toLowerCase();
+}
+
+/**
+ * היט אפ דעם אריגינאל אין דרייב פון "דאטאבייס" (Khal Ungvar – Database / sub).
+ * גיט צוריק דעם ID פון דער טעקע, אדער '' ווען מען איז נישט אריין מיטן "דאטאבייס" חשבון.
+ */
+export async function saveOriginalToDrive(file, sub, name) {
+  if (!isDatabaseAccount() || !file) return '';
+  await ensureDriveScope();
+  const root = await driveFolder(CONFIG.DRIVE_FOLDER);
+  const folder = await driveFolder(sub, root);
+  const ext = (file.name || '').split('.').pop() || 'jpg';
+  return driveUpload(file, `${name}.${ext}`, folder);
 }
 
 // ---------- בילדער פון מענטשן (לשונית Photos) ----------
@@ -245,11 +265,11 @@ export async function getPhoto(contactId) {
   return data;
 }
 
-export async function savePhoto(contactId, data) {
+export async function savePhoto(contactId, data, driveId = '') {
   const k = String(contactId);
   const row = await findRow('Photos', k);
-  const values = [Number(k), data, nowStamp(), state.email];
-  if (row) await updateRow('Photos', row, data ? values : ['', '', '', '']);
+  const values = [Number(k), data, nowStamp(), state.email, driveId];
+  if (row) await updateRow('Photos', row, data ? values : ['', '', '', '', '']);
   else if (data) await appendRow('Photos', values);
   photoCache.set(k, data);
 }
