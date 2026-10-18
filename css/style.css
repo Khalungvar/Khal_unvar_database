@@ -475,3 +475,10 @@ dialog.sheet.full { width: min(1200px, 96vw); max-width: 96vw; max-height: 94vh;
 .side-new { margin: 8px 6px 0; }
 
 .side-home { font-weight: 600; border-bottom: 1px solid var(--gold); border-radius: 8px 8px 0 0; margin-bottom: 8px; }
+
+/* פס "איר זענט יעצט אין" */
+.scope-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 10px 16px 0; padding: 10px 14px;
+  background: var(--accent); color: #fff; border-radius: 12px; font-size: 15px; }
+.scope-bar b { font-size: 18px; }
+.scope-bar .check { color: #fff; font-size: 14px; }
+.scope-bar .btn { background: #fff; color: var(--accent); border-color: #fff; }

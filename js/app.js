@@ -19,6 +19,9 @@ import {
   openOccasionForm, YAHRZEIT,
 } from './occasions.js';
 import {
+  getScope, setScope, restoreScope, withFormer, setWithFormer, contactInScope, donationInScope,
+} from './scope.js';
+import {
   normalize, digits, formatPhone, isTrue, isAlive, splitTags, joinTags,
   gematriaCodes, primaryCode, parseCodeQuery, mailingName, detectArea, escapeHtml as h,
 } from './util.js';
@@ -77,6 +80,7 @@ async function enterApp() {
   state.email = await getUserEmail();
   rememberEmail(state.email);
   await loadAll();
+  restoreScope();
   $('#user-email').textContent = state.email + (state.isAdmin ? ` · ${t('admin')}` : '');
   $('#login-view').hidden = true;
   $('#app-view').hidden = false;
@@ -102,11 +106,7 @@ function showView(name) {
   $$('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === name));
   if (name === 'donations') { fillDonationFilters(); renderDonations(); }
   if (name === 'occasions') { fillOccasionFilters(); renderOccasions(); }
-  $('#btn-home')?.classList.toggle('on', name === 'contacts');
-  if (name !== 'orgs') $$('#org-side .org-link').forEach((b) => b.classList.remove('on'));
-  if (name === 'orgs') renderOrgs();
   if (name === 'campaign') renderCampaignPage();
-  renderOrgs();
   renderCampaignSide();
 }
 
@@ -196,30 +196,12 @@ function fillFilters() {
   $('#org-former-wrap').hidden = !orgSel.value;
 }
 
-// ---------- דפי ארגונים: לכל ביהמ"ד / כולל / ארגון — מי ששייך אליו, כולל יוצאים ----------
-let currentOrgPage = '';
-
+// ---------- תפריט צד: ארגונים = "הקשר" (כל האתר מציג רק מה ששייך לארגון שנבחר) ----------
 function orgPages() {
   return ORG_FIELDS.map(([name, label]) => {
     const values = [...new Set([...(state.lists[name] || []), ...state.contacts.flatMap((c) => splitTags(c[name]))])];
     return { name, label, values };
   });
-}
-
-function orgMembers(name, value) {
-  return state.contacts.filter((c) => splitTags(c[name]).includes(value))
-    .sort((a, b) => String(a.last_name_he).localeCompare(String(b.last_name_he), 'he')
-      || String(a.first_name_he).localeCompare(String(b.first_name_he), 'he'));
-}
-
-function memberBlock(name, value, heading) {
-  const all = orgMembers(name, value);
-  const current = all.filter((c) => !isTrue(c[`${name}_former`]));
-  const former = all.filter((c) => isTrue(c[`${name}_former`]));
-  return `${heading}
-    <p class="muted">${h(t('orgMembersCount', { n: current.length, f: former.length }))}</p>
-    <div class="list">${current.map(contactRow).join('') || `<p class="empty">${h(t('noMembers'))}</p>`}</div>
-    ${former.length ? `<h4 class="former-head">${h(t('formerMembers'))}</h4><div class="list former-list">${former.map(contactRow).join('')}</div>` : ''}`;
 }
 
 /** כמה שייכים עכשיו (לא יוצאים) לערך — או לכל הסוג אם value ריק. */
@@ -231,30 +213,31 @@ function currentCount(name, value) {
 function renderOrgs() {
   const side = $('#org-side');
   if (!side) return;
-  const pages = orgPages();
-  const active = !$('.view[data-view="orgs"]').hidden;
-  side.innerHTML = pages.map((p) => `<div class="org-group">
-    <button type="button" class="org-link org-top${active && p.name === currentOrgPage ? ' on' : ''}" data-key="${h(p.name)}">
+  const sc = getScope();
+  const isOn = (type, value) => sc && sc.type === type && sc.value === value;
+  side.innerHTML = orgPages().map((p) => `<div class="org-group">
+    <button type="button" class="org-link org-top${isOn(p.name, '') ? ' on' : ''}" data-type="${h(p.name)}" data-value="">
       <span>${h(t(p.label))}</span><span class="count-pill">${currentCount(p.name, '')}</span></button>
-    ${p.values.map((v) => {
-      const key = `${p.name}|${v}`;
-      return `<button type="button" class="org-link org-sub${active && key === currentOrgPage ? ' on' : ''}" data-key="${h(key)}">
-        <span>${h(v)}</span><span class="count-pill">${currentCount(p.name, v)}</span></button>`;
-    }).join('')}
+    ${p.values.map((v) => `<button type="button" class="org-link org-sub${isOn(p.name, v) ? ' on' : ''}" data-type="${h(p.name)}" data-value="${h(v)}">
+        <span>${h(v)}</span><span class="count-pill">${currentCount(p.name, v)}</span></button>`).join('')}
   </div>`).join('');
-  const [name, value] = currentOrgPage.split('|');
-  const main = $('#org-main');
-  const page = pages.find((p) => p.name === name);
-  if (!page) { main.innerHTML = `<p class="empty">${h(t('noOrgs'))}</p>`; return; }
-  if (value) {
-    main.innerHTML = memberBlock(name, value, `<h2>${h(value)} <span class="muted small">${h(t(page.label))}</span></h2>`);
-    return;
+  $('#btn-home').classList.toggle('on', !sc);
+  // פס למעלה: באיזה הקשר נמצאים
+  const bar = $('#scope-bar');
+  bar.hidden = !sc;
+  if (sc) {
+    const label = sc.value || t(ORG_FIELDS.find(([n]) => n === sc.type)[1]);
+    $('#scope-name').textContent = label;
+    $('#scope-former').checked = withFormer();
   }
-  // דף ראשי של הסוג: מחולק לפי כל ערך
-  main.innerHTML = `<h2>${h(t(page.label))}</h2>`
-    + (page.values.length ? page.values.map((v) => `<section class="org-part">${memberBlock(name, v,
-      `<h3><button type="button" class="linkish org-open" data-key="${h(`${name}|${v}`)}">${h(v)}</button></h3>`)}</section>`).join('')
-      : `<p class="empty">${h(t('noOrgs'))}</p>`);
+}
+
+/** נכנסים לארגון (או יוצאים ממנו עם null) — וכל המסכים מתעדכנים. */
+function enterScope(scope) {
+  setScope(scope);
+  if (!$('.view[data-view="campaign"]').hidden) showView('donations');
+  document.body.classList.remove('menu-open');
+  refreshAll();
 }
 
 /** פילטער לויט ביהמ"ד / כולל / ארגון; יוצאים רק אם סימנו "מיט יוצאים". */
@@ -272,6 +255,7 @@ function visibleContacts() {
   const area = $('#area-filter').value;
   const showInactive = $('#show-inactive').checked;
   return state.contacts
+    .filter((c) => contactInScope(c))
     .filter((c) => showInactive || isTrue(c.is_active) || c.is_active === '')
     .filter((c) => !tag || splitTags(c.community_tags).includes(tag))
     .filter((c) => !area || c.area === area)
@@ -283,7 +267,8 @@ function visibleContacts() {
 
 function renderList() {
   const list = visibleContacts();
-  $('#count').textContent = t('count', { n: list.length });
+  const sc = getScope();
+  $('#count').textContent = t('count', { n: list.length }) + (sc ? ` · ${sc.value || t(ORG_FIELDS.find(([n]) => n === sc.type)[1])}` : '');
   const body = $('#list');
   if (!list.length) {
     body.innerHTML = `<p class="empty">${h(state.contacts.length ? t('noResults') : t('emptyDb'))}</p>`;
@@ -562,7 +547,7 @@ function familyCount(c) {
 }
 
 function donationCount(c) {
-  return state.donations.filter((d) => String(d.contact_id) === String(c.contact_id)).length;
+  return state.donations.filter((d) => String(d.contact_id) === String(c.contact_id) && donationInScope(d)).length;
 }
 
 function familySection(c) {
@@ -759,6 +744,8 @@ function wireFormFamily(form, c) {
 }
 
 function openForm(c = {}) {
+  const sc = getScope();
+  if (!c.contact_id && sc?.value && !c[sc.type]) c = { ...c, [sc.type]: sc.value };
   const p = c.contact_id ? phonesOf(c) : {};
   const v = (k) => h(c[k] ?? '');
   const isNew = !c.contact_id;
@@ -1169,23 +1156,16 @@ function start() {
   $('#org-former').addEventListener('change', renderList);
   $('#org-side').addEventListener('click', (e) => {
     const b = e.target.closest('.org-link');
-    if (b) {
-      currentOrgPage = b.dataset.key;
-      showView('orgs');
-      document.body.classList.remove('menu-open');
-    }
+    if (b) enterScope({ type: b.dataset.type, value: b.dataset.value });
   });
-  // לחיצה על הלוגו → חזרה למסך הראשי (קאנטאקטן)
+  // הויפט בלאט / הלוגו / "צוריק צום כללי" → יוצאים מהארגון
+  const goHome = () => { enterScope(null); showView('contacts'); };
   $('.topbar .brand').style.cursor = 'pointer';
-  $('.topbar .brand').onclick = () => showView('contacts');
-  $('#btn-home').onclick = () => { showView('contacts'); document.body.classList.remove('menu-open'); };
+  $('.topbar .brand').onclick = goHome;
+  $('#btn-home').onclick = goHome;
+  $('#scope-exit').onclick = goHome;
+  $('#scope-former').addEventListener('change', () => { setWithFormer($('#scope-former').checked); refreshAll(); });
   $('#btn-menu').onclick = () => document.body.classList.toggle('menu-open');
-  $('#org-main').addEventListener('click', (e) => {
-    const open = e.target.closest('.org-open');
-    if (open) { currentOrgPage = open.dataset.key; renderOrgs(); return; }
-    const row = e.target.closest('.row');
-    if (row) openCard(row.dataset.id);
-  });
   $('#show-inactive').addEventListener('change', renderList);
   $('#list').addEventListener('click', (e) => {
     const row = e.target.closest('.row');

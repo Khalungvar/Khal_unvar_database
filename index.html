@@ -8,21 +8,22 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="img/favicon.png">
-  <link rel="stylesheet" href="css/style.css?v=48">
+  <link rel="stylesheet" href="css/style.css?v=50">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script type="importmap">
   {"imports": {
-    "./js/app.js": "./js/app.js?v=48",
-    "./js/config.js": "./js/config.js?v=48",
-    "./js/data.js": "./js/data.js?v=48",
-    "./js/donations.js": "./js/donations.js?v=48",
-    "./js/hebdate.js": "./js/hebdate.js?v=48",
-    "./js/google.js": "./js/google.js?v=48",
-    "./js/i18n.js": "./js/i18n.js?v=48",
-    "./js/names.js": "./js/names.js?v=48",
-    "./js/occasions.js": "./js/occasions.js?v=48",
-    "./js/places.js": "./js/places.js?v=48",
-    "./js/util.js": "./js/util.js?v=48"
+    "./js/app.js": "./js/app.js?v=50",
+    "./js/config.js": "./js/config.js?v=50",
+    "./js/data.js": "./js/data.js?v=50",
+    "./js/donations.js": "./js/donations.js?v=50",
+    "./js/hebdate.js": "./js/hebdate.js?v=50",
+    "./js/google.js": "./js/google.js?v=50",
+    "./js/i18n.js": "./js/i18n.js?v=50",
+    "./js/names.js": "./js/names.js?v=50",
+    "./js/occasions.js": "./js/occasions.js?v=50",
+    "./js/places.js": "./js/places.js?v=50",
+    "./js/scope.js": "./js/scope.js?v=50",
+    "./js/util.js": "./js/util.js?v=50"
   }}
   </script>
   <script type="module">import "./js/app.js";</script>
@@ -66,6 +67,12 @@
       </div>
     </aside>
     <div class="app-main">
+    <div id="scope-bar" class="scope-bar" hidden>
+      <span data-i18n="scopeIn"></span> <b id="scope-name"></b>
+      <label class="check"><input type="checkbox" id="scope-former"> <span data-i18n="withFormer"></span></label>
+      <span class="spacer"></span>
+      <button type="button" class="btn small-btn" id="scope-exit" data-i18n="scopeExit"></button>
+    </div>
     <nav class="tabs">
       <button type="button" data-view="contacts" class="on" data-i18n="tabContacts"></button>
       <button type="button" data-view="donations" data-i18n="tabDonations"></button>
@@ -125,9 +132,6 @@
       <section id="campaign-main"></section>
     </main>
 
-    <main class="page view" data-view="orgs" hidden>
-      <section id="org-main" class="org-main"></section>
-    </main>
     </div>
     </div>
   </div>

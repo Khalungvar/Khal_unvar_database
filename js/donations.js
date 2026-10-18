@@ -6,6 +6,9 @@ import {
   toHebrew, fromHebrew, monthsOf, yearLabel, formatHebrew, isoToHebrewText,
   parseHebrewText, todayIso, hebrewNumber,
 } from './hebdate.js';
+import {
+  campaignOrg, effectiveOrg, donationInScope, defaultOrg,
+} from './scope.js';
 
 let ui = null; // עזרים מהמסך הראשי (נמסרים ב-initDonations)
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -63,14 +66,6 @@ function orgSelect(name, value, extra = '') {
   }).join('')}${value && !known.includes(value) ? `<option selected>${h(value)}</option>` : ''}</select>`;
 }
 
-export function campaignOrg(name) {
-  return name ? String(state.campaigns.find((c) => c.campaign === name)?.org || '') : '';
-}
-
-/** הארגון של הנדבה: של הקאמפיין (אם מוגדר), אחרת מה שנבחר בנדבה. */
-function effectiveOrg(d) {
-  return campaignOrg(d.campaign) || String(d.org || '');
-}
 
 /** שם הנדבן: איש קשר, או שם שנכתב (מישהו שלא ברשימה). */
 function donorName(d) {
@@ -119,6 +114,7 @@ function visibleDonations() {
   const unpaid = $('#don-unpaid').checked;
   const org = $('#don-org')?.value || '';
   return state.donations
+    .filter(donationInScope)
     .filter((d) => !org || effectiveOrg(d) === org)
     .filter((d) => !tag || splitTags(d.event_tags).includes(tag))
     .filter((d) => !year || d.event_year === year)
@@ -156,6 +152,7 @@ export function renderDonations() {
 // ---------- חלק בכרטיס האישי ----------
 export function donationsSection(c) {
   const mine = state.donations.filter((d) => String(d.contact_id) === String(c.contact_id))
+    .filter(donationInScope)
     .sort((a, b) => String(b.date).localeCompare(String(a.date)));
   const total = mine.reduce((s, d) => s + Number(d.amount_usd || 0), 0);
   return `<section class="card-donations">
@@ -225,6 +222,7 @@ export function openDonationForm(donation = {}, presetContactId = null) {
   if (isNew) {
     d.contact_id = presetContactId || '';
     d.date = todayIso();
+    d.org = d.org || defaultOrg();
     d.is_paid = true; // ברירת מחדל: שולם
     d.paid_date = todayIso();
   }
@@ -565,7 +563,7 @@ function campaignRow(i) {
 
 function campaignNames() {
   const seen = new Map();
-  state.donations.forEach((d) => {
+  state.donations.filter(donationInScope).forEach((d) => {
     const n = String(d.campaign || '').trim();
     if (!n) return;
     const cur = seen.get(n) || { name: n, total: 0, count: 0, last: '' };
@@ -591,7 +589,7 @@ export function openCampaign(preset = {}) {
       </label>
       <datalist id="dl-campaigns">${campaignNames().map((c) => `<option value="${h(c.name)}">`).join('')}</datalist>
       <label class="wide org-pick">${t('campaignOrg')} *
-        ${orgSelect('org', campaignOrg(preset.campaign) || '')}
+        ${orgSelect('org', campaignOrg(preset.campaign) || defaultOrg())}
       </label>
       <div class="quick-block">
         <span class="quick-label">${t('eventLegend')}</span>

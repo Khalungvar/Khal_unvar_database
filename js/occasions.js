@@ -3,6 +3,7 @@
 import { state, loadAll, saveOccasion, deleteOccasion } from './data.js';
 import { t } from './i18n.js';
 import { escapeHtml as h } from './util.js';
+import { contactInScope } from './scope.js';
 import {
   toHebrew, yearLabel, hebrewNumber, todayIso, monthKeyFromHe, monthHe, yearFromLabel,
   nextOccurrence, daysBetween, isoToHebrewText,
@@ -93,6 +94,7 @@ export function renderOccasions() {
   const list = state.occasions
     .map((o) => ({ o, x: info(o) }))
     .filter(({ o }) => !type || o.occasion_type === type)
+    .filter(({ o }) => { const c = ui.contactById(o.contact_id); return !c || contactInScope(c); })
     .filter(({ x }) => x.next && x.days <= range)
     .filter(({ o }) => {
       if (!q) return true;
