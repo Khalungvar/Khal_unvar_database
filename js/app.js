@@ -11,6 +11,9 @@ import {
 } from './i18n.js';
 import { suggestFirstName, suggestLastName } from './names.js';
 import {
+  initDonations, fillDonationFilters, renderDonations, donationsSection, wireDonationsSection,
+} from './donations.js';
+import {
   normalize, digits, formatPhone, isTrue, isAlive, splitTags, joinTags,
   gematriaCodes, primaryCode, parseCodeQuery, mailingName, detectArea, escapeHtml as h,
 } from './util.js';
@@ -72,8 +75,22 @@ async function enterApp() {
   $('#user-email').textContent = state.email + (state.isAdmin ? ` · ${t('admin')}` : '');
   $('#login-view').hidden = true;
   $('#app-view').hidden = false;
+  refreshAll();
+}
+
+/** מרענן את כל המסכים אחרי טעינה או שמירה. */
+function refreshAll() {
   fillFilters();
   renderList();
+  fillDonationFilters();
+  renderDonations();
+  if ($('#card-dialog').open && currentCardId) openCard(currentCardId);
+}
+
+function showView(name) {
+  $$('.view').forEach((v) => { v.hidden = v.dataset.view !== name; });
+  $$('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === name));
+  if (name === 'donations') { fillDonationFilters(); renderDonations(); }
 }
 
 async function signIn() {
@@ -99,8 +116,7 @@ function logout() {
 async function refresh() {
   try {
     await loadAll();
-    fillFilters();
-    renderList();
+    refreshAll();
     toast(t('refreshed'));
   } catch (err) {
     toast(friendlyError(err), 'error');
@@ -210,6 +226,8 @@ function tagChips(value) {
   return splitTags(value).map((tag) => `<span class="chip">${h(tag)}</span>`).join('');
 }
 
+let currentCardId = null;
+
 function openCard(id) {
   const c = state.contacts.find((x) => String(x.contact_id) === String(id));
   if (!c) return;
@@ -247,12 +265,15 @@ function openCard(id) {
     ${address || c.area ? `<section><h3>${t('address')}${c.area ? ` · ${unverifiedWrap(c, ['area'], h(c.area))}` : ''}</h3><p dir="ltr" class="addr">${address}</p></section>` : ''}
     ${phones || emails || p.comments ? `<section><h3>${t('phonesEmail')}</h3>${phones}${emails}${field(t('comments'), h(p.comments))}</section>` : ''}
     ${familySection(c)}
+    ${donationsSection(c)}
     <p class="meta">
       ${c.created_at ? `<span>${h(t('created', { date: c.created_at, by: c.created_by || '—' }))}</span>` : ''}
       ${c.updated_at && c.updated_at !== c.created_at ? `<span>${h(t('updated', { date: c.updated_at, by: c.updated_by }))}</span>` : ''}
     </p>`;
 
   wireFamily(c);
+  wireDonationsSection(c);
+  currentCardId = c.contact_id;
   $('#card-edit').onclick = () => { $('#card-dialog').close(); openForm(c); };
   if (!$('#card-dialog').open) $('#card-dialog').showModal();
   $('#card-dialog').scrollTop = 0;
@@ -390,6 +411,28 @@ function readMulti(form, name) {
 /** לתצוגה ברשימה ובכרטיס: "ביהמ\"ד מאנסי", "כולל ערב", "כהלכתו". */
 function orgLabels(c) {
   return ORG_FIELDS.flatMap(([name]) => splitTags(c[name]));
+}
+
+/** לחיצה על תגית מסמנת / מבטלת; "+ נייע טעג" (מנהל) מוסיף ערך לרשימה. */
+function wireTagPicker(box) {
+  box.addEventListener('click', async (e) => {
+    const b = e.target.closest('.chip');
+    if (!b) return;
+    if (b.classList.contains('toggle')) { b.classList.toggle('on'); return; }
+    if (b.classList.contains('add')) {
+      const value = prompt(t('newTagPrompt'));
+      if (!value || !value.trim()) return;
+      try {
+        await addListValue(box.dataset.list, value.trim());
+        const nb = document.createElement('button');
+        nb.type = 'button';
+        nb.className = 'chip toggle on';
+        nb.textContent = value.trim();
+        box.insertBefore(nb, b);
+        toast(t('tagAdded'));
+      } catch (err) { toast(friendlyError(err), 'error'); }
+    }
+  });
 }
 
 /** קשרים משפחתיים בתוך הטופס: נשמרים יחד עם איש הקשר כשלוחצים אפהיטן. */
@@ -549,26 +592,7 @@ function wireForm(form, original) {
   const f = (name) => form.elements[name];
 
   // תגיות
-  $$('.tags', form).forEach((box) => {
-    box.addEventListener('click', async (e) => {
-      const b = e.target.closest('.chip');
-      if (!b) return;
-      if (b.classList.contains('toggle')) { b.classList.toggle('on'); return; }
-      if (b.classList.contains('add')) {
-        const value = prompt(t('newTagPrompt'));
-        if (!value || !value.trim()) return;
-        try {
-          await addListValue(box.dataset.list, value.trim());
-          const nb = document.createElement('button');
-          nb.type = 'button';
-          nb.className = 'chip toggle on';
-          nb.textContent = value.trim();
-          box.insertBefore(nb, b);
-          toast(t('tagAdded'));
-        } catch (err) { toast(friendlyError(err), 'error'); }
-      }
-    });
-  });
+  $$('.tags', form).forEach(wireTagPicker);
 
   // הצעת שם באנגלית לפי העברית — רק כשהשדה באנגלית ריק. מוצג באפור עד שמשנים או מאשרים.
   const suggestInto = (heName, enName, fn) => {
@@ -827,7 +851,7 @@ function closeOnBackdrop(dialog, close) {
 // ---------- הפעלה ----------
 function switchLang(lang) {
   setLang(lang);
-  if (!$('#app-view').hidden) { fillFilters(); renderList(); }
+  if (!$('#app-view').hidden) refreshAll();
 }
 
 function start() {
@@ -847,6 +871,13 @@ function start() {
   });
   $$('dialog [data-close]').forEach((b) => { b.onclick = () => b.closest('dialog').close(); });
   closeOnBackdrop($('#card-dialog'), () => $('#card-dialog').close());
+  closeOnBackdrop($('#donation-dialog'), () => $('#donation-form')._close?.());
+  $('#donation-dialog').addEventListener('cancel', (e) => { e.preventDefault(); $('#donation-form')._close?.(); });
+  $$('.tabs button').forEach((b) => { b.onclick = () => showView(b.dataset.view); });
+  initDonations({
+    contactById, fullNameHe, pickerLabel, options, tagPicker, readTags, wireTagPicker,
+    toast, friendlyError, refreshAll,
+  });
   closeOnBackdrop($('#form-dialog'), closeForm);
   $('#form-dialog').addEventListener('cancel', (e) => { e.preventDefault(); closeForm(); }); // מקש Esc
 

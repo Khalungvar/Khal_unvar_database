@@ -12,6 +12,7 @@ export const state = {
   contacts: [],      // אובייקטים, עם _row (מספר השורה בגליון)
   phones: new Map(), // contact_id → אובייקט טלפונים
   areas: [],         // [{ name, zips, keywords }] — זיהוי געגנט לפי כתובת
+  donations: [],     // תרומות, כולל _row
   relations: [],     // { relation_id, contact_id_a, relation_type, contact_id_b, _row }
   lists: {},         // { title_he: [...], ... }
   titleHeToEn: {},
@@ -64,7 +65,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -73,6 +74,10 @@ export async function loadAll() {
   const phones = rowsToObjects(tabs.Phones);
   state.headers.Phones = phones.header;
   state.phones = new Map(phones.objects.map((p) => [String(p.contact_id), p]));
+
+  const donations = rowsToObjects(tabs.Donations);
+  state.headers.Donations = donations.header;
+  state.donations = donations.objects;
 
   const relations = rowsToObjects(tabs.Relations);
   state.headers.Relations = relations.header;
@@ -123,6 +128,33 @@ export async function saveContact(contact, phones) {
   else if (hasPhones) await appendRow('Phones', objectToRow(state.headers.Phones, p));
 
   return c.contact_id;
+}
+
+// ---------- תרומות ----------
+/** שומר תרומה (חדשה או קיימת). מחזיר את ה-donation_id. */
+export async function saveDonation(donation) {
+  const stamp = nowStamp();
+  const d = { ...donation, updated_at: stamp, updated_by: state.email };
+  delete d._row;
+  if (!d.donation_id) {
+    const ids = (await readColumn('Donations', 'A')).slice(1).map(Number).filter(Number.isFinite);
+    d.donation_id = Math.max(0, ...ids) + 1;
+    d.created_at = stamp;
+    d.created_by = state.email;
+    await appendRow('Donations', objectToRow(state.headers.Donations, d));
+  } else {
+    const row = await findRow('Donations', d.donation_id);
+    if (!row) throw new Error(t('notFound'));
+    await updateRow('Donations', row, objectToRow(state.headers.Donations, d));
+  }
+  return d.donation_id;
+}
+
+/** מנהל בלבד: מוחק תרומה (מנקה את השורה בגליון). */
+export async function deleteDonation(donation) {
+  if (!state.isAdmin) throw new Error(t('adminOnly'));
+  const row = await findRow('Donations', donation.donation_id);
+  if (row) await updateRow('Donations', row, state.headers.Donations.map(() => ''));
 }
 
 // ---------- קשרים משפחתיים ----------

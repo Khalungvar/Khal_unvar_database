@@ -8,18 +8,20 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="img/favicon.png">
-  <link rel="stylesheet" href="css/style.css?v=24">
+  <link rel="stylesheet" href="css/style.css?v=26">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script type="importmap">
   {"imports": {
-    "./js/app.js": "./js/app.js?v=24",
-    "./js/config.js": "./js/config.js?v=24",
-    "./js/data.js": "./js/data.js?v=24",
-    "./js/google.js": "./js/google.js?v=24",
-    "./js/i18n.js": "./js/i18n.js?v=24",
-    "./js/names.js": "./js/names.js?v=24",
-    "./js/places.js": "./js/places.js?v=24",
-    "./js/util.js": "./js/util.js?v=24"
+    "./js/app.js": "./js/app.js?v=26",
+    "./js/config.js": "./js/config.js?v=26",
+    "./js/data.js": "./js/data.js?v=26",
+    "./js/donations.js": "./js/donations.js?v=26",
+    "./js/hebdate.js": "./js/hebdate.js?v=26",
+    "./js/google.js": "./js/google.js?v=26",
+    "./js/i18n.js": "./js/i18n.js?v=26",
+    "./js/names.js": "./js/names.js?v=26",
+    "./js/places.js": "./js/places.js?v=26",
+    "./js/util.js": "./js/util.js?v=26"
   }}
   </script>
   <script type="module">import "./js/app.js";</script>
@@ -48,7 +50,12 @@
       <button id="btn-logout" class="btn ghost" data-i18n="logout"></button>
     </header>
 
-    <main class="page">
+    <nav class="tabs">
+      <button type="button" data-view="contacts" class="on" data-i18n="tabContacts"></button>
+      <button type="button" data-view="donations" data-i18n="tabDonations"></button>
+    </nav>
+
+    <main class="page view" data-view="contacts">
       <div class="toolbar">
         <input id="search" type="search" data-i18n-ph="searchPh" autocomplete="off">
         <select id="tag-filter" aria-label="Tags"></select>
@@ -59,6 +66,19 @@
       </div>
       <p id="count" class="muted"></p>
       <div id="list" class="list"></div>
+    </main>
+
+    <main class="page view" data-view="donations" hidden>
+      <div class="toolbar">
+        <input id="don-search" type="search" data-i18n-ph="donSearchPh" autocomplete="off">
+        <select id="don-tag" aria-label="Event"></select>
+        <select id="don-year" aria-label="Year"></select>
+        <label class="check"><input type="checkbox" id="don-unpaid"> <span data-i18n="onlyUnpaid"></span></label>
+        <span class="spacer"></span>
+        <button id="btn-new-donation" class="btn primary" data-i18n="newDonation"></button>
+      </div>
+      <p id="don-summary" class="muted"></p>
+      <div id="don-list" class="list"></div>
     </main>
   </div>
 
@@ -76,6 +96,11 @@
   <!-- טופס -->
   <dialog id="form-dialog" class="sheet wide">
     <form id="contact-form" novalidate></form>
+  </dialog>
+
+  <!-- טופס תרומה -->
+  <dialog id="donation-dialog" class="sheet wide">
+    <form id="donation-form" novalidate></form>
   </dialog>
 
   <!-- חלון בחירה -->
