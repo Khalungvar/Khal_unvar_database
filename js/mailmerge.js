@@ -1,9 +1,9 @@
 // Mail Merge: עורך לקאנווערטן און לעיבלס.
 // לוגא און הינטערגרונט, צוריק-אדרעס (לינקס אויבן), דער נמען אין דער מיט (פון א רשימה), און דער ווינקל פון דער מארקע (רעכטס אויבן).
 // מען שלעפט די טיילן מיטן מויז; אלעס ווערט געדרוקט אין דער ריכטיגער גרייס פונעם קאנווערט / לעיבל-בויגן.
-import { state, loadAll, saveRecord, deleteRecord } from './data.js';
+import { state, loadAll, saveRecord, deleteRecord, orgLogo } from './data.js';
 import { t } from './i18n.js';
-import { escapeHtml as h, mailingName } from './util.js';
+import { escapeHtml as h, mailingName, shrinkImage as shrink } from './util.js';
 import { evaluate, parseSaved, templates as readyLists, savedInScope } from './lists.js';
 import { umbrellaName } from './scope.js';
 
@@ -99,9 +99,23 @@ function fill(template, c) {
     .split('\n').map((line) => line.replace(/^[\s,]+|[\s,]+$/g, '')).filter((line) => line.trim()).join('\n');
 }
 
+function shrinkImage(file, maxPx) {
+  return shrink(file, maxPx).catch((err) => { throw new Error(t(err.message === 'too-big' ? 'mmImageTooBig' : 'mmImageBad')); });
+}
+
+/** לאגא: 'crown' / 'neshei' / 'custom' / 'org:<נאמען>' (דער לאגא פון א ארגון פון אדמין). */
+function resolveLogo(key, custom) {
+  if (key === 'custom') return custom;
+  if (String(key).startsWith('org:')) return orgLogo(key.slice(4));
+  return BUILTIN_LOGOS.find(([k]) => k === key)?.[1] || '';
+}
+
+function orgLogoOptions(selected) {
+  return Object.keys(state.orgLogos || {}).map((o) => `<option value="org:${h(o)}"${selected === `org:${o}` ? ' selected' : ''}>${h(o)}</option>`).join('');
+}
+
 function logoSrc() {
-  if (d.ret.logo === 'custom') return d.logo_data;
-  return BUILTIN_LOGOS.find(([k]) => k === d.ret.logo)?.[1] || '';
+  return resolveLogo(d.ret.logo, d.logo_data);
 }
 
 function isLabel() {
@@ -157,7 +171,7 @@ function labelSheetHtml(list, forPrint = false) {
   for (let i = 0; i < items.length; i += per) pages.push(items.slice(i, i + per));
   if (!pages.length) pages.push([]);
   if (!forPrint) pages.splice(1);
-  const logo = d.lbl.logo === 'custom' ? d.logo_data : (BUILTIN_LOGOS.find(([k]) => k === d.lbl.logo)?.[1] || '');
+  const logo = resolveLogo(d.lbl.logo, d.logo_data);
   const cell = (c, i) => {
     const col = i % cols;
     const row = Math.floor(i / cols);
@@ -223,6 +237,7 @@ export function renderMailMerge() {
               <option value=""${!d.lbl.logo ? ' selected' : ''}>${t('mmNone')}</option>
               <option value="crown"${d.lbl.logo === 'crown' ? ' selected' : ''}>${h(umbrellaName())}</option>
               <option value="neshei"${d.lbl.logo === 'neshei' ? ' selected' : ''}>${t('nesheiFull')}</option>
+              ${orgLogoOptions(d.lbl.logo)}
               <option value="custom"${d.lbl.logo === 'custom' ? ' selected' : ''}>${t('mmCustomImage')}</option></select></label>
             ${d.lbl.logo === 'custom' ? '<input type="file" accept="image/*" data-upload="logo_data">' : ''}
             <label class="mm-l">${t('mmSheets')}<input type="number" data-k="lbl.sheets" min="1" max="50" value="${d.lbl.sheets || 1}"></label>` : ''}
@@ -234,6 +249,7 @@ export function renderMailMerge() {
             <option value=""${!d.ret.logo ? ' selected' : ''}>${t('mmNone')}</option>
             <option value="crown"${d.ret.logo === 'crown' ? ' selected' : ''}>${h(umbrellaName())}</option>
             <option value="neshei"${d.ret.logo === 'neshei' ? ' selected' : ''}>${t('nesheiFull')}</option>
+            ${orgLogoOptions(d.ret.logo)}
             <option value="custom"${d.ret.logo === 'custom' ? ' selected' : ''}>${t('mmCustomImage')}</option></select></label>
           <input type="file" accept="image/*" data-upload="logo_data" ${d.ret.logo === 'custom' ? '' : 'hidden'}>
           <label class="mm-l">${t('mmLogoSize')}<input type="range" data-k="ret.logoH" min="0.2" max="1.5" step="0.05" value="${d.ret.logoH}"></label>
@@ -296,25 +312,6 @@ function setPath(path, value) {
   let o = d;
   keys.slice(0, -1).forEach((k) => { o = o[k]; });
   o[keys.at(-1)] = value;
-}
-
-/** בילד → קליינער JPEG/PNG (data URL), כדי עס זאל אריינפאסן אין א צעל אין גוגל שיטס. */
-function shrinkImage(file, maxPx) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
-      const cv = document.createElement('canvas');
-      cv.width = Math.round(img.width * scale);
-      cv.height = Math.round(img.height * scale);
-      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-      let url = cv.toDataURL('image/png');
-      for (let q = 0.85; url.length > 45000 && q > 0.3; q -= 0.1) url = cv.toDataURL('image/jpeg', q);
-      if (url.length > 45000) reject(new Error(t('mmImageTooBig'))); else resolve(url);
-    };
-    img.onerror = () => reject(new Error(t('mmImageBad')));
-    img.src = URL.createObjectURL(file);
-  });
 }
 
 function wire(main) {

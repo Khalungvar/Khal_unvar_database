@@ -1,10 +1,10 @@
 // עמוד אדמין: כל הרשימות של האתר במקום אחד — ארגונים, טעג'ס, אופני תשלום, טיטלען, געגנטן, קרבות, מנהלים.
 // הכל נשמר בגליון (לשונית Lists / Settings). רק מנהל רואה את העמוד ויכול לשמור.
 import {
-  state, loadAll, saveListColumns, saveSettingsColumns, rawListColumn, rawSettingsColumn,
+  state, loadAll, saveListColumns, saveSettingsColumns, rawListColumn, rawSettingsColumn, orgLogo, saveOrgLogo,
 } from './data.js';
 import { t } from './i18n.js';
-import { splitTags, escapeHtml as h } from './util.js';
+import { splitTags, escapeHtml as h, shrinkImage } from './util.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -125,7 +125,8 @@ export function renderAdmin() {
   main.innerHTML = `<h2>${t('adminTitle')}</h2><p class="muted">${t('adminHint')}</p>`
     + GROUPS.map((g) => `<div class="adm-group"><h3 class="adm-group-title">${h(t(g.title))}</h3><div class="adm-grid">${
       g.lists.map((def) => { defs.push(def); return cardHtml(def, defs.length - 1); }).join('')}</div></div>`).join('')
-    ;
+    + logosHtml();
+  wireLogos(main);
 
   $$('.adm-card', main).forEach((card) => wireCard(card, defs[Number(card.dataset.key)]));
 }
@@ -179,6 +180,59 @@ function wireCard(card, def) {
       btn.textContent = t('saveBtn');
     }
   };
+}
+
+// ---------- לאגאס פון די ארגונים ----------
+function logoOrgs() {
+  const umbrella = rawListColumn('umbrella_org').filter(Boolean);
+  return [
+    ...umbrella.map((v) => [v, t('umbrellaGroup')]),
+    ...['beis_medrash', 'kollel', 'organization'].flatMap((col) => rawListColumn(col).filter(Boolean)
+      .map((v) => [v, t({ beis_medrash: 'orgBeisMedrash', kollel: 'orgKollel', organization: 'orgOrganization' }[col])])),
+  ];
+}
+
+function logosHtml() {
+  return `<div class="adm-group"><h3 class="adm-group-title">${t('admLogos')}</h3>
+    <p class="hint-line">${t('admLogosHint')}</p>
+    <div class="logo-grid">${logoOrgs().map(([name, kind]) => {
+      const src = orgLogo(name);
+      return `<div class="logo-card" data-org="${h(name)}">
+        <div class="logo-box">${src ? `<img src="${src}" alt="">` : '<span class="muted small">—</span>'}</div>
+        <b>${h(name)}</b><span class="muted small">${h(kind)}</span>
+        <label class="btn small-btn">${src ? t('admLogoChange') : t('admLogoUpload')}<input type="file" accept="image/*" hidden></label>
+        ${src ? `<button type="button" class="linkish" data-logo-del>${t('admLogoRemove')}</button>` : ''}
+      </div>`;
+    }).join('')}</div></div>`;
+}
+
+function wireLogos(main) {
+  $$('.logo-card', main).forEach((card) => {
+    const org = card.dataset.org;
+    $('input[type=file]', card).onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const data = await shrinkImage(file, 320);
+        await saveOrgLogo(org, data);
+        await loadAll();
+        ui.refreshAll();
+        renderAdmin();
+        ui.toast(t('admLogoSaved', { name: org }));
+      } catch (err) {
+        ui.toast(err.message === 'too-big' ? t('mmImageTooBig') : err.message === 'bad-image' ? t('mmImageBad') : ui.friendlyError(err), 'error');
+      }
+    };
+    $('[data-logo-del]', card)?.addEventListener('click', async () => {
+      if (!confirm(t('admLogoConfirm', { name: org }))) return;
+      try {
+        await saveOrgLogo(org, '');
+        await loadAll();
+        ui.refreshAll();
+        renderAdmin();
+      } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+    });
+  });
 }
 
 /** האם יש בעמוד שינויים שלא נשמרו. */

@@ -150,3 +150,37 @@ export function detectArea(areas, { zip = '', city = '', neighborhood = '', coun
   const byName = areas.find((a) => a.keywords.some((k) => !k.startsWith('country:') && k && text.includes(k.toLowerCase())));
   return byName ? byName.name : '';
 }
+
+/**
+ * בילד → קליינע data URL וואס פאסט אריין אין א צעל אין גוגל שיטס (ביז ~45,000 אותיות).
+ * פרובירט קודם PNG (האלט די דורכזיכטיגקייט פון א לאגא), דערנאך JPEG.
+ */
+export function shrinkImage(file, maxPx, limit = 45000) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const draw = (px, bg) => {
+        const scale = Math.min(1, px / Math.max(img.width, img.height));
+        const cv = document.createElement('canvas');
+        cv.width = Math.max(1, Math.round(img.width * scale));
+        cv.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = cv.getContext('2d');
+        if (bg) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height); }
+        ctx.drawImage(img, 0, 0, cv.width, cv.height);
+        return cv;
+      };
+      for (let px = maxPx; px >= 120; px = Math.round(px * 0.8)) {
+        const url = draw(px).toDataURL('image/png');
+        if (url.length <= limit) { resolve(url); return; }
+      }
+      const cv = draw(maxPx, true);
+      for (let q = 0.85; q > 0.3; q -= 0.1) {
+        const url = cv.toDataURL('image/jpeg', q);
+        if (url.length <= limit) { resolve(url); return; }
+      }
+      reject(new Error('too-big'));
+    };
+    img.onerror = () => reject(new Error('bad-image'));
+    img.src = URL.createObjectURL(file);
+  });
+}

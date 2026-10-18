@@ -20,7 +20,8 @@ export const state = {
   savedLists: [],
   mailTemplates: [],
   messages: [],
-  tasks: [],         // To Do: משימות (אויך צו אנדערע)      // מעסעדזשעס צווישן די באנוצער (און בקשות גישה) // Mail Merge: אפגעהיטענע עיצובים פון קאנווערטן / לעיבלס    // רשימות שמורות (תנאים + עמודות)     // { campaign, org } — לאיזה ארגון שייך כל קאמפיין      // לשונית "ארגון": תיבות טקסט לכל איש קשר     // מאורעות: יארצייט, געבורטסטאג, חתונה...
+  tasks: [],
+  orgLogos: {},      // { 'ביהמ"ד מאנסי': dataURL }         // To Do: משימות (אויך צו אנדערע)      // מעסעדזשעס צווישן די באנוצער (און בקשות גישה) // Mail Merge: אפגעהיטענע עיצובים פון קאנווערטן / לעיבלס    // רשימות שמורות (תנאים + עמודות)     // { campaign, org } — לאיזה ארגון שייך כל קאמפיין      // לשונית "ארגון": תיבות טקסט לכל איש קשר     // מאורעות: יארצייט, געבורטסטאג, חתונה...
   lists: {},         // { title_he: [...], ... }
   titleHeToEn: {},
   titleEnToHe: {},
@@ -73,7 +74,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -94,6 +95,10 @@ export async function loadAll() {
   const tasks = rowsToObjects(tabs.Tasks || []);
   state.headers.Tasks = tasks.header;
   state.tasks = tasks.objects;
+
+  const logos = rowsToObjects(tabs.OrgLogos || []);
+  state.headers.OrgLogos = logos.header;
+  state.orgLogos = Object.fromEntries(logos.objects.filter((x) => x.org && x.logo_data).map((x) => [x.org, x.logo_data]));
 
   const mt = rowsToObjects(tabs.MailTemplates || []);
   state.headers.MailTemplates = mt.header;
@@ -210,9 +215,23 @@ export async function saveDonations(list) {
   return rows.length;
 }
 
+/** דער לאגא פון א ארגון (אדער ''). */
+export function orgLogo(name) {
+  return state.orgLogos?.[name] || '';
+}
+
+/** מנהל בלבד: שומר (אדער מעקט אויס מיט '') דעם לאגא פון א ארגון. */
+export async function saveOrgLogo(org, data) {
+  if (!state.isAdmin) throw new Error(t('adminOnly'));
+  const row = await findRow('OrgLogos', org);
+  const values = objectToRow(state.headers.OrgLogos, { org, logo_data: data, updated_at: nowStamp(), updated_by: state.email });
+  if (row) await updateRow('OrgLogos', row, data ? values : state.headers.OrgLogos.map(() => ''));
+  else if (data) await appendRow('OrgLogos', values);
+}
+
 /** לייענט נאר די מעסעדזשעס (פאר א שנעלע בדיקה יעדע פאר מינוט). */
 export async function reloadMessages() {
-  const tabs = await readTabs(['Messages', 'Tasks']);
+  const tabs = await readTabs(['Messages', 'Tasks', 'OrgLogos']);
   const msgs = rowsToObjects(tabs.Messages || []);
   state.headers.Messages = msgs.header;
   state.messages = msgs.objects;

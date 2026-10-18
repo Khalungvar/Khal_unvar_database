@@ -3,7 +3,7 @@ import {
   initAuth, requestToken, signOut, getUserEmail, hasSavedSession, setOnExpire, rememberEmail,
 } from './google.js';
 import {
-  state, loadAll, displayName, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
+  state, loadAll, displayName, orgLogo, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
 } from './data.js';
 import { suggest, details, placesEnabled, placesError } from './places.js';
 import {
@@ -145,7 +145,7 @@ function renderLobby() {
       </div>
     </div>
     <div class="lobby-row">
-      ${tile('umbrella', '🏛', umbrellaName(), t('lobbyAllSub', { n: alive }), 'data-primary')}
+      ${tile('umbrella', orgLogo(umbrellaName()) ? `<img class="tile-logo" src="${orgLogo(umbrellaName())}" alt="">` : '🏛', umbrellaName(), t('lobbyAllSub', { n: alive }), 'data-primary')}
       ${typeTile(ORG_FIELDS[0], '🕍')}
       ${typeTile(ORG_FIELDS[1], '📖')}
       ${typeTile(ORG_FIELDS[2], '🤝')}
@@ -153,7 +153,7 @@ function renderLobby() {
     ${open ? `<div class="lobby-choose">
       <span class="muted">${h(t('lobbyChoose'))}</span>
       <button type="button" class="btn" data-scope-type="${open[0]}" data-scope-value="">${h(t('lobbyAllOf', { name: t(open[1] === 'orgBeisMedrash' ? 'lobbyBatei' : open[1]) }))}</button>
-      ${(state.lists[open[0]] || []).map((v) => `<button type="button" class="btn primary" data-scope-type="${open[0]}" data-scope-value="${h(v)}">${h(v)}
+      ${(state.lists[open[0]] || []).map((v) => `<button type="button" class="btn primary lobby-pick" data-scope-type="${open[0]}" data-scope-value="${h(v)}">${orgLogo(v) ? `<img src="${orgLogo(v)}" alt="">` : ''}${h(v)}
         <span class="count-pill">${currentCount(open[0], v)}</span></button>`).join('')}
     </div>` : ''}
     <div class="lobby-row lobby-row4">
@@ -407,10 +407,10 @@ function renderOrgs() {
     <button type="button" class="org-link org-top${isOn(p.name, '') ? ' on' : ''}" data-type="${h(p.name)}" data-value="">
       <span>${h(t(p.label))}</span><span class="count-pill">${currentCount(p.name, '')}</span></button>
     ${p.values.map((v) => `<button type="button" class="org-link org-sub${isOn(p.name, v) ? ' on' : ''}" data-type="${h(p.name)}" data-value="${h(v)}">
-        <span>${h(v)}</span><span class="count-pill">${currentCount(p.name, v)}</span></button>`).join('')}
+        <span>${orgLogo(v) ? `<img class="mini-logo" src="${orgLogo(v)}" alt="">` : ''}${h(v)}</span><span class="count-pill">${currentCount(p.name, v)}</span></button>`).join('')}
   </div>`).join('');
   $('#btn-home').classList.toggle('on', !sc);
-  $('#home-name').textContent = umbrellaName();
+  $('#home-name').innerHTML = `${orgLogo(umbrellaName()) ? `<img class="mini-logo" src="${orgLogo(umbrellaName())}" alt="">` : ''}${h(umbrellaName())}`;
   $('#home-count').textContent = state.contacts.filter((c) => isAlive(c.is_alive) && (isTrue(c.is_active) || c.is_active === '')).length;
   $('#scope-exit').textContent = t('scopeExitTo', { home: umbrellaName() });
   // פס למעלה: באיזה הקשר נמצאים
@@ -418,6 +418,9 @@ function renderOrgs() {
   bar.hidden = !sc;
   if (sc) {
     const label = scopeLabel(sc);
+    const lg = sc.value && sc.type !== 'area' ? orgLogo(sc.value) : '';
+    $('#scope-logo').hidden = !lg;
+    if (lg) $('#scope-logo').src = lg;
     $('#scope-former').closest('label').hidden = sc.type === 'area';
     $('#scope-name').textContent = label;
     $('#scope-former').checked = withFormer();
