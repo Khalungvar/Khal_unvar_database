@@ -867,3 +867,10 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 .adm-camps .adm-table input[data-col=goal] { width: 100px; }
 .adm-camps thead th { font-size: 12px; color: var(--muted); font-weight: 600; text-align: start; padding: 2px 4px; }
 .adm-check { white-space: nowrap; }
+
+/* ---------- צוטריט צום שיט / לאגאין מעלדונג ---------- */
+.login-msg { background: var(--warn-soft); border: 1px solid var(--gold); border-radius: 10px; padding: 10px 14px; margin: 12px 0 0; text-align: start; line-height: 1.5; }
+.share-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.share-ok { color: #2f7a3e; font-weight: 600; }
+.share-no { color: #a8650a; font-weight: 600; }
+.share-extra td { background: #fbf3e6; }

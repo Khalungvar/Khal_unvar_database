@@ -5,7 +5,9 @@ import {
 } from './data.js';
 import { t } from './i18n.js';
 import { splitTags, escapeHtml as h, shrinkImage } from './util.js';
-import { saveYearly, saveCampaign, deleteYearly, deleteCampaign } from './data.js';
+import {
+  saveYearly, saveCampaign, deleteYearly, deleteCampaign, hasShareScope, ensureShareScope, sharingPlan, applySharing, allUsers,
+} from './data.js';
 import { yearlySeries, allCampaigns, curYear } from './campaigns.js';
 import { orgSelect } from './donations.js';
 
@@ -126,12 +128,15 @@ export function renderAdmin() {
   if (!state.isAdmin) { main.innerHTML = `<p class="empty">${h(t('adminOnly'))}</p>`; return; }
   const defs = [];
   main.innerHTML = `<h2>${t('adminTitle')}</h2><p class="muted">${t('adminHint')}</p>`
-    + GROUPS.map((g) => `<div class="adm-group"><h3 class="adm-group-title">${h(t(g.title))}</h3><div class="adm-grid">${
+    + GROUPS.map((g) => `<div class="adm-group" data-g="${g.title}"><h3 class="adm-group-title">${h(t(g.title))}</h3><div class="adm-grid">${
       g.lists.map((def) => { defs.push(def); return cardHtml(def, defs.length - 1); }).join('')}</div></div>`).join('')
+    + `<div class="adm-group" id="adm-sharing"></div>`
     + campaignsAdminHtml()
     + logosHtml();
   wireLogos(main);
   wireCampaignsAdmin(main);
+  $('[data-g="admPeople"]', main)?.after($('#adm-sharing', main));
+  renderSharing();
 
   $$('.adm-card[data-key]', main).forEach((card) => wireCard(card, defs[Number(card.dataset.key)]));
 }
@@ -157,6 +162,8 @@ function wireCard(card, def) {
     dirty();
   };
   $('.adm-save', card).onclick = async () => {
+    // מנהלים/גבאים: באלד נאכן אפהיטן — שערן דעם שיט. די הרשאה מוז מען בעטן גלייך פונעם קליק.
+    const shareP = def.source === 'settings' ? ensureShareScope().then(() => true, () => false) : null;
     const rows = $$('tr', body).map((tr) => $$('input', tr).map((i) => i.value.trim())).filter((r) => r[0]);
     const firsts = rows.map((r) => r[0]);
     const dup = firsts.find((v, i) => firsts.indexOf(v) !== i);
@@ -179,12 +186,66 @@ function wireCard(card, def) {
       ui.refreshAll();
       renderAdmin();
       ui.toast(t('saved'));
+      if (shareP && await shareP) await syncSharing({ auto: true });
     } catch (err) {
       ui.toast(ui.friendlyError(err), 'error');
       btn.disabled = false;
       btn.textContent = t('saveBtn');
     }
   };
+}
+
+// ---------- צוטריט צום שיט (לויט די מנהלים + גבאים) ----------
+async function renderSharing() {
+  const box = $('#adm-sharing');
+  if (!box) return;
+  const head = `<h3 class="adm-group-title">🔐 ${h(t('shareTitle'))}</h3><p class="hint-line">${h(t('shareHint'))}</p>`;
+  if (!hasShareScope()) {
+    box.innerHTML = `${head}<p class="drive-warn">${h(t('shareNeedConnect'))}
+      <button type="button" class="btn small-btn primary" id="share-connect">🔗 ${h(t('shareConnectBtn'))}</button></p>`;
+    $('#share-connect', box).onclick = () => {
+      ensureShareScope().then(() => renderSharing(), (err) => ui.toast(ui.friendlyError(err), 'error'));
+    };
+    return;
+  }
+  box.innerHTML = `${head}<p class="muted">${h(t('loading'))}</p>`;
+  let plan;
+  try { plan = await sharingPlan(); } catch (err) {
+    box.innerHTML = `${head}<p class="drive-warn">${h(err.status === 403 || err.status === 404 ? t('shareNoRight') : ui.friendlyError(err))}</p>`;
+    return;
+  }
+  const users = allUsers();
+  const ok = new Set(plan.ok.map((u) => u.email));
+  box.innerHTML = `${head}
+    <table class="adm-table share-table"><tbody>
+      ${users.map((u) => `<tr><td><b>${h(u.name)}</b></td><td dir="ltr">${h(u.email)}</td>
+        <td class="muted small">${h(t(u.role === 'admin' ? 'shareRoleAdmin' : 'shareRoleGabbai'))}${u.email === plan.owner ? ` · ${h(t('shareOwner'))}` : ''}</td>
+        <td>${ok.has(u.email) ? `<span class="share-ok">✓ ${h(t('shareHas'))}</span>` : `<span class="share-no">⏳ ${h(t('shareNot'))}</span>`}</td></tr>`).join('')}
+      ${plan.remove.map((p) => `<tr class="share-extra"><td>—</td><td dir="ltr">${h(p.email)}</td><td class="muted small">${h(t('shareNotListed'))}</td>
+        <td><span class="share-no">⚠ ${h(t('shareWillRemove'))}</span></td></tr>`).join('')}
+    </tbody></table>
+    <div class="adm-actions"><span class="spacer"></span>
+      ${plan.add.length || plan.remove.length ? `<button type="button" class="btn small-btn primary" id="share-sync">🔄 ${h(t('shareSyncBtn', { add: plan.add.length, remove: plan.remove.length }))}</button>`
+        : `<span class="share-ok">✓ ${h(t('shareAllGood'))}</span>`}
+    </div>`;
+  $('#share-sync', box)?.addEventListener('click', () => syncSharing({ plan }));
+}
+
+async function syncSharing({ plan = null, auto = false } = {}) {
+  try {
+    const p = plan || await sharingPlan();
+    if (!p.add.length && !p.remove.length) { if (!auto) ui.toast(t('shareAllGood')); renderSharing(); return; }
+    let remove = true;
+    if (p.remove.length) {
+      remove = confirm(t('shareConfirmRemove', { list: p.remove.map((x) => x.email).join('\n') }));
+    }
+    if (!p.add.length && !remove) { renderSharing(); return; }
+    await applySharing(p, { remove });
+    ui.toast(t('shareDone', { n: p.add.length + (remove ? p.remove.length : 0) }));
+  } catch (err) {
+    ui.toast(err.status === 403 || err.status === 404 ? t('shareNoRight') : ui.friendlyError(err), 'error');
+  }
+  renderSharing();
 }
 
 // ---------- קאמפיינען: יערליכע און איינמאליגע — פאר וועמען, ציל, צולייגן ----------

@@ -92,7 +92,13 @@ async function enterApp() {
   state.email = await getUserEmail();
   rememberEmail(state.email);
   await loadAll();
+  if (!state.isAllowed) {
+    const err = new Error('not-registered');
+    err.code = 'not-registered';
+    throw err;
+  }
   restoreScope();
+  $('#login-msg').hidden = true;
 
   $('#login-view').hidden = true;
   $('#app-view').hidden = false;
@@ -304,6 +310,18 @@ function showView(name) {
   renderCampaignSide();
 }
 
+/** א קלארע מעלדונג אויפן לאגאין בלאט: נישט רעגיסטרירט / נישט קיין צוטריט צום שיט. */
+function showLoginProblem(err) {
+  const box = $('#login-msg');
+  const who = state.email || '';
+  let text;
+  if (err.code === 'not-registered') text = t('notRegistered', { email: who });
+  else if (err.status === 403 || err.status === 404) text = t('noAccessLogin', { email: who });
+  else text = friendlyError(err);
+  box.textContent = text;
+  box.hidden = false;
+}
+
 async function signIn() {
   const btn = $('#btn-login');
   btn.disabled = true;
@@ -311,7 +329,7 @@ async function signIn() {
     await requestToken('select_account');
     await enterApp();
   } catch (err) {
-    toast(friendlyError(err), 'error');
+    showLoginProblem(err);
   } finally {
     btn.disabled = false;
   }
@@ -1545,7 +1563,7 @@ function start() {
   initAuth().then(async () => {
     $('#btn-login').disabled = false;
     if (hasSavedSession()) {
-      try { await enterApp(); } catch { /* הכניסה הקודמת לא תקפה — נשארים במסך ההתחברות */ }
+      try { await enterApp(); } catch (err) { if (err.code === 'not-registered' || err.status === 403) showLoginProblem(err); /* אנדערש: נשארים במסך ההתחברות */ }
     }
   }).catch(() => toast(t('gisFail'), 'error'));
 }

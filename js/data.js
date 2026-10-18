@@ -3,6 +3,7 @@
 import {
   readTabs, readColumn, readCell, appendRow, appendRows, updateRow, updateCell, updateRange,
   ensureDriveScope, hasDriveScope, driveFolder, driveUpload,
+  hasShareScope, ensureShareScope, sheetPermissions, shareSheet, unshareSheet,
 } from './google.js';
 import { CONFIG } from './config.js';
 import { nowStamp } from './util.js';
@@ -140,6 +141,9 @@ export async function loadAll() {
   const admins = settings.map((s) => String(s.admin_email || '').trim().toLowerCase()).filter(Boolean);
   state.admins = admins;
   state.isAdmin = admins.includes(state.email);
+  // נאר ווער עס איז רעגיסטרירט אין אדמין (מנהל אדער גבאי) קען אריין
+  const gabbaim = settings.map((s) => String(s.gabbai_email || '').trim().toLowerCase()).filter(Boolean);
+  state.isAllowed = state.isAdmin || gabbaim.includes(state.email);
 }
 
 /** המספר הבא, לפי מה שכתוב בגליון ממש עכשיו (למקרה שגבאי אחר הוסיף בינתיים). */
@@ -385,6 +389,36 @@ export function allUsers() {
   add('admin_email', 'admin_name', 'admin');
   add('gabbai_email', 'gabbai_name', 'gabbai');
   return out;
+}
+
+// ---------- צוטריט צום שיט: לויט דער רשימה אין אדמין ----------
+export { hasShareScope, ensureShareScope };
+
+/**
+ * פארגלייכט ווער עס האט צוטריט צום שיט מיט די מנהלים + גבאים אין אדמין.
+ * { add: [{email,name}], remove: [{id,email}], ok: [{email,name}], owner }
+ */
+export async function sharingPlan() {
+  const users = allUsers();
+  const perms = await sheetPermissions();
+  const has = new Map(perms.filter((p) => p.type === 'user').map((p) => [p.email, p]));
+  const owner = perms.find((p) => p.role === 'owner')?.email || '';
+  const want = new Set(users.map((u) => u.email));
+  return {
+    owner,
+    ok: users.filter((u) => has.has(u.email)),
+    add: users.filter((u) => !has.has(u.email)),
+    remove: perms.filter((p) => p.type === 'user' && p.role !== 'owner' && p.email && !want.has(p.email) && p.email !== state.email),
+  };
+}
+
+/** טוט דעם פלאן: שערט מיט די נייע, נעמט צוריק פון די וואס זענען מער נישט אין דער רשימה. */
+export async function applySharing(plan, { remove = true } = {}) {
+  const msg = t('shareEmailMsg');
+  for (const u of plan.add) await shareSheet(u.email, msg);
+  if (remove) for (const p of plan.remove) await unshareSheet(p.id);
+  await logChanges('sharing', 'sheet', '', null, null,
+    `shared: ${plan.add.map((u) => u.email).join(', ') || '—'}${remove && plan.remove.length ? ` · removed: ${plan.remove.map((p) => p.email).join(', ')}` : ''}`);
 }
 
 /** שומר רשומה כללית (חדשה או קיימת) לפי שדה ה-ID. מחזיר את ה-ID. */

@@ -27,6 +27,9 @@ export const CONFIG = {
 // הרשאה לדרייב — רק לקבצים שהאתר עצמו יוצר. מבקשים אותה רק כשמעלים בפעם הראשונה.
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
+// הרשאה צו שערן דעם שיט מיט די גבאים (פון אדמין). מ'בעט עס נאר ביים בעל הבית, ווען ער היט אפ מענטשן.
+export const SHARE_SCOPE = 'https://www.googleapis.com/auth/drive';
+
 export const SCOPES = [
   'openid',
   'https://www.googleapis.com/auth/userinfo.email',

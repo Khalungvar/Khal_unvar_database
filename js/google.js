@@ -1,7 +1,7 @@
 // לוגאין עם גוגל וגישה לגוגל שיטס.
 // גוגל נותנת "מפתח כניסה" (טוקן) שתקף שעה אחת. שומרים אותו בדפדפן עד שהוא פג,
 // כדי שרענון של הדף לא ידרוש התחברות מחדש. אחרי שעה מבקשים לחיצה אחת לחידוש.
-import { CONFIG, SCOPES, DRIVE_SCOPE } from './config.js';
+import { CONFIG, SCOPES, DRIVE_SCOPE, SHARE_SCOPE } from './config.js';
 
 const STORE = 'khal-auth';
 let tokenClient = null;
@@ -108,6 +108,42 @@ export function ensureDriveScope() {
       scope: `${SCOPES} ${DRIVE_SCOPE}`, include_granted_scopes: true, prompt: 'consent', login_hint: hintEmail || undefined,
     });
   });
+}
+
+export function hasShareScope() {
+  return grantedScopes.split(' ').includes(SHARE_SCOPE);
+}
+
+/** בעט (איין מאל) די הרשאה צו שערן דעם שיט. גלייך פון א קליק! */
+export function ensureShareScope() {
+  if (hasShareScope()) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    pendingResolve = resolve;
+    pendingReject = reject;
+    tokenClient.requestAccessToken({
+      scope: `${SCOPES} ${SHARE_SCOPE}`, include_granted_scopes: true, prompt: 'consent', login_hint: hintEmail || undefined,
+    });
+  });
+}
+
+/** ווער האט צוטריט צום שיט: [{ id, email, role, type }] */
+export async function sheetPermissions() {
+  const res = await authFetch(`https://www.googleapis.com/drive/v3/files/${CONFIG.SPREADSHEET_ID}/permissions?fields=permissions(id,emailAddress,role,type)&pageSize=100`);
+  return (res.permissions || []).map((p) => ({ id: p.id, email: String(p.emailAddress || '').toLowerCase(), role: p.role, type: p.type }));
+}
+
+/** שערט דעם שיט מיט אן אימעיל (קען רעדאגירן). גוגל שיקט אים אן אימעיל מיט א לינק. */
+export async function shareSheet(email, message = '') {
+  const q = `sendNotificationEmail=true${message ? `&emailMessage=${encodeURIComponent(message)}` : ''}`;
+  return authFetch(`https://www.googleapis.com/drive/v3/files/${CONFIG.SPREADSHEET_ID}/permissions?${q}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'user', role: 'writer', emailAddress: email }),
+  });
+}
+
+/** נעמט צוריק דעם צוטריט. */
+export async function unshareSheet(permissionId) {
+  return authFetch(`https://www.googleapis.com/drive/v3/files/${CONFIG.SPREADSHEET_ID}/permissions/${permissionId}`, { method: 'DELETE' });
 }
 
 const DRIVE = 'https://www.googleapis.com/drive/v3/files';
