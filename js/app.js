@@ -288,15 +288,23 @@ function openForm(c = {}) {
 
     <fieldset><legend>${t('secWife')}</legend>
       <div class="grid">
-        <label class="check"><input type="checkbox" name="wife_is_rebbetzin" ${isTrue(c.wife_is_rebbetzin) ? 'checked' : ''}> Rebbetzin</label>
+        <div class="check-with-note">
+          <span class="hint-line">${t('rebbetzinNote')}</span>
+          <label class="check"><input type="checkbox" name="wife_is_rebbetzin" ${isTrue(c.wife_is_rebbetzin) ? 'checked' : ''}> Rebbetzin</label>
+        </div>
         <label>${t('wifeNameHe')}<input name="wife_name_he" dir="rtl" value="${v('wife_name_he')}"></label>
         <label>Wife's name<input name="wife_name_en" dir="ltr" value="${v('wife_name_en')}"></label>
         <label class="check"><input type="checkbox" name="wife_deceased" ${!isAlive(c.wife_is_alive) ? 'checked' : ''}> ${t('deceasedF')}</label>
-        <label class="check"><input type="checkbox" name="wife_in_neshei" ${isTrue(c.wife_in_neshei) ? 'checked' : ''}> ${t('nesheiFull')}</label>
       </div>
+      <label class="neshei-row">
+        <input type="checkbox" name="wife_in_neshei" ${isTrue(c.wife_in_neshei) ? 'checked' : ''}>
+        <img src="img/neshei-logo.png" alt="" width="99" height="60">
+        <span>${t('nesheiJoin')}</span>
+      </label>
     </fieldset>
 
     <fieldset><legend>${t('community')}</legend>
+      <p class="hint-line">${t('communityNote')}</p>
       ${tagPicker('community_tags', 'community_tag', c.community_tags)}
     </fieldset>
 
@@ -329,8 +337,8 @@ function openForm(c = {}) {
 
     <div class="actions">
       <span class="spacer"></span>
-      <button type="button" class="btn" id="btn-cancel">${t('cancel')}</button>
-      <button type="submit" class="btn primary" id="btn-save">${t('save')}</button>
+      <button type="button" class="btn" id="btn-cancel">${t('cancelBtn')}</button>
+      <button type="submit" class="btn primary" id="btn-save">${t('saveBtn')}</button>
     </div>`;
 
   wireForm(form, c);
@@ -526,7 +534,7 @@ async function submit(form, original) {
     toast(friendlyError(err), 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = t('save');
+    btn.textContent = t('saveBtn');
   }
 }
 
