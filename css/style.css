@@ -1054,3 +1054,23 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 .hp-answer { margin-top: 10px; background: var(--surface); border: 1px solid var(--gold); border-radius: 10px; padding: 10px 14px; }
 .hp-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-inline-end: 40px; }
 .hp-head h2 { margin: 0 0 8px; }
+/* הילף-AI: אונטן לינקס */
+.ai-chat { position: fixed; left: 16px; bottom: 16px; z-index: 50; width: min(360px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 8px; }
+.ai-bar { display: flex; gap: 6px; background: var(--surface); border: 1.5px solid var(--gold); border-radius: 999px; padding: 4px 4px 4px 6px; box-shadow: 0 4px 16px rgba(0,0,0,.15); }
+.ai-input { flex: 1; min-width: 0; border: none; background: transparent; font: inherit; padding: 8px 10px; color: var(--ink); outline: none; }
+.ai-send { border: none; border-radius: 999px; background: var(--accent); color: var(--accent-ink, #fff); width: 38px; height: 38px; cursor: pointer; font-size: 16px; }
+.ai-chat:not(.open) { width: min(290px, calc(100vw - 32px)); }
+.ai-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 28px rgba(0,0,0,.2); display: flex; flex-direction: column; max-height: min(520px, calc(100vh - 120px)); overflow: hidden; }
+.ai-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--accent); color: var(--accent-ink, #fff); }
+.ai-head .muted { color: inherit; opacity: .85; }
+.ai-x { background: transparent; border: none; color: inherit; font-size: 16px; cursor: pointer; }
+.ai-log { overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.ai-msg { border-radius: 12px; padding: 8px 12px; line-height: 1.5; max-width: 92%; font-size: 14.5px; }
+.ai-msg p { margin: 0 0 6px; } .ai-msg p:last-child { margin: 0; }
+.ai-msg ul, .ai-msg ol { margin: 4px 0; padding-inline-start: 20px; }
+.ai-msg.bot { background: var(--bg, #f6efe2); align-self: flex-start; }
+.ai-msg.me { background: var(--accent); color: var(--accent-ink, #fff); align-self: flex-end; }
+.ai-msg.warn { color: #b45309; }
+.ai-welcome { border: 1px dashed var(--gold); }
+.hp-ai-link { margin: 8px 0 0; }
+@media print { .ai-chat { display: none !important; } }

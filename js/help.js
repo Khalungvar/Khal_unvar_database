@@ -85,9 +85,8 @@ export async function openHelp(q = '') {
   dlg.innerHTML = `<button type="button" class="x-close" aria-label="${h(t('close'))}">✕</button>
     <div class="hp-head"><h2>❓ ${h(t('helpTitle'))}</h2><span class="spacer"></span>
       <div class="lang-switch hp-lang"><button type="button" data-hl="yi">אידיש</button><button type="button" data-hl="en">English</button></div></div>
-    ${CONFIG.HELP_AI_URL ? `<form class="hp-ask" id="hp-ask"><input id="hp-q" dir="auto" placeholder="${h(t('helpAskPh'))}" autocomplete="off">
-      <button class="btn primary" type="submit">${h(t('helpAsk'))}</button></form><div id="hp-answer" class="hp-answer" hidden></div>`
-      : `<input id="hp-q" class="hp-search" dir="auto" type="search" placeholder="${h(t('helpSearchPh'))}" autocomplete="off">`}
+    <input id="hp-q" class="hp-search" dir="auto" type="search" placeholder="${h(t('helpSearchPh'))}" autocomplete="off">
+    ${CONFIG.HELP_AI_URL ? `<p class="hp-ai-link"><button type="button" class="linkish" id="hp-open-ai">💬 ${h(t('aiOpenFromHelp'))}</button></p>` : ''}
     <div id="hp-list" class="hp-list"><p class="muted">…</p></div>`;
   $('.x-close', dlg).onclick = () => dlg.close();
   if (!dlg.open) dlg.showModal();
@@ -102,28 +101,95 @@ export async function openHelp(q = '') {
   input.oninput = render;
   await show(guideLang || (getLang() === 'en' ? 'en' : 'yi'));
   input.focus();
-  const form = $('#hp-ask', dlg);
-  if (form) form.onsubmit = (e) => { e.preventDefault(); ask(input.value, dlg); };
+  const toAi = $('#hp-open-ai', dlg);
+  if (toAi) toAi.onclick = () => { dlg.close(); openChat(); };
+}
+
+// ---------- דער AI: א שמועס-פענצטערל אונטן לינקס ----------
+const AI_DAILY = 40;
+const todayKey = () => `khal-ai-${new Date().toISOString().slice(0, 10)}`;
+function usedToday() { try { return Number(localStorage.getItem(todayKey()) || 0); } catch { return 0; } }
+function countOne() { try { localStorage.setItem(todayKey(), String(usedToday() + 1)); } catch { /* ignore */ } }
+
+let chat = null;
+
+/** שטעלט אריין דאס פענצטערל (נאר נאכן אריינגיין, און נאר ווען דער AI איז פארבונדן). */
+export function initHelpChat() {
+  if (!CONFIG.HELP_AI_URL || chat) return;
+  const root = document.createElement('div');
+  root.id = 'ai-chat';
+  root.className = 'ai-chat';
+  root.innerHTML = `<section class="ai-panel" hidden>
+      <header class="ai-head"><b>💬 ${h(t('aiTitle'))}</b><span class="ai-left muted small"></span><span class="spacer"></span>
+        <button type="button" class="ai-x" aria-label="${h(t('close'))}">✕</button></header>
+      <div class="ai-log" aria-live="polite"></div>
+    </section>
+    <form class="ai-bar"><input class="ai-input" dir="auto" autocomplete="off" placeholder="${h(t('aiPh'))}">
+      <button type="submit" class="ai-send" aria-label="${h(t('helpAsk'))}">➤</button></form>`;
+  ($('#app-view') || document.body).append(root);
+  chat = { root, panel: $('.ai-panel', root), log: $('.ai-log', root), input: $('.ai-input', root), busy: false };
+  chat.log.innerHTML = `<div class="ai-msg bot ai-welcome" dir="auto">${md(t('aiWelcome', { n: AI_DAILY }))}</div>`;
+  const openIt = () => openChat();
+  chat.input.addEventListener('focus', openIt);
+  chat.input.addEventListener('input', openIt);
+  $('.ai-x', root).onclick = () => { chat.panel.hidden = true; root.classList.remove('open'); };
+  $('.ai-bar', root).onsubmit = (e) => { e.preventDefault(); askChat(); };
+  updateLeft();
+}
+
+export function openChat() {
+  if (!chat) return;
+  chat.panel.hidden = false;
+  chat.root.classList.add('open');
+  updateLeft();
+  chat.input.focus();
+  chat.log.scrollTop = chat.log.scrollHeight;
+}
+
+function updateLeft() {
+  if (!chat) return;
+  const left = Math.max(0, AI_DAILY - usedToday());
+  $('.ai-left', chat.root).textContent = t('aiLeft', { n: left });
+}
+
+function addMsg(cls, html) {
+  const d = document.createElement('div');
+  d.className = `ai-msg ${cls}`;
+  d.dir = 'auto';
+  d.innerHTML = html;
+  chat.log.append(d);
+  chat.log.scrollTop = chat.log.scrollHeight;
+  return d;
 }
 
 /** א שאלה צום AI (דורכן "סערווער" — Apps Script). ער באקומט דעם פירער און ענטפערט נאר לויט אים. */
-async function ask(question, dlg) {
-  const box = $('#hp-answer', dlg);
-  if (!question.trim()) return;
-  box.hidden = false;
-  box.innerHTML = `<p class="muted">⏳ ${h(t('helpThinking'))}</p>`;
+async function askChat() {
+  const q = chat.input.value.trim();
+  if (!q || chat.busy) return;
+  openChat();
+  addMsg('me', h(q));
+  chat.input.value = '';
+  if (usedToday() >= AI_DAILY) { addMsg('bot warn', h(t('helpAiLimit'))); return; }
+  chat.busy = true;
+  const wait = addMsg('bot muted', `⏳ ${h(t('helpThinking'))}`);
   try {
     const res = await fetch(CONFIG.HELP_AI_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // אן "preflight" — Apps Script האט דאס ליב
-      body: JSON.stringify({ question: question.trim(), lang: guideLang, token: currentToken() }),
+      body: JSON.stringify({ question: q, lang: /[a-z]/i.test(q) && !/[֐-׿]/.test(q) ? 'en' : 'yi', token: currentToken() }),
     });
     const data = await res.json();
-    if (data.error === 'daily-limit') { box.innerHTML = `<p class="warn-text">${h(t('helpAiLimit'))}</p>`; return; }
+    wait.remove();
+    if (data.error === 'daily-limit') { addMsg('bot warn', h(t('helpAiLimit'))); return; }
     if (!data.answer) throw new Error(`${data.error || 'no answer'}${data.detail ? ` · ${data.detail}` : ''}`);
-    box.innerHTML = `<div class="hp-ai" dir="auto">${md(data.answer)}</div><p class="muted small">${h(t('helpAiNote'))}</p>`;
+    countOne();
+    addMsg('bot', md(data.answer));
   } catch (err) {
-    // דער פעלער-קאוד קליין אונטן — כדי מ'זאל קענען זען וואס איז נישט געלונגען
-    box.innerHTML = `<p class="warn-text">${h(t('helpAiFail'))}</p><p class="muted small" dir="ltr">${h(String(err.message || err).slice(0, 300))}</p>`;
+    wait.remove();
+    // דער פעלער-קאוד קליין — כדי מ'זאל קענען זען וואס איז נישט געלונגען
+    addMsg('bot warn', `${h(t('helpAiFail'))}<br><small dir="ltr">${h(String(err.message || err).slice(0, 200))}</small>`);
+  } finally {
+    chat.busy = false;
+    updateLeft();
   }
 }

@@ -177,6 +177,14 @@ Keywords: admin, settings, admin lists, tags, logo, gabbai, access
 - **Admins, gabbaim and access** — the owner only: add a gabbai / admin.
 - **Gabbaim requests**.
 
+## The Help AI (chat at the bottom left)
+Keywords: ai, chat, help, question, ask
+
+- At the bottom left of the page: **"💬 Ask me: how do I…"**. Type a question and press ➤ (or Enter).
+- Ask **only "how to"** — do not write names / phones / personal details (questions go to Google).
+- Everyone has **40 questions a day**; the top shows how many are left.
+- **✕** — closes the window. **❓ Help** (top) — the full guide with search.
+
 ## Something doesn't work
 Keywords: error, problem, bug, not working, slow
 

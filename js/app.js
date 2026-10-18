@@ -26,7 +26,7 @@ import { initAdmin, renderAdmin, adminDirty, setAdminTab } from './admin.js';
 import { initMailMerge, renderMailMerge, openMailMerge } from './mailmerge.js';
 import { initMail, openCompose, emailOf } from './mail.js';
 import { initRequests, submitRequest, pendingRequests } from './requests.js';
-import { openHelp } from './help.js';
+import { openHelp, initHelpChat } from './help.js';
 import {
   initPersonal, renderPersonal, openPersonal, unreadCount, tasksDueCount, openTaskForContact,
 } from './personal.js';
@@ -106,6 +106,7 @@ async function enterApp() {
 
   $('#login-view').hidden = true;
   $('#app-view').hidden = false;
+  initHelpChat();
   refreshAll();
   showView('lobby');
 }
