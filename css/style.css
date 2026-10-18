@@ -1033,3 +1033,12 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 #photo-view img { display: block; max-width: min(92vw, 900px); max-height: 78vh; margin: 0 auto; object-fit: contain; }
 #photo-view .x-close { position: absolute; top: 8px; inset-inline-end: 8px; z-index: 1; }
 #photo-view .pv-bar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--surface); color: var(--ink); flex-wrap: wrap; }
+/* בקשות פון די גבאים */
+.rq-list { display: flex; flex-direction: column; gap: 8px; }
+.rq-row { display: flex; align-items: flex-start; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.rq-icon { font-size: 20px; line-height: 1.2; }
+.rq-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.rq-note { font-size: 13px; background: var(--bg, #faf6ee); border-radius: 6px; padding: 4px 8px; }
+.rq-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.rq-done { margin-top: 12px; }
+.rq-done summary { cursor: pointer; color: var(--muted); }

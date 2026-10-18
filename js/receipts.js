@@ -15,6 +15,7 @@ import { emailOf, emailLayout, sendJobs } from './mail.js';
 import { ensureGmailScope, hasGmailScope } from './google.js';
 import { htmlToJpeg, jpegsToPdf } from './pdf.js';
 import { savedInScope, parseSaved, evaluate } from './lists.js';
+import { submitRequest } from './requests.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -321,7 +322,7 @@ function issuedLogHtml() {
       <td class="num" dir="ltr">${money(r.amount)}</td><td class="small muted" dir="ltr">${h(r.issued_at)}</td>
       <td>${isTrue(r.void) ? h(t('rcVoided')) : `<button type="button" class="btn small-btn" data-reprint="${h(r.receipt_no)}">🖨</button>
         <button type="button" class="btn small-btn" data-remail="${h(r.receipt_no)}" title="${h(t('rcMailBtn'))}">✉</button>
-        ${state.isAdmin ? `<button type="button" class="linkish" data-void="${h(r.receipt_no)}">${h(t('rcVoid'))}</button>` : ''}`}</td></tr>`).join('')}</tbody></table></details>`;
+        <button type="button" class="linkish" data-void="${h(r.receipt_no)}">${h(t('rcVoid'))}</button>`}</td></tr>`).join('')}</tbody></table></details>`;
 }
 
 function fromLog(no) {
@@ -354,6 +355,10 @@ function wireLog(main) {
   });
   main.querySelectorAll('[data-void]').forEach((b) => {
     b.onclick = async () => {
+      if (!state.isAdmin) {
+        try { await submitRequest('void_receipt', { receipt_no: b.dataset.void }, t('rqSumVoid', { no: b.dataset.void })); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+        return;
+      }
       if (!confirm(t('rcVoidConfirm', { no: b.dataset.void }))) return;
       try { await voidReceipt(b.dataset.void); await loadAll(); renderReceipts(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
     };

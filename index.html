@@ -8,32 +8,33 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&family=Playpen+Sans+Hebrew:wght@400;600&family=Amatic+SC:wght@700&family=Noto+Rashi+Hebrew:wght@500&family=Frank+Ruhl+Libre:wght@400;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="img/favicon.png">
-  <link rel="stylesheet" href="css/style.css?v=119">
+  <link rel="stylesheet" href="css/style.css?v=120">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script type="importmap">
   {"imports": {
-    "./js/admin.js": "./js/admin.js?v=119",
-    "./js/app.js": "./js/app.js?v=119",
-    "./js/campaigns.js": "./js/campaigns.js?v=119",
-    "./js/config.js": "./js/config.js?v=119",
-    "./js/data.js": "./js/data.js?v=119",
-    "./js/donations.js": "./js/donations.js?v=119",
-    "./js/chart.js": "./js/chart.js?v=119",
-    "./js/excel.js": "./js/excel.js?v=119",
-    "./js/hebdate.js": "./js/hebdate.js?v=119",
-    "./js/google.js": "./js/google.js?v=119",
-    "./js/i18n.js": "./js/i18n.js?v=119",
-    "./js/lists.js": "./js/lists.js?v=119",
-    "./js/mail.js": "./js/mail.js?v=119",
-    "./js/mailmerge.js": "./js/mailmerge.js?v=119",
-    "./js/pdf.js": "./js/pdf.js?v=119",
-    "./js/names.js": "./js/names.js?v=119",
-    "./js/occasions.js": "./js/occasions.js?v=119",
-    "./js/personal.js": "./js/personal.js?v=119",
-    "./js/places.js": "./js/places.js?v=119",
-    "./js/receipts.js": "./js/receipts.js?v=119",
-    "./js/scope.js": "./js/scope.js?v=119",
-    "./js/util.js": "./js/util.js?v=119"
+    "./js/admin.js": "./js/admin.js?v=120",
+    "./js/app.js": "./js/app.js?v=120",
+    "./js/campaigns.js": "./js/campaigns.js?v=120",
+    "./js/config.js": "./js/config.js?v=120",
+    "./js/data.js": "./js/data.js?v=120",
+    "./js/donations.js": "./js/donations.js?v=120",
+    "./js/chart.js": "./js/chart.js?v=120",
+    "./js/excel.js": "./js/excel.js?v=120",
+    "./js/hebdate.js": "./js/hebdate.js?v=120",
+    "./js/google.js": "./js/google.js?v=120",
+    "./js/i18n.js": "./js/i18n.js?v=120",
+    "./js/lists.js": "./js/lists.js?v=120",
+    "./js/mail.js": "./js/mail.js?v=120",
+    "./js/mailmerge.js": "./js/mailmerge.js?v=120",
+    "./js/pdf.js": "./js/pdf.js?v=120",
+    "./js/names.js": "./js/names.js?v=120",
+    "./js/occasions.js": "./js/occasions.js?v=120",
+    "./js/personal.js": "./js/personal.js?v=120",
+    "./js/places.js": "./js/places.js?v=120",
+    "./js/receipts.js": "./js/receipts.js?v=120",
+    "./js/requests.js": "./js/requests.js?v=120",
+    "./js/scope.js": "./js/scope.js?v=120",
+    "./js/util.js": "./js/util.js?v=120"
   }}
   </script>
   <script type="module">import "./js/app.js";</script>
@@ -61,7 +62,7 @@
       <span id="user-email" class="muted"></span>
       <div class="lang-switch" role="group" aria-label="Language"><button type="button" data-lang="yi">אידיש</button><button type="button" data-lang="en">English</button></div>
       <button id="btn-personal" class="btn ghost">👤 <span data-i18n="lobbyPersonal"></span> <span class="count-pill" id="pm-badge" hidden></span></button>
-      <button id="btn-admin" class="btn ghost" hidden data-i18n="adminTitle"></button>
+      <button id="btn-admin" class="btn ghost" hidden><span data-i18n="adminTitle"></span> <span class="count-pill" id="adm-badge" hidden></span></button>
       <button id="btn-refresh" class="btn ghost" data-i18n="refresh" data-i18n-title="refreshTitle"></button>
       <button id="btn-logout" class="btn ghost" data-i18n="logout"></button>
     </header>

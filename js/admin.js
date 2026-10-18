@@ -11,6 +11,7 @@ import {
 import { yearlySeries, allCampaigns, curYear } from './campaigns.js';
 import { orgSelect } from './donations.js';
 import { orgDetailsAdminHtml } from './receipts.js';
+import { requestsAdminHtml, wireRequestsAdmin, pendingRequests } from './requests.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -125,6 +126,8 @@ function cardHtml(def, key) {
 
 // דריי לשוניות: 1 = רשימות און סעטינגס · 2 = מנהלים, גבאים און צוטריט · 3 = בקשות פון די גבאים
 let admTab = 'lists';
+/** עפנט דעם אדמין אויף א געוויסע לשונית (למשל 'requests'). */
+export function setAdminTab(k) { admTab = k; }
 const PEOPLE_TAB = new Set(['admPeople']);
 
 export function renderAdmin() {
@@ -132,7 +135,8 @@ export function renderAdmin() {
   if (!main) return;
   if (!state.isAdmin) { main.innerHTML = `<p class="empty">${h(t('adminOnly'))}</p>`; return; }
   const defs = [];
-  const tabBtn = (key, label) => `<button type="button" data-adm-tab="${key}" class="${admTab === key ? 'on' : ''}">${h(t(label))}</button>`;
+  const nPend = pendingRequests().length;
+  const tabBtn = (key, label) => `<button type="button" data-adm-tab="${key}" class="${admTab === key ? 'on' : ''}">${h(t(label))}${key === 'requests' && nPend ? ` <span class="count-pill">${nPend}</span>` : ''}</button>`;
   if (admTab === 'people' && !state.isOwner) admTab = 'lists';
   main.innerHTML = `<h2>${t('adminTitle')}</h2>
     <nav class="adm-tabs">${tabBtn('lists', 'admTabLists')}${state.isOwner ? tabBtn('people', 'admTabPeople') : ''}${tabBtn('requests', 'admTabRequests')}</nav>
@@ -146,7 +150,7 @@ export function renderAdmin() {
     + orgDetailsAdminHtml()
     + trashHtml()
     + logosHtml()
-    + `<div class="adm-group" data-tab="requests"><div class="soon-box"><h3>${h(t('admTabRequests'))}</h3><p class="muted">${h(t('admRequestsSoon'))}</p></div></div>`;
+    + requestsAdminHtml();
   // לאגאס און קאמפיינען געהערן צו לשונית 1
   $$('.adm-group:not([data-tab])', main).forEach((g) => { g.dataset.tab = 'lists'; });
   const showTab = () => {
@@ -168,6 +172,7 @@ export function renderAdmin() {
   wireCampaignsAdmin(main);
   $$('[data-org-details]', main).forEach((b) => { b.onclick = () => ui.openOrgDetails(b.dataset.orgDetails); });
   wireTrash(main);
+  wireRequestsAdmin(main, () => renderAdmin());
   $('[data-g="admPeople"]', main)?.after($('#adm-sharing', main));
   if (state.isOwner) renderSharing();
 

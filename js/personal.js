@@ -9,6 +9,7 @@ import { escapeHtml as h, splitTags, joinTags, nowStamp } from './util.js';
 import { todayIso } from './hebdate.js';
 import { openBuilder, openOverview } from './lists.js';
 import { money, donorName, openDonationForm } from './donations.js';
+import { myRequestsHtml, wireMyRequests } from './requests.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -261,6 +262,8 @@ export function renderPersonal(composePreset = null) {
 
     ${todoHtml()}
 
+    ${myRequestsHtml()}
+
     <section class="pm-section">
       <div class="pm-title">
         <h3>${t('pmMessages')} ${unread ? `<span class="count-pill">${unread}</span>` : ''}</h3>
@@ -309,6 +312,7 @@ function wire(main) {
   main.onkeydown = (e) => {
     if (e.key === 'Enter' && e.target.closest('#td-add') && e.target.name === 'text') { e.preventDefault(); addTask(); }
   };
+  wireMyRequests(main);
   main.onclick = async (e) => {
     const cardLink = e.target.closest('a[data-card]');
     if (cardLink) { e.preventDefault(); ui.openCard(cardLink.dataset.card); return; }

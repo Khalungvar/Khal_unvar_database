@@ -81,7 +81,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts', 'Requests']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -127,6 +127,10 @@ export async function loadAll() {
   const rc = rowsToObjects(tabs.Receipts || [['receipt_no']]);
   state.headers.Receipts = rc.header;
   state.receipts = rc.objects.filter((r) => String(r.receipt_no || '').trim());
+
+  const rq = rowsToObjects(tabs.Requests || [['request_id']]);
+  state.headers.Requests = rq.header;
+  state.requests = rq.objects.filter((r) => String(r.request_id || '').trim());
 
   const yearly = rowsToObjects(tabs.YearlyCampaigns || [['series']]);
   state.headers.YearlyCampaigns = yearly.header;

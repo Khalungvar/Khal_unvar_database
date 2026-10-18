@@ -22,9 +22,10 @@ import {
 } from './campaigns.js';
 import { initReceipts, renderReceipts, openReceipts, printForDonation, openOrgDetails } from './receipts.js';
 import { initLists, renderListsSide, renderBuilder, openOverview, exportContacts } from './lists.js';
-import { initAdmin, renderAdmin, adminDirty } from './admin.js';
+import { initAdmin, renderAdmin, adminDirty, setAdminTab } from './admin.js';
 import { initMailMerge, renderMailMerge, openMailMerge } from './mailmerge.js';
 import { initMail, openCompose, emailOf } from './mail.js';
+import { initRequests, submitRequest, pendingRequests } from './requests.js';
 import {
   initPersonal, renderPersonal, openPersonal, unreadCount, tasksDueCount, openTaskForContact,
 } from './personal.js';
@@ -116,6 +117,10 @@ function updateBadges() {
   b.textContent = n;
   const tileB = $('[data-tile="personal"] .count-pill');
   if (tileB) { tileB.hidden = !n; tileB.textContent = n; }
+  // בקשות פון די גבאים וואס ווארטן אויף א מנהל
+  const ab = $('#adm-badge');
+  const r = state.isAdmin ? pendingRequests().length : 0;
+  if (ab) { ab.hidden = !r; ab.textContent = r; }
 }
 
 // ---------- לובי: דער ערשטער בלאט נאכן אריינגיין ----------
@@ -643,8 +648,12 @@ function openCard(id, tab = null) {
   $('#card-task').onclick = () => openTaskForContact(c);
   $('#card-mail').hidden = !emailOf(c);
   $('#card-mail').onclick = () => openCompose({ contacts: [c], title: fullNameHe(c), kind: 'personal' });
-  $('#card-delete').hidden = !state.isAdmin;
+  $('#card-delete').hidden = false;
   $('#card-delete').onclick = async () => {
+    if (!state.isAdmin) {
+      try { await submitRequest('delete_contact', { contact_id: String(c.contact_id) }, t('rqSumDelContact', { name: fullNameHe(c) })); } catch (err) { toast(friendlyError(err), 'error'); }
+      return;
+    }
     const id = String(c.contact_id);
     const n = {
       don: state.donations.filter((d) => String(d.contact_id) === id).length,
@@ -1018,7 +1027,7 @@ function tagPicker(name, listName, value) {
   return `
     <div class="tags" dir="rtl" data-name="${name}" data-list="${listName}">
       ${all.map((tag) => `<button type="button" class="chip toggle${selected.includes(tag) ? ' on' : ''}">${h(tag)}</button>`).join('')}
-      ${state.isAdmin ? `<button type="button" class="chip add">${h(t('newTag'))}</button>` : ''}
+      <button type="button" class="chip add">${h(t(state.isAdmin ? 'newTag' : 'newTagRequest'))}</button>
     </div>`;
 }
 
@@ -1076,6 +1085,11 @@ function wireTagPicker(box) {
     if (b.classList.contains('add')) {
       const value = prompt(t('newTagPrompt'));
       if (!value || !value.trim()) return;
+      if (!state.isAdmin) {
+        // א גבאי: א בקשה צו די מנהלים
+        try { await submitRequest('tag', { list: box.dataset.list, value: value.trim() }, t('rqSumTag', { value: value.trim() })); } catch (err) { toast(friendlyError(err), 'error'); }
+        return;
+      }
       try {
         await addListValue(box.dataset.list, value.trim());
         const nb = document.createElement('button');
@@ -1606,10 +1620,11 @@ function start() {
   initReceipts({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, refreshAdmin: () => renderAdmin() });
   initMailMerge({ showView, fullNameHe, toast, friendlyError });
   initMail({ toast, friendlyError });
+  initRequests({ toast, friendlyError, refreshAll, updateBadges, showView, openCard });
   initPersonal({ showView, fullNameHe, openCard, contactById, toast, friendlyError, updateBadges });
   $('#btn-personal').onclick = () => { document.body.classList.add('solo-mode'); openPersonal(); };
   initLists({ showView, fullNameHe, phonesOf, contactById, pickerLabel, openCard, toast, friendlyError, refreshAll });
-  $('#btn-admin').onclick = () => { document.body.classList.add('solo-mode'); showView('admin'); };
+  $('#btn-admin').onclick = () => { if (pendingRequests().length) setAdminTab('requests'); document.body.classList.add('solo-mode'); showView('admin'); };
   closeOnBackdrop($('#form-dialog'), closeForm);
   $('#form-dialog').addEventListener('cancel', (e) => { e.preventDefault(); closeForm(); }); // מקש Esc
 

@@ -11,6 +11,7 @@ import {
   campaignOrg, effectiveOrg, donationInScope, defaultOrg, umbrellaName,
 } from './scope.js';
 import { downloadXlsx } from './excel.js';
+import { submitRequest } from './requests.js';
 
 let ui = null; // עזרים מהמסך הראשי (נמסרים ב-initDonations)
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -320,7 +321,7 @@ export function openDonationForm(donation = {}, presetContactId = null) {
 
     ${!isNew && d.created_at ? `<p class="meta">${h(t('created', { date: d.created_at, by: displayName(d.created_by) || '—' }))}${d.updated_at && d.updated_at !== d.created_at ? ` · ${h(t('updated', { date: d.updated_at, by: displayName(d.updated_by) }))}` : ''}</p>` : ''}
     <div class="actions">
-      ${!isNew && state.isAdmin ? `<button type="button" class="btn danger" id="don-delete">${t('deleteBtn')}</button>` : ''}
+      ${!isNew ? `<button type="button" class="btn danger" id="don-delete">${t('deleteBtn')}</button>` : ''}
       ${!isNew ? `<button type="button" class="btn" id="don-receipt">🧾 ${h(isTrue(d.is_paid) ? t('rcBtnReceipt') : t('rcBtnInvoice'))}</button>
         <button type="button" class="btn" id="don-receipt-mail" title="${h(t('rcMailBtn'))}">✉ ${h(t('rcMailShort'))}</button>` : ''}
       <span class="spacer"></span>
@@ -450,6 +451,13 @@ function wireDonationForm(form, original) {
   form._close = close;
 
   $('#don-delete', form)?.addEventListener('click', async () => {
+    if (!state.isAdmin) {
+      try {
+        await submitRequest('delete_donation', { donation_id: String(original.donation_id) },
+          t('rqSumDelDonation', { amount: money(original.amount_usd), name: donorName(original) }));
+      } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+      return;
+    }
     if (!confirm(t('confirmDeleteDonation'))) return;
     try {
       await deleteDonation(original);
