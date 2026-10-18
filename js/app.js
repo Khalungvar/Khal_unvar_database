@@ -175,6 +175,24 @@ function fillFilters() {
   areaSel.innerHTML = `<option value="">${h(t('allAreas'))}</option>`
     + (state.lists.area || []).map((a) => `<option>${h(a)}</option>`).join('');
   areaSel.value = currentArea;
+  const orgSel = $('#org-filter');
+  const currentOrg = orgSel.value;
+  orgSel.innerHTML = `<option value="">${h(t('allOrgs'))}</option>`
+    + ORG_FIELDS.map(([name, label]) => {
+      const values = [...new Set([...(state.lists[name] || []), ...state.contacts.flatMap((c) => splitTags(c[name]))])];
+      return values.length ? `<optgroup label="${h(t(label))}">${values.map((v) => `<option value="${h(`${name}|${v}`)}">${h(v)}</option>`).join('')}</optgroup>` : '';
+    }).join('');
+  orgSel.value = currentOrg;
+  $('#org-former-wrap').hidden = !orgSel.value;
+}
+
+/** פילטער לויט ביהמ"ד / כולל / ארגון; יוצאים רק אם סימנו "מיט יוצאים". */
+function matchesOrg(c) {
+  const v = $('#org-filter').value;
+  if (!v) return true;
+  const [name, value] = v.split('|');
+  if (!splitTags(c[name]).includes(value)) return false;
+  return $('#org-former').checked || !isTrue(c[`${name}_former`]);
 }
 
 function visibleContacts() {
@@ -186,6 +204,7 @@ function visibleContacts() {
     .filter((c) => showInactive || isTrue(c.is_active) || c.is_active === '')
     .filter((c) => !tag || splitTags(c.community_tags).includes(tag))
     .filter((c) => !area || c.area === area)
+    .filter(matchesOrg)
     .filter((c) => matches(c, query))
     .sort((a, b) => String(a.last_name_he).localeCompare(String(b.last_name_he), 'he')
       || String(a.first_name_he).localeCompare(String(b.first_name_he), 'he'));
@@ -205,7 +224,7 @@ function renderList() {
       !isAlive(c.is_alive) ? `<span class="badge muted">${t('deceased')}</span>` : '',
       c.is_active === false || c.is_active === 'FALSE' ? `<span class="badge muted">${t('inactive')}</span>` : '',
       isTrue(c.wife_in_neshei) ? `<span class="badge">${t('neshei')}</span>` : '',
-      ...orgLabels(c).map((o) => `<span class="badge org">${h(o)}</span>`),
+      ...orgLabels(c).map((o) => orgChip(o, 'badge org')),
     ].join('');
     const tags = splitTags(c.community_tags).map((tag) => `<span class="chip">${h(tag)}</span>`).join('');
     const en = [c.first_name_en, c.last_name_en].filter(Boolean).join(' ');
@@ -274,7 +293,7 @@ function openCard(id, tab = null) {
       ${field(t('legalName'), h(c.legal_first_name), true)}
       ${field(t('mailingName'), mail ? h(mail) : '', true)}
       ${field(t('wife'), wife)}
-      ${field(t('organizations'), orgLabels(c).map((o) => `<span class="chip">${h(o)}</span>`).join(''))}
+      ${field(t('organizations'), orgLabels(c).map((o) => orgChip(o, 'chip')).join(''))}
       ${field(t('community'), tagChips(c.community_tags))}
     </section>
     ${address || c.area ? `<section><h3>${t('address')}${c.area ? ` · ${unverifiedWrap(c, ['area'], h(c.area))}` : ''}</h3><p dir="ltr" class="addr">${address}</p></section>` : ''}
@@ -577,7 +596,8 @@ function orgRow(c) {
     ${ORG_FIELDS.map(([name, label]) => {
       const chosen = splitTags(c[name]);
       const all = [...new Set([...(state.lists[name] || []), ...chosen])];
-      return `<div class="org-select"><span>${t(label)}</span>
+      return `<div class="org-select"><span class="org-head">${t(label)}
+          <label class="former-toggle" title="${h(t('formerTip'))}"><input type="checkbox" name="${name}_former" ${isTrue(c[`${name}_former`]) ? 'checked' : ''}> ${t('former')}</label></span>
         <details class="multi" data-name="${name}">
           <summary>${chosen.length ? h(chosen.join(', ')) : '—'}</summary>
           <div class="multi-list">${all.map((v) => `<label class="check"><input type="checkbox" value="${h(v)}" ${chosen.includes(v) ? 'checked' : ''}> ${h(v)}</label>`).join('')}</div>
@@ -591,9 +611,13 @@ function readMulti(form, name) {
   return joinTags($$(`details.multi[data-name="${name}"] input:checked`, form).map((i) => i.value));
 }
 
-/** לתצוגה ברשימה ובכרטיס: "ביהמ\"ד מאנסי", "כולל ערב", "כהלכתו". */
+/** לתצוגה ברשימה ובכרטיס: [{ label, former }] — "ביהמ\"ד מאנסי", "כולל ערב"... former = יוצא (לשעבר). */
 function orgLabels(c) {
-  return ORG_FIELDS.flatMap(([name]) => splitTags(c[name]));
+  return ORG_FIELDS.flatMap(([name]) => splitTags(c[name]).map((label) => ({ label, former: isTrue(c[`${name}_former`]) })));
+}
+
+function orgChip(o, cls) {
+  return `<span class="${cls}${o.former ? ' former' : ''}">${h(o.label)}${o.former ? ` · ${h(t('former'))}` : ''}</span>`;
 }
 
 /** לחיצה על תגית מסמנת / מבטלת; "+ נייע טעג" (מנהל) מוסיף ערך לרשימה. */
@@ -942,6 +966,9 @@ function collect(form, original) {
     beis_medrash: readMulti(form, 'beis_medrash'),
     kollel: readMulti(form, 'kollel'),
     organization: readMulti(form, 'organization'),
+    beis_medrash_former: form.elements.beis_medrash_former.checked,
+    kollel_former: form.elements.kollel_former.checked,
+    organization_former: form.elements.organization_former.checked,
     address: val('address'),
     city: val('city'),
     state: val('state').toUpperCase(),
@@ -1064,6 +1091,8 @@ function start() {
   $('#search').addEventListener('input', renderList);
   $('#tag-filter').addEventListener('change', renderList);
   $('#area-filter').addEventListener('change', renderList);
+  $('#org-filter').addEventListener('change', () => { $('#org-former-wrap').hidden = !$('#org-filter').value; renderList(); });
+  $('#org-former').addEventListener('change', renderList);
   $('#show-inactive').addEventListener('change', renderList);
   $('#list').addEventListener('click', (e) => {
     const row = e.target.closest('.row');
