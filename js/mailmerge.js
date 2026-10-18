@@ -1,7 +1,9 @@
 // Mail Merge: עורך לקאנווערטן און לעיבלס.
 // לוגא און הינטערגרונט, צוריק-אדרעס (לינקס אויבן), דער נמען אין דער מיט (פון א רשימה), און דער ווינקל פון דער מארקע (רעכטס אויבן).
 // מען שלעפט די טיילן מיטן מויז; אלעס ווערט געדרוקט אין דער ריכטיגער גרייס פונעם קאנווערט / לעיבל-בויגן.
-import { state, loadAll, saveRecord, deleteRecord, orgLogo } from './data.js';
+import {
+  state, loadAll, saveRecord, deleteRecord, orgLogo, NESHEI_ORG,
+} from './data.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, mailingName, shrinkImage as shrink } from './util.js';
 import { evaluate, parseSaved, templates as readyLists, savedInScope } from './lists.js';
@@ -107,11 +109,12 @@ function shrinkImage(file, maxPx) {
 function resolveLogo(key, custom) {
   if (key === 'custom') return custom;
   if (String(key).startsWith('org:')) return orgLogo(key.slice(4));
+  if (key === 'neshei') return orgLogo(NESHEI_ORG);
   return BUILTIN_LOGOS.find(([k]) => k === key)?.[1] || '';
 }
 
 function orgLogoOptions(selected) {
-  return Object.keys(state.orgLogos || {}).map((o) => `<option value="org:${h(o)}"${selected === `org:${o}` ? ' selected' : ''}>${h(o)}</option>`).join('');
+  return Object.keys(state.orgLogos || {}).filter((o) => o !== NESHEI_ORG).map((o) => `<option value="org:${h(o)}"${selected === `org:${o}` ? ' selected' : ''}>${h(o)}</option>`).join('');
 }
 
 function logoSrc() {

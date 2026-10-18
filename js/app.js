@@ -3,7 +3,7 @@ import {
   initAuth, requestToken, signOut, getUserEmail, hasSavedSession, setOnExpire, rememberEmail,
 } from './google.js';
 import {
-  state, loadAll, displayName, orgLogo, getPhoto, savePhoto, saveOriginalToDrive, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
+  state, loadAll, displayName, orgLogo, NESHEI_ORG, getPhoto, savePhoto, saveOriginalToDrive, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
 } from './data.js';
 import { suggest, details, placesEnabled, placesError } from './places.js';
 import {
@@ -1045,7 +1045,7 @@ function openForm(c = {}) {
       </div>
       <label class="neshei-row">
         <input type="checkbox" name="wife_in_neshei" ${isTrue(c.wife_in_neshei) ? 'checked' : ''}>
-        <img src="img/neshei-logo.png" alt="" width="99" height="60">
+        <img src="${orgLogo(NESHEI_ORG)}" alt="" style="height:60px;width:auto;max-width:120px;object-fit:contain">
         <span>${t('nesheiJoin')}</span>
       </label>
     </fieldset>

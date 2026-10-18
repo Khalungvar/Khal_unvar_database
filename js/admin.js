@@ -1,7 +1,7 @@
 // עמוד אדמין: כל הרשימות של האתר במקום אחד — ארגונים, טעג'ס, אופני תשלום, טיטלען, געגנטן, קרבות, מנהלים.
 // הכל נשמר בגליון (לשונית Lists / Settings). רק מנהל רואה את העמוד ויכול לשמור.
 import {
-  state, loadAll, saveListColumns, saveSettingsColumns, rawListColumn, rawSettingsColumn, orgLogo, saveOrgLogo, saveOriginalToDrive, isDatabaseAccount, hasDriveScope, connectDrive,
+  state, loadAll, saveListColumns, saveSettingsColumns, rawListColumn, rawSettingsColumn, orgLogo, hasUploadedLogo, NESHEI_ORG, saveOrgLogo, saveOriginalToDrive, isDatabaseAccount, hasDriveScope, connectDrive,
 } from './data.js';
 import { t } from './i18n.js';
 import { splitTags, escapeHtml as h, shrinkImage } from './util.js';
@@ -187,6 +187,7 @@ function logoOrgs() {
   const umbrella = rawListColumn('umbrella_org').filter(Boolean);
   return [
     ...umbrella.map((v) => [v, t('umbrellaGroup')]),
+    [NESHEI_ORG, t('nesheiKind')],
     ...['beis_medrash', 'kollel', 'organization'].flatMap((col) => rawListColumn(col).filter(Boolean)
       .map((v) => [v, t({ beis_medrash: 'orgBeisMedrash', kollel: 'orgKollel', organization: 'orgOrganization' }[col])])),
   ];
@@ -206,7 +207,7 @@ function logosHtml() {
         <div class="logo-box">${src ? `<img src="${src}" alt="">` : '<span class="muted small">—</span>'}</div>
         <b>${h(name)}</b><span class="muted small">${h(kind)}</span>
         <label class="btn small-btn">${src ? t('admLogoChange') : t('admLogoUpload')}<input type="file" accept="image/*" hidden></label>
-        ${src ? `<button type="button" class="linkish" data-logo-del>${t('admLogoRemove')}</button>` : ''}
+        ${hasUploadedLogo(name) ? `<button type="button" class="linkish" data-logo-del>${t('admLogoRemove')}</button>` : ''}
       </div>`;
     }).join('')}</div></div>`;
 }

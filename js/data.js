@@ -218,9 +218,17 @@ export async function saveDonations(list) {
   return rows.length;
 }
 
-/** דער לאגא פון א ארגון (אדער ''). */
+/** נשי אונגוואר — א באזונדער ארגון (פון ווייבער), מיט א לאגא וואס איז שוין דא אויפן אתר. */
+export const NESHEI_ORG = 'נשי אונגוואר';
+const DEFAULT_LOGOS = { [NESHEI_ORG]: 'img/neshei-logo.png' };
+
+/** דער לאגא פון א ארגון: וואס מען האט ארויפגעלייגט, אדער דער פון פריער (נשי), אדער ''. */
 export function orgLogo(name) {
-  return state.orgLogos?.[name] || '';
+  return state.orgLogos?.[name] || DEFAULT_LOGOS[name] || '';
+}
+
+export function hasUploadedLogo(name) {
+  return Boolean(state.orgLogos?.[name]);
 }
 
 /** מנהל בלבד: שומר (אדער מעקט אויס מיט '') דעם לאגא פון א ארגון. */
