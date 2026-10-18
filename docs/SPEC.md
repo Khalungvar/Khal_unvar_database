@@ -19,7 +19,7 @@
 | שם משפחה עברית | טקסט | ✅ הוחלט: חובה, ניקוי רווחים. אזהרה אם השם המלא כבר קיים ("להמשיך?") |
 | חי / נפטר | לחצן | ✅ הוחלט: ברירת מחדל "חי". סימון "נפטר" → הצעה "להוסיף יארצייט?" (לא חובה; טופס עם השם ממולא). תאריך הפטירה נשמר רק בגליון היארצייט. ההיסטוריה נשמרת תמיד |
 | מצב משפחתי | נשוי / בחור / גרוש / אלמן | ✅ הוחלט: קובע את הפנייה באנגלית. שדות האישה מוצגים תמיד ויכולים להישאר ריקים. סימון "האישה נפטרה" → הצעה לשנות מצב משפחתי (אלמן / גרוש / להשאיר) |
-| תואר אנגלית | רשימת אפשרויות | |
+| תואר אנגלית | רשימת אפשרויות | ✅ הוחלט: Mr., Rabbi, Grand Rabbi, Dr. השלמה דו-כיוונית: אם אחד התוארים ריק, הוא מתמלא לפי השני (טבלת התאמה בלשונית Lists, עמודות I-J) |
 | שם פרטי אנגלית | טקסט | |
 | שם משפחה אנגלית | טקסט | |
 | Rebbetzin | לחצן (לפני שם האישה) | ✅ הוחלט: ON = Rebbetzin, OFF = Mrs. |
@@ -67,7 +67,8 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
   - **בחור / גרוש / אלמן** → "Mr." לבד.
   - רבנים (הרב, הרה"ג, הרה"צ, כ"ק אדמו"ר) — אותם כללים, עם Rabbi במקום Mr.: נשוי ושניהם בחיים → "Rabbi & Rebbetzin" / "Rabbi & Mrs." (לפי הלחצן) · רק הבעל → "Rabbi" · רק האישה → "Rebbetzin" / "Mrs." (לפי הלחצן)
   - כשרק אחד בחיים, אין "&".
-  - ❓ פתוח: האם כ"ק אדמו"ר = Rabbi או Grand Rabbi.
+  - Dr. — כמו Mr. (Dr. & Mrs.). Grand Rabbi — כמו Rabbi (כולל Rebbetzin).
+  - התאמת תארים: מו"ה↔Mr. · הבה"ח→Mr. · הרב/הרה"ג/הרה"צ→Rabbi, Rabbi→הרב · כ"ק אדמו"ר↔Grand Rabbi · Dr.→מו"ה
 - התואר בעברית הוא לתצוגה בלבד ולא משתנה לפי מצב חיים/נפטר.
 
 ## מבנה הגוגל שיטס (נוצר)
@@ -78,7 +79,7 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 - **Donations:** donation_id, contact_id, date, event, amount_usd, payment_method, check_number, card_last4, payment_note, dedication_type, dedication_text, created_at, created_by
 - **Relations:** relation_id, contact_id_a, relation_type, contact_id_b
 - **Yahrzeit:** yahrzeit_id, contact_id, hebrew_day, hebrew_month, hebrew_year, deceased_name, deceased_father_name, relation_to_contact, deceased_contact_id
-- **Lists:** title_he, title_en, marital_status, event, payment_method, dedication_type, relation_type, community_tag
+- **Lists:** title_he, title_en, marital_status, event, payment_method, dedication_type, relation_type, community_tag, title_he_default_en, title_en_default_he
 
 עקרונות: מחיקה רכה (is_active), עבודה דרך התוכנה ולא ישירות בגליון, רשימות האפשרויות נערכות בלשונית Lists.
 
@@ -86,7 +87,6 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 - כמעט אף פעם לא שולחים לכולם; צריך כלי לבחירת קבוצות מתוך המאגר (סינון לפי תגיות, חי/נפטר, עיר וכו') ולהפקת רשימה/מדבקות. ייתוכנן בנפרד.
 
 ## שאלות פתוחות
-1. רשימת התארים באנגלית (כ"ק אדמו"ר = Rabbi או Grand Rabbi?), והאם המצב המשפחתי משפיע על משהו.
 2. מה המשמעות של "האם האישה בנשי".
 3. רשימת המאורעות לתרומות.
 4. רשימת הקשרים המשפחתיים.
