@@ -23,7 +23,9 @@ import {
 import { initLists, renderListsSide, renderBuilder, openOverview } from './lists.js';
 import { initAdmin, renderAdmin, adminDirty } from './admin.js';
 import { initMailMerge, renderMailMerge, openMailMerge } from './mailmerge.js';
-import { initPersonal, renderPersonal, openPersonal, unreadCount } from './personal.js';
+import {
+  initPersonal, renderPersonal, openPersonal, unreadCount, tasksDueCount,
+} from './personal.js';
 import {
   nextOccurrence, daysBetween, todayIso, monthKeyFromHe,
 } from './hebdate.js';
@@ -99,7 +101,7 @@ async function enterApp() {
 
 /** וויפיל נישט-געלייענטע מעסעדזשעס — אויפן קנעפל אויבן און אין לאבי. */
 function updateBadges() {
-  const n = unreadCount();
+  const n = unreadCount() + tasksDueCount();
   const b = $('#pm-badge');
   b.hidden = !n;
   b.textContent = n;
@@ -129,7 +131,7 @@ function renderLobby() {
         <input type="search" id="lobby-q" placeholder="${h(t('lobbySearchPh'))}" autocomplete="off">
         <div class="lobby-results" id="lobby-results"></div>
       </div>
-      ${tile('personal', '👤', t('lobbyPersonal'), unreadCount() ? t('pmUnreadSub', { n: unreadCount() }) : t('lobbyPersonalSub'))}
+      ${tile('personal', '👤', t('lobbyPersonal'), unreadCount() || tasksDueCount() ? t('pmUnreadSub2', { n: unreadCount(), m: tasksDueCount() }) : t('lobbyPersonalSub'))}
     </div>
     <div class="lobby-row">
       ${tile('umbrella', '🏛', umbrellaName(), t('lobbyAllSub', { n: alive }), 'data-primary')}
@@ -1389,7 +1391,7 @@ function start() {
   initCampaigns({ showView, tagPicker, wireTagPicker, readTags, toast, friendlyError, refreshAll });
   initAdmin({ toast, friendlyError, refreshAll });
   initMailMerge({ showView, fullNameHe, toast, friendlyError });
-  initPersonal({ showView, fullNameHe, openCard, toast, friendlyError, updateBadges });
+  initPersonal({ showView, fullNameHe, openCard, contactById, toast, friendlyError, updateBadges });
   $('#btn-personal').onclick = () => { document.body.classList.add('solo-mode'); openPersonal(); };
   initLists({ showView, fullNameHe, phonesOf, contactById, pickerLabel, openCard, toast, friendlyError, refreshAll });
   $('#btn-admin').onclick = () => showView('admin');

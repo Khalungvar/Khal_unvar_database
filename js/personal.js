@@ -1,10 +1,11 @@
 // איזור אישי: מעסעדזשעס צווישן די באנוצער, בקשות גישה (צו די מנהלים), מיינע פריוואטע רשימות,
 // און אונטן צוויי קאלומס: די קאנטאקטן וואס איך האב צוגעלייגט / געטוישט, און די נדבות וואס איך האב אריינגעלייגט.
 import {
-  state, loadAll, saveRecord, reloadMessages, allUsers, displayName,
+  state, loadAll, saveRecord, deleteRecord, reloadMessages, allUsers, displayName,
 } from './data.js';
 import { t } from './i18n.js';
-import { escapeHtml as h, splitTags, joinTags } from './util.js';
+import { escapeHtml as h, splitTags, joinTags, nowStamp } from './util.js';
+import { todayIso } from './hebdate.js';
 import { openBuilder, openOverview } from './lists.js';
 import { money, donorName, openDonationForm } from './donations.js';
 
@@ -114,6 +115,126 @@ function composeHtml(preset = {}) {
   </form>`;
 }
 
+// ---------- To Do ----------
+function plusDays(n) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  const p = (x) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+const mineTo = (x) => String(x.assigned_to || '').toLowerCase() === state.email;
+const open = (x) => (x.status || 'open') !== 'done';
+const due = (x) => !x.remind_at || String(x.remind_at) <= todayIso();
+
+/** וויפיל משימות דארף איך יעצט טאן (נישט געטאן, נישט אפגעלייגט). */
+export function tasksDueCount() {
+  return state.tasks.filter((x) => mineTo(x) && open(x) && due(x)).length;
+}
+
+function taskRow(x, kind) {
+  const from = String(x.from_email || '').toLowerCase();
+  const c = x.contact_id ? ui.contactById?.(x.contact_id) : null;
+  return `<div class="td-row${open(x) ? '' : ' done'}" data-task="${h(x.task_id)}">
+    ${kind === 'mine' ? `<button type="button" class="td-check" data-done title="${h(t('tdDone'))}">✓</button>` : ''}
+    <div class="td-main">
+      <div class="td-text">${h(x.text)}</div>
+      <div class="muted small">
+        ${kind === 'mine' && from && from !== state.email ? `${h(t('tdFrom', { name: displayName(from) }))} · ` : ''}
+        ${kind === 'sent' ? `→ ${h(displayName(x.assigned_to))} · ${h(open(x) ? t('tdOpen') : t('tdDoneBy', { name: displayName(x.done_by), date: x.done_at }))} · ` : ''}
+        ${kind === 'later' ? `⏰ ${h(x.remind_at)} · ` : ''}
+        ${kind === 'done' ? `✓ ${h(x.done_at || '')} · ` : ''}
+        ${c ? `<a href="#" data-card="${h(c.contact_id)}">${h(ui.fullNameHe(c))}</a> · ` : ''}
+        ${h(String(x.created_at || '').slice(0, 10))}
+      </div>
+    </div>
+    <div class="td-btns">
+      ${kind === 'mine' ? `<button type="button" class="btn small-btn" data-week>${t('tdWeek')}</button>
+        <button type="button" class="btn small-btn primary" data-done>${t('tdDone')}</button>` : ''}
+      ${kind === 'later' ? `<button type="button" class="btn small-btn" data-now>${t('tdNow')}</button>` : ''}
+      ${kind === 'done' ? `<button type="button" class="btn small-btn" data-reopen>${t('tdReopen')}</button>` : ''}
+      ${String(x.created_by || '').toLowerCase() === state.email ? `<button type="button" class="linkish" data-del title="${h(t('deleteBtn'))}">✕</button>` : ''}
+    </div>
+  </div>`;
+}
+
+function todoHtml() {
+  const users = allUsers();
+  const mineNow = state.tasks.filter((x) => mineTo(x) && open(x) && due(x))
+    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+  const later = state.tasks.filter((x) => mineTo(x) && open(x) && !due(x))
+    .sort((a, b) => String(a.remind_at).localeCompare(String(b.remind_at)));
+  const sent = state.tasks.filter((x) => String(x.from_email || '').toLowerCase() === state.email && !mineTo(x))
+    .sort((a, b) => Number(open(b)) - Number(open(a)) || String(b.created_at).localeCompare(String(a.created_at))).slice(0, 30);
+  const done = state.tasks.filter((x) => mineTo(x) && !open(x))
+    .sort((a, b) => String(b.done_at).localeCompare(String(a.done_at))).slice(0, 20);
+  return `<section class="pm-section">
+    <div class="pm-title"><h3>☑ To Do ${mineNow.length ? `<span class="count-pill">${mineNow.length}</span>` : ''}</h3></div>
+    <form class="td-add" id="td-add" onsubmit="return false">
+      <input name="text" placeholder="${h(t('tdAddPh'))}" autocomplete="off">
+      <select name="to">
+        <option value="${h(state.email)}">${h(t('tdForMe'))}</option>
+        ${users.filter((u) => u.email !== state.email).map((u) => `<option value="${h(u.email)}">→ ${h(u.name)}</option>`).join('')}
+      </select>
+      <select name="when">
+        <option value="">${t('tdWhenNow')}</option>
+        <option value="1">${t('tdWhenTomorrow')}</option>
+        <option value="7">${t('tdWhenWeek')}</option>
+        <option value="30">${t('tdWhenMonth')}</option>
+      </select>
+      <button type="button" class="btn primary" id="td-add-btn">${t('admAdd')}</button>
+    </form>
+    <div class="td-list">${mineNow.map((x) => taskRow(x, 'mine')).join('') || `<p class="empty">${t('tdEmpty')}</p>`}</div>
+    ${later.length ? `<details class="td-more"><summary>⏰ ${t('tdLater')} (${later.length})</summary>${later.map((x) => taskRow(x, 'later')).join('')}</details>` : ''}
+    ${sent.length ? `<details class="td-more"><summary>→ ${t('tdSentTo')} (${sent.filter(open).length}/${sent.length})</summary>${sent.map((x) => taskRow(x, 'sent')).join('')}</details>` : ''}
+    ${done.length ? `<details class="td-more"><summary>✓ ${t('tdDoneList')} (${done.length})</summary>${done.map((x) => taskRow(x, 'done')).join('')}</details>` : ''}
+  </section>`;
+}
+
+async function saveTask(task, msg) {
+  await saveRecord('Tasks', 'task_id', task);
+  await reloadMessages();
+  ui.updateBadges?.();
+  if (msg) ui.toast(msg);
+  renderPersonal();
+}
+
+async function todoClick(e) {
+  if (e.target.closest('#td-add-btn')) { await addTask(); return true; }
+  const row = e.target.closest('[data-task]');
+  if (!row) return false;
+  const x = state.tasks.find((y) => String(y.task_id) === row.dataset.task);
+  if (!x) return false;
+  try {
+    if (e.target.closest('[data-done]')) { await saveTask({ ...x, status: 'done', done_at: nowStamp(), done_by: state.email }, t('tdDoneToast')); return true; }
+    if (e.target.closest('[data-week]')) { await saveTask({ ...x, remind_at: plusDays(7) }, t('tdWeekToast', { date: plusDays(7) })); return true; }
+    if (e.target.closest('[data-now]')) { await saveTask({ ...x, remind_at: '' }); return true; }
+    if (e.target.closest('[data-reopen]')) { await saveTask({ ...x, status: 'open', done_at: '', done_by: '' }); return true; }
+    if (e.target.closest('[data-del]')) {
+      if (!confirm(t('tdConfirmDelete'))) return true;
+      await deleteRecord('Tasks', 'task_id', x);
+      await reloadMessages();
+      renderPersonal();
+      return true;
+    }
+  } catch (err) { ui.toast(ui.friendlyError(err), 'error'); return true; }
+  return false;
+}
+
+async function addTask() {
+  const f = $('#td-add').elements;
+  const text = f.text.value.trim();
+  if (!text) { f.text.focus(); return; }
+  const days = Number(f.when.value || 0);
+  try {
+    await saveTask({
+      task_id: '', text, assigned_to: f.to.value, from_email: state.email, status: 'open',
+      remind_at: days ? plusDays(days) : '', done_at: '', done_by: '', contact_id: '',
+    }, f.to.value === state.email ? t('tdAdded') : t('tdSentToast', { name: displayName(f.to.value) }));
+    $('#td-add [name=text]')?.focus();
+  } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+}
+
 // ---------- דער בלאט ----------
 export function renderPersonal(composePreset = null) {
   const main = $('#personal-main');
@@ -134,6 +255,8 @@ export function renderPersonal(composePreset = null) {
       <div><h2>👤 ${h(displayName(state.email))}</h2>
         <p class="muted">${h(state.email)} · ${h(state.isAdmin ? t('admin') : (me?.role === 'gabbai' ? t('pmGabbai') : t('pmUser')))}</p></div>
     </div>
+
+    ${todoHtml()}
 
     <section class="pm-section">
       <div class="pm-title">
@@ -180,7 +303,13 @@ export function renderPersonal(composePreset = null) {
 }
 
 function wire(main) {
+  main.onkeydown = (e) => {
+    if (e.key === 'Enter' && e.target.closest('#td-add') && e.target.name === 'text') { e.preventDefault(); addTask(); }
+  };
   main.onclick = async (e) => {
+    const cardLink = e.target.closest('a[data-card]');
+    if (cardLink) { e.preventDefault(); ui.openCard(cardLink.dataset.card); return; }
+    if (await todoClick(e)) return;
     const tab = e.target.closest('[data-box]');
     if (tab) { box = tab.dataset.box; openMsg = ''; renderPersonal(); return; }
     if (e.target.closest('#pm-new')) { renderPersonal({ kind: 'msg', to: 'all' }); $('#pm-compose textarea').focus(); return; }

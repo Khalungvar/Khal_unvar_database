@@ -19,7 +19,8 @@ export const state = {
   campaigns: [],
   savedLists: [],
   mailTemplates: [],
-  messages: [],      // מעסעדזשעס צווישן די באנוצער (און בקשות גישה) // Mail Merge: אפגעהיטענע עיצובים פון קאנווערטן / לעיבלס    // רשימות שמורות (תנאים + עמודות)     // { campaign, org } — לאיזה ארגון שייך כל קאמפיין      // לשונית "ארגון": תיבות טקסט לכל איש קשר     // מאורעות: יארצייט, געבורטסטאג, חתונה...
+  messages: [],
+  tasks: [],         // To Do: משימות (אויך צו אנדערע)      // מעסעדזשעס צווישן די באנוצער (און בקשות גישה) // Mail Merge: אפגעהיטענע עיצובים פון קאנווערטן / לעיבלס    // רשימות שמורות (תנאים + עמודות)     // { campaign, org } — לאיזה ארגון שייך כל קאמפיין      // לשונית "ארגון": תיבות טקסט לכל איש קשר     // מאורעות: יארצייט, געבורטסטאג, חתונה...
   lists: {},         // { title_he: [...], ... }
   titleHeToEn: {},
   titleEnToHe: {},
@@ -72,7 +73,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -89,6 +90,10 @@ export async function loadAll() {
   const msgs = rowsToObjects(tabs.Messages || []);
   state.headers.Messages = msgs.header;
   state.messages = msgs.objects;
+
+  const tasks = rowsToObjects(tabs.Tasks || []);
+  state.headers.Tasks = tasks.header;
+  state.tasks = tasks.objects;
 
   const mt = rowsToObjects(tabs.MailTemplates || []);
   state.headers.MailTemplates = mt.header;
@@ -207,10 +212,13 @@ export async function saveDonations(list) {
 
 /** לייענט נאר די מעסעדזשעס (פאר א שנעלע בדיקה יעדע פאר מינוט). */
 export async function reloadMessages() {
-  const tabs = await readTabs(['Messages']);
+  const tabs = await readTabs(['Messages', 'Tasks']);
   const msgs = rowsToObjects(tabs.Messages || []);
   state.headers.Messages = msgs.header;
   state.messages = msgs.objects;
+  const tasks = rowsToObjects(tabs.Tasks || []);
+  state.headers.Tasks = tasks.header;
+  state.tasks = tasks.objects;
 }
 
 /** אלע באנוצער (מנהלים + גבאים): [{ email, name, role }] */
