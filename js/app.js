@@ -606,12 +606,13 @@ function openCard(id, tab = null) {
       ${field(t('enName'), unverifiedWrap(c, ['first_name_en', 'last_name_en'], h([c.title_en, c.first_name_en, c.last_name_en].filter(Boolean).join(' '))), true)}
       ${field(t('legalName'), h(c.legal_first_name), true)}
       ${field(t('mailingName'), mail ? h(mail) : '', true)}
+      ${p.comments ? field(t('comments'), `<span class="card-notes" dir="auto">${h(p.comments)}</span>`) : ''}
       ${field(t('wife'), wife)}
       ${field(t('organizations'), orgLabels(c).map((o) => orgChip(o, 'chip')).join(''))}
       ${field(t('community'), tagChips(c.community_tags))}
     </section>
     ${address || c.area ? `<section><h3>${t('address')}${c.area ? ` · ${unverifiedWrap(c, ['area'], h(c.area))}` : ''}</h3><p dir="ltr" class="addr">${address}</p></section>` : ''}
-    ${phones || emails || p.comments ? `<section><h3>${t('phonesEmail')}</h3>${phones}${emails}${field(t('comments'), h(p.comments))}</section>` : ''}
+    ${phones || emails ? `<section><h3>${t('phonesEmail')}</h3>${phones}${emails}</section>` : ''}
     </div>
     <div class="card-pane" data-tab="family">
       ${familySection(c)}
@@ -1184,6 +1185,10 @@ function openForm(c = {}) {
       </div>
     </fieldset>
 
+    <fieldset><legend>${t('comments')}</legend>
+      <textarea name="comments" rows="3" dir="auto" aria-label="${h(t('comments'))}">${h(p.comments ?? '')}</textarea>
+    </fieldset>
+
     <fieldset><legend>${t('secWife')}</legend>
       <div class="grid">
         <div class="wife-title">
@@ -1244,10 +1249,6 @@ function openForm(c = {}) {
       <datalist id="dl-form-contacts">${state.contacts
         .filter((x) => String(x.contact_id) !== String(c.contact_id ?? '') && (isTrue(x.is_active) || x.is_active === ''))
         .map((x) => `<option value="${h(pickerLabel(x))}">`).join('')}</datalist>
-    </fieldset>
-
-    <fieldset><legend>${t('comments')}</legend>
-      <textarea name="comments" rows="2" aria-label="${h(t('comments'))}">${h(p.comments ?? '')}</textarea>
     </fieldset>
 
     <div class="actions">
