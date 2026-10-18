@@ -1523,7 +1523,7 @@ function start() {
     toast, friendlyError, refreshAll, showView,
     openCampaignPage: (name) => showCampaign(name),
   });
-  initCampaigns({ showView, tagPicker, wireTagPicker, readTags, toast, friendlyError, refreshAll });
+  initCampaigns({ showView, tagPicker, wireTagPicker, readTags, toast, friendlyError, refreshAll, openCard });
   initAdmin({ toast, friendlyError, refreshAll });
   initMailMerge({ showView, fullNameHe, toast, friendlyError });
   initPersonal({ showView, fullNameHe, openCard, contactById, toast, friendlyError, updateBadges });

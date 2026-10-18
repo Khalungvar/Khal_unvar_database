@@ -458,6 +458,22 @@ export async function saveYearly(y) {
   await logChanges('yearly', o.series, '', existing || {}, o);
 }
 
+/** מנהל בלבד: מעקט א יערליכן קאמפיין (נאר ווען ס'איז נישטא קיין נדבות). */
+export async function deleteYearly(series) {
+  if (!state.isAdmin) throw new Error(t('adminOnly'));
+  const row = await findRow('YearlyCampaigns', series);
+  if (row) await updateRow('YearlyCampaigns', row, state.headers.YearlyCampaigns.map(() => ''));
+  await logChanges('yearly', series, '', null, null, 'deleted');
+}
+
+/** מנהל בלבד: מעקט א קאמפיין-שורה (איינמאליג, אדער סעטינגס פון איין יאר). */
+export async function deleteCampaign(name) {
+  if (!state.isAdmin) throw new Error(t('adminOnly'));
+  const row = await findRow('Campaigns', name);
+  if (row) await updateRow('Campaigns', row, state.headers.Campaigns.map(() => ''));
+  await logChanges('campaign', name, '', null, null, 'deleted');
+}
+
 /** מנהל בלבד: מוחק תרומה (מנקה את השורה בגליון). */
 export async function deleteDonation(donation) {
   if (!state.isAdmin) throw new Error(t('adminOnly'));

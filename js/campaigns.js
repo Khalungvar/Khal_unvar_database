@@ -12,6 +12,7 @@ import {
   money, orgSelect, donorName, donationRow, openDonationForm, openBulk, exportDonations,
 } from './donations.js';
 import { donationInScope } from './scope.js';
+import { downloadXlsx } from './excel.js';
 import { compareChartHtml, wireCompareChart, yearBarsHtml, compareToDate, deltaHtml } from './chart.js';
 
 let ui = null;
@@ -41,7 +42,7 @@ export function initCampaigns(helpers) {
 }
 
 
-const curYear = () => yearLabel(toHebrew(todayIso()).y);
+export const curYear = () => yearLabel(toHebrew(todayIso()).y);
 
 /** די יערליכע קאמפיינען, לויט דער ארדענונג. */
 export function yearlySeries() {
@@ -326,13 +327,85 @@ function renderCampaign(main) {
       <div><span>${t('paid')}</span><b>${money(c.total - c.open)}</b></div>
       <div><span>${t('unpaid')}</span><b class="${c.open ? 'unpaid-text' : ''}">${money(c.open)}</b></div>
     </div>
+    ${prevYear ? `<div class="lapsed-bar"><button type="button" class="btn nav-btn" id="camp-lapsed">👥 ${h(t('lapsedBtn', { n: lapsedOf(c, prevYear).length }))}</button></div>
+      <div id="lapsed-box" hidden></div>` : ''}
     ${isY ? compareChartHtml(c, prevYear) : ''}
     <div class="list">${list.map((d) => donationRow(d)).join('') || `<p class="empty">${h(t('noDonationsYet'))}</p>`}</div>`;
   if (isY) wireCompareChart(main, c, prevYear);
+  if (prevYear) {
+    $('#camp-lapsed', main).onclick = () => {
+      const box = $('#lapsed-box', main);
+      box.hidden = !box.hidden;
+      if (!box.hidden) { renderLapsed(box, c, prevYear); box.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+    };
+  }
   $('#camp-add-more', main).onclick = () => openBulk({ campaign: c.name });
   $('#camp-add-one', main).onclick = () => openDonationForm({ campaign: c.name });
   $('#camp-xl', main).onclick = () => exportDonations(c.name, list);
   $('#camp-settings', main).onclick = () => openNewCampaign({ mode: isY ? 'year' : 'once', camp: c });
+}
+
+// ---------- ווער האט נאך נישט געגעבן (און האט יא געגעבן פאר א יאר) ----------
+const donorKey = (d) => (d.contact_id ? `c:${d.contact_id}` : `n:${String(d.donor_name || '').trim()}`);
+
+/** די וואס האבן געגעבן פאריג יאר און נאך נישט דאס יאר — מיט וויפיל זיי האבן געגעבן. */
+export function lapsedOf(cur, prev) {
+  const gave = new Set(cur.list.map(donorKey));
+  const map = new Map();
+  prev.list.forEach((d) => {
+    const k = donorKey(d);
+    if (gave.has(k) || k === 'n:') return;
+    const o = map.get(k) || { key: k, contact_id: d.contact_id || '', name: donorName(d), total: 0, last: '', count: 0 };
+    o.total += Number(d.amount_usd || 0);
+    o.count += 1;
+    if (String(d.date || '') > o.last) o.last = String(d.date || '');
+    map.set(k, o);
+  });
+  return [...map.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'he'));
+}
+
+function renderLapsed(box, cur, prev) {
+  const list = lapsedOf(cur, prev);
+  const sum = list.reduce((s, x) => s + x.total, 0);
+  const phone = (x) => (x.contact_id ? (state.phones.get(String(x.contact_id))?.mobile || state.phones.get(String(x.contact_id))?.home_phone || '') : '');
+  box.innerHTML = `<section class="lapsed-card">
+    <div class="lapsed-head">
+      <div><h3>${h(t('lapsedTitle'))}</h3>
+        <p class="muted">${h(t('lapsedSum', { n: list.length, prev: prev.year, cur: cur.year }))} · ${h(t('lapsedPrevTotal'))} <b dir="ltr">${money(sum)}</b></p></div>
+      <span class="spacer"></span>
+      <button type="button" class="btn small-btn" id="lapsed-xl">Excel</button>
+      <button type="button" class="btn small-btn" id="lapsed-print">${h(t('print'))}</button>
+    </div>
+    ${list.length ? `<table class="lapsed-table">
+      <thead><tr><th>#</th><th>${h(t('xlDonor'))}</th><th>${h(t('colMobile'))}</th><th>${h(t('lapsedLastYear', { year: prev.year }))}</th><th>${h(t('lapsedLastDate'))}</th><th class="no-print"></th></tr></thead>
+      <tbody>${list.map((x, i) => `<tr>
+        <td class="muted">${i + 1}</td>
+        <td>${x.contact_id ? `<a href="#" data-open-contact="${h(x.contact_id)}">${h(x.name)}</a>` : `${h(x.name)} <span class="badge muted">${h(t('notInList'))}</span>`}</td>
+        <td dir="ltr">${h(phone(x))}</td>
+        <td class="num" dir="ltr">${money(x.total)}${x.count > 1 ? ` <span class="muted small">(${x.count}×)</span>` : ''}</td>
+        <td class="muted small" dir="ltr">${h(x.last)}</td>
+        <td class="no-print"><button type="button" class="btn small-btn" data-lapsed-add="${h(x.key)}">${h(t('newDonation'))}</button></td>
+      </tr>`).join('')}</tbody></table>`
+    : `<p class="empty">🎉 ${h(t('lapsedNone'))}</p>`}
+  </section>`;
+  $('#lapsed-xl', box).onclick = () => downloadXlsx(`${t('lapsedTitle')} ${cur.name}`,
+    ['#', t('xlDonor'), t('colMobile'), t('lapsedLastYear', { year: prev.year }), t('lapsedLastDate')],
+    list.map((x, i) => [i + 1, x.name, phone(x), x.total, x.last]), { sheet: cur.name });
+  $('#lapsed-print', box).onclick = () => {
+    document.body.classList.add('printing-lapsed');
+    window.print();
+    setTimeout(() => document.body.classList.remove('printing-lapsed'), 500);
+  };
+  box.onclick = (e) => {
+    const a = e.target.closest('[data-open-contact]');
+    if (a) { e.preventDefault(); ui.openCard?.(a.dataset.openContact); return; }
+    const add = e.target.closest('[data-lapsed-add]');
+    if (add) {
+      const x = list.find((y) => y.key === add.dataset.lapsedAdd);
+      if (x?.contact_id) openDonationForm({ campaign: cur.name }, x.contact_id);
+      else openDonationForm({ campaign: cur.name, donor_name: x?.name || '' });
+    }
+  };
 }
 
 // ---------- "+ נייער קאמפיין" און סעטינגס ----------

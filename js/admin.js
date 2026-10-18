@@ -5,6 +5,9 @@ import {
 } from './data.js';
 import { t } from './i18n.js';
 import { splitTags, escapeHtml as h, shrinkImage } from './util.js';
+import { saveYearly, saveCampaign, deleteYearly, deleteCampaign } from './data.js';
+import { yearlySeries, allCampaigns, curYear } from './campaigns.js';
+import { orgSelect } from './donations.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -125,10 +128,12 @@ export function renderAdmin() {
   main.innerHTML = `<h2>${t('adminTitle')}</h2><p class="muted">${t('adminHint')}</p>`
     + GROUPS.map((g) => `<div class="adm-group"><h3 class="adm-group-title">${h(t(g.title))}</h3><div class="adm-grid">${
       g.lists.map((def) => { defs.push(def); return cardHtml(def, defs.length - 1); }).join('')}</div></div>`).join('')
+    + campaignsAdminHtml()
     + logosHtml();
   wireLogos(main);
+  wireCampaignsAdmin(main);
 
-  $$('.adm-card', main).forEach((card) => wireCard(card, defs[Number(card.dataset.key)]));
+  $$('.adm-card[data-key]', main).forEach((card) => wireCard(card, defs[Number(card.dataset.key)]));
 }
 
 function wireCard(card, def) {
@@ -180,6 +185,126 @@ function wireCard(card, def) {
       btn.textContent = t('saveBtn');
     }
   };
+}
+
+// ---------- קאמפיינען: יערליכע און איינמאליגע — פאר וועמען, ציל, צולייגן ----------
+function campRowHtml(kind, c = {}) {
+  const isNew = !c.name;
+  const used = c.name ? (kind === 'yearly'
+    ? state.donations.filter((d) => String(d.campaign || '').startsWith(`${c.name} `)).length
+    : state.donations.filter((d) => d.campaign === c.name).length) : 0;
+  return `<tr data-orig="${h(c.name || '')}" data-used="${used}">
+    <td><input data-col="name" value="${h(c.name || '')}" ${isNew ? `placeholder="${h(t(kind === 'yearly' ? 'yearlyNamePh' : 'seriesPh'))}"` : `readonly title="${h(t('admCampRenameSoon'))}"`}></td>
+    <td>${orgSelect('org', c.org || '', 'data-col="org"')}</td>
+    <td><input data-col="goal" type="number" min="0" step="1" dir="ltr" value="${h(c.goal || '')}" placeholder="$"></td>
+    ${kind === 'yearly'
+      ? `<td class="adm-check"><label class="check"><input type="checkbox" data-col="active"${c.active === false ? '' : ' checked'}> ${h(t('admCampActive'))}</label></td>`
+      : ''}
+    <td class="adm-used">${used ? h(t('admUsed', { n: used })) : ''}</td>
+    <td class="adm-btns">
+      ${kind === 'yearly' ? `<button type="button" class="linkish adm-up" title="↑">↑</button><button type="button" class="linkish adm-down" title="↓">↓</button>` : ''}
+      ${used ? '' : `<button type="button" class="linkish adm-del" title="${h(t('deleteBtn'))}">✕</button>`}
+    </td>
+  </tr>`;
+}
+
+function campaignsAdminHtml() {
+  const now = curYear();
+  const camps = allCampaigns();
+  const yearly = yearlySeries().map((s) => ({
+    name: s.series, org: s.org, active: s.active,
+    goal: camps.find((c) => c.name === `${s.series} ${now}`)?.goal || '',
+  }));
+  const once = camps.filter((c) => c.kind === 'once');
+  const head = (kind) => `<thead><tr><th>${h(t('seriesName'))}</th><th>${h(t('forOrg'))}</th>
+    <th>${h(kind === 'yearly' ? t('admCampGoalYear', { year: now }) : t('goal'))}</th>${kind === 'yearly' ? '<th></th>' : ''}<th></th><th></th></tr></thead>`;
+  const card = (kind, rows) => `<section class="adm-card adm-wide adm-camps" data-kind="${kind}">
+      <h3>${h(t(kind === 'yearly' ? 'yearlyCamps' : 'onceCamps'))} <span class="muted small">(${rows.length})</span></h3>
+      <p class="hint-line">${h(t(kind === 'yearly' ? 'admCampYearlyHint' : 'admCampOnceHint'))}</p>
+      <table class="adm-table">${head(kind)}<tbody>${rows.map((c) => campRowHtml(kind, c)).join('')}</tbody></table>
+      <div class="adm-actions">
+        <button type="button" class="btn small-btn adm-add">${t('admAdd')}</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn small-btn primary adm-save" hidden>${t('saveBtn')}</button>
+      </div>
+    </section>`;
+  return `<div class="adm-group"><h3 class="adm-group-title">${h(t('admCampaigns'))}</h3>
+    <div class="adm-grid">${card('yearly', yearly)}${card('once', once)}</div></div>`;
+}
+
+function wireCampaignsAdmin(main) {
+  $$('.adm-camps', main).forEach((card) => {
+    const kind = card.dataset.kind;
+    const body = $('tbody', card);
+    const dirty = (tr) => { $('.adm-save', card).hidden = false; card.classList.add('dirty'); if (tr) tr.dataset.dirty = '1'; };
+    const deleted = [];
+    card.addEventListener('input', (e) => dirty(e.target.closest('tr')));
+    card.addEventListener('change', (e) => dirty(e.target.closest('tr')));
+    card.addEventListener('click', (e) => {
+      const tr = e.target.closest('tr');
+      if (e.target.closest('.adm-up') && tr.previousElementSibling) { tr.parentNode.insertBefore(tr, tr.previousElementSibling); dirty(); card.dataset.reordered = '1'; }
+      if (e.target.closest('.adm-down') && tr.nextElementSibling) { tr.parentNode.insertBefore(tr.nextElementSibling, tr); dirty(); card.dataset.reordered = '1'; }
+      if (e.target.closest('.adm-del')) {
+        if (tr.dataset.orig) deleted.push(tr.dataset.orig);
+        tr.remove();
+        dirty();
+      }
+    });
+    $('.adm-add', card).onclick = () => {
+      body.insertAdjacentHTML('beforeend', campRowHtml(kind));
+      const tr = $$('tr', body).at(-1);
+      tr.dataset.dirty = '1';
+      $('input', tr).focus();
+      dirty();
+    };
+    $('.adm-save', card).onclick = async () => {
+      const now = curYear();
+      const rows = $$('tr', body).map((tr, i) => ({
+        tr, i, orig: tr.dataset.orig, name: $('[data-col=name]', tr).value.trim(), org: $('[data-col=org]', tr).value,
+        goal: $('[data-col=goal]', tr).value ? Number($('[data-col=goal]', tr).value) : '',
+        active: kind === 'yearly' ? $('[data-col=active]', tr).checked : null,
+      })).filter((r) => r.name);
+      const names = rows.map((r) => r.name);
+      const dup = names.find((v, i) => names.indexOf(v) !== i);
+      if (dup) { ui.toast(t('admDuplicate', { name: dup }), 'error'); return; }
+      const clash = rows.find((r) => !r.orig && (yearlySeries().some((s) => s.series === r.name) || allCampaigns().some((c) => c.name === r.name)));
+      if (clash) { ui.toast(t('campaignExists', { name: clash.name }), 'error'); return; }
+      const noOrg = rows.find((r) => !r.orig && !r.org);
+      if (noOrg) { ui.toast(t('orgRequired'), 'error'); $('[data-col=org]', noOrg.tr).focus(); return; }
+      const btn = $('.adm-save', card);
+      btn.disabled = true;
+      btn.textContent = t('saving');
+      try {
+        for (const name of deleted) {
+          if (kind === 'yearly') await deleteYearly(name);
+          else await deleteCampaign(name);
+        }
+        const existing = new Map(allCampaigns().map((c) => [c.name, c]));
+        for (const r of rows) {
+          if (!r.tr.dataset.dirty && !card.dataset.reordered) continue;
+          if (kind === 'yearly') {
+            await saveYearly({ series: r.name, org: r.org, active: r.active, order: r.i + 1 });
+            const yname = `${r.name} ${now}`;
+            const had = existing.get(yname);
+            if (r.tr.dataset.dirty && String(r.goal || '') !== String(had?.goal || '')) {
+              await saveCampaign({ campaign: yname, series: r.name, year: now, kind: 'yearly', goal: r.goal });
+            }
+          } else if (r.tr.dataset.dirty) {
+            const had = existing.get(r.name);
+            await saveCampaign({ campaign: r.name, series: had?.series || r.name, year: had?.year || '', kind: 'once', org: r.org, goal: r.goal });
+          }
+        }
+        await loadAll();
+        ui.refreshAll();
+        renderAdmin();
+        ui.toast(t('saved'));
+      } catch (err) {
+        ui.toast(ui.friendlyError(err), 'error');
+        btn.disabled = false;
+        btn.textContent = t('saveBtn');
+      }
+    };
+  });
 }
 
 // ---------- לאגאס פון די ארגונים ----------

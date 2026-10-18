@@ -845,3 +845,25 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 .bars-card .c-yr { fill: var(--ink); font-size: 13px; }
 @media print { .nav-btn { display: none !important; } }
 .cmp-zoom { margin-inline-start: auto; order: 3; }
+
+/* ---------- ווער האט נאך נישט געגעבן ---------- */
+.lapsed-bar { margin: 0 0 12px; }
+.lapsed-card { background: var(--surface); border: 1.5px solid var(--accent); border-radius: 14px; padding: 12px 16px; margin: 0 0 16px; }
+.lapsed-head { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+.lapsed-head h3 { margin: 0; color: var(--accent); }
+.lapsed-head p { margin: 4px 0 0; }
+.lapsed-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+.lapsed-table th { text-align: start; font-size: 13px; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--line); padding: 6px; }
+.lapsed-table td { padding: 7px 6px; border-bottom: 1px solid var(--line); }
+.lapsed-table td.num { text-align: end; }
+@media print {
+  body.printing-lapsed * { visibility: hidden; }
+  body.printing-lapsed #lapsed-box, body.printing-lapsed #lapsed-box * { visibility: visible; }
+  body.printing-lapsed #lapsed-box { position: absolute; inset: 0 0 auto 0; }
+  body.printing-lapsed #lapsed-box .btn { display: none; }
+}
+/* אדמין: קאמפיינען */
+.adm-camps .adm-table select { width: 100%; min-width: 150px; }
+.adm-camps .adm-table input[data-col=goal] { width: 100px; }
+.adm-camps thead th { font-size: 12px; color: var(--muted); font-weight: 600; text-align: start; padding: 2px 4px; }
+.adm-check { white-space: nowrap; }
