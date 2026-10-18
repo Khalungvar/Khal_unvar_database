@@ -75,3 +75,8 @@ export function donationInScope(d) {
 export function defaultOrg() {
   return getScope()?.value || '';
 }
+
+/** שם ארגון הגג (כלל מוסדות אונגוואר) — מלשונית Lists, עמודה umbrella_org. */
+export function umbrellaName() {
+  return (state.lists.umbrella_org || [])[0] || 'כלל מוסדות אונגוואר';
+}

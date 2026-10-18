@@ -16,7 +16,8 @@ export const state = {
   relations: [],     // { relation_id, contact_id_a, relation_type, contact_id_b, _row }
   occasions: [],
   orgNotes: [],
-  campaigns: [],     // { campaign, org } — לאיזה ארגון שייך כל קאמפיין      // לשונית "ארגון": תיבות טקסט לכל איש קשר     // מאורעות: יארצייט, געבורטסטאג, חתונה...
+  campaigns: [],
+  savedLists: [],    // רשימות שמורות (תנאים + עמודות)     // { campaign, org } — לאיזה ארגון שייך כל קאמפיין      // לשונית "ארגון": תיבות טקסט לכל איש קשר     // מאורעות: יארצייט, געבורטסטאג, חתונה...
   lists: {},         // { title_he: [...], ... }
   titleHeToEn: {},
   titleEnToHe: {},
@@ -69,7 +70,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -82,6 +83,10 @@ export async function loadAll() {
   const donations = rowsToObjects(tabs.Donations);
   state.headers.Donations = donations.header;
   state.donations = donations.objects;
+
+  const saved = rowsToObjects(tabs.SavedLists);
+  state.headers.SavedLists = saved.header;
+  state.savedLists = saved.objects;
 
   const campaigns = rowsToObjects(tabs.Campaigns);
   state.headers.Campaigns = campaigns.header;
@@ -186,6 +191,30 @@ export async function saveDonations(list) {
   }));
   await appendRows('Donations', rows);
   return rows.length;
+}
+
+/** שומר רשימה (חדשה או קיימת). מחזיר את ה-list_id. */
+export async function saveSavedList(list) {
+  const stamp = nowStamp();
+  const l = { ...list, updated_at: stamp, updated_by: state.email };
+  delete l._row;
+  if (!l.list_id) {
+    const ids = (await readColumn('SavedLists', 'A')).slice(1).map(Number).filter(Number.isFinite);
+    l.list_id = Math.max(0, ...ids) + 1;
+    l.created_at = stamp;
+    l.created_by = state.email;
+    await appendRow('SavedLists', objectToRow(state.headers.SavedLists, l));
+  } else {
+    const row = await findRow('SavedLists', l.list_id);
+    if (!row) throw new Error(t('notFound'));
+    await updateRow('SavedLists', row, objectToRow(state.headers.SavedLists, l));
+  }
+  return l.list_id;
+}
+
+export async function deleteSavedList(list) {
+  const row = await findRow('SavedLists', list.list_id);
+  if (row) await updateRow('SavedLists', row, state.headers.SavedLists.map(() => ''));
 }
 
 /** שומר קאמפיין (חדש או קיים, לפי השם המלא). */

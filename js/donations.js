@@ -8,7 +8,7 @@ import {
   parseHebrewText, todayIso, hebrewNumber,
 } from './hebdate.js';
 import {
-  campaignOrg, effectiveOrg, donationInScope, defaultOrg,
+  campaignOrg, effectiveOrg, donationInScope, defaultOrg, umbrellaName,
 } from './scope.js';
 
 let ui = null; // עזרים מהמסך הראשי (נמסרים ב-initDonations)
@@ -46,13 +46,14 @@ function contactName(id) {
 const ORG_LISTS = [['beis_medrash', 'orgBeisMedrash'], ['kollel', 'orgKollel'], ['organization', 'orgOrganization']];
 
 function allOrgs() {
-  return ORG_LISTS.flatMap(([name]) => state.lists[name] || []);
+  return [umbrellaName(), ...ORG_LISTS.flatMap(([name]) => state.lists[name] || [])];
 }
 
 /** <select> עם כל הארגונים, מחולק לפי ביהמ"ד / כולל / ארגון. */
 export function orgSelect(name, value, extra = '') {
   const known = allOrgs();
-  return `<select name="${name}" ${extra}><option value=""></option>${ORG_LISTS.map(([list, label]) => {
+  const u = umbrellaName();
+  return `<select name="${name}" ${extra}><option value=""></option><optgroup label="${h(t('umbrellaGroup'))}"><option${u === value ? ' selected' : ''}>${h(u)}</option></optgroup>${ORG_LISTS.map(([list, label]) => {
     const vals = state.lists[list] || [];
     return vals.length ? `<optgroup label="${h(t(label))}">${vals.map((v) => `<option${v === value ? ' selected' : ''}>${h(v)}</option>`).join('')}</optgroup>` : '';
   }).join('')}${value && !known.includes(value) ? `<option selected>${h(value)}</option>` : ''}</select>`;

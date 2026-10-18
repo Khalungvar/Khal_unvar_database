@@ -22,7 +22,7 @@ import {
 } from './campaigns.js';
 import { initAdmin, renderAdmin, adminDirty } from './admin.js';
 import {
-  getScope, setScope, restoreScope, withFormer, setWithFormer, contactInScope, donationInScope,
+  getScope, setScope, restoreScope, withFormer, setWithFormer, contactInScope, donationInScope, umbrellaName,
 } from './scope.js';
 import {
   normalize, digits, formatPhone, isTrue, isAlive, splitTags, joinTags,
@@ -231,6 +231,9 @@ function renderOrgs() {
         <span>${h(v)}</span><span class="count-pill">${currentCount(p.name, v)}</span></button>`).join('')}
   </div>`).join('');
   $('#btn-home').classList.toggle('on', !sc);
+  $('#home-name').textContent = umbrellaName();
+  $('#home-count').textContent = state.contacts.filter((c) => isAlive(c.is_alive) && (isTrue(c.is_active) || c.is_active === '')).length;
+  $('#scope-exit').textContent = t('scopeExitTo', { home: umbrellaName() });
   // פס למעלה: באיזה הקשר נמצאים
   const bar = $('#scope-bar');
   bar.hidden = !sc;
@@ -1172,7 +1175,7 @@ function start() {
     const sc = getScope();
     if (sc) {
       const name = sc.value || t(ORG_FIELDS.find(([n]) => n === sc.type)[1]);
-      const ok = await choose(t('exitScopeTitle'), t('exitScopeText', { name }), [['cancel', t('cancelBtn')], ['go', t('exitScopeYes'), true]]);
+      const ok = await choose(t('exitScopeTitle', { home: umbrellaName() }), t('exitScopeText', { name, home: umbrellaName() }), [['cancel', t('cancelBtn')], ['go', t('exitScopeYes'), true]]);
       if (ok !== 'go') return;
     }
     enterScope(null);

@@ -14,6 +14,7 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
  */
 const GROUPS = [
   { title: 'admOrgs', lists: [
+    { cols: ['umbrella_org'], label: 'admUmbrella' },
     { cols: ['beis_medrash'], label: 'orgBeisMedrash' },
     { cols: ['kollel'], label: 'orgKollel' },
     { cols: ['organization'], label: 'orgOrganization' },
@@ -50,6 +51,7 @@ function usage(col, value) {
   const count = (arr, fn) => arr.filter(fn).length;
   const inTags = (v) => splitTags(v).includes(value);
   switch (col) {
+    case 'umbrella_org': return count(state.donations, (d) => d.org === value) + count(state.campaigns, (c) => c.org === value);
     case 'beis_medrash': case 'kollel': case 'organization':
       return count(state.contacts, (c) => inTags(c[col])) + count(state.donations, (d) => d.org === value)
         + count(state.campaigns, (c) => c.org === value);
