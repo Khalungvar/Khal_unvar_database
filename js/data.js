@@ -126,7 +126,7 @@ export async function saveContact(contact, phones) {
 }
 
 // ---------- קשרים משפחתיים ----------
-// שורה (A, אבא, B) פירושה: B הוא האבא של A. הקשר ההפוך (B, בן, A) נוצר אוטומטית.
+// שורה (A, "טאטע פון", B) פירושה: A הוא הטאטע של B. הקשר ההפוך (B, "זון פון", A) נוצר אוטומטית.
 
 function sameRel(r, a, type, b) {
   return String(r.contact_id_a) === String(a) && r.relation_type === type && String(r.contact_id_b) === String(b);
