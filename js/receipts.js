@@ -348,7 +348,8 @@ function docHtml(c) {
       <div class="rd-sal">${h(salLine)}</div>
       ${para(body)}
       <div class="rd-close">${h(det.letter_closing || DEFAULTS.letter_closing)}</div>
-      <div class="rd-sig">${sig ? `<img src="${sig}" alt="">` : '<div class="rd-sigspace"></div>'}<div>${h(det.signer_he || DEFAULTS.signer_he)}</div></div>
+      <div class="rd-sig">${det.signature_text ? `<div class="rd-sigtext" style="font-family:${sigFont(det.signature_font)}">${h(det.signature_text)}</div>`
+        : sig ? `<img src="${sig}" alt="">` : '<div class="rd-sigspace"></div>'}<div>${h(det.signer_he || DEFAULTS.signer_he)}</div></div>
     </div>
     <div class="rd-cut"><span>✂</span></div>
     <div class="cp">
@@ -391,7 +392,11 @@ export function printDocs(docs) {
   document.body.classList.add('printing-rc');
   const done = () => { document.body.classList.remove('printing-rc'); area.innerHTML = ''; window.removeEventListener('afterprint', done); };
   window.addEventListener('afterprint', done);
-  Promise.all($$('img', area).map((img) => (img.complete ? null : new Promise((r) => { img.onload = r; img.onerror = r; }))))
+  // די בילדער און די שריפטן (כתב-יד) מוזן זיך אויסלאדן פארן דרוקן
+  const fonts = ["24px 'Playpen Sans Hebrew'", "24px 'Amatic SC'", "24px 'Noto Rashi Hebrew'", "16px 'Frank Ruhl Libre'", "bold 16px 'Frank Ruhl Libre'"]
+    .map((f) => (document.fonts?.load ? document.fonts.load(f, 'אבג').catch(() => null) : null));
+  Promise.all([...fonts, ...$$('img', area).map((img) => (img.complete ? null : new Promise((r) => { img.onload = r; img.onerror = r; })))])
+    .then(() => (document.fonts?.ready || null))
     .then(() => window.print());
 }
 
@@ -453,7 +458,14 @@ const ALL_FIELDS = SECTIONS.flatMap(([, f]) => f.map((x) => x[0]));
 const LETTER = ['letter_salutation', 'salutation_suffix', 'letter_a', 'letter_b', 'letter_closing', 'signer_he'];
 
 // ---------- דער בריוו: מ'קלייבט / שרייבט יעדעס מאל ביים דרוקן; דער לעצטער ווערט געדענקט ----------
-const letterState = {}; // { org: { letter_salutation, ..., signature_img } }
+const letterState = {}; // { org: { letter_salutation, ..., signature_text, signature_font } }
+// חתימה אין כתב-יד: די שריפטן (פון Google Fonts)
+const SIG_FONTS = [
+  ['playpen', "'Playpen Sans Hebrew', cursive", 'rcSigFontHand'],
+  ['amatic', "'Amatic SC', cursive", 'rcSigFontAmatic'],
+  ['rashi', "'Noto Rashi Hebrew', serif", 'rcSigFontRashi'],
+];
+const sigFont = (key) => (SIG_FONTS.find(([k]) => k === key) || SIG_FONTS[0])[1];
 
 function letterOf(org) {
   if (!letterState[org]) {
@@ -466,7 +478,8 @@ function letterOf(org) {
       letter_b: v('letter_b', DEFAULTS.letter_b),
       letter_closing: v('letter_closing', DEFAULTS.letter_closing),
       signer_he: v('signer_he', DEFAULTS.signer_he),
-      signature_img: String(det.signature_img || ''),
+      signature_text: v('signature_text', ''),
+      signature_font: v('signature_font', 'playpen'),
     };
   }
   return letterState[org];
@@ -489,10 +502,10 @@ function letterPanelHtml(org) {
       <div class="od-auto od-middle">${h(t('rcMiddle'))}</div>
       <textarea data-l="letter_b" rows="5">${h(L.letter_b)}</textarea>
       <div class="od-center"><input data-l="letter_closing" value="${h(L.letter_closing)}"></div>
-      <div class="od-center"><div class="od-img lt-sig"><b>${h(t('rcfSignature'))}</b>
-        <div class="od-prev">${L.signature_img ? `<img src="${L.signature_img}" alt="">` : '<span class="muted small">—</span>'}</div>
-        <div class="od-img-btns"><label class="btn small-btn">${h(t(L.signature_img ? 'admLogoChange' : 'admLogoUpload'))}<input type="file" accept="image/*" hidden></label>
-        ${L.signature_img ? `<button type="button" class="linkish" id="lt-sig-del">${h(t('admLogoRemove'))}</button>` : ''}</div></div></div>
+      <div class="od-center lt-sigrow">
+        <input data-l="signature_text" class="lt-sigtext" value="${h(L.signature_text)}" placeholder="${h(t('rcSigPh'))}" style="font-family:${sigFont(L.signature_font)}">
+        <select data-l="signature_font">${SIG_FONTS.map(([k, , l]) => `<option value="${k}"${k === L.signature_font ? ' selected' : ''}>${h(t(l))}</option>`).join('')}</select>
+      </div>
       <div class="od-center"><input data-l="signer_he" value="${h(L.signer_he)}"></div>
       <p class="hint-line">${h(t('rcLetterRemember'))}</p>
     </div></details>`;
@@ -500,7 +513,13 @@ function letterPanelHtml(org) {
 
 function wireLetterPanel(main, org, rerender) {
   const L = letterOf(org);
-  $$('[data-l]', main).forEach((el) => { el.oninput = () => { L[el.dataset.l] = el.value; }; });
+  $$('[data-l]', main).forEach((el) => {
+    el.oninput = () => { L[el.dataset.l] = el.value; };
+    el.onchange = () => {
+      L[el.dataset.l] = el.value;
+      if (el.dataset.l === 'signature_font') $('.lt-sigtext', main).style.fontFamily = sigFont(el.value);
+    };
+  });
   $('#lt-history', main)?.addEventListener('change', (e) => {
     const x = historyOf(orgDetailsOf(org) || {})[Number(e.target.value)];
     if (!x) return;
@@ -508,15 +527,6 @@ function wireLetterPanel(main, org, rerender) {
     $('[data-l=letter_a]', main).value = x.a;
     $('[data-l=letter_b]', main).value = x.b;
   });
-  const file = $('.lt-sig input[type=file]', main);
-  if (file) {
-    file.onchange = async (e) => {
-      const f0 = e.target.files[0];
-      if (!f0) return;
-      try { L.signature_img = await shrinkImage(f0, 600, 45000); rerender(); } catch { ui.toast(t('mmImageBad'), 'error'); }
-    };
-  }
-  $('#lt-sig-del', main)?.addEventListener('click', () => { L.signature_img = ''; rerender(); });
 }
 
 /** היט אפ דעם בריוו (ווען ער האט זיך געטוישט) — כדי דאס קומענדיגע מאל זאל עס שוין זיין דא, און אין דער היסטאריע. */

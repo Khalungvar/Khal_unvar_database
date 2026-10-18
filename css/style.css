@@ -1003,3 +1003,6 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 .od-letter .od-img { align-items: center; background: #fff; }
 .od-letter .od-prev { height: 60px; width: 220px; }
 @media (max-width: 1000px) { .od-layout { grid-template-columns: 1fr; } .od-live { position: static; } }
+.lt-sigrow { gap: 8px; align-items: center; }
+.lt-sigtext { font-size: 24px !important; min-width: 260px; text-align: center; color: #1b2f6b; }
+.rd-sigtext { font-size: 22pt; line-height: 1.1; color: #1b2f6b; margin-bottom: 2px; }
