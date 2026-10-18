@@ -15,7 +15,8 @@ export const state = {
   donations: [],     // תרומות, כולל _row
   relations: [],     // { relation_id, contact_id_a, relation_type, contact_id_b, _row }
   occasions: [],
-  orgNotes: [],      // לשונית "ארגון": תיבות טקסט לכל איש קשר     // מאורעות: יארצייט, געבורטסטאג, חתונה...
+  orgNotes: [],
+  campaigns: [],     // { campaign, org } — לאיזה ארגון שייך כל קאמפיין      // לשונית "ארגון": תיבות טקסט לכל איש קשר     // מאורעות: יארצייט, געבורטסטאג, חתונה...
   lists: {},         // { title_he: [...], ... }
   titleHeToEn: {},
   titleEnToHe: {},
@@ -67,7 +68,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -80,6 +81,10 @@ export async function loadAll() {
   const donations = rowsToObjects(tabs.Donations);
   state.headers.Donations = donations.header;
   state.donations = donations.objects;
+
+  const campaigns = rowsToObjects(tabs.Campaigns);
+  state.headers.Campaigns = campaigns.header;
+  state.campaigns = campaigns.objects;
 
   const orgNotes = rowsToObjects(tabs.OrgNotes);
   state.headers.OrgNotes = orgNotes.header;
@@ -179,6 +184,17 @@ export async function saveDonations(list) {
   }));
   await appendRows('Donations', rows);
   return rows.length;
+}
+
+/** שומר לאיזה ארגון שייך קאמפיין (מוסיף שורה או מעדכן לפי השם). */
+export async function saveCampaignMeta(name, org) {
+  const stamp = nowStamp();
+  const existing = state.campaigns.find((c) => c.campaign === name);
+  const c = { ...(existing || { created_at: stamp, created_by: state.email }), campaign: name, org, updated_at: stamp, updated_by: state.email };
+  delete c._row;
+  const row = existing ? await findRow('Campaigns', name) : null;
+  if (row) await updateRow('Campaigns', row, objectToRow(state.headers.Campaigns, c));
+  else await appendRow('Campaigns', objectToRow(state.headers.Campaigns, c));
 }
 
 /** מנהל בלבד: מוחק תרומה (מנקה את השורה בגליון). */

@@ -1,5 +1,5 @@
 // נדבות (תרומות): מסך רשימה, טופס הוספה/עריכה, וחלק בכרטיס האישי.
-import { state, loadAll, saveDonation, saveDonations, deleteDonation } from './data.js';
+import { state, loadAll, saveDonation, saveDonations, deleteDonation, saveCampaignMeta } from './data.js';
 import { t } from './i18n.js';
 import { isTrue, splitTags, joinTags, escapeHtml as h } from './util.js';
 import {
@@ -21,6 +21,7 @@ export function initDonations(helpers) {
   $('#don-search').addEventListener('input', renderDonations);
   $('#don-tag').addEventListener('change', renderDonations);
   $('#don-year').addEventListener('change', renderDonations);
+  $('#don-org').addEventListener('change', renderDonations);
   $('#don-unpaid').addEventListener('change', renderDonations);
   $('#btn-new-donation').onclick = () => openDonationForm();
   $('#btn-campaign').onclick = () => openCampaign();
@@ -45,6 +46,31 @@ function contactName(id) {
   return c ? ui.fullNameHe(c) : `#${id}`;
 }
 
+// ---------- לאיזה ארגון שייכת הנדבה ----------
+const ORG_LISTS = [['beis_medrash', 'orgBeisMedrash'], ['kollel', 'orgKollel'], ['organization', 'orgOrganization']];
+
+function allOrgs() {
+  return ORG_LISTS.flatMap(([name]) => state.lists[name] || []);
+}
+
+/** <select> עם כל הארגונים, מחולק לפי ביהמ"ד / כולל / ארגון. */
+function orgSelect(name, value, extra = '') {
+  const known = allOrgs();
+  return `<select name="${name}" ${extra}><option value=""></option>${ORG_LISTS.map(([list, label]) => {
+    const vals = state.lists[list] || [];
+    return vals.length ? `<optgroup label="${h(t(label))}">${vals.map((v) => `<option${v === value ? ' selected' : ''}>${h(v)}</option>`).join('')}</optgroup>` : '';
+  }).join('')}${value && !known.includes(value) ? `<option selected>${h(value)}</option>` : ''}</select>`;
+}
+
+export function campaignOrg(name) {
+  return name ? String(state.campaigns.find((c) => c.campaign === name)?.org || '') : '';
+}
+
+/** הארגון של הנדבה: של הקאמפיין (אם מוגדר), אחרת מה שנבחר בנדבה. */
+function effectiveOrg(d) {
+  return campaignOrg(d.campaign) || String(d.org || '');
+}
+
 /** שם הנדבן: איש קשר, או שם שנכתב (מישהו שלא ברשימה). */
 function donorName(d) {
   return d.contact_id ? contactName(d.contact_id) : String(d.donor_name || '');
@@ -64,6 +90,15 @@ function yearOptions(extra = []) {
 
 // ---------- מסך הנדבות ----------
 export function fillDonationFilters() {
+  const orgSel = $('#don-org');
+  const ov = orgSel.value;
+  orgSel.outerHTML = orgSelect('don-org-tmp', '', 'id="don-org-new"');
+  const ns = $('#don-org-new');
+  ns.id = 'don-org';
+  ns.removeAttribute('name');
+  ns.options[0].textContent = t('allOrgsDon');
+  ns.value = ov;
+  ns.addEventListener('change', renderDonations);
   const tag = $('#don-tag');
   const tv = tag.value;
   tag.innerHTML = `<option value="">${h(t('allEvents'))}</option>`
@@ -81,7 +116,9 @@ function visibleDonations() {
   const tag = $('#don-tag').value;
   const year = $('#don-year').value;
   const unpaid = $('#don-unpaid').checked;
+  const org = $('#don-org')?.value || '';
   return state.donations
+    .filter((d) => !org || effectiveOrg(d) === org)
     .filter((d) => !tag || splitTags(d.event_tags).includes(tag))
     .filter((d) => !year || d.event_year === year)
     .filter((d) => !unpaid || !isTrue(d.is_paid))
@@ -98,7 +135,7 @@ function donationRow(d, withName = true) {
       ${withName ? `<span class="row-name">${h(donorName(d))}${d.contact_id ? '' : ` <span class="badge muted">${h(t('notInList'))}</span>`}</span>` : ''}
       <span class="muted small">${h(d.hebrew_date || isoToHebrewText(d.date))}${d.date ? ` · <span dir="ltr">${h(d.date)}</span>` : ''}</span>
     </span>
-    <span class="row-tags">${tags}${d.event_year ? ` <span class="muted small">${h(d.event_year)}</span>` : ''}</span>
+    <span class="row-tags">${effectiveOrg(d) ? `<span class="badge org">${h(effectiveOrg(d))}</span> ` : ''}${tags}${d.event_year ? ` <span class="muted small">${h(d.event_year)}</span>` : ''}</span>
     <span class="don-amount">${money(d.amount_usd)}
       <span class="badge ${paid ? 'paid' : 'unpaid'}">${paid ? t('paid') : t('unpaid')}</span></span>
   </button>`;
@@ -216,6 +253,11 @@ export function openDonationForm(donation = {}, presetContactId = null) {
         </label>
         <label class="check paid-toggle"><input type="checkbox" name="is_paid" ${isTrue(d.is_paid) ? 'checked' : ''}> ${t('paid')}</label>
       </div>
+
+      <label class="wide org-pick">${t('forOrg')} *
+        ${orgSelect('org', campaignOrg(d.campaign) || d.org || '')}
+        <span class="hint-line camp-org-note" hidden>${t('orgFromCampaign')}</span>
+      </label>
 
       <div class="quick-block">
         <span class="quick-label">${t('eventLegend')}</span>
@@ -338,6 +380,21 @@ function wireDonationForm(form, original) {
   });
   paidOnly();
 
+  // קאמפיין עם ארגון → הארגון נקבע לבד (אפור)
+  const syncOrg = () => {
+    const co = campaignOrg(f('campaign').value.trim());
+    $('.camp-org-note', form).hidden = !co;
+    f('org').disabled = Boolean(co);
+    f('org').classList.toggle('suggested', Boolean(co));
+    if (co) {
+      if (![...f('org').options].some((o) => o.value === co)) f('org').insertAdjacentHTML('beforeend', `<option>${h(co)}</option>`);
+      f('org').value = co;
+    }
+  };
+  f('campaign').addEventListener('change', syncOrg);
+  f('campaign').addEventListener('input', syncOrg);
+  syncOrg();
+
   // אמצעי תשלום → השדה המתאים
   const pm = () => {
     const v = f('payment_method').value;
@@ -377,6 +434,8 @@ function wireDonationForm(form, original) {
     if (!oneTime && (!m || !ui.contactById(m[1]))) { ui.toast(t('pickValid'), 'error'); return; }
     const amount = f('amount_usd').value;
     if (amount === '' || Number(amount) < 0) { ui.toast(t('amountRequired'), 'error'); return; }
+    const orgValue = campaignOrg(f('campaign').value.trim()) || f('org').value;
+    if (!orgValue) { ui.toast(t('orgRequired'), 'error'); f('org').focus(); return; }
     const tags = ui.readTags(form, 'event_tags');
     const method = f('payment_method').value;
     const from = readPicker($('.heb-picker[data-name="sponsor_from"]', form));
@@ -392,6 +451,7 @@ function wireDonationForm(form, original) {
       event_year: f('event_year').value,
       event_note: f('event_note').value.trim(),
       campaign: f('campaign').value.trim(),
+      org: orgValue,
       sponsor_from: splitTags(tags).includes(KAVE) && from ? formatHebrew(from) : '',
       sponsor_to: splitTags(tags).includes(KAVE) && to ? formatHebrew(to) : '',
       amount_usd: Number(amount),
@@ -452,7 +512,8 @@ export function renderCampaignPage() {
   const years = [...new Set(list.map((d) => d.event_year).filter(Boolean))];
   main.innerHTML = `<div class="camp-page-head">
       <div><h2>${h(currentCampaign)}</h2>
-        <p class="muted">${tags.map((x) => `<span class="chip">${h(x)}</span>`).join(' ')} ${h(years.join(', '))}</p></div>
+        <p class="muted">${tags.map((x) => `<span class="chip">${h(x)}</span>`).join(' ')} ${h(years.join(', '))}</p>
+        <label class="camp-org-line">${t('campaignOrg')}: ${orgSelect('camp_page_org', campaignOrg(currentCampaign))}</label></div>
       <span class="spacer"></span>
       <button type="button" class="btn primary" id="camp-add-more">${t('campaignAddMore')}</button>
     </div>
@@ -463,6 +524,16 @@ export function renderCampaignPage() {
       <div><span>${t('unpaid')}</span><b class="${open ? 'unpaid-text' : ''}">${money(open)}</b></div>
     </div>
     <div class="list">${list.map((d) => donationRow(d)).join('')}</div>`;
+  const orgSel = $('select[name=camp_page_org]', main);
+  orgSel.onchange = async () => {
+    if (!orgSel.value) return;
+    try {
+      await saveCampaignMeta(currentCampaign, orgSel.value);
+      await loadAll();
+      ui.refreshAll();
+      ui.toast(t('campaignOrgSaved'));
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  };
   $('#camp-add-more', main).onclick = () => openCampaign({
     campaign: currentCampaign, event_tags: tags.join(', '), event_year: years[0] || '',
   });
@@ -518,6 +589,9 @@ export function openCampaign(preset = {}) {
         <input name="campaign" list="dl-campaigns" autocomplete="off" value="${h(preset.campaign || '')}" placeholder="${h(t('campaignNamePh'))}">
       </label>
       <datalist id="dl-campaigns">${campaignNames().map((c) => `<option value="${h(c.name)}">`).join('')}</datalist>
+      <label class="wide org-pick">${t('campaignOrg')} *
+        ${orgSelect('org', campaignOrg(preset.campaign) || '')}
+      </label>
       <div class="quick-block">
         <span class="quick-label">${t('eventLegend')}</span>
         ${ui.tagPicker('event_tags', 'event_tag', preset.event_tags || '')}
@@ -558,6 +632,8 @@ function wireCampaign(form) {
   ui.wireTagPicker($('.tags[data-name="event_tags"]', form));
 
   f('campaign').addEventListener('change', () => {
+    const co = campaignOrg(f('campaign').value.trim());
+    if (co) f('org').value = co;
     const prev = state.donations.find((d) => d.campaign === f('campaign').value.trim());
     if (!prev) return;
     if (prev.event_year) f('event_year').value = prev.event_year;
@@ -661,6 +737,8 @@ function wireCampaign(form) {
     const common = f('common_note').value.trim();
     const campaign = f('campaign').value.trim();
     if (!campaign) { ui.toast(t('campaignNameRequired'), 'error'); f('campaign').focus(); return; }
+    const org = f('org').value;
+    if (!org) { ui.toast(t('orgRequired'), 'error'); f('org').focus(); return; }
     const list = [];
     let bad = null;
     rows().forEach((r) => r.classList.remove('bad'));
@@ -684,6 +762,7 @@ function wireCampaign(form) {
         event_year: f('event_year').value,
         event_note: note,
         campaign,
+        org,
         amount_usd: Number(amount),
         is_paid: paid,
         paid_date: paid ? todayIso() : '',
@@ -701,6 +780,7 @@ function wireCampaign(form) {
     btn.disabled = true;
     btn.textContent = t('saving');
     try {
+      if (campaignOrg(campaign) !== org) await saveCampaignMeta(campaign, org);
       const n = await saveDonations(list);
       await loadAll();
       form.dataset.dirty = '';

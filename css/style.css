@@ -466,3 +466,8 @@ dialog.sheet.full { width: min(1200px, 96vw); max-width: 96vw; max-height: 94vh;
 .camp-stats b { font-size: 22px; direction: ltr; text-align: end; }
 .camp-name input { font-size: 17px; }
 @media (max-width: 700px) { .camp-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.org-pick { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.org-pick select { font-size: 16px; max-width: 26em; }
+.camp-org-line { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); margin-top: 6px; }
+.camp-org-line { white-space: nowrap; }
