@@ -165,11 +165,8 @@ function lobbyClick(e) {
   if (area) {
     // געגנט: פון כלל מוסדות (אלע רעקארדס), מיט דעם פילטער אויף דעם געגנט
     lobbyOpen = '';
-    setScope(null);
-    refreshAll();
+    enterScope({ type: 'area', value: area.dataset.area });
     showView('contacts');
-    $('#area-filter').value = area.dataset.area;
-    renderList();
     return;
   }
   const b = e.target.closest('[data-tile]');
@@ -179,8 +176,13 @@ function lobbyClick(e) {
   if (key === 'umbrella') { lobbyOpen = ''; enterScope(null); showView('contacts'); return; }
   if (ORG_FIELDS.some(([n]) => n === key)) { lobbyOpen = lobbyOpen === key ? '' : key; renderLobby(); return; }
   if (key === 'lists') { openOverview(); return; }
-  if (key === 'donations') { setScope(null); refreshAll(); showView('donations'); return; }
-  if (key === 'occasions') { setScope(null); refreshAll(); showView('occasions'); return; }
+  // נדבות / לוח המאורעות: א באזונדערער בלאט פון אלע רעקארדס — אן די לשוניות
+  if (key === 'donations' || key === 'occasions') {
+    enterScope(null);
+    document.body.classList.add('solo-mode');
+    showView(key);
+    return;
+  }
   showSoon(key);
 }
 
@@ -212,6 +214,7 @@ function refreshAll() {
 
 function showView(name) {
   document.body.classList.toggle('lobby-mode', name === 'lobby');
+  if (name === 'lobby') document.body.classList.remove('solo-mode');
   const leavingAdmin = !$('.view[data-view="admin"]').hidden && name !== 'admin';
   if (leavingAdmin && adminDirty() && !confirm(t('discardChanges'))) return;
   document.body.classList.remove('menu-open');
@@ -347,14 +350,25 @@ function renderOrgs() {
   const bar = $('#scope-bar');
   bar.hidden = !sc;
   if (sc) {
-    const label = sc.value || t(ORG_FIELDS.find(([n]) => n === sc.type)[1]);
+    const label = scopeLabel(sc);
+    $('#scope-former').closest('label').hidden = sc.type === 'area';
     $('#scope-name').textContent = label;
     $('#scope-former').checked = withFormer();
   }
 }
 
 /** נכנסים לארגון (או יוצאים ממנו עם null) — וכל המסכים מתעדכנים. */
+/** דער נאמען פונעם הקשר: "ביהמ"ד מאנסי", "בתי מדרשים", "געגנט: מאנסי". */
+function scopeLabel(sc) {
+  if (!sc) return '';
+  if (sc.type === 'area') return `${t('area')}: ${sc.value}`;
+  if (sc.value) return sc.value;
+  const f = ORG_FIELDS.find(([n]) => n === sc.type);
+  return f ? t(f[1]) : '';
+}
+
 function enterScope(scope) {
+  document.body.classList.remove('solo-mode');
   setScope(scope);
   if (!$('.view[data-view="campaign"]').hidden) showView('donations');
   document.body.classList.remove('menu-open');
@@ -389,7 +403,7 @@ function visibleContacts() {
 function renderList() {
   const list = visibleContacts();
   const sc = getScope();
-  $('#count').textContent = t('count', { n: list.length }) + (sc ? ` · ${sc.value || t(ORG_FIELDS.find(([n]) => n === sc.type)[1])}` : '');
+  $('#count').textContent = t('count', { n: list.length }) + (sc ? ` · ${scopeLabel(sc)}` : '');
   const body = $('#list');
   if (!list.length) {
     body.innerHTML = `<p class="empty">${h(state.contacts.length ? t('noResults') : t('emptyDb'))}</p>`;
@@ -866,7 +880,7 @@ function wireFormFamily(form, c) {
 
 function openForm(c = {}) {
   const sc = getScope();
-  if (!c.contact_id && sc?.value && !c[sc.type]) c = { ...c, [sc.type]: sc.value };
+  if (!c.contact_id && sc?.value && !c[sc.type]) c = { ...c, [sc.type]: sc.value }; // אויך געגנט (area)
   const p = c.contact_id ? phonesOf(c) : {};
   const v = (k) => h(c[k] ?? '');
   const isNew = !c.contact_id;
@@ -1283,7 +1297,7 @@ function start() {
   const goHome = async () => {
     const sc = getScope();
     if (sc) {
-      const name = sc.value || t(ORG_FIELDS.find(([n]) => n === sc.type)[1]);
+      const name = scopeLabel(sc);
       const ok = await choose(t('exitScopeTitle', { home: umbrellaName() }), t('exitScopeText', { name, home: umbrellaName() }), [['cancel', t('cancelBtn')], ['go', t('exitScopeYes'), true]]);
       if (ok !== 'go') return;
     }

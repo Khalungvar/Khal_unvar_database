@@ -4,6 +4,7 @@ import { state } from './data.js';
 import { isTrue, splitTags } from './util.js';
 
 export const ORG_TYPES = ['beis_medrash', 'kollel', 'organization'];
+const SCOPE_TYPES = [...ORG_TYPES, 'area']; // 'area' = געגנט (פון אלע רעקארדס)
 const KEY = 'khal-scope';
 
 /** scope = { type, value } — value ריק = כל הסוג (למשל כל בתי המדרש). null = כללי. */
@@ -22,7 +23,7 @@ export function setScope(scope) {
 export function restoreScope() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY) || 'null');
-    if (s && ORG_TYPES.includes(s.type)) state.scope = s;
+    if (s && SCOPE_TYPES.includes(s.type)) state.scope = s;
   } catch { /* מתעלמים */ }
 }
 
@@ -37,7 +38,7 @@ export function setWithFormer(v) {
 /** כל שמות הארגונים שבהקשר הנוכחי (אחד, או כל הסוג). */
 export function scopeOrgs() {
   const s = getScope();
-  if (!s) return null;
+  if (!s || s.type === 'area') return null;
   if (s.value) return [s.value];
   return [...new Set([...(state.lists[s.type] || []), ...state.contacts.flatMap((c) => splitTags(c[s.type]))])];
 }
@@ -46,6 +47,7 @@ export function scopeOrgs() {
 export function contactInScope(c, former = withFormer()) {
   const s = getScope();
   if (!s) return true;
+  if (s.type === 'area') return c.area === s.value;
   const mine = splitTags(c[s.type]);
   const hit = s.value ? mine.includes(s.value) : mine.length > 0;
   if (!hit) return false;
@@ -54,7 +56,7 @@ export function contactInScope(c, former = withFormer()) {
 
 export function isFormerInScope(c) {
   const s = getScope();
-  return Boolean(s) && isTrue(c[`${s.type}_former`]);
+  return Boolean(s) && s.type !== 'area' && isTrue(c[`${s.type}_former`]);
 }
 
 export function campaignOrg(name) {
@@ -67,13 +69,19 @@ export function effectiveOrg(d) {
 }
 
 export function donationInScope(d) {
+  const s = getScope();
+  if (s?.type === 'area') {
+    const c = d.contact_id ? state.contacts.find((x) => String(x.contact_id) === String(d.contact_id)) : null;
+    return Boolean(c) && c.area === s.value;
+  }
   const orgs = scopeOrgs();
   return !orgs || orgs.includes(effectiveOrg(d));
 }
 
 /** ברירת מחדל לארגון בנדבה / קאמפיין חדש: כשנמצאים בתוך ארגון אחד. */
 export function defaultOrg() {
-  return getScope()?.value || '';
+  const s = getScope();
+  return s && s.type !== 'area' ? s.value || '' : '';
 }
 
 /** שם ארגון הגג (כלל מוסדות אונגוואר) — מלשונית Lists, עמודה umbrella_org. */

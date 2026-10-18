@@ -586,3 +586,5 @@ body.lobby-mode .app-body { grid-template-columns: 1fr; }
 
 .lobby-row4 { grid-template-columns: 1fr 1fr 2fr; }
 @media (max-width: 700px) { .lobby-row4 { grid-template-columns: 1fr; } }
+
+body.solo-mode .tabs, body.solo-mode #scope-bar { display: none !important; }
