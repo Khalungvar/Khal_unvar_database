@@ -46,6 +46,7 @@
 | תואר אנגלית | רשימת אפשרויות | ✅ הוחלט: Mr., Rabbi, Grand Rabbi, Dr. השלמה דו-כיוונית: אם אחד התוארים ריק, הוא מתמלא לפי השני (טבלת התאמה בלשונית Lists, עמודות I-J) |
 | שם פרטי אנגלית | טקסט | ✅ הוחלט: שדה אחד לכל השמות הפרטיים. לא חובה (המאגר הוא קודם כל רשימה, לא רשימת דיוור). אם חסר — מוצג בצבע בתצוגה. בהפקת רשימת דיוור: אזהרה על חסרים |
 | שם משפחה אנגלית | טקסט | ✅ הוחלט: כמו שם פרטי באנגלית |
+| שם חוקי (Legal name) | טקסט | ✅ הוחלט: לא חובה. השם שמופיע על צ'קים וכו' כשהוא שונה מהשם היהודי. נכלל בחיפוש. ❓ שימוש בקבלות/דואר |
 | Rebbetzin | לחצן (לפני שם האישה) | ✅ הוחלט: ON = Rebbetzin, OFF = Mrs. |
 | שם אישה עברית | טקסט | ✅ הוחלט: לא חובה |
 | שם אישה אנגלית | טקסט | ✅ הוחלט: לא חובה. משמש לפנייה כשרק האישה בחיים (Mrs. Sarah Klein) |
@@ -107,7 +108,7 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 ## מבנה הגוגל שיטס (נוצר)
 קובץ: Khal_unvar_database. שורה 1 = כותרות באנגלית, הנתונים מתחילים בשורה 2.
 
-- **Contacts:** contact_id, title_he, first_name_he, last_name_he, is_alive, marital_status, title_en, first_name_en, last_name_en, wife_name_he, wife_name_en, wife_is_rebbetzin, wife_is_alive, wife_in_neshei, community_tags, photo_url, address, city, state, zip, country, is_active, created_at, updated_at, updated_by
+- **Contacts:** contact_id, title_he, first_name_he, last_name_he, is_alive, marital_status, title_en, first_name_en, last_name_en, legal_name, wife_name_he, wife_name_en, wife_is_rebbetzin, wife_is_alive, wife_in_neshei, community_tags, photo_url, address, city, state, zip, country, is_active, created_at, updated_at, updated_by
 - **Phones:** contact_id, mobile, mobile_tags, home_phone, home_phone_tags, wife_mobile, wife_mobile_tags, other_phone, other_phone_tags, email_1, email_1_tags, email_2, email_2_tags, comments
 - **Donations:** donation_id, contact_id, date, hebrew_date, event_tags, event_year, event_note, sponsor_from, sponsor_to, amount_usd, is_paid, paid_date, paid_note, payment_method, check_number, card_last4, payment_note, dedication_type, dedication_text, created_at, created_by
 - **Relations:** relation_id, contact_id_a, relation_type, contact_id_b
