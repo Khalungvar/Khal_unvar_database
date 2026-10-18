@@ -1159,7 +1159,16 @@ function start() {
     if (b) enterScope({ type: b.dataset.type, value: b.dataset.value });
   });
   // הויפט בלאט / הלוגו / "צוריק צום כללי" → יוצאים מהארגון
-  const goHome = () => { enterScope(null); showView('contacts'); };
+  const goHome = async () => {
+    const sc = getScope();
+    if (sc) {
+      const name = sc.value || t(ORG_FIELDS.find(([n]) => n === sc.type)[1]);
+      const ok = await choose(t('exitScopeTitle'), t('exitScopeText', { name }), [['cancel', t('cancelBtn')], ['go', t('exitScopeYes'), true]]);
+      if (ok !== 'go') return;
+    }
+    enterScope(null);
+    showView('contacts');
+  };
   $('.topbar .brand').style.cursor = 'pointer';
   $('.topbar .brand').onclick = goHome;
   $('#btn-home').onclick = goHome;
