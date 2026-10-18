@@ -11,7 +11,7 @@ import {
 } from './i18n.js';
 import { suggestFirstName, suggestLastName } from './names.js';
 import {
-  initDonations, fillDonationFilters, renderDonations, donationsSection, wireDonationsSection,
+  initDonations, fillDonationFilters, renderDonations, donationsSection, wireDonationsSection, openDonationForm,
 } from './donations.js';
 import {
   initOccasions, fillOccasionFilters, renderOccasions, occasionsSection, wireOccasionsSection, occasionCount,
@@ -124,14 +124,25 @@ function renderLobby() {
   const areas = state.lists.area || [];
   const areaCount = (a) => state.contacts.filter((c) => c.area === a && isAlive(c.is_alive) && (isTrue(c.is_active) || c.is_active === '')).length;
   main.innerHTML = `
-    <div class="lobby-head"><img src="img/logo.png" alt="" class="lobby-logo"><h1>${h(t('appName'))}</h1>
-      <p class="muted">${h(t('lobbyHello', { email: displayName(state.email) }))}</p></div>
-    <div class="lobby-row lobby-search-row">
-      <div class="lobby-search">
-        <input type="search" id="lobby-q" placeholder="${h(t('lobbySearchPh'))}" autocomplete="off">
-        <div class="lobby-results" id="lobby-results"></div>
+    <div class="lobby-top">
+      <div class="lobby-main-col">
+        <div class="lobby-head"><img src="img/logo.png" alt="" class="lobby-logo"><h1>${h(t('appName'))}</h1>
+          <p class="muted">${h(t('lobbyHello', { email: displayName(state.email) }))}</p></div>
+        <div class="lobby-search">
+          <input type="search" id="lobby-q" placeholder="${h(t('lobbySearchPh'))}" autocomplete="off">
+          <div class="lobby-results" id="lobby-results"></div>
+        </div>
       </div>
-      ${tile('personal', '👤', t('lobbyPersonal'), unreadCount() || tasksDueCount() ? t('pmUnreadSub2', { n: unreadCount(), m: tasksDueCount() }) : t('lobbyPersonalSub'))}
+      <div class="lobby-side-col">
+        <button type="button" class="lobby-tile lobby-me" data-tile="personal">
+          <span class="lobby-avatar">${h(initials(displayName(state.email)))}</span>
+          <b>${h(displayName(state.email))}</b>
+          <span class="muted small">${h(unreadCount() || tasksDueCount() ? t('pmUnreadSub2', { n: unreadCount(), m: tasksDueCount() }) : t('lobbyPersonal'))}</span>
+        </button>
+        <button type="button" class="lobby-quick" data-quick="contact">＋ ${h(t('quickContact'))}</button>
+        <button type="button" class="lobby-quick" data-quick="donation">＋ ${h(t('quickDonation'))}</button>
+        <button type="button" class="lobby-quick" data-quick="occasion">＋ ${h(t('quickOccasion'))}</button>
+      </div>
     </div>
     <div class="lobby-row">
       ${tile('umbrella', '🏛', umbrellaName(), t('lobbyAllSub', { n: alive }), 'data-primary')}
@@ -184,7 +195,21 @@ function lobbySearch() {
     : `<p class="muted small lobby-none">${h(t('noResults'))}</p>`;
 }
 
+/** ראשי תיבות פאר דעם קרייז (למשל "יק"). */
+function initials(name) {
+  const parts = String(name || '').replace(/["'״׳]/g, '').split(/[\s@.]+/).filter(Boolean);
+  return (parts.slice(0, 2).map((p) => p[0]).join('') || '?').toUpperCase();
+}
+
 function lobbyClick(e) {
+  const quick = e.target.closest('[data-quick]');
+  if (quick) {
+    // שנעלע אקציעס פון לאבי — מען בלייבט אינעם לאבי
+    if (quick.dataset.quick === 'contact') openForm();
+    if (quick.dataset.quick === 'donation') openDonationForm();
+    if (quick.dataset.quick === 'occasion') openOccasionForm();
+    return;
+  }
   const hit = e.target.closest('[data-open-card]');
   if (hit) { openCard(hit.dataset.openCard); return; }
   const pick = e.target.closest('[data-scope-type]');

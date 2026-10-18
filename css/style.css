@@ -700,3 +700,18 @@ body.solo-mode .tabs, body.solo-mode #scope-bar { display: none !important; }
 .td-btns { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .td-more { margin-top: 8px; }
 .td-more summary { cursor: pointer; color: var(--muted); }
+
+/* לאבי: אויבן */
+.lobby-top { display: grid; grid-template-columns: 3fr 1fr; gap: 14px; align-items: stretch; margin: 16px 0 8px; }
+.lobby-main-col { display: flex; flex-direction: column; justify-content: center; gap: 16px; }
+.lobby-main-col .lobby-head { margin: 0; }
+.lobby-main-col .lobby-search input { min-height: 60px; }
+.lobby-main-col .lobby-results { top: 66px; }
+.lobby-side-col { display: flex; flex-direction: column; gap: 8px; }
+.lobby-me { min-height: 0; padding: 14px 10px; gap: 4px; }
+.lobby-avatar { width: 46px; height: 46px; border-radius: 50%; background: var(--gold); color: #fff; display: flex;
+  align-items: center; justify-content: center; font-weight: 700; font-size: 18px; }
+.lobby-quick { background: var(--accent); color: #fff; border: none; border-radius: 12px; padding: 12px 14px; font: inherit;
+  font-size: 16px; font-weight: 600; cursor: pointer; text-align: center; transition: filter .1s, transform .1s; }
+.lobby-quick:hover { filter: brightness(1.12); transform: translateY(-1px); }
+@media (max-width: 700px) { .lobby-top { grid-template-columns: 1fr; } }
