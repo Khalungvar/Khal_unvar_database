@@ -270,3 +270,13 @@ input.suggested { color: var(--muted); font-style: italic; background: var(--chi
 .unverified { color: var(--muted); font-style: italic; }
 select.suggested { color: var(--muted); font-style: italic; background: var(--chip); }
 .area-field { font-weight: 500; }
+
+/* ארגונים */
+.org-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.org-label { font-size: 13px; color: var(--muted); }
+.org-item { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kollel-pick { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted);
+  background: var(--chip); border-radius: 999px; padding: 3px 12px; }
+.kollel-pick[hidden] { display: none; }
+.check.small { font-size: 13px; color: var(--ink); }
+.badge.org { background: var(--gold-soft); color: var(--ink); }

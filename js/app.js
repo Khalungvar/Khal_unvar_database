@@ -20,6 +20,7 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 const PHONE_KEYS = ['mobile', 'home_phone', 'wife_mobile', 'other_phone'];
 const EMAIL_KEYS = ['email_1', 'email_2'];
+const KOLLEL = 'כולל';
 // [שדה, תווית בשפת הממשק] — מחושב בכל פעם, כדי שהתווית תתאים לשפה הנוכחית
 const phoneFields = () => PHONE_KEYS.map((k) => [k, t(k)]);
 const emailFields = () => EMAIL_KEYS.map((k) => [k, t(k)]);
@@ -181,6 +182,7 @@ function renderList() {
       !isAlive(c.is_alive) ? `<span class="badge muted">${t('deceased')}</span>` : '',
       c.is_active === false || c.is_active === 'FALSE' ? `<span class="badge muted">${t('inactive')}</span>` : '',
       isTrue(c.wife_in_neshei) ? `<span class="badge">${t('neshei')}</span>` : '',
+      ...orgLabels(c).map((o) => `<span class="badge org">${h(o)}</span>`),
     ].join('');
     const tags = splitTags(c.community_tags).map((tag) => `<span class="chip">${h(tag)}</span>`).join('');
     const en = [c.first_name_en, c.last_name_en].filter(Boolean).join(' ');
@@ -239,6 +241,7 @@ function openCard(id) {
       ${field(t('legalName'), h(c.legal_first_name), true)}
       ${field(t('mailingName'), mail ? h(mail) : '', true)}
       ${field(t('wife'), wife)}
+      ${field(t('organizations'), orgLabels(c).map((o) => `<span class="chip">${h(o)}</span>`).join(''))}
       ${field(t('community'), tagChips(c.community_tags))}
     </section>
     ${address || c.area ? `<section><h3>${t('address')}${c.area ? ` · ${unverifiedWrap(c, ['area'], h(c.area))}` : ''}</h3><p dir="ltr" class="addr">${address}</p></section>` : ''}
@@ -360,6 +363,31 @@ function cityStateDatalists() {
     <datalist id="dl-address">${uniq('address').map((v) => `<option value="${h(v)}">`).join('')}</datalist>`;
 }
 
+/** שורת לחצנים של הארגונים בקהילה. ליד "כולל" — בחירה של איזה כולל. */
+function orgRow(c) {
+  const chosen = splitTags(c.organizations);
+  const kollels = splitTags(c.kollel);
+  const orgs = [...new Set([...(state.lists.organization || []), ...chosen])];
+  if (!orgs.length) return '';
+  return `<div class="org-row">
+    <span class="org-label">${t('organizations')}</span>
+    ${orgs.map((o) => {
+      const on = chosen.includes(o);
+      const sub = o === KOLLEL ? `<span class="kollel-pick"${on ? '' : ' hidden'}>${t('kollelWhich')}
+        ${[...new Set([...(state.lists.kollel || []), ...kollels])].map((k) => `<label class="check small"><input type="checkbox" name="kollel" value="${h(k)}" ${kollels.includes(k) ? 'checked' : ''}> ${h(k)}</label>`).join('')}
+      </span>` : '';
+      return `<span class="org-item"><label class="check"><input type="checkbox" name="org" value="${h(o)}" ${on ? 'checked' : ''}> ${h(o)}</label>${sub}</span>`;
+    }).join('')}
+  </div>`;
+}
+
+/** ארגונים לתצוגה: "כולל" מוצג עם שם הכולל, למשל "כולל בוקר". */
+function orgLabels(c) {
+  const kollels = splitTags(c.kollel);
+  return splitTags(c.organizations).flatMap((o) => (o === KOLLEL && kollels.length
+    ? kollels.map((k) => `${o} ${k}`) : [o]));
+}
+
 function openForm(c = {}) {
   const p = c.contact_id ? phonesOf(c) : {};
   const v = (k) => h(c[k] ?? '');
@@ -382,6 +410,7 @@ function openForm(c = {}) {
         <label class="check"><input type="checkbox" name="deceased" ${!isAlive(c.is_alive) ? 'checked' : ''}> ${t('deceased')}</label>
         <label class="check"><input type="checkbox" name="inactive" ${!isNew && c.is_active !== '' && !isTrue(c.is_active) ? 'checked' : ''}> ${t('inactive')}</label>
       </div>
+      ${orgRow(c)}
     </fieldset>
 
     <fieldset><legend>${t('secEnglish')}</legend>
@@ -548,6 +577,17 @@ function wireForm(form, original) {
   f('area').addEventListener('mousedown', confirmArea);
   if (!f('area').value) suggestArea(); // לאנשי קשר ישנים בלי געגנט — הצעה כשפותחים לעריכה
 
+  // "כולל" מסומן → מציגים את הבחירה של איזה כולל
+  $$('input[name="org"]', form).forEach((cb) => {
+    if (cb.value !== KOLLEL) return;
+    cb.addEventListener('change', () => {
+      const pick = cb.closest('.org-item').querySelector('.kollel-pick');
+      if (!pick) return;
+      pick.hidden = !cb.checked;
+      if (!cb.checked) $$('input[name="kollel"]', pick).forEach((k) => { k.checked = false; });
+    });
+  });
+
   wireAddressAutocomplete(form);
 
   $('#btn-cancel', form).onclick = () => $('#form-dialog').close();
@@ -620,6 +660,8 @@ function collect(form, original) {
     wife_is_alive: !form.elements.wife_deceased.checked,
     wife_in_neshei: form.elements.wife_in_neshei.checked,
     community_tags: readTags(form, 'community_tags'),
+    organizations: joinTags($$('input[name="org"]:checked', form).map((i) => i.value)),
+    kollel: joinTags($$('input[name="kollel"]:checked', form).map((i) => i.value)),
     address: val('address'),
     city: val('city'),
     state: val('state').toUpperCase(),

@@ -70,6 +70,7 @@
 | שם אישה אנגלית | טקסט | ✅ הוחלט: לא חובה. משמש לפנייה כשרק האישה בחיים (Mrs. Sarah Klein) |
 | אישה חיה / נפטרה | לחצן | |
 | האישה בנשי אונגוואר | V | ✅ הוחלט: לחצן נפרד (ארגון של נשים בלבד; שאר הקבוצות הן תגיות). מאפשר סינון רשימות. ❓ בדיוור לנשי: פנייה אישית לאישה? |
+| ארגונים | לחצנים (בחירה מרובה) | ✅ הוחלט: שורת לחצנים בחלק הראשון של הטופס: כהלכתו, כולל, ישיבת בית שערים, ביהמ"ד מאנסי, ביהמ"ד ירושלים, ביהמ"ד בארא פארק (Lists, עמודה R). ליד "כולל" — בחירה של איזה כולל: בוקר, הוראה, זכרון קדושים, ערב, מאנסי (Lists, עמודה S). מוצג ברשימה הכללית כתגית (למשל "כולל ערב") |
 | קשר לקהילה | תגיות (בחירה מרובה) | ✅ הוחלט: אנ"ש, מתפלל שבת בוקר, מתפלל שבת לילה, מתפלל ימות החול, תלמיד רבינו זי"ע, תלמיד רבינו שליט"א, תלמיד בית שערים ירושלים, כולל, כולל מאנסי, משפחת רבותינו. גבאי יכול להציע תגית חדשה; היא נכנסת לשימוש רק אחרי אישור הבעלים. תגית "?" = נבחרת ידנית, לאנשים שהקשר שלהם לקהילה לא ידוע. בייבוא הרשימה הקיימת האנשים נכנסים ללא תגית בכלל |
 | תמונה | העלאת קובץ | ✅ הוחלט: נשמרת בתיקייה בגוגל דרייב **של חשבון נפרד** (לא הדרייב האישי של הבעלים) — יחובר בהמשך. שם קובץ לפי contact_id, הקטנה אוטומטית, העלאה מהמחשב או צילום מהטלפון. בגליון נשמר קישור בלבד; התמונות לא ציבוריות |
 | כתובת | טקסט + השלמה אוטומטית | ✅ הוחלט: השלמה של Google Places (בחירת הצעה ממלאת רחוב, עיר, סטייט, ZIP). גיבוי: הצעות מתוך המאגר |
@@ -130,13 +131,13 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 ## מבנה הגוגל שיטס (נוצר)
 קובץ: Khal_unvar_database. שורה 1 = כותרות באנגלית, הנתונים מתחילים בשורה 2.
 
-- **Contacts:** contact_id, title_he, first_name_he, last_name_he, is_alive, marital_status, title_en, first_name_en, last_name_en, legal_first_name, wife_name_he, wife_name_en, wife_is_rebbetzin, wife_is_alive, wife_in_neshei, community_tags, photo_url, address, city, state, zip, country, area, is_active, created_at, created_by, updated_at, updated_by, unverified_fields
+- **Contacts:** contact_id, title_he, first_name_he, last_name_he, is_alive, marital_status, title_en, first_name_en, last_name_en, legal_first_name, wife_name_he, wife_name_en, wife_is_rebbetzin, wife_is_alive, wife_in_neshei, organizations, kollel, community_tags, photo_url, address, city, state, zip, country, area, is_active, created_at, created_by, updated_at, updated_by, unverified_fields
 - **Phones:** contact_id, mobile, mobile_tags, home_phone, home_phone_tags, wife_mobile, wife_mobile_tags, other_phone, other_phone_tags, email_1, email_1_tags, email_2, email_2_tags, comments
 - **Donations:** donation_id, contact_id, date, hebrew_date, event_tags, event_year, event_note, sponsor_from, sponsor_to, amount_usd, is_paid, paid_date, paid_note, payment_method, check_number, card_last4, payment_note, dedication_type, dedication_text, created_at, created_by
 - **Relations:** relation_id, contact_id_a, relation_type, contact_id_b
 - **Yahrzeit:** yahrzeit_id, contact_id, hebrew_day, hebrew_month, hebrew_year, deceased_name, deceased_father_name, relation_to_contact, leap_year_adar
 - **Settings:** admin_email, note
-- **Lists:** title_he, title_en, marital_status, event_tag, payment_method, dedication_type, relation_type, community_tag, title_he_default_en, title_en_default_he, phone_tag, email_tag, relation_reverse, yahrzeit_relation, area, area_zips, area_keywords
+- **Lists:** title_he, title_en, marital_status, event_tag, payment_method, dedication_type, relation_type, community_tag, title_he_default_en, title_en_default_he, phone_tag, email_tag, relation_reverse, yahrzeit_relation, area, area_zips, area_keywords, organization, kollel
 
 עקרונות: מחיקה רכה (is_active), עבודה דרך התוכנה ולא ישירות בגליון, רשימות האפשרויות נערכות בלשונית Lists.
 
