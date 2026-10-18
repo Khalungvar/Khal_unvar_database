@@ -3,7 +3,7 @@ import {
   initAuth, requestToken, signOut, getUserEmail, hasSavedSession, setOnExpire, rememberEmail,
 } from './google.js';
 import {
-  state, loadAll, displayName, orgLogo, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
+  state, loadAll, displayName, orgLogo, getPhoto, savePhoto, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
 } from './data.js';
 import { suggest, details, placesEnabled, placesError } from './places.js';
 import {
@@ -34,7 +34,7 @@ import {
 } from './scope.js';
 import {
   normalize, digits, formatPhone, isTrue, isAlive, splitTags, joinTags,
-  gematriaCodes, primaryCode, parseCodeQuery, mailingName, detectArea, escapeHtml as h,
+  gematriaCodes, primaryCode, parseCodeQuery, mailingName, detectArea, escapeHtml as h, shrinkImage,
 } from './util.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -542,8 +542,18 @@ function openCard(id, tab = null) {
     : '';
 
   $('#card-body').innerHTML = `
-    <h2 dir="auto">${h(fullNameHe(c))}</h2>
-    <p class="sub">#${h(c.contact_id)} · ${t('code')} ${h(primaryCode(c.first_name_he, c.last_name_he))}${!isAlive(c.is_alive) ? ` · ${t('deceased')}` : ''}</p>
+    <div class="card-head">
+      <label class="card-photo" title="${h(t('photoTip'))}">
+        <span class="photo-ph">📷<small>${h(t('photoAdd'))}</small></span>
+        <img alt="" hidden>
+        <input type="file" accept="image/*" capture="environment" hidden>
+      </label>
+      <div class="card-head-text">
+        <h2 dir="auto">${h(fullNameHe(c))}</h2>
+        <p class="sub">#${h(c.contact_id)} · ${t('code')} ${h(primaryCode(c.first_name_he, c.last_name_he))}${!isAlive(c.is_alive) ? ` · ${t('deceased')}` : ''}</p>
+        <button type="button" class="linkish photo-del" hidden>${h(t('photoRemove'))}</button>
+      </div>
+    </div>
     <nav class="card-tabs" role="tablist">
       <button type="button" data-tab="details">${t('cardTabDetails')}</button>
       <button type="button" data-tab="family">${t('cardTabFamily')}${familyCount(c) + occasionCount(c) ? ` <span class="count-pill">${familyCount(c) + occasionCount(c)}</span>` : ''}</button>
@@ -584,6 +594,7 @@ function openCard(id, tab = null) {
   wireOccasionsSection(c);
   wireKvitel(c);
   wireOrg(c);
+  wirePhoto(c);
   if (String(currentCardId) !== String(c.contact_id)) cardTab = 'details';
   if (tab) cardTab = tab;
   currentCardId = c.contact_id;
@@ -680,6 +691,39 @@ function wireOrg(c) {
     el.querySelector('textarea').focus();
   };
   box._dirty = () => $$('.org-box', box).some((el) => isDirty(el));
+}
+
+// ---------- בילד פון דעם מענטש (אינעם כרטיס) ----------
+function showPhoto(box, data) {
+  const img = $('img', box);
+  img.hidden = !data;
+  if (data) img.src = data;
+  $('.photo-ph', box).hidden = Boolean(data);
+  $('#card-body .photo-del').hidden = !data;
+}
+
+function wirePhoto(c) {
+  const box = $('#card-body .card-photo');
+  if (!box) return;
+  const id = String(c.contact_id);
+  getPhoto(id).then((data) => { if (String(currentCardId) === id) showPhoto(box, data); }).catch(() => {});
+  $('input', box).onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    box.classList.add('loading');
+    try {
+      const data = await shrinkImage(file, 360);
+      await savePhoto(id, data);
+      showPhoto(box, data);
+      toast(t('photoSaved'));
+    } catch (err) {
+      toast(err.message === 'too-big' ? t('mmImageTooBig') : err.message === 'bad-image' ? t('mmImageBad') : friendlyError(err), 'error');
+    } finally { box.classList.remove('loading'); e.target.value = ''; }
+  };
+  $('#card-body .photo-del').onclick = async () => {
+    if (!confirm(t('photoConfirmRemove'))) return;
+    try { await savePhoto(id, ''); showPhoto(box, ''); } catch (err) { toast(friendlyError(err), 'error'); }
+  };
 }
 
 // ---------- קוויטל (בכרטיס האישי) ----------

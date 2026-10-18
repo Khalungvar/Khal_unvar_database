@@ -1,6 +1,8 @@
 // שכבת הנתונים: מתרגמת בין שורות בגליון לבין אובייקטים, לפי שמות העמודות בשורה 1.
 // ככה הוספה או הזזה של עמודה בגליון לא שוברת את התוכנה.
-import { readTabs, readColumn, appendRow, appendRows, updateRow, updateCell, updateRange } from './google.js';
+import {
+  readTabs, readColumn, readCell, appendRow, appendRows, updateRow, updateCell, updateRange,
+} from './google.js';
 import { CONFIG } from './config.js';
 import { nowStamp } from './util.js';
 import { t } from './i18n.js';
@@ -227,6 +229,29 @@ export async function saveOrgLogo(org, data) {
   const values = objectToRow(state.headers.OrgLogos, { org, logo_data: data, updated_at: nowStamp(), updated_by: state.email });
   if (row) await updateRow('OrgLogos', row, data ? values : state.headers.OrgLogos.map(() => ''));
   else if (data) await appendRow('OrgLogos', values);
+}
+
+// ---------- בילדער פון מענטשן (לשונית Photos) ----------
+// די בילדער ווערן נישט אראפגעלאדן מיט אלעס — נאר ווען מען עפנט א כרטיס (כדי עס זאל זיין שנעל).
+const photoCache = new Map();
+
+export async function getPhoto(contactId) {
+  const k = String(contactId);
+  if (photoCache.has(k)) return photoCache.get(k);
+  const ids = await readColumn('Photos', 'A');
+  const idx = ids.findIndex((v, i) => i > 0 && String(v) === k);
+  const data = idx > 0 ? String(await readCell(`Photos!B${idx + 1}`)) : '';
+  photoCache.set(k, data);
+  return data;
+}
+
+export async function savePhoto(contactId, data) {
+  const k = String(contactId);
+  const row = await findRow('Photos', k);
+  const values = [Number(k), data, nowStamp(), state.email];
+  if (row) await updateRow('Photos', row, data ? values : ['', '', '', '']);
+  else if (data) await appendRow('Photos', values);
+  photoCache.set(k, data);
 }
 
 /** לייענט נאר די מעסעדזשעס (פאר א שנעלע בדיקה יעדע פאר מינוט). */

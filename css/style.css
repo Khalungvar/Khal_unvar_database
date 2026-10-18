@@ -727,3 +727,17 @@ body.solo-mode .tabs, body.solo-mode #scope-bar { display: none !important; }
 .lobby-pick { display: inline-flex; align-items: center; gap: 6px; }
 .lobby-pick img { height: 22px; max-width: 40px; object-fit: contain; background: #fff; border-radius: 4px; padding: 1px; }
 .tile-logo { height: 40px; max-width: 90px; object-fit: contain; background: #fff; border-radius: 8px; padding: 3px; }
+
+/* בילד אינעם כרטיס */
+.card-head { display: flex; align-items: center; gap: 14px; }
+.card-head-text { min-width: 0; }
+.card-head-text h2 { margin: 0; }
+.card-photo { width: 84px; height: 84px; border-radius: 50%; border: 2px dashed var(--gold); flex: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--chip); position: relative; }
+.card-photo:hover { border-color: var(--accent); }
+.card-photo img { width: 100%; height: 100%; object-fit: cover; }
+.card-photo:has(img:not([hidden])) { border-style: solid; }
+.photo-ph { display: flex; flex-direction: column; align-items: center; font-size: 22px; color: var(--muted); }
+.photo-ph small { font-size: 11px; }
+.card-photo.loading { opacity: .5; }
+.photo-del { font-size: 12px; }

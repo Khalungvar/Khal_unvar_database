@@ -135,6 +135,12 @@ export async function readTabs(tabs) {
 }
 
 /** קורא עמודה אחת (למשל A) — כדי למצוא שורה או את המספר הגבוה ביותר. */
+/** לייענט איין צעל, למשל 'Photos!B12'. */
+export async function readCell(a1) {
+  const data = await authFetch(`${SHEETS}/values/${enc(a1)}?valueRenderOption=UNFORMATTED_VALUE`);
+  return data.values?.[0]?.[0] ?? '';
+}
+
 export async function readColumn(tab, col = 'A') {
   const data = await authFetch(`${SHEETS}/values/${enc(`${tab}!${col}:${col}`)}?valueRenderOption=UNFORMATTED_VALUE`);
   return (data.values || []).map((r) => r[0]);
