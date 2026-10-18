@@ -138,13 +138,19 @@ export function renderAdmin() {
     + GROUPS.map((g) => `<div class="adm-group" data-tab="${PEOPLE_TAB.has(g.title) ? 'people' : 'lists'}" data-g="${g.title}"><h3 class="adm-group-title">${h(t(g.title))}</h3><div class="adm-grid">${
       g.lists.map((def) => { defs.push(def); return cardHtml(def, defs.length - 1); }).join('')}</div></div>`).join('')
     + `<div class="adm-group" id="adm-sharing" data-tab="people"></div>`
+    + `<div class="adm-group" id="adm-lock" data-tab="people-lock"></div>`
+    + `<div class="adm-group" id="adm-code" data-tab="people"></div>`
     + campaignsAdminHtml()
     + logosHtml()
     + `<div class="adm-group" data-tab="requests"><div class="soon-box"><h3>${h(t('admTabRequests'))}</h3><p class="muted">${h(t('admRequestsSoon'))}</p></div></div>`;
   // לאגאס און קאמפיינען געהערן צו לשונית 1
   $$('.adm-group:not([data-tab])', main).forEach((g) => { g.dataset.tab = 'lists'; });
   const showTab = () => {
-    $$('[data-tab]', main).forEach((el) => { el.hidden = el.dataset.tab !== admTab; });
+    const locked = admTab === 'people' && isPeopleLocked();
+    const want = locked ? 'people-lock' : admTab;
+    $$('[data-tab]', main).forEach((el) => { el.hidden = el.dataset.tab !== want; });
+    if (locked) renderLock(showTab);
+    else if (admTab === 'people') renderCodeBox(showTab);
     $$('[data-adm-tab]', main).forEach((b) => b.classList.toggle('on', b.dataset.admTab === admTab));
   };
   showTab();
@@ -214,6 +220,86 @@ function wireCard(card, def) {
       btn.textContent = t('saveBtn');
     }
   };
+}
+
+// ---------- א קאד פאר דער לשונית "מנהלים, גבאים און צוטריט" ----------
+// מ'היט נאר אפ א "hash" (נישט דעם קאד אליין). דאס איז א שלאס אין אתר — ווער עס האט צוטריט צום שיט קען
+// אלץ טוישן גלייך אין שיט; דער בעל הבית קען אויסמעקן דעם קאד אין Settings ← people_code אויב מ'פארגעסט.
+const CODE_COL = 'people_code';
+const UNLOCK_KEY = 'khal-people-unlocked';
+const savedCode = () => String((state.rawSettings?.[CODE_COL] || [])[0] || '');
+
+async function hashCode(salt, code) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${salt}|${code}`));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function isPeopleLocked() {
+  const c = savedCode();
+  if (!c) return false;
+  try { return sessionStorage.getItem(UNLOCK_KEY) !== c; } catch { return true; }
+}
+
+function renderLock(refresh) {
+  const box = $('#adm-lock');
+  box.innerHTML = `<div class="lock-box"><div class="lock-icon">🔒</div><h3>${h(t('codeLockedTitle'))}</h3>
+    <p class="muted">${h(t('codeLockedHint'))}</p>
+    <form class="lock-form"><input type="password" autocomplete="off" inputmode="numeric" placeholder="${h(t('codePh'))}" required>
+      <button type="submit" class="btn primary">${h(t('codeOpen'))}</button></form>
+    <p class="lock-err" hidden>${h(t('codeWrong'))}</p></div>`;
+  const input = $('input', box);
+  input.focus();
+  $('form', box).onsubmit = async (e) => {
+    e.preventDefault();
+    const [salt, hash] = savedCode().split(':');
+    if (await hashCode(salt, input.value) === hash) {
+      try { sessionStorage.setItem(UNLOCK_KEY, savedCode()); } catch { /* ignore */ }
+      refresh();
+    } else {
+      $('.lock-err', box).hidden = false;
+      input.select();
+    }
+  };
+}
+
+function renderCodeBox(refresh) {
+  const box = $('#adm-code');
+  const has = Boolean(savedCode());
+  box.innerHTML = `${has ? `<div class="code-line"><span>🔒 ${h(t('codeIsSet'))}</span>
+      <button type="button" class="btn small-btn" id="code-lock-now">🔒 ${h(t('codeLockNow'))}</button></div>` : ''}
+    <details class="code-box"${has ? '' : ' open'}><summary>${h(t(has ? 'codeChangeOrRemove' : 'codeNotSet'))}</summary>
+    <p class="hint-line">${h(t('codeHint'))}</p>
+    <form class="lock-form">
+      <input type="password" name="c1" autocomplete="new-password" placeholder="${h(t(has ? 'codeNewPh' : 'codePh'))}" minlength="4" required>
+      <input type="password" name="c2" autocomplete="new-password" placeholder="${h(t('codeAgainPh'))}" minlength="4" required>
+      <button type="submit" class="btn small-btn primary">${h(t(has ? 'codeChange' : 'codeSet'))}</button>
+    </form>
+    ${has ? `<div class="adm-actions"><button type="button" class="linkish" id="code-remove">${h(t('codeRemove'))}</button></div>` : ''}
+  </details>`;
+  const save = async (value) => {
+    await saveSettingsColumns({ [CODE_COL]: [value] });
+    await loadAll();
+    try { if (value) sessionStorage.setItem(UNLOCK_KEY, value); else sessionStorage.removeItem(UNLOCK_KEY); } catch { /* ignore */ }
+    refresh();
+  };
+  $('form', box).onsubmit = async (e) => {
+    e.preventDefault();
+    const f = e.target.elements;
+    if (f.c1.value !== f.c2.value) { ui.toast(t('codeMismatch'), 'error'); return; }
+    try {
+      const salt = [...crypto.getRandomValues(new Uint8Array(8))].map((b) => b.toString(16).padStart(2, '0')).join('');
+      await save(`${salt}:${await hashCode(salt, f.c1.value)}`);
+      ui.toast(t('codeSaved'));
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  };
+  $('#code-lock-now', box)?.addEventListener('click', () => {
+    try { sessionStorage.removeItem(UNLOCK_KEY); } catch { /* ignore */ }
+    refresh();
+  });
+  $('#code-remove', box)?.addEventListener('click', async () => {
+    if (!confirm(t('codeRemoveConfirm'))) return;
+    try { await save(''); ui.toast(t('codeRemoved')); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  });
 }
 
 // ---------- צוטריט צום שיט (לויט די מנהלים + גבאים) ----------

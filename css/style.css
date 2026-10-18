@@ -879,3 +879,14 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 .adm-tabs button { font: inherit; font-size: 16px; font-weight: 600; border: 1px solid var(--line); border-bottom: 0; background: transparent;
   color: var(--muted); padding: 9px 22px; border-radius: 10px 10px 0 0; cursor: pointer; margin-bottom: -1.5px; }
 .adm-tabs button.on { background: var(--surface); color: var(--accent); border-color: var(--gold); border-bottom: 1.5px solid var(--surface); }
+/* קאד פאר דער לשונית */
+.lock-box { max-width: 380px; margin: 30px auto; text-align: center; background: var(--surface); border: 1.5px solid var(--gold); border-radius: 16px; padding: 22px 20px; }
+.lock-icon { font-size: 40px; }
+.lock-box h3 { margin: 6px 0; color: var(--accent); }
+.lock-form { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+.lock-form input { flex: 1 1 140px; font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.lock-err { color: var(--danger); margin: 8px 0 0; }
+.code-box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+.code-box summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+.code-box .lock-form { justify-content: flex-start; }
+.code-line { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; font-weight: 600; color: var(--accent); }
