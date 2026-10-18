@@ -31,7 +31,7 @@ import {
 } from './hebdate.js';
 import {
   getScope, setScope, restoreScope, withFormer, setWithFormer, contactInScope, donationInScope, umbrellaName,
-  memberOrgs, isFormerOf,
+  memberOrgs, isFormerOf, NO_AREA,
 } from './scope.js';
 import {
   normalize, digits, formatPhone, isTrue, isAlive, splitTags, joinTags,
@@ -123,7 +123,8 @@ function renderLobby() {
     t('lobbyOrgSub', { n: (state.lists[type] || []).length, p: currentCount(type, '') }));
   const open = ORG_FIELDS.find(([n]) => n === lobbyOpen);
   const areas = state.lists.area || [];
-  const areaCount = (a) => state.contacts.filter((c) => c.area === a && isAlive(c.is_alive) && (isTrue(c.is_active) || c.is_active === '')).length;
+  const areaCount = (a) => state.contacts.filter((c) => (a === NO_AREA ? !String(c.area || '').trim() : c.area === a)
+    && isAlive(c.is_alive) && (isTrue(c.is_active) || c.is_active === '')).length;
   main.innerHTML = `
     <div class="lobby-top">
       <div class="lobby-main-col">
@@ -165,11 +166,13 @@ function renderLobby() {
     ${lobbyOpen === 'area' ? `<div class="lobby-choose">
       <span class="muted">${h(t('lobbyChoose'))}</span>
       ${areas.map((a) => `<button type="button" class="btn primary" data-area="${h(a)}">${h(a)} <span class="count-pill">${areaCount(a)}</span></button>`).join('')}
+      <button type="button" class="btn" data-area="${NO_AREA}">${h(t('noArea'))} <span class="count-pill">${areaCount(NO_AREA)}</span></button>
     </div>` : ''}
     <div class="lobby-row">
       ${tile('lists', '📋', t('readyLists'), t('lobbyListsSub', { n: state.savedLists.length }))}
       ${tile('mailmerge', '✉', 'Mail Merge', t('lobbyMailSub'))}
       ${tile('calls', '📞', 'Calls & SMS', t('lobbyCallsSub'))}
+      ${tile('receipts', '🧾', 'Invoice & Receipt', t('lobbyReceiptsSub'))}
     </div>`;
 }
 
@@ -249,7 +252,7 @@ function lobbyClick(e) {
 }
 
 function showSoon(key) {
-  const titles = { mailmerge: 'Mail Merge', calls: 'Calls & SMS', personal: t('lobbyPersonal') };
+  const titles = { mailmerge: 'Mail Merge', calls: 'Calls & SMS', personal: t('lobbyPersonal'), receipts: 'Invoice & Receipt' };
   $('#soon-main').innerHTML = `<div class="soon-box"><h2>${h(titles[key] || '')}</h2>
     <p class="muted">${h(t('soonText'))}</p>
     <button type="button" class="btn" id="soon-back">← ${h(t('lobbyBack'))}</button></div>`;
@@ -435,7 +438,7 @@ function renderOrgs() {
 /** דער נאמען פונעם הקשר: "ביהמ"ד מאנסי", "בתי מדרשים", "געגנט: מאנסי". */
 function scopeLabel(sc) {
   if (!sc) return '';
-  if (sc.type === 'area') return `${t('area')}: ${sc.value}`;
+  if (sc.type === 'area') return sc.value === NO_AREA ? t('noArea') : `${t('area')}: ${sc.value}`;
   if (sc.value) return sc.value;
   const f = ORG_FIELDS.find(([n]) => n === sc.type);
   return f ? t(f[1]) : '';

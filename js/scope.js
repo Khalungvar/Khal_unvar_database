@@ -4,6 +4,11 @@ import { state, NESHEI_ORG } from './data.js';
 import { isTrue, splitTags } from './util.js';
 
 export const ORG_TYPES = ['beis_medrash', 'kollel', 'organization'];
+export const NO_AREA = '__none__'; // געגנט: "אן געגנט" = אלע וואס האבן נישט קיין געגנט
+
+function inArea(c, value) {
+  return value === NO_AREA ? !String(c.area || '').trim() : c.area === value;
+}
 const SCOPE_TYPES = [...ORG_TYPES, 'area']; // 'area' = געגנט (פון אלע רעקארדס)
 const KEY = 'khal-scope';
 
@@ -62,7 +67,7 @@ export function scopeOrgs() {
 export function contactInScope(c, former = withFormer()) {
   const s = getScope();
   if (!s) return true;
-  if (s.type === 'area') return c.area === s.value;
+  if (s.type === 'area') return inArea(c, s.value);
   const mine = memberOrgs(c, s.type);
   const hit = s.value ? mine.includes(s.value) : mine.length > 0;
   if (!hit) return false;
@@ -88,7 +93,7 @@ export function donationInScope(d) {
   const s = getScope();
   if (s?.type === 'area') {
     const c = d.contact_id ? state.contacts.find((x) => String(x.contact_id) === String(d.contact_id)) : null;
-    return Boolean(c) && c.area === s.value;
+    return Boolean(c) && inArea(c, s.value);
   }
   const orgs = scopeOrgs();
   return !orgs || orgs.includes(effectiveOrg(d));

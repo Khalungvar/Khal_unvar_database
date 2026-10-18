@@ -5,7 +5,9 @@ import {
   state, loadAll, saveRecord, deleteRecord, orgLogo, NESHEI_ORG,
 } from './data.js';
 import { t } from './i18n.js';
-import { escapeHtml as h, mailingName, shrinkImage as shrink } from './util.js';
+import {
+  escapeHtml as h, mailingName, shrinkImage as shrink, isTrue,
+} from './util.js';
 import { evaluate, parseSaved, templates as readyLists, savedInScope } from './lists.js';
 import { umbrellaName } from './scope.js';
 
@@ -39,12 +41,12 @@ const LABELS = [
 ];
 const FONTS = ['Georgia', 'Times New Roman', 'Garamond', 'Arial', 'Helvetica', 'Verdana', 'Courier New'];
 const BUILTIN_LOGOS = [['crown', 'img/logo.png'], ['neshei', 'img/neshei-logo.png']];
-const TOKENS = ['mailing', 'first', 'last', 'address', 'city', 'state', 'zip', 'country', 'legal', 'hebrew'];
+const TOKENS = ['mailing', 'wife', 'first', 'last', 'address', 'city', 'state', 'zip', 'country', 'legal', 'hebrew'];
 
 function defaults() {
   return {
     template_id: '', name: '', format: 'env10',
-    list: 'tpl:0', skipNoAddress: true,
+    list: 'tpl:0', skipNoAddress: true, toWife: false,
     ret: { show: true, logo: 'crown', logoH: 0.55, text: `${'Khal Ungvar'}\n123 Main Street\nBrooklyn, NY 11219`, font: 'Georgia', size: 9, x: 0.25, y: 0.22 },
     rcp: { template: '{mailing}\n{address}\n{city}, {state} {zip}\n{country}', font: 'Georgia', size: 12, bold: true, align: 'left', x: 3.8, y: 1.9 },
     post: { mode: 'stamp', text: 'PRSRT STD\nU.S. POSTAGE\nPAID\nPERMIT #000', size: 7, border: true },
@@ -91,8 +93,12 @@ function loadRows() {
 function fill(template, c) {
   if (!c) return template.replace(/\{(\w+)\}/g, (m, k) => `[${k}]`);
   const country = c.country && !/^(usa|us|united states)$/i.test(c.country) ? c.country : '';
+  const wifeTitle = isTrue(c.wife_is_rebbetzin) ? 'Rebbetzin' : 'Mrs.';
+  const wifeLine = [wifeTitle, c.wife_name_en, c.last_name_en].filter(Boolean).join(' ');
   const v = {
-    mailing: mailingName(c) || '', first: c.first_name_en || '', last: c.last_name_en || '',
+    // "צו דער ווייב": Mrs. / Rebbetzin + איר נאמען (פאר נשי אונגוואר)
+    mailing: d.toWife && String(c.last_name_en || '').trim() ? wifeLine : (mailingName(c) || ''),
+    wife: wifeLine, first: c.first_name_en || '', last: c.last_name_en || '',
     address: c.address || '', city: c.city || '', state: c.state || '', zip: c.zip || '', country,
     legal: [c.legal_first_name || c.first_name_en, c.last_name_en].filter(Boolean).join(' '),
     hebrew: ui.fullNameHe(c),
@@ -217,6 +223,7 @@ export function renderMailMerge() {
         <details open><summary>${t('mmRecipients')}</summary>
           <select data-k="list">${lists}</select>
           <label class="check"><input type="checkbox" data-k="skipNoAddress" ${d.skipNoAddress ? 'checked' : ''}> ${t('mmSkipNoAddress')}</label>
+          <label class="check"><input type="checkbox" data-k="toWife" ${d.toWife ? 'checked' : ''}> ${t('mmToWife')}</label>
           <p class="muted small">${h(t('mmCount', { n: rows.length }))}</p>
           <label class="mm-l">${t('mmRcpTemplate')}<textarea data-k="rcp.template" rows="5" dir="ltr">${h(d.rcp.template)}</textarea></label>
           <div class="mm-tokens">${TOKENS.map((k) => `<button type="button" class="chip mini" data-token="${k}">{${k}}</button>`).join('')}</div>
@@ -337,7 +344,7 @@ function wire(main) {
         d.ret.y = 0.22;
       }
       // וואס טוישט דעם פאנעל — גאנץ פון ניי; אנדערש — נאר די פאָרויסזיכט
-      if (['format', 'list', 'skipNoAddress', 'post.mode', 'ret.logo', 'lbl.mode', 'lbl.logo', 'lbl.sheets'].includes(el.dataset.k)) rerender();
+      if (['format', 'list', 'skipNoAddress', 'toWife', 'post.mode', 'ret.logo', 'lbl.mode', 'lbl.logo', 'lbl.sheets'].includes(el.dataset.k)) rerender();
       else refreshPreview();
     };
     el.addEventListener(el.tagName === 'TEXTAREA' || el.type === 'range' || el.type === 'number' ? 'input' : 'change', apply);

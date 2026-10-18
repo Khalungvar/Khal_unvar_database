@@ -744,3 +744,6 @@ body.solo-mode .tabs, body.solo-mode #scope-bar { display: none !important; }
 
 .drive-ok { color: #2e7d32; font-size: 14px; margin: 4px 0; }
 .drive-warn { color: #8a5a00; font-size: 14px; margin: 4px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.lobby-row:has([data-tile=receipts]) { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 700px) { .lobby-row:has([data-tile=receipts]) { grid-template-columns: 1fr 1fr; } }

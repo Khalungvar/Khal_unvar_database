@@ -203,7 +203,7 @@ export function renderBuilder() {
   main.innerHTML = `
     <div class="camp-page-head">
       <div><h2>${current.list_id ? h(current.name) : t('newListTitle')}</h2>
-        ${sc ? `<p class="hint-line">${h(t('listScopeNote', { name: sc.type === 'area' ? `${t('area')}: ${sc.value}` : sc.value || '' }))}</p>` : ''}</div>
+        ${sc ? `<p class="hint-line">${h(t('listScopeNote', { name: sc.type === 'area' ? (sc.value === '__none__' ? t('noArea') : `${t('area')}: ${sc.value}`) : sc.value || '' }))}</p>` : ''}</div>
       <span class="spacer"></span>
       ${current.list_id ? (current.visibility === 'private'
         ? `<span class="badge muted">🔒 ${t('lbPrivate')}</span> <button type="button" class="btn" id="lb-publish">${t('lbPublish')}</button>`
@@ -501,7 +501,7 @@ function renderOverview(main) {
   main.innerHTML = `
     <div class="camp-page-head">
       <div><h2>${t('savedLists')}</h2><p class="muted">${t('listsHint')}</p>
-        ${sc ? `<p class="hint-line">${h(t('listScopeNote', { name: sc.type === 'area' ? `${t('area')}: ${sc.value}` : sc.value || '' }))}</p>` : ''}</div>
+        ${sc ? `<p class="hint-line">${h(t('listScopeNote', { name: sc.type === 'area' ? (sc.value === '__none__' ? t('noArea') : `${t('area')}: ${sc.value}`) : sc.value || '' }))}</p>` : ''}</div>
       <span class="spacer"></span>
       <button type="button" class="btn primary" id="lo-new">${t('newList')}</button>
     </div>
