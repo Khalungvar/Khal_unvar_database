@@ -1,6 +1,8 @@
 // אריינלייגן א סך קאנטאקטן פון Excel (נאר בעל הבית, אין אדמין ← מנהלים, גבאים און צוטריט):
 // 1) אראפלאדן א דוגמא-טעקע  2) אנפילן / אריינקלעבן  3) ארויפלאדן ← א פריוויו מיט פראבלעמען ← אריינלייגן.
-import { state, loadAll, importContacts, mergeContacts, addListValue } from './data.js';
+import { state, loadAll, importContacts, mergeContacts, addListValue, importDonations } from './data.js';
+import { yearFromLabel, fromHebrew, monthsOf } from './hebdate.js';
+import { umbrellaName } from './scope.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, formatPhone, digits, normalize, detectArea, splitTags, joinTags } from './util.js';
 import { downloadXlsx } from './excel.js';
@@ -37,7 +39,14 @@ const FIELDS = [
   ['community_tags', 'טעג\'ס (מיט קאמע)', 'Tags (comma separated)', 'c', '', ''],
   ['area', 'געגנט', 'Area', 'c', '', ''],
   ['comments', 'הערות', 'Notes', 'p', '', ''],
+  ['deceased', 'נפטר', 'Deceased', 'c', '', ''],
+  ['wife_in_neshei', 'נשי אונגוואר', 'Neshei', 'c', '', ''],
+  ['wife_is_rebbetzin', 'רביצין', 'Rebbetzin', 'c', '', ''],
 ];
+const BOOL_FIELDS = new Set(['deceased', 'wife_in_neshei', 'wife_is_rebbetzin']);
+const yes = (v) => /^(true|yes|y|x|1|כן|יא|✓)$/i.test(String(v || '').trim());
+// נדבות: א קאלום "נדבה: דינער השנתי תשפ"ו" (אדער "Donation: …") מיט א סכום ביי יעדן
+const DON_HEAD = /^\s*(?:נדבה|donation)\s*[:：]\s*(.+?)\s*$/i;
 const header = (f) => `${f[1]} / ${f[2]}`;
 
 export function downloadTemplate() {
@@ -137,6 +146,8 @@ function readCsv(text) {
 const clean = (s) => String(s ?? '').replace(/\*/g, '').trim().toLowerCase();
 function mapHeaders(head) {
   return head.map((cell) => {
+    const dm = DON_HEAD.exec(String(cell ?? ''));
+    if (dm) return `don:${dm[1]}`;
     const parts = [clean(cell), ...String(cell ?? '').split('/').map(clean)];
     const f = FIELDS.find((x) => parts.some((p) => p && [x[0], clean(x[1]), clean(x[2]), clean(header(x))].includes(p)));
     return f ? f[0] : null;
@@ -239,9 +250,19 @@ function buildRows(table) {
   const seen = { names: new Map(), phones: new Map() };
   const rows = body.map((r, i) => {
     const contact = {}; const phones = {};
+    const dons = [];
     keys.forEach((k, j) => {
       if (!k) return;
       let v = String(r[j] ?? '').trim();
+      if (k.startsWith('don:')) {
+        const amt = Number(String(v).replace(/[$,\s]/g, ''));
+        if (amt > 0) dons.push({ label: k.slice(4), amount: amt });
+        return;
+      }
+      if (BOOL_FIELDS.has(k)) {
+        if (yes(v)) { if (k === 'deceased') contact.is_alive = 'FALSE'; else contact[k] = true; }
+        return;
+      }
       const f = FIELDS.find((x) => x[0] === k);
       if (['mobile', 'home_phone', 'wife_mobile', 'other_phone'].includes(k)) v = formatPhone(v);
       if (k === 'zip' && /^\d{3,4}$/.test(v)) v = v.padStart(5, '0'); // Excel פארלירט די נול פון פארנט
@@ -257,7 +278,7 @@ function buildRows(table) {
     });
     if (!contact.area && (contact.zip || contact.city)) contact.area = detectArea(state.areas || [], contact);
     if (autoFill) fillNames(contact);
-    const out = { n: i + 2, contact, phones, status: 'ok', note: '', action: 'add' };
+    const out = { n: i + 2, contact, phones, status: 'ok', note: '', action: 'add', dons };
     if (!contact.first_name_he || !contact.last_name_he) { out.action = 'skip'; out.status = 'error'; out.note = t('impNeedName'); return out; }
     if (contact.unverified_fields) out.auto = new Set(contact.unverified_fields.split(', '));
     const nk = normalize(`${contact.first_name_he} ${contact.last_name_he}`);
@@ -297,6 +318,34 @@ function buildRows(table) {
     return out;
   });
   return { rows, unknown };
+}
+
+/** "דינער השנתי תשפ"ו" → א נדבה: קאמפיין (א יערליכער) אדער טעג + יאר; דאטום = ראש השנה פון יענעם יאר */
+async function addDonations(rows, onProgress) {
+  const series = (state.yearly || []).map((y) => y.series);
+  const have = new Set(state.donations.map((d) => `${d.contact_id}|${d.campaign || `${d.event_tags} ${d.event_year}`}|${Number(d.amount_usd)}`));
+  const tagsNeeded = new Set();
+  const out = [];
+  rows.forEach(({ contact_id: id, label, amount }) => {
+    const words = label.trim().split(/\s+/);
+    const yl = words.length > 1 && yearFromLabel(words[words.length - 1]) ? words.pop() : '';
+    const name = words.join(' ');
+    const y = yl ? yearFromLabel(yl) : 0;
+    const date = y ? fromHebrew(1, monthsOf(y)[0].key, y) : '';
+    const isCampaign = series.includes(name) || (state.campaigns || []).some((c) => c.campaign === label);
+    const key = `${id}|${isCampaign ? label : `${name} ${yl}`}|${amount}`;
+    if (have.has(key)) return; // שוין דא — נישט טאפלט
+    have.add(key);
+    if (!isCampaign) tagsNeeded.add(name);
+    out.push({
+      contact_id: id, date, amount_usd: amount, is_paid: true, paid_date: date,
+      campaign: isCampaign ? label : '', event_tags: isCampaign ? '' : name, event_year: yl,
+      org: isCampaign ? '' : umbrellaName(), event_note: t('impDonNote'),
+    });
+  });
+  for (const x of tagsNeeded) if (!(state.lists.event_tag || []).includes(x)) await addListValue('event_tag', x);
+  if (out.length) await importDonations(out, onProgress);
+  return out.length;
 }
 
 function actionSelect(r) {
@@ -355,6 +404,7 @@ function renderPreview(box, ui) {
   const nameOf = (r) => ['title_he', 'first_name_he', 'last_name_he'].map((k) => A(r, k)).filter(Boolean).join(' ');
   const enOf = (r) => ['first_name_en', 'last_name_en'].map((k) => A(r, k)).filter(Boolean).join(' ');
   const nAuto = rows.filter((r) => r.auto).length;
+  const nDons = rows.reduce((a, r) => a + (r.dons?.length || 0), 0);
   // די פראבלעמען קודם (ראזע, דערנאך געל) — כדי מ'זאל זיי זען גלייך
   const rank = { error: 0, maybe: 1, dup: 2, ok: 3 };
   const shown = [...rows].sort((a, b) => rank[a.status] - rank[b.status] || a.n - b.n).slice(0, 300);
@@ -365,6 +415,7 @@ function renderPreview(box, ui) {
       ${bad ? `<span class="badge unpaid">✕ ${h(t('impBad', { n: bad }))}</span>` : ''}
       ${bad + dup ? `<button type="button" class="btn small-btn" id="imp-xl-bad">⬇ ${h(t('impBadXl'))}</button>` : ''}</div>
     ${nAuto ? `<p class="hint-line">✎ ${h(t('impAutoNote', { n: nAuto }))}</p>` : ''}
+    ${nDons ? `<p class="hint-line">💲 ${h(t('impDonsNote', { n: nDons }))}</p>` : ''}
     ${unknown.length ? `<p class="warn-text small">${h(t('impUnknownCols', { cols: unknown.join(', ') }))}</p>` : ''}
     ${dup + maybe ? `<p class="hint-line">☑ ${h(t('impPickHint'))}</p>` : ''}
     <label class="check"><input type="checkbox" id="imp-auto"${autoFill ? ' checked' : ''}> ${h(t('impAutoFill'))}</label>
@@ -375,7 +426,7 @@ function renderPreview(box, ui) {
         <td dir="ltr">${enOf(r)}</td>
         <td class="small" dir="ltr">${h([r.contact.address, r.contact.city, r.contact.state, r.contact.zip].filter(Boolean).join(', '))}</td>
         <td class="small" dir="ltr">${h(r.phones.mobile || r.phones.home_phone || r.phones.email_1 || '')}</td>
-        <td class="small">${r.status === 'ok' ? '✓' : `${{ dup: '⚠', maybe: '?', error: '✕' }[r.status]} ${h(r.note)}`}${mergeNote(r)}</td></tr>`).join('')}</tbody></table></div>
+        <td class="small">${r.status === 'ok' ? '✓' : `${{ dup: '⚠', maybe: '?', error: '✕' }[r.status]} ${h(r.note)}`}${mergeNote(r)}${r.dons?.length ? `<div class="muted">💲 ${h(t('impDons', { n: r.dons.length, sum: r.dons.reduce((a, d) => a + d.amount, 0).toLocaleString() }))}</div>` : ''}</td></tr>`).join('')}</tbody></table></div>
     ${rows.length > shown.length ? `<p class="muted small">${h(t('impMoreRows', { n: rows.length - shown.length }))}</p>` : ''}
     <div class="actions"><span class="spacer"></span>
       <button type="button" class="btn" id="imp-cancel">${h(t('cancelBtn'))}</button>
@@ -412,7 +463,9 @@ function renderPreview(box, ui) {
     go.disabled = true; $('#imp-cancel', prev).disabled = true;
     const bar = $('#imp-progress', prev); bar.hidden = false;
     try {
-      if (tag && !(state.lists.community_tag || []).includes(tag)) await addListValue('community_tag', tag);
+      // נייע טעג'ס פון דער טעקע — אריין אין דער רשימה, כדי מ'זאל קענען פילטערן
+      const allTags = new Set([...(tag ? [tag] : []), ...[...list, ...merges].flatMap((r) => splitTags(r.contact.community_tags))]);
+      for (const x of allTags) if (!(state.lists.community_tag || []).includes(x)) await addListValue('community_tag', x);
       const prog = (done, total) => {
         $('.ml-bar span', bar).style.width = `${Math.round((done / total) * 100)}%`;
         $('.ml-ptext', bar).textContent = `${done} / ${total}`;
@@ -434,10 +487,16 @@ function renderPreview(box, ui) {
         contact: { ...r.contact, community_tags: joinTags([...splitTags(r.contact.community_tags), ...(tag ? [tag] : [])]) },
         phones: r.phones,
       })), prog);
+      // נדבות: די נייע קאנטאקטן באקומען נומערן פון res.first (אין דער זעלבער סדר); די געמערדזשטע — matchId
+      const donRows = [];
+      list.forEach((r, i) => { if (res) (r.dons || []).forEach((d) => donRows.push({ contact_id: res.first + i, ...d })); });
+      merges.forEach((r) => (r.dons || []).forEach((d) => donRows.push({ contact_id: r.matchId, ...d })));
+      let nDon = 0;
+      if (donRows.length) nDon = await addDonations(donRows, prog);
       await loadAll();
       ui.refreshAll?.();
       parsed = null;
-      const msg = [res ? t('impDone', { n: list.length, first: res.first, last: res.last }) : '', mergedN ? t('impMerged', { n: mergedN }) : ''].filter(Boolean).join(' · ');
+      const msg = [nDon ? t('impDonsDone', { n: nDon }) : '', res ? t('impDone', { n: list.length, first: res.first, last: res.last }) : '', mergedN ? t('impMerged', { n: mergedN }) : ''].filter(Boolean).join(' · ');
       prev.innerHTML = `<p class="drive-ok">✓ ${h(msg)}</p>`;
       ui.toast(msg);
     } catch (err) {

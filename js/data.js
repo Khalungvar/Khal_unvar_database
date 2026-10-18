@@ -334,6 +334,21 @@ export async function mergeContacts(list, onProgress = () => {}) {
   return list.length;
 }
 
+/** בעל הבית: א סך נדבות אויף איינמאל (פון אן Excel). list = [{ contact_id, date, amount_usd, … }] */
+export async function importDonations(list, onProgress = () => {}) {
+  if (!state.isOwner) throw new Error(t('adminOnly'));
+  const stamp = nowStamp();
+  const ids = (await readColumn('Donations', 'A')).slice(1).map(Number).filter(Number.isFinite);
+  let id = Math.max(0, ...ids) + 1;
+  const rowsOut = list.map((d) => objectToRow(state.headers.Donations, { ...d, donation_id: id++, created_at: stamp, created_by: state.email, updated_at: stamp, updated_by: state.email }));
+  for (let i = 0; i < rowsOut.length; i += 250) {
+    await appendRows('Donations', rowsOut.slice(i, i + 250));
+    onProgress(Math.min(i + 250, rowsOut.length), rowsOut.length);
+  }
+  await logChanges('donation', 'import', '', null, null, `imported ${rowsOut.length} donations`);
+  return rowsOut.length;
+}
+
 /** שומר רק את הקוויטל של איש קשר (טקסט עם שורות). */
 export async function saveKvitel(contact, text) {
   const row = await findRow('Contacts', contact.contact_id);

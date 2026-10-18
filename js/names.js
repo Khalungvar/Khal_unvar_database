@@ -345,8 +345,11 @@ function lookupEn(en, dict) {
 /** א פרטי נאמען אויף אידיש פון ענגליש: פון דער רשימה / באקאנטע נעמען → תעתיק. */
 export function suggestHeFirstName(en, contacts) {
   const dict = reverseDict(contacts, [['first_name_he', 'first_name_en'], ['wife_name_he', 'wife_name_en']], COMMON);
-  const clean = String(en || '').replace(/\([^)]*\)/g, ' ').trim();
+  // (Heshy) אין קלאמערן, און איין-אותיות (Daniel J., M.) — נישט אריבערטייטשן
+  const clean = String(en || '').replace(/\([^)]*\)/g, ' ').split(/\s+/).filter((w) => w.replace(/\./g, '').length > 1).join(' ').trim();
   // כמה ווערטער: יעדעס ווארט באזונדער (באקאנט → פון דער ליסטע, נישט באקאנט → תעתיק)
+  // נאר איניציאלן (M, A Y)? — די אות מיט א גרש: מ'
+  if (!clean) return String(en || '').replace(/[^a-z\s]/gi, ' ').split(/\s+/).filter(Boolean).map((w) => `${transliterateEnglish(w).replace(/^א(?=.)/, '').replace(/ם/g, 'מ').replace(/ן/g, 'נ').replace(/ך/g, 'כ').replace(/ף/g, 'פ').replace(/ץ/g, 'צ')}'`).join(' ');
   return lookupEn(clean, dict) || clean.split(/\s+/).map((w) => lookupEn(w, dict) || transliterateEnglish(w)).join(' ');
 }
 
