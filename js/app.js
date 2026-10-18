@@ -363,29 +363,23 @@ function cityStateDatalists() {
     <datalist id="dl-address">${uniq('address').map((v) => `<option value="${h(v)}">`).join('')}</datalist>`;
 }
 
-/** שורת לחצנים של הארגונים בקהילה. ליד "כולל" — בחירה של איזה כולל. */
+/** שורת השייכות בקהילה: ביהמ"ד, כולל, ארגון — כל אחד גלילה (רשימה נפתחת) מלשונית Lists. */
+const ORG_FIELDS = [['beis_medrash', 'orgBeisMedrash'], ['kollel', 'orgKollel'], ['organization', 'orgOrganization']];
+
 function orgRow(c) {
-  const chosen = splitTags(c.organizations);
-  const kollels = splitTags(c.kollel);
-  const orgs = [...new Set([...(state.lists.organization || []), ...chosen])];
-  if (!orgs.length) return '';
   return `<div class="org-row">
-    <span class="org-label">${t('organizations')}</span>
-    ${orgs.map((o) => {
-      const on = chosen.includes(o);
-      const sub = o === KOLLEL ? `<span class="kollel-pick"${on ? '' : ' hidden'}>${t('kollelWhich')}
-        ${[...new Set([...(state.lists.kollel || []), ...kollels])].map((k) => `<label class="check small"><input type="checkbox" name="kollel" value="${h(k)}" ${kollels.includes(k) ? 'checked' : ''}> ${h(k)}</label>`).join('')}
-      </span>` : '';
-      return `<span class="org-item"><label class="check"><input type="checkbox" name="org" value="${h(o)}" ${on ? 'checked' : ''}> ${h(o)}</label>${sub}</span>`;
-    }).join('')}
+    ${ORG_FIELDS.map(([name, label]) => `<label class="org-select">${t(label)}
+      <select name="${name}">${options(state.lists[name], c[name])}</select></label>`).join('')}
   </div>`;
 }
 
-/** ארגונים לתצוגה: "כולל" מוצג עם שם הכולל, למשל "כולל בוקר". */
+/** לתצוגה ברשימה ובכרטיס: "ביהמ"ד מאנסי", "כולל ערב", "כהלכתו". */
 function orgLabels(c) {
-  const kollels = splitTags(c.kollel);
-  return splitTags(c.organizations).flatMap((o) => (o === KOLLEL && kollels.length
-    ? kollels.map((k) => `${o} ${k}`) : [o]));
+  return [
+    String(c.beis_medrash || '').trim(),
+    String(c.kollel || '').trim() ? `${KOLLEL} ${String(c.kollel).trim()}` : '',
+    String(c.organization || '').trim(),
+  ].filter(Boolean);
 }
 
 function openForm(c = {}) {
@@ -577,17 +571,6 @@ function wireForm(form, original) {
   f('area').addEventListener('mousedown', confirmArea);
   if (!f('area').value) suggestArea(); // לאנשי קשר ישנים בלי געגנט — הצעה כשפותחים לעריכה
 
-  // "כולל" מסומן → מציגים את הבחירה של איזה כולל
-  $$('input[name="org"]', form).forEach((cb) => {
-    if (cb.value !== KOLLEL) return;
-    cb.addEventListener('change', () => {
-      const pick = cb.closest('.org-item').querySelector('.kollel-pick');
-      if (!pick) return;
-      pick.hidden = !cb.checked;
-      if (!cb.checked) $$('input[name="kollel"]', pick).forEach((k) => { k.checked = false; });
-    });
-  });
-
   wireAddressAutocomplete(form);
 
   $('#btn-cancel', form).onclick = () => $('#form-dialog').close();
@@ -660,8 +643,9 @@ function collect(form, original) {
     wife_is_alive: !form.elements.wife_deceased.checked,
     wife_in_neshei: form.elements.wife_in_neshei.checked,
     community_tags: readTags(form, 'community_tags'),
-    organizations: joinTags($$('input[name="org"]:checked', form).map((i) => i.value)),
-    kollel: joinTags($$('input[name="kollel"]:checked', form).map((i) => i.value)),
+    beis_medrash: val('beis_medrash'),
+    kollel: val('kollel'),
+    organization: val('organization'),
     address: val('address'),
     city: val('city'),
     state: val('state').toUpperCase(),

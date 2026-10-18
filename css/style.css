@@ -272,7 +272,7 @@ select.suggested { color: var(--muted); font-style: italic; background: var(--ch
 .area-field { font-weight: 500; }
 
 /* ארגונים */
-.org-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.org-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px 14px; margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--line); }
 .org-label { font-size: 13px; color: var(--muted); }
 .org-item { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .kollel-pick { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted);
@@ -280,3 +280,4 @@ select.suggested { color: var(--muted); font-style: italic; background: var(--ch
 .kollel-pick[hidden] { display: none; }
 .check.small { font-size: 13px; color: var(--ink); }
 .badge.org { background: var(--gold-soft); color: var(--ink); }
+.org-select { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
