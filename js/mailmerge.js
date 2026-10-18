@@ -47,7 +47,7 @@ function defaults() {
     rcp: { template: '{mailing}\n{address}\n{city}, {state} {zip}\n{country}', font: 'Georgia', size: 12, bold: true, align: 'left', x: 3.8, y: 1.9 },
     post: { mode: 'stamp', text: 'PRSRT STD\nU.S. POSTAGE\nPAID\nPERMIT #000', size: 7, border: true },
     bg: { opacity: 0.12 },
-    lbl: { size: 10, align: 'left', pad: 0.12, skip: 0 },
+    lbl: { size: 10, align: 'left', pad: 0.12, skip: 0, mode: 'list', text: 'Khal Ungvar\n123 Main Street\nBrooklyn, NY 11219', logo: '' },
     logo_data: '', background_data: '', postage_data: '',
   };
 }
@@ -136,25 +136,40 @@ function postageHtml() {
 }
 
 // ---------- לעיבלס ----------
+/**
+ * לעיבלס: mode 'list' = יעדער לעיבל א נמען פון דער רשימה;
+ * 'same' = דער גאנצער בויגן מיט איין טעקסט (למשל צוריק-אדרעס לעיבלס).
+ * די פאָרויסזיכט ווייזט אלע לעיבלס פונעם בויגן — אויך די ליידיגע.
+ */
 function labelSheetHtml(list, forPrint = false) {
   const L = LABELS.find(([k]) => k === d.format) || LABELS[0];
   const [, , cols, rws, w, hgt, top, left, hgap, vgap] = L;
   const per = cols * rws;
-  const pages = [];
   const skip = Math.max(0, Math.min(per - 1, Number(d.lbl.skip) || 0));
-  const items = [...Array(skip).fill('skip'), ...(list.length ? list : [null])];
+  let items;
+  if (d.lbl.mode === 'same') {
+    const sheets = Math.max(1, Number(d.lbl.sheets) || 1);
+    items = [...Array(skip).fill('skip'), ...Array(per * sheets - skip).fill('same')];
+  } else {
+    items = [...Array(skip).fill('skip'), ...list];
+  }
+  const pages = [];
   for (let i = 0; i < items.length; i += per) pages.push(items.slice(i, i + per));
+  if (!pages.length) pages.push([]);
   if (!forPrint) pages.splice(1);
+  const logo = d.lbl.logo === 'custom' ? d.logo_data : (BUILTIN_LOGOS.find(([k]) => k === d.lbl.logo)?.[1] || '');
+  const cell = (c, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const pos = `left:${left + col * (w + hgap)}in;top:${top + row * (hgt + vgap)}in;width:${w}in;height:${hgt}in`;
+    if (c === 'skip') return `<div class="lbl lbl-used" style="${pos}"></div>`;
+    if (c === undefined) return forPrint ? '' : `<div class="lbl lbl-empty" style="${pos}"></div>`;
+    const txt = c === 'same' ? d.lbl.text : fill(d.rcp.template, c);
+    return `<div class="lbl${logo && c === 'same' ? ' lbl-logo' : ''}" style="${pos};padding:${d.lbl.pad}in;font-family:'${d.rcp.font}';font-size:${d.lbl.size}pt;text-align:${d.lbl.align}">
+      ${logo && c === 'same' ? `<img src="${logo}" alt="">` : ''}<div>${txt.split('\n').map((line, j) => `<div${j === 0 && d.rcp.bold ? ' style="font-weight:700"' : ''}>${h(line)}</div>`).join('')}</div></div>`;
+  };
   return pages.map((page) => `<div class="lbl-sheet${forPrint ? ' env-print' : ''}"${forPrint ? ' style="height:10.98in"' : ''}>
-    ${page.map((c, i) => {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      if (c === 'skip') return `<div class="lbl lbl-used" style="left:${left + col * (w + hgap)}in;top:${top + row * (hgt + vgap)}in;width:${w}in;height:${hgt}in"></div>`;
-      const txt = fill(d.rcp.template, c);
-      return `<div class="lbl" style="left:${left + col * (w + hgap)}in;top:${top + row * (hgt + vgap)}in;width:${w}in;height:${hgt}in;
-        padding:${d.lbl.pad}in;font-family:'${d.rcp.font}';font-size:${d.lbl.size}pt;text-align:${d.lbl.align}">
-        ${txt.split('\n').map((line, j) => `<div${j === 0 && d.rcp.bold ? ' style="font-weight:700"' : ''}>${h(line)}</div>`).join('')}</div>`;
-    }).join('')}
+    ${Array.from({ length: per }, (_, i) => cell(page[i], i)).join('')}
   </div>`).join('');
 }
 
@@ -200,6 +215,17 @@ export function renderMailMerge() {
             <label>${t('mmSize')}<input type="number" data-k="lbl.size" min="5" max="20" value="${d.lbl.size}"></label>
             <label>${t('mmAlign')}<select data-k="lbl.align"><option value="left"${d.lbl.align === 'left' ? ' selected' : ''}>Left</option><option value="center"${d.lbl.align === 'center' ? ' selected' : ''}>Center</option></select></label>
           </div>
+          <label class="mm-l">${t('mmLabelMode')}<select data-k="lbl.mode">
+            <option value="list"${d.lbl.mode !== 'same' ? ' selected' : ''}>${t('mmModeList')}</option>
+            <option value="same"${d.lbl.mode === 'same' ? ' selected' : ''}>${t('mmModeSame')}</option></select></label>
+          ${d.lbl.mode === 'same' ? `<label class="mm-l">${t('mmSameText')}<textarea data-k="lbl.text" rows="4" dir="ltr">${h(d.lbl.text)}</textarea></label>
+            <label class="mm-l">${t('mmLogo')}<select data-k="lbl.logo">
+              <option value=""${!d.lbl.logo ? ' selected' : ''}>${t('mmNone')}</option>
+              <option value="crown"${d.lbl.logo === 'crown' ? ' selected' : ''}>${h(umbrellaName())}</option>
+              <option value="neshei"${d.lbl.logo === 'neshei' ? ' selected' : ''}>${t('nesheiFull')}</option>
+              <option value="custom"${d.lbl.logo === 'custom' ? ' selected' : ''}>${t('mmCustomImage')}</option></select></label>
+            ${d.lbl.logo === 'custom' ? '<input type="file" accept="image/*" data-upload="logo_data">' : ''}
+            <label class="mm-l">${t('mmSheets')}<input type="number" data-k="lbl.sheets" min="1" max="50" value="${d.lbl.sheets || 1}"></label>` : ''}
           <label class="mm-l">${t('mmSkipLabels')}<input type="number" data-k="lbl.skip" min="0" max="79" value="${d.lbl.skip || 0}"></label>
           </details>` : `
         <details open><summary>${t('mmReturn')}</summary>
@@ -241,7 +267,7 @@ export function renderMailMerge() {
           <button type="button" class="btn small-btn" id="mm-next">›</button>
           <span class="spacer"></span>
           ${lbl ? '' : `<span class="muted small">${t('mmDragHint')}</span>`}
-          <button type="button" class="btn primary" id="mm-print">${t('mmPrintAll', { n: rows.length })}</button>
+          <button type="button" class="btn primary" id="mm-print">${t('mmPrintAll', { n: lbl && d.lbl.mode === 'same' ? `${d.lbl.sheets || 1} × ${(LABELS.find(([k]) => k === d.format) || LABELS[0])[2] * (LABELS.find(([k]) => k === d.format) || LABELS[0])[3]}` : rows.length })}</button>
         </div>
         <div class="mm-canvas" id="mm-canvas" dir="ltr">${lbl ? labelSheetHtml(rows) : envelopeHtml(rows[idx])}</div>
       </section>
@@ -311,7 +337,7 @@ function wire(main) {
         d.ret.y = 0.22;
       }
       // וואס טוישט דעם פאנעל — גאנץ פון ניי; אנדערש — נאר די פאָרויסזיכט
-      if (['format', 'list', 'skipNoAddress', 'post.mode', 'ret.logo'].includes(el.dataset.k)) rerender();
+      if (['format', 'list', 'skipNoAddress', 'post.mode', 'ret.logo', 'lbl.mode', 'lbl.logo', 'lbl.sheets'].includes(el.dataset.k)) rerender();
       else refreshPreview();
     };
     el.addEventListener(el.tagName === 'TEXTAREA' || el.type === 'range' || el.type === 'number' ? 'input' : 'change', apply);
@@ -377,7 +403,7 @@ function wireDrag() {
 }
 
 function printAll() {
-  if (!rows.length) { ui.toast(t('mmNoRecords'), 'error'); return; }
+  if (!rows.length && !(isLabel() && d.lbl.mode === 'same')) { ui.toast(t('mmNoRecords'), 'error'); return; }
   const area = $('#mm-print-area');
   let size;
   if (isLabel()) {

@@ -639,3 +639,7 @@ body.solo-mode .tabs, body.solo-mode #scope-bar { display: none !important; }
 
 .lbl.lbl-used { background: repeating-linear-gradient(45deg, #eee, #eee 4px, #fff 4px, #fff 8px); }
 @media print { body.printing-mm .lbl.lbl-used { background: none; } }
+
+.lbl.lbl-empty { outline: 1px dashed #d6d0c6; }
+.lbl.lbl-logo { flex-direction: row; align-items: center; gap: 0.06in; }
+.lbl.lbl-logo img { height: 70%; max-width: 35%; object-fit: contain; }
