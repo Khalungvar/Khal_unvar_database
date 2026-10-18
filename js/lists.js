@@ -13,6 +13,7 @@ import {
 } from './scope.js';
 import { allCampaigns } from './campaigns.js';
 import { downloadXlsx } from './excel.js';
+import { openCompose } from './mail.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -518,6 +519,7 @@ function renderOverview(main) {
         return `<tr data-open="${h(l.list_id)}"><td><b>${l.visibility === 'private' ? '🔒 ' : ''}${h(l.name)}</b></td><td class="num">${evaluate(cr).length}</td>
           <td class="muted small">${h(l.updated_at || '')} · ${h(displayName(l.updated_by))}</td>
           <td class="lo-btns"><button type="button" class="btn small-btn" data-excel="${h(l.list_id)}">Excel</button>
+            <button type="button" class="btn small-btn" data-mail="${h(l.list_id)}">✉</button>
             <button type="button" class="btn small-btn" data-copy="${h(l.list_id)}">${t('lbDuplicate')}</button></td></tr>`;
       }).join('')}</tbody></table>` : `<p class="empty">${t('noSavedLists')}</p>`}
     <h3 class="adm-group-title">${t('readyLists')}</h3>
@@ -525,6 +527,8 @@ function renderOverview(main) {
       <b>${h(t(x.key))}</b><span class="muted small">${h(t('lbCount', { n: evaluate(x.criteria).length }))}</span></button>`).join('')}</div>`;
   $('#lo-new', main).onclick = () => openBuilder();
   main.onclick = (e) => {
+    const ml = e.target.closest('[data-mail]');
+    if (ml) { e.stopPropagation(); openCompose({ listKey: `s:${ml.dataset.mail}` }); return; }
     const ex = e.target.closest('[data-excel]');
     if (ex) {
       e.stopPropagation();

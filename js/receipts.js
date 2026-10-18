@@ -11,6 +11,10 @@ import { effectiveOrg, umbrellaName } from './scope.js';
 import { money, orgSelect } from './donations.js';
 import { allCampaigns } from './campaigns.js';
 import { downloadXlsx } from './excel.js';
+import { emailOf, emailLayout, sendJobs } from './mail.js';
+import { ensureGmailScope, hasGmailScope } from './google.js';
+import { htmlToJpeg, jpegsToPdf } from './pdf.js';
+import { savedInScope, parseSaved, evaluate } from './lists.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -86,7 +90,11 @@ export function renderReceipts() {
   }
   const det = orgDetailsOf(f.org);
   const missing = !det || !det.legal_name || !det.address;
-  const list = candidates().map((c) => ({ ...c, issued: findIssued(c.kind, c.org, c.ids, c.period, c.contact_id || c.donor_name) }));
+  const whoSet = whoFilter();
+  const list = candidates().filter((c) => !whoSet || whoSet.has(String(c.contact_id)))
+    .map((c) => ({ ...c, issued: findIssued(c.kind, c.org, c.ids, c.period, c.contact_id || c.donor_name) }));
+  const whoC = f.whoC ? ui.contactById(f.whoC) : null;
+  const lists = savedInScope();
   const shown = f.onlyNew && f.kind !== 'invoice' ? list.filter((c) => !c.issued) : list;
   const years = [...new Set(state.donations.map((d) => paidDate(d).slice(0, 4)).filter(Boolean).concat(String(new Date().getFullYear())))].sort().reverse();
   const camps = allCampaigns().filter((c) => c.list.length);
@@ -100,6 +108,11 @@ export function renderReceipts() {
         : `<label>${h(t('forOrg'))} <select id="rc-org">${orgs.map((o) => `<option${o === f.org ? ' selected' : ''}>${h(o)}</option>`).join('')}</select></label>`}
       ${f.kind === 'receipt' ? `<label>${h(t('rcFrom'))} <input type="date" id="rc-from" value="${h(f.from)}"></label><label>${h(t('rcTo'))} <input type="date" id="rc-to" value="${h(f.to)}"></label>` : ''}
       ${f.kind === 'year' ? `<label>${h(t('rcTaxYear'))} <select id="rc-year">${years.map((y) => `<option${y === f.year ? ' selected' : ''}>${y}</option>`).join('')}</select></label>` : ''}
+      <span class="rc-who">${h(t('rcWho'))}
+        <input id="rc-who-c" list="dl-rc-contacts" autocomplete="off" placeholder="${h(t('rcWhoPh'))}" value="${whoC ? h(ui.pickerLabel(whoC)) : ''}">
+        <datalist id="dl-rc-contacts">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>
+        <select id="rc-who-l"><option value="">${h(t('rcWhoAll'))}</option>${lists.map((l) => `<option value="${h(l.list_id)}"${String(l.list_id) === String(f.whoL || '') ? ' selected' : ''}>📋 ${h(l.name)}</option>`).join('')}</select>
+        ${f.whoC || f.whoL ? `<button type="button" class="linkish" id="rc-who-x">✕</button>` : ''}</span>
       ${f.kind !== 'year' ? `<label class="rc-for">${h(t('rcForLabel'))} <input id="rc-for" value="${h(f.forText || '')}" placeholder="${h(t('rcForPh'))}" dir="rtl"></label>` : ''}
       ${f.kind !== 'invoice' ? `<label class="check"><input type="checkbox" id="rc-onlynew"${f.onlyNew ? ' checked' : ''}> ${h(t('rcOnlyNew'))}</label>` : ''}
     </div>
@@ -112,6 +125,7 @@ export function renderReceipts() {
       <span class="spacer"></span>
       <button type="button" class="btn" id="rc-sample">👁 ${h(t('rcPreview'))}</button>
       <button type="button" class="btn" id="rc-xl">Excel</button>
+      <button type="button" class="btn" id="rc-mail" disabled>✉ ${h(t('rcMailBtn'))}</button>
       <button type="button" class="btn primary" id="rc-print" disabled>🖨 ${h(t('rcPrint'))}</button>
     </div>
     ${shown.length ? `<table class="lapsed-table rc-table"><thead><tr><th></th><th>${h(t('xlDonor'))}</th><th>${h(t('rcWhat'))}</th><th>${h(t('xlAmount'))}</th><th>${h(t('rcNumber'))}</th></tr></thead>
@@ -130,6 +144,15 @@ export function renderReceipts() {
   $('#rc-from', main)?.addEventListener('change', (e) => { f.from = e.target.value; rerender(); });
   $('#rc-to', main)?.addEventListener('change', (e) => { f.to = e.target.value; rerender(); });
   $('#rc-year', main)?.addEventListener('change', (e) => { f.year = e.target.value; rerender(); });
+  $('#rc-who-c', main).addEventListener('change', (e) => {
+    const v = e.target.value.trim();
+    const c = state.contacts.find((x) => ui.pickerLabel(x) === v);
+    if (v && !c) { ui.toast(t('rcWhoNotFound'), 'error'); return; }
+    f.whoC = c ? String(c.contact_id) : ''; f.whoL = '';
+    rerender();
+  });
+  $('#rc-who-l', main).addEventListener('change', (e) => { f.whoL = e.target.value; f.whoC = ''; rerender(); });
+  $('#rc-who-x', main)?.addEventListener('click', () => { f.whoC = ''; f.whoL = ''; rerender(); });
   $('#rc-for', main)?.addEventListener('input', (e) => { f.forText = e.target.value; });
   $('#rc-onlynew', main)?.addEventListener('change', (e) => { f.onlyNew = e.target.checked; rerender(); });
   if (!missing && f.kind !== 'invoice' && f.org) wireLetterPanel(main, f.org, rerender);
@@ -144,6 +167,7 @@ export function renderReceipts() {
     const n = picked().length;
     $('#rc-count', main).textContent = n ? t('rcPicked', { n }) : '';
     $('#rc-print', main).disabled = !n || missing;
+    $('#rc-mail', main).disabled = !n || missing;
   };
   main.addEventListener('change', (e) => { if (e.target.classList?.contains('rc-pick')) sync(); });
   $('#rc-all', main).onchange = (e) => { $$('.rc-pick', main).forEach((x) => { x.checked = e.target.checked; }); sync(); };
@@ -169,8 +193,103 @@ export function renderReceipts() {
       btn.disabled = false;
     }
   };
+  $('#rc-mail', main).onclick = () => {
+    const docs = picked();
+    if (!docs.length) return;
+    const withMail = docs.filter((d) => emailOf(ui.contactById(d.contact_id)));
+    if (!withMail.length) { ui.toast(t('rcMailNone'), 'error'); return; }
+    if (!confirm(t('rcMailConfirm', { n: withMail.length, m: docs.length - withMail.length }))) return;
+    const btn = $('#rc-mail', main);
+    const forText = f.kind !== 'year' ? String(f.forText || '').trim() : '';
+    withGmail(async () => {
+      btn.disabled = true;
+      try {
+        if (f.kind !== 'invoice') await rememberLetter(f.org);
+        const issued = await issueDocs(withMail.map((d) => ({ kind: d.kind, org: d.org, contact_id: d.contact_id, donor_name: d.donor_name, ids: d.ids, amount: d.amount, period: d.period })));
+        const full = issued.map((x, i) => ({ ...withMail[i], receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint, forText }));
+        const r = await mailDocs(full.map((c) => ({ c, to: emailOf(ui.contactById(c.contact_id)) })), (done, total) => { btn.textContent = `✉ ${done}/${total}`; });
+        ui.toast(t('mailDone', { n: r.done - r.errors, errors: r.errors }), r.errors ? 'error' : '');
+        await loadAll();
+        rerender();
+      } catch (err) {
+        ui.toast(ui.friendlyError(err), 'error');
+        btn.disabled = false;
+        btn.textContent = `✉ ${t('rcMailBtn')}`;
+      }
+    });
+  };
   wireLog(main);
   sync();
+}
+
+// ---------- שיקן אין אימעיל: א שיינער בריוו + די קבלה אלס PDF ----------
+/** די הרשאה פון Gmail מוז מען בעטן גלייך ביים קליק (אנדערש בלאקירט דער בלעטערער דאס פענצטערל). */
+function withGmail(fn) {
+  const p = hasGmailScope() ? Promise.resolve() : ensureGmailScope();
+  p.then(fn, (err) => ui.toast(ui.friendlyError(err), 'error'));
+}
+
+/** פרעגט צו וועמען (מיט דעם אדרעס פונעם קאנטאקט, אויב דא). '' = אפגעזאגט */
+function askAddress(contactId) {
+  const ans = window.prompt(t('rcMailTo'), emailOf(ui.contactById(contactId)));
+  if (ans === null) return '';
+  const e = ans.trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { ui.toast(t('rcMailBad'), 'error'); return ''; }
+  return e;
+}
+
+export async function receiptPdf(c) {
+  const page = await htmlToJpeg(docHtml(c));
+  const bytes = jpegsToPdf([page]);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+function mailContent(c) {
+  const L = letterParts(c);
+  const no = c.receipt_no;
+  const kindEn = { receipt: 'Receipt', invoice: 'Invoice', year: `Year-End Statement ${c.period}`, campaign: 'Receipt' }[c.kind];
+  const subject = `${L.he || L.legal} · ${kindEn} #${no}`;
+  const row = (k, v) => `<tr><td style="padding:4px 10px;color:#6b5a3a;font-size:14px;text-align:left;direction:ltr;width:110px">${k}</td><td style="padding:4px 10px;font-weight:bold;text-align:left" dir="auto">${v}</td></tr>`;
+  const html = `<div style="color:#555;font-size:14px;margin-bottom:8px">${h(L.heDate)}</div>
+    <div style="font-weight:bold;margin-bottom:8px">${h(L.salLine)}</div>
+    ${para(L.body).replace(/<p>/g, '<p style="margin:0 0 12px;text-align:justify">')}
+    <div style="margin-top:14px">${h(L.closing)}</div>
+    ${L.sigText ? `<div style="font-family:${L.sigFont};font-size:26px;color:#1f2a5a">${h(L.sigText)}</div>` : ''}
+    <div>${h(L.signer)}</div>
+    <table role="presentation" style="margin:18px 0 6px;background:#fbf5e6;border:1px solid #e3d3ad;border-radius:8px;width:100%" dir="ltr">
+      ${row(c.kind === 'invoice' ? 'Amount due' : 'Amount', `<span style="color:#7a1219;font-size:18px">${money(c.amount)}</span>`)}
+      ${row(c.kind === 'invoice' ? 'Invoice #' : 'Receipt #', h(no))}
+      ${row('For', h(c.forText || forWhat(c)))}
+    </table>
+    <p style="font-size:13px;color:#6b5a3a;margin:6px 0 0">📎 ${h(t('rcMailAttached'))}</p>`;
+  const text = [L.heDate, L.salLine, L.body, L.closing, L.sigText, L.signer, '', `${kindEn} #${no}: ${money(c.amount)}`].filter((x) => x != null).join('\n\n');
+  return { subject, html, text, banner: L.banner, fromName: L.he || L.legal };
+}
+
+/** items = [{ c, to }] — יעדע קבלה צו איר אדרעס */
+async function mailDocs(items, onProgress = () => {}) {
+  const jobs = [];
+  for (const { c, to } of items) {
+    const m = mailContent(c);
+    const b64 = await receiptPdf(c);
+    const { html, inline } = emailLayout(c.org, m.html, [], '', { banner: m.banner });
+    jobs.push({ to, contact_id: c.contact_id, subject: m.subject, html, text: m.text, inline, kind: c.kind, org: c.org, fromName: m.fromName,
+      attachments: [{ name: `${c.receipt_no}.pdf`, mime: 'application/pdf', b64 }] });
+  }
+  return sendJobs(jobs, { onProgress, fromName: jobs[0]?.fromName || '' });
+}
+
+/** "פאר וועמען": איין קאנטאקט אדער א רשימה → א סעט פון contact_id (null = אלע) */
+function whoFilter() {
+  if (f.whoC) return new Set([String(f.whoC)]);
+  if (f.whoL) {
+    const l = state.savedLists.find((x) => String(x.list_id) === String(f.whoL));
+    if (!l) return null;
+    return new Set(evaluate(parseSaved(l).cr).map((r) => String(r.c.contact_id)));
+  }
+  return null;
 }
 
 function donorLabel(c) {
@@ -201,17 +320,36 @@ function issuedLogHtml() {
       <td>${h(r.contact_id ? (ui.contactById(r.contact_id) ? ui.fullNameHe(ui.contactById(r.contact_id)) : `#${r.contact_id}`) : r.donor_name)}</td>
       <td class="num" dir="ltr">${money(r.amount)}</td><td class="small muted" dir="ltr">${h(r.issued_at)}</td>
       <td>${isTrue(r.void) ? h(t('rcVoided')) : `<button type="button" class="btn small-btn" data-reprint="${h(r.receipt_no)}">🖨</button>
+        <button type="button" class="btn small-btn" data-remail="${h(r.receipt_no)}" title="${h(t('rcMailBtn'))}">✉</button>
         ${state.isAdmin ? `<button type="button" class="linkish" data-void="${h(r.receipt_no)}">${h(t('rcVoid'))}</button>` : ''}`}</td></tr>`).join('')}</tbody></table></details>`;
+}
+
+function fromLog(no) {
+  const r = state.receipts.find((x) => x.receipt_no === no);
+  const ids = String(r.donation_ids || '').split(',').filter(Boolean);
+  const list = ids.map((id) => state.donations.find((d) => String(d.donation_id) === id)).filter(Boolean);
+  if (!list.length) { ui.toast(t('rcGone'), 'error'); return null; }
+  return { kind: r.kind, org: r.org, contact_id: r.contact_id, donor_name: r.donor_name, ids, amount: Number(r.amount), period: r.period, list, receipt_no: r.receipt_no, issued_at: r.issued_at, reprint: true };
 }
 
 function wireLog(main) {
   main.querySelectorAll('[data-reprint]').forEach((b) => {
+    b.onclick = () => { const c = fromLog(b.dataset.reprint); if (c) printDocs([c]); };
+  });
+  main.querySelectorAll('[data-remail]').forEach((b) => {
     b.onclick = () => {
-      const r = state.receipts.find((x) => x.receipt_no === b.dataset.reprint);
-      const ids = String(r.donation_ids || '').split(',').filter(Boolean);
-      const list = ids.map((id) => state.donations.find((d) => String(d.donation_id) === id)).filter(Boolean);
-      if (!list.length) { ui.toast(t('rcGone'), 'error'); return; }
-      printDocs([{ kind: r.kind, org: r.org, contact_id: r.contact_id, donor_name: r.donor_name, ids, amount: Number(r.amount), period: r.period, list, receipt_no: r.receipt_no, issued_at: r.issued_at, reprint: true }]);
+      const c = fromLog(b.dataset.remail);
+      if (!c) return;
+      const to = askAddress(c.contact_id);
+      if (!to) return;
+      withGmail(async () => {
+        b.disabled = true; b.textContent = '…';
+        try {
+          const r = await mailDocs([{ c: { ...c, reprint: false }, to }]);
+          ui.toast(r.errors ? t('mailFailed') : t('rcMailSent', { to }), r.errors ? 'error' : '');
+        } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+        b.disabled = false; b.textContent = '✉';
+      });
     };
   });
   main.querySelectorAll('[data-void]').forEach((b) => {
@@ -309,7 +447,7 @@ function payBoxes(c) {
   return `${box(cash, 'Cash')}${box(cc, 'CC')}${box(check, `Check${nums.length ? ` #${nums.join(', #')}` : ''}`)}`;
 }
 
-function docHtml(c) {
+function letterParts(c) {
   const det = { ...(orgDetailsOf(c.org) || {}), ...(letterState[c.org] || {}) };
   // אלע ארגונים אין אמעריקע זענען אונטער דעם EIN פון קהל אונגוואר (דער כלל-ארגון) — ווען א ארגון האט נישט קיין אייגענעם
   const um = orgDetailsOf(umbrellaName()) || {};
@@ -340,6 +478,13 @@ function docHtml(c) {
   const taxLine = isInv ? `Please make checks payable to ${legal}.`
     : String(det.tax_text || TAX_DEFAULT).replace(/\{NAME\}/g, taxEntity).replace(/\{EIN\}/g, ein || '—')
       .replace('this contribution', multi ? 'these contributions' : 'this contribution');
+  const sigText = det.signature_text || '';
+  return { det, ein, taxEntity, ct, name, addr, banner, sig, logo, legal, he, isInv, heDate, salLine, body, multi, title, taxLine,
+    closing: det.letter_closing || DEFAULTS.letter_closing, signer: det.signer_he || DEFAULTS.signer_he, sigText, sigFont: sigFont(det.signature_font) };
+}
+
+function docHtml(c) {
+  const { det, ein, name, addr, banner, sig, logo, legal, he, isInv, heDate, salLine, body, multi, title, taxLine } = letterParts(c);
   return `<section class="rc-doc">
     ${banner ? `<div class="rd-banner"><img src="${banner}" alt=""></div>`
       : `<div class="rd-band">${logo ? `<img src="${logo}" alt="">` : ''}<div>${he ? `<div class="rd-band-he" dir="rtl">${h(he)}</div>` : ''}<div class="rd-band-en">${h(legal)}</div></div></div>`}
@@ -401,7 +546,7 @@ export function printDocs(docs) {
 }
 
 /** פון דער נדבה: א קבלה (באצאלט) אדער Invoice (נישט באצאלט) — גלייך דרוקן. */
-export async function printForDonation(d) {
+export async function printForDonation(d, mode = 'print') {
   const org = effectiveOrg(d);
   if (!org) { ui.toast(t('rcNoOrg'), 'error'); return; }
   const det = orgDetailsOf(org);
@@ -413,6 +558,19 @@ export async function printForDonation(d) {
   if (ans === null) return;
   const forText = ans.trim() === def ? '' : ans.trim();
   const base = { kind, org, contact_id: d.contact_id || '', donor_name: d.contact_id ? '' : String(d.donor_name || ''), ids: [String(d.donation_id)], amount: Number(d.amount_usd || 0), period: '' };
+  if (mode === 'mail') {
+    const to = askAddress(d.contact_id);
+    if (!to) return;
+    withGmail(async () => {
+      try {
+        const [x] = await issueDocs([base]);
+        const r = await mailDocs([{ c: { ...base, list: [d], receipt_no: x.receipt_no, issued_at: x.issued_at, forText }, to }]);
+        ui.toast(r.errors ? t('mailFailed') : t('rcMailSent', { to }), r.errors ? 'error' : '');
+        await loadAll();
+      } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+    });
+    return;
+  }
   try {
     const [x] = await issueDocs([base]);
     printDocs([{ ...base, list: [d], receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint, forText }]);

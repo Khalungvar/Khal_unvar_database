@@ -102,19 +102,21 @@ function personalize(text, c) {
  * דער אימעיל אין א שיינעם ראם: באנער (אדער לאגא + נאמען), דער טעקסט, בילדער, און אונטן די פרטים פונעם ארגון.
  * גיט צוריק { html, inline } — די בילדער גייען מיט אלס "cid" (Gmail ווייזט נישט קיין data: בילדער).
  */
-export function emailLayout(org, bodyHtml, photos = [], extraTopHtml = '') {
+export function emailLayout(org, bodyHtml, photos = [], extraTopHtml = '', opts = {}) {
   const det = orgDetailsOf(org) || {};
-  const banner = [det.header_img, det.header_img_2, det.header_img_3].map((x) => String(x || '')).join('');
+  const banner = opts.banner || [det.header_img, det.header_img_2, det.header_img_3].map((x) => String(x || '')).join('');
   const logo = orgLogo(org);
   const he = det.org_name_he || org || '';
   const inline = [];
   if (banner) inline.push({ cid: 'banner', dataUrl: banner });
   else if (logo && logo.startsWith('data:')) inline.push({ cid: 'logo', dataUrl: logo });
   photos.forEach((p, i) => inline.push({ cid: `photo${i + 1}`, dataUrl: p }));
+  // א לאגא פונעם וועבזייטל (נישט data:) — א פולער לינק, אזוי זעט מען אים אינעם אימעיל
+  const logoSrc = inline.some((x) => x.cid === 'logo') ? 'cid:logo' : (!banner && logo ? new URL(logo, location.href).href : '');
   const head = banner
     ? `<img src="cid:banner" alt="${h(he)}" style="display:block;width:100%;max-width:640px;border-radius:10px 10px 0 0">`
     : `<table role="presentation" width="100%" style="background:#7a1219;border-radius:10px 10px 0 0"><tr>
-        ${inline.some((x) => x.cid === 'logo') ? '<td style="padding:12px 16px;width:72px"><img src="cid:logo" width="64" height="64" style="background:#fffaf0;border-radius:8px;padding:3px" alt=""></td>' : ''}
+        ${logoSrc ? `<td style="padding:12px 16px;width:72px"><img src="${logoSrc}" width="64" height="64" style="background:#fffaf0;border-radius:8px;padding:3px" alt=""></td>` : ''}
         <td style="padding:14px 16px;color:#f6e7c1;font:bold 22px Arial,sans-serif" dir="rtl">${h(he)}</td></tr></table>`;
   const gallery = photos.length ? `<table role="presentation" width="100%" style="margin-top:6px">${photos.map((p, i) => (i % 2 === 0 ? '<tr>' : '')
     + `<td style="padding:4px;width:50%;vertical-align:top"><img src="cid:photo${i + 1}" style="display:block;width:100%;border-radius:8px" alt=""></td>`
@@ -191,12 +193,12 @@ export function openCompose(opts = {}) {
   const form = $('#mail-form');
   const st = {
     org: opts.org || umbrellaName(), photos: [], files: [], sending: false, cancel: false,
-    contacts: opts.contacts || null, listKey: opts.contacts ? 'given' : '',
+    contacts: opts.contacts || null, listKey: opts.contacts?.length ? 'given' : (opts.listKey || ''),
   };
   const listOptions = () => {
     const saved = savedInScope().map((l) => [`s:${l.list_id}`, `📋 ${l.name}`]);
     const tpl = templates().map((x, i) => [`t:${i}`, `✦ ${t(x.key)}`]);
-    return [...(opts.contacts ? [['given', opts.title || t('mailGiven', { n: opts.contacts.length })]] : []), ...saved, ...tpl];
+    return [...(opts.contacts?.length ? [['given', opts.title || t('mailGiven', { n: opts.contacts.length })]] : []), ...saved, ...tpl];
   };
   const recipients = () => {
     let list = st.contacts || [];
@@ -230,7 +232,7 @@ export function openCompose(opts = {}) {
         <p class="ml-count" id="ml-count"></p>
         <label>${h(t('mailSubject'))}<input id="ml-subject" dir="auto" value="${h(opts.subject || '')}"></label>
         <label>${h(t('mailBody'))}<textarea id="ml-body" rows="9" dir="rtl" placeholder="${h(t('mailBodyPh'))}">${h(opts.body || '')}</textarea></label>
-        <p class="hint-line">${h(t('mailTokens'))}</p>
+        <p class="hint-line">${h(t('mailTokens', { name: '{name}' }))}</p>
         <div class="ml-files">
           <label class="btn small-btn">🖼 ${h(t('mailAddPhotos'))}<input type="file" id="ml-photos" accept="image/*" multiple hidden></label>
           <label class="btn small-btn">📎 ${h(t('mailAddFiles'))}<input type="file" id="ml-files" multiple hidden></label>

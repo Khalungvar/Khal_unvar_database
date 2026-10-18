@@ -24,6 +24,7 @@ import { initReceipts, renderReceipts, openReceipts, printForDonation, openOrgDe
 import { initLists, renderListsSide, renderBuilder, openOverview, exportContacts } from './lists.js';
 import { initAdmin, renderAdmin, adminDirty } from './admin.js';
 import { initMailMerge, renderMailMerge, openMailMerge } from './mailmerge.js';
+import { initMail, openCompose, emailOf } from './mail.js';
 import {
   initPersonal, renderPersonal, openPersonal, unreadCount, tasksDueCount, openTaskForContact,
 } from './personal.js';
@@ -640,6 +641,8 @@ function openCard(id, tab = null) {
   $$('#card-body .card-tabs button').forEach((b) => { b.onclick = () => showTab(b.dataset.tab); });
   showTab(cardTab);
   $('#card-task').onclick = () => openTaskForContact(c);
+  $('#card-mail').hidden = !emailOf(c);
+  $('#card-mail').onclick = () => openCompose({ contacts: [c], title: fullNameHe(c), kind: 'personal' });
   $('#card-delete').hidden = !state.isAdmin;
   $('#card-delete').onclick = async () => {
     const id = String(c.contact_id);
@@ -1566,8 +1569,9 @@ function start() {
   });
   initCampaigns({ showView, tagPicker, wireTagPicker, readTags, toast, friendlyError, refreshAll, openCard });
   initAdmin({ toast, friendlyError, refreshAll, openOrgDetails });
-  initReceipts({ showView, toast, friendlyError, contactById, fullNameHe, refreshAdmin: () => renderAdmin() });
+  initReceipts({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, refreshAdmin: () => renderAdmin() });
   initMailMerge({ showView, fullNameHe, toast, friendlyError });
+  initMail({ toast, friendlyError });
   initPersonal({ showView, fullNameHe, openCard, contactById, toast, friendlyError, updateBadges });
   $('#btn-personal').onclick = () => { document.body.classList.add('solo-mode'); openPersonal(); };
   initLists({ showView, fullNameHe, phonesOf, contactById, pickerLabel, openCard, toast, friendlyError, refreshAll });

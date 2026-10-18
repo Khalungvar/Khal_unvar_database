@@ -1007,3 +1007,23 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 .lt-sigtext { font-size: 24px !important; min-width: 260px; text-align: center; color: #1b2f6b; }
 .rd-sigtext { font-size: 22pt; line-height: 1.1; color: #1b2f6b; margin-bottom: 2px; }
 .danger-text { color: var(--danger) !important; }
+/* אימעיל */
+#mail-dialog .ml-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 800px) { #mail-dialog .ml-layout { grid-template-columns: 1fr; } }
+.ml-fields { display: flex; flex-direction: column; gap: 8px; }
+.ml-fields label { display: flex; flex-direction: column; gap: 3px; }
+.ml-fields input, .ml-fields select, .ml-fields textarea { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.ml-from { margin: 0; }
+.ml-count { margin: 0; }
+.ml-files { display: flex; gap: 8px; flex-wrap: wrap; }
+.ml-attached { display: flex; gap: 6px; flex-wrap: wrap; }
+.ml-chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 8px; padding: 3px 6px; background: var(--surface); }
+.ml-chip img { width: 46px; height: 34px; object-fit: cover; border-radius: 4px; }
+.ml-preview { display: flex; flex-direction: column; min-height: 420px; }
+.ml-preview iframe { flex: 1; width: 100%; min-height: 420px; border: 1px solid var(--line); border-radius: 10px; background: #f4ede0; }
+.ml-progress { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.ml-bar { flex: 1; height: 10px; background: var(--line); border-radius: 6px; overflow: hidden; }
+.ml-bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.warn-text { color: #b45309; }
+.rc-who { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.rc-who input { min-width: 180px; }
