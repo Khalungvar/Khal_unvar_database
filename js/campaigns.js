@@ -12,6 +12,7 @@ import {
   money, orgSelect, donorName, donationRow, openDonationForm, openBulk, exportDonations,
 } from './donations.js';
 import { donationInScope } from './scope.js';
+import { compareChartHtml, wireCompareChart, yearBarsHtml, compareToDate, deltaHtml } from './chart.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -157,9 +158,9 @@ function campCard(g) {
     <b class="hc-total">${money(c.total)}</b>
     <span class="hc-bar" title="${h(c.goal ? t('goalOf', { goal: money(c.goal) }) : t('paid'))} ${pct}%"><span style="width:${pct}%"></span></span>
     <span class="hc-sub muted small">${h(t('campaignDonors'))}: ${c.donors}${c.goal ? ` · ${h(t('goalOf', { goal: money(c.goal) }))}` : ''}${c.open ? ` · <span class="unpaid-text">${h(t('unpaid'))} ${money(c.open)}</span>` : ''}</span>
-    ${prev ? `<span class="hc-sub muted small">${h(t('lastYear'))} (${h(prev.year)}): ${money(prev.total)}</span>` : ''}
+    ${prev ? `<span class="hc-sub small">${h(t('cmpVsLast'))}: ${deltaHtml(compareToDate(c, prev), { short: true })}</span>` : ''}
     ${org ? `<span class="badge org mini">${h(org)}</span>` : (isY ? `<span class="muted small warn-text">⚠ ${h(t('noOrgYet'))}</span>` : '')}
-    ${g.years.length > 1 || isY ? `<button type="button" class="linkish small" data-goto-series="${h(g.series)}">${h(isY ? t('allYearsLink') : t('hubYears', { n: g.years.length }))} ←</button>` : ''}
+    ${g.years.length > 1 || isY ? `<button type="button" class="btn small-btn hc-years" data-goto-series="${h(g.series)}">${h(isY ? t('allYearsLink') : t('hubYears', { n: g.years.length }))} ←</button>` : ''}
   </div>`;
 }
 
@@ -253,7 +254,7 @@ function renderSeries(main) {
   const max = Math.max(1, ...s.years.map((c) => Math.max(c.total, c.goal || 0)));
   const next = yearLabel(yearFromLabel(curYear()) + 1);
   const hasNext = s.years.some((c) => c.year === next);
-  main.innerHTML = `<button type="button" class="linkish solo-only hub-back" data-hub>${h(t('hubBack'))}</button>
+  main.innerHTML = `<button type="button" class="btn nav-btn solo-only hub-back" data-hub>${h(t('hubBack'))}</button>
     <div class="camp-page-head">
       <div><h2>${isY ? '🔁 ' : ''}${h(s.series)}</h2>
         <p class="muted">${h(isY ? t('seriesYearlyHint') : t('seriesHint'))}
@@ -265,6 +266,7 @@ function renderSeries(main) {
       ${isY ? `<button type="button" class="btn" id="series-settings">${h(t('campaignSettings'))}</button>` : ''}
       ${isY && !hasNext ? `<button type="button" class="btn" id="series-prepare">${h(t('prepareYear', { year: next }))}</button>` : ''}
     </div>
+    ${yearBarsHtml(s.years)}
     <table class="series-table">
       <thead><tr><th>${t('eventYear')}</th><th>${t('donTotal')}</th><th></th><th>${t('campaignDonors')}</th><th>${t('paid')}</th><th>${t('unpaid')}</th><th>${t('goal')}</th><th>${t('forOrg')}</th></tr></thead>
       <tbody>${s.years.map((c) => `<tr data-goto-campaign="${h(c.name)}"${c.year === curYear() ? ' class="this-year"' : ''}>
@@ -300,12 +302,13 @@ function renderCampaign(main) {
   const list = c.list.slice()
     .sort((a, b) => Number(b.amount_usd || 0) - Number(a.amount_usd || 0) || donorName(a).localeCompare(donorName(b), 'he'));
   const isY = c.kind === 'yearly';
-  const others = allCampaigns().filter((x) => x.series === c.series);
+  const prevYear = isY ? allCampaigns().find((x) => x.kind === 'yearly' && x.series === c.series
+    && yearFromLabel(x.year) === yearFromLabel(c.year) - 1) || null : null;
   const pct = c.goal ? Math.round((c.total / c.goal) * 100) : 0;
-  main.innerHTML = `<button type="button" class="linkish solo-only hub-back" data-hub>${h(t('hubBack'))}</button>
+  main.innerHTML = `<button type="button" class="btn nav-btn solo-only hub-back" data-hub>${h(t('hubBack'))}</button>
     <div class="camp-page-head">
       <div>
-        ${isY || others.length > 1 ? `<button type="button" class="linkish" data-goto-series="${h(c.series)}">← ${h(t('allYearsOf', { name: c.series }))}</button>` : ''}
+        <button type="button" class="btn nav-btn" data-goto-series="${h(c.series)}">→ ${h(t('allYearsOf', { name: c.series }))}</button>
         <h2>${isY ? '🔁 ' : ''}${h(c.name)}</h2>
         <p class="muted">${splitTags(c.event_tags).map((x) => `<span class="chip">${h(x)}</span>`).join(' ')}
           ${c.org ? `<span class="badge org">${h(c.org)}</span>` : (isY ? `<span class="warn-text">⚠ ${h(t('noOrgYet'))}</span>` : '')} ${c.note ? `· ${h(c.note)}` : ''}</p>
@@ -323,7 +326,9 @@ function renderCampaign(main) {
       <div><span>${t('paid')}</span><b>${money(c.total - c.open)}</b></div>
       <div><span>${t('unpaid')}</span><b class="${c.open ? 'unpaid-text' : ''}">${money(c.open)}</b></div>
     </div>
+    ${isY ? compareChartHtml(c, prevYear) : ''}
     <div class="list">${list.map((d) => donationRow(d)).join('') || `<p class="empty">${h(t('noDonationsYet'))}</p>`}</div>`;
+  if (isY) wireCompareChart(main, c, prevYear);
   $('#camp-add-more', main).onclick = () => openBulk({ campaign: c.name });
   $('#camp-add-one', main).onclick = () => openDonationForm({ campaign: c.name });
   $('#camp-xl', main).onclick = () => exportDonations(c.name, list);
