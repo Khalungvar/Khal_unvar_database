@@ -156,6 +156,14 @@ export function appendRows(tab, rows) {
   );
 }
 
+/** כותב טווח שלם, למשל 'Lists!R2:R40' עם [[v],[v]...]. */
+export function updateRange(range, values) {
+  return authFetch(
+    `${SHEETS}/values/${enc(range)}?valueInputOption=RAW`,
+    { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values }) },
+  );
+}
+
 /** מעדכן תא אחד, למשל 'Lists!H13'. */
 export function updateCell(a1, value) {
   return authFetch(

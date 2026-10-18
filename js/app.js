@@ -20,6 +20,7 @@ import {
 import {
   initCampaigns, renderCampaignSide, renderCampaignMain, showCampaign,
 } from './campaigns.js';
+import { initAdmin, renderAdmin, adminDirty } from './admin.js';
 import {
   getScope, setScope, restoreScope, withFormer, setWithFormer, contactInScope, donationInScope,
 } from './scope.js';
@@ -99,17 +100,22 @@ function refreshAll() {
   renderOccasions();
   renderOrgs();
   renderCampaignSide();
+  $('#side-admin').hidden = !state.isAdmin;
   if (!$('.view[data-view="campaign"]').hidden) renderCampaignMain();
   if ($('#card-dialog').open && currentCardId) openCard(currentCardId);
 }
 
 function showView(name) {
+  const leavingAdmin = !$('.view[data-view="admin"]').hidden && name !== 'admin';
+  if (leavingAdmin && adminDirty() && !confirm(t('discardChanges'))) return;
   document.body.classList.remove('menu-open');
   $$('.view').forEach((v) => { v.hidden = v.dataset.view !== name; });
   $$('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === name));
   if (name === 'donations') { fillDonationFilters(); renderDonations(); }
   if (name === 'occasions') { fillOccasionFilters(); renderOccasions(); }
   if (name === 'campaign') renderCampaignMain();
+  if (name === 'admin') renderAdmin();
+  $('#btn-admin')?.classList.toggle('on', name === 'admin');
   renderCampaignSide();
 }
 
@@ -1205,6 +1211,8 @@ function start() {
     openCampaignPage: (name) => showCampaign(name),
   });
   initCampaigns({ showView, tagPicker, wireTagPicker, readTags, toast, friendlyError, refreshAll });
+  initAdmin({ toast, friendlyError, refreshAll });
+  $('#btn-admin').onclick = () => showView('admin');
   closeOnBackdrop($('#form-dialog'), closeForm);
   $('#form-dialog').addEventListener('cancel', (e) => { e.preventDefault(); closeForm(); }); // מקש Esc
 

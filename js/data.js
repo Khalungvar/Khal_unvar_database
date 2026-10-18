@@ -1,6 +1,6 @@
 // שכבת הנתונים: מתרגמת בין שורות בגליון לבין אובייקטים, לפי שמות העמודות בשורה 1.
 // ככה הוספה או הזזה של עמודה בגליון לא שוברת את התוכנה.
-import { readTabs, readColumn, appendRow, appendRows, updateRow, updateCell } from './google.js';
+import { readTabs, readColumn, appendRow, appendRows, updateRow, updateCell, updateRange } from './google.js';
 import { CONFIG } from './config.js';
 import { nowStamp } from './util.js';
 import { t } from './i18n.js';
@@ -47,6 +47,7 @@ function parseLists(rows) {
   });
   const lists = {};
   for (const [h, values] of Object.entries(cols)) lists[h] = values.filter(Boolean);
+  state.rawLists = cols;
 
   // טבלאות התאמה: השורה ה-i בעמודה אחת מתאימה לשורה ה-i בעמודה השנייה
   const pair = (a, b) => {
@@ -102,6 +103,7 @@ export async function loadAll() {
 
   const settings = rowsToObjects(tabs.Settings).objects;
   const admins = settings.map((s) => String(s.admin_email || '').trim().toLowerCase()).filter(Boolean);
+  state.admins = admins;
   state.isAdmin = admins.includes(state.email);
 }
 
@@ -303,6 +305,45 @@ export async function addListValue(listName, value) {
   while (r < rows.length && String(rows[r][col] ?? '').trim()) r += 1;
   await updateCell(`Lists!${columnLetter(col)}${r + 1}`, value);
   state.lists[listName] = [...(state.lists[listName] || []), value];
+}
+
+/**
+ * מנהל בלבד: כותב מחדש עמודות שלמות בלשונית Lists. columns = { header: [ערכים...] }.
+ * עמודות שקשורות זו לזו (title_he + title_he_default_en וכו') נשלחות יחד, באותו סדר שורות.
+ */
+export async function saveListColumns(columns) {
+  if (!state.isAdmin) throw new Error(t('adminOnly'));
+  const rows = (await readTabs(['Lists'])).Lists;
+  const header = rows[0] || [];
+  for (const [name, values] of Object.entries(columns)) {
+    let col = header.indexOf(name);
+    if (col < 0) { // עמודה חדשה — בסוף
+      col = header.length;
+      header.push(name);
+      await updateCell(`Lists!${columnLetter(col)}1`, name);
+    }
+    const oldLen = rows.slice(1).reduce((n, r, i) => (String(r[col] ?? '').trim() ? i + 1 : n), 0);
+    const len = Math.max(oldLen, values.length, 1);
+    const out = Array.from({ length: len }, (_, i) => [values[i] ?? '']);
+    const L = columnLetter(col);
+    await updateRange(`Lists!${L}2:${L}${len + 1}`, out);
+  }
+}
+
+/** מנהל בלבד: רשימת המנהלים (לשונית Settings, עמודה admin_email). */
+export async function saveAdmins(emails) {
+  if (!state.isAdmin) throw new Error(t('adminOnly'));
+  const rows = (await readTabs(['Settings'])).Settings;
+  const col = Math.max(0, (rows[0] || []).indexOf('admin_email'));
+  const oldLen = rows.slice(1).reduce((n, r, i) => (String(r[col] ?? '').trim() ? i + 1 : n), 0);
+  const len = Math.max(oldLen, emails.length, 1);
+  const L = columnLetter(col);
+  await updateRange(`Settings!${L}2:${L}${len + 1}`, Array.from({ length: len }, (_, i) => [emails[i] ?? '']));
+}
+
+/** הערכים הגולמיים של עמודה (כולל שורות ריקות באמצע, כדי לשמור על ההתאמה בין עמודות). */
+export function rawListColumn(name) {
+  return state.rawLists?.[name] || [];
 }
 
 function columnLetter(index) {
