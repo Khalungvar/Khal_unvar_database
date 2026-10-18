@@ -23,6 +23,7 @@
 | שם פרטי אנגלית | טקסט | |
 | שם משפחה אנגלית | טקסט | |
 | שם אישה | טקסט | |
+| תואר האישה באנגלית | Mrs. / Rebbetzin | ✅ הוחלט: בחירה לכל משפחה בנפרד |
 | אישה חיה / נפטרה | לחצן | |
 | האם האישה בנשי | V | ❓ צריך הבהרה |
 | קשר לקהילה | תגיות | |
@@ -62,18 +63,21 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 - כל רשומה היא משפחה; הבעל הוא איש הקשר הראשי. אין שדה "מין".
 - אישה שתורמת לבד: רושמים את שם הבעל המנוח עם "נפטר", והיא בשדה האישה.
 - **דואר נשלח רק באנגלית** (ארה"ב). כללי הפנייה לפי מצב חיים/נפטר חלים רק על הפנייה באנגלית:
-  שניהם בחיים → "Mr. & Mrs." · בעל נפטר ואישה בחיים → "Mrs." · אישה נפטרה / אין אישה → "Mr." (פרטים ייסגרו בשדה התואר באנגלית).
+  - מו"ה: שניהם בחיים → "Mr. & Mrs." · רק הבעל → "Mr." · רק האישה → "Mrs."
+  - רבנים (הרב, הרה"ג, הרה"צ, כ"ק אדמו"ר): שניהם בחיים → "Rabbi & [תואר האישה]" · רק הבעל → "Rabbi" · רק האישה → "[תואר האישה]"
+  - כשרק אחד בחיים, אין "&".
+  - ❓ פתוח: האם כ"ק אדמו"ר = Rabbi או Grand Rabbi.
 - התואר בעברית הוא לתצוגה בלבד ולא משתנה לפי מצב חיים/נפטר.
 
 ## מבנה הגוגל שיטס (נוצר)
 קובץ: Khal_unvar_database. שורה 1 = כותרות באנגלית, הנתונים מתחילים בשורה 2.
 
-- **Contacts:** contact_id, title_he, first_name_he, last_name_he, is_alive, marital_status, title_en, first_name_en, last_name_en, wife_name, wife_is_alive, wife_in_nashim, community_tags, photo_url, address, city, state, zip, is_active, created_at, updated_at, updated_by
+- **Contacts:** contact_id, title_he, first_name_he, last_name_he, is_alive, marital_status, title_en, first_name_en, last_name_en, wife_name, wife_title_en, wife_is_alive, wife_in_nashim, community_tags, photo_url, address, city, state, zip, is_active, created_at, updated_at, updated_by
 - **Phones:** contact_id, mobile, home_phone, other_phone, office_phone, wife_mobile, email
 - **Donations:** donation_id, contact_id, date, event, amount_usd, payment_method, check_number, card_last4, payment_note, dedication_type, dedication_text, created_at, created_by
 - **Relations:** relation_id, contact_id_a, relation_type, contact_id_b
 - **Yahrzeit:** yahrzeit_id, contact_id, hebrew_day, hebrew_month, hebrew_year, deceased_name, deceased_father_name, relation_to_contact, deceased_contact_id
-- **Lists:** title_he, title_en, marital_status, event, payment_method, dedication_type, relation_type, community_tag
+- **Lists:** title_he, title_en, marital_status, event, payment_method, dedication_type, relation_type, community_tag, wife_title_en
 
 עקרונות: מחיקה רכה (is_active), עבודה דרך התוכנה ולא ישירות בגליון, רשימות האפשרויות נערכות בלשונית Lists.
 
