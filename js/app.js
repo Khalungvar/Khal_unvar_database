@@ -1174,6 +1174,9 @@ function start() {
       document.body.classList.remove('menu-open');
     }
   });
+  // לחיצה על הלוגו → חזרה למסך הראשי (קאנטאקטן)
+  $('.topbar .brand').style.cursor = 'pointer';
+  $('.topbar .brand').onclick = () => showView('contacts');
   $('#btn-menu').onclick = () => document.body.classList.toggle('menu-open');
   $('#org-main').addEventListener('click', (e) => {
     const open = e.target.closest('.org-open');
