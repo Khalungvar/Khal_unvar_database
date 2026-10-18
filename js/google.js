@@ -82,6 +82,9 @@ export async function initAuth() {
 }
 
 /** פותח חלון התחברות של גוגל. prompt='' = בלי לשאול שוב אם כבר אישר. */
+/** דער יעצטיגער טאקען (פאר אונזער Apps Script — ער קוקט ווער פרעגט). */
+export function currentToken() { return accessToken || ''; }
+
 export function requestToken(prompt = '') {
   return new Promise((resolve, reject) => {
     pendingResolve = resolve;

@@ -2,7 +2,7 @@
 import { CONFIG } from './config.js';
 import { t, getLang } from './i18n.js';
 import { escapeHtml as h } from './util.js';
-import { state } from './data.js';
+import { currentToken } from './google.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 // דער פירער אויף אידיש (guide.md) און ענגליש (guide.en.md)
@@ -58,7 +58,7 @@ function md(body) {
   body.split('\n').forEach((line) => {
     const l = line.trim();
     let m;
-    if ((m = /^- (.*)$/.exec(l))) { if (list !== 'ul') { close(); out.push('<ul>'); list = 'ul'; } out.push(`<li>${inline(m[1])}</li>`); }
+    if ((m = /^[-*] (.*)$/.exec(l))) { if (list !== 'ul') { close(); out.push('<ul>'); list = 'ul'; } out.push(`<li>${inline(m[1])}</li>`); }
     else if ((m = /^\d+\. (.*)$/.exec(l))) { if (list !== 'ol') { close(); out.push('<ol>'); list = 'ol'; } out.push(`<li>${inline(m[1])}</li>`); }
     else if (l) { close(); out.push(`<p>${inline(l)}</p>`); }
   });
@@ -116,9 +116,10 @@ async function ask(question, dlg) {
     const res = await fetch(CONFIG.HELP_AI_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // אן "preflight" — Apps Script האט דאס ליב
-      body: JSON.stringify({ question: question.trim(), lang: guideLang, user: state.email || '' }),
+      body: JSON.stringify({ question: question.trim(), lang: guideLang, token: currentToken() }),
     });
     const data = await res.json();
+    if (data.error === 'daily-limit') { box.innerHTML = `<p class="warn-text">${h(t('helpAiLimit'))}</p>`; return; }
     if (!data.answer) throw new Error(data.error || 'no answer');
     box.innerHTML = `<div class="hp-ai" dir="auto">${md(data.answer)}</div><p class="muted small">${h(t('helpAiNote'))}</p>`;
   } catch (err) {
