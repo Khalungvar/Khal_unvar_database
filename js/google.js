@@ -313,6 +313,14 @@ export function updateCell(a1, value) {
   );
 }
 
+/** א סך שורות אויף איינמאל (קריאה אחת). data = [{ range: 'Contacts!A12', values: [[...]] }] */
+export function batchUpdate(data) {
+  return authFetch(`${SHEETS}/values:batchUpdate`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ valueInputOption: 'RAW', data }),
+  });
+}
+
 /** מעדכן שורה שלמה לפי מספר השורה (1 = שורת הכותרות). */
 export function updateRow(tab, rowNumber, row) {
   return authFetch(

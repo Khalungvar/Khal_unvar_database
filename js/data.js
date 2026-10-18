@@ -1,7 +1,7 @@
 // שכבת הנתונים: מתרגמת בין שורות בגליון לבין אובייקטים, לפי שמות העמודות בשורה 1.
 // ככה הוספה או הזזה של עמודה בגליון לא שוברת את התוכנה.
 import {
-  readTabs, readColumn, readCell, appendRow, appendRows, updateRow, updateCell, updateRange,
+  readTabs, readColumn, readCell, appendRow, appendRows, updateRow, updateCell, updateRange, batchUpdate,
   ensureDriveScope, hasDriveScope, driveFolder, driveUpload,
   pickSheet, sheetPermissions, shareSheet, unshareSheet,
 } from './google.js';
@@ -291,6 +291,47 @@ export async function importContacts(list, onProgress = () => {}) {
   }
   await logChanges('contact', 'import', '', null, null, `imported ${cRows.length} contacts (#${first}–#${id - 1})`);
   return { first, last: id - 1 };
+}
+
+/**
+ * בעל הבית: מערדזשט נייע פרטים אין קאנטאקטן וואס זענען שוין דא (פון אן Excel).
+ * list = [{ id, contact: {פעלדער צו טוישן}, phones: {…} }] — נאר וואס איז געווען ליידיג / נייע טעג'ס.
+ * אלעס אין א פאר קריאות (batchUpdate), און יעדע ענדערונג ווערט פארשריבן אין History.
+ */
+export async function mergeContacts(list, onProgress = () => {}) {
+  if (!state.isOwner) throw new Error(t('adminOnly'));
+  const stamp = nowStamp();
+  const cIds = (await readColumn('Contacts', 'A')).map(String);
+  const pIds = (await readColumn('Phones', 'A')).map(String);
+  const data = []; const newPhones = []; const hist = [];
+  list.forEach(({ id, contact, phones }) => {
+    const key = String(id);
+    const before = state.contacts.find((c) => String(c.contact_id) === key);
+    const row = cIds.indexOf(key);
+    if (!before || row < 1) return;
+    if (Object.keys(contact).length) {
+      const after = { ...before, ...contact, updated_at: stamp, updated_by: state.email };
+      delete after._row;
+      data.push({ range: `Contacts!A${row + 1}`, values: [objectToRow(state.headers.Contacts, after)] });
+      Object.keys(contact).forEach((k) => { if (k !== 'unverified_fields') hist.push([stamp, state.email, 'contact', key, key, k, String(before[k] ?? ''), String(contact[k])]); });
+    }
+    if (Object.keys(phones).length) {
+      const pb = state.phones.get(key) || {};
+      const after = { ...pb, ...phones, contact_id: id };
+      const prow = pIds.indexOf(key);
+      if (prow > 0) data.push({ range: `Phones!A${prow + 1}`, values: [objectToRow(state.headers.Phones, after)] });
+      else newPhones.push(objectToRow(state.headers.Phones, after));
+      Object.keys(phones).forEach((k) => hist.push([stamp, state.email, 'phones', key, key, k, String(pb[k] ?? ''), String(phones[k])]));
+    }
+  });
+  const total = data.length + newPhones.length; let done = 0;
+  for (let i = 0; i < data.length; i += 150) {
+    await batchUpdate(data.slice(i, i + 150));
+    done += Math.min(150, data.length - i); onProgress(done, total);
+  }
+  if (newPhones.length) { await appendRows('Phones', newPhones); onProgress(total, total); }
+  if (hist.length) { try { await appendRows('History', hist); historyCache = null; } catch { /* נישט קריטיש */ } }
+  return list.length;
 }
 
 /** שומר רק את הקוויטל של איש קשר (טקסט עם שורות). */

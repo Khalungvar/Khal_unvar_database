@@ -1,6 +1,6 @@
 // אריינלייגן א סך קאנטאקטן פון Excel (נאר בעל הבית, אין אדמין ← מנהלים, גבאים און צוטריט):
 // 1) אראפלאדן א דוגמא-טעקע  2) אנפילן / אריינקלעבן  3) ארויפלאדן ← א פריוויו מיט פראבלעמען ← אריינלייגן.
-import { state, loadAll, importContacts, addListValue } from './data.js';
+import { state, loadAll, importContacts, mergeContacts, addListValue } from './data.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, formatPhone, digits, normalize, detectArea, splitTags, joinTags } from './util.js';
 import { downloadXlsx } from './excel.js';
@@ -184,6 +184,50 @@ function fillNames(c) {
 
 let autoFill = true;
 
+const PHONE_KEYS = ['mobile', 'home_phone', 'wife_mobile', 'other_phone'];
+const FIELD_LABEL = (k) => { const f = FIELDS.find((x) => x[0] === k); return f ? f[1].replace(' *', '') : k; };
+
+/**
+ * וואס עס וועט צוקומען צו א קאנטאקט וואס איז שוין דא: נאר פעלדער וואס זענען ליידיג,
+ * נייע טעג'ס, א נייער טעלעפאן / אימעיל אין א פרייען פלאץ. קיינמאל נישט איבערשרייבן!
+ */
+function mergePatch(id, row, overlay = null) {
+  // overlay: וואס איז שוין צוגעלייגט געווארן פון א פריערדיגע שורה צום זעלבן מענטש
+  const ex = { ...(state.contacts.find((c) => String(c.contact_id) === String(id)) || {}), ...(overlay?.c || {}) };
+  const exP = { ...(state.phones.get(String(id)) || {}), ...(overlay?.p || {}) };
+  const c = {}; const p = {}; const changed = [];
+  Object.entries(row.contact).forEach(([k, v]) => {
+    if (!v || k === 'unverified_fields') return;
+    if (k === 'community_tags') {
+      const old = splitTags(ex.community_tags);
+      const add = splitTags(v).filter((x) => !old.includes(x));
+      if (add.length) { c[k] = joinTags([...old, ...add]); changed.push(k); }
+      return;
+    }
+    if (!String(ex[k] ?? '').trim()) { c[k] = v; changed.push(k); }
+  });
+  const autos = splitTags(row.contact.unverified_fields).filter((k) => k in c);
+  if (autos.length) c.unverified_fields = joinTags([...splitTags(ex.unverified_fields), ...autos]);
+  // טעלעפאנען: א נייער נומער גייט אין זיין פלאץ אויב ליידיג, אנדערש אין א פרייען פלאץ
+  const have = new Set(PHONE_KEYS.map((k) => digits(exP[k]).slice(-10)).filter(Boolean));
+  PHONE_KEYS.forEach((k) => {
+    const v = row.phones[k]; const d = digits(v).slice(-10);
+    if (!v || have.has(d)) return;
+    const slot = !String(exP[k] || p[k] || '').trim() ? k : ['other_phone', 'home_phone', 'mobile', 'wife_mobile'].find((x) => !String(exP[x] || p[x] || '').trim());
+    if (slot) { p[slot] = v; have.add(d); changed.push(slot); }
+  });
+  const emails = new Set(['email_1', 'email_2'].map((k) => String(exP[k] || '').toLowerCase()).filter(Boolean));
+  ['email_1', 'email_2'].forEach((k) => {
+    const v = row.phones[k];
+    if (!v || emails.has(v)) return;
+    const slot = ['email_1', 'email_2'].find((x) => !String(exP[x] || p[x] || '').trim());
+    if (slot) { p[slot] = v; emails.add(v); changed.push(slot); }
+  });
+  const note = row.phones.comments;
+  if (note && !String(exP.comments || '').includes(note)) { p.comments = exP.comments ? `${exP.comments} | ${note}` : note; changed.push('comments'); }
+  return { c, p, changed };
+}
+
 /** גיט צוריק [{ n (שורה), contact, phones, status: 'ok'|'dup'|'error', note }] */
 function buildRows(table) {
   const nonEmpty = table.filter((r) => r.some((v) => String(v).trim()));
@@ -213,8 +257,8 @@ function buildRows(table) {
     });
     if (!contact.area && (contact.zip || contact.city)) contact.area = detectArea(state.areas || [], contact);
     if (autoFill) fillNames(contact);
-    const out = { n: i + 2, contact, phones, status: 'ok', note: '', pick: true };
-    if (!contact.first_name_he || !contact.last_name_he) { out.pick = false; out.status = 'error'; out.note = t('impNeedName'); return out; }
+    const out = { n: i + 2, contact, phones, status: 'ok', note: '', action: 'add' };
+    if (!contact.first_name_he || !contact.last_name_he) { out.action = 'skip'; out.status = 'error'; out.note = t('impNeedName'); return out; }
     if (contact.unverified_fields) out.auto = new Set(contact.unverified_fields.split(', '));
     const nk = normalize(`${contact.first_name_he} ${contact.last_name_he}`);
     const ph = ['mobile', 'home_phone', 'wife_mobile', 'other_phone'].map((k) => digits(phones[k]).slice(-10)).filter((d) => d.length >= 7);
@@ -224,28 +268,47 @@ function buildRows(table) {
     const byContact = ph.map((d) => idx.phones.get(d)).find(Boolean) || em.map((e) => idx.emails.get(e)).find(Boolean);
     const myAddr = addrKey(contact);
     const remember = () => { seen.names.set(nk, { n: out.n, addr: myAddr }); ph.forEach((d) => seen.phones.set(d, out.n)); };
-    if (byContact) { out.status = 'dup'; out.pick = false; out.note = t('impDupDb', { id: byContact }); return out; }
+    const withMerge = (id, def) => {
+      out.matchId = id; out.merge = mergePatch(id, out);
+      out.action = out.merge.changed.length ? def : 'skip';
+    };
+    if (byContact) { out.status = 'dup'; withMerge(byContact, 'merge'); out.note = t('impDupDb', { id: byContact }); return out; }
     // 2) דער זעלבער נאמען — אויב די אדרעס איז אנדערש, איז עס מסתמא אן אנדער מענטש
     const byName = idx.names.get(nk) || (enKey && idx.names.get(enKey));
     if (byName) {
       const ex = state.contacts.find((c) => String(c.contact_id) === String(byName)) || {};
       const exAddr = [ex.address, ex.city].filter(Boolean).join(', ');
       if (myAddr && addrKey(ex) && myAddr !== addrKey(ex)) {
-        out.status = 'maybe'; out.pick = true; out.note = t('impMaybeDb', { id: byName, addr: exAddr }); remember(); return out;
+        out.status = 'maybe'; withMerge(byName, 'add'); out.action = 'add'; out.note = t('impMaybeDb', { id: byName, addr: exAddr }); remember(); return out;
       }
-      out.status = 'dup'; out.pick = false; out.note = t('impDupName', { id: byName, addr: exAddr || '—' }); return out;
+      // דער זעלבער נאמען + די זעלבע אדרעס = דער זעלבער מענטש → מערדזשן. אן אדרעס — נישט זיכער, איבערלאזן.
+      const sameAddr = myAddr && myAddr === addrKey(ex);
+      out.status = 'dup'; withMerge(byName, sameAddr ? 'merge' : 'skip'); if (!sameAddr) out.action = 'skip';
+      out.note = t('impDupName', { id: byName, addr: exAddr || '—' }); return out;
     }
     const phoneInFile = ph.map((d) => seen.phones.get(d)).find(Boolean);
-    if (phoneInFile) { out.status = 'dup'; out.pick = false; out.note = t('impDupFile', { n: phoneInFile }); return out; }
+    if (phoneInFile) { out.status = 'dup'; out.action = 'skip'; out.note = t('impDupFile', { n: phoneInFile }); return out; }
     const nameInFile = seen.names.get(nk);
     if (nameInFile) {
-      if (myAddr && nameInFile.addr && myAddr !== nameInFile.addr) { out.status = 'maybe'; out.pick = true; out.note = t('impMaybeFile', { n: nameInFile.n }); remember(); return out; }
-      out.status = 'dup'; out.pick = false; out.note = t('impDupFile', { n: nameInFile.n }); return out;
+      if (myAddr && nameInFile.addr && myAddr !== nameInFile.addr) { out.status = 'maybe'; out.action = 'add'; out.note = t('impMaybeFile', { n: nameInFile.n }); remember(); return out; }
+      out.status = 'dup'; out.action = 'skip'; out.note = t('impDupFile', { n: nameInFile.n }); return out;
     }
     remember();
     return out;
   });
   return { rows, unknown };
+}
+
+function actionSelect(r) {
+  const opts = [['add', t('impActAdd')], ...(r.matchId ? [['merge', t('impActMerge', { id: r.matchId })]] : []), ['skip', t('impActSkip')]];
+  return `<select class="imp-act" data-n="${r.n}">${opts.map(([v, l]) => `<option value="${v}"${r.action === v ? ' selected' : ''}>${h(l)}</option>`).join('')}</select>`;
+}
+
+function mergeNote(r) {
+  if (!r.matchId || !r.merge) return '';
+  const ch = r.merge.changed;
+  if (!ch.length) return `<div class="muted">${h(t('impNothingNew'))}</div>`;
+  return `<div class="imp-merge-note">⤵ ${h(t('impNewInfo', { n: ch.length }))}: ${h([...new Set(ch)].map(FIELD_LABEL).join(', '))}</div>`;
 }
 
 // ---------- דער קעסטל אין אדמין ----------
@@ -308,11 +371,11 @@ function renderPreview(box, ui) {
     <label class="imp-tag">🏷 ${h(t('impTagLabel'))} <input id="imp-tag" dir="rtl" value="${h(t('impDefaultTag'))}"></label>
     <p class="hint-line">${h(t('impTagHint'))}</p>
     <div class="imp-table-wrap"><table class="lapsed-table imp-table"><thead><tr><th>#</th><th>${h(t('impColName'))}</th><th>${h(t('impColEn'))}</th><th>${h(t('impColAddr'))}</th><th>${h(t('impColPhone'))}</th><th></th></tr></thead>
-      <tbody>${shown.map((r) => `<tr class="imp-${r.status}"><td class="muted small">${r.status === 'dup' || r.status === 'maybe' ? `<input type="checkbox" class="imp-pick" data-n="${r.n}"${r.pick ? ' checked' : ''}> ` : ''}${r.n}</td><td>${nameOf(r)}</td>
+      <tbody>${shown.map((r) => `<tr class="imp-${r.status}"><td class="muted small">${r.n}${r.status === 'dup' || r.status === 'maybe' ? `<br>${actionSelect(r)}` : ''}</td><td>${nameOf(r)}</td>
         <td dir="ltr">${enOf(r)}</td>
         <td class="small" dir="ltr">${h([r.contact.address, r.contact.city, r.contact.state, r.contact.zip].filter(Boolean).join(', '))}</td>
         <td class="small" dir="ltr">${h(r.phones.mobile || r.phones.home_phone || r.phones.email_1 || '')}</td>
-        <td class="small">${r.status === 'ok' ? '✓' : `${{ dup: '⚠', maybe: '?', error: '✕' }[r.status]} ${h(r.note)}`}</td></tr>`).join('')}</tbody></table></div>
+        <td class="small">${r.status === 'ok' ? '✓' : `${{ dup: '⚠', maybe: '?', error: '✕' }[r.status]} ${h(r.note)}`}${mergeNote(r)}</td></tr>`).join('')}</tbody></table></div>
     ${rows.length > shown.length ? `<p class="muted small">${h(t('impMoreRows', { n: rows.length - shown.length }))}</p>` : ''}
     <div class="actions"><span class="spacer"></span>
       <button type="button" class="btn" id="imp-cancel">${h(t('cancelBtn'))}</button>
@@ -325,38 +388,58 @@ function renderPreview(box, ui) {
       rows.filter((r) => r.status !== 'ok').map((r) => [r.n, r.note, ...keys.map((k) => r.contact[k] ?? r.phones[k] ?? '')]));
   });
   $('#imp-auto', prev).onchange = (e) => { autoFill = e.target.checked; parsed = { ...buildRows(parsed.table), file: parsed.file, table: parsed.table }; renderPreview(box, ui); };
-  const count = () => rows.filter((r) => r.pick).length;
+  const nAdd = () => rows.filter((r) => r.action === 'add' && r.status !== 'error').length;
+  const nMerge = () => rows.filter((r) => r.action === 'merge').length;
   const go = $('#imp-go', prev);
-  const sync = () => { go.textContent = `📥 ${t('impGo', { n: count() })}`; go.disabled = !count(); };
+  const sync = () => {
+    go.textContent = `📥 ${t('impGo', { n: nAdd() })}${nMerge() ? ` · ⤵ ${t('impGoMerge', { n: nMerge() })}` : ''}`;
+    go.disabled = !nAdd() && !nMerge();
+  };
   prev.addEventListener('change', (e) => {
-    if (!e.target.classList.contains('imp-pick')) return;
+    if (!e.target.classList.contains('imp-act')) return;
     const row = rows.find((x) => String(x.n) === e.target.dataset.n);
-    if (row) row.pick = e.target.checked;
+    if (row) row.action = e.target.value;
     sync();
   });
   sync();
   $('#imp-cancel', prev).onclick = () => { parsed = null; prev.innerHTML = ''; };
   go.onclick = async () => {
-    const list = rows.filter((r) => r.pick && r.status !== 'error');
+    const list = rows.filter((r) => r.action === 'add' && r.status !== 'error');
+    const merges = rows.filter((r) => r.action === 'merge' && r.matchId);
     // א טעג אויף יעדן — מ'זאל וויסן פון וואו ער איז געקומען, און קענען דורכגיין / געפינען אלע
     const tag = $('#imp-tag', prev).value.trim();
-    if (!list.length || !confirm(t('impConfirm', { n: list.length }))) return;
+    if ((!list.length && !merges.length) || !confirm(t('impConfirm2', { n: list.length, m: merges.length }))) return;
     go.disabled = true; $('#imp-cancel', prev).disabled = true;
     const bar = $('#imp-progress', prev); bar.hidden = false;
     try {
       if (tag && !(state.lists.community_tag || []).includes(tag)) await addListValue('community_tag', tag);
-      const res = await importContacts(list.map((r) => ({
-        contact: { ...r.contact, community_tags: joinTags([...splitTags(r.contact.community_tags), ...(tag ? [tag] : [])]) },
-        phones: r.phones,
-      })), (done, total) => {
+      const prog = (done, total) => {
         $('.ml-bar span', bar).style.width = `${Math.round((done / total) * 100)}%`;
         $('.ml-ptext', bar).textContent = `${done} / ${total}`;
-      });
+      };
+      let mergedN = 0;
+      if (merges.length) {
+        // עטלעכע שורות צום זעלבן מענטש — אלעס צוזאמען (יעדע שורה לייגט צו אויף דעם וואס פריער)
+        const byId = new Map();
+        merges.forEach((r) => {
+          const prevP = byId.get(String(r.matchId)) || { c: {}, p: {} };
+          // דער טעג פון דעם אימפארט — אויך ביי די געמערדזשטע (מ'זאל זען וואס איז געקומען פון דער רשימה)
+          const m = mergePatch(r.matchId, { ...r, contact: { ...r.contact, community_tags: joinTags([...splitTags(r.contact.community_tags), ...(tag ? [tag] : [])]) } }, prevP);
+          byId.set(String(r.matchId), { c: { ...prevP.c, ...m.c }, p: { ...prevP.p, ...m.p } });
+        });
+        mergedN = byId.size;
+        await mergeContacts([...byId].map(([id, m]) => ({ id: Number(id) || id, contact: m.c, phones: m.p })), prog);
+      }
+      const res = !list.length ? null : await importContacts(list.map((r) => ({
+        contact: { ...r.contact, community_tags: joinTags([...splitTags(r.contact.community_tags), ...(tag ? [tag] : [])]) },
+        phones: r.phones,
+      })), prog);
       await loadAll();
       ui.refreshAll?.();
       parsed = null;
-      prev.innerHTML = `<p class="drive-ok">✓ ${h(t('impDone', { n: list.length, first: res.first, last: res.last }))}</p>`;
-      ui.toast(t('impDone', { n: list.length, first: res.first, last: res.last }));
+      const msg = [res ? t('impDone', { n: list.length, first: res.first, last: res.last }) : '', mergedN ? t('impMerged', { n: mergedN }) : ''].filter(Boolean).join(' · ');
+      prev.innerHTML = `<p class="drive-ok">✓ ${h(msg)}</p>`;
+      ui.toast(msg);
     } catch (err) {
       ui.toast(ui.friendlyError(err), 'error');
       go.disabled = false; $('#imp-cancel', prev).disabled = false;

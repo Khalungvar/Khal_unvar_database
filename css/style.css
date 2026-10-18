@@ -1118,3 +1118,4 @@ html, body { overflow-x: clip; }
   .mm-view { overflow-x: auto; }
 }
 @media (max-width: 700px) { .camp-page-head { flex-wrap: wrap; } .camp-page-head > * { max-width: 100%; } }
+.imp-act { font: inherit; font-size: 12px; margin-top: 4px; max-width: 150px; } .imp-merge-note { color: #166534; margin-top: 2px; }
