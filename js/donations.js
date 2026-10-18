@@ -183,28 +183,29 @@ export function openDonationForm(donation = {}, presetContactId = null) {
     <button type="button" class="x-close" id="don-x" aria-label="${h(t('close'))}">✕</button>
     <h2>${isNew ? t('newDonationTitle') : t('editDonationTitle')}</h2>
 
-    <fieldset><legend>${t('donor')}</legend>
-      <label class="wide">${t('pickContact')}
-        <input name="contact" list="dl-don-contacts" autocomplete="off" value="${contact ? h(ui.pickerLabel(contact)) : ''}">
+    <div class="don-quick">
+      <div class="donor-line"${contact ? '' : ' hidden'}>
+        <strong>${contact ? h(ui.fullNameHe(contact)) : ''}</strong>
+        <button type="button" class="linkish" id="don-change-donor">${t('change')}</button>
+      </div>
+      <label class="wide donor-pick"${contact ? ' hidden' : ''}>${t('donor')}
+        <input name="contact" list="dl-don-contacts" autocomplete="off" placeholder="${h(t('pickContact'))}" value="${contact ? h(ui.pickerLabel(contact)) : ''}">
       </label>
       <datalist id="dl-don-contacts">${state.contacts.filter((x) => isTrue(x.is_active) || x.is_active === '')
         .map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>
-    </fieldset>
 
-    <fieldset><legend>${t('dateLegend')}</legend>
-      <div class="grid">
-        <label>${t('gregDate')}<input type="date" name="date" value="${h(d.date || '')}"></label>
-        <label>${t('hebDate')}${hebPicker('date', hDate)}</label>
+      <div class="amount-line">
+        <label class="amount-box">${t('amount')}
+          <span class="amount-wrap"><span>$</span><input name="amount_usd" type="number" min="0" step="0.01" dir="ltr" inputmode="decimal" value="${h(d.amount_usd ?? '')}"></span>
+        </label>
+        <label class="check paid-toggle"><input type="checkbox" name="is_paid" ${isTrue(d.is_paid) ? 'checked' : ''}> ${t('paid')}</label>
       </div>
-    </fieldset>
 
-    <fieldset><legend>${t('eventLegend')}</legend>
-      ${ui.tagPicker('event_tags', 'event_tag', d.event_tags)}
-      <div class="grid">
-        <label>${t('eventYear')}<select name="event_year">${yearOptions([d.event_year])
-          .map((y) => `<option${y === (d.event_year || yearLabel(hDate.y)) ? ' selected' : ''}>${h(y)}</option>`).join('')}</select></label>
-        <label class="wide">${t('comments')}<input name="event_note" value="${h(d.event_note || '')}"></label>
+      <div class="quick-block">
+        <span class="quick-label">${t('eventLegend')}</span>
+        ${ui.tagPicker('event_tags', 'event_tag', d.event_tags)}
       </div>
+
       <div class="kave-period"${splitTags(d.event_tags).includes(KAVE) ? '' : ' hidden'}>
         <p class="hint-line">${t('kavePeriod')}</p>
         <div class="grid">
@@ -212,30 +213,38 @@ export function openDonationForm(donation = {}, presetContactId = null) {
           <label>${t('toDate')}${hebPicker('sponsor_to', parseHebrewText(d.sponsor_to))}</label>
         </div>
       </div>
-    </fieldset>
 
-    <fieldset><legend>${t('amountLegend')}</legend>
-      <div class="grid">
-        <label>${t('amount')}<input name="amount_usd" type="number" min="0" step="0.01" dir="ltr" value="${h(d.amount_usd ?? '')}"></label>
-        <label class="check"><input type="checkbox" name="is_paid" ${isTrue(d.is_paid) ? 'checked' : ''}> ${t('paid')}</label>
-        <label class="paid-only">${t('paidDate')}<input type="date" name="paid_date" value="${h(d.paid_date || '')}"></label>
-        <label class="wide">${t('paidNote')}<input name="paid_note" value="${h(d.paid_note || '')}"></label>
-      </div>
-      <div class="grid">
+      <div class="grid paid-only">
         <label>${t('paymentMethod')}<select name="payment_method">${ui.options(methods, d.payment_method)}</select></label>
         <label class="pm pm-check">${t('checkNumber')}<input name="check_number" dir="ltr" inputmode="numeric" value="${h(d.check_number || '')}"></label>
         <label class="pm pm-card">${t('cardLast4')}<input name="card_last4" dir="ltr" inputmode="numeric" maxlength="4" value="${h(d.card_last4 || '')}"></label>
         <label class="pm pm-other wide">${t('paymentNote')}<input name="payment_note" value="${h(d.payment_note || '')}"></label>
       </div>
-    </fieldset>
 
-    <fieldset><legend>${t('dedication')}</legend>
+      <div class="date-line">
+        <span class="quick-label">${t('dateLegend')}:</span>
+        <span class="date-text"></span>
+        <button type="button" class="linkish" id="don-change-date">${t('change')}</button>
+      </div>
+      <div class="grid date-edit" hidden>
+        <label>${t('gregDate')}<input type="date" name="date" value="${h(d.date || '')}"></label>
+        <label>${t('hebDate')}${hebPicker('date', hDate)}</label>
+      </div>
+    </div>
+
+    <details class="more"${d.event_note || d.paid_note || d.dedication_type || d.dedication_text ? ' open' : ''}>
+      <summary>${t('moreDetails')}</summary>
       <div class="grid">
+        <label>${t('eventYear')}<select name="event_year">${yearOptions([d.event_year])
+          .map((y) => `<option${y === (d.event_year || yearLabel(hDate.y)) ? ' selected' : ''}>${h(y)}</option>`).join('')}</select></label>
+        <label class="wide">${t('comments')}<input name="event_note" value="${h(d.event_note || '')}"></label>
+        <label class="paid-only">${t('paidDate')}<input type="date" name="paid_date" value="${h(d.paid_date || '')}"></label>
+        <label class="wide">${t('paidNote')}<input name="paid_note" value="${h(d.paid_note || '')}"></label>
         <label>${t('dedicationType')}<select name="dedication_type">${ui.options(state.lists.dedication_type, d.dedication_type)}</select></label>
         <label class="wide">${t('dedicationText')}<input name="dedication_text" value="${h(d.dedication_text || '')}"></label>
       </div>
       <p class="hint-line">${t('dedicationHint')}</p>
-    </fieldset>
+    </details>
 
     <div class="actions">
       ${!isNew && state.isAdmin ? `<button type="button" class="btn danger" id="don-delete">${t('deleteBtn')}</button>` : ''}
@@ -247,6 +256,7 @@ export function openDonationForm(donation = {}, presetContactId = null) {
   wireDonationForm(form, d);
   if (!$('#donation-dialog').open) $('#donation-dialog').showModal();
   $('#donation-dialog').scrollTop = 0;
+  (contact ? form.elements.amount_usd : form.elements.contact).focus();
 }
 
 function wireDonationForm(form, original) {
@@ -267,15 +277,32 @@ function wireDonationForm(form, original) {
     if (![...sel.options].some((o) => o.value === label)) sel.insertAdjacentHTML('beforeend', `<option>${label}</option>`);
     if (!original.event_year) sel.value = label;
   };
+  // שורת התאריך: "היינט · ז' חשון" — לחיצה על "טוישן" פותחת את הבוררים
+  const dateText = () => {
+    const iso = f('date').value;
+    const he = iso ? isoToHebrewText(iso) : '';
+    $('.date-text', form).textContent = iso === todayIso() ? `${t('today')} · ${he}` : `${he} · ${iso}`;
+  };
+  dateText();
+  $('#don-change-date', form).onclick = () => {
+    $('.date-edit', form).hidden = false;
+    $('.date-line', form).hidden = true;
+  };
+  $('#don-change-donor', form).onclick = () => {
+    $('.donor-pick', form).hidden = false;
+    $('.donor-line', form).hidden = true;
+    f('contact').select();
+  };
   f('date').addEventListener('change', () => {
     const hv = toHebrew(f('date').value);
     if (hv) { setPicker(datePicker, hv); syncYear(hv); }
+    dateText();
   });
   datePicker.addEventListener('change', () => {
     const hv = readPicker(datePicker);
     if (!hv) return;
     const iso = fromHebrew(hv.d, hv.m, hv.y);
-    if (iso) { f('date').value = iso; syncYear(hv); } else ui.toast(t('noSuchDate'), 'error');
+    if (iso) { f('date').value = iso; syncYear(hv); dateText(); } else ui.toast(t('noSuchDate'), 'error');
   });
 
   // תגיות: קאווע → מציגים תקופת חסות
@@ -286,7 +313,7 @@ function wireDonationForm(form, original) {
   ui.wireTagPicker($('.tags[data-name="event_tags"]', form));
 
   // שולם → תאריך תשלום מתמלא בהיום
-  const paidOnly = () => { $('.paid-only', form).hidden = !f('is_paid').checked; };
+  const paidOnly = () => { $$('.paid-only', form).forEach((el) => { el.hidden = !f('is_paid').checked; }); };
   f('is_paid').addEventListener('change', () => {
     if (f('is_paid').checked && !f('paid_date').value) f('paid_date').value = todayIso();
     paidOnly();

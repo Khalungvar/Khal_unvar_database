@@ -352,3 +352,19 @@ fieldset > label.wide { display: flex; flex-direction: column; gap: 4px; font-si
 .count-pill { display: inline-block; min-width: 1.4em; padding: 0 5px; border-radius: 9px; background: var(--gold); color: #fff; font-size: 11px; line-height: 1.5; text-align: center; }
 .card-pane { min-height: 220px; }
 .card-pane .muted { color: var(--muted); font-size: 14px; }
+
+/* טופס נדבה מהיר */
+.don-quick { display: flex; flex-direction: column; gap: 14px; margin-bottom: 12px; }
+.donor-line { display: flex; align-items: baseline; gap: 10px; font-size: 18px; }
+.linkish { background: none; border: none; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font: inherit; font-size: 13px; }
+.amount-line { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
+.amount-box { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.amount-wrap { display: flex; align-items: center; gap: 4px; direction: ltr; font-size: 22px; color: var(--text, inherit); }
+.amount-wrap input { font-size: 22px; width: 9em; padding: 6px 10px; }
+.paid-toggle { font-size: 17px; padding-bottom: 8px; }
+.paid-toggle input { width: 20px; height: 20px; }
+.quick-block { display: flex; flex-direction: column; gap: 6px; }
+.quick-label { font-size: 13px; color: var(--muted); }
+.date-line { display: flex; gap: 8px; align-items: baseline; font-size: 14px; }
+details.more { border-top: 1px dashed var(--gold); padding-top: 10px; margin-bottom: 8px; }
+details.more summary { cursor: pointer; color: var(--muted); font-size: 14px; margin-bottom: 8px; }
