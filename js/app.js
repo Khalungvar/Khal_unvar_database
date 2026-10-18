@@ -124,14 +124,6 @@ function renderLobby() {
       ${(state.lists[open[0]] || []).map((v) => `<button type="button" class="btn primary" data-scope-type="${open[0]}" data-scope-value="${h(v)}">${h(v)}
         <span class="count-pill">${currentCount(open[0], v)}</span></button>`).join('')}
     </div>` : ''}
-    <div class="lobby-row">
-      ${tile('lists', '📋', t('readyLists'), t('lobbyListsSub', { n: state.savedLists.length }))}
-      ${tile('mailmerge', '✉', 'Mail Merge', t('lobbyMailSub'))}
-      ${tile('calls', '📞', 'Calls & SMS', t('lobbyCallsSub'))}
-    </div>
-    <div class="lobby-row">
-      ${tile('personal', '👤', t('lobbyPersonal'), t('lobbyPersonalSub'))}
-    </div>
     <div class="lobby-row lobby-row4">
       ${tile('area', '📍', t('area'), t('lobbyAreaSub', { n: areas.length }))}
       ${tile('donations', '💰', t('lobbyDonations'), t('lobbyDonationsSub', { n: state.donations.length }))}
@@ -141,7 +133,14 @@ function renderLobby() {
       <span class="muted">${h(t('lobbyChoose'))}</span>
       ${areas.map((a) => `<button type="button" class="btn primary" data-area="${h(a)}">${h(a)} <span class="count-pill">${areaCount(a)}</span></button>`).join('')}
     </div>` : ''}
-`;
+    <div class="lobby-row">
+      ${tile('personal', '👤', t('lobbyPersonal'), t('lobbyPersonalSub'))}
+    </div>
+    <div class="lobby-row">
+      ${tile('lists', '📋', t('readyLists'), t('lobbyListsSub', { n: state.savedLists.length }))}
+      ${tile('mailmerge', '✉', 'Mail Merge', t('lobbyMailSub'))}
+      ${tile('calls', '📞', 'Calls & SMS', t('lobbyCallsSub'))}
+    </div>`;
 }
 
 /** וויפיל מאורעות זענען די קומענדיגע וואך (פאר דעם לאבי). */
