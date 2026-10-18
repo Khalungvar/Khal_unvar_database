@@ -281,3 +281,23 @@ select.suggested { color: var(--muted); font-style: italic; background: var(--ch
 .check.small { font-size: 13px; color: var(--ink); }
 .badge.org { background: var(--gold-soft); color: var(--ink); }
 .org-select { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+
+/* גלילה מרובת-בחירה */
+details.multi { position: relative; }
+details.multi summary {
+  list-style: none; cursor: pointer; color: var(--ink); font-size: 15px;
+  border: 1px solid var(--line); border-radius: 8px; padding: 7px 28px 7px 9px; background: var(--surface);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: relative;
+}
+details.multi summary::-webkit-details-marker { display: none; }
+details.multi summary::after { content: "▾"; position: absolute; inset-inline-end: 9px; color: var(--muted); }
+html[dir="rtl"] details.multi summary { padding: 7px 9px 7px 28px; }
+details.multi[open] summary { border-color: var(--accent); }
+.multi-list {
+  position: absolute; z-index: 20; inset-inline: 0; top: calc(100% + 4px);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .12); padding: 6px; display: flex; flex-direction: column; gap: 2px;
+  max-height: 240px; overflow: auto;
+}
+.multi-list .check { padding: 5px 6px; border-radius: 6px; color: var(--ink); font-size: 14px; white-space: normal; }
+.multi-list .check:hover { background: var(--chip); }

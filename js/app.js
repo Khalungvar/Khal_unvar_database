@@ -368,18 +368,26 @@ const ORG_FIELDS = [['beis_medrash', 'orgBeisMedrash'], ['kollel', 'orgKollel'],
 
 function orgRow(c) {
   return `<div class="org-row">
-    ${ORG_FIELDS.map(([name, label]) => `<label class="org-select">${t(label)}
-      <select name="${name}">${options(state.lists[name], c[name])}</select></label>`).join('')}
+    ${ORG_FIELDS.map(([name, label]) => {
+      const chosen = splitTags(c[name]);
+      const all = [...new Set([...(state.lists[name] || []), ...chosen])];
+      return `<div class="org-select"><span>${t(label)}</span>
+        <details class="multi" data-name="${name}">
+          <summary>${chosen.length ? h(chosen.join(', ')) : '—'}</summary>
+          <div class="multi-list">${all.map((v) => `<label class="check"><input type="checkbox" value="${h(v)}" ${chosen.includes(v) ? 'checked' : ''}> ${h(v)}</label>`).join('')}</div>
+        </details></div>`;
+    }).join('')}
   </div>`;
+}
+
+/** הבחירות בגלילה מרובת-בחירה. */
+function readMulti(form, name) {
+  return joinTags($$(`details.multi[data-name="${name}"] input:checked`, form).map((i) => i.value));
 }
 
 /** לתצוגה ברשימה ובכרטיס: "ביהמ\"ד מאנסי", "כולל ערב", "כהלכתו". */
 function orgLabels(c) {
-  return [
-    String(c.beis_medrash || '').trim(),
-    String(c.kollel || '').trim(), // הערכים ברשימה כבר כוללים את המילה "כולל"
-    String(c.organization || '').trim(),
-  ].filter(Boolean);
+  return ORG_FIELDS.flatMap(([name]) => splitTags(c[name]));
 }
 
 function openForm(c = {}) {
@@ -571,6 +579,20 @@ function wireForm(form, original) {
   f('area').addEventListener('mousedown', confirmArea);
   if (!f('area').value) suggestArea(); // לאנשי קשר ישנים בלי געגנט — הצעה כשפותחים לעריכה
 
+  // גלילות מרובות-בחירה: הכותרת מראה מה נבחר; רק אחת פתוחה בכל פעם
+  $$('details.multi', form).forEach((d) => {
+    d.addEventListener('change', () => {
+      const chosen = $$('input:checked', d).map((i) => i.value);
+      $('summary', d).textContent = chosen.length ? chosen.join(', ') : '—';
+    });
+    d.addEventListener('toggle', () => {
+      if (d.open) $$('details.multi', form).forEach((o) => { if (o !== d) o.open = false; });
+    });
+  });
+  form.addEventListener('click', (e) => { // לחיצה מחוץ לגלילה סוגרת אותה
+    if (!e.target.closest('details.multi')) $$('details.multi[open]', form).forEach((d) => { d.open = false; });
+  });
+
   wireAddressAutocomplete(form);
 
   $('#btn-cancel', form).onclick = () => $('#form-dialog').close();
@@ -643,9 +665,9 @@ function collect(form, original) {
     wife_is_alive: !form.elements.wife_deceased.checked,
     wife_in_neshei: form.elements.wife_in_neshei.checked,
     community_tags: readTags(form, 'community_tags'),
-    beis_medrash: val('beis_medrash'),
-    kollel: val('kollel'),
-    organization: val('organization'),
+    beis_medrash: readMulti(form, 'beis_medrash'),
+    kollel: readMulti(form, 'kollel'),
+    organization: readMulti(form, 'organization'),
     address: val('address'),
     city: val('city'),
     state: val('state').toUpperCase(),
