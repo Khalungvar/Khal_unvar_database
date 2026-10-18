@@ -14,7 +14,8 @@ export const state = {
   areas: [],         // [{ name, zips, keywords }] — זיהוי געגנט לפי כתובת
   donations: [],     // תרומות, כולל _row
   relations: [],     // { relation_id, contact_id_a, relation_type, contact_id_b, _row }
-  occasions: [],     // מאורעות: יארצייט, געבורטסטאג, חתונה...
+  occasions: [],
+  orgNotes: [],      // לשונית "ארגון": תיבות טקסט לכל איש קשר     // מאורעות: יארצייט, געבורטסטאג, חתונה...
   lists: {},         // { title_he: [...], ... }
   titleHeToEn: {},
   titleEnToHe: {},
@@ -66,7 +67,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -79,6 +80,10 @@ export async function loadAll() {
   const donations = rowsToObjects(tabs.Donations);
   state.headers.Donations = donations.header;
   state.donations = donations.objects;
+
+  const orgNotes = rowsToObjects(tabs.OrgNotes);
+  state.headers.OrgNotes = orgNotes.header;
+  state.orgNotes = orgNotes.objects;
 
   const occasions = rowsToObjects(tabs.Occasions);
   state.headers.Occasions = occasions.header;
@@ -168,6 +173,35 @@ export async function deleteDonation(donation) {
   if (!state.isAdmin) throw new Error(t('adminOnly'));
   const row = await findRow('Donations', donation.donation_id);
   if (row) await updateRow('Donations', row, state.headers.Donations.map(() => ''));
+}
+
+// ---------- לשונית "ארגון": תיבות טקסט ----------
+export const MAX_ORG_NOTES = 100;
+
+/** שומר תיבה (חדשה או קיימת). */
+export async function saveOrgNote(note) {
+  const stamp = nowStamp();
+  const n = { ...note, updated_at: stamp, updated_by: state.email };
+  delete n._row;
+  if (!n.note_id) {
+    const mine = state.orgNotes.filter((x) => String(x.contact_id) === String(n.contact_id));
+    if (mine.length >= MAX_ORG_NOTES) throw new Error(t('orgNotesMax', { n: MAX_ORG_NOTES }));
+    const ids = (await readColumn('OrgNotes', 'A')).slice(1).map(Number).filter(Number.isFinite);
+    n.note_id = Math.max(0, ...ids) + 1;
+    n.created_at = stamp;
+    n.created_by = state.email;
+    await appendRow('OrgNotes', objectToRow(state.headers.OrgNotes, n));
+  } else {
+    const row = await findRow('OrgNotes', n.note_id);
+    if (!row) throw new Error(t('notFound'));
+    await updateRow('OrgNotes', row, objectToRow(state.headers.OrgNotes, n));
+  }
+  return n.note_id;
+}
+
+export async function deleteOrgNote(note) {
+  const row = await findRow('OrgNotes', note.note_id);
+  if (row) await updateRow('OrgNotes', row, state.headers.OrgNotes.map(() => ''));
 }
 
 // ---------- מאורעות (יארצייט, געבורטסטאג...) ----------

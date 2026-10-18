@@ -3,7 +3,7 @@ import {
   initAuth, requestToken, signOut, getUserEmail, hasSavedSession, setOnExpire, rememberEmail,
 } from './google.js';
 import {
-  state, loadAll, saveContact, saveKvitel, addListValue, addRelation, removeRelation,
+  state, loadAll, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
 } from './data.js';
 import { suggest, details, placesEnabled, placesError } from './places.js';
 import {
@@ -265,6 +265,7 @@ function openCard(id, tab = null) {
       <button type="button" data-tab="details">${t('cardTabDetails')}</button>
       <button type="button" data-tab="family">${t('cardTabFamily')}${familyCount(c) + occasionCount(c) ? ` <span class="count-pill">${familyCount(c) + occasionCount(c)}</span>` : ''}</button>
       <button type="button" data-tab="money">${t('cardTabMoney')}${donationCount(c) ? ` <span class="count-pill">${donationCount(c)}</span>` : ''}</button>
+      <button type="button" data-tab="org">${t('cardTabOrg')}${orgNotesOf(c).length ? ` <span class="count-pill">${orgNotesOf(c).length}</span>` : ''}</button>
     </nav>
     <div class="card-pane" data-tab="details">
     <section>
@@ -287,6 +288,9 @@ function openCard(id, tab = null) {
     <div class="card-pane" data-tab="money">
       ${donationsSection(c)}
     </div>
+    <div class="card-pane" data-tab="org">
+      ${orgSection(c)}
+    </div>
     <p class="meta">
       ${c.created_at ? `<span>${h(t('created', { date: c.created_at, by: c.created_by || '—' }))}</span>` : ''}
       ${c.updated_at && c.updated_at !== c.created_at ? `<span>${h(t('updated', { date: c.updated_at, by: c.updated_by }))}</span>` : ''}
@@ -296,6 +300,7 @@ function openCard(id, tab = null) {
   wireDonationsSection(c);
   wireOccasionsSection(c);
   wireKvitel(c);
+  wireOrg(c);
   if (String(currentCardId) !== String(c.contact_id)) cardTab = 'details';
   if (tab) cardTab = tab;
   currentCardId = c.contact_id;
@@ -307,12 +312,91 @@ function openCard(id, tab = null) {
   $$('#card-body .card-tabs button').forEach((b) => { b.onclick = () => showTab(b.dataset.tab); });
   showTab(cardTab);
   $('#card-edit').onclick = () => {
-    if ($('#card-body .card-kvitel')?._dirty?.() && !confirm(t('kvitelUnsaved'))) return;
+    if (cardDirty() && !confirm(t('kvitelUnsaved'))) return;
     $('#card-dialog').close(); openForm(c);
   };
   if (!$('#card-dialog').open) $('#card-dialog').showModal();
   $('#card-dialog').scrollTop = 0;
   $('#card-close').focus({ preventScroll: true }); // Enter = צומאכן, בלי לגלול למטה
+}
+
+// ---------- לשונית "ארגון": תיבות טקסט חופשיות ----------
+/** האם יש בכרטיס טקסט שלא נשמר (קוויטל / ארגון). */
+function cardDirty() {
+  return ['.card-kvitel', '.card-org'].some((sel) => $(`#card-body ${sel}`)?._dirty?.());
+}
+
+function orgNotesOf(c) {
+  return state.orgNotes.filter((n) => String(n.contact_id) === String(c.contact_id))
+    .sort((a, b) => Number(a.note_id) - Number(b.note_id));
+}
+
+function orgBox(n) {
+  return `<div class="org-box" data-id="${h(n.note_id || '')}">
+    <textarea rows="4" dir="rtl" placeholder="${h(t('orgPh'))}">${h(n.text || '')}</textarea>
+    <div class="org-actions">
+      ${n.created_by ? `<span class="muted small">${h(n.updated_at || n.created_at)} · ${h(n.updated_by || n.created_by)}</span>` : ''}
+      <span class="spacer"></span>
+      <button type="button" class="btn small-btn danger org-del">${t('deleteBtn')}</button>
+      <button type="button" class="btn small-btn primary org-save" hidden>${t('saveBtn')}</button>
+    </div>
+  </div>`;
+}
+
+function orgSection(c) {
+  const notes = orgNotesOf(c);
+  return `<section class="card-org">
+    <h3>${t('cardTabOrg')}</h3>
+    <div class="org-list">${notes.map(orgBox).join('')}</div>
+    <button type="button" class="btn small-btn" id="org-add"${notes.length >= MAX_ORG_NOTES ? ' disabled' : ''}>${t('orgAdd')}</button>
+  </section>`;
+}
+
+function wireOrg(c) {
+  const box = $('#card-body .card-org');
+  if (!box) return;
+  const original = (el) => state.orgNotes.find((n) => String(n.note_id) === el.dataset.id);
+  const isDirty = (el) => el.querySelector('textarea').value !== String(original(el)?.text ?? '');
+  const wireBox = (el) => {
+    const ta = el.querySelector('textarea');
+    const grow = () => { ta.style.height = 'auto'; ta.style.height = `${Math.max(ta.scrollHeight, 90)}px`; };
+    grow();
+    ta.addEventListener('input', () => { grow(); el.querySelector('.org-save').hidden = !isDirty(el); });
+    el.querySelector('.org-save').onclick = async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      btn.textContent = t('saving');
+      try {
+        await saveOrgNote({ ...(original(el) || {}), contact_id: c.contact_id, text: ta.value.replace(/\s+$/, '') });
+        await loadAll();
+        refreshAll();
+        toast(t('orgSaved'));
+      } catch (err) {
+        toast(friendlyError(err), 'error');
+        btn.disabled = false;
+        btn.textContent = t('saveBtn');
+      }
+    };
+    el.querySelector('.org-del').onclick = async () => {
+      const o = original(el);
+      if (!o) { el.remove(); return; } // תיבה חדשה שלא נשמרה
+      if (!confirm(t('orgConfirmDelete'))) return;
+      try {
+        await deleteOrgNote(o);
+        await loadAll();
+        refreshAll();
+      } catch (err) { toast(friendlyError(err), 'error'); }
+    };
+  };
+  $$('.org-box', box).forEach(wireBox);
+  $('#org-add', box).onclick = () => {
+    if ($$('.org-box', box).length >= MAX_ORG_NOTES) { toast(t('orgNotesMax', { n: MAX_ORG_NOTES }), 'error'); return; }
+    $('.org-list', box).insertAdjacentHTML('beforeend', orgBox({}));
+    const el = $$('.org-box', box).at(-1);
+    wireBox(el);
+    el.querySelector('textarea').focus();
+  };
+  box._dirty = () => $$('.org-box', box).some((el) => isDirty(el));
 }
 
 // ---------- קוויטל (בכרטיס האישי) ----------
@@ -988,8 +1072,7 @@ function start() {
   $$('dialog [data-close]').forEach((b) => { b.onclick = () => b.closest('dialog').close(); });
   // הכרטיס: אם יש קוויטל שלא נשמר — שואלים לפני שסוגרים
   const closeCard = () => {
-    const k = $('#card-body .card-kvitel');
-    if (k?._dirty?.() && !confirm(t('kvitelUnsaved'))) return;
+    if (cardDirty() && !confirm(t('kvitelUnsaved'))) return;
     $('#card-dialog').close();
   };
   $$('#card-dialog [data-close]').forEach((b) => { b.onclick = closeCard; });
