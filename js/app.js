@@ -3,7 +3,7 @@ import {
   initAuth, requestToken, signOut, getUserEmail, hasSavedSession, setOnExpire, rememberEmail, hasSheetsScope,
 } from './google.js';
 import {
-  state, loadAll, displayName, orgLogo, NESHEI_ORG, getHistory, getPhoto, savePhoto, saveOriginalToDrive, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
+  state, loadAll, displayName, trashContact, orgLogo, NESHEI_ORG, getHistory, getPhoto, savePhoto, saveOriginalToDrive, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
 } from './data.js';
 import { suggest, details, placesEnabled, placesError } from './places.js';
 import {
@@ -640,6 +640,24 @@ function openCard(id, tab = null) {
   $$('#card-body .card-tabs button').forEach((b) => { b.onclick = () => showTab(b.dataset.tab); });
   showTab(cardTab);
   $('#card-task').onclick = () => openTaskForContact(c);
+  $('#card-delete').hidden = !state.isAdmin;
+  $('#card-delete').onclick = async () => {
+    const id = String(c.contact_id);
+    const n = {
+      don: state.donations.filter((d) => String(d.contact_id) === id).length,
+      occ: state.occasions.filter((o) => String(o.contact_id) === id).length,
+      rel: state.relations.filter((r) => String(r.contact_id_a) === id || String(r.contact_id_b) === id).length,
+    };
+    const ok = await choose(t('delTitle', { name: fullNameHe(c) }), t('delText', n), [['trash', `🗑 ${t('delConfirm')}`, true], ['', t('cancelBtn')]]);
+    if (ok !== 'trash') return;
+    try {
+      await trashContact(c);
+      await loadAll();
+      $('#card-dialog').close();
+      refreshAll();
+      toast(t('delDone', { name: fullNameHe(c) }));
+    } catch (err) { toast(friendlyError(err), 'error'); }
+  };
   $('#card-edit').onclick = () => {
     if (cardDirty() && !confirm(t('kvitelUnsaved'))) return;
     $('#card-dialog').close(); openForm(c);

@@ -42,7 +42,9 @@ export const money = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimum
 
 function contactName(id) {
   const c = ui.contactById(id);
-  return c ? ui.fullNameHe(c) : `#${id}`;
+  if (c) return ui.fullNameHe(c);
+  const del = (state.trash || []).find((x) => String(x.contact_id) === String(id));
+  return del ? `${ui.fullNameHe(del)} 🗑` : `#${id}`;
 }
 
 // ---------- לאיזה ארגון שייכת הנדבה ----------

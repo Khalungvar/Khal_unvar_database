@@ -85,7 +85,9 @@ export async function loadAll() {
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
-  state.contacts = contacts.objects;
+  // אויסגעמעקטע (אין "מיסט") — נישט געוויזן אין ערגעץ, נאר אין אדמין צו צוריקברענגען אדער אויסמעקן אויף אייביג
+  state.trash = contacts.objects.filter((c) => String(c.deleted_at || '').trim());
+  state.contacts = contacts.objects.filter((c) => !String(c.deleted_at || '').trim());
 
   const phones = rowsToObjects(tabs.Phones);
   state.headers.Phones = phones.header;
@@ -465,6 +467,61 @@ export async function saveRecord(tab, idField, record) {
 export async function deleteRecord(tab, idField, record) {
   const row = await findRow(tab, record[idField]);
   if (row) await updateRow(tab, row, state.headers[tab].map(() => ''));
+}
+
+// ---------- מעקן קאנטאקטן: קודם אין "מיסט" (מ'קען צוריקברענגען), דערנאך — אויף אייביג ----------
+async function setDeleted(c, at, by) {
+  const row = await findRow('Contacts', c.contact_id);
+  if (!row) throw new Error('not found');
+  const o = { ...c, deleted_at: at, deleted_by: by };
+  delete o._row;
+  await updateRow('Contacts', row, objectToRow(state.headers.Contacts, o));
+}
+
+/** מנהל: לייגט א קאנטאקט אין מיסט. */
+export async function trashContact(c) {
+  if (!state.isAdmin) throw new Error(t('adminOnly'));
+  await setDeleted(c, nowStamp(), state.email);
+  await logChanges('contact', c.contact_id, c.contact_id, null, null, 'deleted (trash)');
+}
+
+/** מנהל: ברענגט צוריק פון מיסט. */
+export async function restoreContact(c) {
+  if (!state.isAdmin) throw new Error(t('adminOnly'));
+  await setDeleted(c, '', '');
+  await logChanges('contact', c.contact_id, c.contact_id, null, null, 'restored');
+}
+
+/**
+ * מנהל: מעקט אויף אייביג. די נדבות בלייבן (מיטן נאמען, אן דעם קאנטאקט) — די געלט-היסטאריע פארלירט זיך נישט;
+ * טעלעפאנען, בילד, קשרים און מאורעות ווערן אויסגעמעקט.
+ */
+export async function purgeContact(c, nameHe) {
+  if (!state.isAdmin) throw new Error(t('adminOnly'));
+  const id = String(c.contact_id);
+  for (const d of state.donations.filter((x) => String(x.contact_id) === id)) {
+    const row = await findRow('Donations', d.donation_id);
+    const o = { ...d, contact_id: '', donor_name: d.donor_name || nameHe };
+    delete o._row;
+    if (row) await updateRow('Donations', row, objectToRow(state.headers.Donations, o));
+  }
+  for (const o of state.occasions.filter((x) => String(x.contact_id) === id)) {
+    const row = await findRow('Occasions', o.occasion_id);
+    if (row) await updateRow('Occasions', row, state.headers.Occasions.map(() => ''));
+  }
+  const relIds = await readColumn('Relations', 'A');
+  for (const r of state.relations.filter((x) => String(x.contact_id_a) === id || String(x.contact_id_b) === id)) {
+    const idx = relIds.findIndex((v, i) => i > 0 && String(v) === String(r.relation_id));
+    if (idx > 0) await updateRow('Relations', idx + 1, state.headers.Relations.map(() => ''));
+  }
+  const pRow = await findRow('Phones', id).catch(() => null);
+  if (pRow) await updateRow('Phones', pRow, state.headers.Phones.map(() => ''));
+  const phRow = await findRow('Photos', id).catch(() => null);
+  if (phRow) await updateRow('Photos', phRow, ['', '', '', '', '']);
+  photoCache.delete(id);
+  const row = await findRow('Contacts', id);
+  if (row) await updateRow('Contacts', row, state.headers.Contacts.map(() => ''));
+  await logChanges('contact', id, id, null, null, `deleted forever: ${nameHe}`);
 }
 
 /** שומר רשימה (חדשה או קיימת). מחזיר את ה-list_id. */

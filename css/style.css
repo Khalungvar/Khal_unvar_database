@@ -1006,3 +1006,4 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 .lt-sigrow { gap: 8px; align-items: center; }
 .lt-sigtext { font-size: 24px !important; min-width: 260px; text-align: center; color: #1b2f6b; }
 .rd-sigtext { font-size: 22pt; line-height: 1.1; color: #1b2f6b; margin-bottom: 2px; }
+.danger-text { color: var(--danger) !important; }

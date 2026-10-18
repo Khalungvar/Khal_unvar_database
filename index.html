@@ -8,30 +8,30 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&family=Playpen+Sans+Hebrew:wght@400;600&family=Amatic+SC:wght@700&family=Noto+Rashi+Hebrew:wght@500&family=Frank+Ruhl+Libre:wght@400;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="img/favicon.png">
-  <link rel="stylesheet" href="css/style.css?v=116">
+  <link rel="stylesheet" href="css/style.css?v=117">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script type="importmap">
   {"imports": {
-    "./js/admin.js": "./js/admin.js?v=116",
-    "./js/app.js": "./js/app.js?v=116",
-    "./js/campaigns.js": "./js/campaigns.js?v=116",
-    "./js/config.js": "./js/config.js?v=116",
-    "./js/data.js": "./js/data.js?v=116",
-    "./js/donations.js": "./js/donations.js?v=116",
-    "./js/chart.js": "./js/chart.js?v=116",
-    "./js/excel.js": "./js/excel.js?v=116",
-    "./js/hebdate.js": "./js/hebdate.js?v=116",
-    "./js/google.js": "./js/google.js?v=116",
-    "./js/i18n.js": "./js/i18n.js?v=116",
-    "./js/lists.js": "./js/lists.js?v=116",
-    "./js/mailmerge.js": "./js/mailmerge.js?v=116",
-    "./js/names.js": "./js/names.js?v=116",
-    "./js/occasions.js": "./js/occasions.js?v=116",
-    "./js/personal.js": "./js/personal.js?v=116",
-    "./js/places.js": "./js/places.js?v=116",
-    "./js/receipts.js": "./js/receipts.js?v=116",
-    "./js/scope.js": "./js/scope.js?v=116",
-    "./js/util.js": "./js/util.js?v=116"
+    "./js/admin.js": "./js/admin.js?v=117",
+    "./js/app.js": "./js/app.js?v=117",
+    "./js/campaigns.js": "./js/campaigns.js?v=117",
+    "./js/config.js": "./js/config.js?v=117",
+    "./js/data.js": "./js/data.js?v=117",
+    "./js/donations.js": "./js/donations.js?v=117",
+    "./js/chart.js": "./js/chart.js?v=117",
+    "./js/excel.js": "./js/excel.js?v=117",
+    "./js/hebdate.js": "./js/hebdate.js?v=117",
+    "./js/google.js": "./js/google.js?v=117",
+    "./js/i18n.js": "./js/i18n.js?v=117",
+    "./js/lists.js": "./js/lists.js?v=117",
+    "./js/mailmerge.js": "./js/mailmerge.js?v=117",
+    "./js/names.js": "./js/names.js?v=117",
+    "./js/occasions.js": "./js/occasions.js?v=117",
+    "./js/personal.js": "./js/personal.js?v=117",
+    "./js/places.js": "./js/places.js?v=117",
+    "./js/receipts.js": "./js/receipts.js?v=117",
+    "./js/scope.js": "./js/scope.js?v=117",
+    "./js/util.js": "./js/util.js?v=117"
   }}
   </script>
   <script type="module">import "./js/app.js";</script>
@@ -196,6 +196,7 @@
     <button type="button" class="x-close" data-close aria-label="Close">✕</button>
     <div id="card-body"></div>
     <div class="actions">
+      <button type="button" class="btn danger" id="card-delete" hidden>🗑 <span data-i18n="cardDelete"></span></button>
       <span class="spacer"></span>
       <button type="button" class="btn" id="card-task">☑ <span data-i18n="cardTaskBtn"></span></button>
       <button type="button" class="btn" id="card-edit" data-i18n="edit"></button>

@@ -6,7 +6,7 @@ import {
 import { t } from './i18n.js';
 import { splitTags, escapeHtml as h, shrinkImage } from './util.js';
 import {
-  saveYearly, saveCampaign, deleteYearly, deleteCampaign, canManageSharing, pickSheet, sharingPlan, applySharing, allUsers,
+  saveYearly, saveCampaign, deleteYearly, deleteCampaign, restoreContact, purgeContact, displayName, canManageSharing, pickSheet, sharingPlan, applySharing, allUsers,
 } from './data.js';
 import { yearlySeries, allCampaigns, curYear } from './campaigns.js';
 import { orgSelect } from './donations.js';
@@ -144,6 +144,7 @@ export function renderAdmin() {
     + `<div class="adm-group" id="adm-code" data-tab="people"></div>`
     + campaignsAdminHtml()
     + orgDetailsAdminHtml()
+    + trashHtml()
     + logosHtml()
     + `<div class="adm-group" data-tab="requests"><div class="soon-box"><h3>${h(t('admTabRequests'))}</h3><p class="muted">${h(t('admRequestsSoon'))}</p></div></div>`;
   // לאגאס און קאמפיינען געהערן צו לשונית 1
@@ -166,6 +167,7 @@ export function renderAdmin() {
   wireLogos(main);
   wireCampaignsAdmin(main);
   $$('[data-org-details]', main).forEach((b) => { b.onclick = () => ui.openOrgDetails(b.dataset.orgDetails); });
+  wireTrash(main);
   $('[data-g="admPeople"]', main)?.after($('#adm-sharing', main));
   if (state.isOwner) renderSharing();
 
@@ -224,6 +226,45 @@ function wireCard(card, def) {
       btn.textContent = t('saveBtn');
     }
   };
+}
+
+// ---------- מיסט: אויסגעמעקטע קאנטאקטן ----------
+const heName = (c) => [c.title_he, c.first_name_he, c.last_name_he].filter(Boolean).join(' ') || `#${c.contact_id}`;
+
+function trashHtml() {
+  const list = (state.trash || []).slice().sort((a, b) => String(b.deleted_at).localeCompare(String(a.deleted_at)));
+  return `<div class="adm-group" data-tab="lists"><h3 class="adm-group-title">🗑 ${h(t('trashTitle'))} <span class="muted small">(${list.length})</span></h3>
+    <p class="hint-line">${h(t('trashHint'))}</p>
+    ${list.length ? `<table class="lapsed-table"><tbody>${list.map((c) => {
+      const id = String(c.contact_id);
+      const don = state.donations.filter((d) => String(d.contact_id) === id).length;
+      return `<tr><td><b>${h(heName(c))}</b> <span class="muted small">#${h(id)}</span></td>
+        <td class="muted small">${h(t('trashBy', { by: displayName(c.deleted_by) || '—', at: c.deleted_at }))}</td>
+        <td class="muted small">${don ? h(t('trashDon', { n: don })) : ''}</td>
+        <td class="adm-btns"><button type="button" class="btn small-btn" data-restore-c="${h(id)}">↺ ${h(t('trashRestore'))}</button>
+          <button type="button" class="linkish danger-text" data-purge-c="${h(id)}">${h(t('trashPurge'))}</button></td></tr>`;
+    }).join('')}</tbody></table>` : `<p class="muted">${h(t('trashEmpty'))}</p>`}</div>`;
+}
+
+function wireTrash(main) {
+  const find = (id) => (state.trash || []).find((c) => String(c.contact_id) === id);
+  $$('[data-restore-c]', main).forEach((b) => {
+    b.onclick = async () => {
+      const c = find(b.dataset.restoreC);
+      b.disabled = true;
+      try { await restoreContact(c); await loadAll(); ui.refreshAll(); renderAdmin(); ui.toast(t('trashRestored', { name: heName(c) })); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); b.disabled = false; }
+    };
+  });
+  $$('[data-purge-c]', main).forEach((b) => {
+    b.onclick = async () => {
+      const c = find(b.dataset.purgeC);
+      const typed = prompt(t('trashPurgeConfirm', { name: heName(c), id: c.contact_id }));
+      if (typed === null) return;
+      if (String(typed).trim() !== String(c.contact_id)) { ui.toast(t('trashPurgeWrong'), 'error'); return; }
+      b.disabled = true;
+      try { await purgeContact(c, heName(c)); await loadAll(); ui.refreshAll(); renderAdmin(); ui.toast(t('trashPurged', { name: heName(c) })); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); b.disabled = false; }
+    };
+  });
 }
 
 // ---------- א קאד פאר דער לשונית "מנהלים, גבאים און צוטריט" ----------
