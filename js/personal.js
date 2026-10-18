@@ -2,6 +2,7 @@
 // און אונטן צוויי קאלומס: די קאנטאקטן וואס איך האב צוגעלייגט / געטוישט, און די נדבות וואס איך האב אריינגעלייגט.
 import {
   state, loadAll, saveRecord, deleteRecord, reloadMessages, allUsers, displayName,
+  isDatabaseAccount, hasDriveScope, connectDrive,
 } from './data.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, splitTags, joinTags, nowStamp } from './util.js';
@@ -253,7 +254,9 @@ export function renderPersonal(composePreset = null) {
   main.innerHTML = `
     <div class="camp-page-head">
       <div><h2>👤 ${h(displayName(state.email))}</h2>
-        <p class="muted">${h(state.email)} · ${h(state.isAdmin ? t('admin') : (me?.role === 'gabbai' ? t('pmGabbai') : t('pmUser')))}</p></div>
+        <p class="muted">${h(state.email)} · ${h(state.isAdmin ? t('admin') : (me?.role === 'gabbai' ? t('pmGabbai') : t('pmUser')))}</p>
+        ${isDatabaseAccount() ? (hasDriveScope() ? `<p class="drive-ok">✓ ${t('driveConnected')}</p>`
+          : `<p class="drive-warn">${t('driveNeedConnect')} <button type="button" class="btn small-btn primary" id="pm-connect-drive">🔗 ${t('driveConnectBtn')}</button></p>`) : ''}</div>
     </div>
 
     ${todoHtml()}
@@ -316,6 +319,10 @@ function wire(main) {
     if (e.target.closest('#pm-new-access')) { renderPersonal({ kind: 'access', to: 'admins', subject: t('pmAccessSubject') }); $('#pm-compose textarea').focus(); return; }
     if (e.target.closest('#pm-cancel')) { renderPersonal(); return; }
     if (e.target.closest('#pm-send')) { await send(); return; }
+    if (e.target.closest('#pm-connect-drive')) {
+      connectDrive().then(() => { ui.toast(t('driveConnected')); renderPersonal(); }).catch((err) => ui.toast(ui.friendlyError(err), 'error'));
+      return;
+    }
     if (e.target.closest('#pm-new-list')) { openBuilder(); return; }
     if (e.target.closest('#pm-all-lists')) { openOverview(); return; }
     const lst = e.target.closest('[data-list]');

@@ -91,9 +91,16 @@ export function requestToken(prompt = '') {
   });
 }
 
-/** בעט (איין מאל) די הרשאה פאר דרייב, צוזאמען מיט די וואס זענען שוין דא. */
+export function hasDriveScope() {
+  return grantedScopes.includes(DRIVE_SCOPE);
+}
+
+/**
+ * בעט (איין מאל) די הרשאה פאר דרייב. מוז גערופן ווערן גלייך פון א קליק
+ * (אנדערש בלאקירט דער בראוזער דעם פענצטער פון גוגל).
+ */
 export function ensureDriveScope() {
-  if (grantedScopes.includes(DRIVE_SCOPE)) return Promise.resolve();
+  if (hasDriveScope()) return Promise.resolve();
   return new Promise((resolve, reject) => {
     pendingResolve = resolve;
     pendingReject = reject;

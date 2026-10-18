@@ -2,7 +2,7 @@
 // ככה הוספה או הזזה של עמודה בגליון לא שוברת את התוכנה.
 import {
   readTabs, readColumn, readCell, appendRow, appendRows, updateRow, updateCell, updateRange,
-  ensureDriveScope, driveFolder, driveUpload,
+  ensureDriveScope, hasDriveScope, driveFolder, driveUpload,
 } from './google.js';
 import { CONFIG } from './config.js';
 import { nowStamp } from './util.js';
@@ -244,12 +244,19 @@ export function isDatabaseAccount() {
  */
 export async function saveOriginalToDrive(file, sub, name) {
   if (!isDatabaseAccount() || !file) return '';
-  await ensureDriveScope();
+  if (!hasDriveScope()) throw new Error(t('driveNotConnected'));
   const root = await driveFolder(CONFIG.DRIVE_FOLDER);
   const folder = await driveFolder(sub, root);
   const ext = (file.name || '').split('.').pop() || 'jpg';
   return driveUpload(file, `${name}.${ext}`, folder);
 }
+
+/** פארבינדן דרייב (גערופן פון א קנעפל). */
+export function connectDrive() {
+  return ensureDriveScope();
+}
+
+export { hasDriveScope };
 
 // ---------- בילדער פון מענטשן (לשונית Photos) ----------
 // די בילדער ווערן נישט אראפגעלאדן מיט אלעס — נאר ווען מען עפנט א כרטיס (כדי עס זאל זיין שנעל).

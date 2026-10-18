@@ -741,3 +741,6 @@ body.solo-mode .tabs, body.solo-mode #scope-bar { display: none !important; }
 .photo-ph small { font-size: 11px; }
 .card-photo.loading { opacity: .5; }
 .photo-del { font-size: 12px; }
+
+.drive-ok { color: #2e7d32; font-size: 14px; margin: 4px 0; }
+.drive-warn { color: #8a5a00; font-size: 14px; margin: 4px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

@@ -1,7 +1,7 @@
 // עמוד אדמין: כל הרשימות של האתר במקום אחד — ארגונים, טעג'ס, אופני תשלום, טיטלען, געגנטן, קרבות, מנהלים.
 // הכל נשמר בגליון (לשונית Lists / Settings). רק מנהל רואה את העמוד ויכול לשמור.
 import {
-  state, loadAll, saveListColumns, saveSettingsColumns, rawListColumn, rawSettingsColumn, orgLogo, saveOrgLogo, saveOriginalToDrive,
+  state, loadAll, saveListColumns, saveSettingsColumns, rawListColumn, rawSettingsColumn, orgLogo, saveOrgLogo, saveOriginalToDrive, isDatabaseAccount, hasDriveScope, connectDrive,
 } from './data.js';
 import { t } from './i18n.js';
 import { splitTags, escapeHtml as h, shrinkImage } from './util.js';
@@ -193,8 +193,13 @@ function logoOrgs() {
 }
 
 function logosHtml() {
+  const driveLine = isDatabaseAccount()
+    ? (hasDriveScope() ? `<p class="drive-ok">✓ ${t('driveConnected')}</p>`
+      : `<p class="drive-warn">${t('driveNeedConnect')} <button type="button" class="btn small-btn primary" id="btn-connect-drive">🔗 ${t('driveConnectBtn')}</button></p>`)
+    : `<p class="drive-warn">${h(t('driveNotDatabase', { email: state.email }))}</p>`;
   return `<div class="adm-group"><h3 class="adm-group-title">${t('admLogos')}</h3>
     <p class="hint-line">${t('admLogosHint')}</p>
+    ${driveLine}
     <div class="logo-grid">${logoOrgs().map(([name, kind]) => {
       const src = orgLogo(name);
       return `<div class="logo-card" data-org="${h(name)}">
@@ -207,6 +212,11 @@ function logosHtml() {
 }
 
 function wireLogos(main) {
+  $('#btn-connect-drive', main)?.addEventListener('click', () => {
+    // גלייך פון דעם קליק — כדי דער בראוזער זאל נישט בלאקירן דעם פענצטער פון גוגל
+    connectDrive().then(() => { ui.toast(t('driveConnected')); renderAdmin(); })
+      .catch((err) => ui.toast(ui.friendlyError(err), 'error'));
+  });
   $$('.logo-card', main).forEach((card) => {
     const org = card.dataset.org;
     $('input[type=file]', card).onchange = async (e) => {
