@@ -267,3 +267,4 @@ input[type="radio"] { width: auto !important; margin: 0; accent-color: var(--acc
 
 /* מילוי אוטומטי שעוד לא נבדק */
 input.suggested { color: var(--muted); font-style: italic; background: var(--chip); }
+.unverified { color: var(--muted); font-style: italic; }

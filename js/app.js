@@ -181,7 +181,7 @@ function renderList() {
       <button type="button" class="row${missingEn ? ' missing-en' : ''}" data-id="${h(c.contact_id)}">
         <span class="row-main">
           <span class="row-name">${h(fullNameHe(c))} ${badges}</span>
-          <span class="row-en" dir="ltr">${en ? h(en) : `<em>${t('noEnName')}</em>`}</span>
+          <span class="row-en" dir="ltr">${en ? unverifiedWrap(c, ['first_name_en', 'last_name_en'], h(en)) : `<em>${t('noEnName')}</em>`}</span>
         </span>
         <span class="row-city">${h(c.city)}</span>
         <span class="row-tags">${tags}</span>
@@ -190,6 +190,13 @@ function renderList() {
 }
 
 // ---------- כרטיס אישי ----------
+/** אם אחד השדות מולא אוטומטית ועוד לא אושר — מציג באפור. */
+function unverifiedWrap(c, fields, html) {
+  const pending = splitTags(c.unverified_fields);
+  return fields.some((f) => pending.includes(f))
+    ? `<span class="unverified" title="${h(t('suggestedTip'))}">${html}</span>` : html;
+}
+
 function tagChips(value) {
   return splitTags(value).map((tag) => `<span class="chip">${h(tag)}</span>`).join('');
 }
@@ -211,7 +218,7 @@ function openCard(id) {
     c.country && c.country !== 'USA' ? c.country : ''].filter(Boolean).map(h).join('<br>');
 
   const wife = [c.wife_name_he, c.wife_name_en].some((v) => String(v).trim())
-    ? `${h(c.wife_name_he)}${c.wife_name_en ? ` · <span dir="ltr">${h(c.wife_name_en)}</span>` : ''}`
+    ? `${h(c.wife_name_he)}${c.wife_name_en ? ` · <span dir="ltr">${unverifiedWrap(c, ['wife_name_en'], h(c.wife_name_en))}</span>` : ''}`
       + `${isTrue(c.wife_is_rebbetzin) ? ' · Rebbetzin' : ''}${!isAlive(c.wife_is_alive) ? ` · ${t('deceasedF')}` : ''}`
       + `${isTrue(c.wife_in_neshei) ? ` · ${t('nesheiFull')}` : ''}`
     : '';
@@ -221,7 +228,7 @@ function openCard(id) {
     <p class="sub">#${h(c.contact_id)} · ${t('code')} ${h(primaryCode(c.first_name_he, c.last_name_he))}${!isAlive(c.is_alive) ? ` · ${t('deceased')}` : ''}</p>
     <section>
       ${field(t('marital'), h(maritalLabel(c.marital_status)))}
-      ${field(t('enName'), h([c.title_en, c.first_name_en, c.last_name_en].filter(Boolean).join(' ')), true)}
+      ${field(t('enName'), unverifiedWrap(c, ['first_name_en', 'last_name_en'], h([c.title_en, c.first_name_en, c.last_name_en].filter(Boolean).join(' '))), true)}
       ${field(t('legalName'), h(c.legal_first_name), true)}
       ${field(t('mailingName'), mail ? h(mail) : '', true)}
       ${field(t('wife'), wife)}
@@ -471,11 +478,17 @@ function wireForm(form, original) {
       const guess = fn(f(heName).value, state.contacts);
       if (guess) { en.value = guess; en.classList.add('suggested'); en.title = t('suggestedTip'); }
     });
-    f(enName).addEventListener('input', () => { f(enName).classList.remove('suggested'); f(enName).title = ''; });
+    const confirmIt = () => { f(enName).classList.remove('suggested'); f(enName).title = ''; };
+    f(enName).addEventListener('input', confirmIt);
+    f(enName).addEventListener('click', confirmIt); // לחיצה על השדה = אישור
   };
   suggestInto('first_name_he', 'first_name_en', suggestFirstName);
   suggestInto('last_name_he', 'last_name_en', suggestLastName);
   suggestInto('wife_name_he', 'wife_name_en', suggestFirstName);
+  // שדות שמולאו אוטומטית ועוד לא אושרו — נשארים אפורים גם אחרי שמירה
+  splitTags(original.unverified_fields).forEach((n) => {
+    if (f(n)?.value) { f(n).classList.add('suggested'); f(n).title = t('suggestedTip'); }
+  });
 
   // השלמת תואר דו-כיוונית — רק כשהשני ריק
   f('title_he').addEventListener('change', () => {
@@ -585,6 +598,7 @@ function collect(form, original) {
     state: val('state').toUpperCase(),
     zip: val('zip'),
     country: val('country') || 'USA',
+    unverified_fields: joinTags($$('input.suggested', form).filter((i) => i.value.trim()).map((i) => i.name)),
   };
   delete contact._row;
 
