@@ -20,6 +20,7 @@ import {
 import {
   initCampaigns, renderCampaignSide, renderCampaignMain, showCampaign, renderDonHub,
 } from './campaigns.js';
+import { initReceipts, renderReceipts, openReceipts, printForDonation, openOrgDetails } from './receipts.js';
 import { initLists, renderListsSide, renderBuilder, openOverview, exportContacts } from './lists.js';
 import { initAdmin, renderAdmin, adminDirty } from './admin.js';
 import { initMailMerge, renderMailMerge, openMailMerge } from './mailmerge.js';
@@ -247,6 +248,7 @@ function lobbyClick(e) {
   if (key === 'lists') { openOverview(); return; }
   if (key === 'mailmerge') { openMailMerge(); return; }
   if (key === 'personal') { document.body.classList.add('solo-mode'); openPersonal(); return; }
+  if (key === 'receipts') { enterScope(null); document.body.classList.add('solo-mode'); openReceipts(); return; }
   // נדבות / לוח המאורעות: א באזונדערער בלאט פון אלע רעקארדס — אן די לשוניות
   if (key === 'donations' || key === 'occasions') {
     enterScope(null);
@@ -285,6 +287,7 @@ function refreshAll() {
   if (!$('.view[data-view="lists"]').hidden) renderBuilder();
   if (!$('.view[data-view="campaign"]').hidden) renderCampaignMain();
   if (!$('.view[data-view="donhub"]').hidden) renderDonHub();
+  if (!$('.view[data-view="receipts"]').hidden) renderReceipts();
   if ($('#card-dialog').open && currentCardId) openCard(currentCardId);
 }
 
@@ -300,6 +303,7 @@ function showView(name) {
   if (name === 'occasions') { fillOccasionFilters(); renderOccasions(); }
   if (name === 'campaign') renderCampaignMain();
   if (name === 'donhub') renderDonHub();
+  if (name === 'receipts') renderReceipts();
   if (name === 'admin') renderAdmin();
   if (name === 'lobby') renderLobby();
   if (name === 'mailmerge') renderMailMerge();
@@ -1539,11 +1543,12 @@ function start() {
   $$('.tabs button').forEach((b) => { b.onclick = () => showView(b.dataset.view); });
   initDonations({
     contactById, fullNameHe, pickerLabel, options, tagPicker, readTags, wireTagPicker,
-    toast, friendlyError, refreshAll, showView,
+    toast, friendlyError, refreshAll, showView, printForDonation,
     openCampaignPage: (name) => showCampaign(name),
   });
   initCampaigns({ showView, tagPicker, wireTagPicker, readTags, toast, friendlyError, refreshAll, openCard });
-  initAdmin({ toast, friendlyError, refreshAll });
+  initAdmin({ toast, friendlyError, refreshAll, openOrgDetails });
+  initReceipts({ showView, toast, friendlyError, contactById, fullNameHe, refreshAdmin: () => renderAdmin() });
   initMailMerge({ showView, fullNameHe, toast, friendlyError });
   initPersonal({ showView, fullNameHe, openCard, contactById, toast, friendlyError, updateBadges });
   $('#btn-personal').onclick = () => { document.body.classList.add('solo-mode'); openPersonal(); };

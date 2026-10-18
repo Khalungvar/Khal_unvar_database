@@ -21,7 +21,9 @@ export const state = {
   occasions: [],
   orgNotes: [],
   campaigns: [],
-  yearly: [],        // יערליכע קאמפיינען (YearlyCampaigns): { series, org, event_tags, note, active, order }
+  yearly: [],
+  orgDetails: [],     // פרטים פאר קבלות: { org, legal_name, address, city_state_zip, phone, email, website, ein, is_501c3, signer_name, signer_title, receipt_prefix, receipt_note, thanks_yi }
+  receipts: [],       // אלע קבלות / Invoices וואס זענען ארויסגעגעבן (לשונית Receipts)        // יערליכע קאמפיינען (YearlyCampaigns): { series, org, event_tags, note, active, order }
   savedLists: [],
   mailTemplates: [],
   messages: [],
@@ -79,7 +81,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -116,6 +118,13 @@ export async function loadAll() {
   const campaigns = rowsToObjects(tabs.Campaigns);
   state.headers.Campaigns = campaigns.header;
   state.campaigns = campaigns.objects;
+
+  const od = rowsToObjects(tabs.OrgDetails || [['org']]);
+  state.headers.OrgDetails = od.header;
+  state.orgDetails = od.objects.filter((o) => String(o.org || '').trim());
+  const rc = rowsToObjects(tabs.Receipts || [['receipt_no']]);
+  state.headers.Receipts = rc.header;
+  state.receipts = rc.objects.filter((r) => String(r.receipt_no || '').trim());
 
   const yearly = rowsToObjects(tabs.YearlyCampaigns || [['series']]);
   state.headers.YearlyCampaigns = yearly.header;
@@ -503,6 +512,79 @@ export async function saveYearly(y) {
   if (row) await updateRow('YearlyCampaigns', row, objectToRow(state.headers.YearlyCampaigns, o));
   else await appendRow('YearlyCampaigns', objectToRow(state.headers.YearlyCampaigns, o));
   await logChanges('yearly', o.series, '', existing || {}, o);
+}
+
+// ---------- קבלות און Invoices ----------
+export function orgDetailsOf(org) {
+  return state.orgDetails.find((o) => o.org === org) || null;
+}
+
+/** היט אפ די פרטים פון א ארגון (פאר די קבלות). */
+export async function saveOrgDetails(d) {
+  const stamp = nowStamp();
+  const existing = orgDetailsOf(d.org);
+  const o = { ...(existing || {}), ...d, updated_at: stamp, updated_by: state.email };
+  delete o._row;
+  const row = existing ? await findRow('OrgDetails', o.org) : null;
+  if (row) await updateRow('OrgDetails', row, objectToRow(state.headers.OrgDetails, o));
+  else await appendRow('OrgDetails', objectToRow(state.headers.OrgDetails, o));
+  await logChanges('orgDetails', o.org, '', existing || {}, o);
+}
+
+/** א שליסל וואס באשרייבט א דאקומענט — כדי ביים נאכאמאל דרוקן זאל עס האבן דעם זעלבן נומער. */
+const docKey = (kind, org, ids, period, who) => [kind, org, [...ids].map(String).sort().join(','), period || '', who || ''].join('|');
+
+/** געפינט א קבלה וואס איז שוין ארויסגעגעבן פאר די זעלבע נדבות. */
+export function findIssued(kind, org, ids, period, who) {
+  const k = docKey(kind, org, ids, period, who);
+  return state.receipts.find((r) => !isTrueVal(r.void)
+    && docKey(r.kind, r.org, String(r.donation_ids || '').split(',').filter(Boolean), r.period, r.contact_id || r.donor_name) === k) || null;
+}
+const isTrueVal = (v) => v === true || String(v).toUpperCase() === 'TRUE';
+
+/**
+ * גיט ארויס דאקומענטן (אדער גיט צוריק דעם אלטן נומער ווען ס'איז שוין דא).
+ * docs = [{ kind, org, contact_id, donor_name, ids, amount, period }] → די זעלבע מיט receipt_no
+ * נומערן: <prefix>-0001 (קבלות), <prefix>-INV-0001 (Invoices), <prefix>-YE2026-001 (יערליכע סיכומים) — באזונדער פאר יעדן ארגון.
+ */
+export async function issueDocs(docs) {
+  const fresh = (await readColumn('Receipts', 'A')).slice(1).map(String);
+  const used = new Set([...fresh, ...state.receipts.map((r) => String(r.receipt_no))]);
+  const next = (base, pad) => {
+    let n = 0;
+    used.forEach((no) => { if (no.startsWith(`${base}-`)) { const m = Number(no.slice(base.length + 1)); if (m > n) n = m; } });
+    const no = `${base}-${String(n + 1).padStart(pad, '0')}`;
+    used.add(no);
+    return no;
+  };
+  const stamp = nowStamp();
+  const rows = [];
+  const out = docs.map((d) => {
+    const who = d.contact_id || d.donor_name;
+    const old = findIssued(d.kind, d.org, d.ids, d.period, who);
+    if (old) return { ...d, receipt_no: old.receipt_no, issued_at: old.issued_at, reprint: true };
+    const det = orgDetailsOf(d.org) || {};
+    const prefix = String(det.receipt_prefix || '').trim() || 'R';
+    const base = d.kind === 'invoice' ? `${prefix}-INV` : d.kind === 'year' ? `${prefix}-YE${d.period}` : prefix;
+    const no = next(base, d.kind === 'year' ? 3 : 4);
+    const rec = {
+      receipt_no: no, kind: d.kind, org: d.org, contact_id: d.contact_id || '', donor_name: d.contact_id ? '' : (d.donor_name || ''),
+      donation_ids: d.ids.join(','), amount: d.amount, period: d.period || '', issued_at: stamp, issued_by: state.email, void: '', note: '',
+    };
+    rows.push(objectToRow(state.headers.Receipts, rec));
+    state.receipts.push(rec);
+    return { ...d, receipt_no: no, issued_at: stamp, reprint: false };
+  });
+  if (rows.length) await appendRows('Receipts', rows);
+  return out;
+}
+
+/** בטל א קבלה (מ'מעקט נישט — מ'צייכנט "void"). */
+export async function voidReceipt(no) {
+  if (!state.isAdmin) throw new Error(t('adminOnly'));
+  const row = await findRow('Receipts', no);
+  const r = state.receipts.find((x) => x.receipt_no === no);
+  if (row && r) await updateRow('Receipts', row, objectToRow(state.headers.Receipts, { ...r, void: true }));
 }
 
 /** מנהל בלבד: מעקט א יערליכן קאמפיין (נאר ווען ס'איז נישטא קיין נדבות). */

@@ -10,6 +10,7 @@ import {
 } from './data.js';
 import { yearlySeries, allCampaigns, curYear } from './campaigns.js';
 import { orgSelect } from './donations.js';
+import { orgDetailsAdminHtml } from './receipts.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -142,6 +143,7 @@ export function renderAdmin() {
     + `<div class="adm-group" id="adm-lock" data-tab="people-lock"></div>`
     + `<div class="adm-group" id="adm-code" data-tab="people"></div>`
     + campaignsAdminHtml()
+    + orgDetailsAdminHtml()
     + logosHtml()
     + `<div class="adm-group" data-tab="requests"><div class="soon-box"><h3>${h(t('admTabRequests'))}</h3><p class="muted">${h(t('admRequestsSoon'))}</p></div></div>`;
   // לאגאס און קאמפיינען געהערן צו לשונית 1
@@ -163,6 +165,7 @@ export function renderAdmin() {
   };
   wireLogos(main);
   wireCampaignsAdmin(main);
+  $$('[data-org-details]', main).forEach((b) => { b.onclick = () => ui.openOrgDetails(b.dataset.orgDetails); });
   $('[data-g="admPeople"]', main)?.after($('#adm-sharing', main));
   if (state.isOwner) renderSharing();
 

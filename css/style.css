@@ -890,3 +890,58 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 .code-box summary { cursor: pointer; font-weight: 600; color: var(--accent); }
 .code-box .lock-form { justify-content: flex-start; }
 .code-line { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; font-weight: 600; color: var(--accent); }
+
+/* ---------- Invoice & Receipt ---------- */
+.rc-kinds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 10px 0 14px; }
+@media (max-width: 800px) { .rc-kinds { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.rc-filters { flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.rc-filters label { display: flex; gap: 6px; align-items: center; }
+.rc-actions { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.rc-table td:first-child, .rc-table th:first-child { width: 28px; }
+.rc-log { margin-top: 18px; }
+.rc-log summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+.rc-void td { text-decoration: line-through; color: var(--muted); }
+.od-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.od-item { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: start; font: inherit; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; cursor: pointer; }
+.od-item:hover { border-color: var(--accent); }
+.od-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+.od-grid label { display: flex; flex-direction: column; gap: 3px; font-size: 14px; }
+.od-grid label.wide { grid-column: 1 / -1; }
+.od-grid input, .od-grid textarea { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+
+/* דער דאקומענט — נאר ביים דרוקן */
+#rc-print-area { display: none; }
+.rc-doc { font-family: Georgia, 'Times New Roman', serif; color: #1d1d1d; direction: ltr; text-align: left; font-size: 11pt; line-height: 1.45;
+  width: 7.3in; margin: 0 auto; }
+.rc-head { display: flex; align-items: center; gap: 16px; border-bottom: 2px solid #7a1219; padding-bottom: 10px; }
+.rc-logo { width: 80px; height: 80px; object-fit: contain; }
+.rc-org { flex: 1; font-size: 9.5pt; color: #444; }
+.rc-legal { font-size: 15pt; font-weight: bold; color: #7a1219; }
+.rc-yi { font-family: 'Frank Ruhl Libre', 'David', serif; font-size: 12pt; color: #7a1219; align-self: flex-start; }
+.rc-titlebar { display: flex; justify-content: space-between; align-items: flex-start; margin: 18px 0 10px; }
+.rc-titlebar h1 { font-size: 18pt; margin: 0; letter-spacing: .5px; }
+.rc-meta td { padding: 1px 0 1px 10px; font-size: 10pt; }
+.rc-meta td:first-child { color: #666; }
+.rc-copy { color: #999; font-size: 9pt; }
+.rc-to { margin: 8px 0 16px; }
+.rc-label { font-size: 9pt; text-transform: uppercase; letter-spacing: 1px; color: #777; }
+.rc-name { font-weight: bold; font-size: 12pt; }
+.rc-lines { width: 100%; border-collapse: collapse; }
+.rc-lines th { text-align: left; font-size: 9.5pt; color: #555; border-bottom: 1.5px solid #333; padding: 5px 6px; }
+.rc-lines td { padding: 6px; border-bottom: 1px solid #ddd; vertical-align: top; }
+.rc-lines .amt { text-align: right; white-space: nowrap; }
+.rc-lines tfoot td { font-weight: bold; border-bottom: 0; border-top: 1.5px solid #333; font-size: 12pt; }
+.rc-tax { margin-top: 18px; font-size: 10pt; }
+.rc-note { font-size: 10pt; color: #444; }
+.rc-sign { margin-top: 36px; width: 2.8in; font-size: 10pt; }
+.rc-sigline { border-bottom: 1px solid #333; height: 30px; margin-bottom: 4px; }
+.rc-muted { color: #666; }
+@media print {
+  @page { size: letter; margin: 0.6in; }
+  body.printing-rc > *:not(#rc-print-area) { display: none !important; }
+  body.printing-rc { background: #fff !important; }
+  body.printing-rc #rc-print-area { display: block !important; }
+  body.printing-rc .rc-doc { break-after: page; page-break-after: always; }
+  body.printing-rc .rc-doc:last-child { break-after: auto; page-break-after: auto; }
+}

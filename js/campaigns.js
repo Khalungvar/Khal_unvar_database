@@ -13,6 +13,7 @@ import {
 } from './donations.js';
 import { donationInScope } from './scope.js';
 import { downloadXlsx } from './excel.js';
+import { openReceipts } from './receipts.js';
 import { compareChartHtml, wireCompareChart, yearBarsHtml, compareToDate, deltaHtml } from './chart.js';
 
 let ui = null;
@@ -316,6 +317,7 @@ function renderCampaign(main) {
       </div>
       <span class="spacer"></span>
       <button type="button" class="btn" id="camp-xl" title=".xlsx">Excel</button>
+      <button type="button" class="btn" id="camp-receipts">🧾 ${h(t('rcCampBtn'))}</button>
       <button type="button" class="btn" id="camp-settings">${t('campaignSettings')}</button>
       <button type="button" class="btn" id="camp-add-one">${t('newDonation')}</button>
       <button type="button" class="btn primary" id="camp-add-more">${t('campaignAddMore')}</button>
@@ -342,6 +344,7 @@ function renderCampaign(main) {
   $('#camp-add-more', main).onclick = () => openBulk({ campaign: c.name });
   $('#camp-add-one', main).onclick = () => openDonationForm({ campaign: c.name });
   $('#camp-xl', main).onclick = () => exportDonations(c.name, list);
+  $('#camp-receipts', main).onclick = () => openReceipts({ kind: 'campaign', campaign: c.name });
   $('#camp-settings', main).onclick = () => openNewCampaign({ mode: isY ? 'year' : 'once', camp: c });
 }
 

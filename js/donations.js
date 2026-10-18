@@ -319,6 +319,7 @@ export function openDonationForm(donation = {}, presetContactId = null) {
     ${!isNew && d.created_at ? `<p class="meta">${h(t('created', { date: d.created_at, by: displayName(d.created_by) || '—' }))}${d.updated_at && d.updated_at !== d.created_at ? ` · ${h(t('updated', { date: d.updated_at, by: displayName(d.updated_by) }))}` : ''}</p>` : ''}
     <div class="actions">
       ${!isNew && state.isAdmin ? `<button type="button" class="btn danger" id="don-delete">${t('deleteBtn')}</button>` : ''}
+      ${!isNew ? `<button type="button" class="btn" id="don-receipt">🧾 ${h(isTrue(d.is_paid) ? t('rcBtnReceipt') : t('rcBtnInvoice'))}</button>` : ''}
       <span class="spacer"></span>
       <button type="button" class="btn" id="don-cancel">${t('cancelBtn')}</button>
       <button type="submit" class="btn primary" id="don-save">${t('saveBtn')}</button>
@@ -332,6 +333,10 @@ export function openDonationForm(donation = {}, presetContactId = null) {
 
 function wireDonationForm(form, original) {
   const f = (n) => form.elements[n];
+  $('#don-receipt', form)?.addEventListener('click', () => {
+    if (form.dataset.dirty) { ui.toast(t('rcSaveFirst'), 'error'); return; }
+    ui.printForDonation?.(original);
+  });
   const datePicker = $('.heb-picker[data-name="date"]', form);
   form.dataset.dirty = '';
   form.addEventListener('input', () => { form.dataset.dirty = '1'; });
