@@ -199,7 +199,8 @@ function wireCard(card, def) {
 async function renderSharing() {
   const box = $('#adm-sharing');
   if (!box) return;
-  const head = `<h3 class="adm-group-title">🔐 ${h(t('shareTitle'))}</h3><p class="hint-line">${h(t('shareHint'))}</p>`;
+  const head = `<h3 class="adm-group-title">🔐 ${h(t('shareTitle'))}</h3><p class="hint-line">${h(t('shareHint'))}</p>
+    <p class="hint-line">${h(t('testUsersHint'))} <a href="https://console.cloud.google.com/auth/audience?project=khal-unvar-database" target="_blank" rel="noopener">➕ Test users (Google Cloud) ↗</a></p>`;
   // שריט 1: די קליינע דרייב הרשאה · שריט 2: קלייבן דעם שיט אין גוגל'ס פענצטער (איין מאל)
   const connectBtn = (step) => `${head}<p class="drive-warn">${h(t(step === 1 ? 'shareNeedConnect' : 'shareNeedPick'))}
       <button type="button" class="btn small-btn primary" id="share-connect">🔗 ${h(t(step === 1 ? 'shareConnectBtn' : 'sharePickBtn'))}</button></p>`;
