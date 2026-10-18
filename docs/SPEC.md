@@ -26,7 +26,7 @@
 | שם אישה עברית | טקסט | ✅ הוחלט: לא חובה |
 | שם אישה אנגלית | טקסט | ✅ הוחלט: לא חובה. משמש לפנייה כשרק האישה בחיים (Mrs. Sarah Klein) |
 | אישה חיה / נפטרה | לחצן | |
-| האם האישה בנשי | V | ❓ צריך הבהרה |
+| האישה בנשי אונגוואר | V | ✅ הוחלט: לחצן נפרד (ארגון של נשים בלבד; שאר הקבוצות הן תגיות). מאפשר סינון רשימות. ❓ בדיוור לנשי: פנייה אישית לאישה? |
 | קשר לקהילה | תגיות | |
 | תמונה | העלאת קובץ | תישמר בגוגל דרייב |
 | כתובת | טקסט + השלמה אוטומטית | |
@@ -75,7 +75,7 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 ## מבנה הגוגל שיטס (נוצר)
 קובץ: Khal_unvar_database. שורה 1 = כותרות באנגלית, הנתונים מתחילים בשורה 2.
 
-- **Contacts:** contact_id, title_he, first_name_he, last_name_he, is_alive, marital_status, title_en, first_name_en, last_name_en, wife_name_he, wife_name_en, wife_is_rebbetzin, wife_is_alive, wife_in_nashim, community_tags, photo_url, address, city, state, zip, is_active, created_at, updated_at, updated_by
+- **Contacts:** contact_id, title_he, first_name_he, last_name_he, is_alive, marital_status, title_en, first_name_en, last_name_en, wife_name_he, wife_name_en, wife_is_rebbetzin, wife_is_alive, wife_in_neshei, community_tags, photo_url, address, city, state, zip, is_active, created_at, updated_at, updated_by
 - **Phones:** contact_id, mobile, home_phone, other_phone, office_phone, wife_mobile, email
 - **Donations:** donation_id, contact_id, date, event, amount_usd, payment_method, check_number, card_last4, payment_note, dedication_type, dedication_text, created_at, created_by
 - **Relations:** relation_id, contact_id_a, relation_type, contact_id_b
@@ -88,7 +88,6 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 - כמעט אף פעם לא שולחים לכולם; צריך כלי לבחירת קבוצות מתוך המאגר (סינון לפי תגיות, חי/נפטר, עיר וכו') ולהפקת רשימה/מדבקות. ייתוכנן בנפרד.
 
 ## שאלות פתוחות
-2. מה המשמעות של "האם האישה בנשי".
 3. רשימת המאורעות לתרומות.
 4. רשימת הקשרים המשפחתיים.
 5. השלמת כתובות: מתוך נתונים קיימים (חינם) או דרך גוגל.
