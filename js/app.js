@@ -90,6 +90,7 @@ function refreshAll() {
   renderDonations();
   fillOccasionFilters();
   renderOccasions();
+  renderOrgs();
   if ($('#card-dialog').open && currentCardId) openCard(currentCardId);
 }
 
@@ -98,6 +99,7 @@ function showView(name) {
   $$('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === name));
   if (name === 'donations') { fillDonationFilters(); renderDonations(); }
   if (name === 'occasions') { fillOccasionFilters(); renderOccasions(); }
+  if (name === 'orgs') renderOrgs();
 }
 
 async function signIn() {
@@ -186,6 +188,67 @@ function fillFilters() {
   $('#org-former-wrap').hidden = !orgSel.value;
 }
 
+// ---------- דפי ארגונים: לכל ביהמ"ד / כולל / ארגון — מי ששייך אליו, כולל יוצאים ----------
+let currentOrgPage = '';
+
+function orgPages() {
+  return ORG_FIELDS.map(([name, label]) => {
+    const values = [...new Set([...(state.lists[name] || []), ...state.contacts.flatMap((c) => splitTags(c[name]))])];
+    return { name, label, values };
+  });
+}
+
+function orgMembers(name, value) {
+  return state.contacts.filter((c) => splitTags(c[name]).includes(value))
+    .sort((a, b) => String(a.last_name_he).localeCompare(String(b.last_name_he), 'he')
+      || String(a.first_name_he).localeCompare(String(b.first_name_he), 'he'));
+}
+
+function memberBlock(name, value, heading) {
+  const all = orgMembers(name, value);
+  const current = all.filter((c) => !isTrue(c[`${name}_former`]));
+  const former = all.filter((c) => isTrue(c[`${name}_former`]));
+  return `${heading}
+    <p class="muted">${h(t('orgMembersCount', { n: current.length, f: former.length }))}</p>
+    <div class="list">${current.map(contactRow).join('') || `<p class="empty">${h(t('noMembers'))}</p>`}</div>
+    ${former.length ? `<h4 class="former-head">${h(t('formerMembers'))}</h4><div class="list former-list">${former.map(contactRow).join('')}</div>` : ''}`;
+}
+
+/** כמה שייכים עכשיו (לא יוצאים) לערך — או לכל הסוג אם value ריק. */
+function currentCount(name, value) {
+  return state.contacts.filter((c) => (value ? splitTags(c[name]).includes(value) : splitTags(c[name]).length)
+    && !isTrue(c[`${name}_former`])).length;
+}
+
+function renderOrgs() {
+  const side = $('#org-side');
+  if (!side) return;
+  const pages = orgPages();
+  if (!currentOrgPage) currentOrgPage = pages[0]?.name || '';
+  side.innerHTML = pages.map((p) => `<div class="org-group">
+    <button type="button" class="org-link org-top${p.name === currentOrgPage ? ' on' : ''}" data-key="${h(p.name)}">
+      <span>${h(t(p.label))}</span><span class="count-pill">${currentCount(p.name, '')}</span></button>
+    ${p.values.map((v) => {
+      const key = `${p.name}|${v}`;
+      return `<button type="button" class="org-link org-sub${key === currentOrgPage ? ' on' : ''}" data-key="${h(key)}">
+        <span>${h(v)}</span><span class="count-pill">${currentCount(p.name, v)}</span></button>`;
+    }).join('')}
+  </div>`).join('');
+  const [name, value] = currentOrgPage.split('|');
+  const main = $('#org-main');
+  const page = pages.find((p) => p.name === name);
+  if (!page) { main.innerHTML = `<p class="empty">${h(t('noOrgs'))}</p>`; return; }
+  if (value) {
+    main.innerHTML = memberBlock(name, value, `<h2>${h(value)} <span class="muted small">${h(t(page.label))}</span></h2>`);
+    return;
+  }
+  // דף ראשי של הסוג: מחולק לפי כל ערך
+  main.innerHTML = `<h2>${h(t(page.label))}</h2>`
+    + (page.values.length ? page.values.map((v) => `<section class="org-part">${memberBlock(name, v,
+      `<h3><button type="button" class="linkish org-open" data-key="${h(`${name}|${v}`)}">${h(v)}</button></h3>`)}</section>`).join('')
+      : `<p class="empty">${h(t('noOrgs'))}</p>`);
+}
+
 /** פילטער לויט ביהמ"ד / כולל / ארגון; יוצאים רק אם סימנו "מיט יוצאים". */
 function matchesOrg(c) {
   const v = $('#org-filter').value;
@@ -218,26 +281,29 @@ function renderList() {
     body.innerHTML = `<p class="empty">${h(state.contacts.length ? t('noResults') : t('emptyDb'))}</p>`;
     return;
   }
-  body.innerHTML = list.map((c) => {
-    const missingEn = !String(c.first_name_en ?? '').trim() || !String(c.last_name_en ?? '').trim();
-    const badges = [
-      !isAlive(c.is_alive) ? `<span class="badge muted">${t('deceased')}</span>` : '',
-      c.is_active === false || c.is_active === 'FALSE' ? `<span class="badge muted">${t('inactive')}</span>` : '',
-      isTrue(c.wife_in_neshei) ? `<span class="badge">${t('neshei')}</span>` : '',
-      ...orgLabels(c).map((o) => orgChip(o, 'badge org')),
-    ].join('');
-    const tags = splitTags(c.community_tags).map((tag) => `<span class="chip">${h(tag)}</span>`).join('');
-    const en = [c.first_name_en, c.last_name_en].filter(Boolean).join(' ');
-    return `
-      <button type="button" class="row${missingEn ? ' missing-en' : ''}" data-id="${h(c.contact_id)}">
-        <span class="row-main">
-          <span class="row-name">${h(fullNameHe(c))} ${badges}</span>
-          <span class="row-en" dir="ltr">${en ? unverifiedWrap(c, ['first_name_en', 'last_name_en'], h(en)) : `<em>${t('noEnName')}</em>`}</span>
-        </span>
-        <span class="row-city">${c.area ? unverifiedWrap(c, ['area'], h(c.area)) : h(c.city)}</span>
-        <span class="row-tags">${tags}</span>
-      </button>`;
-  }).join('');
+  body.innerHTML = list.map(contactRow).join('');
+}
+
+/** שורה של איש קשר ברשימה. */
+function contactRow(c) {
+  const missingEn = !String(c.first_name_en ?? '').trim() || !String(c.last_name_en ?? '').trim();
+  const badges = [
+    !isAlive(c.is_alive) ? `<span class="badge muted">${t('deceased')}</span>` : '',
+    c.is_active === false || c.is_active === 'FALSE' ? `<span class="badge muted">${t('inactive')}</span>` : '',
+    isTrue(c.wife_in_neshei) ? `<span class="badge">${t('neshei')}</span>` : '',
+    ...orgLabels(c).map((o) => orgChip(o, 'badge org')),
+  ].join('');
+  const tags = splitTags(c.community_tags).map((tag) => `<span class="chip">${h(tag)}</span>`).join('');
+  const en = [c.first_name_en, c.last_name_en].filter(Boolean).join(' ');
+  return `
+    <button type="button" class="row${missingEn ? ' missing-en' : ''}" data-id="${h(c.contact_id)}">
+      <span class="row-main">
+        <span class="row-name">${h(fullNameHe(c))} ${badges}</span>
+        <span class="row-en" dir="ltr">${en ? unverifiedWrap(c, ['first_name_en', 'last_name_en'], h(en)) : `<em>${t('noEnName')}</em>`}</span>
+      </span>
+      <span class="row-city">${c.area ? unverifiedWrap(c, ['area'], h(c.area)) : h(c.city)}</span>
+      <span class="row-tags">${tags}</span>
+    </button>`;
 }
 
 // ---------- כרטיס אישי ----------
@@ -1093,6 +1159,16 @@ function start() {
   $('#area-filter').addEventListener('change', renderList);
   $('#org-filter').addEventListener('change', () => { $('#org-former-wrap').hidden = !$('#org-filter').value; renderList(); });
   $('#org-former').addEventListener('change', renderList);
+  $('#org-side').addEventListener('click', (e) => {
+    const b = e.target.closest('.org-link');
+    if (b) { currentOrgPage = b.dataset.key; renderOrgs(); }
+  });
+  $('#org-main').addEventListener('click', (e) => {
+    const open = e.target.closest('.org-open');
+    if (open) { currentOrgPage = open.dataset.key; renderOrgs(); return; }
+    const row = e.target.closest('.row');
+    if (row) openCard(row.dataset.id);
+  });
   $('#show-inactive').addEventListener('change', renderList);
   $('#list').addEventListener('click', (e) => {
     const row = e.target.closest('.row');
