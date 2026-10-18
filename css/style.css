@@ -1042,3 +1042,15 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 .rq-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .rq-done { margin-top: 12px; }
 .rq-done summary { cursor: pointer; color: var(--muted); }
+/* הילף */
+.hp-search, .hp-ask input { width: 100%; box-sizing: border-box; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
+.hp-ask { display: flex; gap: 8px; }
+.hp-list { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.hp-sec { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.hp-sec summary { cursor: pointer; padding: 10px 14px; font-weight: 600; }
+.hp-sec[open] summary { color: var(--accent); border-bottom: 1px solid var(--line); }
+.hp-body { padding: 6px 16px 10px; line-height: 1.6; }
+.hp-body ul, .hp-body ol { margin: 4px 0; padding-inline-start: 22px; }
+.hp-answer { margin-top: 10px; background: var(--surface); border: 1px solid var(--gold); border-radius: 10px; padding: 10px 14px; }
+.hp-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-inline-end: 40px; }
+.hp-head h2 { margin: 0 0 8px; }

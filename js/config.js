@@ -1,6 +1,9 @@
 // הגדרות כלליות של התוכנה.
 // אין כאן שום מידע סודי: מזהה הלוגאין ומפתח המפות מוגבלים בגוגל לכתובת האתר בלבד.
 export const CONFIG = {
+  // דער "סערווער" (Apps Script) פונעם הילף-AI. ליידיג = נאר דער פירער מיט זוכן.
+  HELP_AI_URL: '',
+
   // מזהה הלוגאין (Google Auth Platform → Clients → Khal Ungvar Website)
   CLIENT_ID: '73541082309-bb0bc3jv1dchtpgsr129m5bbertk79ua.apps.googleusercontent.com',
 

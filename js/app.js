@@ -26,6 +26,7 @@ import { initAdmin, renderAdmin, adminDirty, setAdminTab } from './admin.js';
 import { initMailMerge, renderMailMerge, openMailMerge } from './mailmerge.js';
 import { initMail, openCompose, emailOf } from './mail.js';
 import { initRequests, submitRequest, pendingRequests } from './requests.js';
+import { openHelp } from './help.js';
 import {
   initPersonal, renderPersonal, openPersonal, unreadCount, tasksDueCount, openTaskForContact,
 } from './personal.js';
@@ -1624,6 +1625,7 @@ function start() {
   initPersonal({ showView, fullNameHe, openCard, contactById, toast, friendlyError, updateBadges });
   $('#btn-personal').onclick = () => { document.body.classList.add('solo-mode'); openPersonal(); };
   initLists({ showView, fullNameHe, phonesOf, contactById, pickerLabel, openCard, toast, friendlyError, refreshAll });
+  $('#btn-help').onclick = () => openHelp();
   $('#btn-admin').onclick = () => { if (pendingRequests().length) setAdminTab('requests'); document.body.classList.add('solo-mode'); showView('admin'); };
   closeOnBackdrop($('#form-dialog'), closeForm);
   $('#form-dialog').addEventListener('cancel', (e) => { e.preventDefault(); closeForm(); }); // מקש Esc
