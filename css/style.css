@@ -471,3 +471,5 @@ dialog.sheet.full { width: min(1200px, 96vw); max-width: 96vw; max-height: 94vh;
 .org-pick select { font-size: 16px; max-width: 26em; }
 .camp-org-line { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); margin-top: 6px; }
 .camp-org-line { white-space: nowrap; }
+
+.side-new { margin: 8px 6px 0; }

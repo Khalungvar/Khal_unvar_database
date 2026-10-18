@@ -25,6 +25,7 @@ export function initDonations(helpers) {
   $('#don-unpaid').addEventListener('change', renderDonations);
   $('#btn-new-donation').onclick = () => openDonationForm();
   $('#btn-campaign').onclick = () => openCampaign();
+  $('#btn-side-campaign').onclick = () => { document.body.classList.remove('menu-open'); openCampaign(); };
   $('#campaign-side').addEventListener('click', (e) => {
     const b = e.target.closest('.org-link');
     if (b) ui.openCampaignPage(b.dataset.name);
