@@ -301,3 +301,13 @@ details.multi[open] summary { border-color: var(--accent); }
 }
 .multi-list .check { padding: 5px 6px; border-radius: 6px; color: var(--ink); font-size: 14px; white-space: normal; }
 .multi-list .check:hover { background: var(--chip); }
+
+/* כפתור ✕ בפינה, תמיד נראה */
+dialog { position: relative; }
+.x-close {
+  position: sticky; top: 0; float: inline-end; z-index: 5;
+  font: inherit; font-size: 16px; width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer;
+  margin-inline-start: 8px;
+}
+.x-close:hover { color: var(--accent); border-color: var(--accent); }

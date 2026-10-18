@@ -255,6 +255,8 @@ function openCard(id) {
   wireFamily(c);
   $('#card-edit').onclick = () => { $('#card-dialog').close(); openForm(c); };
   if (!$('#card-dialog').open) $('#card-dialog').showModal();
+  $('#card-dialog').scrollTop = 0;
+  $('#card-close').focus({ preventScroll: true }); // Enter = צומאכן, בלי לגלול למטה
 }
 
 // ---------- קשרים משפחתיים (בכרטיס האישי) ----------
@@ -397,6 +399,7 @@ function openForm(c = {}) {
   const form = $('#contact-form');
 
   form.innerHTML = `
+    <button type="button" class="x-close" id="form-x" aria-label="${t('close')}">✕</button>
     <h2>${isNew ? t('newTitle') : h(t('editTitle', { name: fullNameHe(c) }))}</h2>
     ${cityStateDatalists()}
 
@@ -595,7 +598,11 @@ function wireForm(form, original) {
 
   wireAddressAutocomplete(form);
 
-  $('#btn-cancel', form).onclick = () => $('#form-dialog').close();
+  form.dataset.dirty = '';
+  form.addEventListener('input', () => { form.dataset.dirty = '1'; });
+  form.addEventListener('change', () => { form.dataset.dirty = '1'; });
+  $('#btn-cancel', form).onclick = () => closeForm();
+  $('#form-x', form).onclick = () => closeForm();
   form.onsubmit = (e) => { e.preventDefault(); submit(form, original); };
 }
 
@@ -725,6 +732,7 @@ async function submit(form, original) {
     const id = await saveContact(contact, phones);
     await loadAll();
     renderList();
+    $('#contact-form').dataset.dirty = '';
     $('#form-dialog').close();
     toast(original.contact_id ? t('saved') : t('added', { id }));
   } catch (err) {
@@ -733,6 +741,25 @@ async function submit(form, original) {
     btn.disabled = false;
     btn.textContent = t('saveBtn');
   }
+}
+
+// ---------- סגירת חלונות ----------
+/** סוגר את הטופס; אם יש שינויים שלא נשמרו — שואל קודם. */
+function closeForm() {
+  const form = $('#contact-form');
+  if (form.dataset.dirty && !confirm(t('discardChanges'))) return;
+  form.dataset.dirty = '';
+  $('#form-dialog').close();
+}
+
+/** לחיצה על הרקע (מחוץ לחלון) סוגרת אותו. */
+function closeOnBackdrop(dialog, close) {
+  dialog.addEventListener('mousedown', (e) => {
+    if (e.target !== dialog) return;
+    const r = dialog.getBoundingClientRect();
+    const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    if (!inside) close();
+  });
 }
 
 // ---------- הפעלה ----------
@@ -757,6 +784,9 @@ function start() {
     if (row) openCard(row.dataset.id);
   });
   $$('dialog [data-close]').forEach((b) => { b.onclick = () => b.closest('dialog').close(); });
+  closeOnBackdrop($('#card-dialog'), () => $('#card-dialog').close());
+  closeOnBackdrop($('#form-dialog'), closeForm);
+  $('#form-dialog').addEventListener('cancel', (e) => { e.preventDefault(); closeForm(); }); // מקש Esc
 
   // אחרי שעה הכניסה פגה: מציגים חלון קטן עם כפתור, ולחיצה אחת מחדשת בלי לבחור חשבון שוב
   setOnExpire(async () => {
