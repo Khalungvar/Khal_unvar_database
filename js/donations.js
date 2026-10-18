@@ -678,7 +678,7 @@ function wireCampaign(form) {
     if (focus) $('[name=c_contact]', r).focus();
     return r;
   };
-  for (let i = 0; i < 5; i += 1) addRow();
+  for (let i = 0; i < 50; i += 1) addRow();
 
   // שינוי ברירת המחדל "באצאלט" → משנה את כל השורות שעוד ריקות
   f('default_paid').addEventListener('change', () => {
