@@ -438,3 +438,18 @@ details.more summary { cursor: pointer; color: var(--muted); font-size: 14px; ma
 .org-part h3 { margin: 6px 0 0; }
 .org-part .org-open { font-size: 18px; font-weight: 600; text-decoration: none; }
 .org-group + .org-group { border-top: 1px dashed var(--gold); margin-top: 6px; padding-top: 4px; }
+
+/* קאמפיין */
+dialog.sheet.full { width: min(1200px, 96vw); max-width: 96vw; max-height: 94vh; }
+.camp-table-wrap { overflow-x: auto; margin: 10px 0; }
+.camp-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.camp-table th { text-align: start; font-weight: 500; color: var(--muted); padding: 6px 4px; border-bottom: 1px solid var(--gold); white-space: nowrap; }
+.camp-table td { padding: 4px; vertical-align: middle; }
+.camp-table input:not([type=checkbox]), .camp-table select { width: 100%; box-sizing: border-box; padding: 6px 8px; font: inherit; }
+.camp-table td.num { color: var(--muted); width: 2em; text-align: center; }
+.camp-table td.center { text-align: center; }
+.camp-table .donor-cell { min-width: 290px; position: relative; }
+.camp-table .donor-cell .one-time { position: absolute; inset-inline-end: 10px; top: 50%; transform: translateY(-50%); font-size: 10px; }
+.camp-table [name=c_amount] { width: 7em; }
+.camp-table tr.bad td { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.camp-footer { position: sticky; bottom: 0; background: var(--surface); padding-top: 10px; border-top: 1px solid var(--gold); }

@@ -1,5 +1,5 @@
 // נדבות (תרומות): מסך רשימה, טופס הוספה/עריכה, וחלק בכרטיס האישי.
-import { state, loadAll, saveDonation, deleteDonation } from './data.js';
+import { state, loadAll, saveDonation, saveDonations, deleteDonation } from './data.js';
 import { t } from './i18n.js';
 import { isTrue, splitTags, joinTags, escapeHtml as h } from './util.js';
 import {
@@ -23,6 +23,7 @@ export function initDonations(helpers) {
   $('#don-year').addEventListener('change', renderDonations);
   $('#don-unpaid').addEventListener('change', renderDonations);
   $('#btn-new-donation').onclick = () => openDonationForm();
+  $('#btn-campaign').onclick = () => openCampaign();
   $('#don-list').addEventListener('click', (e) => {
     const row = e.target.closest('.row');
     if (row) openDonationForm(state.donations.find((d) => String(d.donation_id) === row.dataset.id));
@@ -34,6 +35,11 @@ const money = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractio
 function contactName(id) {
   const c = ui.contactById(id);
   return c ? ui.fullNameHe(c) : `#${id}`;
+}
+
+/** שם הנדבן: איש קשר, או שם שנכתב (מישהו שלא ברשימה). */
+function donorName(d) {
+  return d.contact_id ? contactName(d.contact_id) : String(d.donor_name || '');
 }
 
 function currentHebYear() {
@@ -71,7 +77,7 @@ function visibleDonations() {
     .filter((d) => !tag || splitTags(d.event_tags).includes(tag))
     .filter((d) => !year || d.event_year === year)
     .filter((d) => !unpaid || !isTrue(d.is_paid))
-    .filter((d) => !q || contactName(d.contact_id).includes(q) || String(d.event_note).includes(q)
+    .filter((d) => !q || donorName(d).includes(q) || String(d.event_note).includes(q)
       || String(d.dedication_text).includes(q))
     .sort((a, b) => String(b.date).localeCompare(String(a.date)) || Number(b.donation_id) - Number(a.donation_id));
 }
@@ -81,7 +87,7 @@ function donationRow(d, withName = true) {
   const tags = splitTags(d.event_tags).map((x) => `<span class="chip">${h(x)}</span>`).join('');
   return `<button type="button" class="row don-row" data-id="${h(d.donation_id)}">
     <span class="row-main">
-      ${withName ? `<span class="row-name">${h(contactName(d.contact_id))}</span>` : ''}
+      ${withName ? `<span class="row-name">${h(donorName(d))}${d.contact_id ? '' : ` <span class="badge muted">${h(t('notInList'))}</span>`}</span>` : ''}
       <span class="muted small">${h(d.hebrew_date || isoToHebrewText(d.date))}${d.date ? ` · <span dir="ltr">${h(d.date)}</span>` : ''}</span>
     </span>
     <span class="row-tags">${tags}${d.event_year ? ` <span class="muted small">${h(d.event_year)}</span>` : ''}</span>
@@ -191,7 +197,7 @@ export function openDonationForm(donation = {}, presetContactId = null) {
         <button type="button" class="linkish" id="don-change-donor">${t('change')}</button>
       </div>
       <label class="wide donor-pick"${contact ? ' hidden' : ''}>${t('donor')}
-        <input name="contact" list="dl-don-contacts" autocomplete="off" placeholder="${h(t('pickContact'))}" value="${contact ? h(ui.pickerLabel(contact)) : ''}">
+        <input name="contact" list="dl-don-contacts" autocomplete="off" placeholder="${h(t('pickContact'))}" value="${contact ? h(ui.pickerLabel(contact)) : h(d.donor_name || '')}">
       </label>
       <datalist id="dl-don-contacts">${state.contacts.filter((x) => isTrue(x.is_active) || x.is_active === '')
         .map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>
@@ -357,7 +363,8 @@ function wireDonationForm(form, original) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const m = f('contact').value.match(/\(#(\d+)\)/);
-    if (!m || !ui.contactById(m[1])) { ui.toast(t('pickValid'), 'error'); return; }
+    const oneTime = !m && original.donor_name && f('contact').value.trim() === original.donor_name;
+    if (!oneTime && (!m || !ui.contactById(m[1]))) { ui.toast(t('pickValid'), 'error'); return; }
     const amount = f('amount_usd').value;
     if (amount === '' || Number(amount) < 0) { ui.toast(t('amountRequired'), 'error'); return; }
     const tags = ui.readTags(form, 'event_tags');
@@ -367,7 +374,8 @@ function wireDonationForm(form, original) {
     const hv = readPicker(datePicker);
     const donation = {
       ...original,
-      contact_id: Number(m[1]),
+      contact_id: oneTime ? '' : Number(m[1]),
+      donor_name: oneTime ? original.donor_name : '',
       date: f('date').value,
       hebrew_date: hv ? formatHebrew(hv) : '',
       event_tags: tags,
@@ -401,6 +409,221 @@ function wireDonationForm(form, original) {
     } finally {
       btn.disabled = false;
       btn.textContent = t('saveBtn');
+    }
+  };
+}
+
+
+
+// ---------- קאמפיין: הרבה נדבות בבת אחת ----------
+// פרטים משותפים למעלה (געלעגנהייט, יאר, דאטום), ואחר כך שורה לכל נדבה.
+// נדבן שלא ברשימה: כותבים את השם, והנדבה נשמרת עם השם (בלי איש קשר).
+
+function campaignRow(i) {
+  const methods = state.lists.payment_method || [];
+  return `<tr class="camp-row">
+    <td class="num">${i}</td>
+    <td class="donor-cell"><input name="c_contact" list="dl-camp-contacts" autocomplete="off" placeholder="${h(t('donorPh'))}">
+      <span class="badge muted one-time" hidden>${h(t('notInList'))}</span></td>
+    <td><input name="c_amount" type="number" min="0" step="0.01" dir="ltr" inputmode="decimal"></td>
+    <td class="center"><input type="checkbox" name="c_paid"></td>
+    <td><select name="c_method">${ui.options(methods, '')}</select></td>
+    <td><input name="c_ref" dir="ltr" placeholder=""></td>
+    <td><input name="c_note"></td>
+    <td><button type="button" class="linkish c-del" title="${h(t('deleteBtn'))}">✕</button></td>
+  </tr>`;
+}
+
+export function openCampaign() {
+  const form = $('#campaign-form');
+  const today = todayIso();
+  const hy = toHebrew(today).y;
+  form.innerHTML = `
+    <button type="button" class="x-close" id="camp-x" aria-label="${h(t('close'))}">✕</button>
+    <h2>${t('campaignTitle')}</h2>
+    <fieldset class="camp-common"><legend>${t('campaignCommon')}</legend>
+      <div class="quick-block">
+        <span class="quick-label">${t('eventLegend')}</span>
+        ${ui.tagPicker('event_tags', 'event_tag', '')}
+      </div>
+      <div class="grid">
+        <label>${t('eventYear')}<select name="event_year">${yearOptions([]).map((y) => `<option${y === yearLabel(hy) ? ' selected' : ''}>${h(y)}</option>`).join('')}</select></label>
+        <label>${t('gregDate')}<input type="date" name="date" value="${today}"><span class="hint-line camp-heb">${h(isoToHebrewText(today))}</span></label>
+        <label class="wide">${t('campaignNote')}<input name="common_note"></label>
+        <label class="check"><input type="checkbox" name="default_paid" checked> ${t('defaultPaid')}</label>
+      </div>
+    </fieldset>
+    <datalist id="dl-camp-contacts">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>
+    <div class="camp-table-wrap">
+      <table class="camp-table">
+        <thead><tr><th>#</th><th>${t('donor')}</th><th>${t('amount')}</th><th>${t('paid')}</th><th>${t('paymentMethod')}</th>
+          <th>${t('refNumber')}</th><th>${t('comments')}</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <button type="button" class="btn small-btn" id="camp-add">${t('addRow')}</button>
+    <div class="actions camp-footer">
+      <span class="camp-total"></span>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="camp-cancel">${t('cancelBtn')}</button>
+      <button type="submit" class="btn primary" id="camp-save">${t('saveAll')}</button>
+    </div>`;
+  wireCampaign(form);
+  if (!$('#campaign-dialog').open) $('#campaign-dialog').showModal();
+  $('#campaign-dialog').scrollTop = 0;
+}
+
+function wireCampaign(form) {
+  const f = (n) => form.elements[n];
+  const body = $('.camp-table tbody', form);
+  form.dataset.dirty = '';
+  form.addEventListener('input', () => { form.dataset.dirty = '1'; });
+  ui.wireTagPicker($('.tags[data-name="event_tags"]', form));
+
+  f('date').addEventListener('change', () => {
+    $('.camp-heb', form).textContent = isoToHebrewText(f('date').value);
+    const hv = toHebrew(f('date').value);
+    if (hv) {
+      const yl = yearLabel(hv.y);
+      if (![...f('event_year').options].some((o) => o.value === yl)) f('event_year').insertAdjacentHTML('beforeend', `<option>${yl}</option>`);
+      f('event_year').value = yl;
+    }
+  });
+
+  const rows = () => $$('.camp-row', body);
+  const renumber = () => rows().forEach((r, i) => { $('.num', r).textContent = i + 1; });
+  const isEmpty = (r) => !$('[name=c_contact]', r).value.trim() && !$('[name=c_amount]', r).value.trim();
+
+  const refPlaceholder = (r) => {
+    const m = $('[name=c_method]', r).value;
+    const ref = $('[name=c_ref]', r);
+    ref.placeholder = m === CHECK ? t('checkNumber') : m === CARD ? t('cardLast4') : m === OTHER ? t('paymentNote') : '';
+    ref.disabled = !m;
+    ref.maxLength = m === CARD ? 4 : 100;
+    if (!m) ref.value = '';
+  };
+
+  const total = () => {
+    const filled = rows().filter((r) => !isEmpty(r));
+    const sum = filled.reduce((s, r) => s + Number($('[name=c_amount]', r).value || 0), 0);
+    $('.camp-total', form).innerHTML = `${h(t('donCount', { n: filled.length }))} · ${h(t('donTotal'))} <b>${money(sum)}</b>`;
+  };
+
+  const addRow = (focus = false) => {
+    body.insertAdjacentHTML('beforeend', campaignRow(rows().length + 1));
+    const r = rows().at(-1);
+    $('[name=c_paid]', r).checked = f('default_paid').checked;
+    refPlaceholder(r);
+    if (focus) $('[name=c_contact]', r).focus();
+    return r;
+  };
+  for (let i = 0; i < 5; i += 1) addRow();
+
+  // שינוי ברירת המחדל "באצאלט" → משנה את כל השורות שעוד ריקות
+  f('default_paid').addEventListener('change', () => {
+    rows().filter(isEmpty).forEach((r) => { $('[name=c_paid]', r).checked = f('default_paid').checked; });
+  });
+
+  body.addEventListener('input', (e) => {
+    const r = e.target.closest('.camp-row');
+    if (e.target.name === 'c_contact') {
+      const v = e.target.value.trim();
+      $('.one-time', r).hidden = !v || /\(#\d+\)/.test(v);
+    }
+    if (e.target.name === 'c_ref' && $('[name=c_method]', r).value === CARD) e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
+    if (r === rows().at(-1) && !isEmpty(r)) addRow(); // תמיד יש שורה ריקה בסוף
+    total();
+  });
+  body.addEventListener('change', (e) => {
+    if (e.target.name === 'c_method') refPlaceholder(e.target.closest('.camp-row'));
+  });
+  body.addEventListener('click', (e) => {
+    const del = e.target.closest('.c-del');
+    if (!del) return;
+    del.closest('.camp-row').remove();
+    if (!rows().length) addRow();
+    renumber();
+    total();
+  });
+  // Enter = שדה הבא (ובסוף השורה — השורה הבאה)
+  body.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.target.tagName === 'BUTTON') return;
+    e.preventDefault();
+    const r = e.target.closest('.camp-row');
+    const fields = $$('input:not([disabled]), select', r).filter((x) => x.type !== 'checkbox');
+    const i = fields.indexOf(e.target);
+    if (i >= 0 && i < fields.length - 1) { fields[i + 1].focus(); return; }
+    const next = r.nextElementSibling || addRow();
+    $('[name=c_contact]', next).focus();
+  });
+  $('#camp-add', form).onclick = () => addRow(true);
+  total();
+
+  const close = () => {
+    if (form.dataset.dirty && !confirm(t('discardChanges'))) return;
+    form.dataset.dirty = '';
+    $('#campaign-dialog').close();
+  };
+  $('#camp-cancel', form).onclick = close;
+  $('#camp-x', form).onclick = close;
+  form._close = close;
+
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const tags = ui.readTags(form, 'event_tags');
+    const date = f('date').value;
+    const hv = toHebrew(date);
+    const common = f('common_note').value.trim();
+    const list = [];
+    let bad = null;
+    rows().forEach((r) => r.classList.remove('bad'));
+    for (const r of rows()) {
+      if (isEmpty(r)) continue;
+      const who = $('[name=c_contact]', r).value.trim();
+      const amount = $('[name=c_amount]', r).value;
+      const m = who.match(/\(#(\d+)\)/);
+      const contact = m ? ui.contactById(m[1]) : null;
+      if (!who || amount === '' || Number(amount) < 0 || (m && !contact)) { r.classList.add('bad'); bad = bad || r; continue; }
+      const paid = $('[name=c_paid]', r).checked;
+      const method = $('[name=c_method]', r).value;
+      const ref = $('[name=c_ref]', r).value.trim();
+      const note = [common, $('[name=c_note]', r).value.trim()].filter(Boolean).join(' · ');
+      list.push({
+        contact_id: contact ? Number(contact.contact_id) : '',
+        donor_name: contact ? '' : who,
+        date,
+        hebrew_date: hv ? formatHebrew(hv) : '',
+        event_tags: tags,
+        event_year: f('event_year').value,
+        event_note: note,
+        amount_usd: Number(amount),
+        is_paid: paid,
+        paid_date: paid ? todayIso() : '',
+        payment_method: method,
+        check_number: method === CHECK ? ref : '',
+        card_last4: method === CARD ? ref : '',
+        payment_note: method === OTHER ? ref : '',
+      });
+    }
+    if (bad) { ui.toast(t('campaignBadRows'), 'error'); $('input', bad).focus(); return; }
+    if (!list.length) { ui.toast(t('campaignEmpty'), 'error'); return; }
+    const oneTime = list.filter((d) => !d.contact_id).length;
+    if (oneTime && !confirm(t('campaignOneTimeConfirm', { n: oneTime }))) return;
+    const btn = $('#camp-save', form);
+    btn.disabled = true;
+    btn.textContent = t('saving');
+    try {
+      const n = await saveDonations(list);
+      await loadAll();
+      form.dataset.dirty = '';
+      $('#campaign-dialog').close();
+      ui.refreshAll();
+      ui.toast(t('campaignSaved', { n }));
+    } catch (err) {
+      ui.toast(ui.friendlyError(err), 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = t('saveAll');
     }
   };
 }

@@ -148,6 +148,14 @@ export function appendRow(tab, row) {
   );
 }
 
+/** מוסיף כמה שורות בבת אחת (קריאה אחת לגוגל). */
+export function appendRows(tab, rows) {
+  return authFetch(
+    `${SHEETS}/values/${enc(`${tab}!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values: rows }) },
+  );
+}
+
 /** מעדכן תא אחד, למשל 'Lists!H13'. */
 export function updateCell(a1, value) {
   return authFetch(

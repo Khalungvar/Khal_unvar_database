@@ -1,6 +1,6 @@
 // שכבת הנתונים: מתרגמת בין שורות בגליון לבין אובייקטים, לפי שמות העמודות בשורה 1.
 // ככה הוספה או הזזה של עמודה בגליון לא שוברת את התוכנה.
-import { readTabs, readColumn, appendRow, updateRow, updateCell } from './google.js';
+import { readTabs, readColumn, appendRow, appendRows, updateRow, updateCell } from './google.js';
 import { CONFIG } from './config.js';
 import { nowStamp } from './util.js';
 import { t } from './i18n.js';
@@ -166,6 +166,19 @@ export async function saveDonation(donation) {
     await updateRow('Donations', row, objectToRow(state.headers.Donations, d));
   }
   return d.donation_id;
+}
+
+/** שומר הרבה נדבות חדשות בבת אחת (קאמפיין). מחזיר כמה נשמרו. */
+export async function saveDonations(list) {
+  if (!list.length) return 0;
+  const stamp = nowStamp();
+  const ids = (await readColumn('Donations', 'A')).slice(1).map(Number).filter(Number.isFinite);
+  let next = Math.max(0, ...ids) + 1;
+  const rows = list.map((d) => objectToRow(state.headers.Donations, {
+    ...d, donation_id: next++, created_at: stamp, created_by: state.email, updated_at: stamp, updated_by: state.email,
+  }));
+  await appendRows('Donations', rows);
+  return rows.length;
 }
 
 /** מנהל בלבד: מוחק תרומה (מנקה את השורה בגליון). */

@@ -1191,6 +1191,7 @@ function start() {
   $('#card-dialog').addEventListener('cancel', (e) => { e.preventDefault(); closeCard(); });
   closeOnBackdrop($('#donation-dialog'), () => $('#donation-form')._close?.());
   $('#donation-dialog').addEventListener('cancel', (e) => { e.preventDefault(); $('#donation-form')._close?.(); });
+  $('#campaign-dialog').addEventListener('cancel', (e) => { e.preventDefault(); $('#campaign-form')._close?.(); });
   closeOnBackdrop($('#occasion-dialog'), () => $('#occasion-form')._close?.());
   $('#occasion-dialog').addEventListener('cancel', (e) => { e.preventDefault(); $('#occasion-form')._close?.(); });
   initOccasions({ contactById, fullNameHe, pickerLabel, openCard, toast, friendlyError, refreshAll });
