@@ -105,10 +105,12 @@ export function renderReceipts() {
     </div>
     ${missing ? `<p class="drive-warn">⚠ ${h(t('rcMissingDetails', { org: f.org }))} <button type="button" class="btn small-btn primary" id="rc-edit-org">${h(t('rcEditDetails'))}</button></p>`
       : `<p class="muted small">${h(det.legal_name)} · EIN ${h(det.ein || '—')} <button type="button" class="linkish" id="rc-edit-org">${h(t('rcEditDetails'))}</button></p>`}
+    ${!missing && f.kind !== 'invoice' && f.org ? letterPanelHtml(f.org) : ''}
     <div class="rc-actions">
       <label class="check"><input type="checkbox" id="rc-all"> ${h(t('rcSelectAll'))}</label>
       <span class="muted" id="rc-count"></span>
       <span class="spacer"></span>
+      <button type="button" class="btn" id="rc-sample">👁 ${h(t('rcPreview'))}</button>
       <button type="button" class="btn" id="rc-xl">Excel</button>
       <button type="button" class="btn primary" id="rc-print" disabled>🖨 ${h(t('rcPrint'))}</button>
     </div>
@@ -130,6 +132,12 @@ export function renderReceipts() {
   $('#rc-year', main)?.addEventListener('change', (e) => { f.year = e.target.value; rerender(); });
   $('#rc-for', main)?.addEventListener('input', (e) => { f.forText = e.target.value; });
   $('#rc-onlynew', main)?.addEventListener('change', (e) => { f.onlyNew = e.target.checked; rerender(); });
+  if (!missing && f.kind !== 'invoice' && f.org) wireLetterPanel(main, f.org, rerender);
+  $('#rc-sample', main).onclick = () => {
+    const d = picked()[0] || shown[0];
+    if (!d) return;
+    printDocs([{ ...d, receipt_no: d.issued?.receipt_no || '—', issued_at: new Date().toISOString().slice(0, 10), forText: f.kind !== 'year' ? String(f.forText || '').trim() : '' }]);
+  };
   $('#rc-edit-org', main).onclick = () => openOrgDetails(f.org);
   const picked = () => $$('.rc-pick:checked', main).map((x) => shown[Number(x.dataset.i)]);
   const sync = () => {
@@ -147,6 +155,7 @@ export function renderReceipts() {
     const btn = $('#rc-print', main);
     btn.disabled = true;
     try {
+      if (f.kind !== 'invoice') await rememberLetter(f.org);
       const issued = await issueDocs(docs.map((d) => ({ kind: d.kind, org: d.org, contact_id: d.contact_id, donor_name: d.donor_name, ids: d.ids, amount: d.amount, period: d.period })));
       const forText = f.kind !== 'year' ? String(f.forText || '').trim() : '';
       printDocs(issued.map((x, i) => ({
@@ -301,7 +310,7 @@ function payBoxes(c) {
 }
 
 function docHtml(c) {
-  const det = orgDetailsOf(c.org) || {};
+  const det = { ...(orgDetailsOf(c.org) || {}), ...(letterState[c.org] || {}) };
   // אלע ארגונים אין אמעריקע זענען אונטער דעם EIN פון קהל אונגוואר (דער כלל-ארגון) — ווען א ארגון האט נישט קיין אייגענעם
   const um = orgDetailsOf(umbrellaName()) || {};
   const ein = det.ein || um.ein || '';
@@ -322,7 +331,7 @@ function docHtml(c) {
   const B = isInv ? INVOICE_B : (det.letter_b || DEFAULTS.letter_b);
   // "אל מע"כ ידידנו" + טיטל + פרטי נאמען + משפחה (לשון קודש) + הי"ו
   const toName = ct ? [ct.title_he, ct.first_name_he, ct.last_name_he].filter(Boolean).join(' ') : (c.donor_name || '');
-  const salLine = [det.letter_salutation || DEFAULTS.letter_salutation, toName, det.salutation_suffix ?? DEFAULTS.salutation_suffix].filter(Boolean).join(' ');
+  const salLine = [det.letter_salutation || DEFAULTS.letter_salutation, toName, det.salutation_suffix || DEFAULTS.salutation_suffix].filter(Boolean).join(' ');
   // נישט קיין קאמפיין? מ'קען שרייבן וואס עס איז (c.forText) — דאן גייט עס גלייך נאך "בסך של $..."
   const middle = c.forText ? `בסך של ${money(c.amount)} ${c.forText}` : `בסך של ${money(c.amount)} ב${forWhat(c)}`;
   const body = `${fillText(A, c, ct)} ${middle} ${fillText(B, c, ct)}`;
@@ -443,6 +452,86 @@ const ALL_FIELDS = SECTIONS.flatMap(([, f]) => f.map((x) => x[0]));
 // דער בריוו
 const LETTER = ['letter_salutation', 'salutation_suffix', 'letter_a', 'letter_b', 'letter_closing', 'signer_he'];
 
+// ---------- דער בריוו: מ'קלייבט / שרייבט יעדעס מאל ביים דרוקן; דער לעצטער ווערט געדענקט ----------
+const letterState = {}; // { org: { letter_salutation, ..., signature_img } }
+
+function letterOf(org) {
+  if (!letterState[org]) {
+    const det = orgDetailsOf(org) || {};
+    const v = (k, d) => (det[k] != null && det[k] !== '' ? det[k] : d);
+    letterState[org] = {
+      letter_salutation: v('letter_salutation', DEFAULTS.letter_salutation),
+      salutation_suffix: v('salutation_suffix', DEFAULTS.salutation_suffix),
+      letter_a: v('letter_a', DEFAULTS.letter_a),
+      letter_b: v('letter_b', DEFAULTS.letter_b),
+      letter_closing: v('letter_closing', DEFAULTS.letter_closing),
+      signer_he: v('signer_he', DEFAULTS.signer_he),
+      signature_img: String(det.signature_img || ''),
+    };
+  }
+  return letterState[org];
+}
+
+function letterPanelHtml(org) {
+  const L = letterOf(org);
+  const hist = historyOf(orgDetailsOf(org) || {});
+  return `<details class="rc-letter-box" open><summary>✉ ${h(t('rcLetterPanel'))}</summary>
+    <div class="od-letter" dir="rtl">
+      <div class="od-date">📅 ${h(isoToHebrewText(new Date().toISOString().slice(0, 10)))} לפ"ק <span class="muted small">(${h(t('rcAuto'))})</span></div>
+      <div class="od-sal">
+        <input data-l="letter_salutation" value="${h(L.letter_salutation)}">
+        <span class="od-auto">${h(t('rcSalName'))}</span>
+        <input data-l="salutation_suffix" class="od-short" value="${h(L.salutation_suffix)}">
+      </div>
+      ${hist.length ? `<label class="od-hist">${h(t('rcHistory'))}
+        <select id="lt-history"><option value=""></option>${hist.map((x, i) => `<option value="${i}">${h(`${x.a} … ${x.b}`.slice(0, 90))}</option>`).join('')}</select></label>` : ''}
+      <textarea data-l="letter_a" rows="3">${h(L.letter_a)}</textarea>
+      <div class="od-auto od-middle">${h(t('rcMiddle'))}</div>
+      <textarea data-l="letter_b" rows="5">${h(L.letter_b)}</textarea>
+      <div class="od-center"><input data-l="letter_closing" value="${h(L.letter_closing)}"></div>
+      <div class="od-center"><div class="od-img lt-sig"><b>${h(t('rcfSignature'))}</b>
+        <div class="od-prev">${L.signature_img ? `<img src="${L.signature_img}" alt="">` : '<span class="muted small">—</span>'}</div>
+        <div class="od-img-btns"><label class="btn small-btn">${h(t(L.signature_img ? 'admLogoChange' : 'admLogoUpload'))}<input type="file" accept="image/*" hidden></label>
+        ${L.signature_img ? `<button type="button" class="linkish" id="lt-sig-del">${h(t('admLogoRemove'))}</button>` : ''}</div></div></div>
+      <div class="od-center"><input data-l="signer_he" value="${h(L.signer_he)}"></div>
+      <p class="hint-line">${h(t('rcLetterRemember'))}</p>
+    </div></details>`;
+}
+
+function wireLetterPanel(main, org, rerender) {
+  const L = letterOf(org);
+  $$('[data-l]', main).forEach((el) => { el.oninput = () => { L[el.dataset.l] = el.value; }; });
+  $('#lt-history', main)?.addEventListener('change', (e) => {
+    const x = historyOf(orgDetailsOf(org) || {})[Number(e.target.value)];
+    if (!x) return;
+    L.letter_a = x.a; L.letter_b = x.b;
+    $('[data-l=letter_a]', main).value = x.a;
+    $('[data-l=letter_b]', main).value = x.b;
+  });
+  const file = $('.lt-sig input[type=file]', main);
+  if (file) {
+    file.onchange = async (e) => {
+      const f0 = e.target.files[0];
+      if (!f0) return;
+      try { L.signature_img = await shrinkImage(f0, 600, 45000); rerender(); } catch { ui.toast(t('mmImageBad'), 'error'); }
+    };
+  }
+  $('#lt-sig-del', main)?.addEventListener('click', () => { L.signature_img = ''; rerender(); });
+}
+
+/** היט אפ דעם בריוו (ווען ער האט זיך געטוישט) — כדי דאס קומענדיגע מאל זאל עס שוין זיין דא, און אין דער היסטאריע. */
+async function rememberLetter(org) {
+  const L = letterOf(org);
+  const det = orgDetailsOf(org) || {};
+  const keys = Object.keys(L);
+  if (keys.every((k) => String(det[k] ?? '') === String(L[k] ?? ''))) return;
+  const hist = historyOf(det).filter((x) => !(x.a === L.letter_a && x.b === L.letter_b));
+  const o = { org, ...L, letter_history: JSON.stringify([{ a: L.letter_a, b: L.letter_b }, ...hist].slice(0, 12)) };
+  await saveOrgDetails(o);
+  const i = state.orgDetails.findIndex((x) => x.org === org);
+  if (i >= 0) state.orgDetails[i] = { ...state.orgDetails[i], ...o };
+}
+
 function historyOf(det) {
   try { const x = JSON.parse(det.letter_history || '[]'); return Array.isArray(x) ? x : []; } catch { return []; }
 }
@@ -452,7 +541,7 @@ export function openOrgDetails(org) {
   const form = $('#orgdet-form');
   const det = orgDetailsOf(org) || {};
   const um = orgDetailsOf(umbrellaName()) || {};
-  const img = { header_img: joinImg(det, 'header_img'), signature_img: String(det.signature_img || ''), logo: orgLogo(org) };
+  const img = { header_img: joinImg(det, 'header_img'), logo: orgLogo(org) };
   const yearly = state.yearly.filter((y) => y.org === org);
   const yimg = Object.fromEntries(yearly.map((y) => [y.series, joinImg(y, 'header_img')]));
   const val = (k, def) => (det[k] != null && det[k] !== '' ? det[k] : def);
@@ -476,22 +565,6 @@ export function openOrgDetails(org) {
       <div class="od-fields">
         ${sec('rcS1', `<div class="od-imgs">${imgBox('header_img', t('rcfBanner'), img.header_img, t('rcfBannerHint'))}
           ${yearly.map((y) => imgBox(`y:${y.series}`, `🔁 ${y.series}`, yimg[y.series], t('rcCampBannersHint'))).join('')}</div>`)}
-        ${sec('rcS2', `<div class="od-letter" dir="rtl">
-          <div class="od-date">📅 ${h(isoToHebrewText(new Date().toISOString().slice(0, 10)))} לפ"ק <span class="muted small">(${h(t('rcAuto'))})</span></div>
-          <div class="od-sal">
-            <input name="letter_salutation" value="${h(val('letter_salutation', DEFAULTS.letter_salutation))}">
-            <span class="od-auto">${h(t('rcSalName'))}</span>
-            <input name="salutation_suffix" class="od-short" value="${h(det.salutation_suffix ?? DEFAULTS.salutation_suffix)}">
-          </div>
-          ${historyOf(det).length ? `<label class="od-hist">${h(t('rcHistory'))}
-            <select id="od-history"><option value=""></option>${historyOf(det).map((x, i) => `<option value="${i}">${h(`${x.a} … ${x.b}`.slice(0, 90))}</option>`).join('')}</select></label>` : ''}
-          <textarea name="letter_a" rows="3">${h(val('letter_a', DEFAULTS.letter_a))}</textarea>
-          <div class="od-auto od-middle">${h(t('rcMiddle'))}</div>
-          <textarea name="letter_b" rows="5">${h(val('letter_b', DEFAULTS.letter_b))}</textarea>
-          <div class="od-center"><input name="letter_closing" value="${h(val('letter_closing', DEFAULTS.letter_closing))}"></div>
-          <div class="od-center">${imgBox('signature_img', t('rcfSignature'), img.signature_img, t('rcfSignatureHint'))}</div>
-          <div class="od-center"><input name="signer_he" value="${h(val('signer_he', DEFAULTS.signer_he))}"></div>
-        </div>`)}
         ${SECTIONS.map(([key, fields]) => sec(key, `${key === 'rcS5' ? `<div class="od-imgs">${imgBox('logo', t('rcfLogo'), img.logo, t('rcfLogoHint'))}</div>` : ''}
           <div class="grid od-grid">${fields.map(field).join('')}</div>`)).join('')}
       </div>
@@ -505,21 +578,11 @@ export function openOrgDetails(org) {
   $('#od-org', form).onchange = (e) => { dlg.close(); openOrgDetails(e.target.value); };
   const changedY = new Set();
   let logoChanged = false;
-  $('#od-history', form)?.addEventListener('change', (e) => {
-    const x = historyOf(det)[Number(e.target.value)];
-    if (!x) return;
-    form.elements.letter_a.value = x.a;
-    form.elements.letter_b.value = x.b;
-    live();
-  });
   const collect = () => {
     const o = { org: $('#od-org', form).value };
     ALL_FIELDS.forEach((k) => { o[k] = form.elements[k].value.trim(); });
-    LETTER.forEach((k) => { o[k] = form.elements[k].value.trim(); });
-    const hist = historyOf(det).filter((x) => !(x.a === o.letter_a && x.b === o.letter_b));
-    o.letter_history = JSON.stringify([{ a: o.letter_a, b: o.letter_b }, ...hist].slice(0, 12));
     o.receipt_prefix = o.receipt_prefix.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    Object.assign(o, splitImg(img.header_img || '', 'header_img'), { signature_img: img.signature_img || '' });
+    Object.assign(o, splitImg(img.header_img || '', 'header_img'));
     return o;
   };
   // א פראבע-קבלה מיט וואס שטייט יעצט אינעם פארם (נישט אפגעהיט)
@@ -528,7 +591,7 @@ export function openOrgDetails(org) {
     const keep = state.orgDetails;
     const keepLogo = state.orgLogos?.[o.org];
     if (logoChanged && state.orgLogos) state.orgLogos[o.org] = img.logo;
-    state.orgDetails = [...keep.filter((x) => x.org !== o.org), o];
+    state.orgDetails = [...keep.filter((x) => x.org !== o.org), { ...(keep.find((x) => x.org === o.org) || {}), ...o }];
     const y = state.yearly.find((x) => x.org === o.org && yimg[x.series]);
     const savedY = y ? { ...y } : null;
     if (y) Object.assign(y, splitImg(yimg[y.series], 'header_img'));
