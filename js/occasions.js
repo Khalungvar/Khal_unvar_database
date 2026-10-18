@@ -2,7 +2,7 @@
 // מסך "מאורעות" (מה חל בקרוב), חלק בכרטיס האישי, וטופס הוספה/עריכה.
 import { state, loadAll, saveOccasion, deleteOccasion } from './data.js';
 import { t } from './i18n.js';
-import { escapeHtml as h } from './util.js';
+import { escapeHtml as h, splitTags, isTrue } from './util.js';
 import { contactInScope } from './scope.js';
 import {
   toHebrew, yearLabel, hebrewNumber, todayIso, monthKeyFromHe, monthHe, yearFromLabel,
@@ -61,6 +61,14 @@ function whenText(days) {
   return t('inDays', { n: days });
 }
 
+/** די טעג'ס פונעם קאנטאקט אין קליין: ארגונים (גאלד) און קהילה טעג'ס. */
+function contactTags(c) {
+  const orgs = ['beis_medrash', 'kollel', 'organization'].flatMap((n) => splitTags(c[n]).map((v) => ({ v, former: isTrue(c[`${n}_former`]) })));
+  const tags = splitTags(c.community_tags);
+  if (!orgs.length && !tags.length) return '';
+  return ` <span class="occ-tags">${orgs.map((o) => `<span class="badge org mini${o.former ? ' former' : ''}">${h(o.v)}</span>`).join('')}${tags.map((x) => `<span class="chip mini">${h(x)}</span>`).join('')}</span>`;
+}
+
 function occasionRow(o, { withContact = true } = {}) {
   const x = info(o);
   const c = ui.contactById(o.contact_id);
@@ -71,7 +79,7 @@ function occasionRow(o, { withContact = true } = {}) {
     <span class="row-main">
       <span class="row-name"><span class="chip ${o.occasion_type === YAHRZEIT ? 'chip-yz' : ''}">${h(o.occasion_type)}</span> ${personLine(o)}</span>
       <span class="muted small">${h(dateText(o))}${o.relation ? ` · ${h(o.relation)}` : ''}${withContact && c
-        ? ` ${h(t('relOf'))} <a href="#" data-contact="${h(c.contact_id)}">${h(ui.fullNameHe(c))}</a>` : ''}${o.note ? ` · ${h(o.note)}` : ''}</span>
+        ? ` ${h(t('relOf'))} <a href="#" data-contact="${h(c.contact_id)}">${h(ui.fullNameHe(c))}</a>${contactTags(c)}` : ''}${o.note ? ` · ${h(o.note)}` : ''}</span>
     </span>
   </button>`;
 }
