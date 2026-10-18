@@ -60,6 +60,13 @@ Keywords: photo, picture, image, larger, zoom
 - No photo: click 📷 in the card and choose a picture (on a phone — you can take one right away).
 - With a photo: a click shows it **large**. There: **"Change photo"** or **"Remove photo"**.
 
+## More tags (tags per organization)
+Keywords: org tags, more tags, class year, yeshiva, old list, tags per organization
+
+- In the card: tab **🏷 More tags** — tags for each organization separately (e.g. Yeshivas Beis Shearim: "class of 5765"), and **"אלטע רשימה"** — the tags from the old lists.
+- They are not among the general tags.
+- Adding: **Edit** ← **More tags** ← click a tag, or **"+ New tag"** at that organization (a gabbai — a request to an admin). **"+ Tags for another organization"** — a new group.
+
 ## Family and relations
 Keywords: family, relation, wife, son, father, son-in-law
 

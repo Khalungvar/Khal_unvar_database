@@ -350,21 +350,21 @@ export async function importDonations(list, onProgress = () => {}) {
 }
 
 /**
- * בעל הבית: מעקט אויס א גאנצע סעריע טעג'ס (למשל אלע "אלטע: …") — ביי אלע קאנטאקטן און פון דער רשימה.
- * די אנדערע טעג'ס בלייבן. גיט צוריק וויפיל קאנטאקטן זענען געטוישט געווארן.
+ * בעל הבית: מעקט אויס א גאנצע גרופע פון "תגיות נוספות" (למשל "אלטע רשימה") — ביי אלע קאנטאקטן און פון דער רשימה.
+ * אלע אנדערע טעג'ס בלייבן. גיט צוריק וויפיל קאנטאקטן זענען געטוישט געווארן.
  */
-export async function removeTagSeries(prefix, onProgress = () => {}) {
+export async function removeTagSeries(group, onProgress = () => {}) {
   if (!state.isOwner) throw new Error(t('adminOnly'));
-  const has = (x) => x.startsWith(prefix);
+  const inGroup = (e) => String(e).split(':')[0].trim() === group;
   const cIds = (await readColumn('Contacts', 'A')).map(String);
   const stamp = nowStamp();
   const data = [];
   [...state.contacts, ...(state.trash || [])].forEach((c) => {
-    const tags = String(c.community_tags || '').split(',').map((x) => x.trim()).filter(Boolean);
-    if (!tags.some(has)) return;
+    const entries = String(c.org_tags || '').split(';').map((x) => x.trim()).filter(Boolean);
+    if (!entries.some(inGroup)) return;
     const row = cIds.indexOf(String(c.contact_id));
     if (row < 1) return;
-    const after = { ...c, community_tags: tags.filter((x) => !has(x)).join(', '), updated_at: stamp, updated_by: state.email };
+    const after = { ...c, org_tags: entries.filter((e) => !inGroup(e)).join('; '), updated_at: stamp, updated_by: state.email };
     delete after._row;
     data.push({ range: `Contacts!A${row + 1}`, values: [objectToRow(state.headers.Contacts, after)] });
   });
@@ -372,9 +372,9 @@ export async function removeTagSeries(prefix, onProgress = () => {}) {
     await batchUpdate(data.slice(i, i + 150));
     onProgress(Math.min(i + 150, data.length), data.length);
   }
-  const list = rawListColumn('community_tag').filter((x) => String(x || '').trim() && !has(String(x).trim()));
-  await saveListColumns({ community_tag: list });
-  await logChanges('contact', 'tags', '', null, null, `removed tag series "${prefix}" from ${data.length} contacts`);
+  const list = rawListColumn('org_tag').filter((x) => String(x || '').trim() && !inGroup(x));
+  await saveListColumns({ org_tag: list });
+  await logChanges('contact', 'tags', '', null, null, `removed tag group "${group}" from ${data.length} contacts`);
   return data.length;
 }
 

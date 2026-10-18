@@ -1121,3 +1121,10 @@ html, body { overflow-x: clip; }
 .imp-act { font: inherit; font-size: 12px; margin-top: 4px; max-width: 150px; } .imp-merge-note { color: #166534; margin-top: 2px; }
 .card-notes { white-space: pre-line; }
 .imp-old { margin-top: 12px; padding: 8px 12px; border: 1px dashed var(--gold); border-radius: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+/* תגיות נוספות (פער ארגון) */
+.ot-group { margin: 8px 0; }
+.ot-group h4 { margin: 6px 0; color: var(--accent); }
+.ot-group b { display: block; margin-bottom: 4px; color: var(--accent); }
+.ot-old h4 { color: var(--muted); }
+.ot-add { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 14px; }
+.ot-add select { font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }

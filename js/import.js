@@ -3,6 +3,7 @@
 import { state, loadAll, importContacts, mergeContacts, addListValue, importDonations, removeTagSeries } from './data.js';
 import { yearFromLabel, fromHebrew, monthsOf } from './hebdate.js';
 import { umbrellaName } from './scope.js';
+import { parseOrgTags, mergeOrgTags, entry as otEntry, OLD_GROUP } from './orgtags.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, formatPhone, digits, normalize, detectArea, splitTags, joinTags } from './util.js';
 import { downloadXlsx } from './excel.js';
@@ -39,6 +40,7 @@ const FIELDS = [
   ['community_tags', 'טעג\'ס (מיט קאמע)', 'Tags (comma separated)', 'c', '', ''],
   ['area', 'געגנט', 'Area', 'c', '', ''],
   ['comments', 'הערות', 'Notes', 'p', '', ''],
+  ['org_tags', 'תגיות נוספות (ארגון: טעג; …)', 'More tags (Org: tag; …)', 'c', '', ''],
   ['deceased', 'נפטר', 'Deceased', 'c', '', ''],
   ['wife_in_neshei', 'נשי אונגוואר', 'Neshei', 'c', '', ''],
   ['wife_is_rebbetzin', 'רביצין', 'Rebbetzin', 'c', '', ''],
@@ -222,6 +224,11 @@ function mergePatch(id, row, overlay = null) {
   const c = {}; const p = {}; const changed = [];
   Object.entries(row.contact).forEach(([k, v]) => {
     if (!v || k === 'unverified_fields') return;
+    if (k === 'org_tags') {
+      const merged = mergeOrgTags(ex.org_tags, v);
+      if (merged !== mergeOrgTags(ex.org_tags, '')) { c[k] = merged; changed.push(k); }
+      return;
+    }
     if (k === 'community_tags') {
       const old = splitTags(ex.community_tags);
       const add = splitTags(v).filter((x) => !old.includes(x));
@@ -409,7 +416,7 @@ function renderOld(box, ui) {
     if (!confirm(t('impOldConfirm', { n: oldTagsCount() }))) return;
     del.disabled = true;
     try {
-      const done = await removeTagSeries(OLD_PREFIX, (a, b) => { del.textContent = `${a} / ${b}`; });
+      const done = await removeTagSeries(OLD_GROUP, (a, b) => { del.textContent = `${a} / ${b}`; });
       await loadAll();
       ui.refreshAll?.();
       ui.toast(t('impOldDone', { n: done }));
@@ -418,9 +425,8 @@ function renderOld(box, ui) {
   };
 }
 
-const OLD_PREFIX = 'אלטע:';
 function oldTagsCount() {
-  return state.contacts.filter((c) => String(c.community_tags || '').split(',').some((x) => x.trim().startsWith(OLD_PREFIX))).length;
+  return state.contacts.filter((c) => parseOrgTags(c.org_tags).has(OLD_GROUP)).length;
 }
 
 export function wireImport(box, ui) {
@@ -517,6 +523,10 @@ function renderPreview(box, ui) {
       // נייע טעג'ס פון דער טעקע — אריין אין דער רשימה, כדי מ'זאל קענען פילטערן
       const allTags = new Set([...(tag ? [tag] : []), ...[...list, ...merges].flatMap((r) => splitTags(r.contact.community_tags))]);
       for (const x of allTags) if (!(state.lists.community_tag || []).includes(x)) await addListValue('community_tag', x);
+      // תגיות נוספות (פער ארגון) — אויך אריין אין דער רשימה
+      const otAll = new Set();
+      [...list, ...merges].forEach((r) => parseOrgTags(r.contact.org_tags).forEach((tags, org) => tags.forEach((x) => otAll.add(otEntry(org, x)))));
+      for (const x of otAll) if (!(state.lists.org_tag || []).includes(x)) await addListValue('org_tag', x);
       const prog = (done, total) => {
         $('.ml-bar span', bar).style.width = `${Math.round((done / total) * 100)}%`;
         $('.ml-ptext', bar).textContent = `${done} / ${total}`;

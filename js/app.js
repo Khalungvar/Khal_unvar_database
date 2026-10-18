@@ -27,6 +27,7 @@ import { initMailMerge, renderMailMerge, openMailMerge } from './mailmerge.js';
 import { initMail, openCompose, emailOf } from './mail.js';
 import { initRequests, submitRequest, pendingRequests } from './requests.js';
 import { openHelp, initHelpChat } from './help.js';
+import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount } from './orgtags.js';
 import {
   initPersonal, renderPersonal, openPersonal, unreadCount, tasksDueCount, openTaskForContact,
 } from './personal.js';
@@ -599,6 +600,7 @@ function openCard(id, tab = null) {
       <button type="button" data-tab="family">${t('cardTabFamily')}${familyCount(c) + occasionCount(c) ? ` <span class="count-pill">${familyCount(c) + occasionCount(c)}</span>` : ''}</button>
       <button type="button" data-tab="money">${t('cardTabMoney')}${donationCount(c) ? ` <span class="count-pill">${donationCount(c)}</span>` : ''}</button>
       <button type="button" data-tab="org">${t('cardTabOrg')}${orgNotesOf(c).length ? ` <span class="count-pill">${orgNotesOf(c).length}</span>` : ''}</button>
+      <button type="button" data-tab="otags">🏷 ${t('otTitle')}${orgTagsCount(c) ? ` <span class="count-pill">${orgTagsCount(c)}</span>` : ''}</button>
     </nav>
     <div class="card-pane" data-tab="details">
     <section>
@@ -624,6 +626,9 @@ function openCard(id, tab = null) {
     </div>
     <div class="card-pane" data-tab="org">
       ${orgSection(c)}
+    </div>
+    <div class="card-pane" data-tab="otags">
+      ${orgTagsPaneHtml(c)}
     </div>
     <p class="meta">
       ${c.created_at ? `<span>${h(t('created', { date: `\u2066${c.created_at}\u2069`, by: displayName(c.created_by) || '—' }))}</span>` : ''}
@@ -1211,6 +1216,8 @@ function openForm(c = {}) {
       ${tagPicker('community_tags', 'community_tag', c.community_tags)}
     </fieldset>
 
+    ${orgTagsFormHtml(c)}
+
     <fieldset><legend>${t('secAddress')}</legend>
       <div class="grid" dir="ltr">
         <label class="wide">Address
@@ -1265,7 +1272,8 @@ function wireForm(form, original) {
   const f = (name) => form.elements[name];
 
   // תגיות
-  $$('.tags', form).forEach(wireTagPicker);
+  $$('.tags[data-name]', form).forEach(wireTagPicker);
+  wireOrgTagsForm(form, { toast, friendlyError, submitRequest });
 
   // הצעת שם באנגלית לפי העברית — רק כשהשדה באנגלית ריק. מוצג באפור עד שמשנים או מאשרים.
   const suggestInto = (heName, enName, fn) => {
@@ -1429,6 +1437,7 @@ function collect(form, original) {
     wife_is_alive: !form.elements.wife_deceased.checked,
     wife_in_neshei: form.elements.wife_in_neshei.checked,
     community_tags: readTags(form, 'community_tags'),
+    org_tags: readOrgTagsForm(form),
     beis_medrash: readMulti(form, 'beis_medrash'),
     kollel: readMulti(form, 'kollel'),
     organization: readMulti(form, 'organization'),
