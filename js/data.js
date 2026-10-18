@@ -14,6 +14,7 @@ export const state = {
   areas: [],         // [{ name, zips, keywords }] — זיהוי געגנט לפי כתובת
   donations: [],     // תרומות, כולל _row
   relations: [],     // { relation_id, contact_id_a, relation_type, contact_id_b, _row }
+  occasions: [],     // מאורעות: יארצייט, געבורטסטאג, חתונה...
   lists: {},         // { title_he: [...], ... }
   titleHeToEn: {},
   titleEnToHe: {},
@@ -65,7 +66,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -78,6 +79,10 @@ export async function loadAll() {
   const donations = rowsToObjects(tabs.Donations);
   state.headers.Donations = donations.header;
   state.donations = donations.objects;
+
+  const occasions = rowsToObjects(tabs.Occasions);
+  state.headers.Occasions = occasions.header;
+  state.occasions = occasions.objects;
 
   const relations = rowsToObjects(tabs.Relations);
   state.headers.Relations = relations.header;
@@ -130,6 +135,14 @@ export async function saveContact(contact, phones) {
   return c.contact_id;
 }
 
+/** שומר רק את הקוויטל של איש קשר (טקסט עם שורות). */
+export async function saveKvitel(contact, text) {
+  const row = await findRow('Contacts', contact.contact_id);
+  if (!row) throw new Error(t('notFound'));
+  const c = { ...contact, kvitel: text, updated_at: nowStamp(), updated_by: state.email };
+  await updateRow('Contacts', row, objectToRow(state.headers.Contacts, c));
+}
+
 // ---------- תרומות ----------
 /** שומר תרומה (חדשה או קיימת). מחזיר את ה-donation_id. */
 export async function saveDonation(donation) {
@@ -155,6 +168,32 @@ export async function deleteDonation(donation) {
   if (!state.isAdmin) throw new Error(t('adminOnly'));
   const row = await findRow('Donations', donation.donation_id);
   if (row) await updateRow('Donations', row, state.headers.Donations.map(() => ''));
+}
+
+// ---------- מאורעות (יארצייט, געבורטסטאג...) ----------
+/** שומר מאורע (חדש או קיים). מחזיר את ה-occasion_id. */
+export async function saveOccasion(occasion) {
+  const stamp = nowStamp();
+  const o = { ...occasion, updated_at: stamp, updated_by: state.email };
+  delete o._row;
+  if (!o.occasion_id) {
+    const ids = (await readColumn('Occasions', 'A')).slice(1).map(Number).filter(Number.isFinite);
+    o.occasion_id = Math.max(0, ...ids) + 1;
+    o.created_at = stamp;
+    o.created_by = state.email;
+    await appendRow('Occasions', objectToRow(state.headers.Occasions, o));
+  } else {
+    const row = await findRow('Occasions', o.occasion_id);
+    if (!row) throw new Error(t('notFound'));
+    await updateRow('Occasions', row, objectToRow(state.headers.Occasions, o));
+  }
+  return o.occasion_id;
+}
+
+/** מוחק מאורע (מנקה את השורה בגליון). */
+export async function deleteOccasion(occasion) {
+  const row = await findRow('Occasions', occasion.occasion_id);
+  if (row) await updateRow('Occasions', row, state.headers.Occasions.map(() => ''));
 }
 
 // ---------- קשרים משפחתיים ----------

@@ -108,3 +108,56 @@ export function todayIso() {
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
+
+// ---------- מאורעות שחוזרים כל שנה לפי הלוח העברי ----------
+/** שם חודש בעברית ('אדר ב\'') → מפתח ('Adar II'). */
+export function monthKeyFromHe(he) {
+  const e = Object.entries(MONTH_HE).find(([, v]) => v === String(he || '').trim());
+  return e ? e[0] : '';
+}
+
+export function monthHe(key) {
+  return MONTH_HE[key] || key || '';
+}
+
+/** טקסט שנה ('תשפ"ז') → 5787, או 0. */
+export function yearFromLabel(label) {
+  const n = numberFromHebrew(label);
+  return n ? 5000 + n : 0;
+}
+
+/**
+ * באיזה חודש מציינים את המאורע בשנה y.
+ * month = מפתח החודש המקורי; adarInLeap = 'Adar I' / 'Adar II' (לאדר רגיל בשנה מעוברת).
+ */
+function monthInYear(month, y, adarInLeap) {
+  const leap = isLeapYear(y);
+  if (month === 'Adar') return leap ? (adarInLeap || 'Adar II') : 'Adar';
+  if (month === 'Adar I' || month === 'Adar II') return leap ? month : 'Adar';
+  return month;
+}
+
+/** התאריך הלועזי של המאורע בשנה העברית y. יום שלא קיים בחודש (ל' בחשון וכו') → היום האחרון בחודש. */
+export function occurrenceIn(y, d, month, adarInLeap) {
+  const m = monthInYear(month, y, adarInLeap);
+  for (let day = d; day >= 29; day -= 1) {
+    const iso = fromHebrew(day, m, y);
+    if (iso) return iso;
+  }
+  return fromHebrew(Math.min(d, 29), m, y);
+}
+
+/** הפעם הבאה (מהיום והלאה) שהמאורע חל: 'YYYY-MM-DD'. */
+export function nextOccurrence(d, month, adarInLeap, fromIso = todayIso()) {
+  const y = toHebrew(fromIso).y;
+  for (const yy of [y, y + 1]) {
+    const iso = occurrenceIn(yy, d, month, adarInLeap);
+    if (iso && iso >= fromIso) return iso;
+  }
+  return '';
+}
+
+/** כמה ימים מ-a עד b (תאריכי ISO). */
+export function daysBetween(a, b) {
+  return Math.round((isoToUtc(b) - isoToUtc(a)) / 86400000);
+}

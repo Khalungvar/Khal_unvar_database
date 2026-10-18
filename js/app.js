@@ -3,7 +3,7 @@ import {
   initAuth, requestToken, signOut, getUserEmail, hasSavedSession, setOnExpire, rememberEmail,
 } from './google.js';
 import {
-  state, loadAll, saveContact, addListValue, addRelation, removeRelation,
+  state, loadAll, saveContact, saveKvitel, addListValue, addRelation, removeRelation,
 } from './data.js';
 import { suggest, details, placesEnabled, placesError } from './places.js';
 import {
@@ -13,6 +13,10 @@ import { suggestFirstName, suggestLastName } from './names.js';
 import {
   initDonations, fillDonationFilters, renderDonations, donationsSection, wireDonationsSection,
 } from './donations.js';
+import {
+  initOccasions, fillOccasionFilters, renderOccasions, occasionsSection, wireOccasionsSection, occasionCount,
+  openOccasionForm, YAHRZEIT,
+} from './occasions.js';
 import {
   normalize, digits, formatPhone, isTrue, isAlive, splitTags, joinTags,
   gematriaCodes, primaryCode, parseCodeQuery, mailingName, detectArea, escapeHtml as h,
@@ -84,6 +88,8 @@ function refreshAll() {
   renderList();
   fillDonationFilters();
   renderDonations();
+  fillOccasionFilters();
+  renderOccasions();
   if ($('#card-dialog').open && currentCardId) openCard(currentCardId);
 }
 
@@ -91,6 +97,7 @@ function showView(name) {
   $$('.view').forEach((v) => { v.hidden = v.dataset.view !== name; });
   $$('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === name));
   if (name === 'donations') { fillDonationFilters(); renderDonations(); }
+  if (name === 'occasions') { fillOccasionFilters(); renderOccasions(); }
 }
 
 async function signIn() {
@@ -229,7 +236,7 @@ function tagChips(value) {
 let currentCardId = null;
 let cardTab = 'details'; // הלשונית הפתוחה בכרטיס
 
-function openCard(id) {
+function openCard(id, tab = null) {
   const c = state.contacts.find((x) => String(x.contact_id) === String(id));
   if (!c) return;
   const p = phonesOf(c);
@@ -256,7 +263,7 @@ function openCard(id) {
     <p class="sub">#${h(c.contact_id)} · ${t('code')} ${h(primaryCode(c.first_name_he, c.last_name_he))}${!isAlive(c.is_alive) ? ` · ${t('deceased')}` : ''}</p>
     <nav class="card-tabs" role="tablist">
       <button type="button" data-tab="details">${t('cardTabDetails')}</button>
-      <button type="button" data-tab="family">${t('cardTabFamily')}${familyCount(c) ? ` <span class="count-pill">${familyCount(c)}</span>` : ''}</button>
+      <button type="button" data-tab="family">${t('cardTabFamily')}${familyCount(c) + occasionCount(c) ? ` <span class="count-pill">${familyCount(c) + occasionCount(c)}</span>` : ''}</button>
       <button type="button" data-tab="money">${t('cardTabMoney')}${donationCount(c) ? ` <span class="count-pill">${donationCount(c)}</span>` : ''}</button>
     </nav>
     <div class="card-pane" data-tab="details">
@@ -274,7 +281,8 @@ function openCard(id) {
     </div>
     <div class="card-pane" data-tab="family">
       ${familySection(c)}
-      <section><h3>${t('yahrzeits')}</h3><p class="muted">${t('yahrzeitsSoon')}</p></section>
+      ${occasionsSection(c)}
+      ${kvitelSection(c)}
     </div>
     <div class="card-pane" data-tab="money">
       ${donationsSection(c)}
@@ -286,7 +294,10 @@ function openCard(id) {
 
   wireFamily(c);
   wireDonationsSection(c);
+  wireOccasionsSection(c);
+  wireKvitel(c);
   if (String(currentCardId) !== String(c.contact_id)) cardTab = 'details';
+  if (tab) cardTab = tab;
   currentCardId = c.contact_id;
   const showTab = (name) => {
     cardTab = name;
@@ -295,10 +306,69 @@ function openCard(id) {
   };
   $$('#card-body .card-tabs button').forEach((b) => { b.onclick = () => showTab(b.dataset.tab); });
   showTab(cardTab);
-  $('#card-edit').onclick = () => { $('#card-dialog').close(); openForm(c); };
+  $('#card-edit').onclick = () => {
+    if ($('#card-body .card-kvitel')?._dirty?.() && !confirm(t('kvitelUnsaved'))) return;
+    $('#card-dialog').close(); openForm(c);
+  };
   if (!$('#card-dialog').open) $('#card-dialog').showModal();
   $('#card-dialog').scrollTop = 0;
   $('#card-close').focus({ preventScroll: true }); // Enter = צומאכן, בלי לגלול למטה
+}
+
+// ---------- קוויטל (בכרטיס האישי) ----------
+function kvitelSection(c) {
+  const text = String(c.kvitel || '');
+  return `<section class="card-kvitel">
+    <h3>${t('kvitel')}</h3>
+    <div class="kvitel-view"${text.trim() ? '' : ' hidden'}>
+      <div class="kvitel-text" dir="rtl">${h(text)}</div>
+      <button type="button" class="btn small-btn" id="kvitel-edit">${t('edit')}</button>
+    </div>
+    <div class="kvitel-edit"${text.trim() ? ' hidden' : ''}>
+      <textarea id="kvitel-input" rows="8" dir="rtl" placeholder="${h(t('kvitelPh'))}">${h(text)}</textarea>
+      <div class="kvitel-actions" hidden>
+        <button type="button" class="btn" id="kvitel-cancel">${t('cancelBtn')}</button>
+        <button type="button" class="btn primary" id="kvitel-save">${t('saveBtn')}</button>
+      </div>
+    </div>
+  </section>`;
+}
+
+function wireKvitel(c) {
+  const box = $('#card-body .card-kvitel');
+  if (!box) return;
+  const input = $('#kvitel-input', box);
+  const actions = $('.kvitel-actions', box);
+  const original = String(c.kvitel || '');
+  const dirty = () => input.value !== original;
+  input.addEventListener('input', () => { actions.hidden = !dirty(); });
+  $('#kvitel-edit', box).onclick = () => {
+    $('.kvitel-view', box).hidden = true;
+    $('.kvitel-edit', box).hidden = false;
+    actions.hidden = false;
+    input.focus();
+  };
+  $('#kvitel-cancel', box).onclick = () => {
+    input.value = original;
+    actions.hidden = true;
+    if (original.trim()) { $('.kvitel-view', box).hidden = false; $('.kvitel-edit', box).hidden = true; }
+  };
+  $('#kvitel-save', box).onclick = async () => {
+    const btn = $('#kvitel-save', box);
+    btn.disabled = true;
+    btn.textContent = t('saving');
+    try {
+      await saveKvitel(c, input.value.replace(/\s+$/, ''));
+      await loadAll();
+      refreshAll();
+      toast(t('kvitelSaved'));
+    } catch (err) {
+      toast(friendlyError(err), 'error');
+      btn.disabled = false;
+      btn.textContent = t('saveBtn');
+    }
+  };
+  box._dirty = dirty;
 }
 
 // ---------- קשרים משפחתיים (בכרטיס האישי) ----------
@@ -850,11 +920,28 @@ async function submit(form, original) {
     $('#contact-form').dataset.dirty = '';
     $('#form-dialog').close();
     toast(original.contact_id ? t('saved') : t('added', { id }));
+    offerYahrzeit(id, original, contact);
   } catch (err) {
     toast(friendlyError(err), 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = t('saveBtn');
+  }
+}
+
+/** סימנו "נפטר" / "נפטרה" עכשיו → מציעים להוסיף יארצייט (לא חובה). */
+function offerYahrzeit(id, original, contact) {
+  const has = (rel) => state.occasions.some((o) => String(o.contact_id) === String(id)
+    && o.occasion_type === YAHRZEIT && o.relation === rel);
+  const wasAlive = (v) => original.contact_id === undefined || isAlive(v);
+  if (!contact.is_alive && wasAlive(original.is_alive) && !has('ער אליין')
+    && confirm(t('offerYahrzeit', { name: fullNameHe(contact) }))) {
+    openOccasionForm({ contact_id: id, occasion_type: YAHRZEIT, relation: 'ער אליין', person_name: contact.first_name_he });
+    return;
+  }
+  if (!contact.wife_is_alive && wasAlive(original.wife_is_alive) && !has('ווייב')
+    && confirm(t('offerYahrzeitWife', { name: contact.wife_name_he || '' }))) {
+    openOccasionForm({ contact_id: id, occasion_type: YAHRZEIT, relation: 'ווייב', person_name: contact.wife_name_he || '', ben_bat: 'בת' });
   }
 }
 
@@ -899,9 +986,20 @@ function start() {
     if (row) openCard(row.dataset.id);
   });
   $$('dialog [data-close]').forEach((b) => { b.onclick = () => b.closest('dialog').close(); });
-  closeOnBackdrop($('#card-dialog'), () => $('#card-dialog').close());
+  // הכרטיס: אם יש קוויטל שלא נשמר — שואלים לפני שסוגרים
+  const closeCard = () => {
+    const k = $('#card-body .card-kvitel');
+    if (k?._dirty?.() && !confirm(t('kvitelUnsaved'))) return;
+    $('#card-dialog').close();
+  };
+  $$('#card-dialog [data-close]').forEach((b) => { b.onclick = closeCard; });
+  closeOnBackdrop($('#card-dialog'), closeCard);
+  $('#card-dialog').addEventListener('cancel', (e) => { e.preventDefault(); closeCard(); });
   closeOnBackdrop($('#donation-dialog'), () => $('#donation-form')._close?.());
   $('#donation-dialog').addEventListener('cancel', (e) => { e.preventDefault(); $('#donation-form')._close?.(); });
+  closeOnBackdrop($('#occasion-dialog'), () => $('#occasion-form')._close?.());
+  $('#occasion-dialog').addEventListener('cancel', (e) => { e.preventDefault(); $('#occasion-form')._close?.(); });
+  initOccasions({ contactById, fullNameHe, pickerLabel, openCard, toast, friendlyError, refreshAll });
   $$('.tabs button').forEach((b) => { b.onclick = () => showView(b.dataset.view); });
   initDonations({
     contactById, fullNameHe, pickerLabel, options, tagPicker, readTags, wireTagPicker,
