@@ -98,7 +98,18 @@ export function transliterateYiddish(word) {
 }
 
 /** מילון שנלמד מהמאגר: שם עברי → השם באנגלית הנפוץ ביותר אצלכם. */
+const memo = new WeakMap();
+function cached(contacts, key, build) {
+  let m = memo.get(contacts);
+  if (!m) { m = new Map(); memo.set(contacts, m); }
+  if (!m.has(key)) m.set(key, build());
+  return m.get(key);
+}
+
 function learned(contacts, heKey, enKey) {
+  return cached(contacts, `l:${heKey}:${enKey}`, () => learnedRaw(contacts, heKey, enKey));
+}
+function learnedRaw(contacts, heKey, enKey) {
   const counts = new Map();
   const add = (he, en) => {
     const h = normalize(he);
@@ -133,7 +144,7 @@ function lookup(he, dict) {
 
 /** הצעה לשם פרטי באנגלית (לגבר או לאישה). */
 export function suggestFirstName(he, contacts) {
-  const dict = learned(contacts, 'first_name_he', 'first_name_en');
+  const dict = new Map(learned(contacts, 'first_name_he', 'first_name_en'));
   learned(contacts, 'wife_name_he', 'wife_name_en').forEach((v, k) => { if (!dict.has(k)) dict.set(k, v); });
   const found = lookup(he, dict);
   if (found) return found;
@@ -147,4 +158,83 @@ export function suggestLastName(he, contacts) {
   if (!key) return '';
   return learned(contacts, 'last_name_he', 'last_name_en').get(key)
     || SURNAMES[key] || SURNAMES[String(he).trim()] || transliterateYiddish(he);
+}
+
+// ---------- פון ענגליש צו אידיש (פארקערט) — למשל פאר אן אלטע רשימה וואס איז נאר אויף ענגליש ----------
+const lc = (s) => String(s || '').trim().toLowerCase();
+
+/** פארקערטע ווערטערבוך: ענגליש → העברעאיש (פון דער רשימה, און פון די באקאנטע נעמען) */
+function reverseDict(contacts, pairs, base) {
+  return cached(contacts, `r:${JSON.stringify(pairs)}`, () => reverseDictRaw(contacts, pairs, base));
+}
+function reverseDictRaw(contacts, pairs, base) {
+  const counts = new Map();
+  const add = (en, he) => {
+    const e = lc(en); const hh = String(he || '').trim();
+    if (!e || !hh) return;
+    const m = counts.get(e) || new Map();
+    m.set(hh, (m.get(hh) || 0) + 1);
+    counts.set(e, m);
+  };
+  contacts.forEach((c) => pairs.forEach(([heKey, enKey]) => {
+    add(c[enKey], c[heKey]);
+    const hw = String(c[heKey] || '').trim().split(/\s+/); const ew = String(c[enKey] || '').trim().split(/\s+/);
+    if (hw.length > 1 && hw.length === ew.length) hw.forEach((w, i) => add(ew[i], w));
+  }));
+  const best = new Map();
+  counts.forEach((m, e) => best.set(e, [...m.entries()].sort((a, b) => b[1] - a[1])[0][0]));
+  Object.entries(base).forEach(([he, en]) => { if (!best.has(lc(en))) best.set(lc(en), he); });
+  return best;
+}
+
+/**
+ * תעתיק פון ענגליש צו אידישע אותיות (א השערה — ווערט געצייכנט "צו באשטעטיגן").
+ * Klein → קליין, Schwartz → שווארץ, Weinberger → וויינבערגער, Friedman → פרידמאן.
+ */
+export function transliterateEnglish(word) {
+  const out = String(word || '').toLowerCase().replace(/[^a-z\s-]/g, '').split(/[\s-]+/).filter(Boolean).map((w) => {
+    w = w.replace(/(.)\1+/g, '$1') // ss → s, nn → n
+      .replace(/([aeiouy])s(?=[aeiou])/g, '$1z'); // Rosen → ראזען
+    const rules = [
+      ['sch', 'ש'], ['tsch', 'טש'], ['tch', 'טש'], ['sh', 'ש'], ['ch', 'כ'], ['ck', 'ק'], ['ph', 'פ'], ['th', 'ט'],
+      ['tz', 'צ'], ['ts', 'צ'], ['zh', 'זש'], ['kh', 'כ'],
+      ['ei', 'יי'], ['ey', 'יי'], ['ai', 'יי'], ['ay', 'יי'], ['ie', 'י'], ['ee', 'י'], ['oi', 'וי'], ['oy', 'וי'], ['ou', 'וי'], ['au', 'וי'], ['oo', 'ו'],
+      ['w', 'וו'], ['v', 'וו'], ['f', 'פ'], ['k', 'ק'], ['c', 'ק'], ['q', 'ק'], ['g', 'ג'], ['j', 'דזש'], ['z', 'ז'], ['x', 'קס'],
+      ['b', 'ב'], ['d', 'ד'], ['h', 'ה'], ['l', 'ל'], ['m', 'מ'], ['n', 'נ'], ['p', 'פ'], ['r', 'ר'], ['s', 'ס'], ['t', 'ט'],
+      ['a', 'א'], ['o', 'א'], ['e', 'ע'], ['i', 'י'], ['u', 'ו'], ['y', 'י'],
+    ];
+    let res = ''; let i = 0;
+    while (i < w.length) {
+      const r = rules.find(([en]) => w.startsWith(en, i));
+      if (!r) { i += 1; continue; }
+      let he = r[1];
+      // א וואקאל אין אנהייב: א / או / אי / ע
+      if (i === 0 && /^[aeiou]/.test(r[0]) && ['ו', 'י', 'וי', 'יי'].includes(he)) he = `א${he}`;
+      res += he; i += r[0].length;
+    }
+    // אויסלאזנדיגע אותיות
+    return res.replace(/כ$/, 'ך').replace(/מ$/, 'ם').replace(/נ$/, 'ן').replace(/פ$/, 'ף').replace(/צ$/, 'ץ');
+  });
+  return out.join(' ');
+}
+
+function lookupEn(en, dict) {
+  const full = lc(en);
+  if (!full) return '';
+  if (dict.has(full)) return dict.get(full);
+  const words = full.split(/\s+/);
+  const out = words.map((w) => dict.get(w) || '');
+  return out.every(Boolean) ? out.join(' ') : '';
+}
+
+/** א פרטי נאמען אויף אידיש פון ענגליש: פון דער רשימה / באקאנטע נעמען → תעתיק. */
+export function suggestHeFirstName(en, contacts) {
+  const dict = reverseDict(contacts, [['first_name_he', 'first_name_en'], ['wife_name_he', 'wife_name_en']], COMMON);
+  return lookupEn(en, dict) || transliterateEnglish(en);
+}
+
+/** א פאמיליע נאמען אויף אידיש פון ענגליש. */
+export function suggestHeLastName(en, contacts) {
+  const dict = reverseDict(contacts, [['last_name_he', 'last_name_en']], SURNAMES);
+  return lookupEn(en, dict) || transliterateEnglish(en);
 }

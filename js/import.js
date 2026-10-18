@@ -4,6 +4,7 @@ import { state, loadAll, importContacts, addListValue } from './data.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, formatPhone, digits, normalize, detectArea, splitTags, joinTags } from './util.js';
 import { downloadXlsx } from './excel.js';
+import { suggestFirstName, suggestLastName, suggestHeFirstName, suggestHeLastName } from './names.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -147,6 +148,8 @@ function existingIndex() {
   state.contacts.forEach((c) => {
     const k = normalize(`${c.first_name_he} ${c.last_name_he}`);
     if (k.trim()) names.set(k, c.contact_id);
+    const en = `${c.first_name_en || ''} ${c.last_name_en || ''}`.trim().toLowerCase();
+    if (c.first_name_en && c.last_name_en) names.set(`en:${en}`, c.contact_id);
   });
   state.phones.forEach((p, id) => {
     ['mobile', 'home_phone', 'wife_mobile', 'other_phone'].forEach((k) => { const d = digits(p[k]).slice(-10); if (d.length >= 7) phones.set(d, id); });
@@ -154,6 +157,28 @@ function existingIndex() {
   });
   return { names, phones, emails };
 }
+
+/**
+ * פילט אויס וואס פעלט: ענגליש ↔ אידיש (נעמען, די פרוי, טיטל). אלעס וואס איז אויטאמאטיש
+ * ווערט געצייכנט אין unverified_fields — אינעם כרטיס שטייט עס גרוי "צו באשטעטיגן".
+ */
+function fillNames(c) {
+  const auto = [];
+  const set = (k, v) => { if (!c[k] && v) { c[k] = v; auto.push(k); } };
+  const all = state.contacts;
+  set('first_name_he', c.first_name_en && suggestHeFirstName(c.first_name_en, all));
+  set('last_name_he', c.last_name_en && suggestHeLastName(c.last_name_en, all));
+  set('wife_name_he', c.wife_name_en && suggestHeFirstName(c.wife_name_en, all));
+  set('first_name_en', c.first_name_he && suggestFirstName(c.first_name_he, all));
+  set('last_name_en', c.last_name_he && suggestLastName(c.last_name_he, all));
+  set('wife_name_en', c.wife_name_he && suggestFirstName(c.wife_name_he, all));
+  set('title_en', c.title_he && (state.titleHeToEn || {})[c.title_he]);
+  set('title_he', c.title_en && (state.titleEnToHe || {})[c.title_en]);
+  if (auto.length) c.unverified_fields = joinTags(auto);
+  return auto;
+}
+
+let autoFill = true;
 
 /** גיט צוריק [{ n (שורה), contact, phones, status: 'ok'|'dup'|'error', note }] */
 function buildRows(table) {
@@ -176,12 +201,15 @@ function buildRows(table) {
       (f[3] === 'p' ? phones : contact)[k] = v;
     });
     if (!contact.area && (contact.zip || contact.city)) contact.area = detectArea(state.areas || [], contact);
+    if (autoFill) fillNames(contact);
     const out = { n: i + 2, contact, phones, status: 'ok', note: '' };
     if (!contact.first_name_he || !contact.last_name_he) { out.status = 'error'; out.note = t('impNeedName'); return out; }
+    if (contact.unverified_fields) out.auto = new Set(contact.unverified_fields.split(', '));
     const nk = normalize(`${contact.first_name_he} ${contact.last_name_he}`);
     const ph = ['mobile', 'home_phone', 'wife_mobile', 'other_phone'].map((k) => digits(phones[k]).slice(-10)).filter((d) => d.length >= 7);
     const em = ['email_1', 'email_2'].map((k) => phones[k]).filter(Boolean);
-    const hitId = idx.names.get(nk) || ph.map((d) => idx.phones.get(d)).find(Boolean) || em.map((e) => idx.emails.get(e)).find(Boolean);
+    const enKey = contact.first_name_en && contact.last_name_en ? `en:${contact.first_name_en} ${contact.last_name_en}`.toLowerCase() : '';
+    const hitId = idx.names.get(nk) || (enKey && idx.names.get(enKey)) || ph.map((d) => idx.phones.get(d)).find(Boolean) || em.map((e) => idx.emails.get(e)).find(Boolean);
     if (hitId) { out.status = 'dup'; out.note = t('impDupDb', { id: hitId }); return out; }
     const inFile = seen.names.get(nk) || ph.map((d) => seen.phones.get(d)).find(Boolean);
     if (inFile) { out.status = 'dup'; out.note = t('impDupFile', { n: inFile }); return out; }
@@ -215,7 +243,7 @@ export function wireImport(box, ui) {
     prev.innerHTML = `<p class="muted">⏳ ${h(t('impReading'))}</p>`;
     try {
       const table = /\.csv$/i.test(file.name) ? readCsv(await file.text()) : await readXlsx(file);
-      parsed = { ...buildRows(table), file: file.name };
+      parsed = { ...buildRows(table), file: file.name, table };
       renderPreview(box, ui);
     } catch (err) {
       prev.innerHTML = `<p class="warn-text">${h(t('impBadFile'))}</p><p class="muted small" dir="ltr">${h(String(err.message || err))}</p>`;
@@ -230,19 +258,24 @@ function renderPreview(box, ui) {
   const ok = rows.filter((r) => r.status === 'ok').length;
   const dup = rows.filter((r) => r.status === 'dup').length;
   const bad = rows.filter((r) => r.status === 'error').length;
-  const nameOf = (r) => [r.contact.title_he, r.contact.first_name_he, r.contact.last_name_he].filter(Boolean).join(' ');
+  const A = (r, k) => { const v = r.contact[k] || ''; return v && r.auto?.has(k) ? `<span class="imp-auto" title="${h(t('impAutoTip'))}">${h(v)}</span>` : h(v); };
+  const nameOf = (r) => ['title_he', 'first_name_he', 'last_name_he'].map((k) => A(r, k)).filter(Boolean).join(' ');
+  const enOf = (r) => ['first_name_en', 'last_name_en'].map((k) => A(r, k)).filter(Boolean).join(' ');
+  const nAuto = rows.filter((r) => r.auto).length;
   const shown = rows.slice(0, 300);
   prev.innerHTML = `<div class="imp-sum">
       <b>${h(parsed.file)}</b> · <span class="badge paid">✓ ${h(t('impOk', { n: ok }))}</span>
       ${dup ? `<span class="badge muted">⚠ ${h(t('impDup', { n: dup }))}</span>` : ''}
       ${bad ? `<span class="badge unpaid">✕ ${h(t('impBad', { n: bad }))}</span>` : ''}</div>
+    ${nAuto ? `<p class="hint-line">✎ ${h(t('impAutoNote', { n: nAuto }))}</p>` : ''}
     ${unknown.length ? `<p class="warn-text small">${h(t('impUnknownCols', { cols: unknown.join(', ') }))}</p>` : ''}
     ${dup ? `<label class="check"><input type="checkbox" id="imp-dups"> ${h(t('impIncludeDups'))}</label>` : ''}
+    <label class="check"><input type="checkbox" id="imp-auto"${autoFill ? ' checked' : ''}> ${h(t('impAutoFill'))}</label>
     <label class="imp-tag">🏷 ${h(t('impTagLabel'))} <input id="imp-tag" dir="rtl" value="${h(t('impDefaultTag'))}"></label>
     <p class="hint-line">${h(t('impTagHint'))}</p>
     <div class="imp-table-wrap"><table class="lapsed-table imp-table"><thead><tr><th>#</th><th>${h(t('impColName'))}</th><th>${h(t('impColEn'))}</th><th>${h(t('impColAddr'))}</th><th>${h(t('impColPhone'))}</th><th></th></tr></thead>
-      <tbody>${shown.map((r) => `<tr class="imp-${r.status}"><td class="muted small">${r.n}</td><td>${h(nameOf(r))}</td>
-        <td dir="ltr">${h([r.contact.first_name_en, r.contact.last_name_en].filter(Boolean).join(' '))}</td>
+      <tbody>${shown.map((r) => `<tr class="imp-${r.status}"><td class="muted small">${r.n}</td><td>${nameOf(r)}</td>
+        <td dir="ltr">${enOf(r)}</td>
         <td class="small" dir="ltr">${h([r.contact.address, r.contact.city, r.contact.state, r.contact.zip].filter(Boolean).join(', '))}</td>
         <td class="small" dir="ltr">${h(r.phones.mobile || r.phones.home_phone || r.phones.email_1 || '')}</td>
         <td class="small">${r.status === 'ok' ? '✓' : `${r.status === 'dup' ? '⚠' : '✕'} ${h(r.note)}`}</td></tr>`).join('')}</tbody></table></div>
@@ -251,6 +284,7 @@ function renderPreview(box, ui) {
       <button type="button" class="btn" id="imp-cancel">${h(t('cancelBtn'))}</button>
       <button type="button" class="btn primary" id="imp-go">📥 ${h(t('impGo', { n: ok }))}</button></div>
     <div class="ml-progress" id="imp-progress" hidden><div class="ml-bar"><span></span></div><span class="ml-ptext"></span></div>`;
+  $('#imp-auto', prev).onchange = (e) => { autoFill = e.target.checked; parsed = { ...buildRows(parsed.table), file: parsed.file, table: parsed.table }; renderPreview(box, ui); };
   const count = () => ok + ($('#imp-dups', prev)?.checked ? dup : 0);
   const go = $('#imp-go', prev);
   go.disabled = !count();

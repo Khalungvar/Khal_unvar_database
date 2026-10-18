@@ -1084,3 +1084,4 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 .imp-table tr.imp-error td { background: #fde8e8; }
 /* פלאץ אונטן, כדי דער AI-שורה זאל נישט צודעקן קיין קנעפלעך */
 #app-view:has(#ai-chat) .view { padding-bottom: 84px; }
+.imp-auto { color: var(--muted); font-style: italic; border-bottom: 1px dashed var(--gold); }

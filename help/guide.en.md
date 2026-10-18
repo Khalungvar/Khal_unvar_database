@@ -175,7 +175,7 @@ Keywords: import, excel, upload, list, many contacts, template
 
 - Admin ← **Admins, gabbaim and access** ← **"Import many contacts from Excel"**.
 1. **⬇ Template file** — download it.
-2. Paste the list (each row a person). Required: first + last name. Delete the 2 sample rows.
+2. Paste the list (each row a person). Required: first + last name — in Yiddish **or** English; the other language is filled in automatically (grey, "to confirm" in the card). Delete the 2 sample rows.
 3. **⬆ Upload Excel** — you see a preview: ✓ new, ⚠ already exist (skipped), ✕ with an error.
 4. **Tag for all** (default "אלטע רשימה צו דורכגיין") — so you know where they came from, and can filter by that tag.
 5. **📥 Import** — only adds; no existing contact is changed.
