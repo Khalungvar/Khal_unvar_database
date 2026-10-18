@@ -170,6 +170,16 @@ Keywords: request, approve, permission, admin approval, new tag
 - An admin sees a number on **"Admin"** ← **"Gabbaim requests"** ← **✓ Approve** (then it is done) or **✕ Decline**.
 - The gabbai gets a message, and sees it under "My requests".
 
+## Importing many contacts from Excel (owner only)
+Keywords: import, excel, upload, list, many contacts, template
+
+- Admin ← **Admins, gabbaim and access** ← **"Import many contacts from Excel"**.
+1. **⬇ Template file** — download it.
+2. Paste the list (each row a person). Required: first + last name. Delete the 2 sample rows.
+3. **⬆ Upload Excel** — you see a preview: ✓ new, ⚠ already exist (skipped), ✕ with an error.
+4. **Tag for all** (default "אלטע רשימה צו דורכגיין") — so you know where they came from, and can filter by that tag.
+5. **📥 Import** — only adds; no existing contact is changed.
+
 ## Admin (admins only)
 Keywords: admin, settings, admin lists, tags, logo, gabbai, access
 

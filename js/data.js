@@ -263,6 +263,36 @@ export async function saveContact(contact, phones) {
   return c.contact_id;
 }
 
+/**
+ * בעל הבית: לייגט אריין א סך נייע קאנטאקטן אויף איינמאל (פון אן Excel).
+ * list = [{ contact: {...}, phones: {...} }]. גיט צוריק { first, last } — די נייע נומערן.
+ */
+export async function importContacts(list, onProgress = () => {}) {
+  if (!state.isOwner) throw new Error(t('adminOnly'));
+  const stamp = nowStamp();
+  const first = await nextContactId();
+  let id = first;
+  const cRows = []; const pRows = [];
+  list.forEach(({ contact, phones }) => {
+    const c = { ...contact, contact_id: id, is_active: true, created_at: stamp, created_by: state.email, updated_at: stamp, updated_by: state.email };
+    cRows.push(objectToRow(state.headers.Contacts, c));
+    if (Object.values(phones || {}).some((v) => String(v ?? '').trim())) pRows.push(objectToRow(state.headers.Phones, { ...phones, contact_id: id }));
+    id += 1;
+  });
+  const total = cRows.length + pRows.length;
+  let done = 0;
+  for (let i = 0; i < cRows.length; i += 250) {
+    await appendRows('Contacts', cRows.slice(i, i + 250));
+    done += Math.min(250, cRows.length - i); onProgress(done, total);
+  }
+  for (let i = 0; i < pRows.length; i += 250) {
+    await appendRows('Phones', pRows.slice(i, i + 250));
+    done += Math.min(250, pRows.length - i); onProgress(done, total);
+  }
+  await logChanges('contact', 'import', '', null, null, `imported ${cRows.length} contacts (#${first}–#${id - 1})`);
+  return { first, last: id - 1 };
+}
+
 /** שומר רק את הקוויטל של איש קשר (טקסט עם שורות). */
 export async function saveKvitel(contact, text) {
   const row = await findRow('Contacts', contact.contact_id);

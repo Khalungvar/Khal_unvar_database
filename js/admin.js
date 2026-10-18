@@ -12,6 +12,7 @@ import { yearlySeries, allCampaigns, curYear } from './campaigns.js';
 import { orgSelect } from './donations.js';
 import { orgDetailsAdminHtml } from './receipts.js';
 import { requestsAdminHtml, wireRequestsAdmin, pendingRequests } from './requests.js';
+import { importBoxHtml, wireImport } from './import.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -146,6 +147,7 @@ export function renderAdmin() {
     + `<div class="adm-group" id="adm-sharing" data-tab="people"></div>`
     + `<div class="adm-group" id="adm-lock" data-tab="people-lock"></div>`
     + `<div class="adm-group" id="adm-code" data-tab="people"></div>`
+    + (state.isOwner ? `<div class="adm-group" id="adm-import" data-tab="people">${importBoxHtml()}</div>` : '')
     + campaignsAdminHtml()
     + orgDetailsAdminHtml()
     + trashHtml()
@@ -175,6 +177,7 @@ export function renderAdmin() {
   wireRequestsAdmin(main, () => renderAdmin());
   $('[data-g="admPeople"]', main)?.after($('#adm-sharing', main));
   if (state.isOwner) renderSharing();
+  wireImport($('#adm-import', main), ui);
 
   $$('.adm-card[data-key]', main).forEach((card) => wireCard(card, defs[Number(card.dataset.key)]));
 }

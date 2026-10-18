@@ -1074,3 +1074,13 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 .ai-welcome { border: 1px dashed var(--gold); }
 .hp-ai-link { margin: 8px 0 0; }
 @media print { .ai-chat { display: none !important; } }
+/* אריינלייגן פון Excel */
+.imp-steps { margin: 6px 0 10px; padding-inline-start: 22px; line-height: 2.1; }
+.imp-sum { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.imp-tag { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-weight: 600; white-space: nowrap; }
+.imp-tag input { font: inherit; padding: 6px 9px; border: 1px solid var(--gold); border-radius: 8px; min-width: 0; flex: 1; max-width: 360px; background: var(--surface); color: var(--ink); }
+.imp-table-wrap { max-height: 380px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; margin-top: 8px; }
+.imp-table tr.imp-dup td { background: #fff7e0; }
+.imp-table tr.imp-error td { background: #fde8e8; }
+/* פלאץ אונטן, כדי דער AI-שורה זאל נישט צודעקן קיין קנעפלעך */
+#app-view:has(#ai-chat) .view { padding-bottom: 84px; }
