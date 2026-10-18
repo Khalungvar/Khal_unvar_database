@@ -6,8 +6,9 @@ import { isTrue, splitTags, escapeHtml as h } from './util.js';
 import { toHebrew, yearLabel, todayIso, yearFromLabel } from './hebdate.js';
 import { scopeOrgs, defaultOrg } from './scope.js';
 import {
-  money, orgSelect, donorName, donationRow, openDonationForm, openBulk,
+  money, orgSelect, donorName, donationRow, openDonationForm, openBulk, exportDonations,
 } from './donations.js';
+import { donationInScope } from './scope.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -29,9 +30,64 @@ export function initCampaigns(helpers) {
     if (go) { showCampaign(go.dataset.gotoCampaign); return; }
     const gs = e.target.closest('[data-goto-series]');
     if (gs) { showSeries(gs.dataset.gotoSeries); return; }
+    if (e.target.closest('[data-hub]')) { ui.showView('donhub'); return; }
     const row = e.target.closest('.don-row');
     if (row) openDonationForm(state.donations.find((d) => String(d.donation_id) === row.dataset.id));
   });
+}
+
+// ---------- דער לאבי פון "נדבות און קאמפיינען": קאמפיינען אויבן, לעצטע נדבות אונטן ----------
+export function renderDonHub() {
+  const main = $('#donhub-main');
+  if (!main) return;
+  const series = seriesList();
+  const recent = state.donations.filter(donationInScope)
+    .sort((a, b) => Number(b.donation_id || 0) - Number(a.donation_id || 0)).slice(0, 25);
+  main.innerHTML = `<div class="camp-page-head hub-head">
+      <h2>${h(t('hubTitle'))}</h2>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="hub-lobby">${h(t('lobbyBack'))}</button>
+    </div>
+    <div class="hub-actions">
+      <button type="button" class="lobby-quick" id="hub-new-don">${h(t('newDonation'))}</button>
+      <button type="button" class="lobby-quick" id="hub-bulk">${h(t('campaignBtn'))}</button>
+      <button type="button" class="lobby-quick" id="hub-new-camp">${h(t('newCampaign'))}</button>
+    </div>
+    <h3 class="hub-sub">${h(t('hubCampaigns'))}</h3>
+    <div class="hub-camps">${series.map((s) => {
+      const c = s.years[0];
+      const pct = c.total ? Math.round(((c.total - c.open) / c.total) * 100) : 0;
+      return `<div class="hub-camp" role="button" tabindex="0" data-goto-campaign="${h(c.name)}">
+        <span class="hc-top"><b class="hc-name">${h(s.series)}</b><span class="hc-year">${h(c.year || '')}</span></span>
+        <b class="hc-total">${money(c.total)}</b>
+        <span class="hc-bar" title="${h(t('paid'))} ${pct}%"><span style="width:${pct}%"></span></span>
+        <span class="hc-sub muted small">${h(t('campaignDonors'))}: ${c.donors}${c.open ? ` · <span class="unpaid-text">${h(t('unpaid'))} ${money(c.open)}</span>` : ''}</span>
+        ${c.org ? `<span class="badge org mini">${h(c.org)}</span>` : ''}
+        ${s.years.length > 1 ? `<button type="button" class="linkish small" data-goto-series="${h(s.series)}">${h(t('hubYears', { n: s.years.length }))} ←</button>` : ''}
+      </div>`;
+    }).join('') || `<p class="muted">${h(t('hubNoCamps'))}</p>`}</div>
+    <div class="hub-recent-head"><h3 class="hub-sub">${h(t('hubRecent'))}</h3><span class="spacer"></span>
+      <button type="button" class="btn small-btn" id="hub-xl">Excel</button>
+      <button type="button" class="btn small-btn" id="hub-all">${h(t('hubAll'))}</button></div>
+    <div class="list">${recent.map((d) => donationRow(d)).join('') || `<p class="empty">${h(t('noDonationsYet'))}</p>`}</div>`;
+  $('#hub-lobby', main).onclick = () => ui.showView('lobby');
+  $('#hub-new-don', main).onclick = () => openDonationForm();
+  $('#hub-bulk', main).onclick = () => openBulk();
+  $('#hub-new-camp', main).onclick = () => openNewCampaign();
+  $('#hub-all', main).onclick = () => ui.showView('donations');
+  $('#hub-xl', main).onclick = () => exportDonations(t('hubRecent'), recent);
+  main.onclick = (e) => {
+    const gs = e.target.closest('[data-goto-series]');
+    if (gs) { showSeries(gs.dataset.gotoSeries); return; }
+    const row = e.target.closest('.don-row');
+    if (row) { openDonationForm(state.donations.find((d) => String(d.donation_id) === row.dataset.id)); return; }
+    const go = e.target.closest('[data-goto-campaign]');
+    if (go) showCampaign(go.dataset.gotoCampaign);
+  };
+  main.onkeydown = (e) => {
+    const go = e.target.closest?.('.hub-camp');
+    if (go && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); showCampaign(go.dataset.gotoCampaign); }
+  };
 }
 
 // ---------- רשימת הקאמפיין'ס ----------
@@ -130,7 +186,8 @@ function renderSeries(main) {
   if (!s) { main.innerHTML = `<p class="empty">${h(t('noCampaigns'))}</p>`; return; }
   const max = Math.max(1, ...s.years.map((c) => c.total));
   const latest = s.years[0];
-  main.innerHTML = `<div class="camp-page-head">
+  main.innerHTML = `<button type="button" class="linkish solo-only hub-back" data-hub>${h(t('hubBack'))}</button>
+    <div class="camp-page-head">
       <div><h2>${h(s.series)}</h2><p class="muted">${h(t('seriesHint'))}</p></div>
       <span class="spacer"></span>
       <button type="button" class="btn primary" id="series-new-year">${t('newYear')}</button>
@@ -163,7 +220,8 @@ function renderCampaign(main) {
   const list = c.list.slice()
     .sort((a, b) => Number(b.amount_usd || 0) - Number(a.amount_usd || 0) || donorName(a).localeCompare(donorName(b), 'he'));
   const others = allCampaigns().filter((x) => x.series === c.series);
-  main.innerHTML = `<div class="camp-page-head">
+  main.innerHTML = `<button type="button" class="linkish solo-only hub-back" data-hub>${h(t('hubBack'))}</button>
+    <div class="camp-page-head">
       <div>
         ${others.length > 1 ? `<button type="button" class="linkish" data-goto-series="${h(c.series)}">← ${h(t('allYearsOf', { name: c.series }))}</button>` : ''}
         <h2>${h(c.name)}</h2>
@@ -171,6 +229,7 @@ function renderCampaign(main) {
           ${c.org ? `<span class="badge org">${h(c.org)}</span>` : ''} ${c.note ? `· ${h(c.note)}` : ''}</p>
       </div>
       <span class="spacer"></span>
+      <button type="button" class="btn" id="camp-xl" title=".xlsx">Excel</button>
       <button type="button" class="btn" id="camp-settings">${t('campaignSettings')}</button>
       <button type="button" class="btn" id="camp-add-one">${t('newDonation')}</button>
       <button type="button" class="btn primary" id="camp-add-more">${t('campaignAddMore')}</button>
@@ -184,6 +243,7 @@ function renderCampaign(main) {
     <div class="list">${list.map((d) => donationRow(d)).join('') || `<p class="empty">${h(t('noDonationsYet'))}</p>`}</div>`;
   $('#camp-add-more', main).onclick = () => openBulk({ campaign: c.name });
   $('#camp-add-one', main).onclick = () => openDonationForm({ campaign: c.name });
+  $('#camp-xl', main).onclick = () => exportDonations(c.name, list);
   $('#camp-settings', main).onclick = () => openNewCampaign(c, true);
 }
 

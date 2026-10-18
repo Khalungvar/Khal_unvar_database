@@ -408,3 +408,59 @@ async function decideRequest(status) {
 }
 
 export { loadAll };
+
+// ---------- "+ משימה" פון א כרטיס פון א מענטש ----------
+export function openTaskForContact(c) {
+  const form = $('#task-form');
+  const users = allUsers().filter((u) => u.email !== state.email);
+  const name = ui.fullNameHe(c);
+  form.innerHTML = `
+    <button type="button" class="x-close" id="tk-x" aria-label="${h(t('close'))}">✕</button>
+    <h2>☑ ${h(t('taskAboutTitle'))}</h2>
+    <p class="task-about">👤 <b>${h(name)}</b> <span class="muted small">#${h(c.contact_id)}</span></p>
+    <label class="mm-l">${t('taskWhat')}
+      <textarea name="text" rows="3" placeholder="${h(t('taskWhatPh'))}"></textarea></label>
+    <div class="pm-row">
+      <label>${t('taskWho')}<select name="to">
+        <option value="${h(state.email)}">${h(t('tdForMe'))}</option>
+        ${users.map((u) => `<option value="${h(u.email)}">→ ${h(u.name)}</option>`).join('')}
+      </select></label>
+      <label>${t('taskWhen')}<select name="when">
+        <option value="">${t('tdWhenNow')}</option>
+        <option value="1">${t('tdWhenTomorrow')}</option>
+        <option value="7">${t('tdWhenWeek')}</option>
+        <option value="30">${t('tdWhenMonth')}</option>
+      </select></label>
+    </div>
+    <p class="hint-line">${t('taskHint')}</p>
+    <div class="actions"><span class="spacer"></span>
+      <button type="button" class="btn" id="tk-cancel">${t('cancelBtn')}</button>
+      <button type="submit" class="btn primary" id="tk-save">${t('taskSave')}</button></div>`;
+  const dlg = $('#task-dialog');
+  const close = () => dlg.close();
+  $('#tk-x', form).onclick = close;
+  $('#tk-cancel', form).onclick = close;
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const f = form.elements;
+    const text = f.text.value.trim();
+    if (!text) { f.text.focus(); return; }
+    const days = Number(f.when.value || 0);
+    $('#tk-save', form).disabled = true;
+    try {
+      await saveRecord('Tasks', 'task_id', {
+        task_id: '', text, assigned_to: f.to.value, from_email: state.email, status: 'open',
+        remind_at: days ? plusDays(days) : '', done_at: '', done_by: '', contact_id: String(c.contact_id),
+      });
+      await reloadMessages();
+      ui.updateBadges?.();
+      close();
+      ui.toast(f.to.value === state.email ? t('taskAddedToast') : t('tdSentToast', { name: displayName(f.to.value) }));
+    } catch (err) {
+      ui.toast(ui.friendlyError(err), 'error');
+      $('#tk-save', form).disabled = false;
+    }
+  };
+  dlg.showModal();
+  form.elements.text.focus();
+}

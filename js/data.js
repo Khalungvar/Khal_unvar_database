@@ -150,6 +150,58 @@ async function findRow(tab, contactId) {
   return idx > 0 ? idx + 1 : null;
 }
 
+// ---------- היסטאריע פון ענדערונגען (לשונית History) ----------
+const SKIP_FIELDS = new Set(['contact_id', 'donation_id', 'occasion_id', 'note_id', 'relation_id', '_row', 'updated_at', 'updated_by', 'created_at', 'created_by', 'unverified_fields', 'photo_data', 'logo_data']);
+let historyCache = null;
+
+/** ליידיג = פאלש (אדער "לעבט"/"אקטיוו"/USA ביי די פעלדער וואס דאס איז זייער סטאנדארט) — נישט קיין ענדערונג. */
+function sameValue(k, o, n) {
+  const norm = (v) => {
+    let x = String(v ?? '').trim();
+    if (!x && (/(^|_)is_(alive|active)$/.test(k))) x = 'true';
+    if (!x && k === 'country') x = 'USA';
+    if (/^(false|FALSE)$/.test(x)) x = '';
+    if (/^(true|TRUE)$/.test(x)) x = 'true';
+    return x;
+  };
+  return norm(o) === norm(n);
+}
+
+/** רעכנט אויס וואס האט זיך געטוישט און שרייבט עס אין History (א פעלער דא שטערט נישט דאס אפהיטן). */
+async function logChanges(entity, entityId, contactId, before, after, kind = '') {
+  try {
+    const at = nowStamp();
+    const rows = [];
+    const base = [at, state.email, entity, String(entityId ?? ''), String(contactId ?? '')];
+    if (kind) rows.push([...base, '*', '', kind]);
+    else {
+      const keys = new Set([...Object.keys(before || {}), ...Object.keys(after || {})]);
+      keys.forEach((k) => {
+        if (SKIP_FIELDS.has(k)) return;
+        const o = before?.[k] ?? '';
+        const n = after?.[k] ?? '';
+        if (sameValue(k, o, n)) return;
+        if (after && !(k in after)) return; // א פעלד וואס מען האט נישט געשיקט — נישט געטוישט
+        rows.push([...base, k, String(o).slice(0, 500), String(n).slice(0, 500)]);
+      });
+    }
+    if (rows.length) {
+      await appendRows('History', rows);
+      historyCache = null;
+    }
+  } catch (err) { console.warn('history log failed', err); }
+}
+
+/** די ענדערונגען פון א קאנטאקט (אויך זיינע טעלעפאנען, נדבות, מאורעות...) — די נייסטע פריער. */
+export async function getHistory(contactId) {
+  if (!historyCache) {
+    const tabs = await readTabs(['History']);
+    const [hd = [], ...body] = tabs.History || [];
+    historyCache = body.map((r) => Object.fromEntries(hd.map((k, i) => [k, r[i] ?? ''])));
+  }
+  return historyCache.filter((x) => String(x.contact_id) === String(contactId)).reverse();
+}
+
 /** שומר איש קשר (חדש או קיים) ואת הטלפונים שלו. מחזיר את ה-ID. */
 export async function saveContact(contact, phones) {
   const stamp = nowStamp();
@@ -174,6 +226,12 @@ export async function saveContact(contact, phones) {
   if (phoneRow) await updateRow('Phones', phoneRow, objectToRow(state.headers.Phones, p));
   else if (hasPhones) await appendRow('Phones', objectToRow(state.headers.Phones, p));
 
+  if (isNew) await logChanges('contact', c.contact_id, c.contact_id, null, null, 'created');
+  else {
+    const before = state.contacts.find((x) => String(x.contact_id) === String(c.contact_id)) || {};
+    await logChanges('contact', c.contact_id, c.contact_id, before, c);
+  }
+  await logChanges('phones', c.contact_id, c.contact_id, state.phones.get(String(c.contact_id)) || {}, p);
   return c.contact_id;
 }
 
@@ -183,6 +241,7 @@ export async function saveKvitel(contact, text) {
   if (!row) throw new Error(t('notFound'));
   const c = { ...contact, kvitel: text, updated_at: nowStamp(), updated_by: state.email };
   await updateRow('Contacts', row, objectToRow(state.headers.Contacts, c));
+  await logChanges('contact', contact.contact_id, contact.contact_id, { kvitel: contact.kvitel || '' }, { kvitel: text });
 }
 
 // ---------- תרומות ----------
@@ -197,10 +256,13 @@ export async function saveDonation(donation) {
     d.created_at = stamp;
     d.created_by = state.email;
     await appendRow('Donations', objectToRow(state.headers.Donations, d));
+    await logChanges('donation', d.donation_id, d.contact_id, null, null, `created: $${d.amount_usd}`);
   } else {
     const row = await findRow('Donations', d.donation_id);
     if (!row) throw new Error(t('notFound'));
     await updateRow('Donations', row, objectToRow(state.headers.Donations, d));
+    const before = state.donations.find((x) => String(x.donation_id) === String(d.donation_id)) || {};
+    await logChanges('donation', d.donation_id, d.contact_id, before, d);
   }
   return d.donation_id;
 }
@@ -215,6 +277,12 @@ export async function saveDonations(list) {
     ...d, donation_id: next++, created_at: stamp, created_by: state.email, updated_at: stamp, updated_by: state.email,
   }));
   await appendRows('Donations', rows);
+  const first = next - rows.length;
+  try {
+    const at = nowStamp();
+    await appendRows('History', list.map((d, i) => [at, state.email, 'donation', String(first + i), String(d.contact_id || ''), '*', '', `created: $${d.amount_usd}${d.campaign ? ` · ${d.campaign}` : ''}`]));
+    historyCache = null;
+  } catch { /* היסטאריע — נישט קריטיש */ }
   return rows.length;
 }
 
@@ -287,6 +355,7 @@ export async function savePhoto(contactId, data, driveId = '') {
   if (row) await updateRow('Photos', row, data ? values : ['', '', '', '', '']);
   else if (data) await appendRow('Photos', values);
   photoCache.set(k, data);
+  await logChanges('photo', k, k, null, null, data ? 'photo' : 'photo removed');
 }
 
 /** לייענט נאר די מעסעדזשעס (פאר א שנעלע בדיקה יעדע פאר מינוט). */
@@ -377,6 +446,7 @@ export async function deleteDonation(donation) {
   if (!state.isAdmin) throw new Error(t('adminOnly'));
   const row = await findRow('Donations', donation.donation_id);
   if (row) await updateRow('Donations', row, state.headers.Donations.map(() => ''));
+  await logChanges('donation', donation.donation_id, donation.contact_id, null, null, `deleted: $${donation.amount_usd}`);
 }
 
 // ---------- לשונית "ארגון": תיבות טקסט ----------
@@ -395,10 +465,13 @@ export async function saveOrgNote(note) {
     n.created_at = stamp;
     n.created_by = state.email;
     await appendRow('OrgNotes', objectToRow(state.headers.OrgNotes, n));
+    await logChanges('orgnote', n.note_id, n.contact_id, {}, { text: n.text });
   } else {
     const row = await findRow('OrgNotes', n.note_id);
     if (!row) throw new Error(t('notFound'));
     await updateRow('OrgNotes', row, objectToRow(state.headers.OrgNotes, n));
+    const before = state.orgNotes.find((x) => String(x.note_id) === String(n.note_id)) || {};
+    await logChanges('orgnote', n.note_id, n.contact_id, { text: before.text }, { text: n.text });
   }
   return n.note_id;
 }
@@ -406,6 +479,7 @@ export async function saveOrgNote(note) {
 export async function deleteOrgNote(note) {
   const row = await findRow('OrgNotes', note.note_id);
   if (row) await updateRow('OrgNotes', row, state.headers.OrgNotes.map(() => ''));
+  await logChanges('orgnote', note.note_id, note.contact_id, { text: note.text }, { text: '' });
 }
 
 // ---------- מאורעות (יארצייט, געבורטסטאג...) ----------
@@ -420,10 +494,13 @@ export async function saveOccasion(occasion) {
     o.created_at = stamp;
     o.created_by = state.email;
     await appendRow('Occasions', objectToRow(state.headers.Occasions, o));
+    await logChanges('occasion', o.occasion_id, o.contact_id, null, null, `created: ${o.occasion_type} ${o.person_name}`);
   } else {
     const row = await findRow('Occasions', o.occasion_id);
     if (!row) throw new Error(t('notFound'));
     await updateRow('Occasions', row, objectToRow(state.headers.Occasions, o));
+    const before = state.occasions.find((x) => String(x.occasion_id) === String(o.occasion_id)) || {};
+    await logChanges('occasion', o.occasion_id, o.contact_id, before, o);
   }
   return o.occasion_id;
 }
@@ -432,6 +509,7 @@ export async function saveOccasion(occasion) {
 export async function deleteOccasion(occasion) {
   const row = await findRow('Occasions', occasion.occasion_id);
   if (row) await updateRow('Occasions', row, state.headers.Occasions.map(() => ''));
+  await logChanges('occasion', occasion.occasion_id, occasion.contact_id, null, null, `deleted: ${occasion.occasion_type} ${occasion.person_name}`);
 }
 
 // ---------- קשרים משפחתיים ----------
@@ -451,6 +529,7 @@ export async function addRelation(a, type, b) {
     if (state.relations.some((r) => sameRel(r, x, ty, y))) continue;
     await appendRow('Relations', objectToRow(state.headers.Relations,
       { relation_id: next, contact_id_a: x, relation_type: ty, contact_id_b: y }));
+    await logChanges('relation', next, x, null, null, `+ ${ty} #${y}`);
     next += 1;
   }
 }
@@ -464,6 +543,7 @@ export async function removeRelation(rel) {
   for (const r of targets) {
     const idx = ids.findIndex((v, i) => i > 0 && String(v) === String(r.relation_id));
     if (idx > 0) await updateRow('Relations', idx + 1, state.headers.Relations.map(() => ''));
+    await logChanges('relation', r.relation_id, r.contact_id_a, null, null, `− ${r.relation_type} #${r.contact_id_b}`);
   }
 }
 

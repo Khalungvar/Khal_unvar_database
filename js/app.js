@@ -3,7 +3,7 @@ import {
   initAuth, requestToken, signOut, getUserEmail, hasSavedSession, setOnExpire, rememberEmail,
 } from './google.js';
 import {
-  state, loadAll, displayName, orgLogo, NESHEI_ORG, getPhoto, savePhoto, saveOriginalToDrive, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
+  state, loadAll, displayName, orgLogo, NESHEI_ORG, getHistory, getPhoto, savePhoto, saveOriginalToDrive, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
 } from './data.js';
 import { suggest, details, placesEnabled, placesError } from './places.js';
 import {
@@ -18,13 +18,13 @@ import {
   openOccasionForm, YAHRZEIT,
 } from './occasions.js';
 import {
-  initCampaigns, renderCampaignSide, renderCampaignMain, showCampaign,
+  initCampaigns, renderCampaignSide, renderCampaignMain, showCampaign, renderDonHub,
 } from './campaigns.js';
-import { initLists, renderListsSide, renderBuilder, openOverview } from './lists.js';
+import { initLists, renderListsSide, renderBuilder, openOverview, exportContacts } from './lists.js';
 import { initAdmin, renderAdmin, adminDirty } from './admin.js';
 import { initMailMerge, renderMailMerge, openMailMerge } from './mailmerge.js';
 import {
-  initPersonal, renderPersonal, openPersonal, unreadCount, tasksDueCount,
+  initPersonal, renderPersonal, openPersonal, unreadCount, tasksDueCount, openTaskForContact,
 } from './personal.js';
 import {
   nextOccurrence, daysBetween, todayIso, monthKeyFromHe,
@@ -245,7 +245,7 @@ function lobbyClick(e) {
   if (key === 'donations' || key === 'occasions') {
     enterScope(null);
     document.body.classList.add('solo-mode');
-    showView(key);
+    showView(key === 'donations' ? 'donhub' : key);
     return;
   }
   showSoon(key);
@@ -278,6 +278,7 @@ function refreshAll() {
   renderListsSide();
   if (!$('.view[data-view="lists"]').hidden) renderBuilder();
   if (!$('.view[data-view="campaign"]').hidden) renderCampaignMain();
+  if (!$('.view[data-view="donhub"]').hidden) renderDonHub();
   if ($('#card-dialog').open && currentCardId) openCard(currentCardId);
 }
 
@@ -292,6 +293,7 @@ function showView(name) {
   if (name === 'donations') { fillDonationFilters(); renderDonations(); }
   if (name === 'occasions') { fillOccasionFilters(); renderOccasions(); }
   if (name === 'campaign') renderCampaignMain();
+  if (name === 'donhub') renderDonHub();
   if (name === 'admin') renderAdmin();
   if (name === 'lobby') renderLobby();
   if (name === 'mailmerge') renderMailMerge();
@@ -594,7 +596,8 @@ function openCard(id, tab = null) {
     <p class="meta">
       ${c.created_at ? `<span>${h(t('created', { date: c.created_at, by: displayName(c.created_by) || '—' }))}</span>` : ''}
       ${c.updated_at && c.updated_at !== c.created_at ? `<span>${h(t('updated', { date: c.updated_at, by: displayName(c.updated_by) }))}</span>` : ''}
-    </p>`;
+    </p>
+    <details class="hist"><summary>📜 ${h(t('histTitle'))}</summary><div class="hist-list"><p class="muted small">${h(t('loading'))}</p></div></details>`;
 
   wireFamily(c);
   wireDonationsSection(c);
@@ -602,6 +605,7 @@ function openCard(id, tab = null) {
   wireKvitel(c);
   wireOrg(c);
   wirePhoto(c);
+  wireHistory(c);
   if (String(currentCardId) !== String(c.contact_id)) cardTab = 'details';
   if (tab) cardTab = tab;
   currentCardId = c.contact_id;
@@ -612,6 +616,7 @@ function openCard(id, tab = null) {
   };
   $$('#card-body .card-tabs button').forEach((b) => { b.onclick = () => showTab(b.dataset.tab); });
   showTab(cardTab);
+  $('#card-task').onclick = () => openTaskForContact(c);
   $('#card-edit').onclick = () => {
     if (cardDirty() && !confirm(t('kvitelUnsaved'))) return;
     $('#card-dialog').close(); openForm(c);
@@ -698,6 +703,51 @@ function wireOrg(c) {
     el.querySelector('textarea').focus();
   };
   box._dirty = () => $$('.org-box', box).some((el) => isDirty(el));
+}
+
+// ---------- היסטאריע פון ענדערונגען (אינעם כרטיס) ----------
+const ENTITY_ICON = { contact: '👤', phones: '📞', donation: '💰', occasion: '🕯', orgnote: '📝', relation: '👪', photo: '📷' };
+
+function fieldLabel(entity, field) {
+  const map = {
+    title_he: t('title'), first_name_he: t('firstHe'), last_name_he: t('lastHe'), is_alive: t('deceased'),
+    marital_status: t('marital'), title_en: 'Title', first_name_en: 'First name', last_name_en: 'Last name',
+    legal_first_name: t('legalName'), wife_name_he: t('wife'), wife_name_en: 'Wife', wife_is_rebbetzin: 'Rebbetzin',
+    wife_is_alive: t('deceasedF'), wife_in_neshei: t('nesheiFull'), beis_medrash: t('orgBeisMedrash'), kollel: t('orgKollel'),
+    organization: t('orgOrganization'), community_tags: t('community'), address: t('address'), city: 'City', state: 'State',
+    zip: 'ZIP', country: 'Country', area: t('area'), is_active: t('inactive'), kvitel: t('kvitel'),
+    beis_medrash_former: `${t('orgBeisMedrash')} · ${t('former')}`, kollel_former: `${t('orgKollel')} · ${t('former')}`,
+    organization_former: `${t('orgOrganization')} · ${t('former')}`, comments: t('comments'),
+    amount_usd: t('amount'), is_paid: t('paid'), payment_method: t('paymentMethod'), event_tags: t('eventLegend'),
+    campaign: t('campaignName'), org: t('forOrg'), date: t('dateLegend'), text: t('cardTabOrg'),
+    person_name: t('occName'), hebrew_day: t('hebDate'), hebrew_month: t('hebDate'),
+  };
+  return String(map[field] || field.replace(/_/g, ' ')).replace(/\s*\*\s*$/, '');
+}
+
+function histValue(v) {
+  const x = String(v ?? '');
+  if (x === 'TRUE' || x === 'true') return '✓';
+  if (x === 'FALSE' || x === 'false') return '✗';
+  return x.length > 80 ? `${x.slice(0, 80)}…` : x;
+}
+
+function wireHistory(c) {
+  const det = $('#card-body details.hist');
+  if (!det) return;
+  det.addEventListener('toggle', async () => {
+    if (!det.open || det.dataset.loaded) return;
+    try {
+      const rows = await getHistory(c.contact_id);
+      det.dataset.loaded = '1';
+      $('.hist-list', det).innerHTML = rows.length ? `<table class="hist-table">${rows.map((r) => `<tr>
+          <td class="muted small nowrap">${h(r.at)}</td>
+          <td class="small nowrap">${h(displayName(r.by))}</td>
+          <td>${ENTITY_ICON[r.entity] || ''} ${r.field === '*' ? `<b>${h(r.new_value)}</b>` : `<b>${h(fieldLabel(r.entity, r.field))}</b>:
+            <span class="hist-old">${h(histValue(r.old_value)) || '—'}</span> → <span class="hist-new">${h(histValue(r.new_value)) || '—'}</span>`}</td>
+        </tr>`).join('')}</table>` : `<p class="muted small">${h(t('histEmpty'))}</p>`;
+    } catch (err) { $('.hist-list', det).innerHTML = `<p class="muted small">${h(friendlyError(err))}</p>`; }
+  });
 }
 
 // ---------- בילד פון דעם מענטש (אינעם כרטיס) ----------
@@ -1409,6 +1459,7 @@ function start() {
   $('#btn-logout').onclick = logout;
   $('#btn-refresh').onclick = refresh;
   $('#btn-new').onclick = () => openForm();
+  $('#btn-xl-contacts').onclick = () => { const sc = getScope(); exportContacts(sc ? scopeLabel(sc) : t('tabContacts'), visibleContacts()); };
   $('#search').addEventListener('input', renderList);
   $('#tag-filter').addEventListener('change', renderList);
   $('#area-filter').addEventListener('change', renderList);
@@ -1462,13 +1513,14 @@ function start() {
   closeOnBackdrop($('#donation-dialog'), () => $('#donation-form')._close?.());
   $('#donation-dialog').addEventListener('cancel', (e) => { e.preventDefault(); $('#donation-form')._close?.(); });
   $('#campaign-dialog').addEventListener('cancel', (e) => { e.preventDefault(); $('#campaign-form')._close?.(); });
+  closeOnBackdrop($('#task-dialog'), () => $('#task-dialog').close());
   closeOnBackdrop($('#occasion-dialog'), () => $('#occasion-form')._close?.());
   $('#occasion-dialog').addEventListener('cancel', (e) => { e.preventDefault(); $('#occasion-form')._close?.(); });
   initOccasions({ contactById, fullNameHe, pickerLabel, openCard, toast, friendlyError, refreshAll });
   $$('.tabs button').forEach((b) => { b.onclick = () => showView(b.dataset.view); });
   initDonations({
     contactById, fullNameHe, pickerLabel, options, tagPicker, readTags, wireTagPicker,
-    toast, friendlyError, refreshAll,
+    toast, friendlyError, refreshAll, showView,
     openCampaignPage: (name) => showCampaign(name),
   });
   initCampaigns({ showView, tagPicker, wireTagPicker, readTags, toast, friendlyError, refreshAll });

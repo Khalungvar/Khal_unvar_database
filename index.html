@@ -8,27 +8,28 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="img/favicon.png">
-  <link rel="stylesheet" href="css/style.css?v=97">
+  <link rel="stylesheet" href="css/style.css?v=99">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script type="importmap">
   {"imports": {
-    "./js/admin.js": "./js/admin.js?v=97",
-    "./js/app.js": "./js/app.js?v=97",
-    "./js/campaigns.js": "./js/campaigns.js?v=97",
-    "./js/config.js": "./js/config.js?v=97",
-    "./js/data.js": "./js/data.js?v=97",
-    "./js/donations.js": "./js/donations.js?v=97",
-    "./js/hebdate.js": "./js/hebdate.js?v=97",
-    "./js/google.js": "./js/google.js?v=97",
-    "./js/i18n.js": "./js/i18n.js?v=97",
-    "./js/lists.js": "./js/lists.js?v=97",
-    "./js/mailmerge.js": "./js/mailmerge.js?v=97",
-    "./js/names.js": "./js/names.js?v=97",
-    "./js/occasions.js": "./js/occasions.js?v=97",
-    "./js/personal.js": "./js/personal.js?v=97",
-    "./js/places.js": "./js/places.js?v=97",
-    "./js/scope.js": "./js/scope.js?v=97",
-    "./js/util.js": "./js/util.js?v=97"
+    "./js/admin.js": "./js/admin.js?v=99",
+    "./js/app.js": "./js/app.js?v=99",
+    "./js/campaigns.js": "./js/campaigns.js?v=99",
+    "./js/config.js": "./js/config.js?v=99",
+    "./js/data.js": "./js/data.js?v=99",
+    "./js/donations.js": "./js/donations.js?v=99",
+    "./js/excel.js": "./js/excel.js?v=99",
+    "./js/hebdate.js": "./js/hebdate.js?v=99",
+    "./js/google.js": "./js/google.js?v=99",
+    "./js/i18n.js": "./js/i18n.js?v=99",
+    "./js/lists.js": "./js/lists.js?v=99",
+    "./js/mailmerge.js": "./js/mailmerge.js?v=99",
+    "./js/names.js": "./js/names.js?v=99",
+    "./js/occasions.js": "./js/occasions.js?v=99",
+    "./js/personal.js": "./js/personal.js?v=99",
+    "./js/places.js": "./js/places.js?v=99",
+    "./js/scope.js": "./js/scope.js?v=99",
+    "./js/util.js": "./js/util.js?v=99"
   }}
   </script>
   <script type="module">import "./js/app.js";</script>
@@ -100,6 +101,7 @@
         <label class="check" id="org-former-wrap" hidden><input type="checkbox" id="org-former"> <span data-i18n="withFormer"></span></label>
         <label class="check"><input type="checkbox" id="show-inactive"> <span data-i18n="inclInactive"></span></label>
         <span class="spacer"></span>
+        <button id="btn-xl-contacts" class="btn" title=".xlsx">Excel</button>
         <button id="btn-new" class="btn primary" data-i18n="newContact"></button>
       </div>
       <p id="count" class="muted"></p>
@@ -108,6 +110,7 @@
 
     <main class="page view" data-view="donations" hidden>
       <div class="toolbar">
+        <button type="button" id="don-back" class="btn small-btn solo-only" data-i18n="hubBack"></button>
         <input id="don-search" type="search" data-i18n-ph="donSearchPh" autocomplete="off">
         <select id="don-tag" aria-label="Event"></select>
         <select id="don-year" aria-label="Year"></select>
@@ -119,6 +122,7 @@
           <button id="btn-campaign" class="btn" data-i18n="campaignBtn"></button>
           <button id="btn-new-donation" class="btn primary" data-i18n="newDonation"></button>
         </span>
+        <button id="btn-xl-don" class="btn" title=".xlsx">Excel</button>
       </div>
       <p id="don-summary" class="muted"></p>
       <div id="don-list" class="list"></div>
@@ -135,6 +139,7 @@
           <option value="400" data-i18n="rangeYear"></option>
         </select>
         <span class="spacer"></span>
+        <button id="btn-xl-occ" class="btn" title=".xlsx">Excel</button>
         <button id="btn-print-occ" class="btn" data-i18n="print"></button>
         <button id="btn-new-occasion" class="btn primary" data-i18n="newOccasion"></button>
       </div>
@@ -167,6 +172,10 @@
       <section id="admin-main"></section>
     </main>
 
+    <main class="page view" data-view="donhub" hidden>
+      <section id="donhub-main"></section>
+    </main>
+
     <main class="page view" data-view="campaign" hidden>
       <section id="campaign-main"></section>
     </main>
@@ -181,6 +190,7 @@
     <div id="card-body"></div>
     <div class="actions">
       <span class="spacer"></span>
+      <button type="button" class="btn" id="card-task">☑ <span data-i18n="cardTaskBtn"></span></button>
       <button type="button" class="btn" id="card-edit" data-i18n="edit"></button>
       <button type="button" class="btn primary" data-close data-i18n="close" id="card-close"></button>
     </div>
@@ -199,6 +209,11 @@
   <!-- קאמפיין: הרבה נדבות בבת אחת (לא נסגר בלחיצה בחוץ) -->
   <dialog id="campaign-dialog" class="sheet full">
     <form id="campaign-form" novalidate></form>
+  </dialog>
+
+  <!-- משימה וועגן א מענטש -->
+  <dialog id="task-dialog" class="sheet">
+    <form id="task-form" novalidate></form>
   </dialog>
 
   <!-- נייער קאמפיין / סעטינגס -->

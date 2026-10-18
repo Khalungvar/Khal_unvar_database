@@ -10,6 +10,7 @@ import {
 import {
   campaignOrg, effectiveOrg, donationInScope, defaultOrg, umbrellaName,
 } from './scope.js';
+import { downloadXlsx } from './excel.js';
 
 let ui = null; // עזרים מהמסך הראשי (נמסרים ב-initDonations)
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -29,6 +30,8 @@ export function initDonations(helpers) {
   $('#don-unpaid').addEventListener('change', renderDonations);
   $('#btn-new-donation').onclick = () => openDonationForm();
   $('#btn-campaign').onclick = () => openBulk();
+  $('#btn-xl-don').onclick = () => exportDonations(t('lobbyDonations'), visibleDonations());
+  $('#don-back').onclick = () => ui.showView('donhub');
   $('#don-list').addEventListener('click', (e) => {
     const row = e.target.closest('.row');
     if (row) openDonationForm(state.donations.find((d) => String(d.donation_id) === row.dataset.id));
@@ -115,6 +118,16 @@ function visibleDonations() {
     .filter((d) => !q || donorName(d).includes(q) || String(d.event_note).includes(q)
       || String(d.dedication_text).includes(q))
     .sort((a, b) => String(b.date).localeCompare(String(a.date)) || Number(b.donation_id) - Number(a.donation_id));
+}
+
+/** נדבות → Excel (.xlsx). */
+export function exportDonations(name, list) {
+  downloadXlsx(name, [t('xlDate'), t('xlHebDate'), t('xlDonor'), t('xlOrg'), t('xlCampaign'), t('xlTags'), t('xlYear'),
+    t('xlAmount'), t('xlPaid'), t('xlNote')],
+  list.map((d) => [d.date || '', d.hebrew_date || isoToHebrewText(d.date) || '', donorName(d), effectiveOrg(d) || '',
+    d.campaign || '', splitTags(d.event_tags).join(', '), d.event_year || '', Number(d.amount_usd || 0),
+    isTrue(d.is_paid) ? t('xlYes') : t('xlNo'), [d.dedication_text, d.event_note].filter(Boolean).join(' · ')]),
+  { sheet: name });
 }
 
 export function donationRow(d, withName = true) {

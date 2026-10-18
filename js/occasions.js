@@ -8,6 +8,7 @@ import {
   toHebrew, yearLabel, hebrewNumber, todayIso, monthKeyFromHe, monthHe, yearFromLabel,
   nextOccurrence, daysBetween, isoToHebrewText,
 } from './hebdate.js';
+import { downloadXlsx } from './excel.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -25,6 +26,7 @@ export function initOccasions(helpers) {
   $('#occ-range').addEventListener('change', renderOccasions);
   $('#btn-new-occasion').onclick = () => openOccasionForm();
   $('#btn-print-occ').onclick = () => window.print();
+  $('#btn-xl-occ').onclick = exportOccasions;
   $('#occ-list').addEventListener('click', (e) => {
     const link = e.target.closest('[data-contact]');
     if (link) { e.stopPropagation(); ui.openCard(link.dataset.contact, 'family'); return; }
@@ -94,8 +96,7 @@ export function fillOccasionFilters() {
   sel.value = v;
 }
 
-export function renderOccasions() {
-  if (!$('#occ-list')) return;
+function visibleOccasions() {
   const q = $('#occ-search').value.trim();
   const type = $('#occ-type').value;
   const range = Number($('#occ-range').value || 7);
@@ -110,6 +111,25 @@ export function renderOccasions() {
       return [o.person_name, o.father_name, o.note, c ? ui.fullNameHe(c) : ''].some((s) => String(s || '').includes(q));
     })
     .sort((a, b) => a.x.days - b.x.days);
+  return list;
+}
+
+/** דער לוח → Excel (.xlsx). */
+export function exportOccasions() {
+  const rows = visibleOccasions().map(({ o, x }) => {
+    const c = ui.contactById(o.contact_id);
+    const father = String(o.father_name || '').trim();
+    return [x.next || '', isoToHebrewText(x.next) || '', x.days, o.occasion_type || '',
+      `${o.person_name || ''}${father ? ` ${o.ben_bat || 'בן'} ${father}` : ''}`, dateText(o), o.relation || '',
+      c ? ui.fullNameHe(c) : '', o.note || ''];
+  });
+  downloadXlsx(t('tabOccasions'), [t('xlNext'), t('xlHebrew'), '#', t('xlType'), t('xlPerson'), t('xlHebDate'),
+    t('xlRelation'), t('xlContact'), t('xlNote')], rows, { sheet: t('tabOccasions') });
+}
+
+export function renderOccasions() {
+  if (!$('#occ-list')) return;
+  const list = visibleOccasions();
   $('#occ-summary').textContent = t('occCount', { n: list.length });
   $('#occ-print-title').textContent = `${$('#occ-range').selectedOptions[0]?.text || ''} · ${isoToHebrewText(todayIso())}`;
   $('#occ-list').innerHTML = list.length ? list.map(({ o }) => occasionRow(o)).join('')

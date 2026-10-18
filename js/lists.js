@@ -12,6 +12,7 @@ import {
   contactInScope, effectiveOrg, donationInScope, getScope, memberOrgs, isFormerOf,
 } from './scope.js';
 import { allCampaigns } from './campaigns.js';
+import { downloadXlsx } from './excel.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -438,21 +439,25 @@ function renderResult() {
   markDirty();
 }
 
-/** קובץ CSV שנפתח באקסל (עם עברית/אידיש). */
+/** אמת'ער Excel (.xlsx), רעכטס-צו-לינקס. געלט קאלומס ווערן נומערן (מ'קען רעכענען). */
 function exportCsv(name, cols, rows) {
-  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const lines = [cols.map(([, label]) => esc(label)).join(',')]
-    .concat(rows.map((x) => cols.map(([, , fn]) => esc(fn(x.c, x))).join(',')));
-  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${(name || 'list').replace(/[\\/:*?"<>|]/g, '_')}.csv`;
-  document.body.append(a);
-  a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  const money = ['don_total', 'don_unpaid'];
+  const val = (k, v) => {
+    if (!money.includes(k)) return v ?? '';
+    const n = Number(String(v ?? '').replace(/[^0-9.-]/g, ''));
+    return String(v ?? '').trim() && Number.isFinite(n) ? n : '';
+  };
+  downloadXlsx(name || 'list', cols.map(([, label]) => label),
+    rows.map((x) => cols.map(([k, , fn]) => val(k, fn(x.c, x)))), { sheet: name || 'list' });
 }
 
 // ---------- איבערבליק: אלע רשימות + גרייטע רשימות ----------
+/** קאנטאקטן → Excel (פון דער רשימה אויפן בלאט). */
+export function exportContacts(name, contacts) {
+  const cols = columnDefs().filter(([k]) => !['don_total', 'don_unpaid', 'occasion'].includes(k));
+  downloadXlsx(name, cols.map(([, l]) => l), contacts.map((c) => cols.map(([, , fn]) => fn(c, {}))), { sheet: name });
+}
+
 export function templates() {
   return [
     { key: 'tplMail', criteria: { has: { address: true } }, columns: ['mailing', 'address', 'city', 'state', 'zip'] },
