@@ -48,11 +48,11 @@
 | מדינה (Country) | טקסט | ✅ הוחלט: ברירת מחדל USA. מדינה אחרת → סטייט ו-ZIP טקסט חופשי, ושורת מדינה במדבקה |
 
 ### 2. טלפונים ואימייל (Phones)
-✅ הוחלט: פלאפון אישי, טלפון בבית, פלאפון אישה, פלאפון נוסף (מה הוא — רושמים בהערות), אימייל 1, אימייל 2, הערות, תגיות טלפון.
+✅ הוחלט: פלאפון אישי, טלפון בבית, פלאפון אישה, פלאפון נוסף (מה הוא — רושמים בהערות), אימייל 1, אימייל 2, הערות. **לכל מספר טלפון תגיות משלו.**
 - פורמט: מקלידים ספרות, התוכנה מסדרת ל-(845) 555-1234. מספר מחו"ל נשמר כמו שהוקלד.
 - אזהרה אם מספר כבר שייך לאיש קשר אחר (חשוב לזיהוי SMS).
 - תצוגה: טלפונים ואימייל מוצגים רק בכרטיס האישי, ובפילטרים / קבוצות טקסט (Text groups).
-- ❓ תגיות טלפון: לכל מספר בנפרד או לכל איש הקשר? ואילו תגיות?
+- תגיות טלפון (לכל מספר בנפרד, בחירה מרובה): זמנים, מעמדים כללי, כהלכתו, נשי, Robbat calls. נערכות בלשונית Lists (עמודה K); יתווספו עוד.
 
 ### 3. תרומות (Donations)
 | שדה | סוג | הערות |
@@ -93,11 +93,11 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 קובץ: Khal_unvar_database. שורה 1 = כותרות באנגלית, הנתונים מתחילים בשורה 2.
 
 - **Contacts:** contact_id, title_he, first_name_he, last_name_he, is_alive, marital_status, title_en, first_name_en, last_name_en, wife_name_he, wife_name_en, wife_is_rebbetzin, wife_is_alive, wife_in_neshei, community_tags, photo_url, address, city, state, zip, country, is_active, created_at, updated_at, updated_by
-- **Phones:** contact_id, mobile, home_phone, wife_mobile, other_phone, email_1, email_2, comments, phone_tags
+- **Phones:** contact_id, mobile, mobile_tags, home_phone, home_phone_tags, wife_mobile, wife_mobile_tags, other_phone, other_phone_tags, email_1, email_2, comments
 - **Donations:** donation_id, contact_id, date, event, amount_usd, payment_method, check_number, card_last4, payment_note, dedication_type, dedication_text, created_at, created_by
 - **Relations:** relation_id, contact_id_a, relation_type, contact_id_b
 - **Yahrzeit:** yahrzeit_id, contact_id, hebrew_day, hebrew_month, hebrew_year, deceased_name, deceased_father_name, relation_to_contact, deceased_contact_id
-- **Lists:** title_he, title_en, marital_status, event, payment_method, dedication_type, relation_type, community_tag, title_he_default_en, title_en_default_he
+- **Lists:** title_he, title_en, marital_status, event, payment_method, dedication_type, relation_type, community_tag, title_he_default_en, title_en_default_he, phone_tag
 
 עקרונות: מחיקה רכה (is_active), עבודה דרך התוכנה ולא ישירות בגליון, רשימות האפשרויות נערכות בלשונית Lists.
 
