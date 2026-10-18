@@ -99,6 +99,7 @@ function showView(name) {
   $$('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === name));
   if (name === 'donations') { fillDonationFilters(); renderDonations(); }
   if (name === 'occasions') { fillOccasionFilters(); renderOccasions(); }
+  if (name !== 'orgs') $$('#org-side .org-link').forEach((b) => b.classList.remove('on'));
   if (name === 'orgs') renderOrgs();
 }
 
@@ -224,13 +225,13 @@ function renderOrgs() {
   const side = $('#org-side');
   if (!side) return;
   const pages = orgPages();
-  if (!currentOrgPage) currentOrgPage = pages[0]?.name || '';
+  const active = !$('.view[data-view="orgs"]').hidden;
   side.innerHTML = pages.map((p) => `<div class="org-group">
-    <button type="button" class="org-link org-top${p.name === currentOrgPage ? ' on' : ''}" data-key="${h(p.name)}">
+    <button type="button" class="org-link org-top${active && p.name === currentOrgPage ? ' on' : ''}" data-key="${h(p.name)}">
       <span>${h(t(p.label))}</span><span class="count-pill">${currentCount(p.name, '')}</span></button>
     ${p.values.map((v) => {
       const key = `${p.name}|${v}`;
-      return `<button type="button" class="org-link org-sub${key === currentOrgPage ? ' on' : ''}" data-key="${h(key)}">
+      return `<button type="button" class="org-link org-sub${active && key === currentOrgPage ? ' on' : ''}" data-key="${h(key)}">
         <span>${h(v)}</span><span class="count-pill">${currentCount(p.name, v)}</span></button>`;
     }).join('')}
   </div>`).join('');
@@ -1161,8 +1162,13 @@ function start() {
   $('#org-former').addEventListener('change', renderList);
   $('#org-side').addEventListener('click', (e) => {
     const b = e.target.closest('.org-link');
-    if (b) { currentOrgPage = b.dataset.key; renderOrgs(); }
+    if (b) {
+      currentOrgPage = b.dataset.key;
+      showView('orgs');
+      document.body.classList.remove('menu-open');
+    }
   });
+  $('#btn-menu').onclick = () => document.body.classList.toggle('menu-open');
   $('#org-main').addEventListener('click', (e) => {
     const open = e.target.closest('.org-open');
     if (open) { currentOrgPage = open.dataset.key; renderOrgs(); return; }
