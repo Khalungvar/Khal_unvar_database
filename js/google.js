@@ -145,7 +145,9 @@ export async function pickSheet() {
         else if (data.action === P.Action.CANCEL) resolve(false);
         else if (data.action === 'error') reject(new Error('picker'));
       })
+      .setOrigin(window.location.protocol + '//' + window.location.host)
       .build();
+    window.scrollTo(0, 0);
     picker.setVisible(true);
   });
 }
