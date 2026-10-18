@@ -82,7 +82,9 @@
 
 ### 4. קשרים משפחתיים (Relations)
 Contact_ID_A, קשר משפחתי, Contact_ID_B
-- הצעה: יצירה אוטומטית של הקשר ההפוך.
+- ✅ קשרים: אבא, בן, חתן, חותן, אח, גיס, סבא, נכד (נערכים בלשונית Lists, עמודה G).
+- ✅ קשר הפוך נוצר אוטומטית לפי טבלת התאמה (Lists, עמודה M): אבא↔בן, חתן↔חותן, אח↔אח, גיס↔גיס, סבא↔נכד.
+- ✅ בכרטיס של איש קשר: כל בני המשפחה שלו במאגר.
 
 ### 5. יארצייט (Yahrzeit)
 | שדה | סוג |
@@ -114,7 +116,7 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 - **Relations:** relation_id, contact_id_a, relation_type, contact_id_b
 - **Yahrzeit:** yahrzeit_id, contact_id, hebrew_day, hebrew_month, hebrew_year, deceased_name, deceased_father_name, relation_to_contact, deceased_contact_id
 - **Settings:** admin_email, note
-- **Lists:** title_he, title_en, marital_status, event_tag, payment_method, dedication_type, relation_type, community_tag, title_he_default_en, title_en_default_he, phone_tag, email_tag
+- **Lists:** title_he, title_en, marital_status, event_tag, payment_method, dedication_type, relation_type, community_tag, title_he_default_en, title_en_default_he, phone_tag, email_tag, relation_reverse
 
 עקרונות: מחיקה רכה (is_active), עבודה דרך התוכנה ולא ישירות בגליון, רשימות האפשרויות נערכות בלשונית Lists.
 
@@ -126,7 +128,6 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 - כמעט אף פעם לא שולחים לכולם; צריך כלי לבחירת קבוצות מתוך המאגר (סינון לפי תגיות, חי/נפטר, עיר וכו') ולהפקת רשימה/מדבקות. ייתוכנן בנפרד.
 
 ## שאלות פתוחות
-4. רשימת הקשרים המשפחתיים.
 - קבלות: פרטי הארגון, אופן שליחה, מספור, ומה כתוב בקבלה (לברר מול רואה חשבון).
 - ייבוא הרשימה הקיימת: באיזה פורמט היא? (אקסל / גוגל שיטס / אחר)
 - חשבון הגוגל הנפרד לתמונות: לחבר בהמשך, ולשתף את התיקייה עם הגבאים.
