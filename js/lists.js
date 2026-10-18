@@ -251,14 +251,6 @@ export function renderBuilder() {
           </select>
         </div>
       </details>
-      <details><summary>${t('lbManual')} ${cr.add.length || cr.remove.length ? `(${cr.add.length}+ / ${cr.remove.length}−)` : ''}</summary>
-        <div class="lb-row">
-          <input name="add_contact" list="dl-lb-contacts" placeholder="${h(t('lbAddPh'))}" autocomplete="off">
-          <button type="button" class="btn small-btn" id="lb-add">${t('admAdd')}</button>
-          <datalist id="dl-lb-contacts">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>
-        </div>
-        <div class="lb-manual">${cr.add.map((id) => manualChip(id, 'add')).join('')}${cr.remove.map((id) => manualChip(id, 'remove')).join('')}</div>
-      </details>
       <details><summary>${t('lbColumns')}</summary>
         ${chips('columns', columnDefs().map(([k]) => k), current.columns, (k) => columnDefs().find(([x]) => x === k)[1])}
       </details>
@@ -271,16 +263,34 @@ export function renderBuilder() {
       <button type="button" class="btn" id="lb-excel">Excel</button>
       <button type="button" class="btn" id="lb-print">Print</button>
     </div>
+    <div class="lb-addbar no-print">
+      <input id="lb-add-input" list="dl-lb-contacts" placeholder="${h(t('lbAddPh'))}" autocomplete="off">
+      <button type="button" class="btn" id="lb-add">${t('lbAddBtn')}</button>
+      <datalist id="dl-lb-contacts">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>
+      <span class="hint-line">${t('lbAddHint')}</span>
+    </div>
     <h2 class="print-only" id="lb-print-title"></h2>
-    <div class="lb-table-wrap"><table class="lb-table" id="lb-table"></table></div>`;
+    <div class="lb-table-wrap"><table class="lb-table" id="lb-table"></table></div>
+    <div class="lb-removed no-print" id="lb-removed"></div>`;
   wireBuilder(main);
   renderResult();
   renderListsSide();
 }
 
-function manualChip(id, kind) {
+function nameOf(id) {
   const c = ui.contactById(id);
-  return `<span class="chip ${kind === 'add' ? 'lb-plus' : 'lb-minus'}" data-id="${h(id)}" data-kind="${kind}">${kind === 'add' ? '+' : '−'} ${h(c ? ui.fullNameHe(c) : `#${id}`)} <button type="button" class="linkish lb-unmanual">✕</button></span>`;
+  return c ? ui.fullNameHe(c) : `#${id}`;
+}
+
+/** האם יש שינויים שלא נשמרו ברשימה. */
+function markDirty() {
+  const now = JSON.stringify([current.criteria, current.columns, $('#lb-name')?.value.trim()]);
+  const dirty = now !== current.savedState;
+  const btn = $('#lb-save');
+  if (btn) {
+    btn.classList.toggle('pulse', dirty && Boolean(current.list_id));
+    btn.textContent = current.list_id ? (dirty ? t('lbSaveChanges') : t('lbSavedState')) : t('lbSaveAs');
+  }
 }
 
 function readCriteria(form) {
@@ -304,29 +314,36 @@ function wireBuilder(main) {
   const update = () => { readCriteria(form); renderResult(); };
   form.addEventListener('click', (e) => {
     const chip = e.target.closest('.lb-chips .chip');
-    if (chip) { chip.classList.toggle('on'); update(); return; }
-    const un = e.target.closest('.lb-unmanual');
-    if (un) {
-      const span = un.closest('[data-id]');
-      const arr = current.criteria[span.dataset.kind];
-      arr.splice(arr.map(String).indexOf(String(span.dataset.id)), 1);
-      span.remove();
-      update();
-    }
+    if (chip) { chip.classList.toggle('on'); update(); }
   });
+  $('#lb-name', main).addEventListener('input', markDirty);
   form.addEventListener('change', update);
   form.addEventListener('input', (e) => { if (e.target.name === 'don_min') update(); });
-  $('#lb-add', main).onclick = () => {
-    const m = form.elements.add_contact.value.match(/\(#(\d+)\)/);
-    if (!m) { ui.toast(t('pickValid'), 'error'); return; }
+  const addInput = $('#lb-add-input', main);
+  const addPerson = () => {
+    const m = addInput.value.match(/\(#(\d+)\)/);
+    if (!m || !ui.contactById(m[1])) { ui.toast(t('pickValid'), 'error'); return; }
     const id = Number(m[1]);
     const cr = current.criteria;
+    const was = current.lastRows.some((x) => String(x.c.contact_id) === String(id));
     cr.remove = cr.remove.filter((x) => String(x) !== String(id));
-    if (!cr.add.map(String).includes(String(id))) cr.add.push(id);
-    form.elements.add_contact.value = '';
-    $('.lb-manual', form).innerHTML = cr.add.map((x) => manualChip(x, 'add')).join('') + cr.remove.map((x) => manualChip(x, 'remove')).join('');
+    if (!was && !cr.add.map(String).includes(String(id))) cr.add.push(id);
+    addInput.value = '';
     renderResult();
+    ui.toast(was ? t('lbAlreadyIn', { name: nameOf(id) }) : t('lbAdded', { name: nameOf(id) }));
+    addInput.focus();
   };
+  $('#lb-add', main).onclick = addPerson;
+  addInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addPerson(); } });
+  addInput.addEventListener('change', () => { if (/\(#\d+\)/.test(addInput.value)) addPerson(); });
+  // צוריקלייגן איינעם וואס מען האט אראפגענומען
+  $('#lb-removed', main).addEventListener('click', (e) => {
+    const b = e.target.closest('[data-restore]');
+    if (!b) return;
+    const cr = current.criteria;
+    cr.remove = cr.remove.filter((x) => String(x) !== b.dataset.restore);
+    renderResult();
+  });
   // ✕ בשורה של התוצאה → מורידים את האיש מהרשימה
   $('#lb-table', main).addEventListener('click', (e) => {
     const rm = e.target.closest('.lb-rm');
@@ -335,9 +352,10 @@ function wireBuilder(main) {
     if (rm) {
       const id = Number(tr.dataset.id);
       const cr = current.criteria;
+      const wasManual = cr.add.map(String).includes(String(id));
       cr.add = cr.add.filter((x) => String(x) !== String(id));
-      if (!cr.remove.map(String).includes(String(id))) cr.remove.push(id);
-      $('.lb-manual', form).innerHTML = cr.add.map((x) => manualChip(x, 'add')).join('') + cr.remove.map((x) => manualChip(x, 'remove')).join('');
+      // ווער עס איז נאר געווען מיט דער האנט — גענוג אראפצונעמען פון "צוגעלייגט"
+      if (!wasManual && !cr.remove.map(String).includes(String(id))) cr.remove.push(id);
       renderResult();
       return;
     }
@@ -358,6 +376,7 @@ function wireBuilder(main) {
       await loadAll();
       current.list_id = id;
       current.name = name;
+      current.savedState = null;
       ui.toast(t('lbSaved', { name }));
       renderBuilder();
     } catch (err) {
@@ -393,8 +412,13 @@ function renderResult() {
   $('#lb-count').textContent = t('lbCount', { n: rows.length });
   const cols = selectedColumns();
   $('#lb-table').innerHTML = `<thead><tr>${cols.map(([, label]) => `<th>${h(label)}</th>`).join('')}<th class="no-print"></th></tr></thead>
-    <tbody>${rows.map((x) => `<tr data-id="${h(x.c.contact_id)}">${cols.map(([k, , fn]) => `<td${['mailing', 'name_en', 'address', 'city', 'state', 'zip', 'mobile', 'home_phone', 'email', 'don_total', 'don_unpaid'].includes(k) ? ' dir="ltr"' : ''}>${h(fn(x.c, x))}</td>`).join('')}
+    <tbody>${rows.map((x) => `<tr data-id="${h(x.c.contact_id)}"${current.criteria.add.map(String).includes(String(x.c.contact_id)) ? ' class="lb-manual-row" title="' + h(t('lbManualTip')) + '"' : ''}>${cols.map(([k, , fn]) => `<td${['mailing', 'name_en', 'address', 'city', 'state', 'zip', 'mobile', 'home_phone', 'email', 'don_total', 'don_unpaid'].includes(k) ? ' dir="ltr"' : ''}>${h(fn(x.c, x))}</td>`).join('')}
       <td class="no-print"><button type="button" class="linkish lb-rm" title="${h(t('lbRemoveRow'))}">✕</button></td></tr>`).join('')}</tbody>`;
+  const removed = current.criteria.remove;
+  $('#lb-removed').innerHTML = removed.length ? `<span class="muted">${h(t('lbRemovedLabel', { n: removed.length }))}</span> ${removed.map((id) => `<span class="chip lb-minus">${h(nameOf(id))}
+    <button type="button" class="linkish" data-restore="${h(id)}" title="${h(t('lbRestore'))}">↺ ${h(t('lbRestore'))}</button></span>`).join(' ')}` : '';
+  if (current.savedState == null) current.savedState = JSON.stringify([current.criteria, current.columns, $('#lb-name')?.value.trim()]);
+  markDirty();
 }
 
 /** קובץ CSV שנפתח באקסל (עם עברית/אידיש). */

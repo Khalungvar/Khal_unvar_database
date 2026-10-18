@@ -554,3 +554,11 @@ dialog.sheet.full { width: min(1200px, 96vw); max-width: 96vw; max-height: 94vh;
 .lo-tpl { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; text-align: start; background: var(--surface);
   border: 1px solid var(--gold); border-radius: 12px; padding: 12px 14px; font: inherit; cursor: pointer; color: inherit; }
 .lo-tpl:hover { border-color: var(--accent); }
+
+.lb-addbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0 10px; }
+.lb-addbar input { font: inherit; padding: 7px 10px; min-width: 22em; }
+.lb-manual-row td:first-child::before { content: '+ '; color: #2e7d32; font-weight: 700; }
+.lb-removed { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lb-removed .chip.lb-minus { text-decoration: none; }
+.lb-removed .chip.lb-minus button { text-decoration: none; font-size: 12px; margin-inline-start: 4px; }
+#lb-save.pulse { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
