@@ -20,7 +20,7 @@ import {
 import {
   initCampaigns, renderCampaignSide, renderCampaignMain, showCampaign,
 } from './campaigns.js';
-import { initLists, renderListsSide, renderBuilder } from './lists.js';
+import { initLists, renderListsSide, renderBuilder, openOverview } from './lists.js';
 import { initAdmin, renderAdmin, adminDirty } from './admin.js';
 import {
   getScope, setScope, restoreScope, withFormer, setWithFormer, contactInScope, donationInScope, umbrellaName,
@@ -89,6 +89,70 @@ async function enterApp() {
   $('#login-view').hidden = true;
   $('#app-view').hidden = false;
   refreshAll();
+  showView('lobby');
+}
+
+// ---------- לובי: דער ערשטער בלאט נאכן אריינגיין ----------
+let lobbyOpen = ''; // וועלכער ארגון-סארט איז אויפגעמאכט (צו קלייבן א ביהמ"ד וכו')
+
+function renderLobby() {
+  const main = $('#lobby-main');
+  if (!main) return;
+  const tile = (key, icon, title, sub = '', extra = '') => `<button type="button" class="lobby-tile${lobbyOpen === key ? ' open' : ''}" data-tile="${key}" ${extra}>
+      <span class="lobby-icon">${icon}</span><b>${h(title)}</b>${sub ? `<span class="muted small">${h(sub)}</span>` : ''}</button>`;
+  const alive = state.contacts.filter((c) => isAlive(c.is_alive) && (isTrue(c.is_active) || c.is_active === '')).length;
+  const typeTile = ([type, label], icon) => tile(type, icon, t(label === 'orgBeisMedrash' ? 'lobbyBatei' : label),
+    t('lobbyOrgSub', { n: (state.lists[type] || []).length, p: currentCount(type, '') }));
+  const open = ORG_FIELDS.find(([n]) => n === lobbyOpen);
+  main.innerHTML = `
+    <div class="lobby-head"><img src="img/logo.png" alt="" class="lobby-logo"><h1>${h(umbrellaName())}</h1>
+      <p class="muted">${h(t('lobbyHello', { email: state.email }))}</p></div>
+    <div class="lobby-row">
+      ${tile('umbrella', '🏛', umbrellaName(), t('lobbyAllSub', { n: alive }), 'data-primary')}
+      ${typeTile(ORG_FIELDS[0], '🕍')}
+      ${typeTile(ORG_FIELDS[1], '📖')}
+      ${typeTile(ORG_FIELDS[2], '🤝')}
+    </div>
+    ${open ? `<div class="lobby-choose">
+      <span class="muted">${h(t('lobbyChoose'))}</span>
+      <button type="button" class="btn" data-scope-type="${open[0]}" data-scope-value="">${h(t('lobbyAllOf', { name: t(open[1] === 'orgBeisMedrash' ? 'lobbyBatei' : open[1]) }))}</button>
+      ${(state.lists[open[0]] || []).map((v) => `<button type="button" class="btn primary" data-scope-type="${open[0]}" data-scope-value="${h(v)}">${h(v)}
+        <span class="count-pill">${currentCount(open[0], v)}</span></button>`).join('')}
+    </div>` : ''}
+    <div class="lobby-row">
+      ${tile('lists', '📋', t('readyLists'), t('lobbyListsSub', { n: state.savedLists.length }))}
+      ${tile('mailmerge', '✉', 'Mail Merge', t('lobbyMailSub'))}
+      ${tile('calls', '📞', 'Calls & SMS', t('lobbyCallsSub'))}
+    </div>
+    <div class="lobby-row">
+      ${tile('personal', '👤', t('lobbyPersonal'), t('lobbyPersonalSub'))}
+    </div>`;
+}
+
+function lobbyClick(e) {
+  const pick = e.target.closest('[data-scope-type]');
+  if (pick) {
+    lobbyOpen = '';
+    enterScope({ type: pick.dataset.scopeType, value: pick.dataset.scopeValue });
+    showView('contacts');
+    return;
+  }
+  const b = e.target.closest('[data-tile]');
+  if (!b) return;
+  const key = b.dataset.tile;
+  if (key === 'umbrella') { lobbyOpen = ''; enterScope(null); showView('contacts'); return; }
+  if (ORG_FIELDS.some(([n]) => n === key)) { lobbyOpen = lobbyOpen === key ? '' : key; renderLobby(); return; }
+  if (key === 'lists') { openOverview(); return; }
+  showSoon(key);
+}
+
+function showSoon(key) {
+  const titles = { mailmerge: 'Mail Merge', calls: 'Calls & SMS', personal: t('lobbyPersonal') };
+  $('#soon-main').innerHTML = `<div class="soon-box"><h2>${h(titles[key] || '')}</h2>
+    <p class="muted">${h(t('soonText'))}</p>
+    <button type="button" class="btn" id="soon-back">← ${h(t('lobbyBack'))}</button></div>`;
+  $('#soon-back').onclick = () => showView('lobby');
+  showView('soon');
 }
 
 /** מרענן את כל המסכים אחרי טעינה או שמירה. */
@@ -109,6 +173,7 @@ function refreshAll() {
 }
 
 function showView(name) {
+  document.body.classList.toggle('lobby-mode', name === 'lobby');
   const leavingAdmin = !$('.view[data-view="admin"]').hidden && name !== 'admin';
   if (leavingAdmin && adminDirty() && !confirm(t('discardChanges'))) return;
   document.body.classList.remove('menu-open');
@@ -118,6 +183,7 @@ function showView(name) {
   if (name === 'occasions') { fillOccasionFilters(); renderOccasions(); }
   if (name === 'campaign') renderCampaignMain();
   if (name === 'admin') renderAdmin();
+  if (name === 'lobby') renderLobby();
   if (name === 'lists') renderBuilder();
   renderListsSide();
   $('#btn-admin')?.classList.toggle('on', name === 'admin');
@@ -1187,7 +1253,8 @@ function start() {
     showView('contacts');
   };
   $('.topbar .brand').style.cursor = 'pointer';
-  $('.topbar .brand').onclick = goHome;
+  $('.topbar .brand').onclick = () => showView('lobby');
+  $('#lobby-main').addEventListener('click', lobbyClick);
   $('#btn-home').onclick = goHome;
   $('#scope-exit').onclick = goHome;
   $('#scope-former').addEventListener('change', () => { setWithFormer($('#scope-former').checked); refreshAll(); });

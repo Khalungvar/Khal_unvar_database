@@ -562,3 +562,24 @@ dialog.sheet.full { width: min(1200px, 96vw); max-width: 96vw; max-height: 94vh;
 .lb-removed .chip.lb-minus { text-decoration: none; }
 .lb-removed .chip.lb-minus button { text-decoration: none; font-size: 12px; margin-inline-start: 4px; }
 #lb-save.pulse { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+
+/* לאבי */
+body.lobby-mode .side-menu, body.lobby-mode .tabs, body.lobby-mode #scope-bar, body.lobby-mode .menu-toggle { display: none !important; }
+body.lobby-mode .app-body { grid-template-columns: 1fr; }
+.lobby { max-width: 1000px; margin: 0 auto; }
+.lobby-head { text-align: center; margin: 18px 0 10px; }
+.lobby-logo { width: 110px; height: auto; }
+.lobby-head h1 { margin: 6px 0 2px; color: var(--accent); }
+.lobby-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 14px 0; }
+.lobby-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 130px;
+  background: var(--surface); border: 1px solid var(--gold); border-radius: 16px; padding: 16px; font: inherit; color: inherit;
+  cursor: pointer; text-align: center; transition: transform .1s, box-shadow .1s; }
+.lobby-tile:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.08); border-color: var(--accent); }
+.lobby-tile b { font-size: 18px; }
+.lobby-tile[data-primary] { background: var(--accent); color: #fff; border-color: var(--accent); }
+.lobby-tile[data-primary] .muted { color: #f3e3c4; }
+.lobby-tile.open { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.lobby-icon { font-size: 34px; line-height: 1; }
+.lobby-choose { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--surface); border: 1px dashed var(--accent);
+  border-radius: 12px; padding: 12px; }
+.soon-box { text-align: center; margin: 60px auto; max-width: 520px; }
