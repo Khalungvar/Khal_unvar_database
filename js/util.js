@@ -130,7 +130,7 @@ const EUROPE = new Set(['GB', 'UK', 'BE', 'FR', 'DE', 'AT', 'CH', 'NL', 'HU', 'R
   'IT', 'ES', 'DK', 'SE', 'NO', 'IE', 'LU', 'LT', 'LV', 'EE', 'PT', 'GR', 'BG', 'HR', 'SI', 'RS']);
 const COUNTRY_CODES = { israel: 'IL', 'united kingdom': 'GB', england: 'GB', belgium: 'BE', france: 'FR',
   germany: 'DE', austria: 'AT', switzerland: 'CH', netherlands: 'NL', hungary: 'HU', romania: 'RO',
-  slovakia: 'SK', ukraine: 'UA', usa: 'US', 'united states': 'US' };
+  slovakia: 'SK', ukraine: 'UA', usa: 'US', 'united states': 'US', canada: 'CA', uk: 'GB' };
 
 /**
  * מזהה את הגעגנט (שכונה/עיר) לפי הכתובת. areas = [{ name, zips[], keywords[] }] מלשונית Lists.
@@ -138,8 +138,13 @@ const COUNTRY_CODES = { israel: 'IL', 'united kingdom': 'GB', england: 'GB', bel
  */
 export function detectArea(areas, { zip = '', city = '', neighborhood = '', country = '' } = {}) {
   const cc = (COUNTRY_CODES[String(country).trim().toLowerCase()] || String(country).trim().toUpperCase()).slice(0, 2);
+  const cityText = `${neighborhood} ${city}`.toLowerCase();
+  const cityKeys = (a) => a.keywords.filter((k) => k && !k.toLowerCase().startsWith('country:'));
   if (cc && cc !== 'US') {
-    const byCountry = areas.find((a) => a.keywords.some((k) => k.toLowerCase() === `country:${cc.toLowerCase()}`))
+    // אין דעם זעלבן לאנד: קודם לויט דער שטאט (טאראנטא / מאנטריאל), דערנאך דער גאנצער לאנד (קאנאדע)
+    const inCountry = areas.filter((a) => a.keywords.some((k) => k.toLowerCase() === `country:${cc.toLowerCase()}`));
+    const byCity = inCountry.find((a) => cityKeys(a).some((k) => cityText.includes(k.toLowerCase())));
+    const byCountry = byCity || inCountry.find((a) => !cityKeys(a).length) || inCountry[0]
       || (EUROPE.has(cc) ? areas.find((a) => a.keywords.some((k) => k.toLowerCase() === 'country:eu')) : null);
     return byCountry ? byCountry.name : '';
   }
