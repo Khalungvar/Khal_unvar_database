@@ -1,9 +1,47 @@
 // לוגאין עם גוגל וגישה לגוגל שיטס.
-// הטוקן נשמר רק בזיכרון של הדף, ולא נשמר בדפדפן.
+// גוגל נותנת "מפתח כניסה" (טוקן) שתקף שעה אחת. שומרים אותו בדפדפן עד שהוא פג,
+// כדי שרענון של הדף לא ידרוש התחברות מחדש. אחרי שעה מבקשים לחיצה אחת לחידוש.
 import { CONFIG, SCOPES } from './config.js';
 
+const STORE = 'khal-auth';
 let tokenClient = null;
 let accessToken = null;
+let expiresAt = 0;
+let hintEmail = '';
+let onExpire = null;
+let expireTimer = null;
+
+function save() {
+  try { localStorage.setItem(STORE, JSON.stringify({ accessToken, expiresAt, hintEmail })); } catch { /* ignore */ }
+}
+
+function restore() {
+  try {
+    const d = JSON.parse(localStorage.getItem(STORE) || '{}');
+    hintEmail = d.hintEmail || '';
+    if (d.accessToken && d.expiresAt > Date.now() + 60_000) {
+      accessToken = d.accessToken;
+      expiresAt = d.expiresAt;
+    }
+  } catch { /* ignore */ }
+}
+
+function scheduleExpire() {
+  clearTimeout(expireTimer);
+  if (!expiresAt) return;
+  // דקה לפני שהטוקן פג — מודיעים לממשק, שיבקש לחיצה לחידוש
+  expireTimer = setTimeout(() => onExpire?.(), Math.max(0, expiresAt - Date.now() - 60_000));
+}
+
+/** יש טוקן תקף מהפעם הקודמת? */
+export function hasSavedSession() {
+  return Boolean(accessToken) && expiresAt > Date.now() + 60_000;
+}
+
+/** הממשק מבקש לדעת כשהכניסה עומדת לפוג. */
+export function setOnExpire(fn) { onExpire = fn; scheduleExpire(); }
+
+export function rememberEmail(email) { hintEmail = email; save(); }
 let pendingResolve = null;
 let pendingReject = null;
 
@@ -13,6 +51,8 @@ function waitForGis() {
     check();
   });
 }
+
+restore();
 
 export async function initAuth() {
   await waitForGis();
@@ -24,6 +64,9 @@ export async function initAuth() {
         pendingReject?.(new Error(resp.error_description || resp.error));
       } else {
         accessToken = resp.access_token;
+        expiresAt = Date.now() + (Number(resp.expires_in) || 3600) * 1000;
+        save();
+        scheduleExpire();
         pendingResolve?.(accessToken);
       }
       pendingResolve = pendingReject = null;
@@ -40,13 +83,17 @@ export function requestToken(prompt = '') {
   return new Promise((resolve, reject) => {
     pendingResolve = resolve;
     pendingReject = reject;
-    tokenClient.requestAccessToken({ prompt });
+    tokenClient.requestAccessToken(hintEmail && prompt !== 'select_account'
+      ? { prompt, login_hint: hintEmail } : { prompt });
   });
 }
 
 export function signOut() {
   if (accessToken) window.google.accounts.oauth2.revoke(accessToken, () => {});
   accessToken = null;
+  expiresAt = 0;
+  clearTimeout(expireTimer);
+  try { localStorage.removeItem(STORE); } catch { /* ignore */ }
 }
 
 async function authFetch(url, options = {}, retried = false) {
@@ -56,7 +103,8 @@ async function authFetch(url, options = {}, retried = false) {
     headers: { ...(options.headers || {}), Authorization: `Bearer ${accessToken}` },
   });
   if (res.status === 401 && !retried) {
-    await requestToken();                 // הטוקן פג (אחרי שעה) — מחדשים ומנסים שוב
+    accessToken = null;                   // הטוקן לא תקף — מבקשים חדש ומנסים שוב
+    await requestToken();
     return authFetch(url, options, true);
   }
   if (!res.ok) {

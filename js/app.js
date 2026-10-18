@@ -1,5 +1,7 @@
 // מסך אנשי הקשר: התחברות, חיפוש, כרטיס אישי, הוספה ועריכה.
-import { initAuth, requestToken, signOut, getUserEmail } from './google.js';
+import {
+  initAuth, requestToken, signOut, getUserEmail, hasSavedSession, setOnExpire, rememberEmail,
+} from './google.js';
 import { state, loadAll, saveContact, addListValue } from './data.js';
 import { suggest, details, placesEnabled, placesError } from './places.js';
 import { t, setLang, getLang, applyStatic, maritalLabel } from './i18n.js';
@@ -57,18 +59,23 @@ function choose(title, text, options) {
 }
 
 // ---------- התחברות ----------
+async function enterApp() {
+  state.email = await getUserEmail();
+  rememberEmail(state.email);
+  await loadAll();
+  $('#user-email').textContent = state.email + (state.isAdmin ? ` · ${t('admin')}` : '');
+  $('#login-view').hidden = true;
+  $('#app-view').hidden = false;
+  fillFilters();
+  renderList();
+}
+
 async function signIn() {
   const btn = $('#btn-login');
   btn.disabled = true;
   try {
     await requestToken('select_account');
-    state.email = await getUserEmail();
-    await loadAll();
-    $('#user-email').textContent = state.email + (state.isAdmin ? ` · ${t('admin')}` : '');
-    $('#login-view').hidden = true;
-    $('#app-view').hidden = false;
-    fillFilters();
-    renderList();
+    await enterApp();
   } catch (err) {
     toast(friendlyError(err), 'error');
   } finally {
@@ -560,8 +567,21 @@ function start() {
   });
   $$('dialog [data-close]').forEach((b) => { b.onclick = () => b.closest('dialog').close(); });
 
-  initAuth().then(() => { $('#btn-login').disabled = false; })
-    .catch(() => toast(t('gisFail'), 'error'));
+  // אחרי שעה הכניסה פגה: מציגים חלון קטן עם כפתור, ולחיצה אחת מחדשת בלי לבחור חשבון שוב
+  setOnExpire(async () => {
+    if ($('#app-view').hidden) return;
+    const go = await choose(t('sessionTitle'), t('sessionText'), [['go', t('sessionContinue'), true]]);
+    if (go) {
+      try { await requestToken(''); } catch (err) { toast(friendlyError(err), 'error'); }
+    }
+  });
+
+  initAuth().then(async () => {
+    $('#btn-login').disabled = false;
+    if (hasSavedSession()) {
+      try { await enterApp(); } catch { /* הכניסה הקודמת לא תקפה — נשארים במסך ההתחברות */ }
+    }
+  }).catch(() => toast(t('gisFail'), 'error'));
 }
 
 start();

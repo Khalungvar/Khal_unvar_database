@@ -85,6 +85,9 @@ const STRINGS = {
     notFound: 'דער קאנטאקט איז נישט געפונען געווארן אין שיט. אפשר האט עמיצער אים אויסגעמעקט. דערפרישט דעם בלאט.',
     adminOnly: 'נאר א מנהל קען צולייגן נייע ווערטער צו די רשימות.',
     listMissing: 'די רשימה {name} איז נישט געפונען געווארן.',
+    sessionTitle: 'די כניסה איז אויסגעלאפן',
+    sessionText: 'צוליב זיכערהייט דויערט א כניסה א שעה. דריקט אויפן קנעפל צו ווייטער ארבעטן.',
+    sessionContinue: 'ווייטער',
     marital_values: {},
   },
   en: {
@@ -172,6 +175,9 @@ const STRINGS = {
     notFound: 'This contact was not found in the sheet. Someone may have deleted it. Please refresh.',
     adminOnly: 'Only an admin can add values to the lists.',
     listMissing: 'The list {name} was not found.',
+    sessionTitle: 'Session expired',
+    sessionText: 'For security, a sign-in lasts one hour. Click the button to keep working.',
+    sessionContinue: 'Continue',
     marital_values: { 'נשוי': 'Married', 'בחור': 'Single', 'גרוש': 'Divorced', 'אלמן': 'Widower' },
   },
 };
