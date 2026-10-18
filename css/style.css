@@ -544,3 +544,13 @@ dialog.sheet.full { width: min(1200px, 96vw); max-width: 96vw; max-height: 94vh;
 
 .adm-card.adm-wide { grid-column: span 2; }
 @media (max-width: 760px) { .adm-card.adm-wide { grid-column: auto; } }
+
+/* איבערבליק פון רשימות */
+.side-title-btn { background: none; border: none; font: inherit; font-weight: 700; cursor: pointer; padding: 0; text-align: start; }
+.side-title-btn:hover { text-decoration: underline; }
+.lo-table tbody tr { cursor: pointer; }
+.lo-btns { white-space: nowrap; text-align: end; }
+.lo-templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 10px; }
+.lo-tpl { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; text-align: start; background: var(--surface);
+  border: 1px solid var(--gold); border-radius: 12px; padding: 12px 14px; font: inherit; cursor: pointer; color: inherit; }
+.lo-tpl:hover { border-color: var(--accent); }

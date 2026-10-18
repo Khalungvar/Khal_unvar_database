@@ -24,6 +24,7 @@ const EMPTY = () => ({
   orgs: [], orgFormer: false, tags: [], areas: [], marital: [], neshei: false,
   includeDeceased: false, includeInactive: false,
   has: { address: false, email: false, phone: false, english: false },
+  missing: { address: false, english: false, phone: false },
   donation: { mode: '', campaign: '', series: '', org: '', year: '', min: '' },
   unpaid: false,
   occasion: { type: '', days: '' },
@@ -56,6 +57,7 @@ const DEFAULT_COLUMNS = ['name_he', 'mailing', 'address', 'city', 'state', 'zip'
 export function initLists(helpers) {
   ui = helpers;
   $('#btn-side-list').onclick = () => openBuilder();
+  $('#btn-lists-home').onclick = () => openOverview();
   $('#lists-side').addEventListener('click', (e) => {
     const b = e.target.closest('[data-list]');
     if (b) openBuilder(state.savedLists.find((l) => String(l.list_id) === b.dataset.list));
@@ -65,7 +67,7 @@ export function initLists(helpers) {
 export function renderListsSide() {
   const side = $('#lists-side');
   if (!side) return;
-  const active = !$('.view[data-view="lists"]').hidden && current?.list_id;
+  const active = !$('.view[data-view="lists"]').hidden && page === 'builder' && current?.list_id;
   const sc = getScope();
   const mine = state.savedLists.filter((l) => !l.scope || !sc || l.scope === scopeKey(sc));
   side.innerHTML = mine.length ? mine.map((l) => `<button type="button" class="org-link${String(active) === String(l.list_id) ? ' on' : ''}" data-list="${h(l.list_id)}">
@@ -140,6 +142,10 @@ export function evaluate(cr) {
     if (cr.has.email && !String(p.email_1 || p.email_2 || '').trim()) continue;
     if (cr.has.phone && !digits(p.mobile || p.home_phone || p.wife_mobile || p.other_phone)) continue;
     if (cr.has.english && !String(c.last_name_en || '').trim()) continue;
+    const ms = cr.missing || {};
+    if (ms.address && String(c.address || '').trim()) continue;
+    if (ms.english && String(c.last_name_en || '').trim()) continue;
+    if (ms.phone && digits(p.mobile || p.home_phone || p.wife_mobile || p.other_phone)) continue;
     const q = cr.donation;
     if (q.mode === 'gave' && (!relevant.length || (q.min && total < Number(q.min)))) continue;
     if (q.mode === 'notgave' && relevant.length) continue;
@@ -156,24 +162,34 @@ function chips(name, values, selected, label = (v) => v) {
   return `<div class="tags lb-chips" data-name="${name}">${values.map((v) => `<button type="button" class="chip toggle${selected.includes(v) ? ' on' : ''}" data-v="${h(v)}">${h(label(v))}</button>`).join('')}</div>`;
 }
 
-export function openBuilder(saved = null) {
-  let criteria = EMPTY();
-  let columns = DEFAULT_COLUMNS;
+let page = 'overview'; // 'overview' = דער איבערבליק פון אלע רשימות; 'builder' = איין רשימה
+
+export function openOverview() {
+  page = 'overview';
+  ui.showView('lists');
+}
+
+/** saved = רשימה שמורה; preset = { name, criteria, columns } פון א גרייטע רשימה. */
+export function openBuilder(saved = null, preset = null) {
+  page = 'builder';
+  let criteria = preset ? { ...EMPTY(), ...preset.criteria } : EMPTY();
+  let columns = preset?.columns || DEFAULT_COLUMNS;
   if (saved) {
     try { criteria = { ...EMPTY(), ...JSON.parse(saved.criteria || '{}') }; } catch { /* תנאים פגומים — מתחילים ריק */ }
     columns = splitTags(saved.columns).length ? splitTags(saved.columns) : DEFAULT_COLUMNS;
   }
   criteria.has = { ...EMPTY().has, ...criteria.has };
+  criteria.missing = { ...EMPTY().missing, ...criteria.missing };
   criteria.donation = { ...EMPTY().donation, ...criteria.donation };
   criteria.occasion = { ...EMPTY().occasion, ...criteria.occasion };
-  current = { list_id: saved?.list_id || '', name: saved?.name || '', criteria, columns };
+  current = { list_id: saved?.list_id || '', name: saved?.name || preset?.name || '', criteria, columns };
   ui.showView('lists');
 }
 
 export function renderBuilder() {
   const main = $('#lists-main');
   if (!main) return;
-  if (!current) { openBuilder(); return; }
+  if (page === 'overview' || !current) { renderOverview(main); return; }
   const cr = current.criteria;
   const orgKeys = ORG_TYPES.flatMap(([type]) => (state.lists[type] || []).map((v) => `${type}|${v}`));
   const camps = allCampaigns();
@@ -187,6 +203,7 @@ export function renderBuilder() {
       <div><h2>${current.list_id ? h(current.name) : t('newListTitle')}</h2>
         ${sc ? `<p class="hint-line">${h(t('listScopeNote', { name: sc.value || '' }))}</p>` : ''}</div>
       <span class="spacer"></span>
+      <button type="button" class="btn" id="lb-back">← ${t('allLists')}</button>
       ${current.list_id ? `<button type="button" class="btn danger" id="lb-delete">${t('deleteBtn')}</button>` : ''}
     </div>
     <form id="lb-form" class="lb-form" onsubmit="return false">
@@ -203,6 +220,9 @@ export function renderBuilder() {
           <label class="check"><input type="checkbox" name="has_email" ${cr.has.email ? 'checked' : ''}> ${t('lbHasEmail')}</label>
           <label class="check"><input type="checkbox" name="has_phone" ${cr.has.phone ? 'checked' : ''}> ${t('lbHasPhone')}</label>
           <label class="check"><input type="checkbox" name="has_english" ${cr.has.english ? 'checked' : ''}> ${t('lbHasEnglish')}</label>
+          <label class="check"><input type="checkbox" name="miss_address" ${cr.missing.address ? 'checked' : ''}> ${t('lbMissAddress')}</label>
+          <label class="check"><input type="checkbox" name="miss_english" ${cr.missing.english ? 'checked' : ''}> ${t('lbMissEnglish')}</label>
+          <label class="check"><input type="checkbox" name="miss_phone" ${cr.missing.phone ? 'checked' : ''}> ${t('lbMissPhone')}</label>
           <label class="check"><input type="checkbox" name="includeDeceased" ${cr.includeDeceased ? 'checked' : ''}> ${t('lbInclDeceased')}</label>
           <label class="check"><input type="checkbox" name="includeInactive" ${cr.includeInactive ? 'checked' : ''}> ${t('inclInactive')}</label>
         </div>
@@ -271,6 +291,7 @@ function readCriteria(form) {
     orgs: on('orgs'), orgFormer: f('orgFormer').checked, tags: on('tags'), areas: on('areas'), marital: on('marital'),
     neshei: f('neshei').checked, includeDeceased: f('includeDeceased').checked, includeInactive: f('includeInactive').checked,
     has: { address: f('has_address').checked, email: f('has_email').checked, phone: f('has_phone').checked, english: f('has_english').checked },
+    missing: { address: f('miss_address').checked, english: f('miss_english').checked, phone: f('miss_phone').checked },
     donation: { mode: f('don_mode').value, series: f('don_series').value, campaign: f('don_campaign').value, org: f('don_org').value, year: f('don_year').value, min: f('don_min').value },
     unpaid: f('unpaid').checked,
     occasion: { type: f('occ_type').value, days: f('occ_days').value },
@@ -350,10 +371,11 @@ function wireBuilder(main) {
       await deleteSavedList(state.savedLists.find((l) => String(l.list_id) === String(current.list_id)));
       await loadAll();
       current = null;
-      openBuilder();
+      openOverview();
     } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
   });
-  $('#lb-excel', main).onclick = exportCsv;
+  $('#lb-excel', main).onclick = () => exportCsv($('#lb-name').value.trim(), selectedColumns(), current.lastRows);
+  $('#lb-back', main).onclick = openOverview;
   $('#lb-print', main).onclick = () => {
     $('#lb-print-title').textContent = $('#lb-name').value.trim() || t('newListTitle');
     window.print();
@@ -376,16 +398,104 @@ function renderResult() {
 }
 
 /** קובץ CSV שנפתח באקסל (עם עברית/אידיש). */
-function exportCsv() {
-  const cols = selectedColumns();
+function exportCsv(name, cols, rows) {
   const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const lines = [cols.map(([, label]) => esc(label)).join(',')]
-    .concat(current.lastRows.map((x) => cols.map(([, , fn]) => esc(fn(x.c, x))).join(',')));
+    .concat(rows.map((x) => cols.map(([, , fn]) => esc(fn(x.c, x))).join(',')));
   const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `${($('#lb-name').value.trim() || 'list').replace(/[\\/:*?"<>|]/g, '_')}.csv`;
+  a.download = `${(name || 'list').replace(/[\\/:*?"<>|]/g, '_')}.csv`;
   document.body.append(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+// ---------- איבערבליק: אלע רשימות + גרייטע רשימות ----------
+function templates() {
+  return [
+    { key: 'tplMail', criteria: { has: { address: true } }, columns: ['mailing', 'address', 'city', 'state', 'zip'] },
+    { key: 'tplUnpaid', criteria: { unpaid: true }, columns: ['name_he', 'mobile', 'don_unpaid'] },
+    { key: 'tplYahrzeit', criteria: { occasion: { type: 'יארצייט', days: '7' } }, columns: ['name_he', 'occasion', 'mobile'] },
+    { key: 'tplNeshei', criteria: { neshei: true }, columns: ['name_he', 'mailing', 'address', 'city', 'zip'] },
+    { key: 'tplEmail', criteria: { has: { email: true } }, columns: ['name_he', 'name_en', 'email'] },
+    { key: 'tplNoEnglish', criteria: { missing: { english: true } }, columns: ['name_he', 'city', 'mobile'] },
+    { key: 'tplNoAddress', criteria: { missing: { address: true } }, columns: ['name_he', 'mobile', 'email'] },
+  ].map((x) => ({
+    ...x,
+    criteria: {
+      ...EMPTY(), ...x.criteria,
+      has: { ...EMPTY().has, ...(x.criteria.has || {}) },
+      missing: { ...EMPTY().missing, ...(x.criteria.missing || {}) },
+      occasion: { ...EMPTY().occasion, ...(x.criteria.occasion || {}) },
+    },
+  }));
+}
+
+function savedInScope() {
+  const sc = getScope();
+  return state.savedLists.filter((l) => !l.scope || !sc || l.scope === scopeKey(sc));
+}
+
+function parseSaved(l) {
+  let cr = EMPTY();
+  try { cr = { ...EMPTY(), ...JSON.parse(l.criteria || '{}') }; } catch { /* ריק */ }
+  cr.has = { ...EMPTY().has, ...cr.has };
+  cr.missing = { ...EMPTY().missing, ...cr.missing };
+  cr.donation = { ...EMPTY().donation, ...cr.donation };
+  cr.occasion = { ...EMPTY().occasion, ...cr.occasion };
+  const keys = splitTags(l.columns).length ? splitTags(l.columns) : DEFAULT_COLUMNS;
+  const defs = columnDefs();
+  return { cr, cols: keys.map((k) => defs.find(([x]) => x === k)).filter(Boolean) };
+}
+
+function renderOverview(main) {
+  const lists = savedInScope();
+  const sc = getScope();
+  main.innerHTML = `
+    <div class="camp-page-head">
+      <div><h2>${t('savedLists')}</h2><p class="muted">${t('listsHint')}</p>
+        ${sc ? `<p class="hint-line">${h(t('listScopeNote', { name: sc.value || '' }))}</p>` : ''}</div>
+      <span class="spacer"></span>
+      <button type="button" class="btn primary" id="lo-new">${t('newList')}</button>
+    </div>
+    <h3 class="adm-group-title">${t('myLists')}</h3>
+    ${lists.length ? `<table class="series-table lo-table">
+      <thead><tr><th>${t('lbNamePh')}</th><th>${t('lbCountCol')}</th><th>${t('lbUpdated')}</th><th></th></tr></thead>
+      <tbody>${lists.map((l) => {
+        const { cr } = parseSaved(l);
+        return `<tr data-open="${h(l.list_id)}"><td><b>${h(l.name)}</b></td><td class="num">${evaluate(cr).length}</td>
+          <td class="muted small">${h(l.updated_at || '')} · ${h(l.updated_by || '')}</td>
+          <td class="lo-btns"><button type="button" class="btn small-btn" data-excel="${h(l.list_id)}">Excel</button>
+            <button type="button" class="btn small-btn" data-copy="${h(l.list_id)}">${t('lbDuplicate')}</button></td></tr>`;
+      }).join('')}</tbody></table>` : `<p class="empty">${t('noSavedLists')}</p>`}
+    <h3 class="adm-group-title">${t('readyLists')}</h3>
+    <div class="lo-templates">${templates().map((x, i) => `<button type="button" class="lo-tpl" data-tpl="${i}">
+      <b>${h(t(x.key))}</b><span class="muted small">${h(t('lbCount', { n: evaluate(x.criteria).length }))}</span></button>`).join('')}</div>`;
+  $('#lo-new', main).onclick = () => openBuilder();
+  main.onclick = (e) => {
+    const ex = e.target.closest('[data-excel]');
+    if (ex) {
+      e.stopPropagation();
+      const l = state.savedLists.find((x) => String(x.list_id) === ex.dataset.excel);
+      const { cr, cols } = parseSaved(l);
+      exportCsv(l.name, cols, evaluate(cr));
+      return;
+    }
+    const cp = e.target.closest('[data-copy]');
+    if (cp) {
+      const l = state.savedLists.find((x) => String(x.list_id) === cp.dataset.copy);
+      const { cr } = parseSaved(l);
+      openBuilder(null, { name: `${l.name} (${t('copyWord')})`, criteria: cr, columns: splitTags(l.columns) });
+      return;
+    }
+    const tpl = e.target.closest('[data-tpl]');
+    if (tpl) {
+      const x = templates()[Number(tpl.dataset.tpl)];
+      openBuilder(null, { name: t(x.key), criteria: JSON.parse(JSON.stringify(x.criteria)), columns: x.columns });
+      return;
+    }
+    const row = e.target.closest('[data-open]');
+    if (row) openBuilder(state.savedLists.find((x) => String(x.list_id) === row.dataset.open));
+  };
 }
