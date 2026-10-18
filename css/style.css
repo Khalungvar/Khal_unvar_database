@@ -643,3 +643,17 @@ body.solo-mode .tabs, body.solo-mode #scope-bar { display: none !important; }
 .lbl.lbl-empty { outline: 1px dashed #d6d0c6; }
 .lbl.lbl-logo { flex-direction: row; align-items: center; gap: 0.06in; }
 .lbl.lbl-logo img { height: 70%; max-width: 35%; object-fit: contain; }
+
+.lobby-search-row { grid-template-columns: 3fr 1fr; }
+.lobby-search { position: relative; display: flex; }
+.lobby-search input { width: 100%; font: inherit; font-size: 20px; padding: 0 22px; min-height: 64px; align-self: center;
+  border: 2px solid var(--gold); border-radius: 16px; background: var(--surface); box-sizing: border-box; }
+.lobby-search input:focus { outline: none; border-color: var(--accent); }
+.lobby-results { position: absolute; top: calc(50% + 36px); inset-inline: 0; z-index: 20; background: var(--surface); border: 1px solid var(--gold);
+  border-radius: 12px; box-shadow: 0 10px 24px rgba(0,0,0,.12); max-height: 360px; overflow-y: auto; }
+.lobby-results:empty { display: none; }
+.lobby-hit { display: flex; gap: 10px; align-items: baseline; width: 100%; background: none; border: none; border-bottom: 1px solid color-mix(in srgb, var(--gold) 30%, transparent);
+  padding: 10px 14px; font: inherit; cursor: pointer; text-align: start; color: inherit; }
+.lobby-hit:hover { background: var(--chip); }
+.lobby-none { padding: 10px 14px; margin: 0; }
+@media (max-width: 700px) { .lobby-search-row { grid-template-columns: 1fr; } }

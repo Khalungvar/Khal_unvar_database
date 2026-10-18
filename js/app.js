@@ -111,8 +111,15 @@ function renderLobby() {
   const areas = state.lists.area || [];
   const areaCount = (a) => state.contacts.filter((c) => c.area === a && isAlive(c.is_alive) && (isTrue(c.is_active) || c.is_active === '')).length;
   main.innerHTML = `
-    <div class="lobby-head"><img src="img/logo.png" alt="" class="lobby-logo"><h1>${h(umbrellaName())}</h1>
+    <div class="lobby-head"><img src="img/logo.png" alt="" class="lobby-logo"><h1>${h(t('appName'))}</h1>
       <p class="muted">${h(t('lobbyHello', { email: state.email }))}</p></div>
+    <div class="lobby-row lobby-search-row">
+      <div class="lobby-search">
+        <input type="search" id="lobby-q" placeholder="${h(t('lobbySearchPh'))}" autocomplete="off">
+        <div class="lobby-results" id="lobby-results"></div>
+      </div>
+      ${tile('personal', '👤', t('lobbyPersonal'), t('lobbyPersonalSub'))}
+    </div>
     <div class="lobby-row">
       ${tile('umbrella', '🏛', umbrellaName(), t('lobbyAllSub', { n: alive }), 'data-primary')}
       ${typeTile(ORG_FIELDS[0], '🕍')}
@@ -135,9 +142,6 @@ function renderLobby() {
       ${areas.map((a) => `<button type="button" class="btn primary" data-area="${h(a)}">${h(a)} <span class="count-pill">${areaCount(a)}</span></button>`).join('')}
     </div>` : ''}
     <div class="lobby-row">
-      ${tile('personal', '👤', t('lobbyPersonal'), t('lobbyPersonalSub'))}
-    </div>
-    <div class="lobby-row">
       ${tile('lists', '📋', t('readyLists'), t('lobbyListsSub', { n: state.savedLists.length }))}
       ${tile('mailmerge', '✉', 'Mail Merge', t('lobbyMailSub'))}
       ${tile('calls', '📞', 'Calls & SMS', t('lobbyCallsSub'))}
@@ -152,7 +156,24 @@ function upcomingWeek() {
   }).length;
 }
 
+/** זוכן אין לאבי: פון אלע מענטשן (נאמען, טעלעפאן, אימעיל, קאד) — און עפענען דעם כרטיס גלייך. */
+function lobbySearch() {
+  const q = $('#lobby-q').value;
+  const box = $('#lobby-results');
+  if (!q.trim()) { box.innerHTML = ''; box.hidden = true; return; }
+  const found = state.contacts.filter((c) => matches(c, q))
+    .sort((a, b) => String(a.last_name_he).localeCompare(String(b.last_name_he), 'he')).slice(0, 12);
+  box.hidden = false;
+  box.innerHTML = found.length ? found.map((c) => `<button type="button" class="lobby-hit" data-open-card="${h(c.contact_id)}">
+      <b>${h(fullNameHe(c))}</b>
+      <span class="muted small">${h([c.area || c.city, [c.first_name_en, c.last_name_en].filter(Boolean).join(' ')].filter(Boolean).join(' · '))}</span>
+      ${!isAlive(c.is_alive) ? `<span class="badge muted">${t('deceased')}</span>` : ''}</button>`).join('')
+    : `<p class="muted small lobby-none">${h(t('noResults'))}</p>`;
+}
+
 function lobbyClick(e) {
+  const hit = e.target.closest('[data-open-card]');
+  if (hit) { openCard(hit.dataset.openCard); return; }
   const pick = e.target.closest('[data-scope-type]');
   $('#area-filter').value = ''; // יעדע בחירה אין לאבי הייבט אן פון ניי
   if (pick) {
@@ -1309,6 +1330,15 @@ function start() {
   $('.topbar .brand').style.cursor = 'pointer';
   $('.topbar .brand').onclick = () => showView('lobby');
   $('#lobby-main').addEventListener('click', lobbyClick);
+  $('#lobby-main').addEventListener('input', (e) => { if (e.target.id === 'lobby-q') lobbySearch(); });
+  $('#lobby-main').addEventListener('keydown', (e) => {
+    if (e.target.id === 'lobby-q' && e.key === 'Enter') {
+      e.preventDefault();
+      const first = $('#lobby-results .lobby-hit');
+      // אויף keyup — כדי דער זעלבער Enter זאל נישט צומאכן דעם כרטיס וואס עפנט זיך
+      if (first) e.target.addEventListener('keyup', () => first.click(), { once: true });
+    }
+  });
   $('#btn-home').onclick = goHome;
   $('#scope-exit').onclick = goHome;
   $('#scope-former').addEventListener('change', () => { setWithFormer($('#scope-former').checked); refreshAll(); });
