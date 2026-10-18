@@ -280,3 +280,15 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 - `help/guide.md` (אידיש) + `help/guide.en.md` (ענגליש): דער פירער פאר די גבאים, מיט זוכן (js/help.js).
 - **כלל: ביי יעדע נייע פונקציע / ענדערונג אינעם אתר — דערהיינטיגן ביידע פירערס.** דער AI ענטפערט נאר לויט זיי.
 - AI (שפעטער): CONFIG.HELP_AI_URL → Apps Script וואס נעמט דעם פירער און פרעגט Gemini (Free tier) אדער Claude. דער שליסל נאר אין Script Properties.
+
+## בקשות פון די גבאים (js/requests.js, לשונית Requests)
+- א גבאי וואס טוט עפעס פאר מנהלים בלויז (נייע טעג, אויסמעקן קאנטאקט/נדבה, בטל מאכן קבלה) → א בקשה. יעדער מנהל: אדמין ← "בקשות" ← באשטעטיגן (ווערט געטאן) / אפזאגן. נייע סארט: TYPES אין requests.js.
+
+## אריינלייגן פון Excel (js/import.js — נאר בעל הבית)
+- דוגמא-טעקע, פריוויו, טאפלטע (טעלעפאן/אימעיל = זעלבער; נאמען + אנדער אדרעס = מסתמא אנדערער — ☑ פער שורה), טעג פאר אלע, ענגליש ↔ אידיש (names.js) מיט unverified_fields.
+
+## אימעיל (js/mail.js, js/pdf.js)
+- gmail.send פונעם באנוצער; קבלות מיט PDF (SVG foreignObject → JPEG → PDF). לשונית EmailLog.
+
+## הילף-AI
+- apps-script/help-ai.gs (Apps Script ביי 8510089, Script Properties: GEMINI_API_KEY, DAILY_LIMIT, MAX_TOKENS). א שמועס אונטן לינקס (help.js initHelpChat).
