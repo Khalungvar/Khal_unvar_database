@@ -453,3 +453,16 @@ dialog.sheet.full { width: min(1200px, 96vw); max-width: 96vw; max-height: 94vh;
 .camp-table [name=c_amount] { width: 7em; }
 .camp-table tr.bad td { background: color-mix(in srgb, var(--danger) 14%, transparent); }
 .camp-footer { position: sticky; bottom: 0; background: var(--surface); padding-top: 10px; border-top: 1px solid var(--gold); }
+
+/* דף קאמפיין */
+.side-sum { font-size: 12px; color: var(--muted); direction: ltr; }
+.org-link.on .side-sum { color: #fff; }
+.side-empty { margin: 4px 8px; }
+.camp-page-head { display: flex; align-items: flex-start; gap: 12px; }
+.camp-page-head h2 { margin: 4px 0; }
+.camp-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 12px 0 16px; }
+.camp-stats div { background: var(--surface); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; }
+.camp-stats span { font-size: 13px; color: var(--muted); }
+.camp-stats b { font-size: 22px; direction: ltr; text-align: end; }
+.camp-name input { font-size: 17px; }
+@media (max-width: 700px) { .camp-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

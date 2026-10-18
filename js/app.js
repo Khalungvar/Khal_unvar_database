@@ -12,6 +12,7 @@ import {
 import { suggestFirstName, suggestLastName } from './names.js';
 import {
   initDonations, fillDonationFilters, renderDonations, donationsSection, wireDonationsSection,
+  renderCampaignSide, renderCampaignPage, setCampaign,
 } from './donations.js';
 import {
   initOccasions, fillOccasionFilters, renderOccasions, occasionsSection, wireOccasionsSection, occasionCount,
@@ -91,6 +92,8 @@ function refreshAll() {
   fillOccasionFilters();
   renderOccasions();
   renderOrgs();
+  renderCampaignSide();
+  if (!$('.view[data-view="campaign"]').hidden) renderCampaignPage();
   if ($('#card-dialog').open && currentCardId) openCard(currentCardId);
 }
 
@@ -101,6 +104,9 @@ function showView(name) {
   if (name === 'occasions') { fillOccasionFilters(); renderOccasions(); }
   if (name !== 'orgs') $$('#org-side .org-link').forEach((b) => b.classList.remove('on'));
   if (name === 'orgs') renderOrgs();
+  if (name === 'campaign') renderCampaignPage();
+  renderOrgs();
+  renderCampaignSide();
 }
 
 async function signIn() {
@@ -1199,6 +1205,11 @@ function start() {
   initDonations({
     contactById, fullNameHe, pickerLabel, options, tagPicker, readTags, wireTagPicker,
     toast, friendlyError, refreshAll,
+    openCampaignPage: (name) => {
+      setCampaign(name);
+      showView('campaign');
+      document.body.classList.remove('menu-open');
+    },
   });
   closeOnBackdrop($('#form-dialog'), closeForm);
   $('#form-dialog').addEventListener('cancel', (e) => { e.preventDefault(); closeForm(); }); // מקש Esc
