@@ -269,11 +269,14 @@ function renderPreview(box, ui) {
   const nameOf = (r) => ['title_he', 'first_name_he', 'last_name_he'].map((k) => A(r, k)).filter(Boolean).join(' ');
   const enOf = (r) => ['first_name_en', 'last_name_en'].map((k) => A(r, k)).filter(Boolean).join(' ');
   const nAuto = rows.filter((r) => r.auto).length;
-  const shown = rows.slice(0, 300);
+  // די פראבלעמען קודם (ראזע, דערנאך געל) — כדי מ'זאל זיי זען גלייך
+  const rank = { error: 0, dup: 1, ok: 2 };
+  const shown = [...rows].sort((a, b) => rank[a.status] - rank[b.status] || a.n - b.n).slice(0, 300);
   prev.innerHTML = `<div class="imp-sum">
       <b>${h(parsed.file)}</b> · <span class="badge paid">✓ ${h(t('impOk', { n: ok }))}</span>
       ${dup ? `<span class="badge muted">⚠ ${h(t('impDup', { n: dup }))}</span>` : ''}
-      ${bad ? `<span class="badge unpaid">✕ ${h(t('impBad', { n: bad }))}</span>` : ''}</div>
+      ${bad ? `<span class="badge unpaid">✕ ${h(t('impBad', { n: bad }))}</span>` : ''}
+      ${bad + dup ? `<button type="button" class="btn small-btn" id="imp-xl-bad">⬇ ${h(t('impBadXl'))}</button>` : ''}</div>
     ${nAuto ? `<p class="hint-line">✎ ${h(t('impAutoNote', { n: nAuto }))}</p>` : ''}
     ${unknown.length ? `<p class="warn-text small">${h(t('impUnknownCols', { cols: unknown.join(', ') }))}</p>` : ''}
     ${dup ? `<label class="check"><input type="checkbox" id="imp-dups"> ${h(t('impIncludeDups'))}</label>` : ''}
@@ -291,6 +294,12 @@ function renderPreview(box, ui) {
       <button type="button" class="btn" id="imp-cancel">${h(t('cancelBtn'))}</button>
       <button type="button" class="btn primary" id="imp-go">📥 ${h(t('impGo', { n: ok }))}</button></div>
     <div class="ml-progress" id="imp-progress" hidden><div class="ml-bar"><span></span></div><span class="ml-ptext"></span></div>`;
+  $('#imp-xl-bad', prev)?.addEventListener('click', () => {
+    // די שורות מיט פראבלעמען — מיט דער שורה-נומער און וואס פעלט, צו פאררעכטן אין Excel
+    const keys = FIELDS.map((f) => f[0]);
+    downloadXlsx(t('impBadXlName'), [t('impColRow'), t('impColProblem'), ...FIELDS.map(header)],
+      rows.filter((r) => r.status !== 'ok').map((r) => [r.n, r.note, ...keys.map((k) => r.contact[k] ?? r.phones[k] ?? '')]));
+  });
   $('#imp-auto', prev).onchange = (e) => { autoFill = e.target.checked; parsed = { ...buildRows(parsed.table), file: parsed.file, table: parsed.table }; renderPreview(box, ui); };
   const count = () => ok + ($('#imp-dups', prev)?.checked ? dup : 0);
   const go = $('#imp-go', prev);
