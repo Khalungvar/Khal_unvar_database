@@ -38,6 +38,65 @@ const COMMON = {
   'שפרה': 'Shifra', 'פועה': 'Pua', 'סימא': 'Sima', 'דינה': 'Dina', 'נעמי': 'Naomi', 'רות': 'Rus',
 };
 
+// שמות משפחה נפוצים בכתיב אידיש → הכתיב המקובל באנגלית
+const SURNAMES = {
+  'קליין': 'Klein', 'ווייס': 'Weiss', 'שווארץ': 'Schwartz', 'גרויס': 'Gross', 'גראס': 'Gross',
+  'פרידמאן': 'Friedman', 'גאלדבערגער': 'Goldberger', 'גאלדשטיין': 'Goldstein', 'גרינוואלד': 'Greenwald',
+  'גרינבערג': 'Greenberg', 'גרינפעלד': 'Greenfeld', 'הורוויץ': 'Horowitz', 'הורוביץ': 'Horowitz',
+  'ראבינאוויטש': 'Rabinowitz', 'בערקאוויטש': 'Berkowitz', 'בערקאוויץ': 'Berkowitz', 'לעבאוויטש': 'Lebowitz',
+  'הערשקאוויטש': 'Herskowitz', 'יאנקאוויטש': 'Jankowitz', 'מאשקאוויטש': 'Moskowitz', 'מאסקאוויטש': 'Moskowitz',
+  'אבראמאוויטש': 'Abramowitz', 'דאווידאוויטש': 'Davidowitz', 'מארקאוויטש': 'Markowitz', 'לייבאוויטש': 'Leibowitz',
+  'יוסקאוויטש': 'Joskowitz', 'קאהן': 'Kohn', 'כהן': 'Cohen', 'כ"ץ': 'Katz', 'כץ': 'Katz', 'לוי': 'Levy',
+  'לעווי': 'Levy', 'טייטלבוים': 'Teitelbaum', 'הלברשטאם': 'Halberstam', 'ראזענבערג': 'Rosenberg',
+  'ראזנבערג': 'Rosenberg', 'ראזענבוים': 'Rosenbaum', 'שטערן': 'Stern', 'שטיין': 'Stein', 'ברוין': 'Braun',
+  'בראון': 'Braun', 'גוטמאן': 'Gutman', 'לאנדא': 'Landau', 'לאנדאו': 'Landau', 'שפיטצער': 'Spitzer',
+  'שפיצער': 'Spitzer', 'פיש': 'Fish', 'פישער': 'Fischer', 'פרייליך': 'Freilich', 'פריעד': 'Fried',
+  'פריד': 'Fried', 'גלאנץ': 'Glantz', 'גלאזער': 'Glazer', 'גרינבוים': 'Greenbaum', 'זאבעל': 'Sobel',
+  'ליכטענשטיין': 'Lichtenstein', 'ווערטהיימער': 'Wertheimer', 'ווינטער': 'Winter', 'וואלף': 'Wolf',
+  'וואלפסאן': 'Wolfson', 'ווייסמאן': 'Weissman', 'ווייסבערגער': 'Weissberger', 'ווייסבערג': 'Weissberg',
+  'שוואב': 'Schwab', 'שנייער': 'Schneier', 'שניידער': 'Schneider', 'שעכטער': 'Schechter', 'שלעזינגער': 'Schlesinger',
+  'שפירא': 'Shapiro', 'שאפירא': 'Shapiro', 'מאנדעל': 'Mandel', 'מענדעלאוויטש': 'Mendelowitz', 'מילער': 'Miller',
+  'מערמעלשטיין': 'Mermelstein', 'נייגערשל': 'Neugershall', 'נוסבוים': 'Nussbaum', 'ענגעל': 'Engel',
+  'ענגלענדער': 'Englander', 'פאללאק': 'Pollak', 'פאלאק': 'Pollak', 'פרענקעל': 'Frankel', 'פרענקל': 'Frankel',
+  'פרייס': 'Preiss', 'קאפעל': 'Kopel', 'קאופמאן': 'Kaufman', 'קויפמאן': 'Kaufman', 'קעסלער': 'Kessler',
+  'קרויס': 'Krauss', 'קרויז': 'Krausz', 'רובין': 'Rubin', 'רוטה': 'Roth', 'ראטה': 'Roth', 'ראטה': 'Roth',
+  'ריינער': 'Reiner', 'רייך': 'Reich', 'רייכמאן': 'Reichman', 'שטיינער': 'Steiner', 'שטיינבערג': 'Steinberg',
+  'שטיינמעץ': 'Steinmetz', 'טאוב': 'Taub', 'טויב': 'Taub', 'זילבער': 'Silber', 'זילבערמאן': 'Silberman',
+  'זינגער': 'Singer', 'זיידמאן': 'Seidman', 'אייזנער': 'Eisner', 'אייזענבערג': 'Eisenberg', 'אויערבאך': 'Auerbach',
+  'אדלער': 'Adler', 'אונגאר': 'Ungar', 'אוסטרייכער': 'Ostreicher', 'אקשטיין': 'Eckstein', 'בירנבוים': 'Birnbaum',
+  'בלום': 'Blum', 'בערגער': 'Berger', 'בערנשטיין': 'Bernstein', 'גאנץ': 'Gantz', 'גוטליב': 'Gottlieb',
+  'גרינשפאן': 'Greenspan', 'דייטש': 'Deutsch', 'הירש': 'Hirsch', 'הערץ': 'Hertz', 'הופמאן': 'Hoffman',
+  'האפמאן': 'Hoffman', 'וויינבערגער': 'Weinberger', 'וויינבערג': 'Weinberg', 'וויינשטאק': 'Weinstock',
+  'וואלדמאן': 'Waldman', 'זשעמבער': 'Zember', 'טאננענבוים': 'Tannenbaum', 'לעפקאוויטש': 'Lefkowitz',
+  'לעווענשטיין': 'Lowenstein', 'מאיר': 'Meyer', 'מייער': 'Meyer', 'מאן': 'Mann', 'נויבערגער': 'Neuberger',
+  'נייבערגער': 'Neuberger', 'נאכמאן': 'Nachman', 'עדעלשטיין': 'Edelstein', 'פרידלאנדער': 'Friedlander',
+  'קאהאן': 'Kahan', 'קאצבורג': 'Katzburg', 'רוזנפעלד': 'Rosenfeld', 'ראזענפעלד': 'Rosenfeld',
+  'שוורץ': 'Schwartz', 'שיק': 'Schick', 'שעהן': 'Schoen', 'שען': 'Schon', 'שערמאן': 'Sherman',
+};
+
+/**
+ * תעתיק לפי הכתיב האידישי (פונטי), כשאין את השם ברשימות. זו הערכה בלבד — מוצגת באפור עד אישור.
+ * דוגמאות: קליין → Klein, בערקאוויטש → Berkowitz, שטיינער → Steiner.
+ */
+export function transliterateYiddish(word) {
+  let w = normalize(word).replace(/\s+/g, ' ');
+  if (!w) return '';
+  const rules = [
+    [/אוויטש(?=\s|$)/g, 'owitz'], [/אוויץ(?=\s|$)/g, 'owitz'], [/וויטש(?=\s|$)/g, 'witz'], [/וויץ(?=\s|$)/g, 'witz'],
+    [/דזש/g, 'j'], [/זש/g, 'zh'], [/טש/g, 'tch'],
+    [/(^|\s)שט/g, '$1st'], [/(^|\s)שפ/g, '$1sp'],
+    [/ייס(?=\s|$)/g, 'eiss'], [/יי/g, 'ei'], [/ײ/g, 'ei'], [/וו/g, 'w'], [/װ/g, 'w'], [/וי/g, 'oi'],
+    [/(^|\s)א(?=[ויו])/g, '$1'],
+    [/ש/g, 'sh'], [/[חכך]/g, 'ch'], [/[צץ]/g, 'tz'], [/ף/g, 'f'], [/ת/g, 's'],
+    [/א/g, 'a'], [/ב/g, 'b'], [/ג/g, 'g'], [/ד/g, 'd'], [/ה/g, 'h'], [/ו/g, 'u'], [/ז/g, 'z'],
+    [/ט/g, 't'], [/י(?=[aeiou])/g, 'y'], [/י/g, 'i'], [/ל/g, 'l'], [/[מם]/g, 'm'], [/[נן]/g, 'n'],
+    [/ס/g, 's'], [/ע/g, 'e'], [/פ/g, 'p'], [/ק/g, 'k'], [/ר/g, 'r'],
+  ];
+  rules.forEach(([re, to]) => { w = w.replace(re, to); });
+  w = w.replace(/[^a-z ]/g, '');
+  return w.split(' ').filter(Boolean).map((x) => x[0].toUpperCase() + x.slice(1)).join(' ');
+}
+
 /** מילון שנלמד מהמאגר: שם עברי → השם באנגלית הנפוץ ביותר אצלכם. */
 function learned(contacts, heKey, enKey) {
   const counts = new Map();
@@ -76,10 +135,16 @@ function lookup(he, dict) {
 export function suggestFirstName(he, contacts) {
   const dict = learned(contacts, 'first_name_he', 'first_name_en');
   learned(contacts, 'wife_name_he', 'wife_name_en').forEach((v, k) => { if (!dict.has(k)) dict.set(k, v); });
-  return lookup(he, dict);
+  const found = lookup(he, dict);
+  if (found) return found;
+  // שמות בכתיב אידיש (הערשל, בערל...) — תעתיק; שמות בכתיב עברי בלי ניקוד לא מתעתקים (מדי לא בטוח)
+  return /ע|יי|וו/.test(normalize(he)) ? transliterateYiddish(he) : '';
 }
 
-/** הצעה לשם משפחה באנגלית — רק מתוך המאגר (שמות משפחה משתנים מדי בשביל רשימה קבועה). */
+/** הצעה לשם משפחה באנגלית: מהמאגר → רשימת שמות נפוצים → תעתיק לפי הכתיב האידישי. */
 export function suggestLastName(he, contacts) {
-  return learned(contacts, 'last_name_he', 'last_name_en').get(normalize(he)) || '';
+  const key = normalize(he);
+  if (!key) return '';
+  return learned(contacts, 'last_name_he', 'last_name_en').get(key)
+    || SURNAMES[key] || SURNAMES[String(he).trim()] || transliterateYiddish(he);
 }
