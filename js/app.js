@@ -12,12 +12,14 @@ import {
 import { suggestFirstName, suggestLastName } from './names.js';
 import {
   initDonations, fillDonationFilters, renderDonations, donationsSection, wireDonationsSection,
-  renderCampaignSide, renderCampaignPage, setCampaign,
 } from './donations.js';
 import {
   initOccasions, fillOccasionFilters, renderOccasions, occasionsSection, wireOccasionsSection, occasionCount,
   openOccasionForm, YAHRZEIT,
 } from './occasions.js';
+import {
+  initCampaigns, renderCampaignSide, renderCampaignMain, showCampaign,
+} from './campaigns.js';
 import {
   getScope, setScope, restoreScope, withFormer, setWithFormer, contactInScope, donationInScope,
 } from './scope.js';
@@ -97,16 +99,17 @@ function refreshAll() {
   renderOccasions();
   renderOrgs();
   renderCampaignSide();
-  if (!$('.view[data-view="campaign"]').hidden) renderCampaignPage();
+  if (!$('.view[data-view="campaign"]').hidden) renderCampaignMain();
   if ($('#card-dialog').open && currentCardId) openCard(currentCardId);
 }
 
 function showView(name) {
+  document.body.classList.remove('menu-open');
   $$('.view').forEach((v) => { v.hidden = v.dataset.view !== name; });
   $$('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === name));
   if (name === 'donations') { fillDonationFilters(); renderDonations(); }
   if (name === 'occasions') { fillOccasionFilters(); renderOccasions(); }
-  if (name === 'campaign') renderCampaignPage();
+  if (name === 'campaign') renderCampaignMain();
   renderCampaignSide();
 }
 
@@ -1199,12 +1202,9 @@ function start() {
   initDonations({
     contactById, fullNameHe, pickerLabel, options, tagPicker, readTags, wireTagPicker,
     toast, friendlyError, refreshAll,
-    openCampaignPage: (name) => {
-      setCampaign(name);
-      showView('campaign');
-      document.body.classList.remove('menu-open');
-    },
+    openCampaignPage: (name) => showCampaign(name),
   });
+  initCampaigns({ showView, tagPicker, wireTagPicker, readTags, toast, friendlyError, refreshAll });
   closeOnBackdrop($('#form-dialog'), closeForm);
   $('#form-dialog').addEventListener('cancel', (e) => { e.preventDefault(); closeForm(); }); // מקש Esc
 

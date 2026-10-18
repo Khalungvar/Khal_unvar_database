@@ -484,3 +484,16 @@ dialog.sheet.full { width: min(1200px, 96vw); max-width: 96vw; max-height: 94vh;
 .scope-bar .btn { background: #fff; color: var(--accent); border-color: #fff; }
 
 .btn-group { display: inline-flex; gap: 8px; flex-wrap: nowrap; }
+
+/* סעריע: אלע יארן */
+.series-table { width: 100%; border-collapse: collapse; margin-top: 12px; background: var(--surface); border-radius: 12px; overflow: hidden; }
+.series-table th { text-align: start; font-weight: 500; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--gold); font-size: 13px; }
+.series-table td { padding: 10px; border-bottom: 1px solid color-mix(in srgb, var(--gold) 35%, transparent); }
+.series-table tbody tr { cursor: pointer; }
+.series-table tbody tr:hover { background: var(--chip); }
+.series-table td.num { direction: ltr; text-align: end; white-space: nowrap; }
+.series-table .bar-cell { width: 30%; }
+.series-table .bar { display: block; height: 10px; border-radius: 5px; background: var(--gold); min-width: 2px; }
+.nc-preview { font-size: 15px; margin: 0; }
+.nc-preview b { color: var(--accent); }
+#newcamp-dialog { width: min(640px, 94vw); }

@@ -1,5 +1,6 @@
 // נדבות (תרומות): מסך רשימה, טופס הוספה/עריכה, וחלק בכרטיס האישי.
-import { state, loadAll, saveDonation, saveDonations, deleteDonation, saveCampaignMeta } from './data.js';
+import { state, loadAll, saveDonation, saveDonations, deleteDonation } from './data.js';
+import { campaignOptions, campaignByName } from './campaigns.js';
 import { t } from './i18n.js';
 import { isTrue, splitTags, joinTags, escapeHtml as h } from './util.js';
 import {
@@ -27,23 +28,14 @@ export function initDonations(helpers) {
   $('#don-org').addEventListener('change', renderDonations);
   $('#don-unpaid').addEventListener('change', renderDonations);
   $('#btn-new-donation').onclick = () => openDonationForm();
-  $('#btn-campaign').onclick = () => openCampaign();
-  $('#btn-side-campaign').onclick = () => { document.body.classList.remove('menu-open'); openCampaign(); };
-  $('#campaign-side').addEventListener('click', (e) => {
-    const b = e.target.closest('.org-link');
-    if (b) ui.openCampaignPage(b.dataset.name);
-  });
-  $('#campaign-main').addEventListener('click', (e) => {
-    const row = e.target.closest('.don-row');
-    if (row) openDonationForm(state.donations.find((d) => String(d.donation_id) === row.dataset.id));
-  });
+  $('#btn-campaign').onclick = () => openBulk();
   $('#don-list').addEventListener('click', (e) => {
     const row = e.target.closest('.row');
     if (row) openDonationForm(state.donations.find((d) => String(d.donation_id) === row.dataset.id));
   });
 }
 
-const money = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+export const money = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
 function contactName(id) {
   const c = ui.contactById(id);
@@ -58,7 +50,7 @@ function allOrgs() {
 }
 
 /** <select> עם כל הארגונים, מחולק לפי ביהמ"ד / כולל / ארגון. */
-function orgSelect(name, value, extra = '') {
+export function orgSelect(name, value, extra = '') {
   const known = allOrgs();
   return `<select name="${name}" ${extra}><option value=""></option>${ORG_LISTS.map(([list, label]) => {
     const vals = state.lists[list] || [];
@@ -68,7 +60,7 @@ function orgSelect(name, value, extra = '') {
 
 
 /** שם הנדבן: איש קשר, או שם שנכתב (מישהו שלא ברשימה). */
-function donorName(d) {
+export function donorName(d) {
   return d.contact_id ? contactName(d.contact_id) : String(d.donor_name || '');
 }
 
@@ -124,7 +116,7 @@ function visibleDonations() {
     .sort((a, b) => String(b.date).localeCompare(String(a.date)) || Number(b.donation_id) - Number(a.donation_id));
 }
 
-function donationRow(d, withName = true) {
+export function donationRow(d, withName = true) {
   const paid = isTrue(d.is_paid);
   const tags = splitTags(d.event_tags).map((x) => `<span class="chip">${h(x)}</span>`).join('');
   return `<button type="button" class="row don-row" data-id="${h(d.donation_id)}">
@@ -223,6 +215,10 @@ export function openDonationForm(donation = {}, presetContactId = null) {
     d.contact_id = presetContactId || '';
     d.date = todayIso();
     d.org = d.org || defaultOrg();
+    if (d.campaign) {
+      const c = campaignByName(d.campaign);
+      if (c) { d.event_tags = d.event_tags || c.event_tags; d.event_year = d.event_year || c.year; }
+    }
     d.is_paid = true; // ברירת מחדל: שולם
     d.paid_date = todayIso();
   }
@@ -253,6 +249,9 @@ export function openDonationForm(donation = {}, presetContactId = null) {
         <label class="check paid-toggle"><input type="checkbox" name="is_paid" ${isTrue(d.is_paid) ? 'checked' : ''}> ${t('paid')}</label>
       </div>
 
+      <label class="wide org-pick">${t('campaignOptional')}
+        <select name="campaign">${campaignOptions(d.campaign)}</select>
+      </label>
       <label class="wide org-pick">${t('forOrg')} *
         ${orgSelect('org', campaignOrg(d.campaign) || d.org || '')}
         <span class="hint-line camp-org-note" hidden>${t('orgFromCampaign')}</span>
@@ -289,14 +288,12 @@ export function openDonationForm(donation = {}, presetContactId = null) {
       </div>
     </div>
 
-    <details class="more"${d.event_note || d.campaign || d.paid_note || d.dedication_type || d.dedication_text ? ' open' : ''}>
+    <details class="more"${d.event_note || d.paid_note || d.dedication_type || d.dedication_text ? ' open' : ''}>
       <summary>${t('moreDetails')}</summary>
       <div class="grid">
         <label>${t('eventYear')}<select name="event_year">${yearOptions([d.event_year])
           .map((y) => `<option${y === (d.event_year || yearLabel(hDate.y)) ? ' selected' : ''}>${h(y)}</option>`).join('')}</select></label>
         <label class="wide">${t('comments')}<input name="event_note" value="${h(d.event_note || '')}"></label>
-        <label class="wide">${t('campaignName')}<input name="campaign" list="dl-campaigns-one" autocomplete="off" value="${h(d.campaign || '')}"></label>
-        <datalist id="dl-campaigns-one">${campaignNames().map((c) => `<option value="${h(c.name)}">`).join('')}</datalist>
         <label class="paid-only">${t('paidDate')}<input type="date" name="paid_date" value="${h(d.paid_date || '')}"></label>
         <label class="wide">${t('paidNote')}<input name="paid_note" value="${h(d.paid_note || '')}"></label>
         <label>${t('dedicationType')}<select name="dedication_type">${ui.options(state.lists.dedication_type, d.dedication_type)}</select></label>
@@ -390,8 +387,19 @@ function wireDonationForm(form, original) {
       f('org').value = co;
     }
   };
-  f('campaign').addEventListener('change', syncOrg);
-  f('campaign').addEventListener('input', syncOrg);
+  f('campaign').addEventListener('change', () => {
+    syncOrg();
+    // קאמפיין → הטעג און יאר פונעם קאמפיין
+    const c = campaignByName(f('campaign').value);
+    if (!c) return;
+    if (c.year) {
+      const sel = f('event_year');
+      if (![...sel.options].some((o) => o.value === c.year)) sel.insertAdjacentHTML('beforeend', `<option>${h(c.year)}</option>`);
+      sel.value = c.year;
+    }
+    const want = splitTags(c.event_tags);
+    if (want.length) $$('.tags[data-name="event_tags"] .chip.toggle', form).forEach((x) => x.classList.toggle('on', want.includes(x.textContent.trim())));
+  });
   syncOrg();
 
   // אמצעי תשלום → השדה המתאים
@@ -485,63 +493,6 @@ function wireDonationForm(form, original) {
 
 
 
-// ---------- קאמפיינס: תפריט צד ודף לכל קאמפיין ----------
-let currentCampaign = '';
-
-export function renderCampaignSide() {
-  const side = $('#campaign-side');
-  if (!side) return;
-  const active = !$('.view[data-view="campaign"]').hidden;
-  const list = campaignNames();
-  side.innerHTML = list.length ? list.map((c) => `<button type="button" class="org-link${active && c.name === currentCampaign ? ' on' : ''}" data-name="${h(c.name)}">
-      <span>${h(c.name)}</span><span class="side-sum">${money(c.total)}</span></button>`).join('')
-    : `<p class="muted small side-empty">${h(t('noCampaigns'))}</p>`;
-}
-
-export function renderCampaignPage() {
-  const main = $('#campaign-main');
-  if (!main) return;
-  const list = state.donations.filter((d) => d.campaign === currentCampaign)
-    .sort((a, b) => Number(b.amount_usd || 0) - Number(a.amount_usd || 0) || donorName(a).localeCompare(donorName(b), 'he'));
-  if (!list.length) { main.innerHTML = `<p class="empty">${h(t('noCampaigns'))}</p>`; return; }
-  const total = list.reduce((s, d) => s + Number(d.amount_usd || 0), 0);
-  const open = list.filter((d) => !isTrue(d.is_paid)).reduce((s, d) => s + Number(d.amount_usd || 0), 0);
-  const donors = new Set(list.map((d) => d.contact_id || `n:${d.donor_name}`)).size;
-  const tags = [...new Set(list.flatMap((d) => splitTags(d.event_tags)))];
-  const years = [...new Set(list.map((d) => d.event_year).filter(Boolean))];
-  main.innerHTML = `<div class="camp-page-head">
-      <div><h2>${h(currentCampaign)}</h2>
-        <p class="muted">${tags.map((x) => `<span class="chip">${h(x)}</span>`).join(' ')} ${h(years.join(', '))}</p>
-        <label class="camp-org-line">${t('campaignOrg')}: ${orgSelect('camp_page_org', campaignOrg(currentCampaign))}</label></div>
-      <span class="spacer"></span>
-      <button type="button" class="btn primary" id="camp-add-more">${t('campaignAddMore')}</button>
-    </div>
-    <div class="camp-stats">
-      <div><span>${t('donTotal')}</span><b>${money(total)}</b></div>
-      <div><span>${t('campaignDonors')}</span><b>${donors}</b></div>
-      <div><span>${t('paid')}</span><b>${money(total - open)}</b></div>
-      <div><span>${t('unpaid')}</span><b class="${open ? 'unpaid-text' : ''}">${money(open)}</b></div>
-    </div>
-    <div class="list">${list.map((d) => donationRow(d)).join('')}</div>`;
-  const orgSel = $('select[name=camp_page_org]', main);
-  orgSel.onchange = async () => {
-    if (!orgSel.value) return;
-    try {
-      await saveCampaignMeta(currentCampaign, orgSel.value);
-      await loadAll();
-      ui.refreshAll();
-      ui.toast(t('campaignOrgSaved'));
-    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
-  };
-  $('#camp-add-more', main).onclick = () => openCampaign({
-    campaign: currentCampaign, event_tags: tags.join(', '), event_year: years[0] || '',
-  });
-}
-
-export function setCampaign(name) {
-  currentCampaign = name;
-}
-
 // ---------- קאמפיין: הרבה נדבות בבת אחת ----------
 // פרטים משותפים למעלה (געלעגנהייט, יאר, דאטום), ואחר כך שורה לכל נדבה.
 // נדבן שלא ברשימה: כותבים את השם, והנדבה נשמרת עם השם (בלי איש קשר).
@@ -561,22 +512,8 @@ function campaignRow(i) {
   </tr>`;
 }
 
-function campaignNames() {
-  const seen = new Map();
-  state.donations.filter(donationInScope).forEach((d) => {
-    const n = String(d.campaign || '').trim();
-    if (!n) return;
-    const cur = seen.get(n) || { name: n, total: 0, count: 0, last: '' };
-    cur.total += Number(d.amount_usd || 0);
-    cur.count += 1;
-    if (String(d.date) > cur.last) cur.last = String(d.date);
-    seen.set(n, cur);
-  });
-  return [...seen.values()].sort((a, b) => b.last.localeCompare(a.last) || a.name.localeCompare(b.name, 'he'));
-}
-
-/** preset = { campaign, event_tags, event_year } כשמוסיפים לקאמפיין שכבר קיים. */
-export function openCampaign(preset = {}) {
+/** הרבה נדבות בבת אחת. preset = { campaign } כשמוסיפים לקאמפיין מסוים. */
+export function openBulk(preset = {}) {
   const form = $('#campaign-form');
   const today = todayIso();
   const hy = toHebrew(today).y;
@@ -584,19 +521,19 @@ export function openCampaign(preset = {}) {
     <button type="button" class="x-close" id="camp-x" aria-label="${h(t('close'))}">✕</button>
     <h2>${t('campaignTitle')}</h2>
     <fieldset class="camp-common"><legend>${t('campaignCommon')}</legend>
-      <label class="wide camp-name">${t('campaignName')} *
-        <input name="campaign" list="dl-campaigns" autocomplete="off" value="${h(preset.campaign || '')}" placeholder="${h(t('campaignNamePh'))}">
-      </label>
-      <datalist id="dl-campaigns">${campaignNames().map((c) => `<option value="${h(c.name)}">`).join('')}</datalist>
-      <label class="wide org-pick">${t('campaignOrg')} *
-        ${orgSelect('org', campaignOrg(preset.campaign) || defaultOrg())}
-      </label>
+      <div class="grid">
+        <label class="org-pick">${t('campaignOptional')}
+          <select name="campaign">${campaignOptions(preset.campaign || '')}</select></label>
+        <label class="org-pick">${t('forOrg')} *
+          ${orgSelect('org', campaignOrg(preset.campaign) || defaultOrg())}
+          <span class="hint-line camp-org-note" hidden>${t('orgFromCampaign')}</span></label>
+      </div>
       <div class="quick-block">
         <span class="quick-label">${t('eventLegend')}</span>
-        ${ui.tagPicker('event_tags', 'event_tag', preset.event_tags || '')}
+        ${ui.tagPicker('event_tags', 'event_tag', preset.campaign ? (campaignByName(preset.campaign)?.event_tags || '') : '')}
       </div>
       <div class="grid">
-        <label>${t('eventYear')}<select name="event_year">${yearOptions([preset.event_year]).map((y) => `<option${y === (preset.event_year || yearLabel(hy)) ? ' selected' : ''}>${h(y)}</option>`).join('')}</select></label>
+        <label>${t('eventYear')}<select name="event_year">${yearOptions([campaignByName(preset.campaign)?.year]).map((y) => `<option${y === (campaignByName(preset.campaign)?.year || yearLabel(hy)) ? ' selected' : ''}>${h(y)}</option>`).join('')}</select></label>
         <label>${t('gregDate')}<input type="date" name="date" value="${today}"><span class="hint-line camp-heb">${h(isoToHebrewText(today))}</span></label>
         <label class="wide">${t('campaignNote')}<input name="common_note"></label>
         <label class="check"><input type="checkbox" name="default_paid" checked> ${t('defaultPaid')}</label>
@@ -620,7 +557,7 @@ export function openCampaign(preset = {}) {
   wireCampaign(form);
   if (!$('#campaign-dialog').open) $('#campaign-dialog').showModal();
   $('#campaign-dialog').scrollTop = 0;
-  (preset.campaign ? $('.camp-row [name=c_contact]', form) : form.elements.campaign).focus();
+  $('.camp-row [name=c_contact]', form).focus();
 }
 
 function wireCampaign(form) {
@@ -630,15 +567,26 @@ function wireCampaign(form) {
   form.addEventListener('input', () => { form.dataset.dirty = '1'; });
   ui.wireTagPicker($('.tags[data-name="event_tags"]', form));
 
-  f('campaign').addEventListener('change', () => {
-    const co = campaignOrg(f('campaign').value.trim());
-    if (co) f('org').value = co;
-    const prev = state.donations.find((d) => d.campaign === f('campaign').value.trim());
-    if (!prev) return;
-    if (prev.event_year) f('event_year').value = prev.event_year;
-    const want = splitTags(prev.event_tags);
-    $$('.tags[data-name="event_tags"] .chip.toggle', form).forEach((c) => c.classList.toggle('on', want.includes(c.dataset.value || c.textContent.trim())));
-  });
+  // קאמפיין → ארגון, טעג און יאר פונעם קאמפיין
+  const syncCampaign = () => {
+    const c = campaignByName(f('campaign').value);
+    $('.camp-org-note', form).hidden = !c?.org;
+    f('org').disabled = Boolean(c?.org);
+    f('org').classList.toggle('suggested', Boolean(c?.org));
+    if (!c) return;
+    if (c.org) {
+      if (![...f('org').options].some((o) => o.value === c.org)) f('org').insertAdjacentHTML('beforeend', `<option>${h(c.org)}</option>`);
+      f('org').value = c.org;
+    }
+    if (c.year) {
+      if (![...f('event_year').options].some((o) => o.value === c.year)) f('event_year').insertAdjacentHTML('beforeend', `<option>${h(c.year)}</option>`);
+      f('event_year').value = c.year;
+    }
+    const want = splitTags(c.event_tags);
+    if (want.length) $$('.tags[data-name="event_tags"] .chip.toggle', form).forEach((x) => x.classList.toggle('on', want.includes(x.textContent.trim())));
+  };
+  f('campaign').addEventListener('change', syncCampaign);
+  syncCampaign();
 
   f('date').addEventListener('change', () => {
     $('.camp-heb', form).textContent = isoToHebrewText(f('date').value);
@@ -734,9 +682,8 @@ function wireCampaign(form) {
     const date = f('date').value;
     const hv = toHebrew(date);
     const common = f('common_note').value.trim();
-    const campaign = f('campaign').value.trim();
-    if (!campaign) { ui.toast(t('campaignNameRequired'), 'error'); f('campaign').focus(); return; }
-    const org = f('org').value;
+    const campaign = f('campaign').value;
+    const org = campaignOrg(campaign) || f('org').value;
     if (!org) { ui.toast(t('orgRequired'), 'error'); f('org').focus(); return; }
     const list = [];
     let bad = null;
@@ -779,14 +726,13 @@ function wireCampaign(form) {
     btn.disabled = true;
     btn.textContent = t('saving');
     try {
-      if (campaignOrg(campaign) !== org) await saveCampaignMeta(campaign, org);
       const n = await saveDonations(list);
       await loadAll();
       form.dataset.dirty = '';
       $('#campaign-dialog').close();
       ui.refreshAll();
       ui.toast(t('campaignSaved', { n }));
-      ui.openCampaignPage?.(campaign);
+      if (campaign) ui.openCampaignPage?.(campaign);
     } catch (err) {
       ui.toast(ui.friendlyError(err), 'error');
     } finally {

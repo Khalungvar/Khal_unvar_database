@@ -186,13 +186,13 @@ export async function saveDonations(list) {
   return rows.length;
 }
 
-/** שומר לאיזה ארגון שייך קאמפיין (מוסיף שורה או מעדכן לפי השם). */
-export async function saveCampaignMeta(name, org) {
+/** שומר קאמפיין (חדש או קיים, לפי השם המלא). */
+export async function saveCampaign(campaign) {
   const stamp = nowStamp();
-  const existing = state.campaigns.find((c) => c.campaign === name);
-  const c = { ...(existing || { created_at: stamp, created_by: state.email }), campaign: name, org, updated_at: stamp, updated_by: state.email };
+  const existing = state.campaigns.find((c) => c.campaign === campaign.campaign);
+  const c = { ...(existing || { created_at: stamp, created_by: state.email }), ...campaign, updated_at: stamp, updated_by: state.email };
   delete c._row;
-  const row = existing ? await findRow('Campaigns', name) : null;
+  const row = existing ? await findRow('Campaigns', c.campaign) : null;
   if (row) await updateRow('Campaigns', row, objectToRow(state.headers.Campaigns, c));
   else await appendRow('Campaigns', objectToRow(state.headers.Campaigns, c));
 }
