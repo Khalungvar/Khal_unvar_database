@@ -100,7 +100,7 @@ function refreshAll() {
   renderOccasions();
   renderOrgs();
   renderCampaignSide();
-  $('#side-admin').hidden = !state.isAdmin;
+  $('#btn-admin').hidden = !state.isAdmin;
   if (!$('.view[data-view="campaign"]').hidden) renderCampaignMain();
   if ($('#card-dialog').open && currentCardId) openCard(currentCardId);
 }
