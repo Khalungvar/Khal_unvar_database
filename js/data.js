@@ -18,7 +18,8 @@ export const state = {
   orgNotes: [],
   campaigns: [],
   savedLists: [],
-  mailTemplates: [], // Mail Merge: אפגעהיטענע עיצובים פון קאנווערטן / לעיבלס    // רשימות שמורות (תנאים + עמודות)     // { campaign, org } — לאיזה ארגון שייך כל קאמפיין      // לשונית "ארגון": תיבות טקסט לכל איש קשר     // מאורעות: יארצייט, געבורטסטאג, חתונה...
+  mailTemplates: [],
+  messages: [],      // מעסעדזשעס צווישן די באנוצער (און בקשות גישה) // Mail Merge: אפגעהיטענע עיצובים פון קאנווערטן / לעיבלס    // רשימות שמורות (תנאים + עמודות)     // { campaign, org } — לאיזה ארגון שייך כל קאמפיין      // לשונית "ארגון": תיבות טקסט לכל איש קשר     // מאורעות: יארצייט, געבורטסטאג, חתונה...
   lists: {},         // { title_he: [...], ... }
   titleHeToEn: {},
   titleEnToHe: {},
@@ -71,7 +72,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -84,6 +85,10 @@ export async function loadAll() {
   const donations = rowsToObjects(tabs.Donations);
   state.headers.Donations = donations.header;
   state.donations = donations.objects;
+
+  const msgs = rowsToObjects(tabs.Messages || []);
+  state.headers.Messages = msgs.header;
+  state.messages = msgs.objects;
 
   const mt = rowsToObjects(tabs.MailTemplates || []);
   state.headers.MailTemplates = mt.header;
@@ -198,6 +203,27 @@ export async function saveDonations(list) {
   }));
   await appendRows('Donations', rows);
   return rows.length;
+}
+
+/** לייענט נאר די מעסעדזשעס (פאר א שנעלע בדיקה יעדע פאר מינוט). */
+export async function reloadMessages() {
+  const tabs = await readTabs(['Messages']);
+  const msgs = rowsToObjects(tabs.Messages || []);
+  state.headers.Messages = msgs.header;
+  state.messages = msgs.objects;
+}
+
+/** אלע באנוצער (מנהלים + גבאים): [{ email, name, role }] */
+export function allUsers() {
+  const S = state.rawSettings || {};
+  const out = [];
+  const add = (emails, names, role) => (S[emails] || []).forEach((e, i) => {
+    const email = String(e || '').trim().toLowerCase();
+    if (email && !out.some((u) => u.email === email)) out.push({ email, name: String((S[names] || [])[i] || '').trim() || email, role });
+  });
+  add('admin_email', 'admin_name', 'admin');
+  add('gabbai_email', 'gabbai_name', 'gabbai');
+  return out;
 }
 
 /** שומר רשומה כללית (חדשה או קיימת) לפי שדה ה-ID. מחזיר את ה-ID. */

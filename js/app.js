@@ -23,6 +23,7 @@ import {
 import { initLists, renderListsSide, renderBuilder, openOverview } from './lists.js';
 import { initAdmin, renderAdmin, adminDirty } from './admin.js';
 import { initMailMerge, renderMailMerge, openMailMerge } from './mailmerge.js';
+import { initPersonal, renderPersonal, openPersonal, unreadCount } from './personal.js';
 import {
   nextOccurrence, daysBetween, todayIso, monthKeyFromHe,
 } from './hebdate.js';
@@ -96,6 +97,16 @@ async function enterApp() {
   showView('lobby');
 }
 
+/** וויפיל נישט-געלייענטע מעסעדזשעס — אויפן קנעפל אויבן און אין לאבי. */
+function updateBadges() {
+  const n = unreadCount();
+  const b = $('#pm-badge');
+  b.hidden = !n;
+  b.textContent = n;
+  const tileB = $('[data-tile="personal"] .count-pill');
+  if (tileB) { tileB.hidden = !n; tileB.textContent = n; }
+}
+
 // ---------- לובי: דער ערשטער בלאט נאכן אריינגיין ----------
 let lobbyOpen = ''; // וועלכער ארגון-סארט איז אויפגעמאכט (צו קלייבן א ביהמ"ד וכו')
 
@@ -118,7 +129,7 @@ function renderLobby() {
         <input type="search" id="lobby-q" placeholder="${h(t('lobbySearchPh'))}" autocomplete="off">
         <div class="lobby-results" id="lobby-results"></div>
       </div>
-      ${tile('personal', '👤', t('lobbyPersonal'), t('lobbyPersonalSub'))}
+      ${tile('personal', '👤', t('lobbyPersonal'), unreadCount() ? t('pmUnreadSub', { n: unreadCount() }) : t('lobbyPersonalSub'))}
     </div>
     <div class="lobby-row">
       ${tile('umbrella', '🏛', umbrellaName(), t('lobbyAllSub', { n: alive }), 'data-primary')}
@@ -198,6 +209,7 @@ function lobbyClick(e) {
   if (ORG_FIELDS.some(([n]) => n === key)) { lobbyOpen = lobbyOpen === key ? '' : key; renderLobby(); return; }
   if (key === 'lists') { openOverview(); return; }
   if (key === 'mailmerge') { openMailMerge(); return; }
+  if (key === 'personal') { document.body.classList.add('solo-mode'); openPersonal(); return; }
   // נדבות / לוח המאורעות: א באזונדערער בלאט פון אלע רעקארדס — אן די לשוניות
   if (key === 'donations' || key === 'occasions') {
     enterScope(null);
@@ -228,6 +240,8 @@ function refreshAll() {
   renderOrgs();
   renderCampaignSide();
   $('#btn-admin').hidden = !state.isAdmin;
+  updateBadges();
+  if (!$('.view[data-view="personal"]').hidden) renderPersonal();
   $('#user-email').textContent = displayName(state.email) + (state.isAdmin ? ` · ${t('admin')}` : '');
   $('#user-email').title = state.email;
   renderListsSide();
@@ -250,6 +264,7 @@ function showView(name) {
   if (name === 'admin') renderAdmin();
   if (name === 'lobby') renderLobby();
   if (name === 'mailmerge') renderMailMerge();
+  if (name === 'personal') renderPersonal();
   if (name === 'lists') renderBuilder();
   renderListsSide();
   $('#btn-admin')?.classList.toggle('on', name === 'admin');
@@ -1374,6 +1389,8 @@ function start() {
   initCampaigns({ showView, tagPicker, wireTagPicker, readTags, toast, friendlyError, refreshAll });
   initAdmin({ toast, friendlyError, refreshAll });
   initMailMerge({ showView, fullNameHe, toast, friendlyError });
+  initPersonal({ showView, fullNameHe, openCard, toast, friendlyError, updateBadges });
+  $('#btn-personal').onclick = () => { document.body.classList.add('solo-mode'); openPersonal(); };
   initLists({ showView, fullNameHe, phonesOf, contactById, pickerLabel, openCard, toast, friendlyError, refreshAll });
   $('#btn-admin').onclick = () => showView('admin');
   closeOnBackdrop($('#form-dialog'), closeForm);

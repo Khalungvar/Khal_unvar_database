@@ -657,3 +657,32 @@ body.solo-mode .tabs, body.solo-mode #scope-bar { display: none !important; }
 .lobby-hit:hover { background: var(--chip); }
 .lobby-none { padding: 10px 14px; margin: 0; }
 @media (max-width: 700px) { .lobby-search-row { grid-template-columns: 1fr; } }
+
+/* איזור אישי */
+.pm-section { background: var(--surface); border: 1px solid var(--gold); border-radius: 14px; padding: 12px 14px; margin: 14px 0; }
+.pm-section h3 { margin: 0 0 8px; }
+.pm-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.pm-title h3 { margin: 0; }
+.pm-tabs { display: inline-flex; border: 1px solid var(--gold); border-radius: 10px; overflow: hidden; }
+.pm-tabs button { background: none; border: none; padding: 6px 14px; font: inherit; cursor: pointer; color: var(--muted); }
+.pm-tabs button.on { background: var(--accent); color: #fff; }
+.pm-msg { border-bottom: 1px solid color-mix(in srgb, var(--gold) 30%, transparent); padding: 8px 6px; cursor: pointer; }
+.pm-msg:hover { background: var(--chip); }
+.pm-msg.unread .pm-head b, .pm-msg.unread .pm-subj { font-weight: 800; }
+.pm-msg.unread { border-inline-start: 4px solid var(--accent); }
+.pm-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pm-subj { color: var(--muted); }
+.pm-body { margin: 8px 0; white-space: normal; line-height: 1.6; }
+.pm-actions { display: flex; gap: 6px; }
+.pm-compose { border: 1px dashed var(--accent); border-radius: 12px; padding: 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+.pm-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+.pm-row label { display: flex; flex-direction: column; font-size: 13px; color: var(--muted); gap: 3px; }
+.pm-row label.grow { flex: 1; min-width: 200px; }
+.pm-row select, .pm-row input, .pm-compose textarea { font: inherit; padding: 6px 8px; }
+.pm-compose textarea { width: 100%; box-sizing: border-box; }
+.pm-lists { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.pm-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.pm-cols .pm-section { margin: 0; }
+.pm-cols .list.compact { max-height: 480px; overflow-y: auto; }
+#btn-personal .count-pill { background: var(--accent); }
+@media (max-width: 800px) { .pm-cols { grid-template-columns: 1fr; } }

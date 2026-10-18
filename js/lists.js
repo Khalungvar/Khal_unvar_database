@@ -69,9 +69,9 @@ export function renderListsSide() {
   if (!side) return;
   const active = !$('.view[data-view="lists"]').hidden && page === 'builder' && current?.list_id;
   const sc = getScope();
-  const mine = state.savedLists.filter((l) => !l.scope || !sc || l.scope === scopeKey(sc));
+  const mine = state.savedLists.filter(canSee).filter((l) => !l.scope || !sc || l.scope === scopeKey(sc));
   side.innerHTML = mine.length ? mine.map((l) => `<button type="button" class="org-link${String(active) === String(l.list_id) ? ' on' : ''}" data-list="${h(l.list_id)}">
-      <span>${h(l.name)}</span></button>`).join('')
+      <span>${l.visibility === 'private' ? '🔒 ' : ''}${h(l.name)}</span></button>`).join('')
     : `<p class="muted small side-empty">${h(t('noSavedLists'))}</p>`;
 }
 
@@ -182,7 +182,7 @@ export function openBuilder(saved = null, preset = null) {
   criteria.missing = { ...EMPTY().missing, ...criteria.missing };
   criteria.donation = { ...EMPTY().donation, ...criteria.donation };
   criteria.occasion = { ...EMPTY().occasion, ...criteria.occasion };
-  current = { list_id: saved?.list_id || '', name: saved?.name || preset?.name || '', criteria, columns };
+  current = { list_id: saved?.list_id || '', name: saved?.name || preset?.name || '', criteria, columns, visibility: saved ? (saved.visibility || 'public') : 'private' };
   ui.showView('lists');
 }
 
@@ -203,6 +203,9 @@ export function renderBuilder() {
       <div><h2>${current.list_id ? h(current.name) : t('newListTitle')}</h2>
         ${sc ? `<p class="hint-line">${h(t('listScopeNote', { name: sc.type === 'area' ? `${t('area')}: ${sc.value}` : sc.value || '' }))}</p>` : ''}</div>
       <span class="spacer"></span>
+      ${current.list_id ? (current.visibility === 'private'
+        ? `<span class="badge muted">🔒 ${t('lbPrivate')}</span> <button type="button" class="btn" id="lb-publish">${t('lbPublish')}</button>`
+        : `<span class="badge paid">${t('lbPublic')}</span>`) : `<span class="hint-line">${t('lbPrivateNote')}</span>`}
       <button type="button" class="btn" id="lb-back">← ${t('allLists')}</button>
       ${current.list_id ? `<button type="button" class="btn danger" id="lb-delete">${t('deleteBtn')}</button>` : ''}
     </div>
@@ -372,6 +375,7 @@ function wireBuilder(main) {
         ...(state.savedLists.find((l) => String(l.list_id) === String(current.list_id)) || {}),
         list_id: current.list_id || '', name, criteria: JSON.stringify(current.criteria),
         columns: current.columns.join(', '), scope: scopeKey(getScope()),
+        visibility: current.visibility || 'private',
       });
       await loadAll();
       current.list_id = id;
@@ -395,6 +399,17 @@ function wireBuilder(main) {
   });
   $('#lb-excel', main).onclick = () => exportCsv($('#lb-name').value.trim(), selectedColumns(), current.lastRows);
   $('#lb-back', main).onclick = openOverview;
+  $('#lb-publish', main)?.addEventListener('click', async () => {
+    if (!confirm(t('lbPublishConfirm', { name: current.name }))) return;
+    try {
+      const l = state.savedLists.find((x) => String(x.list_id) === String(current.list_id));
+      await saveSavedList({ ...l, visibility: 'public' });
+      await loadAll();
+      current.visibility = 'public';
+      ui.toast(t('lbPublished', { name: current.name }));
+      renderBuilder();
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  });
   $('#lb-print', main).onclick = () => {
     $('#lb-print-title').textContent = $('#lb-name').value.trim() || t('newListTitle');
     window.print();
@@ -456,9 +471,14 @@ export function templates() {
   }));
 }
 
+/** א רשימה איז פריוואט (נאר פאר דעם וואס האט זי געמאכט) ביז מען מאכט זי פובליק. */
+export function canSee(l) {
+  return l.visibility !== 'private' || String(l.created_by || '').toLowerCase() === state.email;
+}
+
 export function savedInScope() {
   const sc = getScope();
-  return state.savedLists.filter((l) => !l.scope || !sc || l.scope === scopeKey(sc));
+  return state.savedLists.filter(canSee).filter((l) => !l.scope || !sc || l.scope === scopeKey(sc));
 }
 
 export function parseSaved(l) {
@@ -488,7 +508,7 @@ function renderOverview(main) {
       <thead><tr><th>${t('lbNamePh')}</th><th>${t('lbCountCol')}</th><th>${t('lbUpdated')}</th><th></th></tr></thead>
       <tbody>${lists.map((l) => {
         const { cr } = parseSaved(l);
-        return `<tr data-open="${h(l.list_id)}"><td><b>${h(l.name)}</b></td><td class="num">${evaluate(cr).length}</td>
+        return `<tr data-open="${h(l.list_id)}"><td><b>${l.visibility === 'private' ? '🔒 ' : ''}${h(l.name)}</b></td><td class="num">${evaluate(cr).length}</td>
           <td class="muted small">${h(l.updated_at || '')} · ${h(displayName(l.updated_by))}</td>
           <td class="lo-btns"><button type="button" class="btn small-btn" data-excel="${h(l.list_id)}">Excel</button>
             <button type="button" class="btn small-btn" data-copy="${h(l.list_id)}">${t('lbDuplicate')}</button></td></tr>`;
