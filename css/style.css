@@ -1085,3 +1085,6 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 /* פלאץ אונטן, כדי דער AI-שורה זאל נישט צודעקן קיין קנעפלעך */
 #app-view:has(#ai-chat) .view { padding-bottom: 84px; }
 .imp-auto { color: var(--muted); font-style: italic; border-bottom: 1px dashed var(--gold); }
+.imp-table tr.imp-maybe td { background: #eef6ff; }
+.imp-maybe-b { background: #dbeafe; color: #1e3a8a; }
+.imp-pick { vertical-align: middle; }
