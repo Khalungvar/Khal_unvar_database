@@ -373,11 +373,11 @@ function orgRow(c) {
   </div>`;
 }
 
-/** לתצוגה ברשימה ובכרטיס: "ביהמ"ד מאנסי", "כולל ערב", "כהלכתו". */
+/** לתצוגה ברשימה ובכרטיס: "ביהמ\"ד מאנסי", "כולל ערב", "כהלכתו". */
 function orgLabels(c) {
   return [
     String(c.beis_medrash || '').trim(),
-    String(c.kollel || '').trim() ? `${KOLLEL} ${String(c.kollel).trim()}` : '',
+    String(c.kollel || '').trim(), // הערכים ברשימה כבר כוללים את המילה "כולל"
     String(c.organization || '').trim(),
   ].filter(Boolean);
 }
