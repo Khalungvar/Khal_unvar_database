@@ -11,6 +11,7 @@ export const state = {
   headers: {},       // { Contacts: [...], Phones: [...] }
   contacts: [],      // אובייקטים, עם _row (מספר השורה בגליון)
   phones: new Map(), // contact_id → אובייקט טלפונים
+  relations: [],     // { relation_id, contact_id_a, relation_type, contact_id_b, _row }
   lists: {},         // { title_he: [...], ... }
   titleHeToEn: {},
   titleEnToHe: {},
@@ -57,7 +58,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -66,6 +67,10 @@ export async function loadAll() {
   const phones = rowsToObjects(tabs.Phones);
   state.headers.Phones = phones.header;
   state.phones = new Map(phones.objects.map((p) => [String(p.contact_id), p]));
+
+  const relations = rowsToObjects(tabs.Relations);
+  state.headers.Relations = relations.header;
+  state.relations = relations.objects;
 
   Object.assign(state, parseLists(tabs.Lists));
 
@@ -96,6 +101,7 @@ export async function saveContact(contact, phones) {
   if (isNew) {
     c.contact_id = await nextContactId();
     c.created_at = stamp;
+    c.created_by = state.email;
     if (c.is_active === '' || c.is_active === undefined) c.is_active = true;
     await appendRow('Contacts', objectToRow(state.headers.Contacts, c));
   } else {
@@ -111,6 +117,39 @@ export async function saveContact(contact, phones) {
   else if (hasPhones) await appendRow('Phones', objectToRow(state.headers.Phones, p));
 
   return c.contact_id;
+}
+
+// ---------- קשרים משפחתיים ----------
+// שורה (A, אבא, B) פירושה: B הוא האבא של A. הקשר ההפוך (B, בן, A) נוצר אוטומטית.
+
+function sameRel(r, a, type, b) {
+  return String(r.contact_id_a) === String(a) && r.relation_type === type && String(r.contact_id_b) === String(b);
+}
+
+export async function addRelation(a, type, b) {
+  const ids = (await readColumn('Relations', 'A')).slice(1).map(Number).filter(Number.isFinite);
+  let next = Math.max(0, ...ids) + 1;
+  const reverse = state.relationReverse[type];
+  const rows = [[a, type, b]];
+  if (reverse && !state.relations.some((r) => sameRel(r, b, reverse, a))) rows.push([b, reverse, a]);
+  for (const [x, ty, y] of rows) {
+    if (state.relations.some((r) => sameRel(r, x, ty, y))) continue;
+    await appendRow('Relations', objectToRow(state.headers.Relations,
+      { relation_id: next, contact_id_a: x, relation_type: ty, contact_id_b: y }));
+    next += 1;
+  }
+}
+
+/** מוחק קשר ואת הקשר ההפוך שלו (מנקה את השורות בגליון). */
+export async function removeRelation(rel) {
+  const reverse = state.relationReverse[rel.relation_type];
+  const targets = state.relations.filter((r) => r === rel
+    || (reverse && sameRel(r, rel.contact_id_b, reverse, rel.contact_id_a)));
+  const ids = await readColumn('Relations', 'A');
+  for (const r of targets) {
+    const idx = ids.findIndex((v, i) => i > 0 && String(v) === String(r.relation_id));
+    if (idx > 0) await updateRow('Relations', idx + 1, state.headers.Relations.map(() => ''));
+  }
 }
 
 /** מנהל בלבד: מוסיף ערך חדש לרשימה בלשונית Lists. */

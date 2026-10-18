@@ -103,6 +103,7 @@ export function mailingName(c) {
   const wifeAlive = isAlive(c.wife_is_alive);
   const married = c.marital_status === 'נשוי';
   const join = (...parts) => parts.filter(Boolean).join(' ');
+  if (!first && !last) return null; // אין שם באנגלית — אי אפשר לפנות בדואר
 
   if (married && husbandAlive && wifeAlive) return join(`${title} & ${wifeTitle}`, first, last);
   if (married && !husbandAlive && wifeAlive) return join(wifeTitle, (c.wife_name_en || '').trim(), last);

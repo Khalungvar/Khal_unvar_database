@@ -2,9 +2,13 @@
 import {
   initAuth, requestToken, signOut, getUserEmail, hasSavedSession, setOnExpire, rememberEmail,
 } from './google.js';
-import { state, loadAll, saveContact, addListValue } from './data.js';
+import {
+  state, loadAll, saveContact, addListValue, addRelation, removeRelation,
+} from './data.js';
 import { suggest, details, placesEnabled, placesError } from './places.js';
-import { t, setLang, getLang, applyStatic, maritalLabel } from './i18n.js';
+import {
+  t, setLang, getLang, applyStatic, maritalLabel, relationLabel,
+} from './i18n.js';
 import {
   normalize, digits, formatPhone, isTrue, isAlive, splitTags, joinTags,
   gematriaCodes, primaryCode, parseCodeQuery, mailingName, escapeHtml as h,
@@ -224,10 +228,91 @@ function openCard(id) {
     </section>
     ${address ? `<section><h3>${t('address')}</h3><p dir="ltr" class="addr">${address}</p></section>` : ''}
     ${phones || emails || p.comments ? `<section><h3>${t('phonesEmail')}</h3>${phones}${emails}${field(t('comments'), h(p.comments))}</section>` : ''}
-    ${c.updated_at ? `<p class="meta">${h(t('updated', { date: c.updated_at, by: c.updated_by }))}</p>` : ''}`;
+    ${familySection(c)}
+    <p class="meta">
+      ${c.created_at ? `<span>${h(t('created', { date: c.created_at, by: c.created_by || '—' }))}</span>` : ''}
+      ${c.updated_at && c.updated_at !== c.created_at ? `<span>${h(t('updated', { date: c.updated_at, by: c.updated_by }))}</span>` : ''}
+    </p>`;
 
+  wireFamily(c);
   $('#card-edit').onclick = () => { $('#card-dialog').close(); openForm(c); };
-  $('#card-dialog').showModal();
+  if (!$('#card-dialog').open) $('#card-dialog').showModal();
+}
+
+// ---------- קשרים משפחתיים (בכרטיס האישי) ----------
+function contactById(id) {
+  return state.contacts.find((x) => String(x.contact_id) === String(id));
+}
+
+function pickerLabel(c) {
+  return `${fullNameHe(c)} (#${c.contact_id})${c.city ? ` – ${c.city}` : ''}`;
+}
+
+function familySection(c) {
+  const mine = state.relations.filter((r) => String(r.contact_id_a) === String(c.contact_id));
+  const rows = mine.map((r, i) => {
+    const other = contactById(r.contact_id_b);
+    return `<div class="kv family-row">
+      <span>${h(relationLabel(r.relation_type))}</span>
+      <span>${other ? `<a href="#" class="go-contact" data-id="${h(other.contact_id)}">${h(fullNameHe(other))}</a>` : `#${h(r.contact_id_b)}`}
+        <button type="button" class="icon-btn rel-remove" data-i="${i}" title="✕">✕</button></span>
+    </div>`;
+  }).join('');
+  const others = state.contacts.filter((x) => String(x.contact_id) !== String(c.contact_id)
+    && (isTrue(x.is_active) || x.is_active === ''));
+  return `<section class="family">
+    <h3>${t('family')}</h3>
+    ${rows}
+    <details class="add-family">
+      <summary>${t('addFamily')}</summary>
+      <div class="add-family-row">
+        <label>${t('relationType')}<select class="rel-type">${(state.lists.relation_type || [])
+          .map((v) => `<option value="${h(v)}">${h(relationLabel(v))}</option>`).join('')}</select></label>
+        <label class="grow">${t('pickContact')}<input class="rel-contact" list="dl-contacts" autocomplete="off"></label>
+        <button type="button" class="btn primary rel-add">${t('addBtn')}</button>
+      </div>
+      <datalist id="dl-contacts">${others.map((x) => `<option value="${h(pickerLabel(x))}">`).join('')}</datalist>
+    </details>
+  </section>`;
+}
+
+function wireFamily(c) {
+  const box = $('#card-body .family');
+  const mine = state.relations.filter((r) => String(r.contact_id_a) === String(c.contact_id));
+  $$('.go-contact', box).forEach((a) => {
+    a.onclick = (e) => { e.preventDefault(); openCard(a.dataset.id); };
+  });
+  $$('.rel-remove', box).forEach((b) => {
+    b.onclick = async () => {
+      if (!confirm(t('removeRelConfirm'))) return;
+      try {
+        await removeRelation(mine[Number(b.dataset.i)]);
+        await loadAll();
+        toast(t('relRemoved'));
+        openCard(c.contact_id);
+      } catch (err) { toast(friendlyError(err), 'error'); }
+    };
+  });
+  $('.rel-add', box).onclick = async () => {
+    const type = $('.rel-type', box).value;
+    const m = $('.rel-contact', box).value.match(/\(#(\d+)\)/);
+    if (!type || !m || !contactById(m[1])) { toast(t('pickValid'), 'error'); return; }
+    if (m[1] === String(c.contact_id)) { toast(t('relSelf'), 'error'); return; }
+    if (mine.some((r) => r.relation_type === type && String(r.contact_id_b) === m[1])) {
+      toast(t('relExists'), 'error'); return;
+    }
+    const btn = $('.rel-add', box);
+    btn.disabled = true;
+    try {
+      await addRelation(c.contact_id, type, Number(m[1]));
+      await loadAll();
+      toast(t('relAdded'));
+      openCard(c.contact_id);
+    } catch (err) {
+      toast(friendlyError(err), 'error');
+      btn.disabled = false;
+    }
+  };
 }
 
 // ---------- טופס הוספה / עריכה ----------

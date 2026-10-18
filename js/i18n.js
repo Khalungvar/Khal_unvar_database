@@ -33,7 +33,8 @@ const STRINGS = {
     address: 'אדרעס',
     phonesEmail: 'טעלעפאנען און אימעילס',
     comments: 'הערות',
-    updated: 'דערהיינטיקט {date} דורך {by}',
+    created: 'אריינגעלייגט {date} דורך {by}',
+    updated: 'געטוישט {date} דורך {by}',
     mobile: 'אייגענער סעל',
     home_phone: 'שטוב טעלעפאן',
     wife_mobile: 'פרוי\'ס סעל',
@@ -88,7 +89,20 @@ const STRINGS = {
     sessionTitle: 'די כניסה איז אויסגעלאפן',
     sessionText: 'צוליב זיכערהייט דויערט א כניסה א שעה. דריקט אויפן קנעפל צו ווייטער ארבעטן.',
     sessionContinue: 'ווייטער',
+    family: 'פאמיליע',
+    addFamily: '+ צולייגן א פאמיליע מיטגליד',
+    relationType: 'ווער איז ער',
+    pickContact: 'שרייבט א נאמען און וועלט פון דער רשימה',
+    addBtn: 'צולייגן',
+    removeRelConfirm: 'אויסמעקן די פאמיליע פארבינדונג (אויך פון דער צווייטער זייט)?',
+    relAdded: 'די פאמיליע פארבינדונג איז צוגעלייגט',
+    relRemoved: 'די פאמיליע פארבינדונג איז אויסגעמעקט',
+    pickValid: 'וועלט א קאנטאקט פון דער רשימה',
+    relSelf: 'מען קען נישט פארבינדן א קאנטאקט מיט זיך אליין',
+    relExists: 'די פארבינדונג איז שוין דא',
+    relationHint: '{name} איז דער {rel} פון {other}',
     marital_values: {},
+    relation_values: {},
   },
   en: {
     langName: 'English',
@@ -123,7 +137,8 @@ const STRINGS = {
     address: 'Address',
     phonesEmail: 'Phones & email',
     comments: 'Notes',
-    updated: 'Updated {date} by {by}',
+    created: 'Added {date} by {by}',
+    updated: 'Changed {date} by {by}',
     mobile: 'Mobile',
     home_phone: 'Home phone',
     wife_mobile: 'Wife\'s mobile',
@@ -178,6 +193,19 @@ const STRINGS = {
     sessionTitle: 'Session expired',
     sessionText: 'For security, a sign-in lasts one hour. Click the button to keep working.',
     sessionContinue: 'Continue',
+    family: 'Family',
+    addFamily: '+ Add family member',
+    relationType: 'Who is he',
+    pickContact: 'Type a name and pick from the list',
+    addBtn: 'Add',
+    removeRelConfirm: 'Remove this family link (from both sides)?',
+    relAdded: 'Family link added',
+    relRemoved: 'Family link removed',
+    pickValid: 'Pick a contact from the list',
+    relSelf: 'A contact cannot be linked to himself',
+    relExists: 'This link already exists',
+    relationHint: '{name} is the {rel} of {other}',
+    relation_values: { 'אבא': 'Father', 'בן': 'Son', 'חתן': 'Son-in-law', 'חותן': 'Father-in-law', 'אח': 'Brother', 'גיס': 'Brother-in-law', 'סבא': 'Grandfather', 'נכד': 'Grandson' },
     marital_values: { 'נשוי': 'Married', 'בחור': 'Single', 'גרוש': 'Divorced', 'אלמן': 'Widower' },
   },
 };
@@ -203,6 +231,11 @@ export function t(key, vars = {}) {
 /** ערך מרשימת המצב המשפחתי, מוצג בשפת הממשק (הנתון בגליון לא משתנה). */
 export function maritalLabel(value) {
   return STRINGS[lang].marital_values[value] || value;
+}
+
+/** סוג קשר משפחתי בשפת הממשק (הנתון בגליון לא משתנה). */
+export function relationLabel(value) {
+  return STRINGS[lang].relation_values[value] || value;
 }
 
 /** מעדכן את הטקסטים הקבועים בדף ואת כיוון הכתיבה. */
