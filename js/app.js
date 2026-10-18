@@ -20,6 +20,7 @@ import {
 import {
   initCampaigns, renderCampaignSide, renderCampaignMain, showCampaign,
 } from './campaigns.js';
+import { initLists, renderListsSide, renderBuilder } from './lists.js';
 import { initAdmin, renderAdmin, adminDirty } from './admin.js';
 import {
   getScope, setScope, restoreScope, withFormer, setWithFormer, contactInScope, donationInScope, umbrellaName,
@@ -101,6 +102,8 @@ function refreshAll() {
   renderOrgs();
   renderCampaignSide();
   $('#btn-admin').hidden = !state.isAdmin;
+  renderListsSide();
+  if (!$('.view[data-view="lists"]').hidden) renderBuilder();
   if (!$('.view[data-view="campaign"]').hidden) renderCampaignMain();
   if ($('#card-dialog').open && currentCardId) openCard(currentCardId);
 }
@@ -115,6 +118,8 @@ function showView(name) {
   if (name === 'occasions') { fillOccasionFilters(); renderOccasions(); }
   if (name === 'campaign') renderCampaignMain();
   if (name === 'admin') renderAdmin();
+  if (name === 'lists') renderBuilder();
+  renderListsSide();
   $('#btn-admin')?.classList.toggle('on', name === 'admin');
   renderCampaignSide();
 }
@@ -1215,6 +1220,7 @@ function start() {
   });
   initCampaigns({ showView, tagPicker, wireTagPicker, readTags, toast, friendlyError, refreshAll });
   initAdmin({ toast, friendlyError, refreshAll });
+  initLists({ showView, fullNameHe, phonesOf, contactById, pickerLabel, openCard, toast, friendlyError, refreshAll });
   $('#btn-admin').onclick = () => showView('admin');
   closeOnBackdrop($('#form-dialog'), closeForm);
   $('#form-dialog').addEventListener('cancel', (e) => { e.preventDefault(); closeForm(); }); // מקש Esc

@@ -518,3 +518,26 @@ dialog.sheet.full { width: min(1200px, 96vw); max-width: 96vw; max-height: 94vh;
 
 .side-home { font-size: 16px; }
 #home-count { margin-inline-start: 6px; }
+
+/* בונה רשימות */
+.lb-form { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.lb-form details { background: var(--surface); border: 1px solid var(--gold); border-radius: 12px; padding: 8px 12px; }
+.lb-form summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+.lb-block { margin: 8px 0; display: flex; flex-direction: column; gap: 4px; }
+.lb-row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 8px 0; }
+.lb-row select, .lb-row input { font: inherit; padding: 6px 8px; }
+.lb-min input { width: 7em; }
+.lb-manual { display: flex; flex-wrap: wrap; gap: 6px; }
+.lb-plus { background: #e3f1e4; } .lb-minus { background: #f6dede; text-decoration: line-through; }
+.lb-result-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+.lb-result-head #lb-name { font: inherit; padding: 7px 10px; min-width: 16em; }
+.lb-table-wrap { overflow-x: auto; }
+.lb-table { width: 100%; border-collapse: collapse; background: var(--surface); font-size: 14px; }
+.lb-table th { text-align: start; color: var(--muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--gold); white-space: nowrap; }
+.lb-table td { padding: 6px 8px; border-bottom: 1px solid color-mix(in srgb, var(--gold) 30%, transparent); }
+.lb-table tbody tr { cursor: pointer; }
+.lb-table tbody tr:hover { background: var(--chip); }
+@media print {
+  .lb-form, .lb-result-head, .camp-page-head, .no-print, #scope-bar { display: none !important; }
+  .lb-table { font-size: 11px; }
+}
