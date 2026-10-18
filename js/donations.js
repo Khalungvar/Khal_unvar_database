@@ -319,7 +319,7 @@ export function openDonationForm(donation = {}, presetContactId = null) {
       <p class="hint-line">${t('dedicationHint')}</p>
     </details>
 
-    ${!isNew && d.created_at ? `<p class="meta">${h(t('created', { date: d.created_at, by: displayName(d.created_by) || '—' }))}${d.updated_at && d.updated_at !== d.created_at ? ` · ${h(t('updated', { date: d.updated_at, by: displayName(d.updated_by) }))}` : ''}</p>` : ''}
+    ${!isNew && d.created_at ? `<p class="meta">${h(t('created', { date: `\u2066${d.created_at}\u2069`, by: displayName(d.created_by) || '—' }))}${d.updated_at && d.updated_at !== d.created_at ? ` · ${h(t('updated', { date: `\u2066${d.updated_at}\u2069`, by: displayName(d.updated_by) }))}` : ''}</p>` : ''}
     <div class="actions">
       ${!isNew ? `<button type="button" class="btn danger" id="don-delete">${t('deleteBtn')}</button>` : ''}
       ${!isNew ? `<button type="button" class="btn" id="don-receipt">🧾 ${h(isTrue(d.is_paid) ? t('rcBtnReceipt') : t('rcBtnInvoice'))}</button>

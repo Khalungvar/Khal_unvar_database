@@ -517,7 +517,7 @@ function renderOverview(main) {
       <tbody>${lists.map((l) => {
         const { cr } = parseSaved(l);
         return `<tr data-open="${h(l.list_id)}"><td><b>${l.visibility === 'private' ? '🔒 ' : ''}${h(l.name)}</b></td><td class="num">${evaluate(cr).length}</td>
-          <td class="muted small">${h(l.updated_at || '')} · ${h(displayName(l.updated_by))}</td>
+          <td class="muted small"><bdi dir="ltr">${h(l.updated_at || '')}</bdi> · ${h(displayName(l.updated_by))}</td>
           <td class="lo-btns"><button type="button" class="btn small-btn" data-excel="${h(l.list_id)}">Excel</button>
             <button type="button" class="btn small-btn" data-mail="${h(l.list_id)}">✉</button>
             <button type="button" class="btn small-btn" data-copy="${h(l.list_id)}">${t('lbDuplicate')}</button></td></tr>`;

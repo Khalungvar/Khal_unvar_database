@@ -116,8 +116,8 @@ function rowHtml(r, { actions = false, who = true } = {}) {
     <span class="rq-icon">${T.icon}</span>
     <div class="rq-main">
       <div><b>${h(r.summary)}</b> ${link ? `· ${link}` : ''} ${actions ? '' : statusBadge(r.status)}</div>
-      <div class="muted small">${h(t(T.label))}${who ? ` · ${h(displayName(r.requested_by))}` : ''} · ${h(r.requested_at || '')}
-        ${r.decided_by ? ` · ${h(t('rqDecidedBy', { name: displayName(r.decided_by) }))} ${h(r.decided_at || '')}` : ''}</div>
+      <div class="muted small">${h(t(T.label))}${who ? ` · ${h(displayName(r.requested_by))}` : ''} · <bdi dir="ltr">${h(r.requested_at || '')}</bdi>
+        ${r.decided_by ? ` · ${h(t('rqDecidedBy', { name: displayName(r.decided_by) }))} <bdi dir="ltr">${h(r.decided_at || '')}</bdi>` : ''}</div>
       ${r.decision_note ? `<div class="rq-note">💬 ${h(r.decision_note)}</div>` : ''}
     </div>
     ${actions ? `<div class="rq-actions">

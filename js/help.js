@@ -125,7 +125,7 @@ export function initHelpChat() {
       <div class="ai-log" aria-live="polite"></div>
     </section>
     <form class="ai-bar"><input class="ai-input" dir="auto" autocomplete="off" placeholder="${h(t('aiPh'))}">
-      <button type="submit" class="ai-send" aria-label="${h(t('helpAsk'))}">➤</button></form>`;
+      <button type="submit" class="ai-send" aria-label="${h(t('helpAsk'))}"><span class="ai-ico-closed">💬</span><span class="ai-ico-open">➤</span></button></form>`;
   ($('#app-view') || document.body).append(root);
   chat = { root, panel: $('.ai-panel', root), log: $('.ai-log', root), input: $('.ai-input', root), busy: false };
   chat.log.innerHTML = `<div class="ai-msg bot ai-welcome" dir="auto">${md(t('aiWelcome', { n: AI_DAILY }))}</div>`;
@@ -165,7 +165,8 @@ function addMsg(cls, html) {
 /** א שאלה צום AI (דורכן "סערווער" — Apps Script). ער באקומט דעם פירער און ענטפערט נאר לויט אים. */
 async function askChat() {
   const q = chat.input.value.trim();
-  if (!q || chat.busy) return;
+  if (!q) { openChat(); return; } // אויפן טעלעפאן: דער קליינער 💬 קנעפל עפנט דאס פענצטערל
+  if (chat.busy) return;
   openChat();
   addMsg('me', h(q));
   chat.input.value = '';

@@ -82,7 +82,7 @@ function messageList() {
         <span class="pm-subj">${h(m.subject || '')}</span>
         ${statusBadge(m)}
         <span class="spacer"></span>
-        <span class="muted small">${h(m.created_at || '')}</span>
+        <span class="muted small"><bdi dir="ltr">${h(m.created_at || '')}</bdi></span>
       </div>
       ${open ? `<div class="pm-body">${h(m.text || '').replace(/\n/g, '<br>')}</div>
         <div class="pm-actions">
@@ -144,10 +144,10 @@ function taskRow(x, kind) {
       <div class="muted small">
         ${kind === 'mine' && from && from !== state.email ? `${h(t('tdFrom', { name: displayName(from) }))} · ` : ''}
         ${kind === 'sent' ? `→ ${h(displayName(x.assigned_to))} · ${h(open(x) ? t('tdOpen') : t('tdDoneBy', { name: displayName(x.done_by), date: x.done_at }))} · ` : ''}
-        ${kind === 'later' ? `⏰ ${h(x.remind_at)} · ` : ''}
-        ${kind === 'done' ? `✓ ${h(x.done_at || '')} · ` : ''}
+        ${kind === 'later' ? `⏰ <bdi dir="ltr">${h(x.remind_at)}</bdi> · ` : ''}
+        ${kind === 'done' ? `✓ <bdi dir="ltr">${h(x.done_at || '')}</bdi> · ` : ''}
         ${c ? `<a href="#" data-card="${h(c.contact_id)}">${h(ui.fullNameHe(c))}</a> · ` : ''}
-        ${h(String(x.created_at || '').slice(0, 10))}
+        <bdi dir="ltr">${h(String(x.created_at || '').slice(0, 10))}</bdi>
       </div>
     </div>
     <div class="td-btns">
@@ -286,7 +286,7 @@ export function renderPersonal(composePreset = null) {
       <p class="hint-line">${t('pmListsHint')}</p>
       ${myLists.length ? `<div class="pm-lists">${myLists.map((l) => `<button type="button" class="lo-tpl" data-list="${h(l.list_id)}">
         <b>${l.visibility === 'private' ? '🔒 ' : '🌐 '}${h(l.name)}</b>
-        <span class="muted small">${h(l.visibility === 'private' ? t('lbPrivate') : t('lbPublic'))} · ${h(l.updated_at || '')}</span></button>`).join('')}</div>`
+        <span class="muted small">${h(l.visibility === 'private' ? t('lbPrivate') : t('lbPublic'))} · <bdi dir="ltr">${h(l.updated_at || '')}</bdi></span></button>`).join('')}</div>`
         : `<p class="empty">${t('noSavedLists')}</p>`}
     </section>
 
@@ -295,13 +295,13 @@ export function renderPersonal(composePreset = null) {
         <h3>${t('pmMyContacts')} <span class="muted small">(${contacts.length})</span></h3>
         <div class="list compact">${contacts.map(({ c, when, added }) => `<button type="button" class="row" data-card="${h(c.contact_id)}">
           <span class="row-main"><span class="row-name">${h(ui.fullNameHe(c))}</span>
-          <span class="muted small">${h(added ? t('pmAdded') : t('pmChanged'))} · ${h(when)}</span></span></button>`).join('') || `<p class="empty">${t('pmNothing')}</p>`}</div>
+          <span class="muted small">${h(added ? t('pmAdded') : t('pmChanged'))} · <bdi dir="ltr">${h(when)}</bdi></span></span></button>`).join('') || `<p class="empty">${t('pmNothing')}</p>`}</div>
       </section>
       <section class="pm-section">
         <h3>${t('pmMyDonations')} <span class="muted small">(${donations.length} · ${money(donations.reduce((s, d) => s + Number(d.amount_usd || 0), 0))})</span></h3>
         <div class="list compact">${donations.map((d) => `<button type="button" class="row" data-don="${h(d.donation_id)}">
           <span class="row-main"><span class="row-name">${h(donorName(d))}</span>
-          <span class="muted small">${h(d.campaign || splitTags(d.event_tags).join(', '))} · ${h(d.created_at || '')}</span></span>
+          <span class="muted small">${h(d.campaign || splitTags(d.event_tags).join(', '))} · <bdi dir="ltr">${h(d.created_at || '')}</bdi></span></span>
           <span class="don-amount">${money(d.amount_usd)}</span></button>`).join('') || `<p class="empty">${t('pmNothing')}</p>`}</div>
       </section>
     </div>`;

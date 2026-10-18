@@ -625,8 +625,8 @@ function openCard(id, tab = null) {
       ${orgSection(c)}
     </div>
     <p class="meta">
-      ${c.created_at ? `<span>${h(t('created', { date: c.created_at, by: displayName(c.created_by) || '—' }))}</span>` : ''}
-      ${c.updated_at && c.updated_at !== c.created_at ? `<span>${h(t('updated', { date: c.updated_at, by: displayName(c.updated_by) }))}</span>` : ''}
+      ${c.created_at ? `<span>${h(t('created', { date: `\u2066${c.created_at}\u2069`, by: displayName(c.created_by) || '—' }))}</span>` : ''}
+      ${c.updated_at && c.updated_at !== c.created_at ? `<span>${h(t('updated', { date: `\u2066${c.updated_at}\u2069`, by: displayName(c.updated_by) }))}</span>` : ''}
     </p>
     <details class="hist"><summary>📜 ${h(t('histTitle'))}</summary><div class="hist-list"><p class="muted small">${h(t('loading'))}</p></div></details>`;
 
@@ -696,7 +696,7 @@ function orgBox(n) {
   return `<div class="org-box" data-id="${h(n.note_id || '')}">
     <textarea rows="4" dir="rtl" placeholder="${h(t('orgPh'))}">${h(n.text || '')}</textarea>
     <div class="org-actions">
-      ${n.created_by ? `<span class="muted small">${h(n.updated_at || n.created_at)} · ${h(displayName(n.updated_by || n.created_by))}</span>` : ''}
+      ${n.created_by ? `<span class="muted small"><bdi dir="ltr">${h(n.updated_at || n.created_at)}</bdi> · ${h(displayName(n.updated_by || n.created_by))}</span>` : ''}
       <span class="spacer"></span>
       <button type="button" class="btn small-btn danger org-del">${t('deleteBtn')}</button>
       <button type="button" class="btn small-btn primary org-save" hidden>${t('saveBtn')}</button>

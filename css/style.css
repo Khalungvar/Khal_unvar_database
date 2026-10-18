@@ -1088,3 +1088,33 @@ body.solo-mode .solo-only { display: inline-flex !important; }
 .imp-table tr.imp-maybe td { background: #eef6ff; }
 .imp-maybe-b { background: #dbeafe; color: #1e3a8a; }
 .imp-pick { vertical-align: middle; }
+/* טעלעפאן: די אויבערשטע שורה זאל נישט ארויסגיין פון בלאט */
+html, body { overflow-x: clip; }
+.ai-send .ai-ico-closed { display: none; }
+@media (max-width: 700px) {
+  .topbar { flex-wrap: wrap; gap: 4px 6px; padding: 6px 8px; }
+  .brand > span { display: none; }
+  .brand img { height: 38px; }
+  .topbar .btn.ghost { padding: 5px 8px; font-size: 13px; }
+  #btn-help > span[data-i18n], #btn-personal > span[data-i18n] { display: none; }
+  .topbar .lang-switch button { padding: 3px 8px; font-size: 12px; }
+  /* דער AI: צוגעמאכט — נאר א קליינער רונדער קנעפל */
+  .ai-chat:not(.open) { width: auto; }
+  .ai-chat:not(.open) .ai-input { display: none; }
+  .ai-chat:not(.open) .ai-bar { padding: 4px; }
+  .ai-chat:not(.open) .ai-send .ai-ico-closed { display: inline; }
+  .ai-chat:not(.open) .ai-send .ai-ico-open { display: none; }
+  .ai-chat.open { width: calc(100vw - 24px); left: 12px; bottom: 12px; }
+}
+/* טעלעפאן: גרויסע טאבעלעס / דער קאנווערט — שיבן אין זייט, נישט ארויסשטופן דעם בלאט */
+.app-body > *, .page { min-width: 0; }
+@media (max-width: 700px) {
+  .lapsed-table, .series-table, .adm-table, .imp-table, .lo-table { display: block; overflow-x: auto; max-width: 100%; }
+  .mm-stage, .mm-canvas { max-width: 100%; overflow-x: auto; }
+  .rc-actions { flex-wrap: wrap; }
+}
+@media (max-width: 700px) {
+  .mm-view label.check { white-space: normal; }
+  .mm-view { overflow-x: auto; }
+}
+@media (max-width: 700px) { .camp-page-head { flex-wrap: wrap; } .camp-page-head > * { max-width: 100%; } }
