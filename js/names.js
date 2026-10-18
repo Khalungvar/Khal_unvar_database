@@ -160,6 +160,84 @@ export function suggestLastName(he, contacts) {
     || SURNAMES[key] || SURNAMES[String(he).trim()] || transliterateYiddish(he);
 }
 
+
+// אנדערע ענגלישע אויסלייגן פון אידישע נעמען (פאר ענגליש → אידיש)
+const EN_FIRST = {
+  'שלמה': 'Shlomo Shloime Shlome Solomon Sol',
+  'שלום': 'Sholom Shalom Sholem',
+  'יוסף': 'Yosef Yossef Joseph Yossi Yosi Yoseph Yossel',
+  'חיים': 'Chaim Haim Chayim Hyman',
+  'יעקב': 'Yaakov Yakov Yankev Yankel Jacob Yanky Yaacov',
+  'יצחק': 'Yitzchok Yitzchak Yitzchoka Isaac Issac Itzik Yitzy Yitz Izzy',
+  'אברהם': 'Avraham Avrohom Avrum Abraham Avi Avrumi',
+  'משה': 'Moshe Moishe Moses Moishy Moishe',
+  'שמואל': 'Shmuel Samuel Shmiel Sam Sammy Shmuli',
+  'מאיר': 'Meir Meyer Myer',
+  'עמרם': 'Amrom Amram',
+  'צבי': 'Tzvi Zvi Tzvy Hershy Heshy Harry',
+  'זאב': 'Zev Zeev Velvel Wolf',
+  'מרדכי': 'Mordechai Mordche Motty Mutty Max Mordy',
+  'מנחם': 'Menachem Mendy Mendel Manny',
+  'אליעזר': 'Eliezer Lazer Leizer',
+  'אליהו': 'Eliyahu Elya Elly Eli Elijah',
+  'יהודה': 'Yehuda Yehudah Yidel Judah Yudi',
+  'אהרן': 'Aron Aaron Aharon Ahron',
+  'דוד': 'Dovid David Duvid Dovi',
+  'ישראל': 'Yisroel Yisrael Israel Srulik Sruly',
+  'פנחס': 'Pinchas Pinny Pinchus',
+  'נפתלי': 'Naftali Naftuli Tuli Naftoli',
+  'נתן': 'Nosson Nusen Nathan Nuchem Nussi',
+  'שמעון': 'Shimon Simon Shimmy',
+  'לוי': 'Levi Levy',
+  'בנימין': 'Binyamin Binyomin Benjamin Benny Bentzion',
+  'ברוך': 'Boruch Baruch Burech Barry',
+  'אפרים': 'Efraim Ephraim Froim',
+  'יחיאל': 'Yechiel Yechil',
+  'יואל': 'Yoel Joel Yoely',
+  'יחזקאל': 'Yechezkel Chaskel Chezky',
+  'יונתן': 'Yonasan Yonason Jonathan Yoni',
+  'מיכאל': 'Michoel Michael Michel Michoel',
+  'דניאל': 'Daniel Danny',
+  'ראובן': 'Reuven Ruben Reuvein',
+  'אשר': 'Asher Anshel',
+  'ישעיה': 'Yeshaya Shaya Shaye',
+  'הערשל': 'Hershel Hershy Heshel',
+  'מענדל': 'Mendel',
+  'לייב': 'Leib Leibish Leiby',
+  'שמחה': 'Simcha',
+  'גרשון': 'Gershon',
+  'נחמן': 'Nachman',
+  'נחום': 'Nachum Nuchem',
+  'פסח': 'Pesach Pesi',
+  'ישכר': 'Yissachar Sucher',
+  'זלמן': 'Zalmen Zalman',
+  'בערל': 'Berel Berl',
+  'אלימלך': 'Elimelech Melech Meilech',
+  'עקיבא': 'Akiva Kivi',
+  'יוסף חיים': 'Yosef Chaim',
+  'שרה': 'Sarah Sara Surie Suri',
+  'רחל': 'Rachel Ruchel Ruchy',
+  'לאה': 'Leah Lea Leie',
+  'רבקה': 'Rivka Rivky Rebecca Rifky',
+  'חנה': 'Chana Chany Hannah Chanie',
+  'מרים': 'Miriam Mirel Mimi',
+  'אסתר': 'Esther Esty Etty',
+  'פרידא': 'Frida Freida Fraidy',
+  'בלומא': 'Bluma Blimi Blimy',
+  'גיטל': 'Gitty Gittel Gitel',
+  'דבורה': 'Devora Dvora Deborah Devory',
+  'פערל': 'Perel Perl Pearl',
+  'מלכה': 'Malka Malky',
+  'חיה': 'Chaya Chayi',
+  'יהודית': 'Yehudis Judith Judy',
+  'טויבא': 'Toby Tauba Tobi',
+  'צירל': 'Tzirel Tzirl',
+  'שיינדל': 'Shaindy Sheindel Shaindel',
+  'ברכה': 'Bracha Brachy',
+  'רייזל': 'Raizy Reizel',
+  'פייגא': 'Faigy Feiga Faige',
+};
+
 // ---------- פון ענגליש צו אידיש (פארקערט) — למשל פאר אן אלטע רשימה וואס איז נאר אויף ענגליש ----------
 const lc = (s) => String(s || '').trim().toLowerCase();
 
@@ -184,6 +262,7 @@ function reverseDictRaw(contacts, pairs, base) {
   const best = new Map();
   counts.forEach((m, e) => best.set(e, [...m.entries()].sort((a, b) => b[1] - a[1])[0][0]));
   Object.entries(base).forEach(([he, en]) => { if (!best.has(lc(en))) best.set(lc(en), he); });
+  if (base === COMMON) Object.entries(EN_FIRST).forEach(([he, ens]) => ens.split(' ').forEach((en) => { if (!best.has(lc(en))) best.set(lc(en), he); }));
   return best;
 }
 
@@ -219,7 +298,7 @@ export function transliterateEnglish(word) {
 }
 
 function lookupEn(en, dict) {
-  const full = lc(en);
+  const full = lc(String(en || '').replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' '));
   if (!full) return '';
   if (dict.has(full)) return dict.get(full);
   const words = full.split(/\s+/);
@@ -230,11 +309,15 @@ function lookupEn(en, dict) {
 /** א פרטי נאמען אויף אידיש פון ענגליש: פון דער רשימה / באקאנטע נעמען → תעתיק. */
 export function suggestHeFirstName(en, contacts) {
   const dict = reverseDict(contacts, [['first_name_he', 'first_name_en'], ['wife_name_he', 'wife_name_en']], COMMON);
-  return lookupEn(en, dict) || transliterateEnglish(en);
+  const clean = String(en || '').replace(/\([^)]*\)/g, ' ').trim();
+  // כמה ווערטער: יעדעס ווארט באזונדער (באקאנט → פון דער ליסטע, נישט באקאנט → תעתיק)
+  return lookupEn(clean, dict) || clean.split(/\s+/).map((w) => lookupEn(w, dict) || transliterateEnglish(w)).join(' ');
 }
 
 /** א פאמיליע נאמען אויף אידיש פון ענגליש. */
 export function suggestHeLastName(en, contacts) {
   const dict = reverseDict(contacts, [['last_name_he', 'last_name_en']], SURNAMES);
-  return lookupEn(en, dict) || transliterateEnglish(en);
+  // א פאמיליע נאמען וואס איז אויך א פרטי נאמען (Israel, Meir, Levi…)
+  const firsts = reverseDict(contacts, [['first_name_he', 'first_name_en'], ['wife_name_he', 'wife_name_en']], COMMON);
+  return lookupEn(en, dict) || lookupEn(en, firsts) || transliterateEnglish(en);
 }

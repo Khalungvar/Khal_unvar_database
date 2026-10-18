@@ -200,6 +200,13 @@ function buildRows(table) {
       if (k.startsWith('email')) v = v.toLowerCase();
       (f[3] === 'p' ? phones : contact)[k] = v;
     });
+    // ענגליש אין די אידישע קאלומס (אדער פארקערט)? — אריבערפירן צום ריכטיגן פלאץ
+    [['first_name_he', 'first_name_en'], ['last_name_he', 'last_name_en'], ['wife_name_he', 'wife_name_en'], ['title_he', 'title_en']].forEach(([he, en]) => {
+      const isLatin = (v) => /[a-z]/i.test(v || '') && !/[\u0590-\u05FF]/.test(v || '');
+      const isHeb = (v) => /[\u0590-\u05FF]/.test(v || '');
+      if (isLatin(contact[he]) && !contact[en]) { contact[en] = contact[he]; contact[he] = ''; }
+      if (isHeb(contact[en]) && !contact[he]) { contact[he] = contact[en]; contact[en] = ''; }
+    });
     if (!contact.area && (contact.zip || contact.city)) contact.area = detectArea(state.areas || [], contact);
     if (autoFill) fillNames(contact);
     const out = { n: i + 2, contact, phones, status: 'ok', note: '' };
