@@ -15,6 +15,9 @@
 - הבעלים ישלח קבלה לדוגמה — הקבלה תעוצב לפיה.
 - ❓ האם 501(c)(3)? מספור קבלות?
 
+## לוח יארצייטים (לעתיד — הבעלים ירצה לבנות)
+- לוח שיוצג בתוכנה עם כל היארצייטים (שם, שם האב, קרבה, איש קשר, תאריך עברי + לועזי של השנה הנוכחית). יתוכנן בנפרד.
+
 ## לוח חסויות קאווע (הוחלט)
 - מסך לכל שנה עברית: כל החודשים (13 בשנה מעוברת). לכל חודש: מי לקח (כולל חלוקה בין כמה), ימים/שבועות שנלקחו בנפרד, מה פנוי (מודגש), ומה שולם/לא שולם.
 - אזהרה כשרושמים חסות על תקופה שכבר תפוסה.
@@ -90,10 +93,10 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 | שדה | סוג |
 |---|---|
 | Contact_ID | קישור לאיש קשר |
-| תאריך היארצייט | לוח עברי |
+| תאריך היארצייט | לוח עברי — ✅ בחירה מלוח שנה עברי. החודשים כוללים אדר / אדר א' / אדר ב'; לכל יארצייט באדר בוחרים מתי מציינים בשנה מעוברת (אדר א' / אדר ב') |
 | שם הנפטר | טקסט |
-| שם אבי הנפטר | טקסט |
-| קרבה לאיש הקשר | ✅ הוחלט: רק לידיעה (אבא, אמא...). אין קישור לנפטר במאגר. ❓ רשימת הקרבות |
+| שם אבי הנפטר | טקסט — ✅ רק שם האב (מנהג אשכנז), בלי שם האם |
+| קרבה לאיש הקשר | ✅ הוחלט: לידיעה בלבד, באידיש: טאטע, מאמע, שווער, שוויגער, ווייב, זיידע, באבע, ברודער, שוועסטער, זון, טאכטער (Lists, עמודה N). אין קישור לנפטר במאגר |
 
 ### כללי פנייה (הוחלט)
 - כל רשומה היא משפחה; הבעל הוא איש הקשר הראשי. אין שדה "מין".
@@ -116,7 +119,7 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 - **Relations:** relation_id, contact_id_a, relation_type, contact_id_b
 - **Yahrzeit:** yahrzeit_id, contact_id, hebrew_day, hebrew_month, hebrew_year, deceased_name, deceased_father_name, relation_to_contact
 - **Settings:** admin_email, note
-- **Lists:** title_he, title_en, marital_status, event_tag, payment_method, dedication_type, relation_type, community_tag, title_he_default_en, title_en_default_he, phone_tag, email_tag, relation_reverse
+- **Lists:** title_he, title_en, marital_status, event_tag, payment_method, dedication_type, relation_type, community_tag, title_he_default_en, title_en_default_he, phone_tag, email_tag, relation_reverse, yahrzeit_relation
 
 עקרונות: מחיקה רכה (is_active), עבודה דרך התוכנה ולא ישירות בגליון, רשימות האפשרויות נערכות בלשונית Lists.
 
