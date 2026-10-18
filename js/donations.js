@@ -173,6 +173,8 @@ export function openDonationForm(donation = {}, presetContactId = null) {
   if (isNew) {
     d.contact_id = presetContactId || '';
     d.date = todayIso();
+    d.is_paid = true; // ברירת מחדל: שולם
+    d.paid_date = todayIso();
   }
   const contact = d.contact_id ? ui.contactById(d.contact_id) : null;
   const hDate = toHebrew(d.date || todayIso());
