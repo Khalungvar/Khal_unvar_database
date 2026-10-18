@@ -120,9 +120,10 @@ async function ask(question, dlg) {
     });
     const data = await res.json();
     if (data.error === 'daily-limit') { box.innerHTML = `<p class="warn-text">${h(t('helpAiLimit'))}</p>`; return; }
-    if (!data.answer) throw new Error(data.error || 'no answer');
+    if (!data.answer) throw new Error(`${data.error || 'no answer'}${data.detail ? ` · ${data.detail}` : ''}`);
     box.innerHTML = `<div class="hp-ai" dir="auto">${md(data.answer)}</div><p class="muted small">${h(t('helpAiNote'))}</p>`;
   } catch (err) {
-    box.innerHTML = `<p class="warn-text">${h(t('helpAiFail'))}</p>`;
+    // דער פעלער-קאוד קליין אונטן — כדי מ'זאל קענען זען וואס איז נישט געלונגען
+    box.innerHTML = `<p class="warn-text">${h(t('helpAiFail'))}</p><p class="muted small" dir="ltr">${h(String(err.message || err).slice(0, 300))}</p>`;
   }
 }
