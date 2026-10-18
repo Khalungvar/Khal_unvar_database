@@ -227,6 +227,7 @@ function tagChips(value) {
 }
 
 let currentCardId = null;
+let cardTab = 'details'; // הלשונית הפתוחה בכרטיס
 
 function openCard(id) {
   const c = state.contacts.find((x) => String(x.contact_id) === String(id));
@@ -253,6 +254,12 @@ function openCard(id) {
   $('#card-body').innerHTML = `
     <h2 dir="auto">${h(fullNameHe(c))}</h2>
     <p class="sub">#${h(c.contact_id)} · ${t('code')} ${h(primaryCode(c.first_name_he, c.last_name_he))}${!isAlive(c.is_alive) ? ` · ${t('deceased')}` : ''}</p>
+    <nav class="card-tabs" role="tablist">
+      <button type="button" data-tab="details">${t('cardTabDetails')}</button>
+      <button type="button" data-tab="family">${t('cardTabFamily')}${familyCount(c) ? ` <span class="count-pill">${familyCount(c)}</span>` : ''}</button>
+      <button type="button" data-tab="money">${t('cardTabMoney')}${donationCount(c) ? ` <span class="count-pill">${donationCount(c)}</span>` : ''}</button>
+    </nav>
+    <div class="card-pane" data-tab="details">
     <section>
       ${field(t('marital'), h(maritalLabel(c.marital_status)))}
       ${field(t('enName'), unverifiedWrap(c, ['first_name_en', 'last_name_en'], h([c.title_en, c.first_name_en, c.last_name_en].filter(Boolean).join(' '))), true)}
@@ -264,8 +271,14 @@ function openCard(id) {
     </section>
     ${address || c.area ? `<section><h3>${t('address')}${c.area ? ` · ${unverifiedWrap(c, ['area'], h(c.area))}` : ''}</h3><p dir="ltr" class="addr">${address}</p></section>` : ''}
     ${phones || emails || p.comments ? `<section><h3>${t('phonesEmail')}</h3>${phones}${emails}${field(t('comments'), h(p.comments))}</section>` : ''}
-    ${familySection(c)}
-    ${donationsSection(c)}
+    </div>
+    <div class="card-pane" data-tab="family">
+      ${familySection(c)}
+      <section><h3>${t('yahrzeits')}</h3><p class="muted">${t('yahrzeitsSoon')}</p></section>
+    </div>
+    <div class="card-pane" data-tab="money">
+      ${donationsSection(c)}
+    </div>
     <p class="meta">
       ${c.created_at ? `<span>${h(t('created', { date: c.created_at, by: c.created_by || '—' }))}</span>` : ''}
       ${c.updated_at && c.updated_at !== c.created_at ? `<span>${h(t('updated', { date: c.updated_at, by: c.updated_by }))}</span>` : ''}
@@ -273,7 +286,15 @@ function openCard(id) {
 
   wireFamily(c);
   wireDonationsSection(c);
+  if (String(currentCardId) !== String(c.contact_id)) cardTab = 'details';
   currentCardId = c.contact_id;
+  const showTab = (name) => {
+    cardTab = name;
+    $$('#card-body .card-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
+    $$('#card-body .card-pane').forEach((pane) => { pane.hidden = pane.dataset.tab !== name; });
+  };
+  $$('#card-body .card-tabs button').forEach((b) => { b.onclick = () => showTab(b.dataset.tab); });
+  showTab(cardTab);
   $('#card-edit').onclick = () => { $('#card-dialog').close(); openForm(c); };
   if (!$('#card-dialog').open) $('#card-dialog').showModal();
   $('#card-dialog').scrollTop = 0;
@@ -287,6 +308,14 @@ function contactById(id) {
 
 function pickerLabel(c) {
   return `${fullNameHe(c)} (#${c.contact_id})${c.city ? ` – ${c.city}` : ''}`;
+}
+
+function familyCount(c) {
+  return state.relations.filter((r) => String(r.contact_id_a) === String(c.contact_id)).length;
+}
+
+function donationCount(c) {
+  return state.donations.filter((d) => String(d.contact_id) === String(c.contact_id)).length;
 }
 
 function familySection(c) {
