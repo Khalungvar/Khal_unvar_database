@@ -11,7 +11,7 @@ const STRINGS = {
     logout: 'ארויסגיין',
     admin: 'מנהל',
     searchPh: 'זוכן: נאמען, טעלעפאן, אימעיל',
-    allTags: 'פילטער לויט טעג: אלע',
+    allTags: 'פילטער לויט טעג\'ס: אלע',
     inclInactive: 'אויך נישט-אקטיווע',
     newContact: '+ נייער קאנטאקט',
     count: '{n} קאנטאקטן',
