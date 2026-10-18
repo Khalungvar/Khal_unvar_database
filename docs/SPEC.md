@@ -13,6 +13,11 @@
 - המלצה: תיקיית התמונות משותפת גם לחשבון האישי; החשבון האישי מוגדר כמייל שחזור של חשבון הפרויקט.
 - ⚠️ ל-Google Voice אין ממשק רשמי לתוכנות. קבלת SMS אוטומטית תיבדק כשנגיע לשלב ה-SMS (למשל העברת הודעות למייל, או שירות כמו Twilio).
 
+## Google Places (השלמת כתובות)
+- פרויקט Google Cloud בחשבון הפרויקט, עם חשבון חיוב (חובה אצל גוגל).
+- מפתח API מוגבל ל-Places API (New) ולכתובת האתר בלבד.
+- תקרה יומית של בקשות + התראת תקציב במייל, כדי שלא יהיו חיובים מפתיעים.
+
 ## גליונות
 
 ### 1. אנשי קשר (Contacts)
@@ -35,10 +40,11 @@
 | האישה בנשי אונגוואר | V | ✅ הוחלט: לחצן נפרד (ארגון של נשים בלבד; שאר הקבוצות הן תגיות). מאפשר סינון רשימות. ❓ בדיוור לנשי: פנייה אישית לאישה? |
 | קשר לקהילה | תגיות (בחירה מרובה) | ✅ הוחלט: אנ"ש, מתפלל שבת בוקר, מתפלל שבת לילה, מתפלל ימות החול, תלמיד רבינו זי"ע, תלמיד רבינו שליט"א, תלמיד בית שערים ירושלים, כולל, כולל מאנסי, משפחת רבותינו. גבאי יכול להציע תגית חדשה; היא נכנסת לשימוש רק אחרי אישור הבעלים. תגית "?" = נבחרת ידנית, לאנשים שהקשר שלהם לקהילה לא ידוע. בייבוא הרשימה הקיימת האנשים נכנסים ללא תגית בכלל |
 | תמונה | העלאת קובץ | ✅ הוחלט: נשמרת בתיקייה בגוגל דרייב **של חשבון נפרד** (לא הדרייב האישי של הבעלים) — יחובר בהמשך. שם קובץ לפי contact_id, הקטנה אוטומטית, העלאה מהמחשב או צילום מהטלפון. בגליון נשמר קישור בלבד; התמונות לא ציבוריות |
-| כתובת | טקסט + השלמה אוטומטית | |
-| עיר | טקסט + השלמה אוטומטית | |
-| סטייט | טקסט + השלמה אוטומטית | |
-| ZIP | טקסט + השלמה אוטומטית | |
+| כתובת | טקסט + השלמה אוטומטית | ✅ הוחלט: השלמה של Google Places (בחירת הצעה ממלאת רחוב, עיר, סטייט, ZIP). גיבוי: הצעות מתוך המאגר |
+| עיר | טקסט | ✅ מתמלא מההשלמה / מה-ZIP |
+| סטייט | טקסט | ✅ מתמלא מההשלמה / מה-ZIP |
+| ZIP | טקסט | ✅ בארה"ב: הקלדת ZIP ממלאת עיר וסטייט (רשימה קבועה, בלי שירות חיצוני) |
+| מדינה (Country) | טקסט | ✅ הוחלט: ברירת מחדל USA. מדינה אחרת → סטייט ו-ZIP טקסט חופשי, ושורת מדינה במדבקה |
 
 ### 2. טלפונים ואימייל (Phones)
 Contact_ID, טלפון סלולרי, טלפון בבית, טלפון נוסף, טלפון משרד, פלאפון אשתו, אימייל
@@ -81,7 +87,7 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 ## מבנה הגוגל שיטס (נוצר)
 קובץ: Khal_unvar_database. שורה 1 = כותרות באנגלית, הנתונים מתחילים בשורה 2.
 
-- **Contacts:** contact_id, title_he, first_name_he, last_name_he, is_alive, marital_status, title_en, first_name_en, last_name_en, wife_name_he, wife_name_en, wife_is_rebbetzin, wife_is_alive, wife_in_neshei, community_tags, photo_url, address, city, state, zip, is_active, created_at, updated_at, updated_by
+- **Contacts:** contact_id, title_he, first_name_he, last_name_he, is_alive, marital_status, title_en, first_name_en, last_name_en, wife_name_he, wife_name_en, wife_is_rebbetzin, wife_is_alive, wife_in_neshei, community_tags, photo_url, address, city, state, zip, country, is_active, created_at, updated_at, updated_by
 - **Phones:** contact_id, mobile, home_phone, other_phone, office_phone, wife_mobile, email
 - **Donations:** donation_id, contact_id, date, event, amount_usd, payment_method, check_number, card_last4, payment_note, dedication_type, dedication_text, created_at, created_by
 - **Relations:** relation_id, contact_id_a, relation_type, contact_id_b
@@ -102,4 +108,3 @@ Contact_ID_A, קשר משפחתי, Contact_ID_B
 4. רשימת הקשרים המשפחתיים.
 - ייבוא הרשימה הקיימת: באיזה פורמט היא? (אקסל / גוגל שיטס / אחר)
 - חשבון הגוגל הנפרד לתמונות: לחבר בהמשך, ולשתף את התיקייה עם הגבאים.
-5. השלמת כתובות: מתוך נתונים קיימים (חינם) או דרך גוגל.
