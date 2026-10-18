@@ -1,6 +1,6 @@
 // בונה רשימות: בוחרים תנאים (פרטים, נדבות, מאורעות, הוספה/הורדה ידנית), רואים את התוצאה מיד,
 // שומרים בשם, ומוציאים לאקסל או להדפסה. רשימה שמורה "חיה" — היא מחושבת מחדש כל פעם לפי התנאים.
-import { state, loadAll, saveSavedList, deleteSavedList } from './data.js';
+import { state, loadAll, saveSavedList, deleteSavedList, displayName } from './data.js';
 import { t } from './i18n.js';
 import {
   isTrue, isAlive, splitTags, escapeHtml as h, mailingName, digits,
@@ -489,7 +489,7 @@ function renderOverview(main) {
       <tbody>${lists.map((l) => {
         const { cr } = parseSaved(l);
         return `<tr data-open="${h(l.list_id)}"><td><b>${h(l.name)}</b></td><td class="num">${evaluate(cr).length}</td>
-          <td class="muted small">${h(l.updated_at || '')} · ${h(l.updated_by || '')}</td>
+          <td class="muted small">${h(l.updated_at || '')} · ${h(displayName(l.updated_by))}</td>
           <td class="lo-btns"><button type="button" class="btn small-btn" data-excel="${h(l.list_id)}">Excel</button>
             <button type="button" class="btn small-btn" data-copy="${h(l.list_id)}">${t('lbDuplicate')}</button></td></tr>`;
       }).join('')}</tbody></table>` : `<p class="empty">${t('noSavedLists')}</p>`}

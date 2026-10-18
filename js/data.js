@@ -409,6 +409,18 @@ export async function saveSettingsColumns(columns) {
   }
 }
 
+/** דער נאמען פון א מנהל / גבאי לויט זיין אימעיל (פון Settings); אויב נישטא — דער אימעיל. */
+export function displayName(email) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e) return '';
+  const S = state.rawSettings || {};
+  const find = (emails, names) => {
+    const i = (S[emails] || []).findIndex((x) => String(x).trim().toLowerCase() === e);
+    return i >= 0 ? String((S[names] || [])[i] || '').trim() : '';
+  };
+  return find('admin_email', 'admin_name') || find('gabbai_email', 'gabbai_name') || email;
+}
+
 export function rawSettingsColumn(name) {
   return state.rawSettings?.[name] || [];
 }

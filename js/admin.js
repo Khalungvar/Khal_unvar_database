@@ -38,7 +38,7 @@ const GROUPS = [
     { cols: ['area', 'area_zips', 'area_keywords'], label: 'area', sub: ['admZips', 'admKeywords'] },
   ] },
   { title: 'admPeople', lists: [
-    { cols: ['admin_email', 'note'], label: 'admAdmins', sub: ['admNote'], source: 'settings', emails: true, hint: 'admAdminsHint' },
+    { cols: ['admin_email', 'admin_name', 'note'], label: 'admAdmins', sub: ['admName', 'admNote'], source: 'settings', emails: true, hint: 'admAdminsHint' },
     { cols: ['gabbai_name', 'gabbai_email', 'gabbai_phone'], label: 'admGabbaim', sub: ['colEmail', 'colMobile'], source: 'settings', hint: 'admGabbaimHint' },
   ] },
   { title: 'admFamily', lists: [
@@ -163,7 +163,7 @@ function wireCard(card, def) {
     try {
       if (def.emails) {
         rows.forEach((r) => { r[0] = r[0].toLowerCase(); });
-        if (!rows.some((r) => r[0] === state.email)) rows.unshift([state.email, '']); // אי אפשר להוריד את עצמך
+        if (!rows.some((r) => r[0] === state.email)) rows.unshift([state.email, '', '']); // אי אפשר להוריד את עצמך
       }
       const columns = {};
       def.cols.forEach((c, j) => { columns[c] = rows.map((r) => r[j] || ''); });

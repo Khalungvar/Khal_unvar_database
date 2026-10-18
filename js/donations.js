@@ -1,5 +1,5 @@
 // נדבות (תרומות): מסך רשימה, טופס הוספה/עריכה, וחלק בכרטיס האישי.
-import { state, loadAll, saveDonation, saveDonations, deleteDonation } from './data.js';
+import { state, loadAll, saveDonation, saveDonations, deleteDonation, displayName } from './data.js';
 import { campaignOptions, campaignByName } from './campaigns.js';
 import { t } from './i18n.js';
 import { isTrue, splitTags, joinTags, escapeHtml as h } from './util.js';
@@ -303,6 +303,7 @@ export function openDonationForm(donation = {}, presetContactId = null) {
       <p class="hint-line">${t('dedicationHint')}</p>
     </details>
 
+    ${!isNew && d.created_at ? `<p class="meta">${h(t('created', { date: d.created_at, by: displayName(d.created_by) || '—' }))}${d.updated_at && d.updated_at !== d.created_at ? ` · ${h(t('updated', { date: d.updated_at, by: displayName(d.updated_by) }))}` : ''}</p>` : ''}
     <div class="actions">
       ${!isNew && state.isAdmin ? `<button type="button" class="btn danger" id="don-delete">${t('deleteBtn')}</button>` : ''}
       <span class="spacer"></span>

@@ -3,7 +3,7 @@ import {
   initAuth, requestToken, signOut, getUserEmail, hasSavedSession, setOnExpire, rememberEmail,
 } from './google.js';
 import {
-  state, loadAll, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
+  state, loadAll, displayName, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
 } from './data.js';
 import { suggest, details, placesEnabled, placesError } from './places.js';
 import {
@@ -89,7 +89,7 @@ async function enterApp() {
   rememberEmail(state.email);
   await loadAll();
   restoreScope();
-  $('#user-email').textContent = state.email + (state.isAdmin ? ` · ${t('admin')}` : '');
+
   $('#login-view').hidden = true;
   $('#app-view').hidden = false;
   refreshAll();
@@ -112,7 +112,7 @@ function renderLobby() {
   const areaCount = (a) => state.contacts.filter((c) => c.area === a && isAlive(c.is_alive) && (isTrue(c.is_active) || c.is_active === '')).length;
   main.innerHTML = `
     <div class="lobby-head"><img src="img/logo.png" alt="" class="lobby-logo"><h1>${h(t('appName'))}</h1>
-      <p class="muted">${h(t('lobbyHello', { email: state.email }))}</p></div>
+      <p class="muted">${h(t('lobbyHello', { email: displayName(state.email) }))}</p></div>
     <div class="lobby-row lobby-search-row">
       <div class="lobby-search">
         <input type="search" id="lobby-q" placeholder="${h(t('lobbySearchPh'))}" autocomplete="off">
@@ -228,6 +228,8 @@ function refreshAll() {
   renderOrgs();
   renderCampaignSide();
   $('#btn-admin').hidden = !state.isAdmin;
+  $('#user-email').textContent = displayName(state.email) + (state.isAdmin ? ` · ${t('admin')}` : '');
+  $('#user-email').title = state.email;
   renderListsSide();
   if (!$('.view[data-view="lists"]').hidden) renderBuilder();
   if (!$('.view[data-view="campaign"]').hidden) renderCampaignMain();
@@ -528,8 +530,8 @@ function openCard(id, tab = null) {
       ${orgSection(c)}
     </div>
     <p class="meta">
-      ${c.created_at ? `<span>${h(t('created', { date: c.created_at, by: c.created_by || '—' }))}</span>` : ''}
-      ${c.updated_at && c.updated_at !== c.created_at ? `<span>${h(t('updated', { date: c.updated_at, by: c.updated_by }))}</span>` : ''}
+      ${c.created_at ? `<span>${h(t('created', { date: c.created_at, by: displayName(c.created_by) || '—' }))}</span>` : ''}
+      ${c.updated_at && c.updated_at !== c.created_at ? `<span>${h(t('updated', { date: c.updated_at, by: displayName(c.updated_by) }))}</span>` : ''}
     </p>`;
 
   wireFamily(c);
@@ -571,7 +573,7 @@ function orgBox(n) {
   return `<div class="org-box" data-id="${h(n.note_id || '')}">
     <textarea rows="4" dir="rtl" placeholder="${h(t('orgPh'))}">${h(n.text || '')}</textarea>
     <div class="org-actions">
-      ${n.created_by ? `<span class="muted small">${h(n.updated_at || n.created_at)} · ${h(n.updated_by || n.created_by)}</span>` : ''}
+      ${n.created_by ? `<span class="muted small">${h(n.updated_at || n.created_at)} · ${h(displayName(n.updated_by || n.created_by))}</span>` : ''}
       <span class="spacer"></span>
       <button type="button" class="btn small-btn danger org-del">${t('deleteBtn')}</button>
       <button type="button" class="btn small-btn primary org-save" hidden>${t('saveBtn')}</button>
