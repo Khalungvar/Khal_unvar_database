@@ -1174,3 +1174,4 @@ html[dir="ltr"] .row-father { text-align: left; }
 .sc-mcell { width: 76px; padding: 3px 6px; text-align: right; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font: inherit; }
 .sc-mcell.sc-changed { border-color: var(--accent, #7a1f1f); font-weight: 600; }
 .sc-mon { white-space: nowrap; }
+.sc-remind { margin: 10px 0 2px; padding: 8px 12px; border-radius: 10px; background: color-mix(in srgb, var(--gold) 18%, transparent); border: 1px solid var(--gold); }

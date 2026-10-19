@@ -296,6 +296,7 @@ function tuitionHtml(all) {
       <div class="sc-stat"><span class="muted small">${h(t('scThisMonth', { m: `${monthHe(now.m)} ${yearLabel(now.y)}` }))}</span><b dir="ltr">${money(expected)}</b>
         <span class="small">${h(t('scCameIn'))}: <b dir="ltr">${money(cameIn)}</b></span></div>
     </div>
+    <p class="sc-remind"><b>⚠ ${h(t('scZmanRemind'))}</b></p>
     <p class="hint-line">${h(t('scMonthsHint'))}</p>
     <h3>${h(t('scTabActive'))} <span class="count-pill">${active.length}</span></h3>
     ${active.length ? table(active) : `<p class="muted">${h(t('scNone'))}</p>`}
