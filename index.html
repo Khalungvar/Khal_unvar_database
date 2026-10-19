@@ -8,36 +8,37 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&family=Playpen+Sans+Hebrew:wght@400;600&family=Amatic+SC:wght@700&family=Noto+Rashi+Hebrew:wght@500&family=Frank+Ruhl+Libre:wght@400;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="img/favicon.png">
-  <link rel="stylesheet" href="css/style.css?v=144">
+  <link rel="stylesheet" href="css/style.css?v=145">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script type="importmap">
   {"imports": {
-    "./js/admin.js": "./js/admin.js?v=144",
-    "./js/app.js": "./js/app.js?v=144",
-    "./js/campaigns.js": "./js/campaigns.js?v=144",
-    "./js/config.js": "./js/config.js?v=144",
-    "./js/data.js": "./js/data.js?v=144",
-    "./js/donations.js": "./js/donations.js?v=144",
-    "./js/chart.js": "./js/chart.js?v=144",
-    "./js/excel.js": "./js/excel.js?v=144",
-    "./js/hebdate.js": "./js/hebdate.js?v=144",
-    "./js/google.js": "./js/google.js?v=144",
-    "./js/help.js": "./js/help.js?v=144",
-    "./js/import.js": "./js/import.js?v=144",
-    "./js/i18n.js": "./js/i18n.js?v=144",
-    "./js/lists.js": "./js/lists.js?v=144",
-    "./js/mail.js": "./js/mail.js?v=144",
-    "./js/mailmerge.js": "./js/mailmerge.js?v=144",
-    "./js/orgtags.js": "./js/orgtags.js?v=144",
-    "./js/pdf.js": "./js/pdf.js?v=144",
-    "./js/names.js": "./js/names.js?v=144",
-    "./js/occasions.js": "./js/occasions.js?v=144",
-    "./js/personal.js": "./js/personal.js?v=144",
-    "./js/places.js": "./js/places.js?v=144",
-    "./js/receipts.js": "./js/receipts.js?v=144",
-    "./js/requests.js": "./js/requests.js?v=144",
-    "./js/scope.js": "./js/scope.js?v=144",
-    "./js/util.js": "./js/util.js?v=144"
+    "./js/admin.js": "./js/admin.js?v=145",
+    "./js/app.js": "./js/app.js?v=145",
+    "./js/campaigns.js": "./js/campaigns.js?v=145",
+    "./js/config.js": "./js/config.js?v=145",
+    "./js/data.js": "./js/data.js?v=145",
+    "./js/donations.js": "./js/donations.js?v=145",
+    "./js/chart.js": "./js/chart.js?v=145",
+    "./js/excel.js": "./js/excel.js?v=145",
+    "./js/hebdate.js": "./js/hebdate.js?v=145",
+    "./js/google.js": "./js/google.js?v=145",
+    "./js/help.js": "./js/help.js?v=145",
+    "./js/import.js": "./js/import.js?v=145",
+    "./js/i18n.js": "./js/i18n.js?v=145",
+    "./js/lists.js": "./js/lists.js?v=145",
+    "./js/mail.js": "./js/mail.js?v=145",
+    "./js/mailmerge.js": "./js/mailmerge.js?v=145",
+    "./js/orgtags.js": "./js/orgtags.js?v=145",
+    "./js/pdf.js": "./js/pdf.js?v=145",
+    "./js/names.js": "./js/names.js?v=145",
+    "./js/occasions.js": "./js/occasions.js?v=145",
+    "./js/personal.js": "./js/personal.js?v=145",
+    "./js/places.js": "./js/places.js?v=145",
+    "./js/receipts.js": "./js/receipts.js?v=145",
+    "./js/requests.js": "./js/requests.js?v=145",
+    "./js/school.js": "./js/school.js?v=145",
+    "./js/scope.js": "./js/scope.js?v=145",
+    "./js/util.js": "./js/util.js?v=145"
   }}
   </script>
   <script type="module">import "./js/app.js";</script>
@@ -94,6 +95,7 @@
       <img id="scope-logo" class="scope-logo" alt="" hidden><span data-i18n="scopeIn"></span> <b id="scope-name"></b>
       <label class="check"><input type="checkbox" id="scope-former"> <span data-i18n="withFormer"></span></label>
       <span class="spacer"></span>
+      <button type="button" class="btn small-btn primary" id="scope-school" hidden data-i18n="scOpenPage"></button>
       <button type="button" class="btn small-btn" id="scope-exit"></button>
     </div>
     <nav class="tabs">
@@ -190,6 +192,10 @@
       <section id="donhub-main"></section>
     </main>
 
+    <main class="page view" data-view="school" hidden>
+      <section id="school-main"></section>
+    </main>
+
     <main class="page view" data-view="campaign" hidden>
       <section id="campaign-main"></section>
     </main>
@@ -247,6 +253,10 @@
   </dialog>
 
   <!-- אימעיל שרייבן -->
+  <dialog id="school-dialog" class="sheet wide">
+    <form id="school-form" novalidate></form>
+  </dialog>
+
   <dialog id="mail-dialog" class="sheet full">
     <form id="mail-form" novalidate></form>
   </dialog>

@@ -28,6 +28,7 @@ const GROUPS = [
     { cols: ['beis_medrash'], label: 'orgBeisMedrash' },
     { cols: ['kollel'], label: 'orgKollel' },
     { cols: ['organization'], label: 'orgOrganization' },
+    { cols: ['school_org'], label: 'admSchoolOrgs' },
   ] },
   { title: 'admTags', lists: [
     { cols: ['community_tag'], label: 'admCommunityTags' },

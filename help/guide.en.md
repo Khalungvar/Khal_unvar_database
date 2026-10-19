@@ -191,6 +191,19 @@ Keywords: import, excel, upload, list, many contacts, template
 - **Birthday**: a Hebrew date (e.g. ו' אדר ב' תשס"ג) or an English date — becomes a "Birthday" occasion.
 - **Kollel — former**: TRUE = he already left.
 
+## The yeshiva page (students, tuition)
+Keywords: yeshiva, student, tuition, receipt, zman, left, accepted, payment, class, Beis Shearim
+
+- **Lobby ← Kollel/Yeshiva ← Yeshivas Beis Shearim** — opens the yeshiva's own page (not the regular list). From the contacts list: **"Yeshiva page"** at the top.
+- Tabs: **Learning** (now), **Accepted**, **Left**, **Tuition**, **Birthdays**.
+- **"Who was learning on"** — pick a date to see who was in the yeshiva then.
+- **＋ New student**: the student and the parent — from the database, or type a new one (a contact is created, linked "son of"). **From / To** dates, class, room, **tuition** (per month / per year / for the whole period).
+- ✎ = edit; a "To" date in the past makes him "left".
+- 💲 **Add payment**: who pays, amount, method (check, card — only the last 4 digits). **"Save + receipt"** prints a TUITION RECEIPT right away.
+- **Tuition**: what is due to date, paid, who owes, and recent payments (🧾 reprint, ✉ email).
+- In the student's / parent's card: tab **🎓 Yeshiva**.
+- All this is separate from the tags — only on this page. **Admin ← lists ← "Yeshivas with their own page"** — add another yeshiva.
+
 ## Admin (admins only)
 Keywords: admin, settings, admin lists, tags, logo, gabbai, access
 

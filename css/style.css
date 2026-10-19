@@ -1128,3 +1128,32 @@ html, body { overflow-x: clip; }
 .ot-old h4 { color: var(--muted); }
 .ot-add { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 14px; }
 .ot-add select { font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+
+/* ---------- דער בלאט פון א ישיבה ---------- */
+.sc-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.sc-head h1 { margin: 0; font-size: 1.5rem; }
+.sc-head p { margin: 2px 0 0; }
+.sc-logo { width: 56px; height: 56px; object-fit: contain; border-radius: 10px; background: var(--surface); }
+.sc-logo-ph { font-size: 40px; }
+.sc-head .spacer, .sc-tools .spacer { flex: 1; }
+.sc-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 2px solid var(--line); margin-bottom: 14px; }
+.sc-tabs button { border: 0; background: none; padding: 9px 14px; font: inherit; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; border-radius: 8px 8px 0 0; }
+.sc-tabs button.on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; background: var(--accent-soft); }
+.sc-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.sc-tools input[type=search] { flex: 1 1 220px; max-width: 360px; }
+.sc-asof { display: inline-flex; gap: 6px; align-items: center; }
+.sc-table-wrap { overflow-x: auto; }
+.sc-table td, .sc-table th { vertical-align: middle; }
+.sc-table .num { text-align: end; white-space: nowrap; }
+.sc-acts { white-space: nowrap; }
+.sc-owe { color: var(--danger); font-weight: 600; }
+.sc-soon td { background: var(--accent-soft); }
+.sc-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.sc-stat { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.sc-stat b { font-size: 1.4rem; }
+.sc-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; }
+.sc-card-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.sc-card-head .spacer { flex: 1; }
+.sc-card-grid { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: .95rem; }
+.sc-person { margin-bottom: 10px; }
+.sc-heb { margin-top: 4px; }

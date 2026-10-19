@@ -27,6 +27,7 @@ import { initMailMerge, renderMailMerge, openMailMerge } from './mailmerge.js';
 import { initMail, openCompose, emailOf } from './mail.js';
 import { initRequests, submitRequest, pendingRequests } from './requests.js';
 import { openHelp, initHelpChat } from './help.js';
+import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount } from './orgtags.js';
 import {
   initPersonal, renderPersonal, openPersonal, unreadCount, tasksDueCount, openTaskForContact,
@@ -237,6 +238,8 @@ function lobbyClick(e) {
   if (pick) {
     lobbyOpen = '';
     enterScope({ type: pick.dataset.scopeType, value: pick.dataset.scopeValue });
+    // א ישיבה מיט אן אייגענעם בלאט (תלמידים, שכר לימוד)
+    if (isSchool(pick.dataset.scopeValue)) { document.body.classList.add('solo-mode'); openSchool(pick.dataset.scopeValue); return; }
     showView('contacts');
     return;
   }
@@ -297,6 +300,7 @@ function refreshAll() {
   if (!$('.view[data-view="campaign"]').hidden) renderCampaignMain();
   if (!$('.view[data-view="donhub"]').hidden) renderDonHub();
   if (!$('.view[data-view="receipts"]').hidden) renderReceipts();
+  if (!$('.view[data-view="school"]').hidden) renderSchool();
   if ($('#card-dialog').open && currentCardId) openCard(currentCardId);
 }
 
@@ -318,6 +322,7 @@ function showView(name) {
   if (name === 'mailmerge') renderMailMerge();
   if (name === 'personal') renderPersonal();
   if (name === 'lists') renderBuilder();
+  if (name === 'school') renderSchool();
   renderListsSide();
   $('#btn-admin')?.classList.toggle('on', name === 'admin');
   renderCampaignSide();
@@ -466,6 +471,11 @@ function renderOrgs() {
     $('#scope-name').textContent = label;
     $('#scope-former').checked = withFormer();
   }
+  const scb = $('#scope-school');
+  if (scb) {
+    scb.hidden = !(sc && sc.value && isSchool(sc.value));
+    scb.onclick = () => { document.body.classList.add('solo-mode'); openSchool(sc.value); };
+  }
 }
 
 /** נכנסים לארגון (או יוצאים ממנו עם null) — וכל המסכים מתעדכנים. */
@@ -601,6 +611,7 @@ function openCard(id, tab = null) {
       <button type="button" data-tab="money">${t('cardTabMoney')}${donationCount(c) ? ` <span class="count-pill">${donationCount(c)}</span>` : ''}</button>
       <button type="button" data-tab="org">${t('cardTabOrg')}${orgNotesOf(c).length ? ` <span class="count-pill">${orgNotesOf(c).length}</span>` : ''}</button>
       <button type="button" data-tab="otags">🏷 ${t('otTitle')}${orgTagsCount(c) ? ` <span class="count-pill">${orgTagsCount(c)}</span>` : ''}</button>
+      ${schoolCount(c) ? `<button type="button" data-tab="school">🎓 ${t('cardTabSchool')} <span class="count-pill">${schoolCount(c)}</span></button>` : ''}
     </nav>
     <div class="card-pane" data-tab="details">
     <section>
@@ -630,6 +641,7 @@ function openCard(id, tab = null) {
     <div class="card-pane" data-tab="otags">
       ${orgTagsPaneHtml(c)}
     </div>
+    ${schoolCount(c) ? `<div class="card-pane" data-tab="school">${schoolSection(c)}</div>` : ''}
     <p class="meta">
       ${c.created_at ? `<span>${h(t('created', { date: `\u2066${c.created_at}\u2069`, by: displayName(c.created_by) || '—' }))}</span>` : ''}
       ${c.updated_at && c.updated_at !== c.created_at ? `<span>${h(t('updated', { date: `\u2066${c.updated_at}\u2069`, by: displayName(c.updated_by) }))}</span>` : ''}
@@ -643,8 +655,11 @@ function openCard(id, tab = null) {
   wireOrg(c);
   wirePhoto(c);
   wireHistory(c);
+  const scPane = $('#card-body .card-pane[data-tab="school"]');
+  if (scPane) wireSchoolSection(scPane);
   if (String(currentCardId) !== String(c.contact_id)) cardTab = 'details';
   if (tab) cardTab = tab;
+  if (cardTab === 'school' && !scPane) cardTab = 'details';
   currentCardId = c.contact_id;
   const showTab = (name) => {
     cardTab = name;
@@ -1633,6 +1648,14 @@ function start() {
   initMailMerge({ showView, fullNameHe, toast, friendlyError });
   initMail({ toast, friendlyError });
   initRequests({ toast, friendlyError, refreshAll, updateBadges, showView, openCard });
+  initSchool({
+    showView, contactById, fullNameHe, pickerLabel, openCard, toast, friendlyError, refreshAll,
+    openOrgContacts: (org) => {
+      const f = ORG_FIELDS.find(([n]) => (state.lists[n] || []).includes(org));
+      enterScope({ type: f ? f[0] : 'kollel', value: org });
+      showView('contacts');
+    },
+  });
   initPersonal({ showView, fullNameHe, openCard, contactById, toast, friendlyError, updateBadges });
   $('#btn-personal').onclick = () => { document.body.classList.add('solo-mode'); openPersonal(); };
   initLists({ showView, fullNameHe, phonesOf, contactById, pickerLabel, openCard, toast, friendlyError, refreshAll });

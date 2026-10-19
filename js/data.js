@@ -17,6 +17,8 @@ export const state = {
   phones: new Map(), // contact_id → אובייקט טלפונים
   areas: [],         // [{ name, zips, keywords }] — זיהוי געגנט לפי כתובת
   donations: [],     // תרומות, כולל _row
+  enrollments: [],   // ישיבה: תלמידים (פון-ביז)
+  tuition: [],       // ישיבה: תשלומים פון שכר לימוד
   relations: [],     // { relation_id, contact_id_a, relation_type, contact_id_b, _row }
   occasions: [],
   orgNotes: [],
@@ -81,7 +83,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts', 'Requests']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts', 'Requests', 'Enrollments', 'Tuition']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -131,6 +133,14 @@ export async function loadAll() {
   const rq = rowsToObjects(tabs.Requests || [['request_id']]);
   state.headers.Requests = rq.header;
   state.requests = rq.objects.filter((r) => String(r.request_id || '').trim());
+
+  // ישיבות: תלמידים (פון-ביז) און שכר לימוד
+  const en = rowsToObjects(tabs.Enrollments || [['enroll_id']]);
+  state.headers.Enrollments = en.header;
+  state.enrollments = en.objects.filter((e) => String(e.enroll_id || '').trim());
+  const tu = rowsToObjects(tabs.Tuition || [['payment_id']]);
+  state.headers.Tuition = tu.header;
+  state.tuition = tu.objects.filter((x) => String(x.payment_id || '').trim());
 
   const yearly = rowsToObjects(tabs.YearlyCampaigns || [['series']]);
   state.headers.YearlyCampaigns = yearly.header;
@@ -782,11 +792,11 @@ export async function issueDocs(docs) {
     if (old) return { ...d, receipt_no: old.receipt_no, issued_at: old.issued_at, reprint: true };
     const det = orgDetailsOf(d.org) || {};
     const prefix = String(det.receipt_prefix || '').trim() || 'R';
-    const base = d.kind === 'invoice' ? `${prefix}-INV` : d.kind === 'year' ? `${prefix}-YE${d.period}` : prefix;
+    const base = d.kind === 'invoice' ? `${prefix}-INV` : d.kind === 'year' ? `${prefix}-YE${d.period}` : d.kind === 'tuition' ? `${prefix}-T` : prefix;
     const no = next(base, d.kind === 'year' ? 3 : 4);
     const rec = {
       receipt_no: no, kind: d.kind, org: d.org, contact_id: d.contact_id || '', donor_name: d.contact_id ? '' : (d.donor_name || ''),
-      donation_ids: d.ids.join(','), amount: d.amount, period: d.period || '', issued_at: stamp, issued_by: state.email, void: '', note: '',
+      donation_ids: d.ids.join(','), amount: d.amount, period: d.period || '', issued_at: stamp, issued_by: state.email, void: '', note: d.note || '',
     };
     rows.push(objectToRow(state.headers.Receipts, rec));
     state.receipts.push(rec);

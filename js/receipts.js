@@ -250,7 +250,7 @@ export async function receiptPdf(c) {
 function mailContent(c) {
   const L = letterParts(c);
   const no = c.receipt_no;
-  const kindEn = { receipt: 'Receipt', invoice: 'Invoice', year: `Year-End Statement ${c.period}`, campaign: 'Receipt' }[c.kind];
+  const kindEn = { receipt: 'Receipt', invoice: 'Invoice', year: `Year-End Statement ${c.period}`, campaign: 'Receipt', tuition: 'Tuition Receipt' }[c.kind];
   const subject = `${L.he || L.legal} · ${kindEn} #${no}`;
   const row = (k, v) => `<tr><td style="padding:4px 10px;color:#6b5a3a;font-size:14px;text-align:left;direction:ltr;width:110px">${k}</td><td style="padding:4px 10px;font-weight:bold;text-align:left" dir="auto">${v}</td></tr>`;
   const html = `<div style="color:#555;font-size:14px;margin-bottom:8px">${h(L.heDate)}</div>
@@ -314,7 +314,7 @@ function addrOf(c) {
 function issuedLogHtml() {
   const mine = state.receipts.filter((r) => r.org === f.org || (f.kind === 'campaign' && r.period === f.campaign)).slice(-40).reverse();
   if (!mine.length) return '';
-  const kindLabel = (k) => t(KINDS.find(([x]) => x === k)?.[1] || 'rcKindReceipt');
+  const kindLabel = (k) => t(k === 'tuition' ? 'rcKindTuition' : KINDS.find(([x]) => x === k)?.[1] || 'rcKindReceipt');
   return `<details class="rc-log"><summary>${h(t('rcLog', { n: mine.length }))}</summary>
     <table class="lapsed-table"><thead><tr><th>${h(t('rcNumber'))}</th><th>${h(t('xlType'))}</th><th>${h(t('xlDonor'))}</th><th>${h(t('xlAmount'))}</th><th>${h(t('rcIssued'))}</th><th></th></tr></thead>
     <tbody>${mine.map((r) => `<tr class="${isTrue(r.void) ? 'rc-void' : ''}"><td dir="ltr">${h(r.receipt_no)}</td><td>${h(kindLabel(r.kind))}${r.period ? ` · ${h(r.period)}` : ''}</td>
@@ -328,6 +328,11 @@ function issuedLogHtml() {
 function fromLog(no) {
   const r = state.receipts.find((x) => x.receipt_no === no);
   const ids = String(r.donation_ids || '').split(',').filter(Boolean);
+  if (r.kind === 'tuition') {
+    const p = (state.tuition || []).find((x) => ids.includes(`T${x.payment_id}`));
+    if (!p) { ui.toast(t('rcGone'), 'error'); return null; }
+    return { ...tuitionDoc(p), receipt_no: r.receipt_no, issued_at: r.issued_at, reprint: true };
+  }
   const list = ids.map((id) => state.donations.find((d) => String(d.donation_id) === id)).filter(Boolean);
   if (!list.length) { ui.toast(t('rcGone'), 'error'); return null; }
   return { kind: r.kind, org: r.org, contact_id: r.contact_id, donor_name: r.donor_name, ids, amount: Number(r.amount), period: r.period, list, receipt_no: r.receipt_no, issued_at: r.issued_at, reprint: true };
@@ -416,6 +421,8 @@ const DEFAULTS = {
 };
 const INVOICE_A = 'בזה הננו להזכיר בכבוד על התחייבותכם הנדיבה';
 const INVOICE_B = 'ונודה לכם מאד על סילוקה בהקדם, ושכרכם כפול מן השמים.';
+const TUITION_A = 'בזה הננו לאשר בתודה את קבלת תשלומכם';
+const TUITION_B = 'ובברכה שתזכו לרוב נחת דקדושה מצאצאיכם, ולראותם גדלים לתורה ולמעשים טובים.';
 
 function yearlyFor(c) {
   const camp = c.list.find((d) => d.campaign)?.campaign || (c.kind === 'campaign' ? c.period : '');
@@ -468,10 +475,11 @@ function letterParts(c) {
   const legal = det.legal_name || c.org;
   const he = det.org_name_he || '';
   const isInv = c.kind === 'invoice';
+  const isTu = c.kind === 'tuition';
   const issued = String(c.issued_at || '').slice(0, 10);
   const heDate = issued ? `${isoToHebrewText(issued)} לפ"ק` : '';
-  const A = isInv ? INVOICE_A : (det.letter_a || DEFAULTS.letter_a);
-  const B = isInv ? INVOICE_B : (det.letter_b || DEFAULTS.letter_b);
+  const A = isInv ? INVOICE_A : isTu ? TUITION_A : (det.letter_a || DEFAULTS.letter_a);
+  const B = isInv ? INVOICE_B : isTu ? TUITION_B : (det.letter_b || DEFAULTS.letter_b);
   // "אל מע"כ ידידנו" + טיטל + פרטי נאמען + משפחה (לשון קודש) + הי"ו
   const toName = ct ? [ct.title_he, ct.first_name_he, ct.last_name_he].filter(Boolean).join(' ') : (c.donor_name || '');
   const salLine = [det.letter_salutation || DEFAULTS.letter_salutation, toName, det.salutation_suffix || DEFAULTS.salutation_suffix].filter(Boolean).join(' ');
@@ -479,8 +487,8 @@ function letterParts(c) {
   const middle = c.forText ? `בסך של ${money(c.amount)} ${c.forText}` : `בסך של ${money(c.amount)} ב${forWhat(c)}`;
   const body = `${fillText(A, c, ct)} ${middle} ${fillText(B, c, ct)}`;
   const multi = c.list.length > 1;
-  const title = { receipt: det.coupon_title || 'OFFICIAL RECEIPT', invoice: 'INVOICE · PLEDGE', year: `YEAR-END STATEMENT ${c.period}`, campaign: det.coupon_title || 'OFFICIAL RECEIPT' }[c.kind];
-  const taxLine = isInv ? `Please make checks payable to ${legal}.`
+  const title = { receipt: det.coupon_title || 'OFFICIAL RECEIPT', invoice: 'INVOICE · PLEDGE', year: `YEAR-END STATEMENT ${c.period}`, campaign: det.coupon_title || 'OFFICIAL RECEIPT', tuition: 'TUITION RECEIPT' }[c.kind];
+  const taxLine = isInv ? `Please make checks payable to ${legal}.` : isTu ? 'Tuition payment. This is not a tax-deductible charitable contribution.'
     : String(det.tax_text || TAX_DEFAULT).replace(/\{NAME\}/g, taxEntity).replace(/\{EIN\}/g, ein || '—')
       .replace('this contribution', multi ? 'these contributions' : 'this contribution');
   const sigText = det.signature_text || '';
@@ -582,6 +590,41 @@ export async function printForDonation(d, mode = 'print') {
   } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
 }
 
+/** א תשלום פון שכר לימוד → א דאקומענט (קבלה) */
+function tuitionDoc(p) {
+  const forText = p.for_text || 'עבור שכר לימוד';
+  return {
+    kind: 'tuition', org: p.org, contact_id: p.payer_id || p.contact_id, donor_name: '', ids: [`T${p.payment_id}`], amount: Number(p.amount || 0), period: '', note: forText, forText,
+    list: [{ donation_id: `T${p.payment_id}`, paid_date: p.date, date: p.date, payment_method: p.method, check_number: p.check_number, card_last4: p.card_last4, amount_usd: p.amount }],
+  };
+}
+
+/** קבלה אויף שכר לימוד: דרוקן אדער שיקן. גיט צוריק דעם נומער. */
+export async function tuitionReceipt(p, mode = 'print') {
+  const det = orgDetailsOf(p.org);
+  if (!det || !det.legal_name) { ui.toast(t('rcMissingDetails', { org: p.org }), 'error'); openOrgDetails(p.org); return ''; }
+  const base = tuitionDoc(p);
+  const issue = { kind: base.kind, org: base.org, contact_id: base.contact_id, donor_name: '', ids: base.ids, amount: base.amount, period: '', note: base.note };
+  if (mode === 'mail') {
+    const to = askAddress(base.contact_id);
+    if (!to) return '';
+    return new Promise((resolve) => {
+      withGmail(async () => {
+        try {
+          const [x] = await issueDocs([issue]);
+          const r = await mailDocs([{ c: { ...base, receipt_no: x.receipt_no, issued_at: x.issued_at }, to }]);
+          ui.toast(r.errors ? t('mailFailed') : t('rcMailSent', { to }), r.errors ? 'error' : '');
+          resolve(x.receipt_no);
+        } catch (err) { ui.toast(ui.friendlyError(err), 'error'); resolve(''); }
+      });
+    });
+  }
+  try {
+    const [x] = await issueDocs([issue]);
+    printDocs([{ ...base, receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint }]);
+    return x.receipt_no;
+  } catch (err) { ui.toast(ui.friendlyError(err), 'error'); return ''; }
+}
 
 // ---------- די פרטים פון א ארגון (וואס שטייט אויף דער קבלה) ----------
 // אלע פעלדער, אין דער סדר ווי זיי שטייען אויף דער קבלה (פון אויבן ביז אונטן).
