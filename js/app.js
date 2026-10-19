@@ -1238,7 +1238,7 @@ function openForm(c = {}) {
       <p class="hint-line">${t('requiredNote')}</p>
       <div class="grid">
         <label>${t('title')}<select name="title_he" dir="rtl">${options(state.lists.title_he, c.title_he)}</select></label>
-        <label>${t('firstHe')}<input name="first_name_he" dir="rtl" required value="${v('first_name_he')}" placeholder="יוסף חיים"></label>
+        <label>${t('firstHe')}<input name="first_name_he" dir="rtl" ${c.contact_id ? "" : "required"} value="${v('first_name_he')}" placeholder="יוסף חיים"></label>
         <label>${t('lastHe')}<input name="last_name_he" dir="rtl" required value="${v('last_name_he')}"></label>
       </div>
       <div class="grid status-row">
@@ -1538,13 +1538,15 @@ async function submit(form, original) {
   const { contact, phones } = collect(form, original);
   contact.is_active = !form.elements.inactive.checked;
 
-  if (!contact.first_name_he || !contact.last_name_he) {
+  if (!contact.last_name_he || (!contact.first_name_he && !original.contact_id)) {
     toast(t('required'), 'error');
     return;
   }
 
-  // אזהרת כפילות שם
-  const sameName = state.contacts.find((c) => String(c.contact_id) !== String(original.contact_id ?? '')
+  // אזהרת כפילות שם — נאר ביי א נייעם, אדער ווען מ'האט געטוישט דעם נאמען
+  const nameChanged = !original.contact_id || normalize(original.first_name_he) !== normalize(contact.first_name_he)
+    || normalize(original.last_name_he) !== normalize(contact.last_name_he);
+  const sameName = nameChanged && contact.first_name_he && state.contacts.find((c) => String(c.contact_id) !== String(original.contact_id ?? '')
     && normalize(c.first_name_he) === normalize(contact.first_name_he)
     && normalize(c.last_name_he) === normalize(contact.last_name_he));
   if (sameName && !confirm(t('dupName', { id: sameName.contact_id }))) return;
