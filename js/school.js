@@ -32,7 +32,13 @@ export function openSchool(org) {
 const today = () => todayIso();
 const enrollmentsOf = (org) => (state.enrollments || []).filter((e) => e.org === org && String(e.contact_id || '').trim());
 const paymentsOf = (e) => (state.tuition || []).filter((p) => String(p.enroll_id) === String(e.enroll_id));
-const d10 = (v) => String(v || '').slice(0, 10);
+/** א דאטום: 'YYYY-MM-DD', אדער א נומער פון גוגל שיטס (טעג זינט 30.12.1899) */
+const d10 = (v) => {
+  if (typeof v === 'number' || /^\d{5}(\.\d+)?$/.test(String(v || ''))) {
+    return new Date(Date.UTC(1899, 11, 30) + Math.floor(Number(v)) * 86400000).toISOString().slice(0, 10);
+  }
+  return String(v || '').slice(0, 10);
+};
 
 /** 'active' | 'accepted' | 'left' — אויף א געוויסן טאג */
 export function statusOn(e, day = today()) {
