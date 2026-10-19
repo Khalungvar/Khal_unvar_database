@@ -2,10 +2,13 @@
 // אלעס אין צוויי לשוניות אין גליון — Enrollments (א תלמיד אין א ישיבה, פון ווען ביז ווען) און Tuition (תשלומים) —
 // באזונדער פון די טעג'ס פונעם הויפט-מאגר. די תלמידים און עלטערן זענען די זעלבע קאנטאקטן ווי אומעטום.
 // וועלכע ארגונים האבן אזא בלאט: Lists → school_org.
-import { state, loadAll, saveRecord, deleteRecord, saveContact, addRelation, orgLogo } from './data.js';
+import { state, loadAll, saveRecord, deleteRecord, saveContact, addRelation, orgLogo, saveOccasion, addListValue } from './data.js';
+import { mergeOrgTags, entry as otEntry } from './orgtags.js';
+import { suggestFirstName, suggestLastName } from './names.js';
+import { parseBirthday } from './import.js';
 import { t } from './i18n.js';
-import { escapeHtml as h, isTrue, splitTags, joinTags, formatPhone } from './util.js';
-import { nextOccurrence, monthKeyFromHe, daysBetween, todayIso, hebrewNumber, isoToHebrewText } from './hebdate.js';
+import { escapeHtml as h, isTrue, splitTags, joinTags, formatPhone, detectArea } from './util.js';
+import { nextOccurrence, monthKeyFromHe, daysBetween, todayIso, hebrewNumber, isoToHebrewText, toHebrew, fromHebrew, yearLabel } from './hebdate.js';
 import { money } from './donations.js';
 import { downloadXlsx } from './excel.js';
 import { tuitionReceipt } from './receipts.js';
@@ -322,34 +325,65 @@ function contactByLabel(v) {
   return s ? state.contacts.find((c) => ui.pickerLabel(c) === s) || null : null;
 }
 
-function personBlock(prefix, label, c, extra = '') {
+/** די זמנים: "זמן חורף פ"ז" (פון ר"ח חשון), "זמן קיץ פ"ז" (פון ר"ח אייר) — א פאר יאר צוריק און איין יאר פאראויס */
+function zmanim() {
+  const y = toHebrew(today()).y;
+  const out = [];
+  for (let yy = y + 1; yy >= y - 5; yy -= 1) {
+    const yl = yearLabel(yy).replace(/^תש/, ''); // "פ\"ז" — ווי אין די רשימות
+    out.push({ label: `זמן קיץ ${yl}`, start: fromHebrew(1, 'Iyar', yy) });
+    out.push({ label: `זמן חורף ${yl}`, start: fromHebrew(1, 'Heshvan', yy) });
+  }
+  return out;
+}
+/** דער זמן פון א תלמיד: e.zman, אדער פון דער הערה ("זמן קיץ פ"ד (יוצאים)" / "זמנים: חורף פ"ג") */
+export function zmanOf(e) {
+  if (String(e.zman || '').trim()) return String(e.zman).trim();
+  const m = /זמן\s+(חורף|קיץ)\s+(\S+?["״]\S)/.exec(e.note || '') || /זמנים:\s*(חורף|קיץ)\s+(\S+?["״]\S)/.exec(e.note || '');
+  return m ? `זמן ${m[1]} ${m[2]}` : '';
+}
+
+const F = (name, label, attrs = '') => `<label>${h(label)}<input name="${name}" ${attrs}></label>`;
+
+function personBlock(prefix, label, c, fields) {
   return `<fieldset class="sc-person" data-p="${prefix}"><legend>${h(label)}</legend>
     <label class="wide">${h(t('scPickExisting'))}<input name="${prefix}_pick" list="dl-sc-contacts" autocomplete="off" value="${c ? h(ui.pickerLabel(c)) : ''}" placeholder="${h(t('pickContact'))}"></label>
     <div class="sc-new"${c ? ' hidden' : ''}>
       <p class="hint-line">${h(t('scOrNew'))}</p>
-      <div class="grid">
-        <label>${h(t('scFirst'))}<input name="${prefix}_first"></label>
-        <label>${h(t('scLast'))}<input name="${prefix}_last"></label>
-        <label>${h(t('colMobile'))}<input name="${prefix}_mobile" dir="ltr" inputmode="tel"></label>
-        ${extra}
-      </div>
+      <div class="grid">${fields}</div>
     </div></fieldset>`;
 }
 
 export function openEnrollForm(enroll = {}, preset = {}) {
-  const e = { org: cur.org || preset.org || schoolOrgs()[0] || '', status: ST.active, tuition_period: 'month', start_date: today(), ...preset, ...(enroll || {}) };
+  const e = { org: cur.org || preset.org || schoolOrgs()[0] || '', status: ST.active, tuition_period: 'month', ...preset, ...(enroll || {}) };
   const isNew = !e.enroll_id;
   const dlg = $('#school-dialog'); const form = $('#school-form');
   const shiurim = [...new Set(enrollmentsOf(e.org).map((x) => x.shiur).filter(Boolean))];
+  const zs = zmanim();
+  const curZ = zmanOf(e);
+  if (curZ && !zs.some((z) => z.label === curZ)) zs.push({ label: curZ, start: '' });
+  const ltr = 'dir="ltr"';
+  const studentFields = [
+    F('s_first', t('scFirst')), F('s_last', t('scLast')), F('s_mobile', t('colMobile'), `${ltr} inputmode="tel"`), F('s_email', t('colEmail'), `${ltr} type="email"`),
+    F('s_bday', t('scBirthday'), `placeholder="${h(t('scBdayPh'))}"`), F('s_address', t('scOwnAddress'), ltr),
+    F('s_community', t('scCommunity')), F('s_learned', t('scLearnedAt')),
+  ].join('');
+  const parentFields = [
+    F('p_first', t('scFirst')), F('p_last', t('scLast')), F('p_mobile', t('scFatherCell'), `${ltr} inputmode="tel"`), F('p_home', t('colHome'), `${ltr} inputmode="tel"`),
+    F('p_wife', t('scMotherCell'), `${ltr} inputmode="tel"`), F('p_email', t('colEmail'), `${ltr} type="email"`),
+    F('p_address', t('address'), ltr), F('p_city', t('scCity'), ltr), F('p_state', t('scState'), `${ltr} maxlength="20"`), F('p_zip', t('scZip'), ltr),
+    F('p_country', t('scCountry'), ltr), F('p_motherfam', t('scMotherFamily')),
+  ].join('');
   form.innerHTML = `<button type="button" class="x-close" data-close aria-label="${h(t('close'))}">✕</button>
     <h2>${h(isNew ? t('scNewStudent') : t('scEditStudent'))}</h2>
     ${schoolOrgs().length > 1 ? `<label>${h(t('orgKollel'))}<select name="org">${schoolOrgs().map((o) => `<option${o === e.org ? ' selected' : ''}>${h(o)}</option>`).join('')}</select></label>` : `<input type="hidden" name="org" value="${h(e.org)}">`}
     <datalist id="dl-sc-contacts">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>
-    ${personBlock('s', t('scStudent'), contact(e.contact_id))}
-    ${personBlock('p', t('scParent'), contact(e.parent_id), `<label>${h(t('colHome'))}<input name="p_home" dir="ltr" inputmode="tel"></label>`)}
+    ${personBlock('s', t('scStudent'), contact(e.contact_id), studentFields)}
+    ${personBlock('p', t('scParent'), contact(e.parent_id), parentFields)}
     <fieldset><legend>${h(t('scLearning'))}</legend>
       <div class="grid">
-        <label>${h(t('scStatus'))}<select name="status">${Object.values(ST).map((s) => `<option${s === e.status ? ' selected' : ''}>${h(s)}</option>`).join('')}</select></label>
+        <label>${h(t('scZman'))}<select name="zman"><option value=""></option>${zs.map((z) => `<option value="${h(z.label)}" data-start="${h(z.start)}"${z.label === curZ ? ' selected' : ''}>${h(z.label)}</option>`).join('')}</select></label>
+        <label>${h(t('scStatus'))}<select name="status">${Object.values(ST).map((x) => `<option${x === e.status ? ' selected' : ''}>${h(x)}</option>`).join('')}</select></label>
         <label>${h(t('scFrom'))}<input type="date" name="start_date" value="${h(d10(e.start_date))}"></label>
         <label>${h(t('scTo'))}<input type="date" name="end_date" value="${h(d10(e.end_date))}"></label>
         <label>${h(t('scShiur'))}<input name="shiur" list="dl-sc-shiur" value="${h(e.shiur || '')}"></label>
@@ -361,32 +395,38 @@ export function openEnrollForm(enroll = {}, preset = {}) {
     <fieldset><legend>${h(t('scTuition'))}</legend>
       <div class="grid">
         <label>${h(t('xlAmount'))}<input name="tuition_amount" type="number" min="0" step="1" dir="ltr" value="${h(e.tuition_amount || '')}"></label>
-        <label>${h(t('scPeriod'))}<select name="tuition_period">${['month', 'year', 'total'].map((p) => `<option value="${p}"${p === (e.tuition_period || 'month') ? ' selected' : ''}>${h(t(`scPer_${p}`))}</option>`).join('')}</select></label>
+        <label>${h(t('scPeriod'))}<select name="tuition_period">${['month', 'year', 'total'].map((x) => `<option value="${x}"${x === (e.tuition_period || 'month') ? ' selected' : ''}>${h(t(`scPer_${x}`))}</option>`).join('')}</select></label>
       </div>
     </fieldset>
     <label class="wide">${h(t('comments'))}<textarea name="note" rows="2">${h(e.note || '')}</textarea></label>
+    <p class="hint-line">${h(t('scAutoHint'))}</p>
     <div class="actions">
       ${!isNew ? `<button type="button" class="btn danger" data-del>${h(t('deleteBtn'))}</button>` : ''}
       <span class="spacer"></span>
       <button type="button" class="btn" data-close>${h(t('cancelBtn'))}</button>
       <button type="submit" class="btn primary">${h(t('saveBtn'))}</button>
     </div>`;
+  const el = form.elements;
   const heb = () => {
-    const a = form.elements.start_date.value; const b = form.elements.end_date.value;
+    const a = el.start_date.value; const b = el.end_date.value;
     $('[data-heb]', form).textContent = [a ? `${t('scFrom')}: ${isoToHebrewText(a)}` : '', b ? `${t('scTo')}: ${isoToHebrewText(b)}` : ''].filter(Boolean).join(' · ');
   };
-  form.elements.start_date.oninput = heb; form.elements.end_date.oninput = heb; heb();
-  form.elements.end_date.addEventListener('change', () => {
-    if (form.elements.end_date.value && form.elements.end_date.value < today()) form.elements.status.value = ST.left;
-  });
+  el.start_date.oninput = () => { el.start_date.dataset.touched = '1'; heb(); };
+  el.end_date.oninput = heb; heb();
+  // דער זמן → "פון" (ווען מ'האט נאך נישט געשריבן אליין)
+  el.zman.onchange = () => {
+    const st = el.zman.selectedOptions[0]?.dataset.start;
+    if (st && (!el.start_date.value || !el.start_date.dataset.touched)) { el.start_date.value = st; heb(); }
+  };
+  if (isNew && !el.start_date.value) { const z = zs.find((x) => x.start && x.start <= today()); if (z) { el.zman.value = z.label; el.start_date.value = z.start; heb(); } }
+  el.end_date.addEventListener('change', () => { if (el.end_date.value && el.end_date.value < today()) el.status.value = ST.left; });
   ['s', 'p'].forEach((p) => {
-    const inp = form.elements[`${p}_pick`];
-    const sync = () => { $(`[data-p="${p}"] .sc-new`, form).hidden = Boolean(contactByLabel(inp.value)); };
-    inp.oninput = sync;
+    const inp = el[`${p}_pick`];
+    inp.oninput = () => { $(`[data-p="${p}"] .sc-new`, form).hidden = Boolean(contactByLabel(inp.value)); };
   });
   // דער משפחה-נאמען פונעם תלמיד → אויך פארן טאטע
-  form.elements.s_last.oninput = () => { if (!form.elements.p_last.dataset.touched) form.elements.p_last.value = form.elements.s_last.value; };
-  form.elements.p_last.oninput = () => { form.elements.p_last.dataset.touched = '1'; };
+  el.s_last.oninput = () => { if (!el.p_last.dataset.touched) el.p_last.value = el.s_last.value; };
+  el.p_last.oninput = () => { el.p_last.dataset.touched = '1'; };
   $$('[data-close]', form).forEach((b) => { b.onclick = () => dlg.close(); });
   const del = $('[data-del]', form);
   if (del) {
@@ -411,52 +451,117 @@ export function openEnrollForm(enroll = {}, preset = {}) {
   if (!dlg.open) dlg.showModal();
 }
 
-/** א פערזאן פונעם טופס: א קאנטאקט וואס איז שוין דא, אדער א נייער (מיט דער ישיבה אין 'כולל/ישיבה') */
-async function personFrom(form, p, org, extraPhones = {}) {
-  const picked = contactByLabel(form.elements[`${p}_pick`].value);
-  if (picked) return picked.contact_id;
-  const first = form.elements[`${p}_first`].value.trim();
-  const last = form.elements[`${p}_last`].value.trim();
+const val = (form, n) => String(form.elements[n]?.value || '').trim();
+
+/** א נייער קאנטאקט פונעם טופס — מיט ענגליש (צו באשטעטיגן), געגנט, טעלעפאנען, הערות. גיט צוריק דעם ID (אדער ''). */
+async function newPerson(form, p, org, base, phones, notes) {
+  const first = val(form, `${p}_first`); const last = val(form, `${p}_last`);
   if (!first && !last) return '';
   if (!first || !last) throw new Error(t('scNeedName'));
-  const id = await saveContact({ first_name_he: first, last_name_he: last, kollel: org, marital_status: p === 's' ? 'בחור' : '' },
-    { mobile: formatPhone(form.elements[`${p}_mobile`].value), ...extraPhones });
-  state.contacts.push({ contact_id: id, first_name_he: first, last_name_he: last, kollel: org });
+  const c = { first_name_he: first, last_name_he: last, kollel: org, ...base };
+  const auto = [];
+  const en1 = suggestFirstName(first, state.contacts); const en2 = suggestLastName(last, state.contacts);
+  if (en1) { c.first_name_en = en1; auto.push('first_name_en'); }
+  if (en2) { c.last_name_en = en2; auto.push('last_name_en'); }
+  if (auto.length) c.unverified_fields = joinTags(auto);
+  if (!c.area && (c.zip || c.city || c.country)) c.area = detectArea(state.areas || [], c);
+  const ph = Object.fromEntries(Object.entries({ ...phones, comments: notes.filter(Boolean).join(' | ') }).filter(([, v]) => v));
+  const id = await saveContact(c, ph);
+  state.contacts.push({ ...c, contact_id: id });
+  state.phones.set(String(id), { ...ph, contact_id: id });
   return id;
 }
 
-/** דער קאנטאקט האט די ישיבה אין 'כולל/ישיבה' (און "פריער" ווען ער איז ארויס) */
-async function ensureOrg(id, org, left) {
-  const c = state.contacts.find((x) => String(x.contact_id) === String(id));
-  if (!c || !c.first_name_he) return;
-  const has = splitTags(c.kollel);
-  const only = has.length <= 1;
-  const next = { ...c };
-  delete next._row;
-  let changed = false;
-  if (!has.includes(org)) { next.kollel = joinTags([...has, org]); changed = true; }
-  if (only && (isTrue(c.kollel_former) !== Boolean(left))) { next.kollel_former = Boolean(left); changed = true; }
-  if (changed) await saveContact(next, state.phones.get(String(id)) || {});
-}
-
 async function saveEnrollForm(form, e) {
-  const org = form.elements.org.value;
-  const studentId = await personFrom(form, 's', org);
+  const org = val(form, 'org');
+  const zman = val(form, 'zman');
+  // דער טאטע: פונעם מאגר אדער נייער (מיט זיין אדרעס, טעלעפאנען, משפחת האם)
+  const pickedP = contactByLabel(form.elements.p_pick.value);
+  const community = val(form, 's_community');
+  const pAddr = { address: val(form, 'p_address'), city: val(form, 'p_city'), state: val(form, 'p_state'), zip: val(form, 'p_zip'), country: val(form, 'p_country') };
+  const parentId = pickedP ? pickedP.contact_id : await newPerson(form, 'p', org, pAddr,
+    { mobile: formatPhone(val(form, 'p_mobile')), home_phone: formatPhone(val(form, 'p_home')), wife_mobile: formatPhone(val(form, 'p_wife')), email_1: val(form, 'p_email').toLowerCase() },
+    [val(form, 'p_motherfam') && `משפחת האם: ${val(form, 'p_motherfam')}`, community && `משתייך לקהילת: ${community}`]);
+  // דער תלמיד: זיין אייגענע אדרעס, אדער די פון די עלטערן
+  const pickedS = contactByLabel(form.elements.s_pick.value);
+  const parentC = parentId ? state.contacts.find((x) => String(x.contact_id) === String(parentId)) : null;
+  const sAddr = val(form, 's_address') ? { address: val(form, 's_address') }
+    : parentC ? { address: parentC.address || '', city: parentC.city || '', state: parentC.state || '', zip: parentC.zip || '', country: parentC.country || '', area: parentC.area || '' } : {};
+  const studentId = pickedS ? pickedS.contact_id : await newPerson(form, 's', org, { marital_status: 'בחור', ...sAddr },
+    { mobile: formatPhone(val(form, 's_mobile')), email_1: val(form, 's_email').toLowerCase() },
+    [community && `משתייך לקהילת: ${community}`, val(form, 's_learned') && `למד בישיבה: ${val(form, 's_learned')}`]);
   if (!studentId) throw new Error(t('scNeedStudent'));
-  const parentId = await personFrom(form, 'p', org, { home_phone: formatPhone(form.elements.p_home.value) });
   const rec = {
-    ...e, org, contact_id: studentId, parent_id: parentId,
-    status: form.elements.status.value, start_date: form.elements.start_date.value, end_date: form.elements.end_date.value,
-    shiur: form.elements.shiur.value.trim(), room: form.elements.room.value.trim(),
-    tuition_amount: form.elements.tuition_amount.value, tuition_period: form.elements.tuition_period.value, note: form.elements.note.value.trim(),
+    ...e, org, contact_id: studentId, parent_id: parentId, zman,
+    status: val(form, 'status'), start_date: val(form, 'start_date'), end_date: val(form, 'end_date'),
+    shiur: val(form, 'shiur'), room: val(form, 'room'),
+    tuition_amount: val(form, 'tuition_amount'), tuition_period: val(form, 'tuition_period'), note: val(form, 'note'),
   };
   if (rec.end_date && rec.start_date && rec.end_date < rec.start_date) throw new Error(t('scBadDates'));
-  await saveRecord('Enrollments', 'enroll_id', rec);
-  const left = statusOn(rec) === 'left';
-  await ensureOrg(studentId, org, left);
+  rec.enroll_id = await saveRecord('Enrollments', 'enroll_id', rec);
+  const i = state.enrollments.findIndex((x) => String(x.enroll_id) === String(rec.enroll_id));
+  if (i >= 0) state.enrollments[i] = rec; else state.enrollments.push(rec);
   // דער קשר: זון פון ← טאטע (אויב נאך נישטא)
   if (parentId && !state.relations.some((r) => String(r.contact_id_a) === String(studentId) && String(r.contact_id_b) === String(parentId))) {
     await addRelation(studentId, 'זון פון', parentId);
+  }
+  // כולל/ישיבה + "פריער" + תגיות נוספות — פונעם תלמיד און פון די עלטערן
+  await syncPerson(studentId, org);
+  if (parentId) await syncPerson(parentId, org);
+  // געבורטסטאג → א מאורע (נאר ווען נאך נישטא)
+  const bd = !pickedS && val(form, 's_bday') ? parseBirthday(val(form, 's_bday')) : null;
+  if (!pickedS && val(form, 's_bday') && !bd) ui.toast(t('scBdayBad'), 'error');
+  if (bd && !birthdayOf(studentId)) {
+    await saveOccasion({ contact_id: studentId, occasion_type: BIRTHDAY, person_name: val(form, 's_first'), relation: 'ער אליין', ben_bat: 'בן',
+      father_name: parentC?.first_name_he || '', hebrew_day: bd.day, hebrew_month: bd.month, hebrew_year: bd.year });
+  }
+}
+
+/**
+ * נאך א נייעם קשר אינעם כרטיס ("זון פון" / "טאטע פון"): א תלמיד אן עלטערן באקומט דעם טאטע
+ * אינעם בלאט פון דער ישיבה, און דער טאטע באקומט 'כולל/ישיבה' און די תגיות — ווי ביים אריינלייגן.
+ */
+export async function afterRelation(a, type, b) {
+  let student; let father;
+  if (type === 'זון פון') { student = a; father = b; } else if (type === 'טאטע פון') { student = b; father = a; } else return;
+  const list = (state.enrollments || []).filter((e) => String(e.contact_id) === String(student) && !String(e.parent_id || '').trim());
+  for (const e of list) {
+    e.parent_id = father;
+    await saveRecord('Enrollments', 'enroll_id', e);
+    await syncPerson(father, e.org);
+  }
+}
+
+/**
+ * א מענטש אין דער ישיבה: 'כולל/ישיבה' (מיט "פריער" ווען אלע זיינע — אדער פון זיינע קינדער — זענען ארויס),
+ * און די תגיות נוספות: "זמן חורף פ"ז" + "תלמיד" ביים תלמיד, "הורה לתלמיד זמן חורף פ"ז" ביי די עלטערן.
+ */
+async function syncPerson(id, org) {
+  const c = state.contacts.find((x) => String(x.contact_id) === String(id));
+  if (!c || !c.first_name_he) return;
+  const mine = (state.enrollments || []).filter((x) => x.org === org && String(x.contact_id) === String(id));
+  const kids = (state.enrollments || []).filter((x) => x.org === org && String(x.parent_id) === String(id));
+  const all = [...mine, ...kids];
+  if (!all.length) return;
+  const left = all.every((x) => statusOn(x) === 'left');
+  const tags = [
+    ...mine.flatMap((x) => [zmanOf(x), 'תלמיד']),
+    ...kids.map((x) => zmanOf(x) && `הורה לתלמיד ${zmanOf(x)}`),
+  ].filter(Boolean).map((x) => otEntry(org, x));
+  const next = { ...c };
+  delete next._row;
+  let changed = false;
+  const has = splitTags(c.kollel);
+  if (!has.includes(org)) { next.kollel = joinTags([...has, org]); changed = true; }
+  if ((has.length <= 1) && isTrue(c.kollel_former) !== left) { next.kollel_former = left; changed = true; }
+  const merged = mergeOrgTags(c.org_tags, tags.join('; '));
+  if (merged !== mergeOrgTags(c.org_tags, '')) { next.org_tags = merged; changed = true; }
+  if (changed) {
+    await saveContact(next, state.phones.get(String(id)) || {});
+    Object.assign(c, next);
+  }
+  if (state.isAdmin) {
+    for (const x of tags) if (!(state.lists.org_tag || []).includes(x)) { try { await addListValue('org_tag', x); } catch { /* נישט וויכטיג */ } }
   }
 }
 

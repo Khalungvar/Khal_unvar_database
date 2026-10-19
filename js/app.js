@@ -27,7 +27,7 @@ import { initMailMerge, renderMailMerge, openMailMerge } from './mailmerge.js';
 import { initMail, openCompose, emailOf } from './mail.js';
 import { initRequests, submitRequest, pendingRequests } from './requests.js';
 import { openHelp, initHelpChat } from './help.js';
-import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection } from './school.js';
+import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount } from './orgtags.js';
 import {
   initPersonal, renderPersonal, openPersonal, unreadCount, tasksDueCount, openTaskForContact,
@@ -1027,6 +1027,7 @@ function wireFamily(c) {
     btn.disabled = true;
     try {
       await addRelation(c.contact_id, type, Number(m[1]));
+      await afterRelation(c.contact_id, type, Number(m[1]));
       await loadAll();
       toast(t('relAdded'));
       openCard(c.contact_id);
@@ -1515,7 +1516,7 @@ async function submit(form, original) {
   try {
     const id = await saveContact(contact, phones);
     for (const rel of form._relRemoves || []) await removeRelation(rel);
-    for (const add of form._relAdds || []) await addRelation(id, add.type, add.b);
+    for (const add of form._relAdds || []) { await addRelation(id, add.type, add.b); await afterRelation(id, add.type, add.b); }
     await loadAll();
     renderList();
     $('#contact-form').dataset.dirty = '';

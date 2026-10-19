@@ -197,7 +197,8 @@ Keywords: yeshiva, student, tuition, receipt, zman, left, accepted, payment, cla
 - **Lobby ← Kollel/Yeshiva ← Yeshivas Beis Shearim** — opens the yeshiva's own page (not the regular list). From the contacts list: **"Yeshiva page"** at the top.
 - Tabs: **Learning** (now — "נתקבל" in the lists), **Left** ("יוצאים"), **Parents** (with their children), **Tuition**, **Birthdays**.
 - **"Who was learning on"** — pick a date to see who was in the yeshiva then.
-- **＋ New student**: the student and the parent — from the database, or type a new one (a contact is created, linked "son of"). **From / To** dates, class, room, **tuition** (per month / per year / for the whole period).
+- **＋ New student** — everything the Excel import does: zman, birthday, community, previous yeshiva, the parents (cell, mother's cell, address, mother's family). On save: linked (son of), "Kollel/Yeshiva" with "former", zman tags, English, area, birthday as an occasion. A father added through "Family" in the card also becomes the father on this page.
+- Before: the student and the parent — from the database, or type a new one (a contact is created, linked "son of"). **From / To** dates, class, room, **tuition** (per month / per year / for the whole period).
 - ✎ = edit; a "To" date in the past makes him "left".
 - 💲 **Add payment**: who pays, amount, method (check, card — only the last 4 digits). **"Save + receipt"** prints a TUITION RECEIPT right away.
 - **Tuition**: what is due to date, paid, who owes, and recent payments (🧾 reprint, ✉ email).
