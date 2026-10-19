@@ -1163,3 +1163,8 @@ html, body { overflow-x: clip; }
 .mg-table th { white-space: nowrap; color: var(--muted); font-weight: 500; }
 .mg-table tr.mg-diff td { background: var(--warn-soft); }
 .mg-table td label.check { display: flex; gap: 6px; align-items: center; }
+
+.row-father { color: var(--muted); font-size: 13px; unicode-bidi: plaintext; text-align: right; }
+html[dir="ltr"] .row-father { text-align: left; }
+.otag-row { margin-top: -4px; gap: 8px; align-items: center; }
+.otag-row select { max-width: 360px; }

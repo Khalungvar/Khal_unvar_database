@@ -8,38 +8,38 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&family=Playpen+Sans+Hebrew:wght@400;600&family=Amatic+SC:wght@700&family=Noto+Rashi+Hebrew:wght@500&family=Frank+Ruhl+Libre:wght@400;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="img/favicon.png">
-  <link rel="stylesheet" href="css/style.css?v=159">
+  <link rel="stylesheet" href="css/style.css?v=160">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script type="importmap">
   {"imports": {
-    "./js/admin.js": "./js/admin.js?v=159",
-    "./js/app.js": "./js/app.js?v=159",
-    "./js/campaigns.js": "./js/campaigns.js?v=159",
-    "./js/config.js": "./js/config.js?v=159",
-    "./js/data.js": "./js/data.js?v=159",
-    "./js/donations.js": "./js/donations.js?v=159",
-    "./js/chart.js": "./js/chart.js?v=159",
-    "./js/excel.js": "./js/excel.js?v=159",
-    "./js/hebdate.js": "./js/hebdate.js?v=159",
-    "./js/google.js": "./js/google.js?v=159",
-    "./js/help.js": "./js/help.js?v=159",
-    "./js/import.js": "./js/import.js?v=159",
-    "./js/i18n.js": "./js/i18n.js?v=159",
-    "./js/lists.js": "./js/lists.js?v=159",
-    "./js/mail.js": "./js/mail.js?v=159",
-    "./js/mailmerge.js": "./js/mailmerge.js?v=159",
-    "./js/orgtags.js": "./js/orgtags.js?v=159",
-    "./js/pdf.js": "./js/pdf.js?v=159",
-    "./js/names.js": "./js/names.js?v=159",
-    "./js/occasions.js": "./js/occasions.js?v=159",
-    "./js/personal.js": "./js/personal.js?v=159",
-    "./js/places.js": "./js/places.js?v=159",
-    "./js/receipts.js": "./js/receipts.js?v=159",
-    "./js/requests.js": "./js/requests.js?v=159",
-    "./js/school.js": "./js/school.js?v=159",
-    "./js/merge.js": "./js/merge.js?v=159",
-    "./js/scope.js": "./js/scope.js?v=159",
-    "./js/util.js": "./js/util.js?v=159"
+    "./js/admin.js": "./js/admin.js?v=160",
+    "./js/app.js": "./js/app.js?v=160",
+    "./js/campaigns.js": "./js/campaigns.js?v=160",
+    "./js/config.js": "./js/config.js?v=160",
+    "./js/data.js": "./js/data.js?v=160",
+    "./js/donations.js": "./js/donations.js?v=160",
+    "./js/chart.js": "./js/chart.js?v=160",
+    "./js/excel.js": "./js/excel.js?v=160",
+    "./js/hebdate.js": "./js/hebdate.js?v=160",
+    "./js/google.js": "./js/google.js?v=160",
+    "./js/help.js": "./js/help.js?v=160",
+    "./js/import.js": "./js/import.js?v=160",
+    "./js/i18n.js": "./js/i18n.js?v=160",
+    "./js/lists.js": "./js/lists.js?v=160",
+    "./js/mail.js": "./js/mail.js?v=160",
+    "./js/mailmerge.js": "./js/mailmerge.js?v=160",
+    "./js/orgtags.js": "./js/orgtags.js?v=160",
+    "./js/pdf.js": "./js/pdf.js?v=160",
+    "./js/names.js": "./js/names.js?v=160",
+    "./js/occasions.js": "./js/occasions.js?v=160",
+    "./js/personal.js": "./js/personal.js?v=160",
+    "./js/places.js": "./js/places.js?v=160",
+    "./js/receipts.js": "./js/receipts.js?v=160",
+    "./js/requests.js": "./js/requests.js?v=160",
+    "./js/school.js": "./js/school.js?v=160",
+    "./js/merge.js": "./js/merge.js?v=160",
+    "./js/scope.js": "./js/scope.js?v=160",
+    "./js/util.js": "./js/util.js?v=160"
   }}
   </script>
   <script type="module">import "./js/app.js";</script>
@@ -116,6 +116,10 @@
         <span class="spacer"></span>
         <button id="btn-xl-contacts" class="btn" title=".xlsx">Excel</button>
         <button id="btn-new" class="btn primary" data-i18n="newContact"></button>
+      </div>
+      <div class="toolbar otag-row" id="otag-row" hidden>
+        <span class="muted" data-i18n="orgTagsRow"></span>
+        <select id="otag-filter" aria-label="Internal tags"></select>
       </div>
       <p id="count" class="muted"></p>
       <div id="list" class="list"></div>

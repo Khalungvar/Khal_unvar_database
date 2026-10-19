@@ -29,7 +29,7 @@ import { initRequests, submitRequest, pendingRequests } from './requests.js';
 import { openHelp, initHelpChat } from './help.js';
 import { initMerge, openMerge } from './merge.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
-import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount } from './orgtags.js';
+import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount, parseOrgTags, splitEntry, entry } from './orgtags.js';
 import {
   initPersonal, renderPersonal, openPersonal, unreadCount, tasksDueCount, openTaskForContact,
 } from './personal.js';
@@ -507,6 +507,31 @@ function matchesOrg(c) {
   return $('#org-former').checked || !isTrue(c[`${name}_former`]);
 }
 
+/** די צווייטע שורה: תגיות פנימיות ("ארגון: טעג") — נאר די וואס זענען דא ביי די אנשים לויט דעם ערשטן פילטער */
+function matchesOrgTag(c) {
+  const v = $('#otag-filter')?.value;
+  if (!v) return true;
+  const [org, tag] = splitEntry(v);
+  return (parseOrgTags(c.org_tags).get(org) || []).includes(tag);
+}
+function fillOrgTagFilter() {
+  const sel = $('#otag-filter');
+  if (!sel) return;
+  const tag = $('#tag-filter').value;
+  const base = state.contacts.filter((c) => contactInScope(c) && (!tag || splitTags(c.community_tags).includes(tag)));
+  const groups = new Map(); // ארגון → Map(טעג → צאל)
+  base.forEach((c) => parseOrgTags(c.org_tags).forEach((tags, org) => {
+    if (!groups.has(org)) groups.set(org, new Map());
+    tags.forEach((x) => groups.get(org).set(x, (groups.get(org).get(x) || 0) + 1));
+  }));
+  const cur = sel.value;
+  const sorted = [...groups].sort((a, b) => a[0].localeCompare(b[0], 'he'));
+  sel.innerHTML = `<option value="">${h(t('allOrgTags'))}</option>` + sorted.map(([org, m]) => `<optgroup label="${h(org)}">${
+    [...m].sort((a, b) => a[0].localeCompare(b[0], 'he')).map(([x, n]) => `<option value="${h(entry(org, x))}">${h(x)} (${n})</option>`).join('')}</optgroup>`).join('');
+  sel.value = [...sel.options].some((o) => o.value === cur) ? cur : '';
+  $('#otag-row').hidden = !groups.size;
+}
+
 function visibleContacts() {
   const query = $('#search').value;
   const tag = $('#tag-filter').value;
@@ -516,6 +541,7 @@ function visibleContacts() {
     .filter((c) => contactInScope(c))
     .filter((c) => showInactive || isTrue(c.is_active) || c.is_active === '')
     .filter((c) => !tag || splitTags(c.community_tags).includes(tag))
+    .filter(matchesOrgTag)
     .filter((c) => !area || c.area === area)
     .filter(matchesOrg)
     .filter((c) => matches(c, query))
@@ -523,7 +549,29 @@ function visibleContacts() {
       || String(a.first_name_he).localeCompare(String(b.first_name_he), 'he'));
 }
 
+/** contact_id → [טאטע'ס] (פון "זון פון" אדער "טאטע פון") — צו ווייזן אונטערן נאמען אין דער רשימה */
+let fatherMap = new Map();
+function buildFatherMap() {
+  fatherMap = new Map();
+  const add = (son, dad) => {
+    const l = fatherMap.get(son) || [];
+    if (!l.includes(dad)) l.push(dad);
+    fatherMap.set(son, l);
+  };
+  (state.relations || []).forEach((r) => {
+    if (r.relation_type === 'זון פון') add(String(r.contact_id_a), String(r.contact_id_b));
+    if (r.relation_type === 'טאטע פון') add(String(r.contact_id_b), String(r.contact_id_a));
+  });
+}
+function fatherLine(c) {
+  const dads = (fatherMap.get(String(c.contact_id)) || [])
+    .map((id) => state.contacts.find((x) => String(x.contact_id) === id)).filter(Boolean);
+  return dads.length ? `<span class="row-father">${h(t('sonOfLine', { name: dads.map((d) => fullNameHe(d)).join(' / ') }))}</span>` : '';
+}
+
 function renderList() {
+  buildFatherMap();
+  fillOrgTagFilter();
   const list = visibleContacts();
   const sc = getScope();
   $('#count').textContent = t('count', { n: list.length }) + (sc ? ` · ${scopeLabel(sc)}` : '');
@@ -549,6 +597,7 @@ function contactRow(c) {
     <button type="button" class="row${missingEn ? ' missing-en' : ''}" data-id="${h(c.contact_id)}">
       <span class="row-main">
         <span class="row-name">${h(fullNameHe(c))} ${badges}</span>
+        ${fatherLine(c)}
         <span class="row-en" dir="ltr">${en ? unverifiedWrap(c, ['first_name_en', 'last_name_en'], h(en)) : `<em>${t('noEnName')}</em>`}</span>
       </span>
       <span class="row-city">${c.area ? unverifiedWrap(c, ['area'], h(c.area)) : h(c.city)}</span>
@@ -1636,6 +1685,7 @@ function start() {
   $('#btn-xl-contacts').onclick = () => { const sc = getScope(); exportContacts(sc ? scopeLabel(sc) : t('tabContacts'), visibleContacts()); };
   $('#search').addEventListener('input', renderList);
   $('#tag-filter').addEventListener('change', renderList);
+  $('#otag-filter').addEventListener('change', renderList);
   $('#area-filter').addEventListener('change', renderList);
   $('#org-filter').addEventListener('change', () => { $('#org-former-wrap').hidden = !$('#org-filter').value; renderList(); });
   $('#org-former').addEventListener('change', renderList);
