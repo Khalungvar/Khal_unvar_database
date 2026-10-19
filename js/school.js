@@ -107,6 +107,32 @@ export function monthAmount(e, x) {
   return o.has(mk(x)) ? o.get(mk(x)) : baseMonthly(e);
 }
 
+/** "דער סכום פון חודש X ביז חודש Y": די חדשים אינעם ריי באקומען דעם נייעם סכום; די אנדערע בלייבן ווי פריער.
+ *  נאר "פון" — א נייער פעסטער סכום פון דעמאלט אן (די פריערדיגע חדשים בלייבן מיטן אלטן סכום). */
+function applyPriceRange(rec, old, fromIso, toIso) {
+  if (!fromIso && !toIso) return;
+  const amt = Math.round(Number(rec.tuition_amount) || 0);
+  const oldBase = old.enroll_id ? baseMonthly(old) : 0;
+  const o = monthOverrides(old);
+  const s0 = d10(rec.start_date) ? hm(d10(rec.start_date)) : null;
+  const a = fromIso ? hm(fromIso) : s0;
+  if (!a) return;
+  const b = toIso ? hm(toIso) : null;
+  if (b && ord(b) < ord(a)) throw new Error(t('scBadDates'));
+  if (b) {
+    // א ריי: דער פעסטער סכום בלייבט (ביי א נייעם — דער סכום), די חדשים אינעם ריי — דער נייער סכום
+    if (oldBase) rec.tuition_amount = old.tuition_amount;
+    for (let x = a, g = 0; ord(x) <= ord(b) && g < 120; x = nextMonth(x), g += 1) o.set(mk(x), amt);
+  } else if (oldBase) {
+    // נאר "פון": די חדשים פאר דעם בלייבן מיטן אלטן סכום, פון דעמאלט אן — דער נייער
+    if (s0) for (let x = s0, g = 0; ord(x) < ord(a) && g < 240; x = nextMonth(x), g += 1) if (!o.has(mk(x))) o.set(mk(x), oldBase);
+    [...o.keys()].forEach((k) => { const i = k.indexOf('-'); if (ord({ y: Number(k.slice(0, i)), m: k.slice(i + 1) }) >= ord(a)) o.delete(k); });
+  }
+  const base = baseMonthly(rec);
+  [...o].forEach(([k, n]) => { if (n === base) o.delete(k); });
+  rec.month_amounts = [...o].map(([k, n]) => `${k}:${n}`).join('; ');
+}
+
 /** וויפיל מ'דארף צאלן ביז היינט (אריינגערעכנט דעם יעצטיגן חודש) */
 export function charged(e) {
   if (e.tuition_period === 'total') return d10(e.start_date) && d10(e.start_date) <= today() ? Number(e.tuition_amount || 0) : 0;
@@ -491,8 +517,11 @@ export function openEnrollForm(enroll = {}, preset = {}) {
     <fieldset><legend>${h(t('scTuition'))}</legend>
       <div class="grid">
         <label>${h(t('xlAmount'))}<input name="tuition_amount" type="number" min="0" step="1" dir="ltr" value="${h(e.tuition_amount || '')}"></label>
+        <label>${h(t('scPriceFrom'))}<span class="sc-my"><select name="tu_from_m"></select><select name="tu_from_y"></select></span><input type="hidden" name="tu_from_date"></label>
+        <label>${h(t('scPriceTo'))}<span class="sc-my"><select name="tu_to_m"></select><select name="tu_to_y"></select></span><input type="hidden" name="tu_to_date"></label>
         <label>${h(t('scPeriod'))}<select name="tuition_period">${['month', 'year', 'total'].map((x) => `<option value="${x}"${x === (e.tuition_period || 'month') ? ' selected' : ''}>${h(t(`scPer_${x}`))}</option>`).join('')}</select></label>
       </div>
+      <p class="hint-line">${h(t('scPriceRangeHint'))}</p>
     </fieldset>
     <label class="wide">${h(t('comments'))}<textarea name="note" rows="2">${h(e.note || '')}</textarea></label>
     <p class="hint-line">${h(t('scAutoHint'))}</p>
@@ -521,14 +550,18 @@ export function openEnrollForm(enroll = {}, preset = {}) {
   const readMY = (p) => {
     const m = el[`${p}_m`].value; const y = Number(el[`${p}_y`].value);
     if (m && !y) { el[`${p}_y`].value = String(thisY); return readMY(p); }
-    el[`${p}_date`].value = m && y ? fromHebrew(p === 'start' ? 1 : 29, m, y) : '';
+    el[`${p}_date`].value = m && y ? fromHebrew(p === 'start' || p === 'tu_from' ? 1 : 29, m, y) : '';
   };
+  ['tu_from', 'tu_to'].forEach((p) => {
+    el[`${p}_m`].onchange = () => readMY(p);
+    el[`${p}_y`].onchange = () => { fillMonths(p, Number(el[`${p}_y`].value) || thisY, el[`${p}_m`].value); readMY(p); };
+  });
   ['start', 'end'].forEach((p) => {
     el[`${p}_m`].onchange = () => { el.start_date.dataset.touched = p === 'start' ? '1' : el.start_date.dataset.touched || ''; readMY(p); if (p === 'end') endChanged(); };
     el[`${p}_y`].onchange = () => { fillMonths(p, Number(el[`${p}_y`].value) || thisY, el[`${p}_m`].value); if (p === 'start') el.start_date.dataset.touched = '1'; readMY(p); if (p === 'end') endChanged(); };
   });
   const endChanged = () => { if (el.end_date.value && el.end_date.value < today()) el.status.value = ST.left; };
-  setMY('start', d10(e.start_date)); setMY('end', d10(e.end_date));
+  setMY('start', d10(e.start_date)); setMY('end', d10(e.end_date)); setMY('tu_from', ''); setMY('tu_to', '');
   // דער זמן → "פון" (ווען מ'האט נאך נישט געקליבן אליין)
   el.zman.onchange = () => {
     const st = el.zman.selectedOptions[0]?.dataset.start;
@@ -613,6 +646,7 @@ async function saveEnrollForm(form, e) {
     tuition_amount: val(form, 'tuition_amount'), tuition_period: val(form, 'tuition_period'), note: val(form, 'note'),
   };
   if (rec.end_date && rec.start_date && rec.end_date < rec.start_date) throw new Error(t('scBadDates'));
+  applyPriceRange(rec, e, val(form, 'tu_from_date'), val(form, 'tu_to_date'));
   rec.enroll_id = await saveRecord('Enrollments', 'enroll_id', rec);
   const i = state.enrollments.findIndex((x) => String(x.enroll_id) === String(rec.enroll_id));
   if (i >= 0) state.enrollments[i] = rec; else state.enrollments.push(rec);
