@@ -166,7 +166,7 @@ function listHtml(list, day) {
     </div>
     ${cur.asOf ? `<p class="hint-line">${h(t('scAsOfNote', { d: isoToHebrewText(day) }))}</p>` : ''}
     ${rows.length ? `<div class="sc-table-wrap"><table class="lapsed-table sc-table"><thead><tr>
-      <th>${h(t('scStudent'))}</th><th>${h(t('scParent'))}</th><th>${h(t('colMobile'))}</th>${cur.tab === 'left' ? '' : `<th>${h(t('scShiur'))}</th>`}
+      <th>${h(t('scStudent'))}</th><th>${h(t('scParent'))}</th><th>${h(t('colMobile'))}</th>
       <th>${h(t('scFrom'))}</th><th>${h(t('scTo'))}</th><th>${h(t('scBalance'))}</th><th></th></tr></thead>
       <tbody>${rows.map(rowHtml).join('')}</tbody></table></div>` : `<p class="muted">${h(t('scNone'))}</p>`}`;
 }
@@ -177,7 +177,6 @@ function rowHtml(e) {
     <td><button type="button" class="linkish" data-open="${h(e.contact_id)}">${h(nameOf(e.contact_id) || `#${e.contact_id}`)}</button>${e.room ? `<div class="muted small">${h(t('scRoom'))}: ${h(e.room)}</div>` : ''}</td>
     <td>${e.parent_id ? `<button type="button" class="linkish" data-open="${h(e.parent_id)}">${h(nameOf(e.parent_id))}</button>` : '<span class="muted">—</span>'}</td>
     <td dir="ltr" class="small">${h(phoneOf(e.contact_id) || phoneOf(e.parent_id))}</td>
-    ${cur.tab === 'left' ? '' : `<td>${h(e.shiur || '')}</td>`}
     <td class="small">${h(dateText(e.start_date))}</td><td class="small">${h(dateText(e.end_date))}</td>
     <td class="num ${b > 0 ? 'sc-owe' : ''}" dir="ltr">${Number(e.tuition_amount) ? money(b) : ''}</td>
     <td class="sc-acts"><button type="button" class="btn small-btn" data-edit="${h(e.enroll_id)}" title="${h(t('scEdit'))}">✎</button>
