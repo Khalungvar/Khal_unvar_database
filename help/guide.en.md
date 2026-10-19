@@ -205,6 +205,16 @@ Keywords: yeshiva, student, tuition, receipt, zman, left, accepted, payment, cla
 - In the student's / parent's card: tab **🎓 Yeshiva**.
 - All this is separate from the tags — only on this page. **Admin ← lists ← "Yeshivas with their own page"** — add another yeshiva.
 
+## Two cards for the same person — merging
+
+1. Open one of the cards and press **⇄ Merge**.
+2. Pick the other card (type a name or phone).
+3. For each field that differs, choose which value to keep. Tags, organizations/yeshiva, phones and emails are combined.
+4. **⇄ Swap** changes which card stays (normally the older number).
+5. Press **⇄ Merge** — donations, receipts, occasions, family links, yeshiva records and tuition move over; the other card goes to the trash (it can be restored).
+
+A gabbai's merge becomes a request that an admin approves.
+
 ## Admin (admins only)
 Keywords: admin, settings, admin lists, tags, logo, gabbai, access
 

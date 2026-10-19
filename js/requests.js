@@ -4,7 +4,7 @@
 //
 // א נייע סארט בקשה? צולייגן אין TYPES: { icon, label, apply(payload) }.
 import {
-  state, loadAll, saveRecord, displayName, addListValue, trashContact, deleteDonation, voidReceipt,
+  state, loadAll, saveRecord, displayName, addListValue, trashContact, deleteDonation, voidReceipt, mergeContactPair,
 } from './data.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, nowStamp } from './util.js';
@@ -43,6 +43,14 @@ const TYPES = {
       const d = state.donations.find((x) => String(x.donation_id) === String(p.donation_id));
       if (!d) throw new Error(t('rqGone'));
       await deleteDonation(d);
+    },
+  },
+  merge: {
+    icon: '⇄',
+    label: 'rqTypeMerge',
+    apply: async (p) => {
+      if (!contactOf(p.keep) || !contactOf(p.drop)) throw new Error(t('rqGone'));
+      await mergeContactPair(p.keep, p.drop, p.contact, p.phones);
     },
   },
   void_receipt: {

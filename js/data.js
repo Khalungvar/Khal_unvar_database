@@ -666,6 +666,51 @@ export async function trashContact(c) {
   await logChanges('contact', c.contact_id, c.contact_id, null, null, 'deleted (trash)');
 }
 
+const colLetter = (i) => { let s = ''; let n = i + 1; while (n) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+
+/**
+ * מנהל: צוויי רעקארדס פון דעם זעלבן מענטש → איינס. keep באקומט די אויסגעקליבענע פרטים (contact, phones),
+ * אלעס וואס איז געווען ביים צווייטן (נדבות, מאורעות, קשרים, ישיבה, שכר לימוד, קבלות, ארגון-הערות, בילד)
+ * ווערט אריבערגעפירט צו keep, און דער צווייטער גייט אין "מיסט" (מ'קען אים צוריקברענגען).
+ */
+export async function mergeContactPair(keepId, dropId, contact, phones) {
+  if (!state.isAdmin) throw new Error(t('adminOnly'));
+  const keep = String(keepId); const drop = String(dropId);
+  if (keep === drop) return;
+  await saveContact({ ...contact, contact_id: keepId }, phones);
+  const COLS = {
+    Donations: ['contact_id'], Occasions: ['contact_id'], OrgNotes: ['contact_id'], Receipts: ['contact_id'],
+    Enrollments: ['contact_id', 'parent_id'], Tuition: ['contact_id', 'payer_id'], Relations: ['contact_id_a', 'contact_id_b'], Photos: ['contact_id'],
+  };
+  const tabs = await readTabs(Object.keys(COLS));
+  const data = [];
+  Object.entries(COLS).forEach(([tab, cols]) => {
+    const [head = [], ...body] = tabs[tab] || [];
+    const idx = cols.map((c) => head.indexOf(c)).filter((i) => i >= 0);
+    if (!idx.length) return;
+    if (tab === 'Photos' && body.some((r) => String(r[idx[0]]) === keep)) return; // ער האט שוין א בילד
+    const seenRel = new Set(tab === 'Relations' ? body.map((r) => `${r[head.indexOf('contact_id_a')]}|${r[head.indexOf('relation_type')]}|${r[head.indexOf('contact_id_b')]}`) : []);
+    body.forEach((r, j) => {
+      if (!idx.some((i) => String(r[i]) === drop)) return;
+      const rowNo = j + 2;
+      if (tab === 'Relations') {
+        const a = String(r[head.indexOf('contact_id_a')]) === drop ? keep : String(r[head.indexOf('contact_id_a')]);
+        const b = String(r[head.indexOf('contact_id_b')]) === drop ? keep : String(r[head.indexOf('contact_id_b')]);
+        const k = `${a}|${r[head.indexOf('relation_type')]}|${b}`;
+        // א קשר צו זיך אליין, אדער וואס איז שוין דא — אויסמעקן
+        if (a === b || seenRel.has(k)) { data.push({ range: `${tab}!A${rowNo}:${colLetter(head.length - 1)}${rowNo}`, values: [head.map(() => '')] }); return; }
+        seenRel.add(k);
+      }
+      idx.forEach((i) => { if (String(r[i]) === drop) data.push({ range: `${tab}!${colLetter(i)}${rowNo}`, values: [[Number(keep) || keep]] }); });
+    });
+  });
+  for (let i = 0; i < data.length; i += 400) await batchUpdate(data.slice(i, i + 400));
+  const dropC = state.contacts.find((c) => String(c.contact_id) === drop);
+  if (dropC) await setDeleted(dropC, nowStamp(), state.email);
+  await logChanges('contact', keep, keep, null, null, `merged #${drop} into #${keep}`);
+  await logChanges('contact', drop, drop, null, null, `merged into #${keep} (trash)`);
+}
+
 /** מנהל: ברענגט צוריק פון מיסט. */
 export async function restoreContact(c) {
   if (!state.isAdmin) throw new Error(t('adminOnly'));

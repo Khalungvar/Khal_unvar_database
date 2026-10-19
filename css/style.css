@@ -1157,3 +1157,9 @@ html, body { overflow-x: clip; }
 .sc-card-grid { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: .95rem; }
 .sc-person { margin-bottom: 10px; }
 .sc-heb { margin-top: 4px; }
+
+/* ---------- מערדזשן ---------- */
+.mg-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; margin: 10px 0; }
+.mg-table th { white-space: nowrap; color: var(--muted); font-weight: 500; }
+.mg-table tr.mg-diff td { background: var(--warn-soft); }
+.mg-table td label.check { display: flex; gap: 6px; align-items: center; }

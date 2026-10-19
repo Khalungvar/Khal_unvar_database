@@ -27,6 +27,7 @@ import { initMailMerge, renderMailMerge, openMailMerge } from './mailmerge.js';
 import { initMail, openCompose, emailOf } from './mail.js';
 import { initRequests, submitRequest, pendingRequests } from './requests.js';
 import { openHelp, initHelpChat } from './help.js';
+import { initMerge, openMerge } from './merge.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount } from './orgtags.js';
 import {
@@ -693,6 +694,7 @@ function openCard(id, tab = null) {
       toast(t('delDone', { name: fullNameHe(c) }));
     } catch (err) { toast(friendlyError(err), 'error'); }
   };
+  $('#card-merge').onclick = () => openMerge(c);
   $('#card-edit').onclick = () => {
     if (cardDirty() && !confirm(t('kvitelUnsaved'))) return;
     $('#card-dialog').close(); openForm(c);
@@ -1699,6 +1701,7 @@ function start() {
   initMailMerge({ showView, fullNameHe, toast, friendlyError });
   initMail({ toast, friendlyError });
   initRequests({ toast, friendlyError, refreshAll, updateBadges, showView, openCard });
+  initMerge({ contactById, fullNameHe, pickerLabel, fieldLabel, toast, friendlyError, refreshAll, openCard });
   initSchool({
     showView, contactById, fullNameHe, pickerLabel, openCard, toast, friendlyError, refreshAll,
     openOrgContacts: (org) => {
