@@ -340,7 +340,8 @@ function buildRows(table) {
       out.bday = parseBirthday(extra.birthday);
       if (!out.bday) out.bdayBad = true;
     }
-    if (!contact.first_name_he || !contact.last_name_he) { out.action = 'skip'; out.status = 'error'; out.note = t('impNeedName'); return out; }
+    // א לעצטער נאמען מוז זיין; אן ערשטן נאמען (למשל א חתונה-רשימה "Mr & Mrs Kleinbart") — מ'לייגט אריין סיי ווי
+    if (!contact.last_name_he) { out.action = 'skip'; out.status = 'error'; out.note = t('impNeedName'); return out; }
     if (contact.unverified_fields) out.auto = new Set(contact.unverified_fields.split(', '));
     const nk = normalize(`${contact.first_name_he} ${contact.last_name_he}`);
     const ph = ['mobile', 'home_phone', 'wife_mobile', 'other_phone'].map((k) => digits(phones[k]).slice(-10)).filter((d) => d.length >= 7);
