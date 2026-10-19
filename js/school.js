@@ -262,7 +262,8 @@ function tuitionHtml(all) {
         <td class="num" dir="ltr">${money(paid(e))}</td>
         <td class="num ${b > 0 ? 'sc-owe' : ''}" dir="ltr">${money(b)}</td>
         <td class="sc-acts"><button type="button" class="btn small-btn" data-edit="${h(e.enroll_id)}" title="${h(t('scEdit'))}">✎</button>
-          <button type="button" class="btn small-btn" data-pay="${h(e.enroll_id)}">💲 ${h(t('scAddPayment'))}</button></td></tr>`; }).join('')}</tbody></table></div>`;
+          <button type="button" class="btn small-btn" data-pay="${h(e.enroll_id)}">💲 ${h(t('scAddPayment'))}</button>
+          ${paymentsOf(e).length ? `<button type="button" class="btn small-btn" data-pays="${h(e.enroll_id)}" title="${h(t('scRemovePay'))}">− ${h(t('scRemovePayShort'))}</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`;
   return `<div class="sc-stats">
       <div class="sc-stat sc-owe"><span class="muted small">${h(t('scOweActive'))}</span><b dir="ltr">${money(oa.sum)}</b><span class="small">${h(t('scOweN', { n: oa.n }))}</span></div>
       <div class="sc-stat sc-owe"><span class="muted small">${h(t('scOweLeft'))}</span><b dir="ltr">${money(ol.sum)}</b><span class="small">${h(t('scOweN', { n: ol.n }))}</span></div>
@@ -345,6 +346,7 @@ function wire(main, all) {
 function wireRowButtons(root) {
   $$('[data-open]', root).forEach((b) => { b.onclick = () => ui.openCard(b.dataset.open); });
   $$('[data-edit]', root).forEach((b) => { b.onclick = () => openEnrollForm(state.enrollments.find((e) => String(e.enroll_id) === b.dataset.edit)); });
+  $$('[data-pays]', root).forEach((b) => { b.onclick = () => openStudentPayments(state.enrollments.find((e) => String(e.enroll_id) === b.dataset.pays)); });
   $$('[data-pay]', root).forEach((b) => { b.onclick = () => openPaymentForm({}, state.enrollments.find((e) => String(e.enroll_id) === b.dataset.pay)); });
   $$('[data-editpay]', root).forEach((b) => {
     b.onclick = () => { const p = state.tuition.find((x) => String(x.payment_id) === b.dataset.editpay); openPaymentForm(p, state.enrollments.find((e) => String(e.enroll_id) === String(p.enroll_id))); };
@@ -679,6 +681,39 @@ async function syncPerson(id, org) {
 }
 
 // ---------- טופס: א תשלום ----------
+/** די תשלומים פון איין תלמיד — מ'קען טוישן אדער אראפנעמען (א גבאי אויך, אן באשטעטיגונג) */
+function openStudentPayments(e) {
+  if (!e) return;
+  const dlg = $('#school-dialog'); const form = $('#school-form');
+  const draw = () => {
+    const pays = paymentsOf(e).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    form.innerHTML = `<button type="button" class="x-close" data-close aria-label="${h(t('close'))}">✕</button>
+      <h2>${h(t('scPaysOf', { name: nameOf(e.contact_id) }))}</h2>
+      ${pays.length ? `<table class="lapsed-table sc-table"><thead><tr><th>${h(t('scDate'))}</th><th>${h(t('scPayer'))}</th><th>${h(t('xlAmount'))}</th><th>${h(t('paymentMethod'))}</th><th>${h(t('rcNumber'))}</th><th></th></tr></thead>
+        <tbody>${pays.map((p) => `<tr><td class="small">${h(d10(p.date))}</td><td>${h(nameOf(p.payer_id))}</td><td class="num" dir="ltr">${money(p.amount)}</td>
+          <td class="small">${h([p.method, p.check_number ? `#${p.check_number}` : '', p.card_last4 ? `****${p.card_last4}` : ''].filter(Boolean).join(' '))}</td>
+          <td dir="ltr" class="small">${h(p.receipt_no || '')}</td>
+          <td class="sc-acts"><button type="button" class="btn small-btn" data-pe="${h(p.payment_id)}">✎</button>
+            <button type="button" class="btn small-btn danger" data-pd="${h(p.payment_id)}">🗑 ${h(t('scRemovePayShort'))}</button></td></tr>`).join('')}</tbody></table>`
+        : `<p class="muted">${h(t('scNoPayments'))}</p>`}
+      <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-close>${h(t('close'))}</button></div>`;
+    $$('[data-close]', form).forEach((b) => { b.onclick = () => dlg.close(); });
+    $$('[data-pe]', form).forEach((b) => { b.onclick = () => openPaymentForm(state.tuition.find((x) => String(x.payment_id) === b.dataset.pe), e); });
+    $$('[data-pd]', form).forEach((b) => {
+      b.onclick = async () => {
+        const p = state.tuition.find((x) => String(x.payment_id) === b.dataset.pd);
+        if (!p) return;
+        const msg = p.receipt_no ? t('scDelPaidReceipt', { no: p.receipt_no }) : t('scDelPaymentOf', { amount: money(p.amount), name: nameOf(e.contact_id) });
+        if (!confirm(msg)) return;
+        b.disabled = true;
+        try { await deleteRecord('Tuition', 'payment_id', p); await loadAll(); ui.refreshAll(); ui.toast(t('scPayRemoved')); draw(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); b.disabled = false; }
+      };
+    });
+  };
+  draw();
+  if (!dlg.open) dlg.showModal();
+}
+
 export function openPaymentForm(pay = {}, e) {
   if (!e) return;
   const p = { date: today(), payer_id: e.parent_id || e.contact_id, method: '', ...(pay || {}) };
