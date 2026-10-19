@@ -181,7 +181,8 @@ function renderLobby() {
     <div class="lobby-row lobby-row4">
       ${tile('area', '📍', t('area'), t('lobbyAreaSub', { n: areas.length }))}
       ${tile('donations', '💰', t('lobbyDonations'), t('lobbyDonationsSub', { n: state.donations.length }))}
-      ${tile('occasions', '🕯', t('lobbyOccasions'), t('lobbyOccasionsSub', { n: upcomingWeek() }), 'data-wide')}
+      ${tile('occasions', '🕯', t('lobbyOccasions'), t('lobbyOccasionsSub', { n: upcomingWeek() }))}
+      ${tile('simchos', '🎉', t('lobbySimchos'), t('lobbySimchosSub'))}
     </div>
     ${lobbyOpen === 'area' ? `<div class="lobby-choose">
       <span class="muted">${h(t('lobbyChoose'))}</span>
@@ -275,7 +276,7 @@ function lobbyClick(e) {
 }
 
 function showSoon(key) {
-  const titles = { mailmerge: 'Mail Merge', calls: 'Calls & SMS', personal: t('lobbyPersonal'), receipts: 'Invoice & Receipt' };
+  const titles = { simchos: t('lobbySimchos'), mailmerge: 'Mail Merge', calls: 'Calls & SMS', personal: t('lobbyPersonal'), receipts: 'Invoice & Receipt' };
   $('#soon-main').innerHTML = `<div class="soon-box"><h2>${h(titles[key] || '')}</h2>
     <p class="muted">${h(t('soonText'))}</p>
     <button type="button" class="btn" id="soon-back">← ${h(t('lobbyBack'))}</button></div>`;
