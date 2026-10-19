@@ -1,6 +1,6 @@
 // אריינלייגן א סך קאנטאקטן פון Excel (נאר בעל הבית, אין אדמין ← מנהלים, גבאים און צוטריט):
 // 1) אראפלאדן א דוגמא-טעקע  2) אנפילן / אריינקלעבן  3) ארויפלאדן ← א פריוויו מיט פראבלעמען ← אריינלייגן.
-import { state, loadAll, importContacts, mergeContacts, addListValue, importDonations, removeTagSeries, importRelations, importOccasions } from './data.js';
+import { state, loadAll, importContacts, mergeContacts, addListValue, importDonations, removeTagSeries, importRelations, importOccasions, importRecords } from './data.js';
 import { yearFromLabel, fromHebrew, monthsOf, toHebrew, monthHe, yearLabel, monthKeyFromHe } from './hebdate.js';
 import { umbrellaName } from './scope.js';
 import { parseOrgTags, mergeOrgTags, entry as otEntry, OLD_GROUP } from './orgtags.js';
@@ -49,6 +49,12 @@ const FIELDS = [
   ['family', 'פאמיליע-שליסל', 'Family key', 'x', '', ''],
   ['relation', 'קשר צום ראש פון דער פאמיליע', 'Relation to family head', 'x', '', ''],
   ['birthday', 'געבורטסטאג (תאריך עברי)', 'Birthday (Hebrew date)', 'x', '', ''],
+  // דער בלאט פון א ישיבה (Enrollments): די ישיבה, פון / ביז, סטאטוס (לומד / נתקבל / יצא), הערה
+  ['enroll_org', 'בלאט פון ישיבה', 'Yeshiva page', 'x', '', ''],
+  ['enroll_start', 'ישיבה: פון', 'Yeshiva: from', 'x', '', ''],
+  ['enroll_end', 'ישיבה: ביז', 'Yeshiva: to', 'x', '', ''],
+  ['enroll_status', 'ישיבה: סטאטוס', 'Yeshiva: status', 'x', '', ''],
+  ['enroll_note', 'ישיבה: הערה', 'Yeshiva: note', 'x', '', ''],
 ];
 const BOOL_FIELDS = new Set(['deceased', 'wife_in_neshei', 'wife_is_rebbetzin', 'kollel_former']);
 const BIRTHDAY = 'געבורטסטאג';
@@ -341,9 +347,18 @@ function buildRows(table) {
     const em = ['email_1', 'email_2'].map((k) => phones[k]).filter(Boolean);
     const enKey = contact.first_name_en && contact.last_name_en ? `en:${contact.first_name_en} ${contact.last_name_en}`.toLowerCase() : '';
     // 1) דער זעלבער טעלעפאן / אימעיל — זיכער דער זעלבער מענטש
-    const byContact = ph.map((d) => idx.phones.get(d)).find(Boolean) || em.map((e) => idx.emails.get(e)).find(Boolean);
+    let byContact = ph.map((d) => idx.phones.get(d)).find(Boolean) || em.map((e) => idx.emails.get(e)).find(Boolean);
+    // א מיטגליד פון א פאמיליע (למשל א זון מיטן טאטעס טעלעפאן) — נאר ווען דער נאמען פאסט אויך
+    if (byContact && extra.family) {
+      const ex = state.contacts.find((c) => String(c.contact_id) === String(byContact));
+      const w = (v) => normalize(v || '').split(/\s+/).filter(Boolean);
+      const a = w(ex?.first_name_he); const b = w(contact.first_name_he);
+      // דער טאטע: "יהושע" פאסט צו "אברהם יהושע העשיל"; א זון — נאר דער זעלבער נאמען
+      const fits = ex && (extra.relation ? a.join(' ') === b.join(' ') : (a.every((x) => b.includes(x)) || b.every((x) => a.includes(x))));
+      if (!fits) byContact = null;
+    }
     const myAddr = addrKey(contact);
-    const remember = () => { seen.names.set(nk, { n: out.n, addr: myAddr }); ph.forEach((d) => seen.phones.set(d, out.n)); };
+    const remember = () => { seen.names.set(nk, { n: out.n, addr: myAddr }); ph.forEach((d) => seen.phones.set(d, { n: out.n, fam: extra.family || '', first: nk })); };
     const withMerge = (id, def) => {
       out.matchId = id; out.merge = mergePatch(id, out);
       out.action = out.merge.changed.length ? def : 'skip';
@@ -371,8 +386,9 @@ function buildRows(table) {
         out.note = t('impDupAddr', { id: cands[0].contact_id, name: [cands[0].first_name_en, cands[0].last_name_en].filter(Boolean).join(' ') || cands[0].last_name_he }); return out;
       }
     }
-    const phoneInFile = ph.map((d) => seen.phones.get(d)).find(Boolean);
-    if (phoneInFile) { out.status = 'dup'; out.action = 'skip'; out.note = t('impDupFile', { n: phoneInFile }); return out; }
+    // דער זעלבער טעלעפאן אין דער טעקע: נישט ביי דער זעלבער פאמיליע (א זון מיטן טאטעס נומער)
+    const phoneInFile = ph.map((d) => seen.phones.get(d)).find((x) => x && !(extra.family && x.fam === extra.family && x.first !== nk));
+    if (phoneInFile) { out.status = 'dup'; out.action = 'skip'; out.note = t('impDupFile', { n: phoneInFile.n }); return out; }
     const nameInFile = seen.names.get(nk);
     if (nameInFile) {
       if (myAddr && nameInFile.addr && myAddr !== nameInFile.addr) { out.status = 'maybe'; out.action = 'add'; out.note = t('impMaybeFile', { n: nameInFile.n }); remember(); return out; }
@@ -624,10 +640,21 @@ function renderPreview(box, ui) {
       });
       if (occ.length && !(state.lists.occasion_type || []).includes(BIRTHDAY)) await addListValue('occasion_type', BIRTHDAY);
       const nOcc = occ.length ? await importOccasions(occ) : 0;
+      // ישיבה: א רעקארד אין Enrollments (נאר אויב נאך נישטא פאר דעם מענטש אין דער ישיבה)
+      const enr = [];
+      rows.forEach((r) => {
+        const id = idOf.get(r); const org = r.extra?.enroll_org;
+        if (!id || !org) return;
+        if ((state.enrollments || []).some((x) => String(x.contact_id) === String(id) && x.org === org)) return;
+        const head = r.extra.family && r.extra.relation && (fams.get(r.extra.family) || []).find((x) => !x.extra.relation);
+        enr.push({ org, contact_id: id, parent_id: head ? idOf.get(head) || '' : '', status: r.extra.enroll_status || 'לומד',
+          start_date: r.extra.enroll_start || '', end_date: r.extra.enroll_end || '', tuition_period: 'month', note: r.extra.enroll_note || '' });
+      });
+      const nEnr = enr.length ? await importRecords('Enrollments', 'enroll_id', enr) : 0;
       await loadAll();
       ui.refreshAll?.();
       parsed = null;
-      const msg = [nRel ? t('impRelDone', { n: nRel }) : '', nOcc ? t('impBdayDone', { n: nOcc }) : '', nDon ? t('impDonsDone', { n: nDon }) : '', res ? t('impDone', { n: list.length, first: res.first, last: res.last }) : '', mergedN ? t('impMerged', { n: mergedN }) : ''].filter(Boolean).join(' · ');
+      const msg = [nEnr ? t('impEnrDone', { n: nEnr }) : '', nRel ? t('impRelDone', { n: nRel }) : '', nOcc ? t('impBdayDone', { n: nOcc }) : '', nDon ? t('impDonsDone', { n: nDon }) : '', res ? t('impDone', { n: list.length, first: res.first, last: res.last }) : '', mergedN ? t('impMerged', { n: mergedN }) : ''].filter(Boolean).join(' · ');
       prev.innerHTML = `<p class="drive-ok">✓ ${h(msg)}</p>`;
       renderOld(box, ui);
       ui.toast(msg);

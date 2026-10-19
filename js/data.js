@@ -382,6 +382,17 @@ export async function importRelations(pairs) {
   return out.length;
 }
 
+/** בעל הבית: א סך רעקארדס אין א לשונית (למשל Enrollments), מיט נייע נומערן. */
+export async function importRecords(tab, idField, list) {
+  if (!state.isOwner) throw new Error(t('adminOnly'));
+  const ids = (await readColumn(tab, 'A')).slice(1).map(Number).filter(Number.isFinite);
+  let id = Math.max(0, ...ids) + 1;
+  const stamp = nowStamp();
+  const out = list.map((o) => objectToRow(state.headers[tab], { ...o, [idField]: id++, created_at: stamp, created_by: state.email, updated_at: stamp, updated_by: state.email }));
+  for (let i = 0; i < out.length; i += 250) await appendRows(tab, out.slice(i, i + 250));
+  return out.length;
+}
+
 /** בעל הבית: מאורעות פון אן Excel (למשל געבורטסטאג). list = [{ contact_id, occasion_type, … }] */
 export async function importOccasions(list) {
   if (!state.isOwner) throw new Error(t('adminOnly'));
