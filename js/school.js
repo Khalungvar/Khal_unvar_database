@@ -62,22 +62,60 @@ export function statusOn(e, day = today()) {
   return 'active';
 }
 
-function monthsBetween(a, b) {
-  if (!a || !b || b < a) return 0;
-  const [y1, m1] = a.split('-').map(Number); const [y2, m2] = b.split('-').map(Number);
-  return (y2 - y1) * 12 + (m2 - m1) + 1;
+// ---------- שכר לימוד לויט העברעאישע חדשים ----------
+// יעדער חודש: דער פעסטער סכום (tuition_amount), אחוץ ווען א חודש איז געטוישט — month_amounts = "5787-Heshvan:450; 5787-Kislev:0"
+/** { y, m } → 'Y-M' */
+const mk = (x) => `${x.y}-${x.m}`;
+function nextMonth(x) {
+  const ms = monthsOf(x.y).map((z) => z.key); const i = ms.indexOf(x.m);
+  return i < ms.length - 1 ? { y: x.y, m: ms[i + 1] } : { y: x.y + 1, m: monthsOf(x.y + 1)[0].key };
+}
+function prevMonth(x) {
+  const ms = monthsOf(x.y).map((z) => z.key); const i = ms.indexOf(x.m);
+  if (i > 0) return { y: x.y, m: ms[i - 1] };
+  const pm = monthsOf(x.y - 1); return { y: x.y - 1, m: pm[pm.length - 1].key };
+}
+const hm = (iso) => { const x = toHebrew(iso); return x ? { y: x.y, m: x.m } : null; };
+/** א חודש אין דער ריי פון א יאר (צו פארגלייכן) */
+const ord = (x) => x.y * 100 + monthsOf(x.y).findIndex((z) => z.key === x.m);
+export const currentMonth = () => hm(today());
+
+export function monthOverrides(e) {
+  const m = new Map();
+  String(e.month_amounts || '').split(';').map((x) => x.trim()).filter(Boolean).forEach((x) => {
+    const i = x.lastIndexOf(':'); if (i > 0) m.set(x.slice(0, i).trim(), Number(x.slice(i + 1)) || 0);
+  });
+  return m;
+}
+/** דער פעסטער סכום א חודש */
+export function baseMonthly(e) {
+  const amt = Number(e.tuition_amount || 0);
+  if (!amt || e.tuition_period === 'total') return 0;
+  return e.tuition_period === 'year' ? Math.round(amt / 12) : amt;
+}
+/** איז דער תלמיד געווען אין דעם חודש (פון — ביז)? */
+export function inMonth(e, x) {
+  const s0 = d10(e.start_date) ? hm(d10(e.start_date)) : null;
+  if (!s0 || ord(x) < ord(s0)) return false;
+  const e0 = d10(e.end_date) ? hm(d10(e.end_date)) : null;
+  return !e0 || ord(x) <= ord(e0);
+}
+/** דער סכום פאר א חודש (מיט א טויש), אדער null ווען ער האט נישט געלערנט */
+export function monthAmount(e, x) {
+  if (!inMonth(e, x)) return null;
+  const o = monthOverrides(e);
+  return o.has(mk(x)) ? o.get(mk(x)) : baseMonthly(e);
 }
 
-/** וויפיל מ'דארף צאלן ביז היינט */
+/** וויפיל מ'דארף צאלן ביז היינט (אריינגערעכנט דעם יעצטיגן חודש) */
 export function charged(e) {
-  const amt = Number(e.tuition_amount || 0);
-  if (!amt) return 0;
-  if (e.tuition_period === 'total') return amt;
-  const start = d10(e.start_date);
-  if (!start || start > today()) return 0;
-  const end = [d10(e.end_date), today()].filter(Boolean).sort()[0];
-  const months = monthsBetween(start, end);
-  return e.tuition_period === 'year' ? Math.round((amt * months) / 12) : amt * months;
+  if (e.tuition_period === 'total') return d10(e.start_date) && d10(e.start_date) <= today() ? Number(e.tuition_amount || 0) : 0;
+  const s0 = d10(e.start_date) ? hm(d10(e.start_date)) : null;
+  if (!s0) return 0;
+  const now = currentMonth();
+  let total = 0;
+  for (let x = s0, guard = 0; ord(x) <= ord(now) && guard < 400; x = nextMonth(x), guard += 1) total += monthAmount(e, x) || 0;
+  return total;
 }
 export const paid = (e) => paymentsOf(e).reduce((s, p) => s + Number(p.amount || 0), 0);
 export const balance = (e) => charged(e) - paid(e);
@@ -186,44 +224,76 @@ function rowHtml(e) {
 /** נאר חודש און יאר: "חשון תשפ"ז" (א זמן הייבט זיך אן אנפאנג חודש) */
 const dateText = (iso) => { const x = d10(iso) ? toHebrew(d10(iso)) : null; return x ? `${monthHe(x.m)} ${yearLabel(x.y)}` : ''; };
 
-/** וויפיל א תלמיד דארף צאלן א חודש */
-const monthly = (e) => {
-  const amt = Number(e.tuition_amount || 0);
-  if (!amt || e.tuition_period === 'total') return 0;
-  return e.tuition_period === 'year' ? Math.round(amt / 12) : amt;
-};
+/** די 6 חדשים אויפן בלאט: 4 צוריק, דער יעצטיגער, און איינס פאראויס */
+function sixMonths() {
+  const now = currentMonth();
+  let x = now; for (let i = 0; i < 4; i += 1) x = prevMonth(x);
+  const out = [];
+  for (let i = 0; i < 6; i += 1) { out.push(x); x = nextMonth(x); }
+  return { now, list: out };
+}
+const monthLabel = (x) => `${monthHe(x.m)} ${yearLabel(x.y).replace(/^תש/, '')}`;
 
 function tuitionHtml(all) {
   const active = all.filter((e) => statusOn(e) === 'active')
-    .sort((a, b) => balance(b) - balance(a) || String(contact(a.contact_id)?.last_name_he || '').localeCompare(String(contact(b.contact_id)?.last_name_he || ''), 'he'));
+    .sort((a, b) => String(contact(a.contact_id)?.last_name_he || '').localeCompare(String(contact(b.contact_id)?.last_name_he || ''), 'he'));
   const leftOwing = all.filter((e) => statusOn(e) === 'left' && balance(e) > 0).sort((a, b) => balance(b) - balance(a));
   const owe = (list) => { const o = list.filter((e) => balance(e) > 0); return { n: o.length, sum: o.reduce((s, e) => s + balance(e), 0) }; };
   const oa = owe(active); const ol = owe(leftOwing);
-  const ym = today().slice(0, 7);
-  const monthName = new Intl.DateTimeFormat('he', { month: 'long', year: 'numeric' }).format(new Date(`${ym}-15T12:00:00`));
-  const expected = active.reduce((s, e) => s + monthly(e), 0);
-  const cameIn = (state.tuition || []).filter((p) => p.org === cur.org && d10(p.date).slice(0, 7) === ym).reduce((s, p) => s + Number(p.amount || 0), 0);
+  const { now, list: months } = sixMonths();
+  const expected = all.reduce((s, e) => s + (monthAmount(e, now) || 0), 0);
+  const cameIn = (state.tuition || []).filter((p) => { if (p.org !== cur.org || !d10(p.date)) return false; const x = hm(d10(p.date)); return x && mk(x) === mk(now); })
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
   const pays = (state.tuition || []).filter((p) => p.org === cur.org).sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 60);
-  const table = (list) => `<table class="lapsed-table sc-table"><thead><tr><th>${h(t('scStudent'))}</th><th>${h(t('scParent'))}</th><th>${h(t('scTuition'))}</th><th>${h(t('scCharged'))}</th><th>${h(t('scPaid'))}</th><th>${h(t('scBalance'))}</th><th></th></tr></thead>
+  const cell = (e, x) => {
+    const v = monthAmount(e, x);
+    const isNow = mk(x) === mk(now);
+    if (v === null) return `<td class="num sc-mon${isNow ? ' sc-now' : ''}"><span class="muted">—</span></td>`;
+    const changed = monthOverrides(e).has(mk(x)) && v !== baseMonthly(e);
+    return `<td class="num sc-mon${isNow ? ' sc-now' : ''}"><input type="number" min="0" step="1" dir="ltr" class="sc-mcell${changed ? ' sc-changed' : ''}"
+      data-me="${h(e.enroll_id)}" data-mk="${h(mk(x))}" value="${h(v)}" title="${h(changed ? t('scMonthChanged', { n: money(baseMonthly(e)) }) : t('scMonthHint'))}"></td>`;
+  };
+  const table = (list) => `<div class="sc-table-wrap"><table class="lapsed-table sc-table sc-months"><thead><tr><th>${h(t('scStudent'))}</th><th>${h(t('scParent'))}</th>
+      ${months.map((x) => `<th class="num${mk(x) === mk(now) ? ' sc-now' : ''}">${h(monthLabel(x))}</th>`).join('')}
+      <th>${h(t('scPaid'))}</th><th>${h(t('scBalance'))}</th><th></th></tr></thead>
       <tbody>${list.map((e) => { const b = balance(e); return `<tr><td><button type="button" class="linkish" data-open="${h(e.contact_id)}">${h(nameOf(e.contact_id))}</button></td>
         <td>${h(nameOf(e.parent_id))}</td>
-        <td class="small">${Number(e.tuition_amount) ? `<span dir="ltr">${money(e.tuition_amount)}</span> ${h(t(`scPer_${e.tuition_period || 'month'}`))}` : `<span class="muted">${h(t('scNoTuition'))}</span>`}</td>
-        <td class="num" dir="ltr">${money(charged(e))}</td><td class="num" dir="ltr">${money(paid(e))}</td>
+        ${months.map((x) => cell(e, x)).join('')}
+        <td class="num" dir="ltr">${money(paid(e))}</td>
         <td class="num ${b > 0 ? 'sc-owe' : ''}" dir="ltr">${money(b)}</td>
         <td class="sc-acts"><button type="button" class="btn small-btn" data-edit="${h(e.enroll_id)}" title="${h(t('scEdit'))}">✎</button>
-          <button type="button" class="btn small-btn" data-pay="${h(e.enroll_id)}">💲 ${h(t('scAddPayment'))}</button></td></tr>`; }).join('')}</tbody></table>`;
+          <button type="button" class="btn small-btn" data-pay="${h(e.enroll_id)}">💲 ${h(t('scAddPayment'))}</button></td></tr>`; }).join('')}</tbody></table></div>`;
   return `<div class="sc-stats">
       <div class="sc-stat sc-owe"><span class="muted small">${h(t('scOweActive'))}</span><b dir="ltr">${money(oa.sum)}</b><span class="small">${h(t('scOweN', { n: oa.n }))}</span></div>
       <div class="sc-stat sc-owe"><span class="muted small">${h(t('scOweLeft'))}</span><b dir="ltr">${money(ol.sum)}</b><span class="small">${h(t('scOweN', { n: ol.n }))}</span></div>
-      <div class="sc-stat"><span class="muted small">${h(t('scThisMonth', { m: monthName }))}</span><b dir="ltr">${money(expected)}</b>
+      <div class="sc-stat"><span class="muted small">${h(t('scThisMonth', { m: `${monthHe(now.m)} ${yearLabel(now.y)}` }))}</span><b dir="ltr">${money(expected)}</b>
         <span class="small">${h(t('scCameIn'))}: <b dir="ltr">${money(cameIn)}</b></span></div>
     </div>
+    <p class="hint-line">${h(t('scMonthsHint'))}</p>
     <h3>${h(t('scTabActive'))} <span class="count-pill">${active.length}</span></h3>
     ${active.length ? table(active) : `<p class="muted">${h(t('scNone'))}</p>`}
     <h3>${h(t('scOweLeft'))} <span class="count-pill">${leftOwing.length}</span></h3>
     ${leftOwing.length ? table(leftOwing) : `<p class="muted">${h(t('scNoneOwing'))}</p>`}
     <h3>${h(t('scPayments'))}</h3>
     ${pays.length ? paymentsTable(pays, true) : `<p class="muted">${h(t('scNoPayments'))}</p>`}`;
+}
+
+/** א חודש מיט אן אנדער סכום — היטן (ווען ס'איז ווי דער פעסטער סכום, מעקט מען אויס דעם טויש) */
+async function saveMonthCell(inp) {
+  const e = state.enrollments.find((x) => String(x.enroll_id) === inp.dataset.me);
+  if (!e) return;
+  const v = Math.max(0, Math.round(Number(inp.value) || 0));
+  const o = monthOverrides(e);
+  if (v === baseMonthly(e)) o.delete(inp.dataset.mk); else o.set(inp.dataset.mk, v);
+  const month_amounts = [...o].map(([k, n]) => `${k}:${n}`).join('; ');
+  if (month_amounts === String(e.month_amounts || '')) return;
+  inp.disabled = true;
+  try {
+    await saveRecord('Enrollments', 'enroll_id', { ...e, month_amounts });
+    e.month_amounts = month_amounts;
+    ui.toast(t('saved'));
+    renderSchool();
+  } catch (err) { ui.toast(ui.friendlyError(err), 'error'); inp.disabled = false; }
 }
 
 function paymentsTable(pays, withStudent) {
@@ -265,6 +335,10 @@ function wire(main, all) {
   if (a) a.onchange = () => { cur.asOf = a.value; renderSchool(); };
   const xl = $('#sc-xl', main);
   if (xl) xl.onclick = () => exportXl(all);
+  $$('.sc-mcell', main).forEach((inp) => {
+    inp.onchange = () => saveMonthCell(inp);
+    inp.onkeydown = (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); } };
+  });
   wireRowButtons(main);
 }
 
