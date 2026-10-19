@@ -1,6 +1,7 @@
 // Invoice & Receipt: קבלות אויף נדבות, Invoices אויף נישט-באצאלטע, יערליכע סיכומים (פאר טעקס), און קבלות פאר א קאמפיין.
 // יעדער ארגון מיט זיינע אייגענע פרטים (לשונית OrgDetails); יעדער דאקומענט באקומט א נומער (לשונית Receipts),
 // און ביים נאכאמאל דרוקן — דער זעלבער נומער.
+import { customFontNames } from './fonts.js';
 import {
   state, loadAll, orgDetailsOf, issueDocs, findIssued, voidReceipt, orgLogo, saveOrgDetails, saveYearly, saveOrgLogo,
 } from './data.js';
@@ -671,7 +672,8 @@ const SIG_FONTS = [
   ['amatic', "'Amatic SC', cursive", 'rcSigFontAmatic'],
   ['rashi', "'Noto Rashi Hebrew', serif", 'rcSigFontRashi'],
 ];
-const sigFont = (key) => (SIG_FONTS.find(([k]) => k === key) || SIG_FONTS[0])[1];
+const allSigFonts = () => [...SIG_FONTS, ...customFontNames().map((n) => [`f:${n}`, `'${n.replace(/'/g, '')}'`, n])];
+const sigFont = (key) => (allSigFonts().find(([k]) => k === key) || SIG_FONTS[0])[1];
 
 function letterOf(org) {
   if (!letterState[org]) {
@@ -710,7 +712,7 @@ function letterPanelHtml(org) {
       <div class="od-center"><input data-l="letter_closing" value="${h(L.letter_closing)}"></div>
       <div class="od-center lt-sigrow">
         <input data-l="signature_text" class="lt-sigtext" value="${h(L.signature_text)}" placeholder="${h(t('rcSigPh'))}" style="font-family:${sigFont(L.signature_font)}">
-        <select data-l="signature_font">${SIG_FONTS.map(([k, , l]) => `<option value="${k}"${k === L.signature_font ? ' selected' : ''}>${h(t(l))}</option>`).join('')}</select>
+        <select data-l="signature_font">${allSigFonts().map(([k, , l]) => `<option value="${h(k)}"${k === L.signature_font ? ' selected' : ''}>${h(k.startsWith('f:') ? l : t(l))}</option>`).join('')}</select>
       </div>
       <div class="od-center"><input data-l="signer_he" value="${h(L.signer_he)}"></div>
       <p class="hint-line">${h(t('rcLetterRemember'))}</p>

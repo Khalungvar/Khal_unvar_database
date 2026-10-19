@@ -28,6 +28,7 @@ import { initMail, openCompose, emailOf } from './mail.js';
 import { initRequests, submitRequest, pendingRequests } from './requests.js';
 import { openHelp, initHelpChat } from './help.js';
 import { initMerge, openMerge } from './merge.js';
+import { loadFonts } from './fonts.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount, parseOrgTags, splitEntry, entry } from './orgtags.js';
 import {
@@ -105,6 +106,7 @@ async function enterApp() {
     throw err;
   }
   restoreScope();
+  loadFonts().catch(() => {}); // די ארויפגעלייגטע שריפטן — אין הינטערגרונט
   $('#login-msg').hidden = true;
 
   $('#login-view').hidden = true;

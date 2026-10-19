@@ -216,6 +216,9 @@ Keywords: yeshiva, student, tuition, receipt, zman, left, accepted, payment, cla
 A gabbai's merge becomes a request that an admin approves.
 
 ## Admin (admins only)
+
+**Fonts (owner only):** Admin → "Fonts" → upload a file (.ttf/.otf/.woff/.woff2). The font is kept in the private sheet (not public) and can be chosen for envelopes, receipt signatures etc.
+
 Keywords: admin, settings, admin lists, tags, logo, gabbai, access
 
 - **Lists, campaigns and logos**: tags, titles, areas, organizations, campaigns, receipt details, trash, logos.

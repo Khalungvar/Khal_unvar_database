@@ -1175,3 +1175,8 @@ html[dir="ltr"] .row-father { text-align: left; }
 .sc-mcell.sc-changed { border-color: var(--accent, #7a1f1f); font-weight: 600; }
 .sc-mon { white-space: nowrap; }
 .sc-remind { margin: 10px 0 2px; padding: 8px 12px; border-radius: 10px; background: color-mix(in srgb, var(--gold) 18%, transparent); border: 1px solid var(--gold); }
+.font-up { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin: 8px 0; }
+.font-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.font-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--surface); }
+.font-sample { font-size: 22px; line-height: 1.3; margin-bottom: 6px; }
+.font-meta { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }

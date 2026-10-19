@@ -1,6 +1,7 @@
 // Mail Merge: עורך לקאנווערטן און לעיבלס.
 // לוגא און הינטערגרונט, צוריק-אדרעס (לינקס אויבן), דער נמען אין דער מיט (פון א רשימה), און דער ווינקל פון דער מארקע (רעכטס אויבן).
 // מען שלעפט די טיילן מיטן מויז; אלעס ווערט געדרוקט אין דער ריכטיגער גרייס פונעם קאנווערט / לעיבל-בויגן.
+import { customFontNames } from './fonts.js';
 import {
   state, loadAll, saveRecord, deleteRecord, orgLogo, NESHEI_ORG,
 } from './data.js';
@@ -204,7 +205,7 @@ export function renderMailMerge() {
   const fmtOpts = `<optgroup label="${h(t('mmEnvelopes'))}">${ENVELOPES.map(([k, n]) => `<option value="${k}"${k === d.format ? ' selected' : ''}>${h(n)}</option>`).join('')}</optgroup>
     <optgroup label="${h(t('mmLabels'))}">${LABELS.map(([k, n]) => `<option value="${k}"${k === d.format ? ' selected' : ''}>${h(n)}</option>`).join('')}</optgroup>`;
   const lists = listOptions().map(([g, opts]) => (opts.length ? `<optgroup label="${h(g)}">${opts.map(([v, n]) => `<option value="${h(v)}"${v === d.list ? ' selected' : ''}>${h(n)}</option>`).join('')}</optgroup>` : '')).join('');
-  const fontSel = (name, val) => `<select data-k="${name}">${FONTS.map((f) => `<option${f === val ? ' selected' : ''}>${f}</option>`).join('')}</select>`;
+  const fontSel = (name, val) => `<select data-k="${name}">${[...customFontNames(), ...FONTS].map((f) => `<option${f === val ? ' selected' : ''}>${f}</option>`).join('')}</select>`;
   const lbl = isLabel();
   main.innerHTML = `
     <div class="camp-page-head">

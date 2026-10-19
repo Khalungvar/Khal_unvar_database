@@ -1,6 +1,8 @@
 // מאכט א PDF פון א קבלה — אינעם בלעטערער, אן קיין דרויסנדיגע ביבליאטעק:
 // דער דאקומענט (HTML) → בילד (SVG foreignObject → canvas → JPEG) → PDF מיט איין בילד אויף יעדן בלאט.
 
+import { customFontCss } from './fonts.js';
+
 const toDataUrl = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
 
 let cssCache = null;
@@ -51,7 +53,8 @@ export async function htmlToJpeg(html, { widthIn = 7.5, heightIn = 10, scale = 2
   const wrap = document.createElement('div');
   wrap.innerHTML = html;
   await inlineImages(wrap);
-  const [css, fonts] = await Promise.all([appCss(), fontCss()]);
+  const [css, fonts0] = await Promise.all([appCss(), fontCss()]);
+  const fonts = `${fonts0}\n${customFontCss()}`;
   const body = new XMLSerializer().serializeToString(wrap);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
 <foreignObject x="0" y="0" width="${W}" height="${H}">

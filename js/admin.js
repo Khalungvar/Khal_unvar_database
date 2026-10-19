@@ -1,5 +1,6 @@
 // עמוד אדמין: כל הרשימות של האתר במקום אחד — ארגונים, טעג'ס, אופני תשלום, טיטלען, געגנטן, קרבות, מנהלים.
 // הכל נשמר בגליון (לשונית Lists / Settings). רק מנהל רואה את העמוד ויכול לשמור.
+import { customFonts, uploadFont, removeFont, loadFonts } from './fonts.js';
 import {
   state, loadAll, saveListColumns, saveSettingsColumns, rawListColumn, rawSettingsColumn, orgLogo, hasUploadedLogo, NESHEI_ORG, saveOrgLogo, saveOriginalToDrive, isDatabaseAccount, hasDriveScope, connectDrive,
 } from './data.js';
@@ -153,6 +154,7 @@ export function renderAdmin() {
     + orgDetailsAdminHtml()
     + trashHtml()
     + logosHtml()
+    + (state.isOwner ? fontsHtml() : '')
     + requestsAdminHtml();
   // לאגאס און קאמפיינען געהערן צו לשונית 1
   $$('.adm-group:not([data-tab])', main).forEach((g) => { g.dataset.tab = 'lists'; });
@@ -172,6 +174,7 @@ export function renderAdmin() {
     showTab();
   };
   wireLogos(main);
+  wireFonts(main);
   wireCampaignsAdmin(main);
   $$('[data-org-details]', main).forEach((b) => { b.onclick = () => ui.openOrgDetails(b.dataset.orgDetails); });
   wireTrash(main);
@@ -607,6 +610,51 @@ function wireLogos(main) {
         renderAdmin();
       } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
     });
+  });
+}
+
+// ---------- שריפטן (נאר דער בעל הבית) ----------
+function fontsHtml() {
+  const list = customFonts();
+  return `<div class="adm-group" id="adm-fonts"><h3 class="adm-group-title">${h(t('admFonts'))}</h3>
+    <p class="hint-line">${h(t('admFontsHint'))}</p>
+    <div class="font-up">
+      <label>${h(t('admFontName'))}<input id="font-name" placeholder="${h(t('admFontNamePh'))}"></label>
+      <label class="btn primary">⬆ ${h(t('admFontUpload'))}<input type="file" id="font-file" accept=".ttf,.otf,.woff,.woff2" hidden></label>
+      <span class="muted small" id="font-status"></span>
+    </div>
+    ${list.length ? `<div class="font-list">${list.map((f) => `<div class="font-card">
+      <div class="font-sample" style="font-family:'${h(f.name.replace(/'/g, ''))}'">${h(t('admFontSample'))}</div>
+      <div class="font-meta"><b>${h(f.name)}</b> <span class="muted small">${h(f.format)} · ${h(f.updatedAt)}</span>
+        <button type="button" class="linkish" data-font-del="${h(f.name)}">${h(t('admLogoRemove'))}</button></div></div>`).join('')}</div>`
+      : `<p class="muted">${h(t('admFontsNone'))}</p>`}
+  </div>`;
+}
+
+function wireFonts(main) {
+  const inp = $('#font-file', main);
+  if (!inp) return;
+  inp.onchange = async () => {
+    const file = inp.files[0];
+    if (!file) return;
+    const st = $('#font-status', main);
+    st.textContent = t('admFontUploading');
+    try {
+      const name = await uploadFont(file, $('#font-name', main).value);
+      await loadFonts();
+      renderAdmin();
+      ui.toast(t('admFontSaved', { name }));
+    } catch (err) {
+      st.textContent = '';
+      ui.toast(err.message === 'bad-font' ? t('admFontBad') : err.message === 'font-too-big' ? t('admFontBig') : ui.friendlyError(err), 'error');
+    }
+    inp.value = '';
+  };
+  $$('[data-font-del]', main).forEach((b) => {
+    b.onclick = async () => {
+      if (!confirm(t('admFontConfirm', { name: b.dataset.fontDel }))) return;
+      try { await removeFont(b.dataset.fontDel); await loadFonts(); renderAdmin(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+    };
   });
 }
 
