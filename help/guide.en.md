@@ -195,7 +195,7 @@ Keywords: import, excel, upload, list, many contacts, template
 Keywords: yeshiva, student, tuition, receipt, zman, left, accepted, payment, class, Beis Shearim
 
 - **Lobby ← Kollel/Yeshiva ← Yeshivas Beis Shearim** — opens the yeshiva's own page (not the regular list). From the contacts list: **"Yeshiva page"** at the top.
-- Tabs: **Learning** (now), **Accepted**, **Left**, **Tuition**, **Birthdays**.
+- Tabs: **Learning** (now — "נתקבל" in the lists), **Left** ("יוצאים"), **Parents** (with their children), **Tuition**, **Birthdays**.
 - **"Who was learning on"** — pick a date to see who was in the yeshiva then.
 - **＋ New student**: the student and the parent — from the database, or type a new one (a contact is created, linked "son of"). **From / To** dates, class, room, **tuition** (per month / per year / for the whole period).
 - ✎ = edit; a "To" date in the past makes him "left".

@@ -14,7 +14,7 @@ let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const BIRTHDAY = 'געבורטסטאג';
-export const ST = { active: 'לומד', accepted: 'נתקבל', left: 'יצא' };
+export const ST = { active: 'לומד', left: 'יצא' }; // 'נתקבל' (פון די רשימות) = לומד
 
 const cur = { org: '', tab: 'active', q: '', shiur: '', asOf: '' };
 
@@ -40,10 +40,9 @@ const d10 = (v) => {
   return String(v || '').slice(0, 10);
 };
 
-/** 'active' | 'accepted' | 'left' — אויף א געוויסן טאג */
+/** 'active' | 'left' — אויף א געוויסן טאג */
 export function statusOn(e, day = today()) {
   if (e.status === ST.left || (d10(e.end_date) && d10(e.end_date) < day)) return 'left';
-  if (e.status === ST.accepted || (d10(e.start_date) && d10(e.start_date) > day)) return 'accepted';
   return 'active';
 }
 
@@ -82,23 +81,53 @@ export function renderSchool() {
   if (!main || !cur.org) return;
   const all = enrollmentsOf(cur.org);
   const day = cur.asOf || today();
-  const by = { active: [], accepted: [], left: [] };
+  const by = { active: [], left: [] };
   all.forEach((e) => by[statusOn(e, day)].push(e));
   const owing = all.filter((e) => balance(e) > 0);
-  const tabs = [['active', '🎓', t('scTabActive'), by.active.length], ['accepted', '📝', t('scTabAccepted'), by.accepted.length],
-    ['left', '🚪', t('scTabLeft'), by.left.length], ['tuition', '💲', t('scTabTuition'), owing.length], ['bdays', '🎂', t('scTabBdays'), '']];
+  const parents = parentsOf(all);
+  const tabs = [['active', '🎓', t('scTabActive'), by.active.length], ['left', '🚪', t('scTabLeft'), by.left.length],
+    ['parents', '👪', t('scTabParents'), parents.length], ['tuition', '💲', t('scTabTuition'), owing.length], ['bdays', '🎂', t('scTabBdays'), '']];
   const logo = orgLogo(cur.org);
   main.innerHTML = `<div class="sc-head">
       ${logo ? `<img src="${logo}" alt="" class="sc-logo">` : '<span class="sc-logo-ph">🎓</span>'}
-      <div><h1>${h(cur.org)}</h1><p class="muted small">${h(t('scSub', { a: by.active.length, b: all.length }))}</p></div>
+      <div><h1>${h(cur.org)}</h1><p class="muted small">${h(t('scSub2', { s: all.length, a: by.active.length, p: parents.length, n: all.length + parents.length }))}</p></div>
       <span class="spacer"></span>
       <button type="button" class="btn primary" id="sc-new">＋ ${h(t('scNewStudent'))}</button>
       <button type="button" class="btn" id="sc-contacts">👥 ${h(t('scContacts'))}</button>
       <button type="button" class="btn" id="sc-back">← ${h(t('lobbyBack'))}</button>
     </div>
     <nav class="sc-tabs">${tabs.map(([k, ic, l, n]) => `<button type="button" data-sc-tab="${k}" class="${cur.tab === k ? 'on' : ''}">${ic} ${h(l)}${n !== '' ? ` <span class="count-pill">${n}</span>` : ''}</button>`).join('')}</nav>
-    <div id="sc-body">${cur.tab === 'tuition' ? tuitionHtml(all) : cur.tab === 'bdays' ? bdaysHtml(by.active.concat(by.accepted)) : listHtml(by[cur.tab], day)}</div>`;
+    <div id="sc-body">${cur.tab === 'tuition' ? tuitionHtml(all) : cur.tab === 'bdays' ? bdaysHtml(by.active) : cur.tab === 'parents' ? parentsHtml(parents) : listHtml(by[cur.tab] || [], day)}</div>`;
   wire(main, all, by);
+}
+
+/** די עלטערן: [{ id, kids: [enrollments] }] */
+function parentsOf(all) {
+  const m = new Map();
+  all.forEach((e) => { const k = String(e.parent_id || '').trim(); if (k) m.set(k, [...(m.get(k) || []), e]); });
+  return [...m].map(([id, kids]) => ({ id, kids }))
+    .sort((a, b) => String(contact(a.id)?.last_name_he || '').localeCompare(String(contact(b.id)?.last_name_he || ''), 'he'));
+}
+
+function parentsHtml(list) {
+  const q = cur.q.trim().toLowerCase();
+  const rows = list.filter((p) => !q || [nameOf(p.id), phoneOf(p.id), ...p.kids.map((e) => nameOf(e.contact_id))].join(' ').toLowerCase().includes(q));
+  const mail = (id) => (state.phones.get(String(id)) || {}).email_1 || '';
+  return `<div class="sc-tools">
+      <input type="search" id="sc-q" placeholder="${h(t('scSearch'))}" value="${h(cur.q)}">
+      <span class="spacer"></span>
+      <button type="button" class="btn small-btn" id="sc-xl">⬇ Excel</button>
+    </div>
+    ${rows.length ? `<div class="sc-table-wrap"><table class="lapsed-table sc-table"><thead><tr>
+      <th>${h(t('scParent'))}</th><th>${h(t('scKids'))}</th><th>${h(t('colMobile'))}</th><th>${h(t('colEmail'))}</th><th>${h(t('scBalance'))}</th></tr></thead>
+      <tbody>${rows.map((p) => {
+        const b = p.kids.reduce((s, e) => s + balance(e), 0);
+        return `<tr><td><button type="button" class="linkish" data-open="${h(p.id)}">${h(nameOf(p.id) || `#${p.id}`)}</button></td>
+          <td>${p.kids.map((e) => `<button type="button" class="linkish" data-open="${h(e.contact_id)}">${h(contact(e.contact_id)?.first_name_he || nameOf(e.contact_id))}</button>
+            <span class="badge ${statusOn(e) === 'left' ? 'muted' : 'paid'}">${h(ST[statusOn(e)])}</span>`).join(' ')}</td>
+          <td dir="ltr" class="small">${h(phoneOf(p.id))}</td><td dir="ltr" class="small">${h(mail(p.id))}</td>
+          <td class="num ${b > 0 ? 'sc-owe' : ''}" dir="ltr">${b ? money(b) : ''}</td></tr>`;
+      }).join('')}</tbody></table></div>` : `<p class="muted">${h(t('scNone'))}</p>`}`;
 }
 
 function filtered(list) {
@@ -224,9 +253,15 @@ async function receipt(id, mode) {
 }
 
 function exportXl(all) {
+  if (cur.tab === 'parents') {
+    const mail = (id) => (state.phones.get(String(id)) || {}).email_1 || '';
+    downloadXlsx(`${cur.org} - ${t('scTabParents')}`, [t('scParent'), t('scKids'), t('colMobile'), t('colEmail'), t('scBalance')],
+      parentsOf(all).map((p) => [nameOf(p.id), p.kids.map((e) => `${nameOf(e.contact_id)} (${ST[statusOn(e)]})`).join(', '), phoneOf(p.id), mail(p.id), p.kids.reduce((s, e) => s + balance(e), 0)]));
+    return;
+  }
   const list = cur.tab === 'tuition' || cur.tab === 'bdays' ? all : filtered(all.filter((e) => statusOn(e, cur.asOf || today()) === cur.tab));
   const head = [t('scStudent'), t('scParent'), t('colMobile'), t('scParentPhone'), t('scShiur'), t('scRoom'), t('scStatus'), t('scFrom'), t('scTo'), t('scTuition'), t('scCharged'), t('scPaid'), t('scBalance'), t('scBirthday'), t('comments')];
-  const stLabel = { active: ST.active, accepted: ST.accepted, left: ST.left };
+  const stLabel = ST;
   downloadXlsx(`${cur.org} - ${t('scFile')}`, head, list.map((e) => [nameOf(e.contact_id), nameOf(e.parent_id), phoneOf(e.contact_id), phoneOf(e.parent_id), e.shiur || '', e.room || '',
     stLabel[statusOn(e)], d10(e.start_date), d10(e.end_date), Number(e.tuition_amount || 0), charged(e), paid(e), balance(e), bdayText(birthdayOf(e.contact_id)), e.note || '']));
 }
