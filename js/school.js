@@ -30,7 +30,20 @@ export function openSchool(org) {
 
 // ---------- רעכענען ----------
 const today = () => todayIso();
-const enrollmentsOf = (org) => (state.enrollments || []).filter((e) => e.org === org && String(e.contact_id || '').trim());
+/**
+ * א תלמיד אן עלטערן אינעם בלאט: דער טאטע פון דער משפחה אינעם כרטיס ("זון פון" / "טאטע פון").
+ * אזוי קען מען צולייגן דעם טאטע דורך "משפחה" אינעם כרטיס — און ער ווייזט זיך גלייך אומעטום אינעם בלאט.
+ */
+function fillParents() {
+  (state.enrollments || []).forEach((e) => {
+    if (String(e.parent_id || '').trim()) return;
+    const id = String(e.contact_id);
+    const r = (state.relations || []).find((x) => (String(x.contact_id_a) === id && x.relation_type === 'זון פון')
+      || (String(x.contact_id_b) === id && x.relation_type === 'טאטע פון'));
+    if (r) e.parent_id = String(r.contact_id_a) === id ? r.contact_id_b : r.contact_id_a;
+  });
+}
+const enrollmentsOf = (org) => { fillParents(); return (state.enrollments || []).filter((e) => e.org === org && String(e.contact_id || '').trim()); };
 const paymentsOf = (e) => (state.tuition || []).filter((p) => String(p.enroll_id) === String(e.enroll_id));
 /** א דאטום: 'YYYY-MM-DD', אדער א נומער פון גוגל שיטס (טעג זינט 30.12.1899) */
 const d10 = (v) => {
@@ -268,11 +281,13 @@ function exportXl(all) {
 
 // ---------- אין כרטיס פונעם תלמיד / עלטערן ----------
 export function schoolCount(c) {
+  fillParents();
   const id = String(c.contact_id);
   return (state.enrollments || []).filter((e) => String(e.contact_id) === id || String(e.parent_id) === id).length;
 }
 
 export function schoolSection(c) {
+  fillParents();
   const id = String(c.contact_id);
   const mine = (state.enrollments || []).filter((e) => String(e.contact_id) === id);
   const kids = (state.enrollments || []).filter((e) => String(e.parent_id) === id);
