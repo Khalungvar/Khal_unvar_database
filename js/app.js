@@ -963,26 +963,50 @@ function pickerLabel(c) {
 }
 
 function familyCount(c) {
-  return state.relations.filter((r) => String(r.contact_id_a) === String(c.contact_id)).length + siblingsOf(c).length;
+  return state.relations.filter((r) => String(r.contact_id_a) === String(c.contact_id)).length + derivedRelations(c).length;
 }
 
 /**
- * ברידער — אויטאמאטיש פון דעם טאטע: ווער עס איז "זון פון" דעם זעלבן טאטע (אדער דער טאטע איז "טאטע פון" אים).
- * נישט אפגעהיט — דערפאר ווערט עס דערהיינטיגט אליין ווען מ'לייגט צו א קינד. אן די וואס זענען שוין "ברודער פון" אויסדריקלעך.
+ * קשרים אויטאמאטיש — אויסגערעכנט פון די קשרים וואס זענען אריינגעלייגט (טאטע/זון, שווער/איידעם), נישט אפגעהיט,
+ * דערפאר דערהיינטיגט עס זיך אליין ווען מ'לייגט צו א מענטש:
+ * ברודער (דער זעלבער טאטע), זיידע (דעם טאטנס טאטע אדער שווער), אייניקל (פון א זון אדער פון אן איידעם),
+ * שוואגער (דעם טאטנס איידעם, דעם שווערס זון אדער איידעם). אן די וואס זענען שוין אויסדריקלעך אריינגעלייגט.
  */
-function siblingsOf(c) {
+function derivedRelations(c) {
   const id = String(c.contact_id);
   const R = state.relations;
-  const kidsOf = (f) => R.filter((r) => (r.relation_type === 'זון פון' && String(r.contact_id_b) === f)).map((r) => String(r.contact_id_a))
-    .concat(R.filter((r) => r.relation_type === 'טאטע פון' && String(r.contact_id_a) === f).map((r) => String(r.contact_id_b)));
-  const fathers = new Set([
-    ...R.filter((r) => r.relation_type === 'זון פון' && String(r.contact_id_a) === id).map((r) => String(r.contact_id_b)),
-    ...R.filter((r) => r.relation_type === 'טאטע פון' && String(r.contact_id_b) === id).map((r) => String(r.contact_id_a)),
-  ]);
-  const explicit = new Set(R.filter((r) => String(r.contact_id_a) === id && r.relation_type === 'ברודער פון').map((r) => String(r.contact_id_b)));
-  const out = new Set();
-  fathers.forEach((f) => kidsOf(f).forEach((k) => { if (k !== id && !explicit.has(k)) out.add(k); }));
-  return [...out].filter((k) => contactById(k));
+  const pairs = (fwd, rev) => {
+    // fwd: "a fwd b" (b איז דער עלטערער), rev: "a rev b" (a איז דער עלטערער) → Map(יינגערער → [עלטערע])
+    const up = new Map(); const down = new Map();
+    const add = (y, o) => { up.set(y, [...(up.get(y) || []), o]); down.set(o, [...(down.get(o) || []), y]); };
+    R.forEach((r) => {
+      const a = String(r.contact_id_a); const b = String(r.contact_id_b);
+      if (r.relation_type === fwd) add(a, b);
+      if (r.relation_type === rev) add(b, a);
+    });
+    return { up: (x) => [...new Set(up.get(x) || [])], down: (x) => [...new Set(down.get(x) || [])] };
+  };
+  const fa = pairs('זון פון', 'טאטע פון');        // fa.up(x) = טאטע, fa.down(x) = זין
+  const inl = pairs('איידעם פון', 'שווער פון');   // inl.up(x) = שווער, inl.down(x) = איידעמס
+  const many = (xs, f) => [...new Set(xs.flatMap(f))];
+  const fathers = fa.up(id);
+  const fathersInLaw = inl.up(id);
+  const sets = [
+    ['ברודער פון', many(fathers, fa.down)],
+    // "c איז אייניקל פון k" — k איז דער זיידע; "c איז זיידע פון k" — k איז דער אייניקל
+    ['אייניקל פון', [...many(fathers, fa.up), ...many(fathers, inl.up)]],
+    ['זיידע פון', [...many(fa.down(id), fa.down), ...many(inl.down(id), fa.down)]],
+    ['שוואגער פון', [...many(fathers, inl.down), ...many(fathersInLaw, fa.down), ...many(fathersInLaw, inl.down)]],
+  ];
+  const explicit = new Set(R.filter((r) => String(r.contact_id_a) === id).map((r) => String(r.contact_id_b)));
+  const seen = new Set([id, ...explicit]);
+  const out = [];
+  sets.forEach(([type, ids]) => ids.forEach((k) => {
+    if (seen.has(k) || !contactById(k)) return;
+    seen.add(k);
+    out.push([type, k]);
+  }));
+  return out;
 }
 
 function donationCount(c) {
@@ -999,10 +1023,10 @@ function familySection(c) {
         <button type="button" class="icon-btn rel-remove" data-i="${i}" title="✕">✕</button></span>
     </div>`;
   }).join('');
-  const sibs = siblingsOf(c).map((k) => {
+  const sibs = derivedRelations(c).map(([type, k]) => {
     const other = contactById(k);
     return `<div class="kv family-row derived" title="${h(t('sibAutoTip'))}">
-      <span>${h(relationLabel('ברודער פון'))}</span>
+      <span>${h(relationLabel(type))}</span>
       <span><a href="#" class="go-contact" data-id="${h(other.contact_id)}">${h(fullNameHe(other))}</a> <small class="muted">${h(t('sibAuto'))}</small></span>
     </div>`;
   }).join('');
