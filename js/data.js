@@ -163,6 +163,7 @@ export async function loadAll() {
   const settings = rowsToObjects(tabs.Settings).objects;
   const [sHead = [], ...sBody] = tabs.Settings || [];
   state.rawSettings = Object.fromEntries(sHead.filter(Boolean).map((hd) => [hd, sBody.map((r) => String(r[sHead.indexOf(hd)] ?? '').trim())]));
+  markLegacy();
   const admins = settings.map((s) => String(s.admin_email || '').trim().toLowerCase()).filter(Boolean);
   state.admins = admins;
   state.isAdmin = admins.includes(state.email);
@@ -1051,6 +1052,7 @@ export async function saveSettingsColumns(columns) {
 export function displayName(email) {
   const e = String(email || '').trim().toLowerCase();
   if (!e) return '';
+  if (e === 'database') return t('byDatabase'); // די אלטע רשימות וואס זענען אריינגעלייגט געווארן אין אנהייב
   const S = state.rawSettings || {};
   const find = (emails, names) => {
     const i = (S[emails] || []).findIndex((x) => String(x).trim().toLowerCase() === e);
@@ -1073,4 +1075,17 @@ function columnLetter(index) {
   let n = index + 1;
   while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }
   return s;
+}
+
+// די ערשטע רשימות (ביז 19 אקט' 2026, 03:00) זענען אריינגעלייגט געווארן דורכן בעל הבית אלס "דאטאבייס" — נישט ווי זיינע אייגענע.
+// ווען מ'היט אפ א רעקארד ווערט "database" געשריבן אין גיליון.
+const LEGACY_UNTIL = '2026-10-19 03:00';
+function markLegacy() {
+  const owner = String((state.rawSettings?.admin_email || [])[0] || '').toLowerCase();
+  if (!owner) return;
+  const fix = (r) => {
+    if (String(r.created_by || '').toLowerCase() === owner && String(r.created_at || '') < LEGACY_UNTIL) r.created_by = 'database';
+    if (String(r.updated_by || '').toLowerCase() === owner && String(r.updated_at || '') < LEGACY_UNTIL) r.updated_by = 'database';
+  };
+  [state.contacts, state.trash, state.donations, state.occasions].forEach((list) => (list || []).forEach(fix));
 }
