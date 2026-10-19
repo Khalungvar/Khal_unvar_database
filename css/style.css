@@ -1168,3 +1168,5 @@ html, body { overflow-x: clip; }
 html[dir="ltr"] .row-father { text-align: left; }
 .tag-stack { display: flex; flex-direction: column; gap: 6px; align-self: flex-start; }
 .tag-stack #otag-filter { font-size: 13px; padding-block: 4px; }
+.sc-my { display: flex; gap: 6px; }
+.sc-my select { flex: 1; min-width: 0; }

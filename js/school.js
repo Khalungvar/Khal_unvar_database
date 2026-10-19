@@ -8,7 +8,7 @@ import { suggestFirstName, suggestLastName } from './names.js';
 import { parseBirthday } from './import.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, isTrue, splitTags, joinTags, formatPhone, detectArea } from './util.js';
-import { nextOccurrence, monthKeyFromHe, daysBetween, todayIso, hebrewNumber, isoToHebrewText, toHebrew, fromHebrew, yearLabel } from './hebdate.js';
+import { nextOccurrence, monthKeyFromHe, daysBetween, todayIso, hebrewNumber, isoToHebrewText, toHebrew, fromHebrew, yearLabel, monthsOf, monthHe } from './hebdate.js';
 import { money } from './donations.js';
 import { downloadXlsx } from './excel.js';
 import { tuitionReceipt } from './receipts.js';
@@ -166,7 +166,7 @@ function listHtml(list, day) {
     </div>
     ${cur.asOf ? `<p class="hint-line">${h(t('scAsOfNote', { d: isoToHebrewText(day) }))}</p>` : ''}
     ${rows.length ? `<div class="sc-table-wrap"><table class="lapsed-table sc-table"><thead><tr>
-      <th>${h(t('scStudent'))}</th><th>${h(t('scParent'))}</th><th>${h(t('colMobile'))}</th><th>${h(t('scShiur'))}</th>
+      <th>${h(t('scStudent'))}</th><th>${h(t('scParent'))}</th><th>${h(t('colMobile'))}</th>${cur.tab === 'left' ? '' : `<th>${h(t('scShiur'))}</th>`}
       <th>${h(t('scFrom'))}</th><th>${h(t('scTo'))}</th><th>${h(t('scBalance'))}</th><th></th></tr></thead>
       <tbody>${rows.map(rowHtml).join('')}</tbody></table></div>` : `<p class="muted">${h(t('scNone'))}</p>`}`;
 }
@@ -177,30 +177,52 @@ function rowHtml(e) {
     <td><button type="button" class="linkish" data-open="${h(e.contact_id)}">${h(nameOf(e.contact_id) || `#${e.contact_id}`)}</button>${e.room ? `<div class="muted small">${h(t('scRoom'))}: ${h(e.room)}</div>` : ''}</td>
     <td>${e.parent_id ? `<button type="button" class="linkish" data-open="${h(e.parent_id)}">${h(nameOf(e.parent_id))}</button>` : '<span class="muted">—</span>'}</td>
     <td dir="ltr" class="small">${h(phoneOf(e.contact_id) || phoneOf(e.parent_id))}</td>
-    <td>${h(e.shiur || '')}</td>
+    ${cur.tab === 'left' ? '' : `<td>${h(e.shiur || '')}</td>`}
     <td class="small">${h(dateText(e.start_date))}</td><td class="small">${h(dateText(e.end_date))}</td>
     <td class="num ${b > 0 ? 'sc-owe' : ''}" dir="ltr">${Number(e.tuition_amount) ? money(b) : ''}</td>
     <td class="sc-acts"><button type="button" class="btn small-btn" data-edit="${h(e.enroll_id)}" title="${h(t('scEdit'))}">✎</button>
       <button type="button" class="btn small-btn" data-pay="${h(e.enroll_id)}" title="${h(t('scAddPayment'))}">💲</button></td></tr>`;
 }
 
-const dateText = (iso) => (d10(iso) ? `${isoToHebrewText(d10(iso))}` : '');
+/** נאר חודש און יאר: "חשון תשפ"ז" (א זמן הייבט זיך אן אנפאנג חודש) */
+const dateText = (iso) => { const x = d10(iso) ? toHebrew(d10(iso)) : null; return x ? `${monthHe(x.m)} ${yearLabel(x.y)}` : ''; };
+
+/** וויפיל א תלמיד דארף צאלן א חודש */
+const monthly = (e) => {
+  const amt = Number(e.tuition_amount || 0);
+  if (!amt || e.tuition_period === 'total') return 0;
+  return e.tuition_period === 'year' ? Math.round(amt / 12) : amt;
+};
 
 function tuitionHtml(all) {
-  const sum = (fn) => all.reduce((s, e) => s + fn(e), 0);
-  const owing = all.filter((e) => balance(e) > 0).sort((a, b) => balance(b) - balance(a));
+  const active = all.filter((e) => statusOn(e) === 'active')
+    .sort((a, b) => balance(b) - balance(a) || String(contact(a.contact_id)?.last_name_he || '').localeCompare(String(contact(b.contact_id)?.last_name_he || ''), 'he'));
+  const leftOwing = all.filter((e) => statusOn(e) === 'left' && balance(e) > 0).sort((a, b) => balance(b) - balance(a));
+  const owe = (list) => { const o = list.filter((e) => balance(e) > 0); return { n: o.length, sum: o.reduce((s, e) => s + balance(e), 0) }; };
+  const oa = owe(active); const ol = owe(leftOwing);
+  const ym = today().slice(0, 7);
+  const monthName = new Intl.DateTimeFormat('he', { month: 'long', year: 'numeric' }).format(new Date(`${ym}-15T12:00:00`));
+  const expected = active.reduce((s, e) => s + monthly(e), 0);
+  const cameIn = (state.tuition || []).filter((p) => p.org === cur.org && d10(p.date).slice(0, 7) === ym).reduce((s, p) => s + Number(p.amount || 0), 0);
   const pays = (state.tuition || []).filter((p) => p.org === cur.org).sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 60);
+  const table = (list) => `<table class="lapsed-table sc-table"><thead><tr><th>${h(t('scStudent'))}</th><th>${h(t('scParent'))}</th><th>${h(t('scTuition'))}</th><th>${h(t('scCharged'))}</th><th>${h(t('scPaid'))}</th><th>${h(t('scBalance'))}</th><th></th></tr></thead>
+      <tbody>${list.map((e) => { const b = balance(e); return `<tr><td><button type="button" class="linkish" data-open="${h(e.contact_id)}">${h(nameOf(e.contact_id))}</button></td>
+        <td>${h(nameOf(e.parent_id))}</td>
+        <td class="small">${Number(e.tuition_amount) ? `<span dir="ltr">${money(e.tuition_amount)}</span> ${h(t(`scPer_${e.tuition_period || 'month'}`))}` : `<span class="muted">${h(t('scNoTuition'))}</span>`}</td>
+        <td class="num" dir="ltr">${money(charged(e))}</td><td class="num" dir="ltr">${money(paid(e))}</td>
+        <td class="num ${b > 0 ? 'sc-owe' : ''}" dir="ltr">${money(b)}</td>
+        <td class="sc-acts"><button type="button" class="btn small-btn" data-edit="${h(e.enroll_id)}" title="${h(t('scEdit'))}">✎</button>
+          <button type="button" class="btn small-btn" data-pay="${h(e.enroll_id)}">💲 ${h(t('scAddPayment'))}</button></td></tr>`; }).join('')}</tbody></table>`;
   return `<div class="sc-stats">
-      <div class="sc-stat"><span class="muted small">${h(t('scCharged'))}</span><b dir="ltr">${money(sum(charged))}</b></div>
-      <div class="sc-stat"><span class="muted small">${h(t('scPaid'))}</span><b dir="ltr">${money(sum(paid))}</b></div>
-      <div class="sc-stat sc-owe"><span class="muted small">${h(t('scBalance'))}</span><b dir="ltr">${money(sum(balance))}</b></div>
+      <div class="sc-stat sc-owe"><span class="muted small">${h(t('scOweActive'))}</span><b dir="ltr">${money(oa.sum)}</b><span class="small">${h(t('scOweN', { n: oa.n }))}</span></div>
+      <div class="sc-stat sc-owe"><span class="muted small">${h(t('scOweLeft'))}</span><b dir="ltr">${money(ol.sum)}</b><span class="small">${h(t('scOweN', { n: ol.n }))}</span></div>
+      <div class="sc-stat"><span class="muted small">${h(t('scThisMonth', { m: monthName }))}</span><b dir="ltr">${money(expected)}</b>
+        <span class="small">${h(t('scCameIn'))}: <b dir="ltr">${money(cameIn)}</b></span></div>
     </div>
-    <h3>${h(t('scOwing'))}</h3>
-    ${owing.length ? `<table class="lapsed-table sc-table"><thead><tr><th>${h(t('scStudent'))}</th><th>${h(t('scParent'))}</th><th>${h(t('scCharged'))}</th><th>${h(t('scPaid'))}</th><th>${h(t('scBalance'))}</th><th></th></tr></thead>
-      <tbody>${owing.map((e) => `<tr><td><button type="button" class="linkish" data-open="${h(e.contact_id)}">${h(nameOf(e.contact_id))}</button></td>
-        <td>${h(nameOf(e.parent_id))}</td><td class="num" dir="ltr">${money(charged(e))}</td><td class="num" dir="ltr">${money(paid(e))}</td>
-        <td class="num sc-owe" dir="ltr">${money(balance(e))}</td><td><button type="button" class="btn small-btn" data-pay="${h(e.enroll_id)}">💲 ${h(t('scAddPayment'))}</button></td></tr>`).join('')}</tbody></table>`
-      : `<p class="muted">${h(t('scNoneOwing'))}</p>`}
+    <h3>${h(t('scTabActive'))} <span class="count-pill">${active.length}</span></h3>
+    ${active.length ? table(active) : `<p class="muted">${h(t('scNone'))}</p>`}
+    <h3>${h(t('scOweLeft'))} <span class="count-pill">${leftOwing.length}</span></h3>
+    ${leftOwing.length ? table(leftOwing) : `<p class="muted">${h(t('scNoneOwing'))}</p>`}
     <h3>${h(t('scPayments'))}</h3>
     ${pays.length ? paymentsTable(pays, true) : `<p class="muted">${h(t('scNoPayments'))}</p>`}`;
 }
@@ -279,7 +301,7 @@ function exportXl(all) {
   const head = [t('scStudent'), t('scParent'), t('colMobile'), t('scParentPhone'), t('scShiur'), t('scRoom'), t('scStatus'), t('scFrom'), t('scTo'), t('scTuition'), t('scCharged'), t('scPaid'), t('scBalance'), t('scBirthday'), t('comments')];
   const stLabel = ST;
   downloadXlsx(`${cur.org} - ${t('scFile')}`, head, list.map((e) => [nameOf(e.contact_id), nameOf(e.parent_id), phoneOf(e.contact_id), phoneOf(e.parent_id), e.shiur || '', e.room || '',
-    stLabel[statusOn(e)], d10(e.start_date), d10(e.end_date), Number(e.tuition_amount || 0), charged(e), paid(e), balance(e), bdayText(birthdayOf(e.contact_id)), e.note || '']));
+    stLabel[statusOn(e)], dateText(e.start_date), dateText(e.end_date), Number(e.tuition_amount || 0), charged(e), paid(e), balance(e), bdayText(birthdayOf(e.contact_id)), e.note || '']));
 }
 
 // ---------- אין כרטיס פונעם תלמיד / עלטערן ----------
@@ -384,13 +406,12 @@ export function openEnrollForm(enroll = {}, preset = {}) {
       <div class="grid">
         <label>${h(t('scZman'))}<select name="zman"><option value=""></option>${zs.map((z) => `<option value="${h(z.label)}" data-start="${h(z.start)}"${z.label === curZ ? ' selected' : ''}>${h(z.label)}</option>`).join('')}</select></label>
         <label>${h(t('scStatus'))}<select name="status">${Object.values(ST).map((x) => `<option${x === e.status ? ' selected' : ''}>${h(x)}</option>`).join('')}</select></label>
-        <label>${h(t('scFrom'))}<input type="date" name="start_date" value="${h(d10(e.start_date))}"></label>
-        <label>${h(t('scTo'))}<input type="date" name="end_date" value="${h(d10(e.end_date))}"></label>
+        <label>${h(t('scFrom'))}<span class="sc-my"><select name="start_m"></select><select name="start_y"></select></span><input type="hidden" name="start_date" value="${h(d10(e.start_date))}"></label>
+        <label>${h(t('scTo'))}<span class="sc-my"><select name="end_m"></select><select name="end_y"></select></span><input type="hidden" name="end_date" value="${h(d10(e.end_date))}"></label>
         <label>${h(t('scShiur'))}<input name="shiur" list="dl-sc-shiur" value="${h(e.shiur || '')}"></label>
         <datalist id="dl-sc-shiur">${shiurim.map((x) => `<option value="${h(x)}">`).join('')}</datalist>
         <label>${h(t('scRoom'))}<input name="room" value="${h(e.room || '')}"></label>
       </div>
-      <p class="hint-line sc-heb" data-heb></p>
     </fieldset>
     <fieldset><legend>${h(t('scTuition'))}</legend>
       <div class="grid">
@@ -407,19 +428,38 @@ export function openEnrollForm(enroll = {}, preset = {}) {
       <button type="submit" class="btn primary">${h(t('saveBtn'))}</button>
     </div>`;
   const el = form.elements;
-  const heb = () => {
-    const a = el.start_date.value; const b = el.end_date.value;
-    $('[data-heb]', form).textContent = [a ? `${t('scFrom')}: ${isoToHebrewText(a)}` : '', b ? `${t('scTo')}: ${isoToHebrewText(b)}` : ''].filter(Boolean).join(' · ');
+  // פון / ביז: נאר חודש און יאר (העברעיש). "פון" = דער ערשטער פונעם חודש, "ביז" = דער כ"ט.
+  const thisY = toHebrew(today()).y;
+  const years = []; for (let y = thisY + 2; y >= thisY - 10; y -= 1) years.push(y);
+  const fillMonths = (p, y, want) => {
+    const ms = monthsOf(y);
+    const key = ms.some((m) => m.key === want) ? want : (want === 'Adar' ? 'Adar II' : want === 'Adar I' || want === 'Adar II' ? 'Adar' : want);
+    el[`${p}_m`].innerHTML = `<option value=""></option>${ms.map((m) => `<option value="${m.key}"${m.key === key ? ' selected' : ''}>${h(m.he)}</option>`).join('')}`;
   };
-  el.start_date.oninput = () => { el.start_date.dataset.touched = '1'; heb(); };
-  el.end_date.oninput = heb; heb();
-  // דער זמן → "פון" (ווען מ'האט נאך נישט געשריבן אליין)
+  const setMY = (p, iso) => {
+    const x = iso ? toHebrew(iso) : null;
+    if (x && !years.includes(x.y)) years.push(x.y);
+    el[`${p}_y`].innerHTML = `<option value=""></option>${years.sort((a, b) => b - a).map((y) => `<option value="${y}"${x && x.y === y ? ' selected' : ''}>${h(yearLabel(y))}</option>`).join('')}`;
+    fillMonths(p, x ? x.y : thisY, x ? x.m : '');
+    el[`${p}_date`].value = iso || '';
+  };
+  const readMY = (p) => {
+    const m = el[`${p}_m`].value; const y = Number(el[`${p}_y`].value);
+    if (m && !y) { el[`${p}_y`].value = String(thisY); return readMY(p); }
+    el[`${p}_date`].value = m && y ? fromHebrew(p === 'start' ? 1 : 29, m, y) : '';
+  };
+  ['start', 'end'].forEach((p) => {
+    el[`${p}_m`].onchange = () => { el.start_date.dataset.touched = p === 'start' ? '1' : el.start_date.dataset.touched || ''; readMY(p); if (p === 'end') endChanged(); };
+    el[`${p}_y`].onchange = () => { fillMonths(p, Number(el[`${p}_y`].value) || thisY, el[`${p}_m`].value); if (p === 'start') el.start_date.dataset.touched = '1'; readMY(p); if (p === 'end') endChanged(); };
+  });
+  const endChanged = () => { if (el.end_date.value && el.end_date.value < today()) el.status.value = ST.left; };
+  setMY('start', d10(e.start_date)); setMY('end', d10(e.end_date));
+  // דער זמן → "פון" (ווען מ'האט נאך נישט געקליבן אליין)
   el.zman.onchange = () => {
     const st = el.zman.selectedOptions[0]?.dataset.start;
-    if (st && (!el.start_date.value || !el.start_date.dataset.touched)) { el.start_date.value = st; heb(); }
+    if (st && (!el.start_date.value || !el.start_date.dataset.touched)) setMY('start', st);
   };
-  if (isNew && !el.start_date.value) { const z = zs.find((x) => x.start && x.start <= today()); if (z) { el.zman.value = z.label; el.start_date.value = z.start; heb(); } }
-  el.end_date.addEventListener('change', () => { if (el.end_date.value && el.end_date.value < today()) el.status.value = ST.left; });
+  if (isNew && !el.start_date.value) { const z = zs.find((x) => x.start && x.start <= today()); if (z) { el.zman.value = z.label; setMY('start', z.start); } }
   ['s', 'p'].forEach((p) => {
     const inp = el[`${p}_pick`];
     inp.oninput = () => { $(`[data-p="${p}"] .sc-new`, form).hidden = Boolean(contactByLabel(inp.value)); };
