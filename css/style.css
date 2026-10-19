@@ -1180,3 +1180,41 @@ html[dir="ltr"] .row-father { text-align: left; }
 .font-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--surface); }
 .font-sample { font-size: 22px; line-height: 1.3; margin-bottom: 6px; }
 .font-meta { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+
+/* ---------- שהשמחה במעונם ---------- */
+.sg-week { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0 14px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.sg-week b { font-size: 1.1rem; }
+.sg-wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: start; }
+@media (max-width: 900px) { .sg-wrap { grid-template-columns: 1fr; } }
+.sg-list { display: flex; flex-direction: column; gap: 10px; }
+.sg-item { display: flex; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--surface); }
+.sg-item-text { flex: 1; font-family: 'Frank Ruhl Libre', serif; text-align: center; font-size: 15px; }
+.sg-item-acts { display: flex; flex-direction: column; gap: 4px; }
+.sg-preview-wrap { position: sticky; top: 10px; }
+.sg-preview { width: 5.5in; height: 8.5in; transform: scale(.72); transform-origin: top right; margin-bottom: calc(-8.5in * .28); margin-left: calc(-5.5in * .28); box-shadow: 0 4px 18px rgba(0,0,0,.18); }
+html[dir="ltr"] .sg-preview { transform-origin: top left; margin-left: 0; margin-right: calc(-5.5in * .28); }
+.sg-page { position: relative; width: 5.5in; height: 8.5in; background: #fff; color: #111; overflow: hidden; direction: rtl; }
+.sg-bg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.sg-body { position: absolute; top: 1.95in; bottom: 0.72in; left: 0.72in; right: 0.72in; text-align: center; line-height: 1.32; display: flex; flex-direction: column; justify-content: space-evenly; overflow: hidden; }
+.sg-entry { break-inside: avoid; }
+.sg-entry .sg-note { font-size: .85em; }
+.sg-entry b { font-weight: 700; }
+.sg-live { border: 1px dashed var(--line); border-radius: 10px; padding: 10px; text-align: center; font-family: 'Frank Ruhl Libre', serif; font-size: 17px; background: #fff; color: #111; }
+.sg-types { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.chip-radio { display: inline-flex; gap: 4px; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; cursor: pointer; font-size: 14px; background: var(--surface); }
+.chip-radio.big { font-size: 16px; padding: 6px 14px; }
+.chip-radio:has(input:checked) { border-color: var(--accent, #7a1f1f); background: color-mix(in srgb, var(--gold) 20%, transparent); }
+.sg-h { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; margin: 0 0 8px; display: flex; flex-direction: column; gap: 6px; }
+.sg-h-line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.sg-title { width: 110px; }
+.sg-pick { flex: 1; min-width: 200px; }
+.sg-suf { display: inline-flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.sg-suf-other { width: 90px; }
+.sg-note { flex: 1; min-width: 200px; }
+.sg-link { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+@media print {
+  body.printing-sg > *:not(#sg-print-area) { display: none !important; }
+  body.printing-sg { background: #fff !important; margin: 0; }
+  body.printing-sg #sg-print-area { display: block !important; }
+}
+#sg-print-area { display: none; }

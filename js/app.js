@@ -29,6 +29,7 @@ import { initRequests, submitRequest, pendingRequests } from './requests.js';
 import { openHelp, initHelpChat } from './help.js';
 import { initMerge, openMerge } from './merge.js';
 import { loadFonts } from './fonts.js';
+import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount, parseOrgTags, splitEntry, entry } from './orgtags.js';
 import {
@@ -262,6 +263,7 @@ function lobbyClick(e) {
   if (key === 'umbrella') { lobbyOpen = ''; enterScope(null); showView('contacts'); return; }
   if (ORG_FIELDS.some(([n]) => n === key)) { lobbyOpen = lobbyOpen === key ? '' : key; renderLobby(); return; }
   if (key === 'lists') { openOverview(); return; }
+  if (key === 'simchos') { enterScope(null); document.body.classList.add('solo-mode'); openSimchos(); return; }
   if (key === 'mailmerge') { openMailMerge(); return; }
   if (key === 'personal') { document.body.classList.add('solo-mode'); openPersonal(); return; }
   if (key === 'receipts') { enterScope(null); document.body.classList.add('solo-mode'); openReceipts(); return; }
@@ -305,6 +307,7 @@ function refreshAll() {
   if (!$('.view[data-view="donhub"]').hidden) renderDonHub();
   if (!$('.view[data-view="receipts"]').hidden) renderReceipts();
   if (!$('.view[data-view="school"]').hidden) renderSchool();
+  if (!$('.view[data-view="simchos"]').hidden) renderSimchos();
   if ($('#card-dialog').open && currentCardId) openCard(currentCardId);
 }
 
@@ -327,6 +330,7 @@ function showView(name) {
   if (name === 'personal') renderPersonal();
   if (name === 'lists') renderBuilder();
   if (name === 'school') renderSchool();
+  if (name === 'simchos') renderSimchos();
   renderListsSide();
   $('#btn-admin')?.classList.toggle('on', name === 'admin');
   renderCampaignSide();
@@ -1775,6 +1779,7 @@ function start() {
   initMail({ toast, friendlyError });
   initRequests({ toast, friendlyError, refreshAll, updateBadges, showView, openCard });
   initMerge({ contactById, fullNameHe, pickerLabel, fieldLabel, toast, friendlyError, refreshAll, openCard });
+  initSimchos({ showView, contactById, fullNameHe, pickerLabel, toast, friendlyError, refreshAll });
   initSchool({
     showView, contactById, fullNameHe, pickerLabel, openCard, toast, friendlyError, refreshAll,
     openOrgContacts: (org) => {

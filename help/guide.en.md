@@ -215,6 +215,10 @@ Keywords: yeshiva, student, tuition, receipt, zman, left, accepted, payment, cla
 
 A gabbai's merge becomes a request that an admin approves.
 
+## Simchos (mazel tovs for the gilyon)
+
+Lobby → "שהשמחה במעונם". Right: this week's simchos (‹ › to change week, with the diaspora parsha). Left: how the page looks. "Add a simcha": type → baalei simcha from the database (title, suffix, note) → the first one's relation to the child (father/grandfather/great-grandfather); for others, if no family link exists, pick how he is related or "Not related" (then "צאצאיהם"). The relation words are computed automatically and new links are saved to the cards. 🖨 Print / ⬇ PDF (half letter).
+
 ## Admin (admins only)
 
 **Fonts (owner only):** Admin → "Fonts" → upload a file (.ttf/.otf/.woff/.woff2). The font is kept in the private sheet (not public) and can be chosen for envelopes, receipt signatures etc.

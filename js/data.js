@@ -83,7 +83,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts', 'Requests', 'Enrollments', 'Tuition']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts', 'Requests', 'Enrollments', 'Tuition', 'Simchos']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -141,6 +141,10 @@ export async function loadAll() {
   const tu = rowsToObjects(tabs.Tuition || [['payment_id']]);
   state.headers.Tuition = tu.header;
   state.tuition = tu.objects.filter((x) => String(x.payment_id || '').trim());
+
+  const sim = rowsToObjects(tabs.Simchos || [['simcha_id']]);
+  state.headers.Simchos = sim.header;
+  state.simchos = sim.objects.filter((x) => String(x.simcha_id || '').trim());
 
   const yearly = rowsToObjects(tabs.YearlyCampaigns || [['series']]);
   state.headers.YearlyCampaigns = yearly.header;
