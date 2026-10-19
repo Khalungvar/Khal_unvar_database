@@ -529,7 +529,7 @@ function fillOrgTagFilter() {
   sel.innerHTML = `<option value="">${h(t('allOrgTags'))}</option>` + sorted.map(([org, m]) => `<optgroup label="${h(org)}">${
     [...m].sort((a, b) => a[0].localeCompare(b[0], 'he')).map(([x, n]) => `<option value="${h(entry(org, x))}">${h(x)} (${n})</option>`).join('')}</optgroup>`).join('');
   sel.value = [...sel.options].some((o) => o.value === cur) ? cur : '';
-  $('#otag-row').hidden = !groups.size;
+  sel.hidden = !groups.size;
 }
 
 function visibleContacts() {

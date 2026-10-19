@@ -1166,5 +1166,5 @@ html, body { overflow-x: clip; }
 
 .row-father { color: var(--muted); font-size: 13px; unicode-bidi: plaintext; text-align: right; }
 html[dir="ltr"] .row-father { text-align: left; }
-.otag-row { margin-top: -4px; gap: 8px; align-items: center; }
-.otag-row select { max-width: 360px; }
+.tag-stack { display: flex; flex-direction: column; gap: 6px; align-self: flex-start; }
+.tag-stack #otag-filter { font-size: 13px; padding-block: 4px; }
