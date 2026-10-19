@@ -63,7 +63,7 @@ export function statusOn(e, day = today()) {
 }
 
 // ---------- שכר לימוד לויט העברעאישע חדשים ----------
-// יעדער חודש: דער פעסטער סכום (tuition_amount), אחוץ ווען א חודש איז געטוישט — month_amounts = "5787-Heshvan:450; 5787-Kislev:0"
+// נאר חדשים מיט א סכום ווערן גערעכנט — month_amounts = "5787-Heshvan:450; 5787-Kislev:450". קיין "פאר אייביג": א סכום מוז האבן פון-ביז חודש.
 /** { y, m } → 'Y-M' */
 const mk = (x) => `${x.y}-${x.m}`;
 function nextMonth(x) {
@@ -87,12 +87,6 @@ export function monthOverrides(e) {
   });
   return m;
 }
-/** דער פעסטער סכום א חודש */
-export function baseMonthly(e) {
-  const amt = Number(e.tuition_amount || 0);
-  if (!amt || e.tuition_period === 'total') return 0;
-  return e.tuition_period === 'year' ? Math.round(amt / 12) : amt;
-}
 /** איז דער תלמיד געווען אין דעם חודש (פון — ביז)? */
 export function inMonth(e, x) {
   const s0 = d10(e.start_date) ? hm(d10(e.start_date)) : null;
@@ -104,38 +98,40 @@ export function inMonth(e, x) {
 export function monthAmount(e, x) {
   if (!inMonth(e, x)) return null;
   const o = monthOverrides(e);
-  return o.has(mk(x)) ? o.get(mk(x)) : baseMonthly(e);
+  return o.has(mk(x)) ? o.get(mk(x)) : 0;
 }
 
-/** "דער סכום פון חודש X ביז חודש Y": די חדשים אינעם ריי באקומען דעם נייעם סכום; די אנדערע בלייבן ווי פריער.
- *  נאר "פון" — א נייער פעסטער סכום פון דעמאלט אן (די פריערדיגע חדשים בלייבן מיטן אלטן סכום). */
+/** "דער סכום פון חודש X ביז חודש Y" — מוז האבן ביידע; די חדשים אינעם ריי באקומען דעם סכום */
 function applyPriceRange(rec, old, fromIso, toIso) {
-  if (!fromIso && !toIso) return;
-  const amt = Math.round(Number(rec.tuition_amount) || 0);
-  const oldBase = old.enroll_id ? baseMonthly(old) : 0;
+  const raw = String(rec.tuition_amount ?? '').trim();
+  rec.tuition_amount = old.tuition_amount || '';
+  if (raw === '' && !fromIso && !toIso) return;
+  if (raw === '' || !fromIso || !toIso) throw new Error(t('scNeedRange'));
+  const amt = Math.max(0, Math.round(Number(raw) || 0));
+  const a = hm(fromIso); const b = hm(toIso);
+  if (ord(b) < ord(a)) throw new Error(t('scBadDates'));
   const o = monthOverrides(old);
-  const s0 = d10(rec.start_date) ? hm(d10(rec.start_date)) : null;
-  const a = fromIso ? hm(fromIso) : s0;
-  if (!a) return;
-  const b = toIso ? hm(toIso) : null;
-  if (b && ord(b) < ord(a)) throw new Error(t('scBadDates'));
-  if (b) {
-    // א ריי: דער פעסטער סכום בלייבט (ביי א נייעם — דער סכום), די חדשים אינעם ריי — דער נייער סכום
-    if (oldBase) rec.tuition_amount = old.tuition_amount;
-    for (let x = a, g = 0; ord(x) <= ord(b) && g < 120; x = nextMonth(x), g += 1) o.set(mk(x), amt);
-  } else if (oldBase) {
-    // נאר "פון": די חדשים פאר דעם בלייבן מיטן אלטן סכום, פון דעמאלט אן — דער נייער
-    if (s0) for (let x = s0, g = 0; ord(x) < ord(a) && g < 240; x = nextMonth(x), g += 1) if (!o.has(mk(x))) o.set(mk(x), oldBase);
-    [...o.keys()].forEach((k) => { const i = k.indexOf('-'); if (ord({ y: Number(k.slice(0, i)), m: k.slice(i + 1) }) >= ord(a)) o.delete(k); });
-  }
-  const base = baseMonthly(rec);
-  [...o].forEach(([k, n]) => { if (n === base) o.delete(k); });
-  rec.month_amounts = [...o].map(([k, n]) => `${k}:${n}`).join('; ');
+  for (let x = a, g = 0; ord(x) <= ord(b) && g < 60; x = nextMonth(x), g += 1) { if (amt) o.set(mk(x), amt); else o.delete(mk(x)); }
+  rec.tuition_amount = amt || '';
+  rec.month_amounts = [...o].sort((p, q) => { const f = (k) => { const i = k.indexOf('-'); return ord({ y: Number(k.slice(0, i)), m: k.slice(i + 1) }); }; return f(p[0]) - f(q[0]); })
+    .map(([k, n]) => `${k}:${n}`).join('; ');
+}
+
+/** די סכומים אלס רייען: "חשון–ניסן תשפ"ז: $500" */
+export function priceRanges(e) {
+  const keyTo = (k) => { const i = k.indexOf('-'); return { y: Number(k.slice(0, i)), m: k.slice(i + 1) }; };
+  const items = [...monthOverrides(e)].map(([k, n]) => ({ x: keyTo(k), n })).sort((p, q) => ord(p.x) - ord(q.x));
+  const out = [];
+  items.forEach((it) => {
+    const last = out[out.length - 1];
+    if (last && last.n === it.n && mk(nextMonth(last.to)) === mk(it.x)) last.to = it.x; else out.push({ from: it.x, to: it.x, n: it.n });
+  });
+  const lab = (x) => `${monthHe(x.m)} ${yearLabel(x.y)}`;
+  return out.map((r) => `${mk(r.from) === mk(r.to) ? lab(r.from) : `${lab(r.from)} – ${lab(r.to)}`}: ${money(r.n)}`);
 }
 
 /** וויפיל מ'דארף צאלן ביז היינט (אריינגערעכנט דעם יעצטיגן חודש) */
 export function charged(e) {
-  if (e.tuition_period === 'total') return d10(e.start_date) && d10(e.start_date) <= today() ? Number(e.tuition_amount || 0) : 0;
   const s0 = d10(e.start_date) ? hm(d10(e.start_date)) : null;
   if (!s0) return 0;
   const now = currentMonth();
@@ -242,7 +238,7 @@ function rowHtml(e) {
     <td>${e.parent_id ? `<button type="button" class="linkish" data-open="${h(e.parent_id)}">${h(nameOf(e.parent_id))}</button>` : '<span class="muted">—</span>'}</td>
     <td dir="ltr" class="small">${h(phoneOf(e.contact_id) || phoneOf(e.parent_id))}</td>
     <td class="small">${h(dateText(e.start_date))}</td><td class="small">${h(dateText(e.end_date))}</td>
-    <td class="num ${b > 0 ? 'sc-owe' : ''}" dir="ltr">${Number(e.tuition_amount) ? money(b) : ''}</td>
+    <td class="num ${b > 0 ? 'sc-owe' : ''}" dir="ltr">${charged(e) || paid(e) ? money(b) : ''}</td>
     <td class="sc-acts"><button type="button" class="btn small-btn" data-edit="${h(e.enroll_id)}" title="${h(t('scEdit'))}">✎</button>
       <button type="button" class="btn small-btn" data-pay="${h(e.enroll_id)}" title="${h(t('scAddPayment'))}">💲</button></td></tr>`;
 }
@@ -275,9 +271,9 @@ function tuitionHtml(all) {
     const v = monthAmount(e, x);
     const isNow = mk(x) === mk(now);
     if (v === null) return `<td class="num sc-mon${isNow ? ' sc-now' : ''}"><span class="muted">—</span></td>`;
-    const changed = monthOverrides(e).has(mk(x)) && v !== baseMonthly(e);
-    return `<td class="num sc-mon${isNow ? ' sc-now' : ''}"><input type="number" min="0" step="1" dir="ltr" class="sc-mcell${changed ? ' sc-changed' : ''}"
-      data-me="${h(e.enroll_id)}" data-mk="${h(mk(x))}" value="${h(v)}" title="${h(changed ? t('scMonthChanged', { n: money(baseMonthly(e)) }) : t('scMonthHint'))}"></td>`;
+    const has = monthOverrides(e).has(mk(x));
+    return `<td class="num sc-mon${isNow ? ' sc-now' : ''}"><input type="number" min="0" step="1" dir="ltr" class="sc-mcell${has ? '' : ' sc-empty'}"
+      data-me="${h(e.enroll_id)}" data-mk="${h(mk(x))}" value="${has ? h(v) : ''}" placeholder="—" title="${h(t('scMonthHint'))}"></td>`;
   };
   const table = (list) => `<div class="sc-table-wrap"><table class="lapsed-table sc-table sc-months"><thead><tr><th>${h(t('scStudent'))}</th><th>${h(t('scParent'))}</th>
       ${months.map((x) => `<th class="num${mk(x) === mk(now) ? ' sc-now' : ''}">${h(monthLabel(x))}</th>`).join('')}
@@ -312,7 +308,7 @@ async function saveMonthCell(inp) {
   if (!e) return;
   const v = Math.max(0, Math.round(Number(inp.value) || 0));
   const o = monthOverrides(e);
-  if (v === baseMonthly(e)) o.delete(inp.dataset.mk); else o.set(inp.dataset.mk, v);
+  if (String(inp.value).trim() === '' || !v) o.delete(inp.dataset.mk); else o.set(inp.dataset.mk, v);
   const month_amounts = [...o].map(([k, n]) => `${k}:${n}`).join('; ');
   if (month_amounts === String(e.month_amounts || '')) return;
   inp.disabled = true;
@@ -403,7 +399,7 @@ function exportXl(all) {
   const head = [t('scStudent'), t('scParent'), t('colMobile'), t('scParentPhone'), t('scShiur'), t('scRoom'), t('scStatus'), t('scFrom'), t('scTo'), t('scTuition'), t('scCharged'), t('scPaid'), t('scBalance'), t('scBirthday'), t('comments')];
   const stLabel = ST;
   downloadXlsx(`${cur.org} - ${t('scFile')}`, head, list.map((e) => [nameOf(e.contact_id), nameOf(e.parent_id), phoneOf(e.contact_id), phoneOf(e.parent_id), e.shiur || '', e.room || '',
-    stLabel[statusOn(e)], dateText(e.start_date), dateText(e.end_date), Number(e.tuition_amount || 0), charged(e), paid(e), balance(e), bdayText(birthdayOf(e.contact_id)), e.note || '']));
+    stLabel[statusOn(e)], dateText(e.start_date), dateText(e.end_date), priceRanges(e).join('; '), charged(e), paid(e), balance(e), bdayText(birthdayOf(e.contact_id)), e.note || '']));
 }
 
 // ---------- אין כרטיס פונעם תלמיד / עלטערן ----------
@@ -430,7 +426,7 @@ export function schoolSection(c) {
         <span>${h(t('scFrom'))}: <b>${h(dateText(e.start_date) || '—')}</b></span><span>${h(t('scTo'))}: <b>${h(dateText(e.end_date) || '—')}</b></span>
         ${e.shiur ? `<span>${h(t('scShiur'))}: <b>${h(e.shiur)}</b></span>` : ''}${e.room ? `<span>${h(t('scRoom'))}: <b>${h(e.room)}</b></span>` : ''}
         ${!asParent && e.parent_id ? `<span>${h(t('scParent'))}: <button type="button" class="linkish" data-open="${h(e.parent_id)}">${h(nameOf(e.parent_id))}</button></span>` : ''}
-        ${Number(e.tuition_amount) ? `<span>${h(t('scTuition'))}: <b dir="ltr">${money(e.tuition_amount)}</b> ${h(t(`scPer_${e.tuition_period || 'month'}`))}</span>
+        ${priceRanges(e).length || paid(e) ? `<span>${h(t('scTuition'))}: <b>${h(priceRanges(e).join(' · ') || '—')}</b></span>
           <span>${h(t('scCharged'))}: <b dir="ltr">${money(charged(e))}</b> · ${h(t('scPaid'))}: <b dir="ltr">${money(paid(e))}</b> · ${h(t('scBalance'))}: <b dir="ltr" class="${balance(e) > 0 ? 'sc-owe' : ''}">${money(balance(e))}</b></span>` : ''}
       </div>
       ${e.note ? `<p class="small">${h(e.note)}</p>` : ''}
@@ -517,11 +513,11 @@ export function openEnrollForm(enroll = {}, preset = {}) {
     </fieldset>
     <fieldset><legend>${h(t('scTuition'))}</legend>
       <div class="grid">
-        <label>${h(t('xlAmount'))}<input name="tuition_amount" type="number" min="0" step="1" dir="ltr" value="${h(e.tuition_amount || '')}"></label>
+        <label>${h(t('scAmountMonth'))}<input name="tuition_amount" type="number" min="0" step="1" dir="ltr" value=""></label>
         <label>${h(t('scPriceFrom'))}<span class="sc-my"><select name="tu_from_m"></select><select name="tu_from_y"></select></span><input type="hidden" name="tu_from_date"></label>
         <label>${h(t('scPriceTo'))}<span class="sc-my"><select name="tu_to_m"></select><select name="tu_to_y"></select></span><input type="hidden" name="tu_to_date"></label>
-        <label>${h(t('scPeriod'))}<select name="tuition_period">${['month', 'year', 'total'].map((x) => `<option value="${x}"${x === (e.tuition_period || 'month') ? ' selected' : ''}>${h(t(`scPer_${x}`))}</option>`).join('')}</select></label>
       </div>
+      ${priceRanges(e).length ? `<p class="small">${h(t('scCurPrices'))}: <b>${h(priceRanges(e).join(' · '))}</b></p>` : ''}
       <p class="hint-line">${h(t('scPriceRangeHint'))}</p>
     </fieldset>
     <label class="wide">${h(t('comments'))}<textarea name="note" rows="2">${h(e.note || '')}</textarea></label>
@@ -552,6 +548,18 @@ export function openEnrollForm(enroll = {}, preset = {}) {
     const m = el[`${p}_m`].value; const y = Number(el[`${p}_y`].value);
     if (m && !y) { el[`${p}_y`].value = String(thisY); return readMY(p); }
     el[`${p}_date`].value = m && y ? fromHebrew(p === 'start' || p === 'tu_from' ? 1 : 29, m, y) : '';
+  };
+  // א סכום אן חדשים? — פארשלאגן דעם יעצטיגן זמן: פונעם חודש (אדער אנהייב) ביז ניסן / אלול
+  el.tuition_amount.oninput = () => {
+    if (!el.tuition_amount.value || el.tu_from_date.value || el.tu_to_date.value) return;
+    const st = el.start_date.value && el.start_date.value > today() ? el.start_date.value : today();
+    const a = hm(st);
+    const ms = monthsOf(a.y).map((z) => z.key);
+    const i = ms.indexOf(a.m);
+    const summer = i >= ms.indexOf('Iyar');
+    const to = { y: a.y, m: summer ? 'Elul' : 'Nisan' };
+    const from = a.m === 'Tishri' ? { y: a.y, m: 'Heshvan' } : a;
+    setMY('tu_from', fromHebrew(1, from.m, from.y)); setMY('tu_to', fromHebrew(29, to.m, to.y));
   };
   ['tu_from', 'tu_to'].forEach((p) => {
     el[`${p}_m`].onchange = () => readMY(p);
@@ -644,7 +652,7 @@ async function saveEnrollForm(form, e) {
     ...e, org, contact_id: studentId, parent_id: parentId, zman,
     status: val(form, 'status'), start_date: val(form, 'start_date'), end_date: val(form, 'end_date'),
     shiur: val(form, 'shiur'), room: val(form, 'room'),
-    tuition_amount: val(form, 'tuition_amount'), tuition_period: val(form, 'tuition_period'), note: val(form, 'note'),
+    tuition_amount: val(form, 'tuition_amount'), tuition_period: 'month', note: val(form, 'note'),
   };
   if (rec.end_date && rec.start_date && rec.end_date < rec.start_date) throw new Error(t('scBadDates'));
   applyPriceRange(rec, e, val(form, 'tu_from_date'), val(form, 'tu_to_date'));
@@ -753,13 +761,13 @@ export function openPaymentForm(pay = {}, e) {
   if (!e) return;
   const p = { date: today(), payer_id: e.parent_id || e.contact_id, method: '', ...(pay || {}) };
   const isNew = !p.payment_id;
-  if (isNew && !p.amount) p.amount = balance(e) > 0 ? balance(e) : (Number(e.tuition_amount) || '');
+  if (isNew && !p.amount) p.amount = balance(e) > 0 ? balance(e) : '';
   if (isNew && !p.for_text) p.for_text = t('scForDefault', { name: contact(e.contact_id)?.first_name_he || '' });
   const dlg = $('#school-dialog'); const form = $('#school-form');
   const methods = state.lists.payment_method || [];
   form.innerHTML = `<button type="button" class="x-close" data-close aria-label="${h(t('close'))}">✕</button>
     <h2>💲 ${h(isNew ? t('scAddPayment') : t('scEditPayment'))}</h2>
-    <p class="muted">${h(nameOf(e.contact_id))} · ${h(e.org)}${Number(e.tuition_amount) ? ` · ${h(t('scBalance'))}: <b dir="ltr">${money(balance(e))}</b>` : ''}</p>
+    <p class="muted">${h(nameOf(e.contact_id))} · ${h(e.org)}${charged(e) ? ` · ${h(t('scBalance'))}: <b dir="ltr">${money(balance(e))}</b>` : ''}</p>
     <datalist id="dl-sc-contacts">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>
     <div class="grid">
       <label class="wide">${h(t('scPayer'))}<input name="payer" list="dl-sc-contacts" autocomplete="off" value="${contact(p.payer_id) ? h(ui.pickerLabel(contact(p.payer_id))) : ''}"></label>

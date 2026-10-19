@@ -1,4 +1,4 @@
-# Help — how the Khal Ungvar database works
+# Help — how the Mosdos Ungvar database works
 
 <!--
   The guide for the gabbaim (English). Same sections as guide.md (Yiddish) — keep both updated!
