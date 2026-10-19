@@ -963,7 +963,26 @@ function pickerLabel(c) {
 }
 
 function familyCount(c) {
-  return state.relations.filter((r) => String(r.contact_id_a) === String(c.contact_id)).length;
+  return state.relations.filter((r) => String(r.contact_id_a) === String(c.contact_id)).length + siblingsOf(c).length;
+}
+
+/**
+ * ברידער — אויטאמאטיש פון דעם טאטע: ווער עס איז "זון פון" דעם זעלבן טאטע (אדער דער טאטע איז "טאטע פון" אים).
+ * נישט אפגעהיט — דערפאר ווערט עס דערהיינטיגט אליין ווען מ'לייגט צו א קינד. אן די וואס זענען שוין "ברודער פון" אויסדריקלעך.
+ */
+function siblingsOf(c) {
+  const id = String(c.contact_id);
+  const R = state.relations;
+  const kidsOf = (f) => R.filter((r) => (r.relation_type === 'זון פון' && String(r.contact_id_b) === f)).map((r) => String(r.contact_id_a))
+    .concat(R.filter((r) => r.relation_type === 'טאטע פון' && String(r.contact_id_a) === f).map((r) => String(r.contact_id_b)));
+  const fathers = new Set([
+    ...R.filter((r) => r.relation_type === 'זון פון' && String(r.contact_id_a) === id).map((r) => String(r.contact_id_b)),
+    ...R.filter((r) => r.relation_type === 'טאטע פון' && String(r.contact_id_b) === id).map((r) => String(r.contact_id_a)),
+  ]);
+  const explicit = new Set(R.filter((r) => String(r.contact_id_a) === id && r.relation_type === 'ברודער פון').map((r) => String(r.contact_id_b)));
+  const out = new Set();
+  fathers.forEach((f) => kidsOf(f).forEach((k) => { if (k !== id && !explicit.has(k)) out.add(k); }));
+  return [...out].filter((k) => contactById(k));
 }
 
 function donationCount(c) {
@@ -980,11 +999,18 @@ function familySection(c) {
         <button type="button" class="icon-btn rel-remove" data-i="${i}" title="✕">✕</button></span>
     </div>`;
   }).join('');
+  const sibs = siblingsOf(c).map((k) => {
+    const other = contactById(k);
+    return `<div class="kv family-row derived" title="${h(t('sibAutoTip'))}">
+      <span>${h(relationLabel('ברודער פון'))}</span>
+      <span><a href="#" class="go-contact" data-id="${h(other.contact_id)}">${h(fullNameHe(other))}</a> <small class="muted">${h(t('sibAuto'))}</small></span>
+    </div>`;
+  }).join('');
   const others = state.contacts.filter((x) => String(x.contact_id) !== String(c.contact_id)
     && (isTrue(x.is_active) || x.is_active === ''));
   return `<section class="family">
     <h3>${t('family')}</h3>
-    ${rows}
+    ${rows}${sibs}
     <details class="add-family">
       <summary>${t('addFamily')}</summary>
       <div class="add-family-row">
