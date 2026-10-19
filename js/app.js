@@ -551,22 +551,29 @@ function visibleContacts() {
 
 /** contact_id → [טאטע'ס] (פון "זון פון" אדער "טאטע פון") — צו ווייזן אונטערן נאמען אין דער רשימה */
 let fatherMap = new Map();
+let inLawMap = new Map();
 function buildFatherMap() {
-  fatherMap = new Map();
-  const add = (son, dad) => {
-    const l = fatherMap.get(son) || [];
-    if (!l.includes(dad)) l.push(dad);
-    fatherMap.set(son, l);
+  const mk = (fwd, rev) => {
+    const m = new Map();
+    const add = (young, old) => { const l = m.get(young) || []; if (!l.includes(old)) l.push(old); m.set(young, l); };
+    (state.relations || []).forEach((r) => {
+      if (r.relation_type === fwd) add(String(r.contact_id_a), String(r.contact_id_b));
+      if (r.relation_type === rev) add(String(r.contact_id_b), String(r.contact_id_a));
+    });
+    return m;
   };
-  (state.relations || []).forEach((r) => {
-    if (r.relation_type === 'זון פון') add(String(r.contact_id_a), String(r.contact_id_b));
-    if (r.relation_type === 'טאטע פון') add(String(r.contact_id_b), String(r.contact_id_a));
-  });
+  fatherMap = mk('זון פון', 'טאטע פון');
+  inLawMap = mk('איידעם פון', 'שווער פון');
 }
+/** אונטערן נאמען: דער טאטע; אויב נישטא — דער שווער */
 function fatherLine(c) {
-  const dads = (fatherMap.get(String(c.contact_id)) || [])
-    .map((id) => state.contacts.find((x) => String(x.contact_id) === id)).filter(Boolean);
-  return dads.length ? `<span class="row-father">${h(t('sonOfLine', { name: dads.map((d) => fullNameHe(d)).join(' / ') }))}</span>` : '';
+  const id = String(c.contact_id);
+  const names = (m) => (m.get(id) || []).map((x) => state.contacts.find((k) => String(k.contact_id) === x)).filter(Boolean)
+    .map((d) => fullNameHe(d)).join(' / ');
+  const dad = names(fatherMap);
+  if (dad) return `<span class="row-father">${h(t('sonOfLine', { name: dad }))}</span>`;
+  const sw = names(inLawMap);
+  return sw ? `<span class="row-father">${h(t('sonInLawLine', { name: sw }))}</span>` : '';
 }
 
 function renderList() {
