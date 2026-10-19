@@ -1726,6 +1726,17 @@ function start() {
     if (row) openCard(row.dataset.id);
   });
   $$('dialog [data-close]').forEach((b) => { b.onclick = () => b.closest('dialog').close(); });
+  // ווען מ'עפנט א כרטיס (אדער אן אנדער פענצטער) און מאכט צו — צוריק צום זעלבן ארט אין דער רשימה
+  let listScroll = window.scrollY;
+  const anyDialogOpen = () => !!document.querySelector('dialog[open]');
+  window.addEventListener('scroll', () => { if (!anyDialogOpen()) listScroll = window.scrollY; }, { passive: true });
+  document.addEventListener('close', (e) => {
+    if (!(e.target instanceof HTMLDialogElement)) return;
+    const y = listScroll;
+    // נאכן נייעם ציילן פון דער רשימה (נאך א שמירה) — דעריבער צוויי מאל
+    requestAnimationFrame(() => { if (!anyDialogOpen()) window.scrollTo(0, y); });
+    setTimeout(() => { if (!anyDialogOpen() && Math.abs(window.scrollY - y) > 5) window.scrollTo(0, y); }, 400);
+  }, true);
   // הכרטיס: אם יש קוויטל שלא נשמר — שואלים לפני שסוגרים
   const closeCard = () => {
     if (cardDirty() && !confirm(t('kvitelUnsaved'))) return;
