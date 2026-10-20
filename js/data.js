@@ -144,7 +144,10 @@ export async function loadAll() {
 
   const sim = rowsToObjects(tabs.Simchos || [['simcha_id']]);
   state.headers.Simchos = sim.header;
-  state.simchos = sim.objects.filter((x) => String(x.simcha_id || '').trim());
+  // א דאטום וואס גוגל שיטס האט פארוואנדלט אין א נומער (טעג זינט 30.12.1899) → 'YYYY-MM-DD'
+  const isoDay = (v) => (typeof v === 'number' || /^\d{5}$/.test(String(v || ''))
+    ? new Date(Date.UTC(1899, 11, 30) + Math.floor(Number(v)) * 86400000).toISOString().slice(0, 10) : String(v || '').slice(0, 10));
+  state.simchos = sim.objects.filter((x) => String(x.simcha_id || '').trim()).map((x) => ({ ...x, week: isoDay(x.week) }));
 
   const yearly = rowsToObjects(tabs.YearlyCampaigns || [['series']]);
   state.headers.YearlyCampaigns = yearly.header;
