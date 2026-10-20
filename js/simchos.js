@@ -112,7 +112,25 @@ function boldName(text) {
 }
 
 /** איין שמחה אלס HTML פארן גליון */
+/** טעקסט פון "ספעציעלע": נאר <b> און שורות (אלעס אנדערש ווערט פשוט'ער טעקסט) */
+export function cleanRich(html) {
+  const box = document.createElement('div');
+  box.innerHTML = String(html || '');
+  const walk = (n) => {
+    if (n.nodeType === 3) return h(n.nodeValue);
+    if (n.nodeType !== 1) return '';
+    const tag = n.tagName.toLowerCase();
+    const inner = [...n.childNodes].map(walk).join('');
+    if (tag === 'br') return '<br>';
+    if (tag === 'b' || tag === 'strong' || (n.style && Number(n.style.fontWeight) >= 600)) return inner ? `<b>${inner}</b>` : '';
+    if (tag === 'div' || tag === 'p') return `${inner}<br>`;
+    return inner;
+  };
+  return [...box.childNodes].map(walk).join('').replace(/(<br>\s*)+$/, '').trim();
+}
+
 export function simchaHtml(s) {
+  if (s.type === 'special') return `<div class="sg-entry sg-special">${cleanRich(s.special)}</div>`;
   const { rows, rel } = compose(s);
   const ty = TYPES[s.type] || TYPES.birth;
   const lines = rows.map((x) => {
@@ -123,7 +141,7 @@ export function simchaHtml(s) {
   const forLine = String(s.text_override || '').trim() ? h(s.text_override)
     : [h(ty.pre), h(rel), boldName(s.child_name), ty.other ? `עב"ג ${boldName(s.other_side)}`.trim() : '', h(ty.post), 'בשעטו"מ']
       .filter((x) => String(x).trim()).join(' ');
-  return `<div class="sg-entry">${lines}<div class="sg-for">${forLine}</div></div>`;
+  return `<div class="sg-entry">${lines}<div class="sg-for">${forLine}</div>${String(s.after_note || '').trim() ? `<div class="sg-after">${h(s.after_note)}</div>` : ''}</div>`;
 }
 
 // ---------- דער בלאט ----------
@@ -393,7 +411,8 @@ function honoreeRow(x, i) {
   return `<fieldset class="sg-h" data-i="${i}">
     <div class="sg-h-line">
       <input class="sg-title" placeholder="${h(t('sgTitle'))}" value="${h(x.title ?? (c?.title_he || ''))}">
-      <input class="sg-pick" list="dl-sg-contacts" autocomplete="off" placeholder="${h(t('pickContact'))}" value="${c ? h(ui.pickerLabel(c)) : ''}">
+      <input class="sg-pick" list="dl-sg-contacts" autocomplete="off" placeholder="${h(t('pickContact'))}" value="${c ? h(ui.pickerLabel(c)) : ''}" data-id="${h(x.id || '')}">
+      <button type="button" class="btn small-btn sg-open-card" title="${h(t('sgOpenCard'))}"${c ? '' : ' hidden'}>✎ ${h(t('sgOpenCard'))}</button>
       <span class="sg-suf">${SUFFIXES.map((sx) => `<label class="chip-radio"><input type="radio" name="suf${i}" value="${h(sx)}"${suf === sx ? ' checked' : ''}> ${h(sx)}</label>`).join('')}
         <label class="chip-radio"><input type="radio" name="suf${i}" value="__other"${isOther ? ' checked' : ''}> ${h(t('sgOther'))}</label>
         <input class="sg-suf-other" value="${isOther ? h(suf) : ''}"${isOther ? '' : ' hidden'}></span>
@@ -415,9 +434,23 @@ export function openSimchaForm(s = {}) {
   const draw = () => {
     form.innerHTML = `<button type="button" class="x-close" data-close aria-label="${h(t('close'))}">✕</button>
       <h2>🎉 ${h(rec.simcha_id ? t('sgEdit') : t('sgNew'))}</h2>
-      <p class="muted small">${h(weekLabel(rec.week))}</p>
       <datalist id="dl-sg-contacts">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>
-      <div class="sg-types">${Object.entries(TYPES).map(([k, v]) => `<label class="chip-radio big"><input type="radio" name="type" value="${k}"${rec.type === k ? ' checked' : ''}> ${h(v.label)}</label>`).join('')}</div>
+      <div class="sg-toprow">
+        <div class="sg-types">${[...Object.entries(TYPES), ['special', { label: t('sgSpecial') }]].map(([k, v]) => `<label class="chip-radio big"><input type="radio" name="type" value="${k}"${rec.type === k ? ' checked' : ''}> ${h(v.label)}</label>`).join('')}</div>
+        <span class="spacer"></span>
+        <span class="sg-when"><button type="button" class="btn small-btn" id="sg-when">📅 ${h(rec.week === weekNow() ? t('sgThisWeek') : weekLabel(rec.week))}</button>
+          <input type="date" id="sg-when-date" hidden value="${h(rec.week)}"></span>
+      </div>
+      <div class="sg-special-box" data-special${rec.type === 'special' ? '' : ' hidden'}>
+        <div class="sg-rich-tools"><button type="button" class="btn small-btn" id="sg-bold" title="${h(t('sgBold'))}"><b>B</b></button>
+          <span class="muted small">${h(t('sgSpecialHint'))}</span></div>
+        <div class="sg-rich" id="sg-rich" contenteditable="true" dir="rtl">${cleanRich(rec.special)}</div>
+        <h3>${h(t('sgRelated'))}</h3>
+        <div class="sg-related" id="sg-related"></div>
+        <div class="sg-h-line"><input id="sg-rel-pick" list="dl-sg-contacts" autocomplete="off" placeholder="${h(t('pickContact'))}">
+          <button type="button" class="btn small-btn" id="sg-rel-add">＋</button></div>
+      </div>
+      <div data-regular${rec.type === 'special' ? ' hidden' : ''}>
       <h3>${h(t('sgHonorees'))}</h3>
       <div id="sg-hs">${hs.map(honoreeRow).join('')}</div>
       <button type="button" class="btn small-btn" id="sg-add-h">＋ ${h(t('sgAddH'))}</button>
@@ -427,9 +460,11 @@ export function openSimchaForm(s = {}) {
         <label>${h(t('sgChildName'))}<input name="child_name" value="${h(rec.child_name || '')}" placeholder="${h(t('sgChildPh'))}"></label>
         <label data-other${TYPES[rec.type]?.other ? '' : ' hidden'}>${h(t('sgOtherSide'))}<input name="other_side" value="${h(rec.other_side || '')}" placeholder="${h(t('sgOtherPh'))}"></label>
       </div>
+      <label class="wide">${h(t('sgAfterNote'))}<input name="after_note" value="${h(rec.after_note || '')}" placeholder="${h(t('sgAfterNotePh'))}"></label>
+      </div>
       <h3>${h(t('sgPreview'))}</h3>
       <div class="sg-live" id="sg-live"></div>
-      <label class="wide">${h(t('sgOverride'))}<input name="text_override" value="${h(rec.text_override || '')}" placeholder="${h(t('sgOverridePh'))}"></label>
+      <label class="wide" data-regular${rec.type === 'special' ? ' hidden' : ''}>${h(t('sgOverride'))}<input name="text_override" value="${h(rec.text_override || '')}" placeholder="${h(t('sgOverridePh'))}"></label>
       <div class="actions"><span class="spacer"></span>
         <button type="button" class="btn" data-close>${h(t('cancelBtn'))}</button>
         <button type="submit" class="btn primary">${h(t('saveBtn'))}</button></div>`;
@@ -443,8 +478,11 @@ export function openSimchaForm(s = {}) {
     rec.child_name = form.elements.child_name.value.trim();
     rec.other_side = form.elements.other_side.value.trim();
     rec.text_override = form.elements.text_override.value.trim();
+    rec.after_note = form.elements.after_note.value.trim();
+    if ($('#sg-rich', form)) rec.special = cleanRich($('#sg-rich', form).innerHTML);
     hs = $$('.sg-h', form).map((fs, i) => {
-      const c = contactByLabel($('.sg-pick', fs).value);
+      const pk = $('.sg-pick', fs);
+      const c = contactByLabel(pk.value) || (pk.value.trim() && pk.dataset.id ? contactOf(pk.dataset.id) : null);
       const r = $(`input[name="suf${i}"]:checked`, fs);
       const suffix = r ? (r.value === '__other' ? $('.sg-suf-other', fs).value.trim() : r.value) : '';
       const prev = hs[i] || {};
@@ -482,17 +520,55 @@ export function openSimchaForm(s = {}) {
       $$('select, input', box).forEach((el) => { el.onchange = () => { read(); refreshLinks(); live(); }; });
     });
   };
+  let related = (() => { try { return JSON.parse(rec.related || '[]'); } catch { return []; } })();
+  const drawRelated = () => {
+    const box = $('#sg-related', form);
+    if (!box) return;
+    box.innerHTML = related.map((id) => `<span class="chip">${h(ui.fullNameHe(contactOf(id) || {}) || `#${id}`)} <button type="button" class="linkish" data-rel-x="${h(id)}">✕</button></span>`).join('') || `<span class="muted small">${h(t('sgRelatedNone'))}</span>`;
+    $$('[data-rel-x]', box).forEach((b) => { b.onclick = () => { related = related.filter((x) => x !== b.dataset.relX); drawRelated(); }; });
+  };
   const live = () => {
+    const sp = rec.type === 'special';
+    $$('[data-regular]', form).forEach((el) => { el.hidden = sp; });
+    $('[data-special]', form).hidden = !sp;
     $('[data-other]', form).hidden = !TYPES[rec.type]?.other;
+    if (sp) { $('#sg-live', form).innerHTML = rec.special ? simchaHtml(rec) : `<span class="muted">${h(t('sgSpecialHint'))}</span>`; return; }
     $('#sg-live', form).innerHTML = hs.some((x) => x.id) ? simchaHtml({ ...rec, honorees: JSON.stringify(hs) }) : `<span class="muted">${h(t('sgPickFirst'))}</span>`;
   };
   const wireForm = () => {
     $$('[data-close]', form).forEach((b) => { b.onclick = () => dlg.close(); });
+    // ווען: די וואך / אן אנדער דאטום
+    const wd = $('#sg-when-date', form);
+    $('#sg-when', form).onclick = () => { wd.hidden = false; try { wd.showPicker(); } catch { wd.focus(); } };
+    wd.onchange = () => { if (wd.value) { read(); rec.week = shabbatOfWeek(wd.value); draw(); } };
+    // ספעציעלע: פעט / פשוט
+    $('#sg-bold', form).onmousedown = (e) => { e.preventDefault(); document.execCommand('bold'); read(); live(); };
+    $('#sg-rich', form).oninput = () => { read(); live(); };
+    $('#sg-rel-add', form).onclick = () => {
+      const c = contactByLabel($('#sg-rel-pick', form).value);
+      if (c && !related.includes(String(c.contact_id))) related.push(String(c.contact_id));
+      $('#sg-rel-pick', form).value = ''; drawRelated();
+    };
+    $('#sg-rel-pick', form).onchange = () => $('#sg-rel-add', form).click();
+    drawRelated();
+    // עפענען דעם כרטיס (צו פאררעכטן א טעות) — נאכן צומאכן ווערט דער טופס דערהיינטיגט
+    $$('.sg-open-card', form).forEach((b) => {
+      b.onclick = () => {
+        const id = $('.sg-pick', b.closest('.sg-h')).dataset.id;
+        if (!id) return;
+        read();
+        ui.openCard(id);
+        const back = () => { if (dlg.open) { read(); draw(); } };
+        ['#card-dialog', '#form-dialog'].forEach((sel) => { const d = $(sel); if (d) d.addEventListener('close', () => setTimeout(back, 50), { once: true }); });
+      };
+    });
     $('#sg-add-h', form).onclick = () => { read(); hs.push({}); draw(); };
     $$('.sg-remove', form).forEach((b) => { b.onclick = () => { read(); hs.splice(Number(b.closest('.sg-h').dataset.i), 1); draw(); }; });
     $$('.sg-h', form).forEach((fs) => {
       $('.sg-pick', fs).addEventListener('change', () => {
         const c = contactByLabel($('.sg-pick', fs).value);
+        $('.sg-pick', fs).dataset.id = c ? String(c.contact_id) : '';
+        $('.sg-open-card', fs).hidden = !c;
         if (c) {
           if (!$('.sg-title', fs).value.trim()) $('.sg-title', fs).value = c.title_he || '';
           $('.sg-note', fs).value = c.name_note || '';
@@ -510,6 +586,17 @@ export function openSimchaForm(s = {}) {
       ev.preventDefault();
       read();
       const btn = form.querySelector('[type=submit]');
+      if (rec.type === 'special') {
+        if (!rec.special) { ui.toast(t('sgSpecialEmpty'), 'error'); return; }
+        btn.disabled = true;
+        try {
+          const out = { ...rec, honorees: '[]', related: JSON.stringify(related) };
+          if (!out.simcha_id) out.sort = simchosOf(out.week).length + 1;
+          await saveRecord('Simchos', 'simcha_id', out);
+          await loadAll(); dlg.close(); cur.week = out.week; ui.refreshAll(); renderSimchos(); ui.toast(t('saved'));
+        } catch (err) { ui.toast(ui.friendlyError(err), 'error'); btn.disabled = false; }
+        return;
+      }
       if (!hs.some((x) => x.id)) { ui.toast(t('sgPickFirst'), 'error'); return; }
       btn.disabled = true;
       try {

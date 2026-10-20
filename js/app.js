@@ -1779,7 +1779,7 @@ function start() {
   initMail({ toast, friendlyError });
   initRequests({ toast, friendlyError, refreshAll, updateBadges, showView, openCard });
   initMerge({ contactById, fullNameHe, pickerLabel, fieldLabel, toast, friendlyError, refreshAll, openCard });
-  initSimchos({ showView, contactById, fullNameHe, pickerLabel, toast, friendlyError, refreshAll });
+  initSimchos({ showView, contactById, fullNameHe, pickerLabel, toast, friendlyError, refreshAll, openCard });
   initSchool({
     showView, contactById, fullNameHe, pickerLabel, openCard, toast, friendlyError, refreshAll,
     openOrgContacts: (org) => {

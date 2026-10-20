@@ -1238,3 +1238,12 @@ html[dir="ltr"] .sg-preview { transform-origin: top left; margin-left: 0; margin
 }
 #sg-print-area { display: none; }
 .sg-pageno { position: absolute; bottom: 0.22in; left: 0; right: 0; text-align: center; font-size: 8pt; color: #777; }
+.sg-entry.sg-special { border: 1px solid #595959; }
+.sg-entry .sg-after { font-size: .9em; }
+.sg-toprow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.sg-when { display: inline-flex; gap: 6px; align-items: center; }
+.sg-special-box { border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin: 8px 0; }
+.sg-rich-tools { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.sg-rich { min-height: 90px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: #fff; color: #111; text-align: center; font-family: 'Frank Ruhl Libre', serif; font-size: 17px; line-height: 1.3; outline: none; }
+.sg-rich:focus { border-color: var(--gold); }
+.sg-related { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 6px; }
