@@ -176,7 +176,7 @@ export function renderSimchos() {
       <span class="spacer"></span>
       <label class="small">${h(t('sgFont'))} <select id="sg-font">${fonts.map((f) => `<option${f === getFont() ? ' selected' : ''}>${h(f)}</option>`).join('')}</select></label>
       <button type="button" class="btn small-btn" id="sg-print"${list.length ? '' : ' disabled'}>🖨 ${h(t('sgPrint'))}</button>
-      <button type="button" class="btn small-btn" id="sg-pdf"${list.length ? '' : ' disabled'}>⬇ PDF</button>
+      <button type="button" class="btn small-btn" id="sg-pdf"${list.length ? '' : ' disabled'} title="${h(t('sgPdfHint'))}">⬇ Print to PDF</button>
     </div>
     <div class="sg-wrap">
       <div class="sg-list">${list.length ? list.map((s, i) => `<div class="sg-item">
@@ -213,7 +213,8 @@ function wire(main, list) {
   const td = $('#sg-today', main); if (td) td.onclick = () => { cur.week = weekNow(); renderSimchos(); };
   $('#sg-font', main).onchange = (e) => { setFont(e.target.value); renderSimchos(); };
   $('#sg-print', main).onclick = () => printPage(list);
-  $('#sg-pdf', main).onclick = () => pdfPage(list);
+  $('#sg-pdf', main).onclick = () => { ui.toast(t('sgPdfHint')); printPage(list); };
+  void pdfPage; // דער אלטער PDF (בילד) — אויב מ'וועט עס דארפן
   $$('[data-sg-edit]', main).forEach((b) => { b.onclick = () => openSimchaForm(list.find((s) => String(s.simcha_id) === b.dataset.sgEdit)); });
   $$('[data-sg-del]', main).forEach((b) => {
     b.onclick = async () => {
