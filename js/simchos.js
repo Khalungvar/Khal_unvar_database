@@ -127,8 +127,11 @@ export function simchaHtml(s) {
 }
 
 // ---------- דער בלאט ----------
+const SCALE = 0.909; // די שוליים (sg-inner)
+const MAX_PT = Math.round((11 / SCALE) * 100) / 100;
 const fontKey = 'sg-font';
-const getFont = () => { try { return localStorage.getItem(fontKey) || 'Frank Ruhl Libre'; } catch { return 'Frank Ruhl Libre'; } };
+const defFont = () => customFontNames().find((n) => !/bold/i.test(n)) || 'Frank Ruhl Libre';
+const getFont = () => { let f = ''; try { f = localStorage.getItem(fontKey) || ''; } catch { /* */ } return f && (f === 'Frank Ruhl Libre' || customFontNames().includes(f)) ? f : defFont(); };
 const setFont = (f) => { try { localStorage.setItem(fontKey, f); } catch { /* */ } };
 
 function weekLabel(iso) {
@@ -144,7 +147,7 @@ function pageHtml(list, fontPx) {
     <div class="sg-inner">
     <img class="sg-bg" src="img/simcha-bg.jpg" alt="">
     ${parashaOf(cur.week) ? `<div class="sg-parsha">${h(t('sgParsha'))} ${h(parashaOf(cur.week).he)}</div>` : ''}
-    <div class="sg-body" style="font-size:${fontPx}px">${list.map(simchaHtml).join('')}</div></div></div>`;
+    <div class="sg-body" style="font-size:${fontPx}pt">${list.map(simchaHtml).join('')}</div></div></div>`;
 }
 
 export function openSimchos() {
@@ -157,7 +160,7 @@ export function renderSimchos() {
   if (!main) return;
   if (!cur.week) cur.week = weekNow();
   const list = simchosOf(cur.week);
-  const fonts = ['Frank Ruhl Libre', ...customFontNames()];
+  const fonts = ['Frank Ruhl Libre', ...customFontNames().filter((n) => !/bold/i.test(n))];
   main.innerHTML = `<div class="sc-head sg-head">
       <span class="sc-logo-ph">🎉</span>
       <div><h1>${h(t('lobbySimchos'))}</h1><p class="muted small">${h(t('lobbySimchosSub'))}</p></div>
@@ -184,7 +187,7 @@ export function renderSimchos() {
             <button type="button" class="btn small-btn" data-sg-down="${h(s.simcha_id)}"${i < list.length - 1 ? '' : ' disabled'}>▼</button>
             <button type="button" class="btn small-btn danger" data-sg-del="${h(s.simcha_id)}" title="${h(t('deleteBtn'))}">🗑</button>
           </div></div>`).join('') : `<p class="muted">${h(t('sgNone'))}</p>`}</div>
-      <div class="sg-preview-wrap"><div class="sg-preview" id="sg-preview">${pageHtml(list, 15)}</div></div>
+      <div class="sg-preview-wrap"><div class="sg-preview" id="sg-preview">${pageHtml(list, MAX_PT)}</div></div>
     </div>`;
   fitPage($('#sg-preview .sg-page', main));
   wire(main, list);
@@ -192,11 +195,12 @@ export function renderSimchos() {
 
 /** קלענער מאכן דעם שריפט ביז אלעס גייט אריין */
 function fitPage(page) {
-  if (!page) return 15;
+  if (!page) return MAX_PT;
   const body = $('.sg-body', page);
-  let px = 22;
-  body.style.fontSize = `${px}px`;
-  while (px > 7 && body.scrollHeight > body.clientHeight + 1) { px -= 0.5; body.style.fontSize = `${px}px`; }
+  // 11 נקודות אויפן פאפיר (דער בלאט איז פארקלענערט צו 0.909 פאר די שוליים) → 12.1pt; קלענער נאר ווען ס'גייט נישט אריין
+  let px = MAX_PT;
+  body.style.fontSize = `${px}pt`;
+  while (px > 5 && body.scrollHeight > body.clientHeight + 1) { px = Math.round((px - 0.25) * 100) / 100; body.style.fontSize = `${px}pt`; }
   page.dataset.px = px;
   return px;
 }
@@ -232,7 +236,7 @@ function wire(main, list) {
 const shift = (iso, days) => new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) + days * 86400000).toISOString().slice(0, 10);
 
 function printPage(list) {
-  const px = Number($('#sg-preview .sg-page')?.dataset.px) || 15;
+  const px = Number($('#sg-preview .sg-page')?.dataset.px) || MAX_PT;
   let area = $('#sg-print-area');
   if (!area) { area = document.createElement('div'); area.id = 'sg-print-area'; document.body.appendChild(area); }
   area.innerHTML = pageHtml(list, px);
@@ -248,7 +252,7 @@ function printPage(list) {
 async function pdfPage(list) {
   const btn = $('#sg-pdf'); btn.disabled = true;
   try {
-    const px = Number($('#sg-preview .sg-page')?.dataset.px) || 15;
+    const px = Number($('#sg-preview .sg-page')?.dataset.px) || MAX_PT;
     const jpg = await htmlToJpeg(pageHtml(list, px), { widthIn: 5.5, heightIn: 8.5, scale: 3, quality: 0.9 });
     const pdf = jpegsToPdf([jpg], { pageW: 396, pageH: 612, margin: 0 });
     const a = document.createElement('a');

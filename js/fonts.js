@@ -43,16 +43,26 @@ export async function loadFonts() {
 async function register(f) {
   if (loaded.has(f.name)) return;
   try {
-    const face = new FontFace(f.name, `url(${f.dataUrl}) format('${FORMATS[f.format] || 'truetype'}')`);
+    const src = `url(${f.dataUrl}) format('${FORMATS[f.format] || 'truetype'}')`;
+    const face = new FontFace(f.name, src);
     await face.load();
     document.fonts.add(face);
+    // "Livorna Bold" → אויך דער פעטער (700) פון "Livorna", אז <b> זאל נוצן דעם אמת'ן פעטן שריפט
+    const base = boldBase(f.name);
+    if (base) { const bf = new FontFace(base, src, { weight: '700' }); await bf.load(); document.fonts.add(bf); }
     loaded.add(f.name);
   } catch (err) { console.warn('font', f.name, err); }
 }
 
 /** @font-face פאר די שריפטן — צו לייגן אין א PDF/בילד (דארט קען מען נישט נעמען דרויסנדיגע שריפטן) */
+const boldBase = (name) => { const m = /^(.+?)[\s_-]*bold$/i.exec(String(name).trim()); return m ? m[1].trim() : ''; };
+
 export function customFontCss() {
-  return fonts.map((f) => `@font-face{font-family:'${f.name.replace(/'/g, '')}';src:url(${f.dataUrl}) format('${FORMATS[f.format] || 'truetype'}');}`).join('\n');
+  return fonts.map((f) => {
+    const src = `url(${f.dataUrl}) format('${FORMATS[f.format] || 'truetype'}')`;
+    const base = boldBase(f.name);
+    return `@font-face{font-family:'${f.name.replace(/'/g, '')}';src:${src};}${base ? `@font-face{font-family:'${base.replace(/'/g, '')}';font-weight:700;src:${src};}` : ''}`;
+  }).join('\n');
 }
 
 const toBase64 = (file) => new Promise((resolve, reject) => {
