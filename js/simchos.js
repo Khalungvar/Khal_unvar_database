@@ -145,7 +145,7 @@ function pageHtml(list, fontPx) {
   const font = getFont().replace(/'/g, '');
   return `<div class="sg-page" style="font-family:'${h(font)}','Frank Ruhl Libre',serif">
     <div class="sg-inner">
-    <img class="sg-bg" src="img/simcha-bg.jpg" alt="">
+    <img class="sg-bg" src="img/simcha-bg2.jpg" alt="">
     ${parashaOf(cur.week) ? `<div class="sg-parsha">${h(t('sgParsha'))} ${h(parashaOf(cur.week).he)}</div>` : ''}
     <div class="sg-body" style="font-size:${fontPx}pt">${list.map(simchaHtml).join('')}</div></div></div>`;
 }
