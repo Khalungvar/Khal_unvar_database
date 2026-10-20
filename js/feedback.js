@@ -21,56 +21,58 @@ function pageNow() {
 
 export function initFeedback(helpers) {
   ui = helpers;
-  if ($('#fb-btn')) return;
-  const btn = document.createElement('button');
-  btn.type = 'button'; btn.id = 'fb-btn'; btn.className = 'fb-btn';
-  btn.innerHTML = `🛠 <span>${h(t('fbBtn'))}</span>`;
-  btn.onclick = openFeedback;
-  ($('#app-view') || document.body).append(btn);
-  const dlg = document.createElement('dialog');
-  dlg.id = 'fb-dialog'; dlg.className = 'small';
-  document.body.append(dlg);
-}
-
-function openFeedback() {
-  const dlg = $('#fb-dialog');
-  const p = pageNow();
-  dlg.innerHTML = `<form method="dialog" id="fb-form" class="fb-form">
-    <button type="button" class="x-close" data-close aria-label="${h(t('close'))}">✕</button>
-    <h2>🛠 ${h(t('fbTitle'))}</h2>
-    <p class="muted small">${h(t('fbIntro'))}</p>
-    <p class="fb-q">${h(t('fbOnPage'))} <b>${h(p.label)}</b>.<br>${h(t('fbAboutThis'))}</p>
-    <div class="fb-where">
-      <label class="chip-radio"><input type="radio" name="where" value="this" checked> ${h(t('fbYes'))}</label>
-      <label class="chip-radio"><input type="radio" name="where" value="other"> ${h(t('fbOther'))}</label>
-      <select name="page" hidden>${VIEWS.map((v) => `<option value="${v}"${v === p.v ? ' selected' : ''}>${h(viewLabel(v))}</option>`).join('')}
-        <option value="general">${h(t('fbGeneral'))}</option></select>
-    </div>
-    <label class="wide">${h(t('fbWhat'))}<textarea name="text" rows="6" dir="auto" placeholder="${h(t('fbPh'))}"></textarea></label>
-    <div class="actions"><button type="button" class="btn" data-close>${h(t('cancelBtn'))}</button>
-      <button type="submit" class="btn primary">${h(t('fbSend'))}</button></div>
-  </form>`;
-  const f = $('#fb-form', dlg);
-  $$('[data-close]', f).forEach((b) => { b.onclick = () => dlg.close(); });
+  if ($('#fb-chat')) return;
+  // נישט קיין "דיאלאג" — א פענצטערל אין ווינקל (ווי דער AI), וואס פארשפארט גארנישט
+  const root = document.createElement('div');
+  root.id = 'fb-chat'; root.className = 'fb-chat';
+  root.innerHTML = `<section class="fb-panel" hidden>
+      <header class="fb-head"><b>🛠 ${h(t('fbTitle'))}</b><span class="spacer"></span>
+        <button type="button" class="fb-x" aria-label="${h(t('close'))}">✕</button></header>
+      <form class="fb-form">
+        <p class="muted small">${h(t('fbIntro'))}</p>
+        <p class="fb-q"></p>
+        <div class="fb-where">
+          <label class="chip-radio"><input type="radio" name="where" value="this" checked> ${h(t('fbYes'))}</label>
+          <label class="chip-radio"><input type="radio" name="where" value="other"> ${h(t('fbOther'))}</label>
+          <select name="page" hidden>${VIEWS.map((v) => `<option value="${v}">${h(viewLabel(v))}</option>`).join('')}
+            <option value="general">${h(t('fbGeneral'))}</option></select>
+        </div>
+        <textarea name="text" rows="4" dir="auto" placeholder="${h(t('fbPh'))}"></textarea>
+        <div class="fb-done muted small" hidden>✓ ${h(t('fbThanks'))}</div>
+        <div class="fb-actions"><button type="submit" class="btn primary">${h(t('fbSend'))}</button></div>
+      </form>
+    </section>
+    <button type="button" class="fb-btn">🛠 <span>${h(t('fbBtn'))}</span></button>`;
+  ($('#app-view') || document.body).append(root);
+  const panel = $('.fb-panel', root); const f = $('.fb-form', root);
+  let page = null;
+  const openIt = () => {
+    page = pageNow();
+    $('.fb-q', root).innerHTML = `${h(t('fbOnPage'))} <b>${h(page.label)}</b>. ${h(t('fbAboutThis'))}`;
+    f.elements.page.value = page.v;
+    panel.hidden = false; root.classList.add('open');
+    f.elements.text.focus();
+  };
+  $('.fb-btn', root).onclick = () => { if (panel.hidden) openIt(); else { panel.hidden = true; root.classList.remove('open'); } };
+  $('.fb-x', root).onclick = () => { panel.hidden = true; root.classList.remove('open'); };
   $$('input[name=where]', f).forEach((r) => { r.onchange = () => { f.elements.page.hidden = f.elements.where.value !== 'other'; }; });
+  f.elements.text.oninput = () => { $('.fb-done', root).hidden = true; };
   f.onsubmit = async (e) => {
     e.preventDefault();
     const text = f.elements.text.value.trim();
     if (!text) { ui.toast(t('pmTextRequired'), 'error'); f.elements.text.focus(); return; }
-    const page = f.elements.where.value === 'this' ? p.label
+    const where = f.elements.where.value === 'this' ? page.label
       : (f.elements.page.value === 'general' ? t('fbGeneral') : viewLabel(f.elements.page.value));
     const b = $('[type=submit]', f); b.disabled = true;
     try {
       await saveRecord('Messages', 'msg_id', {
         msg_id: '', from_email: state.email, to_email: owner(), kind: 'feedback',
-        subject: `🛠 ${page}`, text, status: '', read_by: '',
+        subject: `🛠 ${where}`, text, status: '', read_by: '',
       });
       await reloadMessages();
-      dlg.close();
-      ui.toast(t('fbThanks'));
-      ui.refreshBadges?.();
-    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); b.disabled = false; }
+      f.elements.text.value = '';
+      $('.fb-done', root).hidden = false;
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+    b.disabled = false;
   };
-  dlg.showModal();
-  f.elements.text.focus();
 }

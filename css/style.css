@@ -1259,11 +1259,20 @@ html[dir="ltr"] .sg-preview { transform-origin: top left; margin-left: 0; margin
 .side-menu, .menu-toggle { display: none !important; }
 .app-body { grid-template-columns: 1fr !important; }
 body.lobby-mode #btn-lobby { display: none; }
-/* "הערות / תיקונים" — צייטווייליג */
-.fb-btn { position: fixed; right: 16px; bottom: 16px; z-index: 50; display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--gold); background: #fff8e6; color: var(--accent, #7a1520); font: inherit; font-weight: 700; box-shadow: 0 4px 14px rgba(0,0,0,.15); cursor: pointer; }
+/* "הערות / תיקונים" — צייטווייליג; א פענצטערל אין ווינקל ווי דער AI */
+.fb-chat { position: fixed; right: 16px; bottom: 16px; z-index: 50; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; width: min(340px, calc(100vw - 32px)); pointer-events: none; }
+.fb-chat > * { pointer-events: auto; }
+.fb-btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--gold); background: #fff8e6; color: var(--accent, #7a1520); font: inherit; font-weight: 700; box-shadow: 0 4px 14px rgba(0,0,0,.15); cursor: pointer; }
 .fb-btn:hover { background: #fff1cc; }
-@media (max-width: 700px) { .fb-btn span { display: none; } .fb-btn { padding: 10px 12px; } }
-@media print { .fb-btn { display: none !important; } }
-.fb-form .fb-q { background: #faf6ec; border-inline-start: 3px solid var(--gold); padding: 8px 12px; border-radius: 6px; }
-.fb-form .fb-where { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
-.fb-form textarea { width: 100%; }
+.fb-panel { width: 100%; background: var(--surface, #fff); border: 1px solid var(--gold); border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.18); overflow: hidden; }
+.fb-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #fff8e6; border-bottom: 1px solid #ecdcae; }
+.fb-x { border: 0; background: none; font-size: 16px; cursor: pointer; }
+.fb-form { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+.fb-form p { margin: 0; }
+.fb-form .fb-q { background: #faf6ec; border-inline-start: 3px solid var(--gold); padding: 6px 10px; border-radius: 6px; }
+.fb-form .fb-where { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fb-form textarea { width: 100%; box-sizing: border-box; }
+.fb-actions { display: flex; justify-content: flex-end; }
+.fb-done { color: #2e7d32; }
+@media (max-width: 700px) { .fb-chat:not(.open) .fb-btn span { display: none; } .fb-btn { padding: 10px 12px; } }
+@media print { .fb-chat { display: none !important; } }
