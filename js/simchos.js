@@ -128,11 +128,14 @@ function genDelta(g, from, to) {
   }
   return null;
 }
+/** א בעל שמחה: א קאנטאקט (id) אדער סתם א נאמען (name) וואס איז נישט אין מאגר */
+const hkey = (x) => (x.id ? String(x.id) : (String(x.name || '').trim() ? `n:${String(x.name).trim()}` : ''));
+const keyLabel = (k) => (String(k).startsWith('n:') ? String(k).slice(2) : ui.fullNameHe(contactOf(k) || {}));
 const directRel = (a, b) => (state.relations || []).find((r) => String(r.contact_id_a) === String(a) && String(r.contact_id_b) === String(b));
 
 /** דער סדר און די קרבה: { rows (פון ווייט צו נאענט), rel: "נינו-בנו" / "צאצאיהם" } */
 function compose(s) {
-  const hs = parseH(s).filter((x) => x.id);
+  const hs = parseH(s).filter(hkey).map((x) => ({ ...x, id: hkey(x) }));
   if (!hs.length) return { rows: [], rel: '' };
   const extra = hs.filter((x) => x.link && x.link.type && x.link.to).map((x) => ({ contact_id_a: x.id, relation_type: x.link.type, contact_id_b: x.link.to }));
   const g = graph(extra);
@@ -178,17 +181,25 @@ function boldName(text) {
 export function cleanRich(html) {
   const box = document.createElement('div');
   box.innerHTML = String(html || '');
-  const walk = (n) => {
-    if (n.nodeType === 3) return h(n.nodeValue);
-    if (n.nodeType !== 1) return '';
+  // א שורה (div/p) הייבט זיך אן אויף א נייער שורה — אויך ווען פאר איר שטייט טעקסט אן א div (ווי Chrome מאכט ביי Enter)
+  let out = '';
+  const brEnd = () => /<br>$/.test(out);
+  const go = (n, bold) => {
+    if (n.nodeType === 3) { if (n.nodeValue) out += bold ? `<b>${h(n.nodeValue)}</b>` : h(n.nodeValue); return; }
+    if (n.nodeType !== 1) return;
     const tag = n.tagName.toLowerCase();
-    const inner = [...n.childNodes].map(walk).join('');
-    if (tag === 'br') return '<br>';
-    if (tag === 'b' || tag === 'strong' || (n.style && Number(n.style.fontWeight) >= 600)) return inner ? `<b>${inner}</b>` : '';
-    if (tag === 'div' || tag === 'p') return `${inner}<br>`;
-    return inner;
+    if (tag === 'br') { out += '<br>'; return; }
+    const b = bold || tag === 'b' || tag === 'strong' || (n.style && Number(n.style.fontWeight) >= 600);
+    if (tag === 'div' || tag === 'p') {
+      if (out && !brEnd()) out += '<br>';
+      n.childNodes.forEach((c) => go(c, b));
+      if (!brEnd()) out += '<br>';
+      return;
+    }
+    n.childNodes.forEach((c) => go(c, b));
   };
-  return [...box.childNodes].map(walk).join('').replace(/(<br>\s*)+$/, '').trim();
+  box.childNodes.forEach((c) => go(c, false));
+  return out.replace(/<\/b><b>/g, '').replace(/(<br>\s*)+$/, '').trim();
 }
 
 export function simchaHtml(s) {
@@ -197,7 +208,8 @@ export function simchaHtml(s) {
   const ty = TYPES[s.type] || TYPES.birth;
   const lines = rows.map((x) => {
     const c = contactOf(x.id) || {};
-    const name = `${h(x.title || '')} <b>${h(c.first_name_he || '')} ${h(c.last_name_he || '')}</b> ${h(x.suffix || '')}`.replace(/\s+/g, ' ').trim();
+    const nm = x.id.startsWith('n:') ? x.id.slice(2) : `${c.first_name_he || ''} ${c.last_name_he || ''}`;
+    const name = `${h(x.title || '')} <b>${h(nm)}</b> ${h(x.suffix || '')}`.replace(/\s+/g, ' ').trim();
     return `<div class="sg-name">${name}</div>${x.noteOn && x.note ? `<div class="sg-note">${h(x.note)}</div>` : ''}`;
   }).join('');
   const forLine = String(s.text_override || '').trim() ? h(s.text_override)
@@ -451,8 +463,9 @@ async function jpgPages() {
 export function simchaEvents() {
   return (state.simchos || []).filter((s) => s.week).map((s) => {
     const ty = s.type === 'special' ? t('sgSpecial') : (TYPES[s.type] || TYPES.birth).label;
-    const ids = s.type === 'special' ? (() => { try { return JSON.parse(s.related || '[]'); } catch { return []; } })() : parseH(s).map((x) => x.id);
-    const names = ids.map((id) => contactOf(id)).filter(Boolean).map((c) => ui.fullNameHe(c));
+    const ids = s.type === 'special' ? (() => { try { return JSON.parse(s.related || '[]'); } catch { return []; } })() : parseH(s).map((x) => x.id).filter(Boolean);
+    const names = s.type === 'special' ? ids.map((id) => contactOf(id)).filter(Boolean).map((c) => ui.fullNameHe(c))
+      : parseH(s).map((x) => (x.id ? ui.fullNameHe(contactOf(x.id) || {}) : String(x.name || '').trim())).filter(Boolean);
     return { s, iso: s.week, label: ty, names, ids };
   });
 }
@@ -525,7 +538,7 @@ function honoreeRow(x, i) {
   return `<fieldset class="sg-h" data-i="${i}">
     <div class="sg-h-line">
       <input class="sg-title" placeholder="${h(t('sgTitle'))}" value="${h(x.title ?? (c?.title_he || ''))}">
-      <input class="sg-pick" list="dl-sg-contacts" autocomplete="off" placeholder="${h(t('pickContact'))}" value="${c ? h(ui.pickerLabel(c)) : ''}" data-id="${h(x.id || '')}">
+      <input class="sg-pick" list="dl-sg-contacts" autocomplete="off" placeholder="${h(t('pickContact'))}" value="${c ? h(ui.pickerLabel(c)) : h(x.name || '')}" data-id="${h(x.id || '')}">
       <button type="button" class="btn primary small-btn sg-open-card" title="${h(t('sgOpenCard'))}"${c ? '' : ' hidden'}>✎ ${h(t('sgOpenCard'))}</button>
       <span class="sg-suf">${SUFFIXES.map((sx) => `<label class="chip-radio"><input type="radio" name="suf${i}" value="${h(sx)}"${suf === sx ? ' checked' : ''}> ${h(sx)}</label>`).join('')}
         <label class="chip-radio"><input type="radio" name="suf${i}" value="__other"${isOther ? ' checked' : ''}> ${h(t('sgOther'))}</label>
@@ -602,7 +615,7 @@ export function openSimchaForm(s = {}) {
       const suffix = r ? (r.value === '__other' ? $('.sg-suf-other', fs).value.trim() : r.value) : '';
       const prev = hs[i] || {};
       const x = {
-        id: c ? String(c.contact_id) : '', title: $('.sg-title', fs).value.trim(), suffix,
+        id: c ? String(c.contact_id) : '', name: c ? '' : pk.value.trim(), title: $('.sg-title', fs).value.trim(), suffix,
         noteOn: $('.sg-note-on', fs).checked, note: $('.sg-note-in', fs).value.trim(),
       };
       if (i === 0) x.toChild = $('.sg-tochild', fs).value;
@@ -619,9 +632,10 @@ export function openSimchaForm(s = {}) {
       if (!i) return;
       const box = $('[data-link]', fs);
       const x = hs[i];
-      const prevIds = hs.slice(0, i).map((y) => y.id).filter(Boolean);
-      if (!x.id || !prevIds.length) { box.innerHTML = ''; return; }
-      const known = prevIds.find((p) => genDelta(g, x.id, p) !== null);
+      const prevIds = hs.slice(0, i).map(hkey).filter(Boolean);
+      const xk = hkey(x);
+      if (!xk || !prevIds.length) { box.innerHTML = ''; return; }
+      const known = x.id ? prevIds.find((p) => !p.startsWith('n:') && genDelta(g, x.id, p) !== null) : null;
       if (known) {
         const d = directRel(x.id, known);
         box.innerHTML = `<span class="muted small">✓ ${h(d ? `${d.relation_type} ${ui.fullNameHe(contactOf(known))}` : t('sgLinked', { name: ui.fullNameHe(contactOf(known)) }))}</span>`;
@@ -630,7 +644,7 @@ export function openSimchaForm(s = {}) {
       const lk = x.link || {};
       box.innerHTML = `<span class="small">${h(t('sgWhatIs'))}</span>
         <select class="sg-link-type"${x.unrelated ? ' disabled' : ''}><option value=""></option>${relTypes.map((r) => `<option${lk.type === r ? ' selected' : ''}>${h(r)}</option>`).join('')}</select>
-        <select class="sg-link-to"${x.unrelated ? ' disabled' : ''}>${prevIds.map((p) => `<option value="${h(p)}"${lk.to === p ? ' selected' : ''}>${h(ui.fullNameHe(contactOf(p)))}</option>`).join('')}</select>
+        <select class="sg-link-to"${x.unrelated ? ' disabled' : ''}>${prevIds.map((p) => `<option value="${h(p)}"${lk.to === p ? ' selected' : ''}>${h(keyLabel(p))}</option>`).join('')}</select>
         <label class="check small"><input type="checkbox" class="sg-unrel"${x.unrelated ? ' checked' : ''}> ${h(t('sgUnrelated'))}</label>`;
       $$('select, input', box).forEach((el) => { el.onchange = () => { read(); refreshLinks(); live(); }; });
     });
@@ -648,7 +662,7 @@ export function openSimchaForm(s = {}) {
     $('[data-special]', form).hidden = !sp;
     $('[data-other]', form).hidden = !TYPES[rec.type]?.other;
     if (sp) { $('#sg-live', form).innerHTML = rec.special ? simchaHtml(rec) : `<span class="muted">${h(t('sgSpecialHint'))}</span>`; return; }
-    $('#sg-live', form).innerHTML = hs.some((x) => x.id) ? simchaHtml({ ...rec, honorees: JSON.stringify(hs) }) : `<span class="muted">${h(t('sgPickFirst'))}</span>`;
+    $('#sg-live', form).innerHTML = hs.some(hkey) ? simchaHtml({ ...rec, honorees: JSON.stringify(hs) }) : `<span class="muted">${h(t('sgPickFirst'))}</span>`;
   };
   const wireForm = () => {
     $$('[data-close]', form).forEach((b) => { b.onclick = () => dlg.close(); });
@@ -712,17 +726,17 @@ export function openSimchaForm(s = {}) {
         } catch (err) { ui.toast(ui.friendlyError(err), 'error'); btn.disabled = false; }
         return;
       }
-      if (!hs.some((x) => x.id)) { ui.toast(t('sgPickFirst'), 'error'); return; }
+      if (!hs.some(hkey)) { ui.toast(t('sgPickFirst'), 'error'); return; }
       btn.disabled = true;
       try {
-        const clean = hs.filter((x) => x.id);
+        const clean = hs.filter(hkey).map((x) => (x.id ? { ...x, name: '' } : x));
         const out = { ...rec, honorees: JSON.stringify(clean) };
         if (!out.simcha_id) { out.sort = ownOf(out.week).length + 1; if (lateFor(out.week) && out.week === weekNow()) out.also_next = 'TRUE'; }
         // וואס די שמחה לייגט אריין אין די כרטיסן — געדענקט אין "made", כדי ביים אויסמעקן עס צוריקצונעמען
         const made = parseMade(rec);
         // נייע קשרים צווישן בעלי השמחה → אין די כרטיסן
         for (const x of clean) {
-          if (x.link && x.link.type && x.link.to && genDelta(graph(), x.id, x.link.to) === null) {
+          if (x.id && x.link && x.link.type && x.link.to && !String(x.link.to).startsWith('n:') && genDelta(graph(), x.id, x.link.to) === null) {
             await addRelation(x.id, x.link.type, x.link.to);
             made.rels.push([x.id, x.link.type, x.link.to]);
           }
