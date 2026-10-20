@@ -545,6 +545,7 @@ function honoreeRow(x, i) {
       <input class="sg-title" placeholder="${h(t('sgTitle'))}" value="${h(x.title ?? (c?.title_he || ''))}">
       <input class="sg-pick" list="dl-sg-contacts" autocomplete="off" placeholder="${h(t('pickContact'))}" value="${c ? h(ui.pickerLabel(c)) : h(x.name || '')}" data-id="${h(x.id || '')}">
       <button type="button" class="btn primary small-btn sg-open-card" title="${h(t('sgOpenCard'))}"${c ? '' : ' hidden'}>✎ ${h(t('sgOpenCard'))}</button>
+      <button type="button" class="btn small-btn sg-new-contact" title="${h(t('sgNewContactTip'))}"${c ? ' hidden' : ''}>＋ ${h(t('sgNewContact'))}</button>
       <span class="sg-suf">${SUFFIXES.map((sx) => `<label class="chip-radio"><input type="radio" name="suf${i}" value="${h(sx)}"${suf === sx ? ' checked' : ''}> ${h(sx)}</label>`).join('')}
         <label class="chip-radio"><input type="radio" name="suf${i}" value="__other"${isOther ? ' checked' : ''}> ${h(t('sgOther'))}</label>
         <input class="sg-suf-other" value="${isOther ? h(suf) : ''}"${isOther ? '' : ' hidden'}></span>
@@ -591,7 +592,8 @@ export function openSimchaForm(s = {}) {
       <div class="grid">
         <label>${h(t('sgGender'))}<select name="child_gender"><option value="m"${rec.child_gender !== 'f' ? ' selected' : ''}>${h(t('sgBoy'))}</option><option value="f"${rec.child_gender === 'f' ? ' selected' : ''}>${h(t('sgGirl'))}</option></select></label>
         <label data-childname>${h(t('sgChildName'))}<input name="child_name" list="dl-sg-contacts" autocomplete="off" value="${h(rec.child_name || '')}" placeholder="${h(t('sgChildPh'))}">
-          <span class="small sg-child-link" id="sg-child-link"></span></label>
+          <span class="small sg-child-link" id="sg-child-link"></span>
+          <button type="button" class="btn small-btn" id="sg-child-new">＋ ${h(t('sgNewContact'))}</button></label>
         <label data-other${TYPES[rec.type]?.other ? '' : ' hidden'}>${h(t('sgOtherSide'))}<input name="other_side" value="${h(rec.other_side || '')}" placeholder="${h(t('sgOtherPh'))}"></label>
       </div>
       <label class="wide">${h(t('sgAfterNote'))}<input name="after_note" value="${h(rec.after_note || '')}" placeholder="${h(t('sgAfterNotePh'))}"></label>
@@ -713,6 +715,38 @@ export function openSimchaForm(s = {}) {
         ['#card-dialog', '#form-dialog'].forEach((sel) => { const d = $(sel); if (d) d.addEventListener('close', () => setTimeout(back, 50), { once: true }); });
       };
     });
+    // ＋ נייער קאנטאקט — פונעם טופס פון דער שמחה; נאכן אפהיטן ווערט ער אויסגעקליבן
+    const newContact = (typed, title, done) => {
+      const words = String(typed || '').trim().split(/\s+/).filter(Boolean);
+      const last = words.length > 1 ? words.pop() : (words.pop() || '');
+      const before = new Set(state.contacts.map((x) => String(x.contact_id)));
+      ui.openForm({ title_he: title || '', first_name_he: words.join(' '), last_name_he: last });
+      const fd = $('#form-dialog');
+      if (fd) fd.addEventListener('close', () => setTimeout(() => {
+        const nc = state.contacts.find((x) => !before.has(String(x.contact_id)));
+        if (nc && dlg.open) done(nc);
+      }, 80), { once: true });
+    };
+    $$('.sg-new-contact', form).forEach((b) => {
+      b.onclick = () => {
+        read();
+        const fs = b.closest('.sg-h'); const i = Number(fs.dataset.i);
+        newContact($('.sg-pick', fs).value, $('.sg-title', fs).value.trim(), (nc) => {
+          read();
+          hs[i] = { ...hs[i], id: String(nc.contact_id), name: '', title: hs[i].title || nc.title_he || '' };
+          draw();
+        });
+      };
+    });
+    $('#sg-child-new', form).onclick = () => {
+      read();
+      newContact(form.elements.child_name.value, '', (nc) => {
+        read();
+        rec.child_contact_id = String(nc.contact_id);
+        rec.child_name = `${nc.title_he || ''} ${nc.first_name_he || ''}`.trim();
+        draw();
+      });
+    };
     $('#sg-add-h', form).onclick = () => { read(); hs.push({}); draw(); };
     $$('.sg-remove', form).forEach((b) => { b.onclick = () => { read(); hs.splice(Number(b.closest('.sg-h').dataset.i), 1); draw(); }; });
     $$('.sg-h', form).forEach((fs) => {
@@ -720,6 +754,7 @@ export function openSimchaForm(s = {}) {
         const c = contactByLabel($('.sg-pick', fs).value);
         $('.sg-pick', fs).dataset.id = c ? String(c.contact_id) : '';
         $('.sg-open-card', fs).hidden = !c;
+        $('.sg-new-contact', fs).hidden = !!c;
         if (c) {
           if (!$('.sg-title', fs).value.trim()) $('.sg-title', fs).value = c.title_he || '';
           $('.sg-note-in', fs).value = c.name_note || '';
