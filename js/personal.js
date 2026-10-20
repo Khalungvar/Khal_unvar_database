@@ -134,6 +134,28 @@ function plusDays(n) {
 const mineTo = (x) => String(x.assigned_to || '').toLowerCase() === state.email;
 const open = (x) => (x.status || 'open') !== 'done';
 const due = (x) => !x.remind_at || String(x.remind_at) <= todayIso();
+const isGeneral = (x) => String(x.assigned_to || '') === 'all';
+
+/** פאר וועמען: ☑ מער ווי איינער, און "כללי" (פאר אלע — אויפן לאבי) */
+function whoHtml() {
+  const users = allUsers().filter((u) => u.email !== state.email);
+  return `<div class="td-who">
+    <label class="chip-check"><input type="checkbox" name="who" value="${h(state.email)}" checked> ${h(t('tdForMe'))}</label>
+    ${users.map((u) => `<label class="chip-check"><input type="checkbox" name="who" value="${h(u.email)}"> ${h(u.name)}</label>`).join('')}
+    <label class="chip-check gen"><input type="checkbox" name="who" value="all"> ☑ ${h(t('gtdName'))}</label>
+  </div>`;
+}
+const readWho = (root) => $$('input[name=who]:checked', root).map((x) => x.value);
+/** א משימה פאר יעדן אויסגעקליבענעם (יעדער מאכט עס אפ באזונדער) */
+async function createTasks(base, whos) {
+  for (const w of whos) {
+    await saveRecord('Tasks', 'task_id', { task_id: '', from_email: state.email, status: 'open', done_at: '', done_by: '', remind_at: '', contact_id: '', ...base, assigned_to: w });
+  }
+  await reloadMessages();
+  ui.updateBadges?.();
+  const names = whos.map((w) => (w === 'all' ? t('gtdName') : w === state.email ? t('tdForMe') : displayName(w)));
+  return t('tdSentMany', { names: names.join(', ') });
+}
 
 /** וויפיל משימות דארף איך יעצט טאן (נישט געטאן, נישט אפגעלייגט). */
 export function tasksDueCount() {
@@ -172,7 +194,7 @@ function todoHtml() {
     .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
   const later = state.tasks.filter((x) => mineTo(x) && open(x) && !due(x))
     .sort((a, b) => String(a.remind_at).localeCompare(String(b.remind_at)));
-  const sent = state.tasks.filter((x) => String(x.from_email || '').toLowerCase() === state.email && !mineTo(x))
+  const sent = state.tasks.filter((x) => String(x.from_email || '').toLowerCase() === state.email && !mineTo(x) && !isGeneral(x))
     .sort((a, b) => Number(open(b)) - Number(open(a)) || String(b.created_at).localeCompare(String(a.created_at))).slice(0, 30);
   const done = state.tasks.filter((x) => mineTo(x) && !open(x))
     .sort((a, b) => String(b.done_at).localeCompare(String(a.done_at))).slice(0, 20);
@@ -180,10 +202,6 @@ function todoHtml() {
     <div class="pm-title"><h3>☑ To Do ${mineNow.length ? `<span class="count-pill">${mineNow.length}</span>` : ''}</h3></div>
     <form class="td-add" id="td-add" onsubmit="return false">
       <input name="text" placeholder="${h(t('tdAddPh'))}" autocomplete="off">
-      <select name="to">
-        <option value="${h(state.email)}">${h(t('tdForMe'))}</option>
-        ${users.filter((u) => u.email !== state.email).map((u) => `<option value="${h(u.email)}">→ ${h(u.name)}</option>`).join('')}
-      </select>
       <select name="when">
         <option value="">${t('tdWhenNow')}</option>
         <option value="1">${t('tdWhenTomorrow')}</option>
@@ -191,6 +209,7 @@ function todoHtml() {
         <option value="30">${t('tdWhenMonth')}</option>
       </select>
       <button type="button" class="btn primary" id="td-add-btn">${t('admAdd')}</button>
+      ${whoHtml()}
     </form>
     <div class="td-list">${mineNow.map((x) => taskRow(x, 'mine')).join('') || `<p class="empty">${t('tdEmpty')}</p>`}</div>
     ${later.length ? `<details class="td-more"><summary>⏰ ${t('tdLater')} (${later.length})</summary>${later.map((x) => taskRow(x, 'later')).join('')}</details>` : ''}
@@ -234,11 +253,12 @@ async function addTask() {
   const text = f.text.value.trim();
   if (!text) { f.text.focus(); return; }
   const days = Number(f.when.value || 0);
+  const whos = readWho($('#td-add'));
+  if (!whos.length) { ui.toast(t('tdPickWho'), 'error'); return; }
   try {
-    await saveTask({
-      task_id: '', text, assigned_to: f.to.value, from_email: state.email, status: 'open',
-      remind_at: days ? plusDays(days) : '', done_at: '', done_by: '', contact_id: '',
-    }, f.to.value === state.email ? t('tdAdded') : t('tdSentToast', { name: displayName(f.to.value) }));
+    const msg = await createTasks({ text, remind_at: days ? plusDays(days) : '' }, whos);
+    ui.toast(msg);
+    renderPersonal();
     $('#td-add [name=text]')?.focus();
   } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
 }
@@ -422,7 +442,6 @@ export { loadAll };
 // ---------- "+ משימה" פון א כרטיס פון א מענטש ----------
 export function openTaskForContact(c) {
   const form = $('#task-form');
-  const users = allUsers().filter((u) => u.email !== state.email);
   const name = ui.fullNameHe(c);
   form.innerHTML = `
     <button type="button" class="x-close" id="tk-x" aria-label="${h(t('close'))}">✕</button>
@@ -431,10 +450,6 @@ export function openTaskForContact(c) {
     <label class="mm-l">${t('taskWhat')}
       <textarea name="text" rows="3" placeholder="${h(t('taskWhatPh'))}"></textarea></label>
     <div class="pm-row">
-      <label>${t('taskWho')}<select name="to">
-        <option value="${h(state.email)}">${h(t('tdForMe'))}</option>
-        ${users.map((u) => `<option value="${h(u.email)}">→ ${h(u.name)}</option>`).join('')}
-      </select></label>
       <label>${t('taskWhen')}<select name="when">
         <option value="">${t('tdWhenNow')}</option>
         <option value="1">${t('tdWhenTomorrow')}</option>
@@ -442,6 +457,7 @@ export function openTaskForContact(c) {
         <option value="30">${t('tdWhenMonth')}</option>
       </select></label>
     </div>
+    <div class="mm-l">${t('taskWho')}${whoHtml()}</div>
     <p class="hint-line">${t('taskHint')}</p>
     <div class="actions"><span class="spacer"></span>
       <button type="button" class="btn" id="tk-cancel">${t('cancelBtn')}</button>
@@ -456,16 +472,13 @@ export function openTaskForContact(c) {
     const text = f.text.value.trim();
     if (!text) { f.text.focus(); return; }
     const days = Number(f.when.value || 0);
+    const whos = readWho(form);
+    if (!whos.length) { ui.toast(t('tdPickWho'), 'error'); return; }
     $('#tk-save', form).disabled = true;
     try {
-      await saveRecord('Tasks', 'task_id', {
-        task_id: '', text, assigned_to: f.to.value, from_email: state.email, status: 'open',
-        remind_at: days ? plusDays(days) : '', done_at: '', done_by: '', contact_id: String(c.contact_id),
-      });
-      await reloadMessages();
-      ui.updateBadges?.();
+      const msg = await createTasks({ text, remind_at: days ? plusDays(days) : '', contact_id: String(c.contact_id) }, whos);
       close();
-      ui.toast(f.to.value === state.email ? t('taskAddedToast') : t('tdSentToast', { name: displayName(f.to.value) }));
+      ui.toast(msg);
     } catch (err) {
       ui.toast(ui.friendlyError(err), 'error');
       $('#tk-save', form).disabled = false;
@@ -473,4 +486,72 @@ export function openTaskForContact(c) {
   };
   dlg.showModal();
   form.elements.text.focus();
+}
+
+// ---------- To Do כללי: פאר אלע (א קנעפל אין לאבי) — למשל א נייער קאנטאקט וואס פעלן אים פרטים ----------
+export const generalOpenCount = () => (state.tasks || []).filter((x) => isGeneral(x) && open(x)).length;
+
+/** "פעלן פרטים" — פונעם טופס פון א קאנטאקט */
+export async function addGeneralTask(text, contactId) {
+  await createTasks({ text, contact_id: String(contactId || '') }, ['all']);
+}
+
+export function openGeneralTodo() {
+  let dlg = $('#gtd-dialog');
+  if (!dlg) {
+    dlg = document.createElement('dialog');
+    dlg.id = 'gtd-dialog'; dlg.className = 'sheet';
+    document.body.append(dlg);
+    dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+  }
+  const draw = () => {
+    const list = (state.tasks || []).filter(isGeneral);
+    const openL = list.filter(open).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+    const doneL = list.filter((x) => !open(x)).sort((a, b) => String(b.done_at).localeCompare(String(a.done_at))).slice(0, 30);
+    const row = (x) => {
+      const c = x.contact_id ? ui.contactById?.(x.contact_id) : null;
+      return `<div class="td-row${open(x) ? '' : ' done'}" data-g="${h(x.task_id)}">
+        ${open(x) ? `<button type="button" class="td-check" data-gdone title="${h(t('tdDone'))}">✓</button>` : ''}
+        <div class="td-main"><div class="td-text">${h(x.text)}</div>
+          <div class="muted small">${c ? `<a href="#" data-gcard="${h(c.contact_id)}">👤 ${h(ui.fullNameHe(c))}</a> · ` : ''}${h(displayName(x.from_email || x.created_by))} · <bdi dir="ltr">${h(String(x.created_at || '').slice(0, 10))}</bdi>
+          ${open(x) ? '' : ` · ✓ ${h(displayName(x.done_by))} <bdi dir="ltr">${h(String(x.done_at || '').slice(0, 10))}</bdi>`}</div></div>
+        <div class="td-btns">${open(x) ? `<button type="button" class="btn small-btn primary" data-gdone>${t('tdDone')}</button>` : `<button type="button" class="btn small-btn" data-greopen>${t('tdReopen')}</button>`}</div>
+      </div>`;
+    };
+    dlg.innerHTML = `<div class="gtd">
+      <button type="button" class="x-close" data-gx aria-label="${h(t('close'))}">✕</button>
+      <h2>☑ ${h(t('gtdName'))} ${openL.length ? `<span class="count-pill">${openL.length}</span>` : ''}</h2>
+      <p class="muted small">${h(t('gtdIntro'))}</p>
+      <form class="td-add" id="gtd-add" onsubmit="return false">
+        <input name="text" placeholder="${h(t('tdAddPh'))}" autocomplete="off">
+        <button type="submit" class="btn primary">${t('admAdd')}</button>
+      </form>
+      <div class="td-list">${openL.map(row).join('') || `<p class="empty">${h(t('gtdEmpty'))}</p>`}</div>
+      ${doneL.length ? `<details class="td-more"><summary>✓ ${t('tdDoneList')} (${doneL.length})</summary>${doneL.map(row).join('')}</details>` : ''}
+    </div>`;
+    $('[data-gx]', dlg).onclick = () => dlg.close();
+    $('#gtd-add', dlg).onsubmit = async (e) => {
+      e.preventDefault();
+      const f = $('#gtd-add', dlg).elements; const text = f.text.value.trim();
+      if (!text) { f.text.focus(); return; }
+      try { await addGeneralTask(text, ''); draw(); $('#gtd-add [name=text]', dlg).focus(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+    };
+    dlg.onclick = async (e) => {
+      if (e.target === dlg) { dlg.close(); return; }
+      const cl = e.target.closest('[data-gcard]');
+      if (cl) { e.preventDefault(); ui.openCard(cl.dataset.gcard); return; }
+      const r = e.target.closest('[data-g]');
+      if (!r) return;
+      const x = state.tasks.find((y) => String(y.task_id) === r.dataset.g);
+      if (!x) return;
+      try {
+        if (e.target.closest('[data-gdone]')) await saveRecord('Tasks', 'task_id', { ...x, status: 'done', done_at: nowStamp(), done_by: state.email });
+        else if (e.target.closest('[data-greopen]')) await saveRecord('Tasks', 'task_id', { ...x, status: 'open', done_at: '', done_by: '' });
+        else return;
+        await reloadMessages(); ui.updateBadges?.(); draw();
+      } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+    };
+  };
+  draw();
+  if (!dlg.open) dlg.showModal();
 }

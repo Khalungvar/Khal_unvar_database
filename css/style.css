@@ -689,7 +689,7 @@ body.solo-mode .tabs, body.solo-mode #scope-bar { display: none !important; }
 
 /* To Do */
 .td-add { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-.td-add input { flex: 1; min-width: 220px; font: inherit; padding: 8px 10px; }
+.td-add input:not([type=checkbox]) { flex: 1; min-width: 220px; font: inherit; padding: 8px 10px; }
 .td-add select { font: inherit; padding: 6px 8px; }
 .td-row { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid color-mix(in srgb, var(--gold) 30%, transparent); }
 .td-row.done .td-text { text-decoration: line-through; color: var(--muted); }
@@ -1280,3 +1280,14 @@ body.lobby-mode #btn-lobby { display: none; }
 .fb-item.done { opacity: .65; background: transparent; }
 .fb-item-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .fb-item-text { margin-top: 4px; white-space: normal; }
+
+.td-who { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; margin-top: 6px; }
+.chip-check { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border: 1px solid #e3d9bd; border-radius: 999px; font-size: 13px; cursor: pointer; background: #fff; }
+.chip-check:has(input:checked) { background: #fff1cc; border-color: var(--gold); }
+.chip-check.gen { border-style: dashed; }
+.cf-missing { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+.cf-missing input[name=gtd_missing_text] { flex: 1; min-width: 200px; }
+.gtd { padding: 4px; }
+.td-add { flex-wrap: wrap; }
+.td-who .chip-check { flex: 0 0 auto; width: auto; }
+.td-who .chip-check input { width: auto; flex: none; margin: 0; }

@@ -34,7 +34,7 @@ import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount, parseOrgTags, splitEntry, entry } from './orgtags.js';
 import {
-  initPersonal, renderPersonal, openPersonal, unreadCount, tasksDueCount, openTaskForContact,
+  initPersonal, renderPersonal, openPersonal, unreadCount, tasksDueCount, openTaskForContact, generalOpenCount, openGeneralTodo, addGeneralTask,
 } from './personal.js';
 import {
   nextOccurrence, daysBetween, todayIso, monthKeyFromHe,
@@ -131,6 +131,8 @@ function updateBadges() {
   const ab = $('#adm-badge');
   const r = state.isAdmin ? pendingRequests().length + openFeedbackCount() : 0;
   if (ab) { ab.hidden = !r; ab.textContent = r; }
+  const gc = $('#gtd-count'); const g = generalOpenCount();
+  if (gc) { gc.hidden = !g; gc.textContent = g; }
 }
 
 // ---------- לובי: דער ערשטער בלאט נאכן אריינגיין ----------
@@ -167,6 +169,7 @@ function renderLobby() {
         <button type="button" class="lobby-quick" data-quick="contact">＋ ${h(t('quickContact'))}</button>
         <button type="button" class="lobby-quick" data-quick="donation">＋ ${h(t('quickDonation'))}</button>
         <button type="button" class="lobby-quick" data-quick="occasion">＋ ${h(t('quickOccasion'))}</button>
+        <button type="button" class="lobby-quick lobby-gtd" data-quick="gtodo">☑ ${h(t('gtdName'))} <span class="count-pill" id="gtd-count"${generalOpenCount() ? '' : ' hidden'}>${generalOpenCount()}</span></button>
       </div>
     </div>
     <div class="lobby-row">
@@ -236,6 +239,7 @@ function lobbyClick(e) {
     if (quick.dataset.quick === 'contact') openForm();
     if (quick.dataset.quick === 'donation') openDonationForm();
     if (quick.dataset.quick === 'occasion') openOccasionForm();
+    if (quick.dataset.quick === 'gtodo') openGeneralTodo();
     return;
   }
   const hit = e.target.closest('[data-open-card]');
@@ -1431,6 +1435,10 @@ function openForm(c = {}) {
         .map((x) => `<option value="${h(pickerLabel(x))}">`).join('')}</datalist>
     </fieldset>
 
+    <div class="cf-missing">
+      <label class="check"><input type="checkbox" name="gtd_missing"> ☑ ${h(t('cfMissing'))}</label>
+      <input name="gtd_missing_text" placeholder="${h(t('cfMissingPh'))}" hidden>
+    </div>
     <div class="actions">
       <span class="spacer"></span>
       <button type="button" class="btn" id="btn-cancel">${t('cancelBtn')}</button>
@@ -1438,6 +1446,7 @@ function openForm(c = {}) {
     </div>`;
 
   wireForm(form, c);
+  form.elements.gtd_missing.onchange = (e) => { form.elements.gtd_missing_text.hidden = !e.target.checked; if (e.target.checked) form.elements.gtd_missing_text.focus(); };
   $('#form-dialog').showModal();
 }
 
@@ -1677,6 +1686,10 @@ async function submit(form, original) {
     const id = await saveContact(contact, phones);
     for (const rel of form._relRemoves || []) await removeRelation(rel);
     for (const add of form._relAdds || []) { await addRelation(id, add.type, add.b); await afterRelation(id, add.type, add.b); }
+    // "פעלן פרטים" → To Do כללי (אלע זעען)
+    if (form.elements.gtd_missing?.checked) {
+      try { await addGeneralTask(form.elements.gtd_missing_text.value.trim() || t('cfMissingDefault'), id); } catch { /* */ }
+    }
     await loadAll();
     renderList();
     $('#contact-form').dataset.dirty = '';
