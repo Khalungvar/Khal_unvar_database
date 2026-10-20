@@ -1228,4 +1228,4 @@ html[dir="ltr"] .sg-preview { transform-origin: top left; margin-left: 0; margin
   body.printing-sg #sg-print-area { display: block !important; }
 }
 #sg-print-area { display: none; }
-.sg-pageno { position: absolute; bottom: 0.1in; left: 0; right: 0; text-align: center; font-size: 8pt; color: #1f2f6b; }
+.sg-pageno { position: absolute; bottom: 0.22in; left: 0; right: 0; text-align: center; font-size: 8pt; color: #777; }

@@ -148,7 +148,7 @@ function pageHtml(list, fontPt, cols = 1, pageNo = 0) {
     <img class="sg-bg" src="img/simcha-bg2.jpg" alt="">
     ${parashaOf(cur.week) ? `<div class="sg-parsha">${h(t('sgParsha'))} ${h(parashaOf(cur.week).he)}</div>` : ''}
     <div class="sg-body${cols > 1 ? ' sg-cols' : ''}" style="font-size:${fontPt}pt">${list.map(simchaHtml).join('')}</div></div>
-    ${pageNo ? `<div class="sg-pageno">${h(t('lobbySimchos'))} ${h(t('sgPageNo', { n: pageNo }))}</div>` : ''}</div>`;
+    ${pageNo ? `<div class="sg-pageno">${h(t('lobbySimchos'))}${parashaOf(cur.week) ? ` ${h(t('sgParsha'))} ${h(parashaOf(cur.week).he)}` : ''} ${h(t('sgPageNo', { n: pageNo }))}</div>` : ''}</div>`;
 }
 
 // ---------- אויסלייג: איין/צוויי שפאלטן, קלענערער שריפט (ביז 2.5 נקודות), און דערנאך א צווייטער בלאט ----------
