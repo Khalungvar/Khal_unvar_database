@@ -1197,8 +1197,8 @@ html[dir="ltr"] .sg-preview { transform-origin: top left; margin-left: 0; margin
 .sg-inner { position: absolute; inset: 0; transform: scale(.909); transform-origin: 50% 50%; } /* שוליים פארן דרוקער: ~0.25in */
 .sg-bg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .sg-parsha { position: absolute; top: 1.83in; left: 50%; transform: translateX(-50%); min-width: 2.2in; padding: 0.04in 0.25in; border: 1px solid #1f2f6b; border-radius: 0.12in; text-align: center; font-size: 13.2pt; font-weight: 700; color: #1f2f6b; background: rgba(255,255,255,.85); white-space: nowrap; }
-.sg-body { position: absolute; top: 2.42in; bottom: 0.72in; left: 0.72in; right: 0.72in; text-align: center; line-height: 1.05; display: flex; flex-direction: column; justify-content: flex-start; gap: 0.18in; overflow: hidden; }
-.sg-entry { break-inside: avoid; background: #fff; padding: 0.07in 0.1in; border-radius: 0.04in; align-self: stretch; }
+.sg-body { position: absolute; top: 2.42in; bottom: 0.72in; left: 0.72in; right: 0.72in; padding: 0 3px 6px; text-align: center; line-height: 1.05; display: flex; flex-direction: column; justify-content: flex-start; gap: 0.18in; overflow: hidden; }
+.sg-entry { break-inside: avoid; background: #fff; padding: 0.07in 0.1in; border-radius: 0.1in; align-self: stretch; box-shadow: 0 1px 4px rgba(20, 30, 70, .22); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .sg-entry .sg-note { font-size: .818em; } /* 9 פון 11 */
 .sg-entry b { font-weight: 700; }
 .sg-live { border: 1px dashed var(--line); border-radius: 10px; padding: 10px; text-align: center; font-family: 'Frank Ruhl Libre', serif; font-size: 17px; background: #fff; color: #111; }
