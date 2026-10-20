@@ -468,7 +468,7 @@ async function jpgPages() {
 export function simchaEvents() {
   return (state.simchos || []).filter((s) => s.week).map((s) => {
     const ty = s.type === 'special' ? t('sgSpecial') : (TYPES[s.type] || TYPES.birth).label;
-    const ids = s.type === 'special' ? (() => { try { return JSON.parse(s.related || '[]'); } catch { return []; } })() : parseH(s).map((x) => x.id).filter(Boolean);
+    const ids = s.type === 'special' ? (() => { try { return JSON.parse(s.related || '[]'); } catch { return []; } })() : [...parseH(s).map((x) => x.id), s.child_contact_id].filter(Boolean);
     const names = s.type === 'special' ? ids.map((id) => contactOf(id)).filter(Boolean).map((c) => ui.fullNameHe(c))
       : parseH(s).map((x) => (x.id ? ui.fullNameHe(contactOf(x.id) || {}) : String(x.name || '').trim())).filter(Boolean);
     return { s, iso: s.week, label: ty, names, ids };
@@ -590,7 +590,8 @@ export function openSimchaForm(s = {}) {
       <h3>${h(t('sgChild'))}</h3>
       <div class="grid">
         <label>${h(t('sgGender'))}<select name="child_gender"><option value="m"${rec.child_gender !== 'f' ? ' selected' : ''}>${h(t('sgBoy'))}</option><option value="f"${rec.child_gender === 'f' ? ' selected' : ''}>${h(t('sgGirl'))}</option></select></label>
-        <label data-childname>${h(t('sgChildName'))}<input name="child_name" value="${h(rec.child_name || '')}" placeholder="${h(t('sgChildPh'))}"></label>
+        <label data-childname>${h(t('sgChildName'))}<input name="child_name" list="dl-sg-contacts" autocomplete="off" value="${h(rec.child_name || '')}" placeholder="${h(t('sgChildPh'))}">
+          <span class="small sg-child-link" id="sg-child-link"></span></label>
         <label data-other${TYPES[rec.type]?.other ? '' : ' hidden'}>${h(t('sgOtherSide'))}<input name="other_side" value="${h(rec.other_side || '')}" placeholder="${h(t('sgOtherPh'))}"></label>
       </div>
       <label class="wide">${h(t('sgAfterNote'))}<input name="after_note" value="${h(rec.after_note || '')}" placeholder="${h(t('sgAfterNotePh'))}"></label>
@@ -686,6 +687,21 @@ export function openSimchaForm(s = {}) {
     };
     $('#sg-rel-pick', form).onchange = () => $('#sg-rel-add', form).click();
     drawRelated();
+    // דער ילד/חתן/כלה פון מאגר (למשל א בחור פון דער ישיבה) — געדענקט אין child_contact_id
+    const childIn = form.elements.child_name;
+    const drawChild = () => {
+      const c = contactOf(rec.child_contact_id);
+      $('#sg-child-link', form).innerHTML = c ? `✓ ${h(ui.fullNameHe(c))} <button type="button" class="linkish" id="sg-child-x">✕</button>` : '';
+      const x = $('#sg-child-x', form);
+      if (x) x.onclick = () => { rec.child_contact_id = ''; drawChild(); };
+    };
+    childIn.addEventListener('change', () => {
+      const c = contactByLabel(childIn.value);
+      if (c) { rec.child_contact_id = String(c.contact_id); childIn.value = `${c.title_he || ''} ${c.first_name_he || ''}`.trim(); }
+      else if (!childIn.value.trim()) rec.child_contact_id = '';
+      drawChild(); read(); live();
+    });
+    drawChild();
     // עפענען דעם כרטיס (צו פאררעכטן א טעות) — נאכן צומאכן ווערט דער טופס דערהיינטיגט
     $$('.sg-open-card', form).forEach((b) => {
       b.onclick = () => {
@@ -745,6 +761,15 @@ export function openSimchaForm(s = {}) {
           if (x.id && x.link && x.link.type && x.link.to && !String(x.link.to).startsWith('n:') && genDelta(graph(), x.id, x.link.to) === null) {
             await addRelation(x.id, x.link.type, x.link.to);
             made.rels.push([x.id, x.link.type, x.link.to]);
+          }
+        }
+        // דער ילד פון מאגר → א קשר צום ערשטן בעל שמחה (זון/טאכטער פון, אייניקל פון)
+        const f0 = clean[0];
+        if (rec.child_contact_id && f0 && f0.id && !isSelf(out) && String(rec.child_contact_id) !== String(f0.id)) {
+          const ty = { 1: rec.child_gender === 'f' ? 'טאכטער פון' : 'זון פון', 2: 'אייניקל פון' }[String(f0.toChild || '1')];
+          if (ty && (DELTA[ty] !== undefined || state.relationReverse?.[ty]) && genDelta(graph(), String(rec.child_contact_id), String(f0.id)) === null) {
+            await addRelation(String(rec.child_contact_id), ty, String(f0.id));
+            made.rels.push([String(rec.child_contact_id), ty, String(f0.id)]);
           }
         }
         // די הערה נאכן נאמען → אין כרטיס
