@@ -82,6 +82,7 @@ function messageList() {
     return `<div class="pm-msg${unread ? ' unread' : ''}${open ? ' open' : ''}" data-msg="${h(m.msg_id)}">
       <div class="pm-head">
         ${m.kind === 'access' ? '<span class="badge org mini">🔑</span>' : ''}
+        ${m.kind === 'feedback' ? '<span class="badge org mini">🛠</span>' : ''}
         <b>${h(box === 'inbox' ? displayName(m.from_email) : `→ ${toLabel(m.to_email)}`)}</b>
         <span class="pm-subj">${h(m.subject || '')}</span>
         ${statusBadge(m)}

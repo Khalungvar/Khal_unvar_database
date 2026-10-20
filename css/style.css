@@ -1259,3 +1259,11 @@ html[dir="ltr"] .sg-preview { transform-origin: top left; margin-left: 0; margin
 .side-menu, .menu-toggle { display: none !important; }
 .app-body { grid-template-columns: 1fr !important; }
 body.lobby-mode #btn-lobby { display: none; }
+/* "הערות / תיקונים" — צייטווייליג */
+.fb-btn { position: fixed; right: 16px; bottom: 16px; z-index: 50; display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--gold); background: #fff8e6; color: var(--accent, #7a1520); font: inherit; font-weight: 700; box-shadow: 0 4px 14px rgba(0,0,0,.15); cursor: pointer; }
+.fb-btn:hover { background: #fff1cc; }
+@media (max-width: 700px) { .fb-btn span { display: none; } .fb-btn { padding: 10px 12px; } }
+@media print { .fb-btn { display: none !important; } }
+.fb-form .fb-q { background: #faf6ec; border-inline-start: 3px solid var(--gold); padding: 8px 12px; border-radius: 6px; }
+.fb-form .fb-where { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.fb-form textarea { width: 100%; }

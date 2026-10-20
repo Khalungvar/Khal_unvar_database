@@ -29,6 +29,7 @@ import { initRequests, submitRequest, pendingRequests } from './requests.js';
 import { openHelp, initHelpChat } from './help.js';
 import { initMerge, openMerge } from './merge.js';
 import { loadFonts } from './fonts.js';
+import { initFeedback } from './feedback.js';
 import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount, parseOrgTags, splitEntry, entry } from './orgtags.js';
@@ -113,6 +114,7 @@ async function enterApp() {
   $('#login-view').hidden = true;
   $('#app-view').hidden = false;
   initHelpChat();
+  initFeedback({ toast, friendlyError });
   refreshAll();
   showView('lobby');
 }
