@@ -35,8 +35,17 @@ const WORDS = {
 const cur = { week: '' };
 const weekNow = () => shabbatOfWeek(todayIso());
 const contactOf = (id) => (id ? ui.contactById(id) : null);
-const simchosOf = (week) => (state.simchos || []).filter((s) => s.week === week)
-  .sort((a, b) => (Number(a.sort) || 0) - (Number(b.sort) || 0) || Number(a.simcha_id) - Number(b.simcha_id));
+const bySort = (a, b) => (Number(a.sort) || 0) - (Number(b.sort) || 0) || Number(a.simcha_id) - Number(b.simcha_id);
+const isOn = (v) => v === true || String(v).toUpperCase() === 'TRUE';
+const plus7 = (iso) => new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) + 7 * 86400000).toISOString().slice(0, 10);
+/** די שמחות פון א וואך: ערשט די וואס זענען אריינגעקומען ערב שבת די פאריגע וואך (_carried), דערנאך די פון די וואך */
+const ownOf = (week) => (state.simchos || []).filter((s) => s.week === week).sort(bySort);
+const simchosOf = (week) => [
+  ...(state.simchos || []).filter((s) => isOn(s.also_next) && plus7(s.week) === week).sort(bySort).map((s) => ({ ...s, _carried: true })),
+  ...ownOf(week),
+];
+/** פרייטאג פון 6 אינדערפרי ביז שבת: וואס מ'לייגט אריין די וואך ווייזט זיך אויך די קומענדיגע וואך */
+const lateInWeek = () => { const d = new Date(); return (d.getDay() === 5 && d.getHours() >= 6) || d.getDay() === 6; };
 const parseH = (s) => { try { const v = JSON.parse(s.honorees || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
 
 // ---------- קשרים: דורות צווישן מענטשן (דורך די קשרים אין די כרטיסן) ----------
@@ -300,11 +309,11 @@ export function renderSimchos() {
     </div>
     <div class="sg-wrap">
       <div class="sg-list">${list.length ? list.map((s, i) => `<div class="sg-item">
-          <div class="sg-item-text">${simchaHtml(s)}</div>
+          <div class="sg-item-text">${simchaHtml(s)}${s._carried ? `<div class="sg-late">↩ ${h(t('sgCarried'))}</div>` : isOn(s.also_next) ? `<div class="sg-late">↪ ${h(t('sgAlsoNext'))}</div>` : ''}</div>
           <div class="sg-item-acts">
             <button type="button" class="btn small-btn" data-sg-edit="${h(s.simcha_id)}" title="${h(t('scEdit'))}">✎</button>
-            <button type="button" class="btn small-btn" data-sg-up="${h(s.simcha_id)}"${i ? '' : ' disabled'}>▲</button>
-            <button type="button" class="btn small-btn" data-sg-down="${h(s.simcha_id)}"${i < list.length - 1 ? '' : ' disabled'}>▼</button>
+            <button type="button" class="btn small-btn" data-sg-up="${h(s.simcha_id)}"${i && !s._carried && !list[i - 1]._carried ? '' : ' disabled'}>▲</button>
+            <button type="button" class="btn small-btn" data-sg-down="${h(s.simcha_id)}"${i < list.length - 1 && !s._carried ? '' : ' disabled'}>▼</button>
             <button type="button" class="btn small-btn danger" data-sg-del="${h(s.simcha_id)}" title="${h(t('deleteBtn'))}">🗑</button>
           </div></div>`).join('') : `<p class="muted">${h(t('sgNone'))}</p>`}</div>
       <div class="sg-preview-wrap"><div class="sg-preview" id="sg-preview"></div><p class="muted small" id="sg-layout"></p></div>
@@ -335,9 +344,10 @@ function wire(main, list) {
     };
   });
   const move = async (id, dir) => {
-    const i = list.findIndex((s) => String(s.simcha_id) === id); const j = i + dir;
-    if (i < 0 || j < 0 || j >= list.length) return;
-    const order = list.map((s) => s); [order[i], order[j]] = [order[j], order[i]];
+    const own = list.filter((s) => !s._carried);
+    const i = own.findIndex((s) => String(s.simcha_id) === id); const j = i + dir;
+    if (i < 0 || j < 0 || j >= own.length) return;
+    const order = own.map((s) => s); [order[i], order[j]] = [order[j], order[i]];
     try {
       for (let k = 0; k < order.length; k += 1) if (Number(order[k].sort) !== k + 1) await saveRecord('Simchos', 'simcha_id', { ...order[k], sort: k + 1 });
       await loadAll(); renderSimchos();
@@ -469,6 +479,7 @@ export function openSimchaForm(s = {}) {
         <span class="sg-when"><button type="button" class="btn small-btn" id="sg-when">📅 ${h(rec.week === weekNow() ? t('sgThisWeek') : weekLabel(rec.week))}</button>
           <input type="date" id="sg-when-date" hidden value="${h(rec.week)}"></span>
       </div>
+      ${!rec.simcha_id && lateInWeek() && rec.week === weekNow() ? `<p class="sg-late-warn">⚠ ${h(t('sgLateWarn'))}</p>` : ''}
       <div class="sg-special-box" data-special${rec.type === 'special' ? '' : ' hidden'}>
         <div class="sg-rich-tools"><button type="button" class="btn small-btn" id="sg-bold" title="${h(t('sgBold'))}"><b>B</b></button>
           <span class="muted small">${h(t('sgSpecialHint'))}</span></div>
@@ -619,7 +630,7 @@ export function openSimchaForm(s = {}) {
         btn.disabled = true;
         try {
           const out = { ...rec, honorees: '[]', related: JSON.stringify(related) };
-          if (!out.simcha_id) out.sort = simchosOf(out.week).length + 1;
+          if (!out.simcha_id) { out.sort = ownOf(out.week).length + 1; if (lateInWeek() && out.week === weekNow()) out.also_next = 'TRUE'; }
           await saveRecord('Simchos', 'simcha_id', out);
           await loadAll(); dlg.close(); cur.week = out.week; ui.refreshAll(); renderSimchos(); ui.toast(t('saved'));
         } catch (err) { ui.toast(ui.friendlyError(err), 'error'); btn.disabled = false; }
@@ -630,7 +641,7 @@ export function openSimchaForm(s = {}) {
       try {
         const clean = hs.filter((x) => x.id);
         const out = { ...rec, honorees: JSON.stringify(clean) };
-        if (!out.simcha_id) out.sort = simchosOf(out.week).length + 1;
+        if (!out.simcha_id) { out.sort = ownOf(out.week).length + 1; if (lateInWeek() && out.week === weekNow()) out.also_next = 'TRUE'; }
         // וואס די שמחה לייגט אריין אין די כרטיסן — געדענקט אין "made", כדי ביים אויסמעקן עס צוריקצונעמען
         const made = parseMade(rec);
         // נייע קשרים צווישן בעלי השמחה → אין די כרטיסן
