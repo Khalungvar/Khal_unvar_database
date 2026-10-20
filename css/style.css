@@ -1255,3 +1255,7 @@ html[dir="ltr"] .sg-preview { transform-origin: top left; margin-left: 0; margin
 .sg-late { margin-top: 6px; font-family: Heebo, sans-serif; font-size: 12px; color: #8a5a00; }
 .sg-late-warn { margin: 6px 0; padding: 6px 10px; border-radius: 8px; background: color-mix(in srgb, var(--gold) 18%, transparent); border: 1px solid var(--gold); font-size: 14px; }
 .sg-yt { font-size: 13px; padding: 4px 10px; border: 1px dashed var(--gold); border-radius: 999px; }
+/* דער זייט-מעניו איז באהאלטן — אלעס איז דא פונעם לאבי; א "צוריק צום לאבי" קנעפל אויבן */
+.side-menu, .menu-toggle { display: none !important; }
+.app-body { grid-template-columns: 1fr !important; }
+body.lobby-mode #btn-lobby { display: none; }

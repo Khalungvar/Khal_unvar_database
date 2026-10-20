@@ -1733,6 +1733,7 @@ function start() {
   $('#btn-home').onclick = goHome;
   $('#scope-exit').onclick = goHome;
   $('#scope-former').addEventListener('change', () => { setWithFormer($('#scope-former').checked); refreshAll(); });
+  $('#btn-lobby').onclick = () => { document.body.classList.remove('solo-mode'); showView('lobby'); };
   $('#btn-menu').onclick = () => document.body.classList.toggle('menu-open');
   $('#show-inactive').addEventListener('change', renderList);
   $('#list').addEventListener('click', (e) => {
