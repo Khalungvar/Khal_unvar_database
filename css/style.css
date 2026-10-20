@@ -1207,6 +1207,9 @@ html[dir="ltr"] .sg-preview { transform-origin: top left; margin-left: 0; margin
 .sg-body.sg-mcols { display: flex; gap: 0.14in; align-items: stretch; }
 .sg-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 0.14in; }
 .sg-col > .sg-entry { margin: 0; }
+.sg-body.sg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.14in; align-items: start; align-content: start; }
+.sg-body.sg-grid > .sg-entry { margin: 0; }
+.sg-body.sg-grid.sg-odd > .sg-entry:last-child { grid-column: 1 / -1; justify-self: center; width: calc(50% - 0.07in); }
 .sg-mcols.sg-spread .sg-col { justify-content: space-between; }
 .sg-measure { position: fixed; left: -10000px; top: 0; visibility: hidden; pointer-events: none; }
 .sg-preview .sg-page + .sg-page { margin-top: 0.2in; }

@@ -154,6 +154,10 @@ function pageHtml(list, fontPt, cols = 1, pageNo = 0, opt = {}) {
 /** דער אינהאלט: איין שפאלט, צוויי שפאלטן (CSS), אדער צוויי שפאלטן מיט א באשטימטן צוטייל (opt.split) — מיט "spread" פולט מען אויס דעם בלאט */
 function bodyHtml(list, pt, cols, opt) {
   const st = `style="font-size:${pt}pt"`;
+  if (cols > 1 && opt.grid) {
+    // שורות פון צוויי; ווען ס'בלייבט איינס אין דער לעצטער שורה — אין דער מיט
+    return `<div class="sg-body sg-grid${list.length % 2 ? ' sg-odd' : ''}" ${st}>${list.map(simchaHtml).join('')}</div>`;
+  }
   if (cols > 1 && opt.split) {
     const col = (xs) => `<div class="sg-col">${xs.map(simchaHtml).join('')}</div>`;
     return `<div class="sg-body sg-mcols${opt.spread ? ' sg-spread' : ''}" ${st}>${col(list.slice(0, opt.split))}${col(list.slice(opt.split))}</div>`;
@@ -220,6 +224,12 @@ function finalize(pages) {
     p.spread = !lastOfMany && (p.cols === 2 || p.pt < MAX_PT - 0.001 || i < pages.length - 1);
     if (p.cols !== 2 || p.list.length < 2) return;
     if (!meas) { meas = document.createElement('div'); meas.className = 'sg-measure'; document.body.appendChild(meas); }
+    if (!p.spread) {
+      // א בלאט וואס ווערט נישט אויסגעצויגן: שורות פון צוויי, די לעצטע (ווען אומגלייך) אין דער מיט — אויב ס'גייט אריין
+      meas.innerHTML = pageHtml(p.list, p.pt, 2, 0, { grid: true });
+      const body = $('.sg-body', meas); const b = body.getBoundingClientRect();
+      if ($$('.sg-entry', body).every((e) => e.getBoundingClientRect().bottom <= b.bottom + 1)) { p.grid = true; return; }
+    }
     let best = null;
     for (let k = 1; k < p.list.length; k += 1) {
       meas.innerHTML = pageHtml(p.list, p.pt, 2, 0, { split: k });
