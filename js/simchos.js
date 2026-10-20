@@ -214,7 +214,14 @@ function paginate(all) {
     // עטלעכע בלעטער: בעסער איין שפאלט (מיטן גרעסטן שריפט), אויב ס'גייט אין אזויפיל בלעטער
     pick = best.find((x) => x.c === 1) || best[0];
   }
-  return pick.pages;
+  const pages = pick.pages;
+  // דער לעצטער בלאט זאל נישט בלייבן מיט איין איינציגע שמחה: מינימום 3 (צוויי שפאלטן) / 2 (איין שפאלט) — גענומען פונעם בלאט פריער
+  if (pages.length > 1) {
+    const need = pages[0].cols === 2 ? 3 : 2;
+    const last = pages[pages.length - 1]; const prev = pages[pages.length - 2];
+    while (last.list.length < need && prev.list.length > need) last.list.unshift(prev.list.pop());
+  }
+  return pages;
 }
 /** א פולער בלאט (צוויי שפאלטן / קלענערער שריפט / נישט דער לעצטער): די קעסטלעך ווערן צוטיילט איבערן גאנצן בלאט */
 function finalize(pages) {
