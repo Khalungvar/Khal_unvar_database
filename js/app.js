@@ -334,7 +334,37 @@ function showView(name) {
   renderListsSide();
   $('#btn-admin')?.classList.toggle('on', name === 'admin');
   renderCampaignSide();
+  recordNav(name);
 }
+
+// ---------- "צוריק" אין בראוזער: צום פריערדיגן מסך אינעם אתר (נישט ארויס פונעם אתר) ----------
+let navFromPop = false;
+let navState = null;
+const sameScope = (a, b) => JSON.stringify(a || null) === JSON.stringify(b || null);
+function recordNav(name) {
+  if (navFromPop) return;
+  const st = { v: name, sc: getScope() || null, solo: document.body.classList.contains('solo-mode') };
+  if (!navState) history.replaceState(st, '');
+  else if (navState.v === st.v && sameScope(navState.sc, st.sc)) history.replaceState(st, '');
+  else history.pushState(st, '');
+  navState = st;
+}
+window.addEventListener('popstate', (e) => {
+  if ($('#app-view').hidden) return;
+  // א פענצטער איז אפן (כרטיס, טופס): "צוריק" מאכט עס צו און מ'בלייבט אויפן זעלבן מסך
+  const open = $$('dialog[open]');
+  if (open.length) { open[open.length - 1].close(); if (navState) history.pushState(navState, ''); return; }
+  const st = e.state;
+  if (!st || !st.v) return;
+  navFromPop = true;
+  try {
+    if (!sameScope(getScope(), st.sc)) { setScope(st.sc); refreshAll(); }
+    document.body.classList.toggle('solo-mode', !!st.solo);
+    showView(st.v);
+    if (st.solo) document.body.classList.add('solo-mode');
+  } finally { navFromPop = false; }
+  navState = st;
+});
 
 /** א קלארע מעלדונג אויפן לאגאין בלאט: נישט רעגיסטרירט / נישט קיין צוטריט צום שיט. */
 function showLoginProblem(err) {
