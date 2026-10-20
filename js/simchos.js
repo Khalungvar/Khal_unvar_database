@@ -176,39 +176,41 @@ function fits(list, pt, cols) {
   const b = body.getBoundingClientRect();
   return $$('.sg-entry', body).every((e) => { const r = e.getBoundingClientRect(); return r.bottom <= b.bottom + 1 && r.left >= b.left - 1 && r.right <= b.right + 1; });
 }
-/** פאר א גרופע שמחות: { cols, pt } אדער null (גייט נישט אריין אויף איין בלאט) */
-function layoutFor(list, mode = getCols()) {
-  const tries = [];
-  const shrink = (cols) => { for (let pt = MAX_PT; pt >= MIN_PT - 0.001; pt = Math.round((pt - 0.25) * 100) / 100) tries.push([cols, pt]); };
-  if (mode === '1') shrink(1);
-  else if (mode === '2') shrink(2);
-  else { tries.push([1, MAX_PT]); shrink(2); }
-  const ok = tries.find(([c, pt]) => fits(list, pt, c));
-  return ok ? { cols: ok[0], pt: ok[1] } : null;
-}
-/** צוטיילן אויף בלעטער: [{ list, cols, pt }] */
-function paginateWith(all, mode) {
+/** א פעסטע אויסלייג (שפאלטן + שריפט) פאר אלע בלעטער: יעדער בלאט ווערט אנגעפילט ווי פיל ס'גייט אריין */
+function pagesWith(all, cols, pt) {
   const pages = [];
   let rest = all.slice();
-  for (let guard = 0; rest.length && guard < 6; guard += 1) {
-    let k = rest.length; let lay = layoutFor(rest, mode);
-    while (!lay && k > 1) { k -= 1; lay = layoutFor(rest.slice(0, k), mode); }
-    if (!lay) lay = { cols: mode === '2' ? 2 : 1, pt: MIN_PT };
-    pages.push({ list: rest.slice(0, k), ...lay });
-    rest = rest.slice(k);
+  while (rest.length && pages.length < 8) {
+    if (!fits(rest.slice(0, 1), pt, cols)) return null; // אפילו איין שמחה גייט נישט אריין
+    // דער גרעסטער טייל וואס גייט אריין (ביינערי זוכן)
+    let lo = 1; let hi = rest.length;
+    while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); if (fits(rest.slice(0, mid), pt, cols)) lo = mid; else hi = mid - 1; }
+    pages.push({ list: rest.slice(0, lo), cols, pt });
+    rest = rest.slice(lo);
   }
-  return pages;
+  return rest.length ? null : pages;
 }
+/** צוטיילן אויף בלעטער — אלע בלעטער מיט די זעלבע שפאלטן און דעם זעלבן שריפט (כדי קיין שמחה זאל נישט זיין גרעסער ווי די אנדערע) */
 function paginate(all) {
   const mode = getCols();
-  let pages = paginateWith(all, mode);
-  // ווען ס'דארף סיי ווי צוויי בלעטער: בעסער אלע בלעטער מיט איין שפאלט (אויב ס'גייט אריין אין אזויפיל בלעטער)
-  if (mode === 'auto' && pages.length > 1) {
-    const one = paginateWith(all, '1');
-    if (one.length <= pages.length) pages = one;
-  }
+  const pts = []; for (let pt = MAX_PT; pt >= MIN_PT - 0.001; pt = Math.round((pt - 0.25) * 100) / 100) pts.push(pt);
+  const colsList = mode === '1' ? [1] : mode === '2' ? [2] : [1, 2];
+  const cands = [];
+  colsList.forEach((c) => pts.forEach((pt) => { const pg = pagesWith(all, c, pt); if (pg) cands.push({ c, pt, pages: pg }); }));
   if (meas) meas.innerHTML = '';
-  return pages;
+  if (!cands.length) return pagesWith(all, colsList[colsList.length - 1], MIN_PT) || [{ list: all, cols: colsList[0], pt: MIN_PT }];
+  const minP = Math.min(...cands.map((x) => x.pages.length));
+  const best = cands.filter((x) => x.pages.length === minP);
+  let pick;
+  if (mode !== 'auto') pick = best[0]; // דער גרעסטער שריפט
+  else if (minP === 1) {
+    // איין בלאט: איין שפאלט מיטן פולן שריפט; אנדערש — צוויי שפאלטן מיטן גרעסטן שריפט
+    pick = best.find((x) => x.c === 1 && x.pt === MAX_PT) || best.find((x) => x.c === 2) || best[0];
+  } else {
+    // עטלעכע בלעטער: בעסער איין שפאלט (מיטן גרעסטן שריפט), אויב ס'גייט אין אזויפיל בלעטער
+    pick = best.find((x) => x.c === 1) || best[0];
+  }
+  return pick.pages;
 }
 /** א פולער בלאט (צוויי שפאלטן / קלענערער שריפט / נישט דער לעצטער): די קעסטלעך ווערן צוטיילט איבערן גאנצן בלאט */
 function finalize(pages) {
