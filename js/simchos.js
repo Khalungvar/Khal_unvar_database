@@ -141,14 +141,24 @@ function weekLabel(iso) {
   return p ? `${t('sgParsha')} ${p.he} · ${d}` : `${t('sgShabbat')} ${d}`;
 }
 
-function pageHtml(list, fontPt, cols = 1, pageNo = 0) {
+function pageHtml(list, fontPt, cols = 1, pageNo = 0, opt = {}) {
   const font = getFont().replace(/'/g, '');
   return `<div class="sg-page" style="font-family:'${h(font)}','Frank Ruhl Libre',serif">
     <div class="sg-inner">
     <img class="sg-bg" src="img/simcha-bg2.jpg" alt="">
     ${parashaOf(cur.week) ? `<div class="sg-parsha">${h(t('sgParsha'))} ${h(parashaOf(cur.week).he)}</div>` : ''}
-    <div class="sg-body${cols > 1 ? ' sg-cols' : ''}" style="font-size:${fontPt}pt">${list.map(simchaHtml).join('')}</div></div>
+    ${bodyHtml(list, fontPt, cols, opt)}</div>
     ${pageNo ? `<div class="sg-pageno">${h(t('lobbySimchos'))}${parashaOf(cur.week) ? ` ${h(t('sgParsha'))} ${h(parashaOf(cur.week).he)}` : ''} ${h(t('sgPageNo', { n: pageNo }))}</div>` : ''}</div>`;
+}
+
+/** דער אינהאלט: איין שפאלט, צוויי שפאלטן (CSS), אדער צוויי שפאלטן מיט א באשטימטן צוטייל (opt.split) — מיט "spread" פולט מען אויס דעם בלאט */
+function bodyHtml(list, pt, cols, opt) {
+  const st = `style="font-size:${pt}pt"`;
+  if (cols > 1 && opt.split) {
+    const col = (xs) => `<div class="sg-col">${xs.map(simchaHtml).join('')}</div>`;
+    return `<div class="sg-body sg-mcols${opt.spread ? ' sg-spread' : ''}" ${st}>${col(list.slice(0, opt.split))}${col(list.slice(opt.split))}</div>`;
+  }
+  return `<div class="sg-body${cols > 1 ? ' sg-cols' : ''}${cols === 1 && opt.spread ? ' sg-spread' : ''}" ${st}>${list.map(simchaHtml).join('')}</div>`;
 }
 
 // ---------- אויסלייג: איין/צוויי שפאלטן, קלענערער שריפט (ביז 2.5 נקודות), און דערנאך א צווייטער בלאט ----------
@@ -200,7 +210,26 @@ function paginate(all) {
   if (meas) meas.innerHTML = '';
   return pages;
 }
-const pagesHtml = (pages) => pages.map((p, i) => pageHtml(p.list, p.pt, p.cols, pages.length > 1 ? i + 1 : 0)).join('');
+/** א פולער בלאט (צוויי שפאלטן / קלענערער שריפט / נישט דער לעצטער): די קעסטלעך ווערן צוטיילט איבערן גאנצן בלאט */
+function finalize(pages) {
+  pages.forEach((p, i) => {
+    p.spread = p.cols === 2 || p.pt < MAX_PT - 0.001 || i < pages.length - 1;
+    if (p.cols !== 2 || p.list.length < 2) return;
+    if (!meas) { meas = document.createElement('div'); meas.className = 'sg-measure'; document.body.appendChild(meas); }
+    let best = null;
+    for (let k = 1; k < p.list.length; k += 1) {
+      meas.innerHTML = pageHtml(p.list, p.pt, 2, 0, { split: k });
+      const body = $('.sg-body', meas); const b = body.getBoundingClientRect();
+      const hs = $$('.sg-col', body).map((c) => { const es = $$('.sg-entry', c); return es.length ? es[es.length - 1].getBoundingClientRect().bottom - b.top : 0; });
+      const tall = Math.max(...hs);
+      if (tall <= b.height + 1 && (!best || tall < best.tall)) best = { k, tall };
+    }
+    if (best) p.split = best.k;
+  });
+  if (meas) meas.innerHTML = '';
+  return pages;
+}
+const pagesHtml = (pages) => pages.map((p, i) => pageHtml(p.list, p.pt, p.cols, pages.length > 1 ? i + 1 : 0, p)).join('');
 
 export function openSimchos() {
   if (!cur.week) cur.week = weekNow();
@@ -242,7 +271,7 @@ export function renderSimchos() {
           </div></div>`).join('') : `<p class="muted">${h(t('sgNone'))}</p>`}</div>
       <div class="sg-preview-wrap"><div class="sg-preview" id="sg-preview"></div><p class="muted small" id="sg-layout"></p></div>
     </div>`;
-  lastPages = list.length ? paginate(list) : [{ list: [], cols: 1, pt: MAX_PT }];
+  lastPages = list.length ? finalize(paginate(list)) : [{ list: [], cols: 1, pt: MAX_PT }];
   $('#sg-preview', main).innerHTML = pagesHtml(lastPages);
   $('#sg-preview', main).style.setProperty('--pages', lastPages.length);
   $('#sg-layout', main).textContent = list.length ? t('sgLayout', { p: lastPages.length, c: lastPages.map((p) => p.cols).join('/'), s: lastPages.map((p) => Math.round(p.pt * SCALE * 10) / 10).join('/') }) : '';
@@ -300,7 +329,7 @@ async function pdfPage(list) {
   try {
     void list;
     const jpgs = [];
-    for (const [i, p] of lastPages.entries()) jpgs.push(await htmlToJpeg(pageHtml(p.list, p.pt, p.cols, lastPages.length > 1 ? i + 1 : 0), { widthIn: 5.5, heightIn: 8.5, scale: 3, quality: 0.9 }));
+    for (const [i, p] of lastPages.entries()) jpgs.push(await htmlToJpeg(pageHtml(p.list, p.pt, p.cols, lastPages.length > 1 ? i + 1 : 0, p), { widthIn: 5.5, heightIn: 8.5, scale: 3, quality: 0.9 }));
     const pdf = jpegsToPdf(jpgs, { pageW: 396, pageH: 612, margin: 0 });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([pdf], { type: 'application/pdf' }));

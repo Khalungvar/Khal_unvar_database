@@ -1202,6 +1202,12 @@ html[dir="ltr"] .sg-preview { transform-origin: top left; margin-left: 0; margin
 .sg-body > .sg-entry { margin-bottom: 0.18in; }
 .sg-body.sg-cols { column-count: 2; column-gap: 0.14in; column-fill: balance; }
 .sg-body.sg-cols > .sg-entry { display: inline-block; width: 100%; box-sizing: border-box; margin-bottom: 0.14in; }
+.sg-body.sg-spread:not(.sg-mcols) { display: flex; flex-direction: column; justify-content: space-between; gap: 0.18in; }
+.sg-body.sg-spread > .sg-entry { margin-bottom: 0; }
+.sg-body.sg-mcols { display: flex; gap: 0.14in; align-items: stretch; }
+.sg-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 0.14in; }
+.sg-col > .sg-entry { margin: 0; }
+.sg-mcols.sg-spread .sg-col { justify-content: space-between; }
 .sg-measure { position: fixed; left: -10000px; top: 0; visibility: hidden; pointer-events: none; }
 .sg-preview .sg-page + .sg-page { margin-top: 0.2in; }
 #sg-print-area .sg-page { break-after: page; page-break-after: always; }
