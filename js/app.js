@@ -1300,6 +1300,16 @@ function wireFormFamily(form, c) {
       };
     });
   };
+  // ווען מ'קלייבט א קאנטאקט פון דער רשימה — גלייך צוגעלייגט (מ'דארף נישט דריקן "צולייגן")
+  $('.rel-contact', box).addEventListener('input', () => {
+    const v = $('.rel-contact', box).value.trim();
+    const c = state.contacts.find((x) => pickerLabel(x) === v);
+    if (c) $('.rel-add', box).click();
+  });
+  form._relPending = () => {
+    const m = $('.rel-contact', box).value.match(/\(#(\d+)\)/);
+    if (m && contactById(m[1])) $('.rel-add', box).click();
+  };
   $('.rel-add', box).onclick = () => {
     const type = $('.rel-type', box).value;
     const m = $('.rel-contact', box).value.match(/\(#(\d+)\)/);
@@ -1630,6 +1640,7 @@ function collect(form, original) {
 }
 
 async function submit(form, original) {
+  form._relPending?.(); // א קשר וואס מ'האט אויסגעקליבן אבער נישט צוגעלייגט
   const { contact, phones } = collect(form, original);
   contact.is_active = !form.elements.inactive.checked;
 
