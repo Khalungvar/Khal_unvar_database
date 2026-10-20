@@ -3,7 +3,7 @@
 // תואר + נאמען (משפחה פעט) + סיומת (שליט"א א.א.וו.), און "לרגל ..." מיט דער קרבה (בנו-נכדו...) וואס ווערט אויסגערעכנט
 // פון די קשרים אין די כרטיסן. נייע קשרים צווישן בעלי השמחה ווערן אריינגעלייגט אין די כרטיסן.
 // לשונית Simchos (גיליון). די הערה נאכן נאמען (למשל "אב"ד בערז'אן") — אין כרטיס, קאלום name_note.
-import { state, loadAll, saveRecord, deleteRecord, saveContact, addRelation } from './data.js';
+import { state, loadAll, saveRecord, deleteRecord, saveContact, addRelation, removeRelation } from './data.js';
 import { t } from './i18n.js';
 import { escapeHtml as h } from './util.js';
 import { toHebrew, monthHe, hebrewNumber, todayIso } from './hebdate.js';
@@ -263,7 +263,7 @@ function wire(main, list) {
   $$('[data-sg-del]', main).forEach((b) => {
     b.onclick = async () => {
       if (!confirm(t('sgDelConfirm'))) return;
-      try { await deleteRecord('Simchos', 'simcha_id', list.find((s) => String(s.simcha_id) === b.dataset.sgDel)); await loadAll(); renderSimchos(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+      try { await deleteSimcha(list.find((s) => String(s.simcha_id) === b.dataset.sgDel)); await loadAll(); ui.refreshAll(); renderSimchos(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
     };
   });
   const move = async (id, dir) => {
@@ -309,6 +309,29 @@ async function pdfPage(list) {
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
   btn.disabled = false;
+}
+
+// ---------- אויסמעקן: אויך וואס די שמחה האט אריינגעלייגט אין די כרטיסן (קשרים, הערה נאכן נאמען) ----------
+function parseMade(s) {
+  try { const m = JSON.parse(s.made || '{}'); return { rels: Array.isArray(m.rels) ? m.rels : [], notes: Array.isArray(m.notes) ? m.notes : [] }; } catch { return { rels: [], notes: [] }; }
+}
+async function deleteSimcha(s) {
+  if (!s) return;
+  const made = parseMade(s);
+  const others = (state.simchos || []).filter((x) => x !== s && String(x.simcha_id) !== String(s.simcha_id)).map(parseMade);
+  const usedElsewhere = (a, ty, b) => others.some((m) => m.rels.some(([x, y, z]) => String(x) === String(a) && y === ty && String(z) === String(b)));
+  for (const [a, ty, b] of made.rels) {
+    if (usedElsewhere(a, ty, b)) continue;
+    const rel = state.relations.find((r) => String(r.contact_id_a) === String(a) && r.relation_type === ty && String(r.contact_id_b) === String(b));
+    if (rel) await removeRelation(rel);
+  }
+  for (const n of made.notes) {
+    const c = contactOf(n.id);
+    if (c && (c.name_note || '') === n.after && !others.some((m) => m.notes.some((o) => o.id === n.id))) {
+      await saveContact({ ...c, name_note: n.before }, state.phones.get(String(c.contact_id)) || {});
+    }
+  }
+  await deleteRecord('Simchos', 'simcha_id', s);
 }
 
 // ---------- דער טופס ----------
@@ -442,16 +465,26 @@ export function openSimchaForm(s = {}) {
         const clean = hs.filter((x) => x.id);
         const out = { ...rec, honorees: JSON.stringify(clean) };
         if (!out.simcha_id) out.sort = simchosOf(out.week).length + 1;
-        await saveRecord('Simchos', 'simcha_id', out);
+        // וואס די שמחה לייגט אריין אין די כרטיסן — געדענקט אין "made", כדי ביים אויסמעקן עס צוריקצונעמען
+        const made = parseMade(rec);
         // נייע קשרים צווישן בעלי השמחה → אין די כרטיסן
         for (const x of clean) {
-          if (x.link && x.link.type && x.link.to && genDelta(graph(), x.id, x.link.to) === null) await addRelation(x.id, x.link.type, x.link.to);
+          if (x.link && x.link.type && x.link.to && genDelta(graph(), x.id, x.link.to) === null) {
+            await addRelation(x.id, x.link.type, x.link.to);
+            made.rels.push([x.id, x.link.type, x.link.to]);
+          }
         }
         // די הערה נאכן נאמען → אין כרטיס
         for (const x of clean) {
           const c = contactOf(x.id);
-          if (c && x.noteOn && x.note && x.note !== (c.name_note || '')) await saveContact({ ...c, name_note: x.note }, state.phones.get(String(c.contact_id)) || {});
+          if (c && x.noteOn && x.note && x.note !== (c.name_note || '')) {
+            await saveContact({ ...c, name_note: x.note }, state.phones.get(String(c.contact_id)) || {});
+            if (!made.notes.some((n) => n.id === x.id)) made.notes.push({ id: x.id, before: c.name_note || '', after: x.note });
+            else made.notes = made.notes.map((n) => (n.id === x.id ? { ...n, after: x.note } : n));
+          }
         }
+        out.made = JSON.stringify(made);
+        await saveRecord('Simchos', 'simcha_id', out);
         await loadAll();
         dlg.close();
         cur.week = out.week;
