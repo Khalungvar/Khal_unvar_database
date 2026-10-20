@@ -40,10 +40,12 @@ const isOn = (v) => v === true || String(v).toUpperCase() === 'TRUE';
 const plus7 = (iso) => new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) + 7 * 86400000).toISOString().slice(0, 10);
 /** די שמחות פון א וואך: ערשט די וואס זענען אריינגעקומען ערב שבת די פאריגע וואך (_carried), דערנאך די פון די וואך */
 const ownOf = (week) => (state.simchos || []).filter((s) => s.week === week).sort(bySort);
-const simchosOf = (week) => [
-  ...(state.simchos || []).filter((s) => isOn(s.also_next) && plus7(s.week) === week).sort(bySort).map((s) => ({ ...s, _carried: true })),
-  ...ownOf(week),
-];
+// דער סדר אין דער וואך: "sort" פאר די אייגענע, "sort_next" פאר די וואס קומען פון ערב שבת (ליידיג = אויבן)
+const simchosOf = (week) => {
+  const carried = (state.simchos || []).filter((s) => isOn(s.also_next) && plus7(s.week) === week).sort(bySort).map((s) => ({ ...s, _carried: true }));
+  const key = (s) => (s._carried ? Number(s.sort_next) || 0 : Number(s.sort) || 0);
+  return [...carried, ...ownOf(week)].map((s, i) => ({ s, i })).sort((a, b) => key(a.s) - key(b.s) || a.i - b.i).map((x) => x.s);
+};
 /** פרייטאג פון 6 אינדערפרי ביז שבת: וואס מ'לייגט אריין די וואך ווייזט זיך אויך די קומענדיגע וואך */
 const lateInWeek = () => { const d = new Date(); return (d.getDay() === 5 && d.getHours() >= 6) || d.getDay() === 6; };
 const parseH = (s) => { try { const v = JSON.parse(s.honorees || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
@@ -312,8 +314,8 @@ export function renderSimchos() {
           <div class="sg-item-text">${simchaHtml(s)}${s._carried ? `<div class="sg-late">↩ ${h(t('sgCarried'))}</div>` : isOn(s.also_next) ? `<div class="sg-late">↪ ${h(t('sgAlsoNext'))}</div>` : ''}</div>
           <div class="sg-item-acts">
             <button type="button" class="btn small-btn" data-sg-edit="${h(s.simcha_id)}" title="${h(t('scEdit'))}">✎</button>
-            <button type="button" class="btn small-btn" data-sg-up="${h(s.simcha_id)}"${i && !s._carried && !list[i - 1]._carried ? '' : ' disabled'}>▲</button>
-            <button type="button" class="btn small-btn" data-sg-down="${h(s.simcha_id)}"${i < list.length - 1 && !s._carried ? '' : ' disabled'}>▼</button>
+            <button type="button" class="btn small-btn" data-sg-up="${h(s.simcha_id)}"${i ? '' : ' disabled'}>▲</button>
+            <button type="button" class="btn small-btn" data-sg-down="${h(s.simcha_id)}"${i < list.length - 1 ? '' : ' disabled'}>▼</button>
             <button type="button" class="btn small-btn danger" data-sg-del="${h(s.simcha_id)}" title="${h(t('deleteBtn'))}">🗑</button>
           </div></div>`).join('') : `<p class="muted">${h(t('sgNone'))}</p>`}</div>
       <div class="sg-preview-wrap"><div class="sg-preview" id="sg-preview"></div><p class="muted small" id="sg-layout"></p></div>
@@ -344,12 +346,14 @@ function wire(main, list) {
     };
   });
   const move = async (id, dir) => {
-    const own = list.filter((s) => !s._carried);
-    const i = own.findIndex((s) => String(s.simcha_id) === id); const j = i + dir;
-    if (i < 0 || j < 0 || j >= own.length) return;
-    const order = own.map((s) => s); [order[i], order[j]] = [order[j], order[i]];
+    const i = list.findIndex((s) => String(s.simcha_id) === id); const j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    const order = list.map((s) => s); [order[i], order[j]] = [order[j], order[i]];
     try {
-      for (let k = 0; k < order.length; k += 1) if (Number(order[k].sort) !== k + 1) await saveRecord('Simchos', 'simcha_id', { ...order[k], sort: k + 1 });
+      for (let k = 0; k < order.length; k += 1) {
+        const x = order[k]; const f = x._carried ? 'sort_next' : 'sort';
+        if (Number(x[f]) !== k + 1) { const rec = { ...x, [f]: k + 1 }; delete rec._carried; await saveRecord('Simchos', 'simcha_id', rec); }
+      }
       await loadAll(); renderSimchos();
     } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
   };
