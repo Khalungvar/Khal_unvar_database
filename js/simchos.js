@@ -218,7 +218,7 @@ export function simchaHtml(s) {
   const self = isSelf(s);
   const forLine = String(s.text_override || '').trim() ? h(s.text_override)
     : self ? [h(SELF[s.type][s.child_gender === 'f' ? 'f' : 'm']), ty.other ? `עב"ג ${boldName(s.other_side)}`.trim() : '', h(ty.post), 'בשעטו"מ'].filter((x) => String(x).trim()).join(' ')
-    : [h(ty.pre), h(rel), boldName(s.child_name), ty.other ? `עב"ג ${boldName(s.other_side)}`.trim() : '', h(ty.post), 'בשעטו"מ']
+    : [h(ty.pre), h(rel), s.child_gender === 'f' ? '' : boldName(s.child_name), ty.other ? `עב"ג ${boldName(s.other_side)}`.trim() : '', h(ty.post), 'בשעטו"מ']
       .filter((x) => String(x).trim()).join(' ');
   return `<div class="sg-entry">${lines}<div class="sg-for">${forLine}</div>${String(s.after_note || '').trim() ? `<div class="sg-after">${h(s.after_note)}</div>` : ''}</div>`;
 }
@@ -667,7 +667,8 @@ export function openSimchaForm(s = {}) {
     $$('[data-regular]', form).forEach((el) => { el.hidden = sp; });
     $('[data-special]', form).hidden = !sp;
     $('[data-other]', form).hidden = !TYPES[rec.type]?.other;
-    $('[data-childname]', form).hidden = isSelf({ ...rec, honorees: JSON.stringify(hs) });
+    // נעמען פון ווייבער ווערן נישט געדרוקט — ביי א "בת" קיין נאמען
+    $('[data-childname]', form).hidden = rec.child_gender === 'f' || isSelf({ ...rec, honorees: JSON.stringify(hs) });
     if (sp) { $('#sg-live', form).innerHTML = rec.special ? simchaHtml(rec) : `<span class="muted">${h(t('sgSpecialHint'))}</span>`; return; }
     $('#sg-live', form).innerHTML = hs.some(hkey) ? simchaHtml({ ...rec, honorees: JSON.stringify(hs) }) : `<span class="muted">${h(t('sgPickFirst'))}</span>`;
   };
@@ -751,6 +752,7 @@ export function openSimchaForm(s = {}) {
       if (!hs.some(hkey)) { ui.toast(t('sgPickFirst'), 'error'); return; }
       btn.disabled = true;
       try {
+        if (rec.child_gender === 'f') { rec.child_name = ''; rec.child_contact_id = ''; }
         const clean = hs.filter(hkey).map((x) => (x.id ? { ...x, name: '' } : x));
         const out = { ...rec, honorees: JSON.stringify(clean) };
         if (!out.simcha_id) { out.sort = ownOf(out.week).length + 1; if (lateFor(out.week) && out.week === weekNow()) out.also_next = 'TRUE'; }
