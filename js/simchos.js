@@ -26,7 +26,10 @@ const TYPES = {
 const SUFFIXES = ['ני"ו', 'הי"ו', 'שליט"א'];
 // "א TYPE ב": א איז מיט אזויפיל דורות העכער ווי ב
 const DELTA = { 'טאטע פון': 1, 'זון פון': -1, 'שווער פון': 1, 'איידעם פון': -1, 'זיידע פון': 2, 'אייניקל פון': -2, 'ברודער פון': 0, 'שוואגער פון': 0 };
-const TO_CHILD = [['1', 'טאטע'], ['2', 'זיידע'], ['3', 'עלטער-זיידע']];
+const TO_CHILD = [['1', 'טאטע'], ['2', 'זיידע'], ['3', 'עלטער-זיידע'], ['0', 'ער אליין']];
+// "ער אליין": דער בעל שמחה איז דער חתן / בר מצוה בחור / די כלה
+const SELF = { erusin: { m: 'לרגל אירוסיו', f: 'לרגל אירוסיה' }, nisuin: { m: 'לרגל נישואיו', f: 'לרגל נישואיה' }, barmitzvah: { m: 'לרגל הכנסו', f: 'לרגל הכנסו' } };
+const isSelf = (s) => { const f = parseH(s)[0]; return !!(f && String(f.toChild) === '0' && SELF[s.type]); };
 const WORDS = {
   m: { 1: ['בנו', 'בנם'], 2: ['נכדו', 'נכדם'], 3: ['נינו', 'נינם'] },
   f: { 1: ['בתו', 'בתם'], 2: ['נכדתו', 'נכדתם'], 3: ['נינתו', 'נינתם'] },
@@ -212,7 +215,9 @@ export function simchaHtml(s) {
     const name = `${h(x.title || '')} <b>${h(nm)}</b> ${h(x.suffix || '')}`.replace(/\s+/g, ' ').trim();
     return `<div class="sg-name">${name}</div>${x.noteOn && x.note ? `<div class="sg-note">${h(x.note)}</div>` : ''}`;
   }).join('');
+  const self = isSelf(s);
   const forLine = String(s.text_override || '').trim() ? h(s.text_override)
+    : self ? [h(SELF[s.type][s.child_gender === 'f' ? 'f' : 'm']), ty.other ? `עב"ג ${boldName(s.other_side)}`.trim() : '', h(ty.post), 'בשעטו"מ'].filter((x) => String(x).trim()).join(' ')
     : [h(ty.pre), h(rel), boldName(s.child_name), ty.other ? `עב"ג ${boldName(s.other_side)}`.trim() : '', h(ty.post), 'בשעטו"מ']
       .filter((x) => String(x).trim()).join(' ');
   return `<div class="sg-entry">${lines}<div class="sg-for">${forLine}</div>${String(s.after_note || '').trim() ? `<div class="sg-after">${h(s.after_note)}</div>` : ''}</div>`;
@@ -585,7 +590,7 @@ export function openSimchaForm(s = {}) {
       <h3>${h(t('sgChild'))}</h3>
       <div class="grid">
         <label>${h(t('sgGender'))}<select name="child_gender"><option value="m"${rec.child_gender !== 'f' ? ' selected' : ''}>${h(t('sgBoy'))}</option><option value="f"${rec.child_gender === 'f' ? ' selected' : ''}>${h(t('sgGirl'))}</option></select></label>
-        <label>${h(t('sgChildName'))}<input name="child_name" value="${h(rec.child_name || '')}" placeholder="${h(t('sgChildPh'))}"></label>
+        <label data-childname>${h(t('sgChildName'))}<input name="child_name" value="${h(rec.child_name || '')}" placeholder="${h(t('sgChildPh'))}"></label>
         <label data-other${TYPES[rec.type]?.other ? '' : ' hidden'}>${h(t('sgOtherSide'))}<input name="other_side" value="${h(rec.other_side || '')}" placeholder="${h(t('sgOtherPh'))}"></label>
       </div>
       <label class="wide">${h(t('sgAfterNote'))}<input name="after_note" value="${h(rec.after_note || '')}" placeholder="${h(t('sgAfterNotePh'))}"></label>
@@ -661,6 +666,7 @@ export function openSimchaForm(s = {}) {
     $$('[data-regular]', form).forEach((el) => { el.hidden = sp; });
     $('[data-special]', form).hidden = !sp;
     $('[data-other]', form).hidden = !TYPES[rec.type]?.other;
+    $('[data-childname]', form).hidden = isSelf({ ...rec, honorees: JSON.stringify(hs) });
     if (sp) { $('#sg-live', form).innerHTML = rec.special ? simchaHtml(rec) : `<span class="muted">${h(t('sgSpecialHint'))}</span>`; return; }
     $('#sg-live', form).innerHTML = hs.some(hkey) ? simchaHtml({ ...rec, honorees: JSON.stringify(hs) }) : `<span class="muted">${h(t('sgPickFirst'))}</span>`;
   };
