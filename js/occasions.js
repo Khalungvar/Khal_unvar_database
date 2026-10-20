@@ -1,7 +1,6 @@
 // מאורעות (יארצייט, געבורטסטאג, ...): לפי הלוח העברי, חוזרים כל שנה.
 // מסך "מאורעות" (מה חל בקרוב), חלק בכרטיס האישי, וטופס הוספה/עריכה.
-import { simchaEvents, openSimchosWeek } from './simchos.js';
-import { shabbatTitle } from './parasha.js';
+import { simchaEvents, openSimchosWeek, issueTitle } from './simchos.js';
 import { state, loadAll, saveOccasion, deleteOccasion } from './data.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, splitTags, isTrue } from './util.js';
@@ -102,7 +101,7 @@ function simchaRow(e) {
   return `<button type="button" class="row occ-row occ-simcha${e.days === 0 ? ' is-today' : ''}" data-simcha-week="${h(e.iso)}">
     <span class="occ-when"><b>${h(whenText(e.days))}</b><span class="muted small">${h(isoToHebrewText(e.iso).replace(/ [^ ]+$/, ''))} · <span dir="ltr">${h(e.iso)}</span></span></span>
     <span class="row-main"><span class="row-name"><span class="chip chip-simcha">🍷 ${h(t('occSimcha'))}: ${h(e.label)}</span> ${h(e.names.join(' · '))}</span>
-      <span class="muted small">${h(shabbatTitle(e.iso))}</span></span>
+      <span class="muted small">${h(issueTitle(e.iso))}</span></span>
   </button>`;
 }
 

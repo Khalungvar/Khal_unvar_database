@@ -6,7 +6,7 @@
 import { state, loadAll, saveRecord, deleteRecord, saveContact, addRelation, removeRelation } from './data.js';
 import { t } from './i18n.js';
 import { escapeHtml as h } from './util.js';
-import { toHebrew, monthHe, hebrewNumber, todayIso } from './hebdate.js';
+import { toHebrew, monthHe, hebrewNumber, todayIso, fromHebrew } from './hebdate.js';
 import { parashaOf, shabbatOfWeek, shabbatTitle } from './parasha.js';
 import { customFontNames } from './fonts.js';
 import { htmlToJpeg, jpegsToPdf } from './pdf.js';
@@ -33,21 +33,72 @@ const WORDS = {
 };
 
 const cur = { week: '' };
-const weekNow = () => shabbatOfWeek(todayIso());
+// ---------- גליונות: יעדע שבת, און א יום טוב אין מיטן וואך ווען מ'האט אנגעצייכנט ☑ (לשונית SimchaIssues) ----------
+const DAYMS = 86400000;
+const addDays = (iso, n) => new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) + n * DAYMS).toISOString().slice(0, 10);
+const dow = (iso) => new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10))).getUTCDay();
+// [חודש, ערשטער טאג, לעצטער טאג (חו"ל), נאמען פונעם גליון]
+const YT_DEF = [['Tishri', 1, 2, 'ראש השנה'], ['Tishri', 10, 10, 'יום כיפור'], ['Tishri', 15, 16, 'חג הסוכות'],
+  ['Tishri', 22, 23, 'שמחת תורה'], ['Nisan', 15, 16, 'חג הפסח'], ['Sivan', 6, 7, 'חג השבועות']];
+const ytCache = new Map();
+function ytOfYear(y) {
+  if (!ytCache.has(y)) ytCache.set(y, YT_DEF.map(([m, d1, d2, title]) => ({ start: fromHebrew(d1, m, y), end: fromHebrew(d2, m, y), title })).filter((x) => x.start));
+  return ytCache.get(y);
+}
+/** די ימים טובים וואס הייבן זיך אן אין דער וואך פון שבת S (זונטאג–שבת); touching = פרייטאג/שבת איז יום טוב */
+function ytInWeek(S) {
+  const y = toHebrew(S)?.y;
+  if (!y) return [];
+  const sun = addDays(S, -6);
+  return [...ytOfYear(y - 1), ...ytOfYear(y), ...ytOfYear(y + 1)].filter((x) => x.start >= sun && x.start <= S)
+    .map((x) => ({ ...x, touching: x.end >= addDays(S, -1) }));
+}
+const ytByStart = (iso) => { const y = toHebrew(iso)?.y; return y ? ytOfYear(y).find((x) => x.start === iso) : null; };
+const issueOn = (start) => (state.simchaIssues || []).some((r) => r.yt_date === start && isOn(r.on));
+/** די גליונות פון דער וואך (שבת S): די אנגעצייכנטע ימים טובים אין מיטן וואך, און דערנאך די שבת */
+function issuesOfWeek(S) { return [...ytInWeek(S).filter((x) => !x.touching && issueOn(x.start)).map((x) => x.start), S]; }
+const issueEnd = (key) => ytByStart(key)?.end || key;
+const isYtIssue = (key) => dow(key) !== 6 && !!ytByStart(key);
+/** דער גליון פון א טאג: דער ערשטער גליון אין יענער וואך וואס האט זיך נאך נישט געענדיגט */
+function issueForDate(d) { const S = shabbatOfWeek(d); return issuesOfWeek(S).find((k) => issueEnd(k) >= d) || S; }
+const weekNow = () => issueForDate(todayIso());
+function nextIssue(key) {
+  const S = shabbatOfWeek(key); const list = issuesOfWeek(S); const i = list.indexOf(key);
+  return i >= 0 && i < list.length - 1 ? list[i + 1] : issuesOfWeek(addDays(S, 7))[0];
+}
+function prevIssue(key) {
+  const S = shabbatOfWeek(key); const list = issuesOfWeek(S); const i = list.indexOf(key);
+  if (i > 0) return list[i - 1];
+  const p = issuesOfWeek(addDays(S, -7)); return p[p.length - 1];
+}
+/** דער טיטל פון א גליון: "חג הסוכות" / "פרשת לך לך" / "שבת ראש השנה"; א יום טוב וואס רירט אן שבת (פרייטאג) — נאר דער נאמען */
+export function issueTitle(key) {
+  if (isYtIssue(key)) return ytByStart(key).title;
+  const touch = ytInWeek(key).find((x) => x.touching && dow(x.start) !== 6 && !(x.start <= key && x.end >= key));
+  if (touch) return touch.title;
+  return shabbatTitle(key);
+}
 const contactOf = (id) => (id ? ui.contactById(id) : null);
 const bySort = (a, b) => (Number(a.sort) || 0) - (Number(b.sort) || 0) || Number(a.simcha_id) - Number(b.simcha_id);
 const isOn = (v) => v === true || String(v).toUpperCase() === 'TRUE';
-const plus7 = (iso) => new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) + 7 * 86400000).toISOString().slice(0, 10);
 /** די שמחות פון א וואך: ערשט די וואס זענען אריינגעקומען ערב שבת די פאריגע וואך (_carried), דערנאך די פון די וואך */
 const ownOf = (week) => (state.simchos || []).filter((s) => s.week === week).sort(bySort);
 // דער סדר אין דער וואך: "sort" פאר די אייגענע, "sort_next" פאר די וואס קומען פון ערב שבת (ליידיג = אויבן)
 const simchosOf = (week) => {
-  const carried = (state.simchos || []).filter((s) => isOn(s.also_next) && plus7(s.week) === week).sort(bySort).map((s) => ({ ...s, _carried: true }));
+  const carried = (state.simchos || []).filter((s) => isOn(s.also_next) && nextIssue(s.week) === week).sort(bySort).map((s) => ({ ...s, _carried: true }));
   const key = (s) => (s._carried ? Number(s.sort_next) || 0 : Number(s.sort) || 0);
   return [...carried, ...ownOf(week)].map((s, i) => ({ s, i })).sort((a, b) => key(a.s) - key(b.s) || a.i - b.i).map((x) => x.s);
 };
 /** פרייטאג פון 6 אינדערפרי ביז שבת: וואס מ'לייגט אריין די וואך ווייזט זיך אויך די קומענדיגע וואך */
-const lateInWeek = () => { const d = new Date(); return (d.getDay() === 5 && d.getHours() >= 6) || d.getDay() === 6; };
+/** ערב שבת / ערב יום טוב (פון 6 אינדערפרי) ביזן סוף: וואס מ'לייגט אריין ווייזט זיך אויך אינעם קומענדיגן גליון */
+const lateFor = (key) => {
+  const now = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  const stamp = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+  const eve = addDays(key, -1); // ערב שבת / ערב יום טוב
+  if (stamp < eve || stamp > issueEnd(key)) return false;
+  return stamp > eve || now.getHours() >= 6;
+};
 const parseH = (s) => { try { const v = JSON.parse(s.honorees || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
 
 // ---------- קשרים: דורות צווישן מענטשן (דורך די קשרים אין די כרטיסן) ----------
@@ -166,7 +217,7 @@ const setFont = (f) => { try { localStorage.setItem(fontKey, f); } catch { /* */
 function weekLabel(iso) {
   const x = toHebrew(iso);
   const d = x ? `${hebrewNumber(x.d)} ${monthHe(x.m)}` : iso;
-  return `${shabbatTitle(iso)} · ${d}`;
+  return `${issueTitle(iso)} · ${d}`;
 }
 
 function pageHtml(list, fontPt, cols = 1, pageNo = 0, opt = {}) {
@@ -174,9 +225,9 @@ function pageHtml(list, fontPt, cols = 1, pageNo = 0, opt = {}) {
   return `<div class="sg-page" style="font-family:'${h(font)}','Frank Ruhl Libre',serif">
     <div class="sg-inner">
     <img class="sg-bg" src="img/simcha-bg2.jpg" alt="">
-    <div class="sg-parsha">${h(shabbatTitle(cur.week))}</div>
+    <div class="sg-parsha">${h(issueTitle(cur.week))}</div>
     ${bodyHtml(list, fontPt, cols, opt)}</div>
-    ${pageNo ? `<div class="sg-pageno">${h(t('lobbySimchos'))} ${h(shabbatTitle(cur.week))} ${h(t('sgPageNo', { n: pageNo }))}</div>` : ''}</div>`;
+    ${pageNo ? `<div class="sg-pageno">${h(t('lobbySimchos'))} ${h(issueTitle(cur.week))} ${h(t('sgPageNo', { n: pageNo }))}</div>` : ''}</div>`;
 }
 
 /** דער אינהאלט: איין שפאלט, צוויי שפאלטן (CSS), אדער צוויי שפאלטן מיט א באשטימטן צוטייל (opt.split) — מיט "spread" פולט מען אויס דעם בלאט */
@@ -302,6 +353,7 @@ export function renderSimchos() {
       <b>${h(weekLabel(cur.week))}</b>
       <button type="button" class="btn small-btn" id="sg-next" title="${h(t('sgNext'))}">‹</button>
       ${cur.week !== weekNow() ? `<button type="button" class="linkish" id="sg-today">${h(t('sgThisWeek'))}</button>` : ''}
+      ${(() => { const mids = ytInWeek(shabbatOfWeek(cur.week)).filter((x) => !x.touching); return mids.map((x) => `<label class="check sg-yt"><input type="checkbox" data-yt="${h(x.start)}"${issueOn(x.start) ? ' checked' : ''}> ${h(t('sgYtInstead'))}${mids.length > 1 ? ` (${h(x.title)})` : ''}</label>`).join(''); })()}
       <span class="spacer"></span>
       <label class="small">${h(t('sgFont'))} <select id="sg-font">${fonts.map((f) => `<option${f === getFont() ? ' selected' : ''}>${h(f)}</option>`).join('')}</select></label>
       <label class="small">${h(t('sgCols'))} <select id="sg-cols">${[['auto', t('sgColsAuto')], ['1', '1'], ['2', '2']].map(([v, l]) => `<option value="${v}"${getCols() === v ? ' selected' : ''}>${h(l)}</option>`).join('')}</select></label>
@@ -330,10 +382,11 @@ export function renderSimchos() {
 function wire(main, list) {
   $('#sg-back', main).onclick = () => ui.showView('lobby');
   $('#sg-new', main).onclick = () => openSimchaForm({ week: cur.week });
-  $('#sg-prev', main).onclick = () => { cur.week = shift(cur.week, -7); renderSimchos(); };
-  $('#sg-next', main).onclick = () => { cur.week = shift(cur.week, 7); renderSimchos(); };
+  $('#sg-prev', main).onclick = () => { cur.week = prevIssue(cur.week); renderSimchos(); };
+  $('#sg-next', main).onclick = () => { cur.week = nextIssue(cur.week); renderSimchos(); };
   const td = $('#sg-today', main); if (td) td.onclick = () => { cur.week = weekNow(); renderSimchos(); };
   $('#sg-font', main).onchange = (e) => { setFont(e.target.value); renderSimchos(); };
+  $$('[data-yt]', main).forEach((cb) => { cb.onchange = () => toggleYt(cb.dataset.yt, cb.checked, cb); });
   $('#sg-cols', main).onchange = (e) => { setCols(e.target.value); renderSimchos(); };
   $('#sg-jpg', main).onclick = () => jpgPages();
   $('#sg-pdf', main).onclick = () => { ui.toast(t('sgPdfHint')); printPage(list); };
@@ -380,7 +433,7 @@ function printPage(list) {
 async function jpgPages() {
   const btn = $('#sg-jpg'); btn.disabled = true;
   try {
-    const title = shabbatTitle(cur.week);
+    const title = issueTitle(cur.week);
     for (const [i, p] of lastPages.entries()) {
       const multi = lastPages.length > 1;
       const jpg = await htmlToJpeg(pageHtml(p.list, p.pt, p.cols, multi ? i + 1 : 0, p), { widthIn: 5.5, heightIn: 8.5, scale: 150 / 96, quality: 0.92 });
@@ -420,6 +473,25 @@ async function pdfPage(list) {
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
   btn.disabled = false;
+}
+
+// ---------- ☑ "די קומענדיגע יו"ט אנשטאט די פרשה": שמחות גייען אריבער צום יום-טוב-גליון און צוריק ----------
+async function toggleYt(start, on, cb) {
+  const yt = ytByStart(start); const S = shabbatOfWeek(start);
+  const moving = on
+    ? (state.simchos || []).filter((s) => s.week === S && String(s.created_at || '').slice(0, 10) < start)
+    : (state.simchos || []).filter((s) => s.week === start);
+  const msg = on ? t('sgYtOnConfirm', { n: moving.length, name: yt.title }) : t('sgYtOffConfirm', { n: moving.length, name: yt.title });
+  if (!confirm(msg)) { cb.checked = !on; return; }
+  cb.disabled = true;
+  try {
+    const row = (state.simchaIssues || []).find((r) => r.yt_date === start);
+    await saveRecord('SimchaIssues', 'issue_id', { ...(row || {}), yt_date: start, on: on ? 'TRUE' : 'FALSE' });
+    for (const s of moving) await saveRecord('Simchos', 'simcha_id', { ...s, week: on ? start : S });
+    await loadAll();
+    cur.week = on ? start : S;
+    ui.refreshAll(); renderSimchos();
+  } catch (err) { ui.toast(ui.friendlyError(err), 'error'); cb.disabled = false; }
 }
 
 // ---------- אויסמעקן: אויך וואס די שמחה האט אריינגעלייגט אין די כרטיסן (קשרים, הערה נאכן נאמען) ----------
@@ -483,7 +555,7 @@ export function openSimchaForm(s = {}) {
         <span class="sg-when"><button type="button" class="btn small-btn" id="sg-when">📅 ${h(rec.week === weekNow() ? t('sgThisWeek') : weekLabel(rec.week))}</button>
           <input type="date" id="sg-when-date" hidden value="${h(rec.week)}"></span>
       </div>
-      ${!rec.simcha_id && lateInWeek() && rec.week === weekNow() ? `<p class="sg-late-warn">⚠ ${h(t('sgLateWarn'))}</p>` : ''}
+      ${!rec.simcha_id && lateFor(rec.week) && rec.week === weekNow() ? `<p class="sg-late-warn">⚠ ${h(t('sgLateWarn'))}</p>` : ''}
       <div class="sg-special-box" data-special${rec.type === 'special' ? '' : ' hidden'}>
         <div class="sg-rich-tools"><button type="button" class="btn small-btn" id="sg-bold" title="${h(t('sgBold'))}"><b>B</b></button>
           <span class="muted small">${h(t('sgSpecialHint'))}</span></div>
@@ -583,7 +655,7 @@ export function openSimchaForm(s = {}) {
     // ווען: די וואך / אן אנדער דאטום
     const wd = $('#sg-when-date', form);
     $('#sg-when', form).onclick = () => { wd.hidden = false; try { wd.showPicker(); } catch { wd.focus(); } };
-    wd.onchange = () => { if (wd.value) { read(); rec.week = shabbatOfWeek(wd.value); draw(); } };
+    wd.onchange = () => { if (wd.value) { read(); rec.week = issueForDate(wd.value); draw(); } };
     // ספעציעלע: פעט / פשוט
     $('#sg-bold', form).onmousedown = (e) => { e.preventDefault(); document.execCommand('bold'); read(); live(); };
     $('#sg-rich', form).oninput = () => { read(); live(); };
@@ -634,7 +706,7 @@ export function openSimchaForm(s = {}) {
         btn.disabled = true;
         try {
           const out = { ...rec, honorees: '[]', related: JSON.stringify(related) };
-          if (!out.simcha_id) { out.sort = ownOf(out.week).length + 1; if (lateInWeek() && out.week === weekNow()) out.also_next = 'TRUE'; }
+          if (!out.simcha_id) { out.sort = ownOf(out.week).length + 1; if (lateFor(out.week) && out.week === weekNow()) out.also_next = 'TRUE'; }
           await saveRecord('Simchos', 'simcha_id', out);
           await loadAll(); dlg.close(); cur.week = out.week; ui.refreshAll(); renderSimchos(); ui.toast(t('saved'));
         } catch (err) { ui.toast(ui.friendlyError(err), 'error'); btn.disabled = false; }
@@ -645,7 +717,7 @@ export function openSimchaForm(s = {}) {
       try {
         const clean = hs.filter((x) => x.id);
         const out = { ...rec, honorees: JSON.stringify(clean) };
-        if (!out.simcha_id) { out.sort = ownOf(out.week).length + 1; if (lateInWeek() && out.week === weekNow()) out.also_next = 'TRUE'; }
+        if (!out.simcha_id) { out.sort = ownOf(out.week).length + 1; if (lateFor(out.week) && out.week === weekNow()) out.also_next = 'TRUE'; }
         // וואס די שמחה לייגט אריין אין די כרטיסן — געדענקט אין "made", כדי ביים אויסמעקן עס צוריקצונעמען
         const made = parseMade(rec);
         // נייע קשרים צווישן בעלי השמחה → אין די כרטיסן

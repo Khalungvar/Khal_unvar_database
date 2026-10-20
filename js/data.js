@@ -83,7 +83,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts', 'Requests', 'Enrollments', 'Tuition', 'Simchos']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts', 'Requests', 'Enrollments', 'Tuition', 'Simchos', 'SimchaIssues']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -148,6 +148,9 @@ export async function loadAll() {
   const isoDay = (v) => (typeof v === 'number' || /^\d{5}$/.test(String(v || ''))
     ? new Date(Date.UTC(1899, 11, 30) + Math.floor(Number(v)) * 86400000).toISOString().slice(0, 10) : String(v || '').slice(0, 10));
   state.simchos = sim.objects.filter((x) => String(x.simcha_id || '').trim()).map((x) => ({ ...x, week: isoDay(x.week) }));
+  const si = rowsToObjects(tabs.SimchaIssues || [['issue_id']]);
+  state.headers.SimchaIssues = si.header;
+  state.simchaIssues = si.objects.filter((x) => String(x.issue_id || '').trim()).map((x) => ({ ...x, yt_date: isoDay(x.yt_date) }));
 
   const yearly = rowsToObjects(tabs.YearlyCampaigns || [['series']]);
   state.headers.YearlyCampaigns = yearly.header;

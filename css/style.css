@@ -1197,7 +1197,7 @@ html[dir="ltr"] .sg-preview { transform-origin: top left; margin-left: 0; margin
 .sg-page { position: relative; width: 5.5in; height: 8.5in; background: #fff; color: #111; overflow: hidden; direction: rtl; }
 .sg-inner { position: absolute; inset: 0; transform: scale(.909); transform-origin: 50% 50%; } /* שוליים פארן דרוקער: ~0.25in */
 .sg-bg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.sg-parsha { position: absolute; top: 1.83in; left: 50%; transform: translateX(-50%); min-width: 2.2in; padding: 0.04in 0.25in; border: 1px solid #1f2f6b; border-radius: 0.12in; text-align: center; font-size: 13.2pt; font-weight: 700; color: #1f2f6b; background: rgba(255,255,255,.85); white-space: nowrap; }
+.sg-parsha { position: absolute; top: 1.83in; left: 50%; transform: translateX(-50%); min-width: 2.2in; padding: 0.04in 0.25in; border: 1px solid #1f2f6b; border-radius: 0.12in; text-align: center; font-size: 15.4pt; font-weight: 700; color: #1f2f6b; background: rgba(255,255,255,.85); white-space: nowrap; }
 .sg-body { position: absolute; top: 2.42in; bottom: 0.72in; left: 0.72in; right: 0.72in; padding: 0 3px 6px; text-align: center; line-height: 1.05; overflow: hidden; }
 .sg-body > .sg-entry { margin-bottom: 0.18in; }
 .sg-body.sg-cols { column-count: 2; column-gap: 0.14in; column-fill: balance; }
@@ -1254,3 +1254,4 @@ html[dir="ltr"] .sg-preview { transform-origin: top left; margin-left: 0; margin
 .chip-simcha { background: color-mix(in srgb, #7a1f1f 12%, var(--surface)); border-color: #b98b8b; }
 .sg-late { margin-top: 6px; font-family: Heebo, sans-serif; font-size: 12px; color: #8a5a00; }
 .sg-late-warn { margin: 6px 0; padding: 6px 10px; border-radius: 8px; background: color-mix(in srgb, var(--gold) 18%, transparent); border: 1px solid var(--gold); font-size: 14px; }
+.sg-yt { font-size: 13px; padding: 4px 10px; border: 1px dashed var(--gold); border-radius: 999px; }
