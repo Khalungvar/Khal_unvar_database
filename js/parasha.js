@@ -100,6 +100,35 @@ export function parashaOf(iso) {
   return yearParshiyot(h.y).get(iso) || null;
 }
 
+/** א שבת אן א פרשה (יום טוב אין חו"ל): דער נאמען פונעם יום טוב */
+export function holidayOf(iso) {
+  const x = toHebrew(iso);
+  if (!x) return '';
+  if (x.m === 'Tishri') {
+    if (x.d <= 2) return 'ראש השנה';
+    if (x.d === 10) return 'יום כיפור';
+    if (x.d === 15 || x.d === 16) return 'סוכות';
+    if (x.d >= 17 && x.d <= 21) return 'חול המועד סוכות';
+    if (x.d === 22) return 'שמיני עצרת';
+    if (x.d === 23) return 'שמחת תורה';
+  }
+  if (x.m === 'Nisan') {
+    if (x.d === 15 || x.d === 16) return 'פסח';
+    if (x.d >= 17 && x.d <= 20) return 'חול המועד פסח';
+    if (x.d === 21 || x.d === 22) return 'אחרון של פסח';
+  }
+  if (x.m === 'Sivan' && (x.d === 6 || x.d === 7)) return 'שבועות';
+  return '';
+}
+
+/** דער נאמען פון א שבת: "פרשת לך לך", "שבת ראש השנה", "שבת חול המועד סוכות" */
+export function shabbatTitle(iso) {
+  const p = parashaOf(iso);
+  if (p) return `פרשת ${p.he}`;
+  const hol = holidayOf(iso);
+  return hol ? `שבת ${hol}` : 'שבת';
+}
+
 /** דער שבת פון דער וואך פון א טאג (שבת = דער זעלבער טאג) */
 export function shabbatOfWeek(iso) {
   const t = utc(iso);

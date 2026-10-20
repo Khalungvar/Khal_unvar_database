@@ -7,7 +7,7 @@ import { state, loadAll, saveRecord, deleteRecord, saveContact, addRelation, rem
 import { t } from './i18n.js';
 import { escapeHtml as h } from './util.js';
 import { toHebrew, monthHe, hebrewNumber, todayIso } from './hebdate.js';
-import { parashaOf, shabbatOfWeek } from './parasha.js';
+import { parashaOf, shabbatOfWeek, shabbatTitle } from './parasha.js';
 import { customFontNames } from './fonts.js';
 import { htmlToJpeg, jpegsToPdf } from './pdf.js';
 
@@ -153,10 +153,9 @@ const getFont = () => { let f = ''; try { f = localStorage.getItem(fontKey) || '
 const setFont = (f) => { try { localStorage.setItem(fontKey, f); } catch { /* */ } };
 
 function weekLabel(iso) {
-  const p = parashaOf(iso);
   const x = toHebrew(iso);
   const d = x ? `${hebrewNumber(x.d)} ${monthHe(x.m)}` : iso;
-  return p ? `${t('sgParsha')} ${p.he} · ${d}` : `${t('sgShabbat')} ${d}`;
+  return `${shabbatTitle(iso)} · ${d}`;
 }
 
 function pageHtml(list, fontPt, cols = 1, pageNo = 0, opt = {}) {
@@ -164,9 +163,9 @@ function pageHtml(list, fontPt, cols = 1, pageNo = 0, opt = {}) {
   return `<div class="sg-page" style="font-family:'${h(font)}','Frank Ruhl Libre',serif">
     <div class="sg-inner">
     <img class="sg-bg" src="img/simcha-bg2.jpg" alt="">
-    ${parashaOf(cur.week) ? `<div class="sg-parsha">${h(t('sgParsha'))} ${h(parashaOf(cur.week).he)}</div>` : ''}
+    <div class="sg-parsha">${h(shabbatTitle(cur.week))}</div>
     ${bodyHtml(list, fontPt, cols, opt)}</div>
-    ${pageNo ? `<div class="sg-pageno">${h(t('lobbySimchos'))}${parashaOf(cur.week) ? ` ${h(t('sgParsha'))} ${h(parashaOf(cur.week).he)}` : ''} ${h(t('sgPageNo', { n: pageNo }))}</div>` : ''}</div>`;
+    ${pageNo ? `<div class="sg-pageno">${h(t('lobbySimchos'))} ${h(shabbatTitle(cur.week))} ${h(t('sgPageNo', { n: pageNo }))}</div>` : ''}</div>`;
 }
 
 /** דער אינהאלט: איין שפאלט, צוויי שפאלטן (CSS), אדער צוויי שפאלטן מיט א באשטימטן צוטייל (opt.split) — מיט "spread" פולט מען אויס דעם בלאט */
