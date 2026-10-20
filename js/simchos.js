@@ -141,14 +141,56 @@ function weekLabel(iso) {
   return p ? `${t('sgParsha')} ${p.he} · ${d}` : `${t('sgShabbat')} ${d}`;
 }
 
-function pageHtml(list, fontPx) {
+function pageHtml(list, fontPt, cols = 1) {
   const font = getFont().replace(/'/g, '');
   return `<div class="sg-page" style="font-family:'${h(font)}','Frank Ruhl Libre',serif">
     <div class="sg-inner">
     <img class="sg-bg" src="img/simcha-bg2.jpg" alt="">
     ${parashaOf(cur.week) ? `<div class="sg-parsha">${h(t('sgParsha'))} ${h(parashaOf(cur.week).he)}</div>` : ''}
-    <div class="sg-body" style="font-size:${fontPx}pt">${list.map(simchaHtml).join('')}</div></div></div>`;
+    <div class="sg-body${cols > 1 ? ' sg-cols' : ''}" style="font-size:${fontPt}pt">${list.map(simchaHtml).join('')}</div></div></div>`;
 }
+
+// ---------- אויסלייג: איין/צוויי שפאלטן, קלענערער שריפט (ביז 2.5 נקודות), און דערנאך א צווייטער בלאט ----------
+const MIN_PT = Math.round(((11 - 2.5) / SCALE) * 100) / 100;
+const colsKey = 'sg-cols';
+const getCols = () => { try { return localStorage.getItem(colsKey) || 'auto'; } catch { return 'auto'; } };
+const setCols = (v) => { try { localStorage.setItem(colsKey, v); } catch { /* */ } };
+let lastPages = [];
+
+let meas = null;
+function fits(list, pt, cols) {
+  if (!meas) { meas = document.createElement('div'); meas.className = 'sg-measure'; document.body.appendChild(meas); }
+  meas.innerHTML = pageHtml(list, pt, cols);
+  const body = $('.sg-body', meas);
+  const b = body.getBoundingClientRect();
+  return $$('.sg-entry', body).every((e) => { const r = e.getBoundingClientRect(); return r.bottom <= b.bottom + 1 && r.left >= b.left - 1 && r.right <= b.right + 1; });
+}
+/** פאר א גרופע שמחות: { cols, pt } אדער null (גייט נישט אריין אויף איין בלאט) */
+function layoutFor(list) {
+  const mode = getCols();
+  const tries = [];
+  const shrink = (cols) => { for (let pt = MAX_PT; pt >= MIN_PT - 0.001; pt = Math.round((pt - 0.25) * 100) / 100) tries.push([cols, pt]); };
+  if (mode === '1') shrink(1);
+  else if (mode === '2') shrink(2);
+  else { tries.push([1, MAX_PT]); shrink(2); }
+  const ok = tries.find(([c, pt]) => fits(list, pt, c));
+  return ok ? { cols: ok[0], pt: ok[1] } : null;
+}
+/** צוטיילן אויף בלעטער: [{ list, cols, pt }] */
+function paginate(all) {
+  const pages = [];
+  let rest = all.slice();
+  for (let guard = 0; rest.length && guard < 6; guard += 1) {
+    let k = rest.length; let lay = layoutFor(rest);
+    while (!lay && k > 1) { k -= 1; lay = layoutFor(rest.slice(0, k)); }
+    if (!lay) lay = { cols: getCols() === '2' ? 2 : 1, pt: MIN_PT };
+    pages.push({ list: rest.slice(0, k), ...lay });
+    rest = rest.slice(k);
+  }
+  if (meas) meas.innerHTML = '';
+  return pages;
+}
+const pagesHtml = (pages) => pages.map((p) => pageHtml(p.list, p.pt, p.cols)).join('');
 
 export function openSimchos() {
   if (!cur.week) cur.week = weekNow();
@@ -175,6 +217,7 @@ export function renderSimchos() {
       ${cur.week !== weekNow() ? `<button type="button" class="linkish" id="sg-today">${h(t('sgThisWeek'))}</button>` : ''}
       <span class="spacer"></span>
       <label class="small">${h(t('sgFont'))} <select id="sg-font">${fonts.map((f) => `<option${f === getFont() ? ' selected' : ''}>${h(f)}</option>`).join('')}</select></label>
+      <label class="small">${h(t('sgCols'))} <select id="sg-cols">${[['auto', t('sgColsAuto')], ['1', '1'], ['2', '2']].map(([v, l]) => `<option value="${v}"${getCols() === v ? ' selected' : ''}>${h(l)}</option>`).join('')}</select></label>
       <button type="button" class="btn small-btn" id="sg-print"${list.length ? '' : ' disabled'}>🖨 ${h(t('sgPrint'))}</button>
       <button type="button" class="btn small-btn" id="sg-pdf"${list.length ? '' : ' disabled'} title="${h(t('sgPdfHint'))}">⬇ Print to PDF</button>
     </div>
@@ -187,22 +230,13 @@ export function renderSimchos() {
             <button type="button" class="btn small-btn" data-sg-down="${h(s.simcha_id)}"${i < list.length - 1 ? '' : ' disabled'}>▼</button>
             <button type="button" class="btn small-btn danger" data-sg-del="${h(s.simcha_id)}" title="${h(t('deleteBtn'))}">🗑</button>
           </div></div>`).join('') : `<p class="muted">${h(t('sgNone'))}</p>`}</div>
-      <div class="sg-preview-wrap"><div class="sg-preview" id="sg-preview">${pageHtml(list, MAX_PT)}</div></div>
+      <div class="sg-preview-wrap"><div class="sg-preview" id="sg-preview"></div><p class="muted small" id="sg-layout"></p></div>
     </div>`;
-  fitPage($('#sg-preview .sg-page', main));
+  lastPages = list.length ? paginate(list) : [{ list: [], cols: 1, pt: MAX_PT }];
+  $('#sg-preview', main).innerHTML = pagesHtml(lastPages);
+  $('#sg-preview', main).style.setProperty('--pages', lastPages.length);
+  $('#sg-layout', main).textContent = list.length ? t('sgLayout', { p: lastPages.length, c: lastPages.map((p) => p.cols).join('/'), s: lastPages.map((p) => Math.round(p.pt * SCALE * 10) / 10).join('/') }) : '';
   wire(main, list);
-}
-
-/** קלענער מאכן דעם שריפט ביז אלעס גייט אריין */
-function fitPage(page) {
-  if (!page) return MAX_PT;
-  const body = $('.sg-body', page);
-  // 11 נקודות אויפן פאפיר (דער בלאט איז פארקלענערט צו 0.909 פאר די שוליים) → 12.1pt; קלענער נאר ווען ס'גייט נישט אריין
-  let px = MAX_PT;
-  body.style.fontSize = `${px}pt`;
-  while (px > 5 && body.scrollHeight > body.clientHeight + 1) { px = Math.round((px - 0.25) * 100) / 100; body.style.fontSize = `${px}pt`; }
-  page.dataset.px = px;
-  return px;
 }
 
 function wire(main, list) {
@@ -212,6 +246,7 @@ function wire(main, list) {
   $('#sg-next', main).onclick = () => { cur.week = shift(cur.week, 7); renderSimchos(); };
   const td = $('#sg-today', main); if (td) td.onclick = () => { cur.week = weekNow(); renderSimchos(); };
   $('#sg-font', main).onchange = (e) => { setFont(e.target.value); renderSimchos(); };
+  $('#sg-cols', main).onchange = (e) => { setCols(e.target.value); renderSimchos(); };
   $('#sg-print', main).onclick = () => printPage(list);
   $('#sg-pdf', main).onclick = () => { ui.toast(t('sgPdfHint')); printPage(list); };
   void pdfPage; // דער אלטער PDF (בילד) — אויב מ'וועט עס דארפן
@@ -237,10 +272,10 @@ function wire(main, list) {
 const shift = (iso, days) => new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) + days * 86400000).toISOString().slice(0, 10);
 
 function printPage(list) {
-  const px = Number($('#sg-preview .sg-page')?.dataset.px) || MAX_PT;
+  void list;
   let area = $('#sg-print-area');
   if (!area) { area = document.createElement('div'); area.id = 'sg-print-area'; document.body.appendChild(area); }
-  area.innerHTML = pageHtml(list, px);
+  area.innerHTML = pagesHtml(lastPages);
   const st = document.createElement('style');
   st.textContent = '@page { size: 5.5in 8.5in; margin: 0; }';
   document.head.appendChild(st);
@@ -253,9 +288,10 @@ function printPage(list) {
 async function pdfPage(list) {
   const btn = $('#sg-pdf'); btn.disabled = true;
   try {
-    const px = Number($('#sg-preview .sg-page')?.dataset.px) || MAX_PT;
-    const jpg = await htmlToJpeg(pageHtml(list, px), { widthIn: 5.5, heightIn: 8.5, scale: 3, quality: 0.9 });
-    const pdf = jpegsToPdf([jpg], { pageW: 396, pageH: 612, margin: 0 });
+    void list;
+    const jpgs = [];
+    for (const p of lastPages) jpgs.push(await htmlToJpeg(pageHtml(p.list, p.pt, p.cols), { widthIn: 5.5, heightIn: 8.5, scale: 3, quality: 0.9 }));
+    const pdf = jpegsToPdf(jpgs, { pageW: 396, pageH: 612, margin: 0 });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([pdf], { type: 'application/pdf' }));
     const p = parashaOf(cur.week);
