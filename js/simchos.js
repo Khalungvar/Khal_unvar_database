@@ -245,8 +245,8 @@ function paginate(all) {
 function finalize(pages) {
   pages.forEach((p, i) => {
     // דער לעצטער בלאט פון עטלעכע — וואו די שמחות ענדיגן זיך — ווערט נישט אויסגעצויגן
-    const lastOfMany = pages.length > 1 && i === pages.length - 1;
-    p.spread = !lastOfMany && (p.cols === 2 || p.pt < MAX_PT - 0.001 || i < pages.length - 1);
+    // דער לעצטער בלאט (אויך ווען ס'איז נאר איין בלאט) ווערט נישט אויסגעצויגן
+    p.spread = i < pages.length - 1;
     if (p.cols !== 2 || p.list.length < 2) return;
     if (!meas) { meas = document.createElement('div'); meas.className = 'sg-measure'; document.body.appendChild(meas); }
     if (!p.spread) {
