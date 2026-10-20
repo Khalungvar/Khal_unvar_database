@@ -123,10 +123,25 @@ export function holidayOf(iso) {
 
 /** דער נאמען פון א שבת: "פרשת לך לך", "שבת ראש השנה", "שבת חול המועד סוכות" */
 export function shabbatTitle(iso) {
-  const p = parashaOf(iso);
-  if (p) return `פרשת ${p.he}`;
+  // שבת איז יום טוב: "שבת ראש השנה"
   const hol = holidayOf(iso);
-  return hol ? `שבת ${hol}` : 'שבת';
+  if (hol) return `שבת ${hol}`;
+  // א יום טוב אין מיטן וואך (זונטאג–פרייטאג): נאר דער נאמען פונעם יום טוב, אן "פרשת".
+  // נישט גערעכנט: א המשך פונעם יום טוב פון שבת פריער (למשל ב' ראש השנה / שמחת תורה אויף זונטאג)
+  const t0 = Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+  const day = (k) => new Date(t0 - k * 86400000).toISOString().slice(0, 10);
+  const grp = (n) => (n === 'שמחת תורה' ? 'שמיני עצרת' : n);
+  let prev = grp(holidayOf(day(7)));
+  const names = [];
+  for (let k = 6; k >= 1; k -= 1) {
+    const w = holidayOf(day(k));
+    if (w && prev && grp(w) === prev) continue; // נאך דער זעלבער יום טוב פון שבת
+    prev = '';
+    if (w) names.push(w);
+  }
+  if (names.length) return names.find((n) => !n.startsWith('חול המועד')) || names[0];
+  const p = parashaOf(iso);
+  return p ? `פרשת ${p.he}` : 'שבת';
 }
 
 /** דער שבת פון דער וואך פון א טאג (שבת = דער זעלבער טאג) */
