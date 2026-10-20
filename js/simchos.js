@@ -117,7 +117,7 @@ export function simchaHtml(s) {
   const ty = TYPES[s.type] || TYPES.birth;
   const lines = rows.map((x) => {
     const c = contactOf(x.id) || {};
-    const name = `${h(x.title || '')} ${h(c.first_name_he || '')} <b>${h(c.last_name_he || '')}</b> ${h(x.suffix || '')}`.replace(/\s+/g, ' ').trim();
+    const name = `${h(x.title || '')} <b>${h(c.first_name_he || '')} ${h(c.last_name_he || '')}</b> ${h(x.suffix || '')}`.replace(/\s+/g, ' ').trim();
     return `<div class="sg-name">${name}</div>${x.noteOn && x.note ? `<div class="sg-note">${h(x.note)}</div>` : ''}`;
   }).join('');
   const forLine = String(s.text_override || '').trim() ? h(s.text_override)
