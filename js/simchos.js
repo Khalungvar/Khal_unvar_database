@@ -526,7 +526,7 @@ function honoreeRow(x, i) {
     <div class="sg-h-line">
       <input class="sg-title" placeholder="${h(t('sgTitle'))}" value="${h(x.title ?? (c?.title_he || ''))}">
       <input class="sg-pick" list="dl-sg-contacts" autocomplete="off" placeholder="${h(t('pickContact'))}" value="${c ? h(ui.pickerLabel(c)) : ''}" data-id="${h(x.id || '')}">
-      <button type="button" class="btn small-btn sg-open-card" title="${h(t('sgOpenCard'))}"${c ? '' : ' hidden'}>✎ ${h(t('sgOpenCard'))}</button>
+      <button type="button" class="btn primary small-btn sg-open-card" title="${h(t('sgOpenCard'))}"${c ? '' : ' hidden'}>✎ ${h(t('sgOpenCard'))}</button>
       <span class="sg-suf">${SUFFIXES.map((sx) => `<label class="chip-radio"><input type="radio" name="suf${i}" value="${h(sx)}"${suf === sx ? ' checked' : ''}> ${h(sx)}</label>`).join('')}
         <label class="chip-radio"><input type="radio" name="suf${i}" value="__other"${isOther ? ' checked' : ''}> ${h(t('sgOther'))}</label>
         <input class="sg-suf-other" value="${isOther ? h(suf) : ''}"${isOther ? '' : ' hidden'}></span>
