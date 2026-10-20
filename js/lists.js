@@ -1,5 +1,6 @@
 // בונה רשימות: בוחרים תנאים (פרטים, נדבות, מאורעות, הוספה/הורדה ידנית), רואים את התוצאה מיד,
 // שומרים בשם, ומוציאים לאקסל או להדפסה. רשימה שמורה "חיה" — היא מחושבת מחדש כל פעם לפי התנאים.
+import { tagSelHtml, readTagSel, matchesTagSel } from './tags.js';
 import { state, loadAll, saveSavedList, deleteSavedList, displayName } from './data.js';
 import { t } from './i18n.js';
 import {
@@ -138,6 +139,7 @@ export function evaluate(cr) {
       return memberOrgs(c, type).includes(value) && (cr.orgFormer || !isFormerOf(c, type, value));
     })) continue;
     if (cr.tags.length && !cr.tags.some((x) => splitTags(c.community_tags).includes(x))) continue;
+    if (cr.tagSel && cr.tagSel.keys && cr.tagSel.keys.length && !matchesTagSel(c, cr.tagSel)) continue;
     if (cr.areas.length && !cr.areas.includes(c.area)) continue;
     if (cr.marital.length && !cr.marital.includes(c.marital_status)) continue;
     if (cr.neshei && !isTrue(c.wife_in_neshei)) continue;
@@ -214,6 +216,10 @@ export function renderBuilder() {
       ${current.list_id ? `<button type="button" class="btn danger" id="lb-delete">${t('deleteBtn')}</button>` : ''}
     </div>
     <form id="lb-form" class="lb-form" onsubmit="return false">
+      <details${cr.tagSel && cr.tagSel.keys && cr.tagSel.keys.length ? ' open' : ''}><summary>🏷 ${t('tgTitle')}</summary>
+        <p class="hint-line">${t('tgListHint')}</p>
+        ${tagSelHtml(cr.tagSel || {})}
+      </details>
       <details open><summary>${t('lbDetails')}</summary>
         <div class="lb-block"><span class="quick-label">${t('organizations')}</span>
           ${chips('orgs', orgKeys, cr.orgs, (k) => k.split('|')[1])}
@@ -312,6 +318,7 @@ function readCriteria(form) {
     donation: { mode: f('don_mode').value, series: f('don_series').value, campaign: f('don_campaign').value, org: f('don_org').value, year: f('don_year').value, min: f('don_min').value },
     unpaid: f('unpaid').checked,
     occasion: { type: f('occ_type').value, days: f('occ_days').value },
+    tagSel: readTagSel(form),
   });
   current.columns = on('columns');
 }

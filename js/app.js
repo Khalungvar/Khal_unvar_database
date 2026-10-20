@@ -30,6 +30,7 @@ import { openHelp, initHelpChat } from './help.js';
 import { initMerge, openMerge } from './merge.js';
 import { loadFonts } from './fonts.js';
 import { initFeedback, openFeedbackCount } from './feedback.js';
+import { initTags, cardTagsHtml, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
 import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount, parseOrgTags, splitEntry, entry } from './orgtags.js';
@@ -115,6 +116,7 @@ async function enterApp() {
   $('#app-view').hidden = false;
   initHelpChat();
   initFeedback({ toast, friendlyError, refreshBadges: updateBadges });
+  initTags({ toast, friendlyError });
   refreshAll();
   showView('lobby');
 }
@@ -550,6 +552,29 @@ function matchesOrg(c) {
   return $('#org-former').checked || !isTrue(c[`${name}_former`]);
 }
 
+/** פילטער לויט עץ התגיות (אדער "⚠ לא נבדק") */
+function matchesTreeFilter(c) {
+  const v = $('#tt-filter')?.value;
+  if (!v) return true;
+  if (v === '__u') return hasUnchecked(c);
+  return matchesTagSel(c, { keys: [v], st: [...TAG_ST.map(([k]) => k), TAG_U] });
+}
+function fillTreeFilter() {
+  const sel = $('#tt-filter');
+  if (!sel) return;
+  const cur = sel.value;
+  const opts = [];
+  const walk = (path, depth) => {
+    opts.push(`<option value="${h(tagKey(path))}">${'\u00a0\u00a0'.repeat(depth)}${h(tagName(path[path.length - 1]))}</option>`);
+    if (depth < 2) tagChildren(path).forEach((k) => walk([...path, k.id], depth + 1));
+  };
+  tagRoots().forEach((r) => walk([r.id], 0));
+  const nU = state.contacts.filter(hasUnchecked).length;
+  sel.innerHTML = `<option value="">🏷 ${h(t('tgAll'))}</option>${nU ? `<option value="__u">⚠ ${h(t('tgUnchecked'))} (${nU})</option>` : ''}${opts.join('')}`;
+  sel.value = [...sel.options].some((o) => o.value === cur) ? cur : '';
+  sel.hidden = !tagRoots().length;
+}
+
 /** די צווייטע שורה: תגיות פנימיות ("ארגון: טעג") — נאר די וואס זענען דא ביי די אנשים לויט דעם ערשטן פילטער */
 function matchesOrgTag(c) {
   const v = $('#otag-filter')?.value;
@@ -585,6 +610,7 @@ function visibleContacts() {
     .filter((c) => showInactive || isTrue(c.is_active) || c.is_active === '')
     .filter((c) => !tag || splitTags(c.community_tags).includes(tag))
     .filter(matchesOrgTag)
+    .filter(matchesTreeFilter)
     .filter((c) => !area || c.area === area)
     .filter(matchesOrg)
     .filter((c) => matches(c, query))
@@ -622,6 +648,7 @@ function fatherLine(c) {
 function renderList() {
   buildFatherMap();
   fillOrgTagFilter();
+  fillTreeFilter();
   const list = visibleContacts();
   const sc = getScope();
   $('#count').textContent = t('count', { n: list.length }) + (sc ? ` · ${scopeLabel(sc)}` : '');
@@ -639,6 +666,7 @@ function contactRow(c) {
   const badges = [
     !isAlive(c.is_alive) ? `<span class="badge muted">${t('deceased')}</span>` : '',
     c.is_active === false || c.is_active === 'FALSE' ? `<span class="badge muted">${t('inactive')}</span>` : '',
+    hasUnchecked(c) ? `<span class="badge tg-u-badge" title="${h(t('tgUncheckedTip'))}">⚠ ${t('tgUnchecked')}</span>` : '',
     ...orgLabels(c).map((o) => orgChip(o, 'badge org')),
   ].join('');
   const tags = splitTags(c.community_tags).map((tag) => `<span class="chip">${h(tag)}</span>`).join('');
@@ -724,6 +752,7 @@ function openCard(id, tab = null) {
       ${field(t('organizations'), orgLabels(c).map((o) => orgChip(o, 'chip')).join(''))}
       ${field(t('community'), tagChips(c.community_tags))}
     </section>
+    ${cardTagsHtml(c)}
     ${address || c.area ? `<section><h3>${t('address')}${c.area ? ` · ${unverifiedWrap(c, ['area'], h(c.area))}` : ''}</h3><p dir="ltr" class="addr">${address}</p></section>` : ''}
     ${phones || emails ? `<section><h3>${t('phonesEmail')}</h3>${phones}${emails}</section>` : ''}
     </div>
@@ -1357,6 +1386,7 @@ function openForm(c = {}) {
       </div>
       ${orgRow(c)}
     </fieldset>
+    ${tagsEditorHtml(c)}
 
     <fieldset><legend>${t('secEnglish')}</legend>
       <div class="grid" dir="ltr">
@@ -1446,6 +1476,7 @@ function openForm(c = {}) {
     </div>`;
 
   wireForm(form, c);
+  wireTagsEditor(form);
   form.elements.gtd_missing.onchange = (e) => { form.elements.gtd_missing_text.hidden = !e.target.checked; if (e.target.checked) form.elements.gtd_missing_text.focus(); };
   $('#form-dialog').showModal();
 }
@@ -1651,6 +1682,12 @@ function collect(form, original) {
 async function submit(form, original) {
   form._relPending?.(); // א קשר וואס מ'האט אויסגעקליבן אבער נישט צוגעלייגט
   const { contact, phones } = collect(form, original);
+  // עץ התגיות
+  const tg = readTagsEditor(form, original);
+  if (tg.error) { toast(tg.error, 'error'); $('.tg-missing', form)?.scrollIntoView({ block: 'center' }); return; }
+  contact.tags = tg.tags;
+  applyMaritalRule(contact, original);
+  nesheiFromTags(contact);
   contact.is_active = !form.elements.inactive.checked;
 
   if (!contact.last_name_he || (!contact.first_name_he && !original.contact_id)) {
@@ -1756,6 +1793,7 @@ function start() {
   $('#search').addEventListener('input', renderList);
   $('#tag-filter').addEventListener('change', renderList);
   $('#otag-filter').addEventListener('change', renderList);
+  $('#tt-filter')?.addEventListener('change', renderList);
   $('#area-filter').addEventListener('change', renderList);
   $('#org-filter').addEventListener('change', () => { $('#org-former-wrap').hidden = !$('#org-filter').value; renderList(); });
   $('#org-former').addEventListener('change', renderList);

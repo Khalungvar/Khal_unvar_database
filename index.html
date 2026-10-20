@@ -8,42 +8,43 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&family=Playpen+Sans+Hebrew:wght@400;600&family=Amatic+SC:wght@700&family=Noto+Rashi+Hebrew:wght@500&family=Frank+Ruhl+Libre:wght@400;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="img/favicon.png">
-  <link rel="stylesheet" href="css/style.css?v=222">
+  <link rel="stylesheet" href="css/style.css?v=223">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script type="importmap">
   {"imports": {
-    "./js/admin.js": "./js/admin.js?v=222",
-    "./js/app.js": "./js/app.js?v=222",
-    "./js/campaigns.js": "./js/campaigns.js?v=222",
-    "./js/config.js": "./js/config.js?v=222",
-    "./js/data.js": "./js/data.js?v=222",
-    "./js/donations.js": "./js/donations.js?v=222",
-    "./js/chart.js": "./js/chart.js?v=222",
-    "./js/excel.js": "./js/excel.js?v=222",
-    "./js/hebdate.js": "./js/hebdate.js?v=222",
-    "./js/google.js": "./js/google.js?v=222",
-    "./js/help.js": "./js/help.js?v=222",
-    "./js/import.js": "./js/import.js?v=222",
-    "./js/i18n.js": "./js/i18n.js?v=222",
-    "./js/lists.js": "./js/lists.js?v=222",
-    "./js/mail.js": "./js/mail.js?v=222",
-    "./js/mailmerge.js": "./js/mailmerge.js?v=222",
-    "./js/orgtags.js": "./js/orgtags.js?v=222",
-    "./js/pdf.js": "./js/pdf.js?v=222",
-    "./js/fonts.js": "./js/fonts.js?v=222",
-    "./js/feedback.js": "./js/feedback.js?v=222",
-    "./js/names.js": "./js/names.js?v=222",
-    "./js/occasions.js": "./js/occasions.js?v=222",
-    "./js/personal.js": "./js/personal.js?v=222",
-    "./js/places.js": "./js/places.js?v=222",
-    "./js/receipts.js": "./js/receipts.js?v=222",
-    "./js/requests.js": "./js/requests.js?v=222",
-    "./js/school.js": "./js/school.js?v=222",
-    "./js/simchos.js": "./js/simchos.js?v=222",
-    "./js/parasha.js": "./js/parasha.js?v=222",
-    "./js/merge.js": "./js/merge.js?v=222",
-    "./js/scope.js": "./js/scope.js?v=222",
-    "./js/util.js": "./js/util.js?v=222"
+    "./js/admin.js": "./js/admin.js?v=223",
+    "./js/app.js": "./js/app.js?v=223",
+    "./js/campaigns.js": "./js/campaigns.js?v=223",
+    "./js/config.js": "./js/config.js?v=223",
+    "./js/data.js": "./js/data.js?v=223",
+    "./js/donations.js": "./js/donations.js?v=223",
+    "./js/chart.js": "./js/chart.js?v=223",
+    "./js/excel.js": "./js/excel.js?v=223",
+    "./js/hebdate.js": "./js/hebdate.js?v=223",
+    "./js/google.js": "./js/google.js?v=223",
+    "./js/help.js": "./js/help.js?v=223",
+    "./js/import.js": "./js/import.js?v=223",
+    "./js/i18n.js": "./js/i18n.js?v=223",
+    "./js/lists.js": "./js/lists.js?v=223",
+    "./js/mail.js": "./js/mail.js?v=223",
+    "./js/mailmerge.js": "./js/mailmerge.js?v=223",
+    "./js/orgtags.js": "./js/orgtags.js?v=223",
+    "./js/pdf.js": "./js/pdf.js?v=223",
+    "./js/fonts.js": "./js/fonts.js?v=223",
+    "./js/feedback.js": "./js/feedback.js?v=223",
+    "./js/tags.js": "./js/tags.js?v=223",
+    "./js/names.js": "./js/names.js?v=223",
+    "./js/occasions.js": "./js/occasions.js?v=223",
+    "./js/personal.js": "./js/personal.js?v=223",
+    "./js/places.js": "./js/places.js?v=223",
+    "./js/receipts.js": "./js/receipts.js?v=223",
+    "./js/requests.js": "./js/requests.js?v=223",
+    "./js/school.js": "./js/school.js?v=223",
+    "./js/simchos.js": "./js/simchos.js?v=223",
+    "./js/parasha.js": "./js/parasha.js?v=223",
+    "./js/merge.js": "./js/merge.js?v=223",
+    "./js/scope.js": "./js/scope.js?v=223",
+    "./js/util.js": "./js/util.js?v=223"
   }}
   </script>
   <script type="module">import "./js/app.js";</script>
@@ -116,6 +117,7 @@
         <div class="tag-stack">
           <select id="tag-filter" aria-label="Tags"></select>
           <select id="otag-filter" aria-label="Internal tags" hidden></select>
+          <select id="tt-filter" aria-label="Tag tree" hidden></select>
         </div>
         <select id="area-filter" aria-label="Area"></select>
         <select id="org-filter" aria-label="Organization"></select>

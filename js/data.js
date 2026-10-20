@@ -83,7 +83,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts', 'Requests', 'Enrollments', 'Tuition', 'Simchos', 'SimchaIssues']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts', 'Requests', 'Enrollments', 'Tuition', 'Simchos', 'SimchaIssues', 'TagTree']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -148,6 +148,9 @@ export async function loadAll() {
   const isoDay = (v) => (typeof v === 'number' || /^\d{5}$/.test(String(v || ''))
     ? new Date(Date.UTC(1899, 11, 30) + Math.floor(Number(v)) * 86400000).toISOString().slice(0, 10) : String(v || '').slice(0, 10));
   state.simchos = sim.objects.filter((x) => String(x.simcha_id || '').trim()).map((x) => ({ ...x, week: isoDay(x.week) }));
+  const tt = rowsToObjects(tabs.TagTree || [['node_id']]);
+  state.headers.TagTree = tt.header;
+  state.tagTree = tt.objects.filter((x) => String(x.node_id || '').trim());
   const si = rowsToObjects(tabs.SimchaIssues || [['issue_id']]);
   state.headers.SimchaIssues = si.header;
   state.simchaIssues = si.objects.filter((x) => String(x.issue_id || '').trim()).map((x) => ({ ...x, yt_date: isoDay(x.yt_date) }));
@@ -200,7 +203,7 @@ async function findRow(tab, contactId) {
 }
 
 // ---------- היסטאריע פון ענדערונגען (לשונית History) ----------
-const SKIP_FIELDS = new Set(['contact_id', 'donation_id', 'occasion_id', 'note_id', 'relation_id', '_row', 'updated_at', 'updated_by', 'created_at', 'created_by', 'unverified_fields', 'photo_data', 'logo_data', 'header_img', 'header_img_2', 'header_img_3', 'signature_img']);
+const SKIP_FIELDS = new Set(['tags', 'contact_id', 'donation_id', 'occasion_id', 'note_id', 'relation_id', '_row', 'updated_at', 'updated_by', 'created_at', 'created_by', 'unverified_fields', 'photo_data', 'logo_data', 'header_img', 'header_img_2', 'header_img_3', 'signature_img']);
 let historyCache = null;
 
 /** ליידיג = פאלש (אדער "לעבט"/"אקטיוו"/USA ביי די פעלדער וואס דאס איז זייער סטאנדארט) — נישט קיין ענדערונג. */

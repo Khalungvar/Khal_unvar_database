@@ -1291,3 +1291,40 @@ body.lobby-mode #btn-lobby { display: none; }
 .td-add { flex-wrap: wrap; }
 .td-who .chip-check { flex: 0 0 auto; width: auto; }
 .td-who .chip-check input { width: auto; flex: none; margin: 0; }
+/* ---------- עץ התגיות ---------- */
+.tg-pill { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid #ddd; margin-inline-start: 4px; white-space: nowrap; }
+.tg-va { background: #e5f4e4; border-color: #9fd19b; color: #1e5b1b; }
+.tg-sa { background: #eef6ec; border-color: #c4e0c0; color: #3b6b37; }
+.tg-fc { background: #f9eeda; border-color: #e6cf9f; color: #7a5a14; }
+.tg-fn { background: #f0efec; border-color: #d6d3cc; color: #6b6760; }
+.tg-u { background: #ededed; border-color: #cfcfcf; color: #777; }
+.tg-card .tg-block { padding: 6px 10px; border: 1px solid #ecdcae; border-radius: 10px; margin: 6px 0; background: #fffdf6; }
+.tg-card .tg-line { margin-top: 3px; }
+.tg-card .tg-line.u { color: #888; }
+.tg-warn { color: #a05a00; font-size: 13px; }
+.tg-u-badge { background: #fff3e0 !important; color: #a05a00 !important; border: 1px solid #f0c27a; }
+.tg-edit .tg-root { border: 1px solid #ecdcae; border-radius: 10px; margin: 6px 0; padding: 4px 10px; background: #fffdf6; }
+.tg-edit .tg-root > summary { font-weight: 700; cursor: pointer; padding: 4px 0; }
+.tg-edit .tg-kids { padding-inline-start: 18px; }
+.tg-edit .tg-leaf, .tg-edit .tg-branch { margin: 3px 0; }
+.tg-edit .tg-cb { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; cursor: pointer; }
+.tg-edit .tg-cb input { width: auto; }
+.tg-edit .tg-stbox, .tg-oldrow .tg-st { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-inline-start: 8px; }
+.tg-r { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; padding: 1px 8px; border: 1px solid #e3d9bd; border-radius: 999px; cursor: pointer; background: #fff; }
+.tg-r input { width: auto; margin: 0; }
+.tg-r:has(input:checked) { background: #fff1cc; border-color: var(--gold); font-weight: 700; }
+.tg-missing .tg-stbox, .tg-oldrow.tg-missing { outline: 2px solid #d33; border-radius: 8px; }
+.tg-old { background: #f5f5f5; border: 1px dashed #bbb; border-radius: 10px; padding: 6px 10px; margin-bottom: 8px; }
+.tg-oldrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px solid #e6e6e6; color: #666; }
+.tg-oldrow:last-child { border-bottom: 0; }
+.tt-tree, .tt-tree ul { list-style: none; padding-inline-start: 18px; margin: 4px 0; }
+.tt-tree { padding-inline-start: 0; }
+.tt-row { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-bottom: 1px dotted #e6dcc0; }
+.tt-root > .tt-row { background: #fff8e6; border-radius: 6px; }
+.tt-use { min-width: 24px; }
+.tt-orgs { margin: 2px 24px; }
+.tg-sel-tree, .tg-sel-tree ul { list-style: none; padding-inline-start: 16px; margin: 2px 0; }
+.tg-sel-tree { padding-inline-start: 0; column-width: 260px; }
+.tg-sel-tree details { display: inline; }
+.tg-sel-tree details > summary { display: inline; cursor: pointer; list-style: none; }
+.tg-sel-st { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; align-items: center; }
