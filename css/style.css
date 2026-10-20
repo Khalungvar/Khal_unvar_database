@@ -1229,7 +1229,7 @@ html[dir="ltr"] .sg-preview { transform-origin: top left; margin-left: 0; margin
 .sg-pick { flex: 1; min-width: 200px; }
 .sg-suf { display: inline-flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 .sg-suf-other { width: 90px; }
-.sg-note { flex: 1; min-width: 200px; }
+.sg-note-in { flex: 1; min-width: 200px; }
 .sg-link { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 @media print {
   body.printing-sg > *:not(#sg-print-area) { display: none !important; }

@@ -421,7 +421,7 @@ function honoreeRow(x, i) {
     </div>
     ${i > 0 ? `<div class="sg-link" data-link></div>` : ''}
     <div class="sg-h-line"><label class="check small"><input type="checkbox" class="sg-note-on"${x.noteOn ? ' checked' : ''}> ${h(t('sgNote'))}</label>
-      <input class="sg-note" placeholder="${h(t('sgNotePh'))}" value="${h(x.note ?? (c?.name_note || ''))}"${x.noteOn ? '' : ' hidden'}></div>
+      <input class="sg-note-in" placeholder="${h(t('sgNotePh'))}" value="${h(x.note ?? (c?.name_note || ''))}"${x.noteOn ? '' : ' hidden'}></div>
   </fieldset>`;
 }
 
@@ -488,7 +488,7 @@ export function openSimchaForm(s = {}) {
       const prev = hs[i] || {};
       const x = {
         id: c ? String(c.contact_id) : '', title: $('.sg-title', fs).value.trim(), suffix,
-        noteOn: $('.sg-note-on', fs).checked, note: $('.sg-note', fs).value.trim(),
+        noteOn: $('.sg-note-on', fs).checked, note: $('.sg-note-in', fs).value.trim(),
       };
       if (i === 0) x.toChild = $('.sg-tochild', fs).value;
       const lt = $('.sg-link-type', fs); const lto = $('.sg-link-to', fs); const un = $('.sg-unrel', fs);
@@ -571,12 +571,12 @@ export function openSimchaForm(s = {}) {
         $('.sg-open-card', fs).hidden = !c;
         if (c) {
           if (!$('.sg-title', fs).value.trim()) $('.sg-title', fs).value = c.title_he || '';
-          $('.sg-note', fs).value = c.name_note || '';
-          if (c.name_note) { $('.sg-note-on', fs).checked = true; $('.sg-note', fs).hidden = false; }
+          $('.sg-note-in', fs).value = c.name_note || '';
+          if (c.name_note) { $('.sg-note-on', fs).checked = true; $('.sg-note-in', fs).hidden = false; }
         }
         read(); refreshLinks(); live();
       });
-      $('.sg-note-on', fs).addEventListener('change', (e) => { $('.sg-note', fs).hidden = !e.target.checked; });
+      $('.sg-note-on', fs).addEventListener('change', (e) => { $('.sg-note-in', fs).hidden = !e.target.checked; });
       $$('input[type=radio]', fs).forEach((r) => r.addEventListener('change', () => { $('.sg-suf-other', fs).hidden = r.value !== '__other' || !r.checked; }));
     });
     form.oninput = () => { read(); live(); };
