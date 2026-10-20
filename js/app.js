@@ -183,7 +183,7 @@ function renderLobby() {
       ${tile('area', '📍', t('area'), t('lobbyAreaSub', { n: areas.length }))}
       ${tile('donations', '💰', t('lobbyDonations'), t('lobbyDonationsSub', { n: state.donations.length }))}
       ${tile('occasions', '🕯', t('lobbyOccasions'), t('lobbyOccasionsSub', { n: upcomingWeek() }))}
-      ${tile('simchos', '🎉', t('lobbySimchos'), t('lobbySimchosSub'))}
+      ${tile('simchos', '🍷', t('lobbySimchos'), t('lobbySimchosSub'))}
     </div>
     ${lobbyOpen === 'area' ? `<div class="lobby-choose">
       <span class="muted">${h(t('lobbyChoose'))}</span>

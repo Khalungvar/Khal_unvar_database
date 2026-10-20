@@ -281,7 +281,7 @@ export function renderSimchos() {
   const list = simchosOf(cur.week);
   const fonts = ['Frank Ruhl Libre', ...customFontNames().filter((n) => !/bold/i.test(n))];
   main.innerHTML = `<div class="sc-head sg-head">
-      <span class="sc-logo-ph">🎉</span>
+      <span class="sc-logo-ph">🍷</span>
       <div><h1>${h(t('lobbySimchos'))}</h1><p class="muted small">${h(t('lobbySimchosSub'))}</p></div>
       <span class="spacer"></span>
       <button type="button" class="btn" id="sg-back">← ${h(t('lobbyBack'))}</button>
@@ -294,7 +294,7 @@ export function renderSimchos() {
       <span class="spacer"></span>
       <label class="small">${h(t('sgFont'))} <select id="sg-font">${fonts.map((f) => `<option${f === getFont() ? ' selected' : ''}>${h(f)}</option>`).join('')}</select></label>
       <label class="small">${h(t('sgCols'))} <select id="sg-cols">${[['auto', t('sgColsAuto')], ['1', '1'], ['2', '2']].map(([v, l]) => `<option value="${v}"${getCols() === v ? ' selected' : ''}>${h(l)}</option>`).join('')}</select></label>
-      <button type="button" class="btn small-btn" id="sg-print"${list.length ? '' : ' disabled'}>🖨 ${h(t('sgPrint'))}</button>
+      <button type="button" class="btn small-btn" id="sg-jpg"${list.length ? '' : ' disabled'} title="${h(t('sgJpgHint'))}">🖼 JPG</button>
       <button type="button" class="btn small-btn" id="sg-pdf"${list.length ? '' : ' disabled'} title="${h(t('sgPdfHint'))}">⬇ Print to PDF</button>
     </div>
     <button type="button" class="btn primary sg-new-big" id="sg-new">＋ ${h(t('sgNew'))}</button></div>
@@ -324,7 +324,7 @@ function wire(main, list) {
   const td = $('#sg-today', main); if (td) td.onclick = () => { cur.week = weekNow(); renderSimchos(); };
   $('#sg-font', main).onchange = (e) => { setFont(e.target.value); renderSimchos(); };
   $('#sg-cols', main).onchange = (e) => { setCols(e.target.value); renderSimchos(); };
-  $('#sg-print', main).onclick = () => printPage(list);
+  $('#sg-jpg', main).onclick = () => jpgPages();
   $('#sg-pdf', main).onclick = () => { ui.toast(t('sgPdfHint')); printPage(list); };
   void pdfPage; // דער אלטער PDF (בילד) — אויב מ'וועט עס דארפן
   $$('[data-sg-edit]', main).forEach((b) => { b.onclick = () => openSimchaForm(list.find((s) => String(s.simcha_id) === b.dataset.sgEdit)); });
@@ -361,6 +361,35 @@ function printPage(list) {
   window.addEventListener('afterprint', done);
   setTimeout(() => window.print(), 300);
 }
+
+/** יעדער בלאט אלס א באזונדערע JPG, 150 DPI (825×1275) */
+async function jpgPages() {
+  const btn = $('#sg-jpg'); btn.disabled = true;
+  try {
+    const title = shabbatTitle(cur.week);
+    for (const [i, p] of lastPages.entries()) {
+      const multi = lastPages.length > 1;
+      const jpg = await htmlToJpeg(pageHtml(p.list, p.pt, p.cols, multi ? i + 1 : 0, p), { widthIn: 5.5, heightIn: 8.5, scale: 150 / 96, quality: 0.92 });
+      const a = document.createElement('a');
+      a.href = jpg.dataUrl;
+      a.download = `${t('lobbySimchos')} - ${title}${multi ? ` - ${i + 1}` : ''}.jpg`;
+      document.body.appendChild(a); a.click(); a.remove();
+      await new Promise((r) => setTimeout(r, 400)); // דער בראוזער זאל נישט בלאקירן כמה דאונלאודס
+    }
+  } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  btn.disabled = false;
+}
+
+/** פאר לוח המאורעות: די שמחות (איינמאליג) — [{ s, iso, label, names }] */
+export function simchaEvents() {
+  return (state.simchos || []).filter((s) => s.week).map((s) => {
+    const ty = s.type === 'special' ? t('sgSpecial') : (TYPES[s.type] || TYPES.birth).label;
+    const ids = s.type === 'special' ? (() => { try { return JSON.parse(s.related || '[]'); } catch { return []; } })() : parseH(s).map((x) => x.id);
+    const names = ids.map((id) => contactOf(id)).filter(Boolean).map((c) => ui.fullNameHe(c));
+    return { s, iso: s.week, label: ty, names, ids };
+  });
+}
+export function openSimchosWeek(week) { cur.week = week; ui.showView('simchos'); }
 
 async function pdfPage(list) {
   const btn = $('#sg-pdf'); btn.disabled = true;
@@ -432,7 +461,7 @@ export function openSimchaForm(s = {}) {
   const relTypes = Object.keys(DELTA);
   const draw = () => {
     form.innerHTML = `<button type="button" class="x-close" data-close aria-label="${h(t('close'))}">✕</button>
-      <h2>🎉 ${h(rec.simcha_id ? t('sgEdit') : t('sgNew'))}</h2>
+      <h2>🍷 ${h(rec.simcha_id ? t('sgEdit') : t('sgNew'))}</h2>
       <datalist id="dl-sg-contacts">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>
       <div class="sg-toprow">
         <div class="sg-types">${[...Object.entries(TYPES), ['special', { label: t('sgSpecial') }]].map(([k, v]) => `<label class="chip-radio big"><input type="radio" name="type" value="${k}"${rec.type === k ? ' checked' : ''}> ${h(v.label)}</label>`).join('')}</div>
