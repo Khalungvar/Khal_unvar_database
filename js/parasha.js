@@ -139,7 +139,7 @@ export function shabbatTitle(iso) {
     prev = '';
     if (w) names.push(w);
   }
-  if (names.length) return names.find((n) => !n.startsWith('חול המועד')) || names[0];
+  if (names.length) return `שבוע שחל בו ${names.find((n) => !n.startsWith('חול המועד')) || names[0]}`;
   const p = parashaOf(iso);
   return p ? `פרשת ${p.he}` : 'שבת';
 }
