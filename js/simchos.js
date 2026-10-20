@@ -166,8 +166,7 @@ function fits(list, pt, cols) {
   return $$('.sg-entry', body).every((e) => { const r = e.getBoundingClientRect(); return r.bottom <= b.bottom + 1 && r.left >= b.left - 1 && r.right <= b.right + 1; });
 }
 /** פאר א גרופע שמחות: { cols, pt } אדער null (גייט נישט אריין אויף איין בלאט) */
-function layoutFor(list) {
-  const mode = getCols();
+function layoutFor(list, mode = getCols()) {
   const tries = [];
   const shrink = (cols) => { for (let pt = MAX_PT; pt >= MIN_PT - 0.001; pt = Math.round((pt - 0.25) * 100) / 100) tries.push([cols, pt]); };
   if (mode === '1') shrink(1);
@@ -177,15 +176,25 @@ function layoutFor(list) {
   return ok ? { cols: ok[0], pt: ok[1] } : null;
 }
 /** צוטיילן אויף בלעטער: [{ list, cols, pt }] */
-function paginate(all) {
+function paginateWith(all, mode) {
   const pages = [];
   let rest = all.slice();
   for (let guard = 0; rest.length && guard < 6; guard += 1) {
-    let k = rest.length; let lay = layoutFor(rest);
-    while (!lay && k > 1) { k -= 1; lay = layoutFor(rest.slice(0, k)); }
-    if (!lay) lay = { cols: getCols() === '2' ? 2 : 1, pt: MIN_PT };
+    let k = rest.length; let lay = layoutFor(rest, mode);
+    while (!lay && k > 1) { k -= 1; lay = layoutFor(rest.slice(0, k), mode); }
+    if (!lay) lay = { cols: mode === '2' ? 2 : 1, pt: MIN_PT };
     pages.push({ list: rest.slice(0, k), ...lay });
     rest = rest.slice(k);
+  }
+  return pages;
+}
+function paginate(all) {
+  const mode = getCols();
+  let pages = paginateWith(all, mode);
+  // ווען ס'דארף סיי ווי צוויי בלעטער: בעסער אלע בלעטער מיט איין שפאלט (אויב ס'גייט אריין אין אזויפיל בלעטער)
+  if (mode === 'auto' && pages.length > 1) {
+    const one = paginateWith(all, '1');
+    if (one.length <= pages.length) pages = one;
   }
   if (meas) meas.innerHTML = '';
   return pages;
