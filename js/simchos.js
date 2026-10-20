@@ -141,13 +141,14 @@ function weekLabel(iso) {
   return p ? `${t('sgParsha')} ${p.he} · ${d}` : `${t('sgShabbat')} ${d}`;
 }
 
-function pageHtml(list, fontPt, cols = 1) {
+function pageHtml(list, fontPt, cols = 1, pageNo = 0) {
   const font = getFont().replace(/'/g, '');
   return `<div class="sg-page" style="font-family:'${h(font)}','Frank Ruhl Libre',serif">
     <div class="sg-inner">
     <img class="sg-bg" src="img/simcha-bg2.jpg" alt="">
     ${parashaOf(cur.week) ? `<div class="sg-parsha">${h(t('sgParsha'))} ${h(parashaOf(cur.week).he)}</div>` : ''}
-    <div class="sg-body${cols > 1 ? ' sg-cols' : ''}" style="font-size:${fontPt}pt">${list.map(simchaHtml).join('')}</div></div></div>`;
+    <div class="sg-body${cols > 1 ? ' sg-cols' : ''}" style="font-size:${fontPt}pt">${list.map(simchaHtml).join('')}</div></div>
+    ${pageNo ? `<div class="sg-pageno">${h(t('lobbySimchos'))} ${h(t('sgPageNo', { n: pageNo }))}</div>` : ''}</div>`;
 }
 
 // ---------- אויסלייג: איין/צוויי שפאלטן, קלענערער שריפט (ביז 2.5 נקודות), און דערנאך א צווייטער בלאט ----------
@@ -199,7 +200,7 @@ function paginate(all) {
   if (meas) meas.innerHTML = '';
   return pages;
 }
-const pagesHtml = (pages) => pages.map((p) => pageHtml(p.list, p.pt, p.cols)).join('');
+const pagesHtml = (pages) => pages.map((p, i) => pageHtml(p.list, p.pt, p.cols, pages.length > 1 ? i + 1 : 0)).join('');
 
 export function openSimchos() {
   if (!cur.week) cur.week = weekNow();
@@ -299,7 +300,7 @@ async function pdfPage(list) {
   try {
     void list;
     const jpgs = [];
-    for (const p of lastPages) jpgs.push(await htmlToJpeg(pageHtml(p.list, p.pt, p.cols), { widthIn: 5.5, heightIn: 8.5, scale: 3, quality: 0.9 }));
+    for (const [i, p] of lastPages.entries()) jpgs.push(await htmlToJpeg(pageHtml(p.list, p.pt, p.cols, lastPages.length > 1 ? i + 1 : 0), { widthIn: 5.5, heightIn: 8.5, scale: 3, quality: 0.9 }));
     const pdf = jpegsToPdf(jpgs, { pageW: 396, pageH: 612, margin: 0 });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([pdf], { type: 'application/pdf' }));
