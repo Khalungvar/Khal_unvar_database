@@ -47,6 +47,7 @@ export function openPersonal() {
 function isForMe(m) {
   const to = String(m.to_email || '').toLowerCase();
   if (String(m.from_email).toLowerCase() === state.email) return false;
+  if (m.kind === 'feedback') return false; // הערות / תיקונים — אין אדמין, נישט אין די מעסעדזשעס
   return to === state.email || to === 'all' || (to === 'admins' && state.isAdmin);
 }
 

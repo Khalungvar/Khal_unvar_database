@@ -29,7 +29,7 @@ import { initRequests, submitRequest, pendingRequests } from './requests.js';
 import { openHelp, initHelpChat } from './help.js';
 import { initMerge, openMerge } from './merge.js';
 import { loadFonts } from './fonts.js';
-import { initFeedback } from './feedback.js';
+import { initFeedback, openFeedbackCount } from './feedback.js';
 import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount, parseOrgTags, splitEntry, entry } from './orgtags.js';
@@ -114,7 +114,7 @@ async function enterApp() {
   $('#login-view').hidden = true;
   $('#app-view').hidden = false;
   initHelpChat();
-  initFeedback({ toast, friendlyError });
+  initFeedback({ toast, friendlyError, refreshBadges: updateBadges });
   refreshAll();
   showView('lobby');
 }
@@ -129,7 +129,7 @@ function updateBadges() {
   if (tileB) { tileB.hidden = !n; tileB.textContent = n; }
   // בקשות פון די גבאים וואס ווארטן אויף א מנהל
   const ab = $('#adm-badge');
-  const r = state.isAdmin ? pendingRequests().length : 0;
+  const r = state.isAdmin ? pendingRequests().length + openFeedbackCount() : 0;
   if (ab) { ab.hidden = !r; ab.textContent = r; }
 }
 

@@ -1,6 +1,6 @@
 // "הערות פאר דער בויער" — א קנעפל וואס ווייזט זיך אומעטום (צייטווייליג, ביז דער בעל הבית נעמט עס אראפ).
 // די גבאים שרייבן א פראבלעם / א תיקון; עס גייט אריין ווי א מעסעדזש (kind=feedback) צום בעל הבית, מיטן בלאט וואו מ'איז געווען.
-import { state, saveRecord, reloadMessages } from './data.js';
+import { state, saveRecord, reloadMessages, displayName } from './data.js';
 import { t } from './i18n.js';
 import { escapeHtml as h } from './util.js';
 
@@ -71,8 +71,49 @@ export function initFeedback(helpers) {
       });
       await reloadMessages();
       f.elements.text.value = '';
+      ui.refreshBadges?.();
       $('.fb-done', root).hidden = false;
     } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
     b.disabled = false;
   };
+}
+
+// ---------- אדמין: לשונית "הערות / תיקונים" (נאכן "בקשות פון די גבאים") ----------
+const fbAll = () => (state.messages || []).filter((m) => m.kind === 'feedback');
+const isDone = (m) => m.status === 'done';
+export const openFeedbackCount = () => (state.isOwner ? fbAll().filter((m) => !isDone(m)).length : 0);
+
+export function feedbackAdminHtml() {
+  if (!state.isOwner) return '';
+  const sortNew = (a, b) => String(b.created_at).localeCompare(String(a.created_at)) || Number(b.msg_id) - Number(a.msg_id);
+  const open = fbAll().filter((m) => !isDone(m)).sort(sortNew);
+  const done = fbAll().filter(isDone).sort(sortNew);
+  const row = (m) => `<div class="fb-item${isDone(m) ? ' done' : ''}" data-fb="${h(m.msg_id)}">
+      <div class="fb-item-head"><b>${h(String(m.subject || '').replace(/^🛠\s*/, ''))}</b>
+        <span class="muted small">· ${h(displayName(m.from_email))} · <bdi dir="ltr">${h(m.created_at || '')}</bdi></span>
+        <span class="spacer"></span>
+        <button type="button" class="btn small-btn${isDone(m) ? '' : ' primary'}" data-fb-do="${isDone(m) ? 'reopen' : 'done'}">${h(t(isDone(m) ? 'fbReopen' : 'fbMarkDone'))}</button></div>
+      <div class="fb-item-text" dir="auto">${h(m.text || '').replace(/\n/g, '<br>')}</div>
+    </div>`;
+  return `<div class="adm-group" data-tab="feedback">
+    <h3 class="adm-group-title">🛠 ${h(t('fbOpenTitle'))} <span class="muted small">(${open.length})</span></h3>
+    ${open.length ? open.map(row).join('') : `<p class="empty">${h(t('fbNone'))}</p>`}
+    ${done.length ? `<details class="rq-done"><summary>${h(t('fbDoneTitle', { n: done.length }))}</summary>${done.map(row).join('')}</details>` : ''}
+  </div>`;
+}
+
+export function wireFeedbackAdmin(main, rerender) {
+  $$('[data-fb-do]', main).forEach((b) => {
+    b.onclick = async () => {
+      const m = fbAll().find((x) => String(x.msg_id) === b.closest('[data-fb]').dataset.fb);
+      if (!m) return;
+      b.disabled = true;
+      try {
+        await saveRecord('Messages', 'msg_id', { ...m, status: b.dataset.fbDo === 'done' ? 'done' : '', read_by: state.email });
+        await reloadMessages();
+        ui?.refreshBadges?.();
+        rerender();
+      } catch (err) { ui.toast(ui.friendlyError(err), 'error'); b.disabled = false; }
+    };
+  });
 }

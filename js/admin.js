@@ -13,6 +13,7 @@ import { yearlySeries, allCampaigns, curYear } from './campaigns.js';
 import { orgSelect } from './donations.js';
 import { orgDetailsAdminHtml } from './receipts.js';
 import { requestsAdminHtml, wireRequestsAdmin, pendingRequests } from './requests.js';
+import { feedbackAdminHtml, wireFeedbackAdmin, openFeedbackCount } from './feedback.js';
 import { importBoxHtml, wireImport } from './import.js';
 
 let ui = null;
@@ -139,10 +140,11 @@ export function renderAdmin() {
   if (!state.isAdmin) { main.innerHTML = `<p class="empty">${h(t('adminOnly'))}</p>`; return; }
   const defs = [];
   const nPend = pendingRequests().length;
-  const tabBtn = (key, label) => `<button type="button" data-adm-tab="${key}" class="${admTab === key ? 'on' : ''}">${h(t(label))}${key === 'requests' && nPend ? ` <span class="count-pill">${nPend}</span>` : ''}</button>`;
+  const tabBtn = (key, label) => `<button type="button" data-adm-tab="${key}" class="${admTab === key ? 'on' : ''}">${h(t(label))}${key === 'requests' && nPend ? ` <span class="count-pill">${nPend}</span>` : ''}${key === 'feedback' && openFeedbackCount() ? ` <span class="count-pill">${openFeedbackCount()}</span>` : ''}</button>`;
+  if (admTab === 'feedback' && !state.isOwner) admTab = 'lists';
   if (admTab === 'people' && !state.isOwner) admTab = 'lists';
   main.innerHTML = `<h2>${t('adminTitle')}</h2>
-    <nav class="adm-tabs">${tabBtn('lists', 'admTabLists')}${state.isOwner ? tabBtn('people', 'admTabPeople') : ''}${tabBtn('requests', 'admTabRequests')}</nav>
+    <nav class="adm-tabs">${tabBtn('lists', 'admTabLists')}${state.isOwner ? tabBtn('people', 'admTabPeople') : ''}${tabBtn('requests', 'admTabRequests')}${state.isOwner ? tabBtn('feedback', 'fbAdmTab') : ''}</nav>
     <p class="muted adm-intro" data-tab="lists">${t('adminHint')}</p>`
     + GROUPS.filter((g) => state.isOwner || !PEOPLE_TAB.has(g.title)).map((g) => `<div class="adm-group" data-tab="${PEOPLE_TAB.has(g.title) ? 'people' : 'lists'}" data-g="${g.title}"><h3 class="adm-group-title">${h(t(g.title))}</h3><div class="adm-grid">${
       g.lists.map((def) => { defs.push(def); return cardHtml(def, defs.length - 1); }).join('')}</div></div>`).join('')
@@ -155,7 +157,8 @@ export function renderAdmin() {
     + trashHtml()
     + logosHtml()
     + (state.isOwner ? fontsHtml() : '')
-    + requestsAdminHtml();
+    + requestsAdminHtml()
+    + feedbackAdminHtml();
   // לאגאס און קאמפיינען געהערן צו לשונית 1
   $$('.adm-group:not([data-tab])', main).forEach((g) => { g.dataset.tab = 'lists'; });
   const showTab = () => {
@@ -179,6 +182,7 @@ export function renderAdmin() {
   $$('[data-org-details]', main).forEach((b) => { b.onclick = () => ui.openOrgDetails(b.dataset.orgDetails); });
   wireTrash(main);
   wireRequestsAdmin(main, () => renderAdmin());
+  wireFeedbackAdmin(main, () => renderAdmin());
   $('[data-g="admPeople"]', main)?.after($('#adm-sharing', main));
   if (state.isOwner) renderSharing();
   wireImport($('#adm-import', main), ui);
