@@ -286,7 +286,7 @@ export function renderSimchos() {
       <span class="spacer"></span>
       <button type="button" class="btn" id="sg-back">← ${h(t('lobbyBack'))}</button>
     </div>
-    <div class="sg-bar"><div class="sg-week">
+    <div class="sg-bar"><button type="button" class="btn primary sg-new-big" id="sg-new">＋ ${h(t('sgNew'))}</button><div class="sg-week">
       <button type="button" class="btn small-btn" id="sg-prev" title="${h(t('sgPrev'))}">›</button>
       <b>${h(weekLabel(cur.week))}</b>
       <button type="button" class="btn small-btn" id="sg-next" title="${h(t('sgNext'))}">‹</button>
@@ -297,7 +297,7 @@ export function renderSimchos() {
       <button type="button" class="btn small-btn" id="sg-jpg"${list.length ? '' : ' disabled'} title="${h(t('sgJpgHint'))}">🖼 JPG</button>
       <button type="button" class="btn small-btn" id="sg-pdf"${list.length ? '' : ' disabled'} title="${h(t('sgPdfHint'))}">⬇ Print to PDF</button>
     </div>
-    <button type="button" class="btn primary sg-new-big" id="sg-new">＋ ${h(t('sgNew'))}</button></div>
+    </div>
     <div class="sg-wrap">
       <div class="sg-list">${list.length ? list.map((s, i) => `<div class="sg-item">
           <div class="sg-item-text">${simchaHtml(s)}</div>
