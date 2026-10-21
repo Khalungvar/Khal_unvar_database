@@ -588,7 +588,7 @@ function honoreeRow(x, i) {
   return `<fieldset class="sg-h" data-i="${i}">
     <div class="sg-h-line">
       <input class="sg-title" placeholder="${h(t('sgTitle'))}" value="${h(x.title ?? (c?.title_he || ''))}">
-      <input class="sg-pick" list="dl-sg-contacts" autocomplete="off" placeholder="${h(t('pickContact'))}" value="${c ? h(ui.pickerLabel(c)) : h(x.name || '')}" data-id="${h(x.id || '')}">
+      <span class="sg-pickwrap"><input class="sg-pick" list="dl-sg-contacts" autocomplete="off" placeholder="${h(t('pickContact'))}" value="${c ? h(ui.pickerLabel(c)) : h(x.name || '')}" data-id="${h(x.id || '')}"><span class="sg-who small">${c ? whoHint(c) : ''}</span></span>
       <button type="button" class="btn primary small-btn sg-open-card" title="${h(t('sgOpenCard'))}"${c ? '' : ' hidden'}>✎ ${h(t('sgOpenCard'))}</button>
       <button type="button" class="btn small-btn sg-new-contact" title="${h(t('sgNewContactTip'))}"${c ? ' hidden' : ''}>＋ ${h(t('sgNewContact'))}</button>
       <span class="sg-suf">${SUFFIXES.map((sx) => `<label class="chip-radio"><input type="radio" name="suf${i}" value="${h(sx)}"${suf === sx ? ' checked' : ''}> ${h(sx)}</label>`).join('')}
@@ -597,7 +597,6 @@ function honoreeRow(x, i) {
       ${i === 0 ? `<label class="small">${h(t('sgToChild'))} <select class="sg-tochild">${TO_CHILD.map(([v, l]) => `<option value="${v}"${String(x.toChild || '1') === v ? ' selected' : ''}>${h(l)}</option>`).join('')}</select></label>` : ''}
       ${i > 0 ? '<button type="button" class="linkish sg-remove">✕</button>' : ''}
     </div>
-    <div class="sg-who small">${c ? whoHint(c) : ''}</div>
     ${i > 0 ? `<div class="sg-link" data-link></div>` : ''}
     <div class="sg-h-line"><label class="check small"><input type="checkbox" class="sg-note-on"${x.noteOn ? ' checked' : ''}> ${h(t('sgNote'))}</label>
       <input class="sg-note-in" placeholder="${h(t('sgNotePh'))}" value="${h(x.note ?? (c?.name_note || ''))}"${x.noteOn ? '' : ' hidden'}></div>
