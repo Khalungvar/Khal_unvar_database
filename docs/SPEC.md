@@ -34,7 +34,7 @@
 ## לוגאין (הוגדר 18.10.2026)
 - Google Auth Platform בפרויקט khal-unvar-database: External, מצב Testing. רק משתמשי בדיקה יכולים להתחבר (עד 100) — כל גבאי חדש מוסיפים ב-Audience → Test users, **וגם** משתפים איתו את הגליון.
 - הרשאות: openid, userinfo.email, spreadsheets.
-- Client "Khal Ungvar Website", origin: https://khalungvar.github.io. ה-Client secret הושבת (לא בשימוש).
+- Client "Khal Ungvar Website", origin: https://khalungvar.github.io + https://app.ungvar.org (הדומיין, 2026-10-21). ה-Client secret הושבת (לא בשימוש).
 
 ## חשבונות (הוחלט)
 - ✅ (18.10.2026) **"דאטאבייס"** = חשבון הפרויקט khalungvardatabase@gmail.com. מעכשיו הכל (דרייב, אימייל) על "דאטאבייס".
@@ -47,7 +47,7 @@
 
 ## Google Places (השלמת כתובות)
 - ✅ הוגדר (18.10.2026): פרויקט Google Cloud `khal-unvar-database` בחשבון הפרויקט, מחובר לחשבון חיוב. בוצע Upgrade לחשבון מלא (Pay as you go) — אין עצירה בסוף הניסיון; קרדיט הניסיון נשאר עד 16.1.2027.
-- ✅ מפתח API ("Maps Platform API Key"): מוגבל לאתר `https://khalungvar.github.io/*` ולשני שירותים בלבד: Places API (New), Maps JavaScript API.
+- ✅ מפתח API ("Maps Platform API Key"): מוגבל לאתר `https://khalungvar.github.io/*` + `https://app.ungvar.org/*` ולשני שירותים בלבד: Places API (New), Maps JavaScript API.
 - ✅ התראת תקציב: $1 לחודש (מייל לחשבון הפרויקט, שמועבר אוטומטית למייל האישי).
 - ⚠️ אי אפשר להוריד את המכסה היומית בגוגל ("Quota is not adjustable"). לכן **התקרה תיבנה בתוכנה**: עד 160 בקשות השלמה ו-300 שליפות כתובת ביום; מעבר לזה — השלמה מהמאגר בלבד עד מחר.
 
