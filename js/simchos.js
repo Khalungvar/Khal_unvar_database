@@ -619,7 +619,7 @@ export function openSimchaForm(s = {}) {
   const draw = () => {
     form.innerHTML = `<button type="button" class="x-close" data-close aria-label="${h(t('close'))}">✕</button>
       <h2>🍷 ${h(rec.simcha_id ? t('sgEdit') : t('sgNew'))}</h2>
-      <datalist id="dl-sg-contacts">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>
+      <datalist id="dl-sg-contacts">${state.contacts.map((x) => { const en = [x.first_name_en, x.last_name_en].filter(Boolean).join(' '); return `<option value="${h(ui.pickerLabel(x))}"${en ? ` label="${h(en)}"` : ''}>`; }).join('')}</datalist>
       <div class="sg-toprow">
         <div class="sg-types">${[...Object.entries(TYPES), ['special', { label: t('sgSpecial') }]].map(([k, v]) => `<label class="chip-radio big"><input type="radio" name="type" value="${k}"${rec.type === k ? ' checked' : ''}> ${h(v.label)}</label>`).join('')}</div>
         <span class="spacer"></span>
