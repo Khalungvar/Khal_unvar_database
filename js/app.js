@@ -1523,6 +1523,11 @@ function openForm(c = {}) {
 
   wireForm(form, c);
   wireTagsEditor(form);
+  // א נייער קאנטאקט מיט א נאמען פון פריער (למשל פונעם טופס פון א שמחה) — גלייך די הצעה אויף ענגליש
+  if (!c.contact_id) {
+    ['first_name_he', 'last_name_he', 'wife_name_he'].forEach((n) => { if (form.elements[n]?.value.trim()) form.elements[n].dispatchEvent(new Event('blur')); });
+    if (form.elements.title_he?.value) form.elements.title_he.dispatchEvent(new Event('change'));
+  }
   form.elements.gtd_missing.onchange = (e) => { form.elements.gtd_missing_text.hidden = !e.target.checked; if (e.target.checked) form.elements.gtd_missing_text.focus(); };
   $('#form-dialog').showModal();
 }

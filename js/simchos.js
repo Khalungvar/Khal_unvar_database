@@ -535,6 +535,28 @@ async function deleteSimcha(s) {
   await deleteRecord('Simchos', 'simcha_id', s);
 }
 
+// ---------- קרובים פון א בעל שמחה: טאטע, שווער, זיידע (פון די קשרים; נאר לעבעדיגע) ----------
+function relativesOf(c) {
+  const id = String(c.contact_id);
+  const out = [];
+  const add = (oid, label) => {
+    const o = contactOf(oid);
+    if (!o || String(o.contact_id) === id || out.some((x) => String(x.c.contact_id) === String(o.contact_id))) return;
+    if (String(o.is_alive).toUpperCase() === 'FALSE' || o.is_alive === false) return;
+    out.push({ c: o, label });
+  };
+  const rel = state.relations || [];
+  const up = (who, fwd, rev) => [
+    ...rel.filter((r) => String(r.contact_id_a) === String(who) && r.relation_type === fwd).map((r) => r.contact_id_b),
+    ...rel.filter((r) => String(r.contact_id_b) === String(who) && r.relation_type === rev).map((r) => r.contact_id_a),
+  ];
+  const fathers = up(id, 'זון פון', 'טאטע פון');
+  fathers.forEach((x) => add(x, t('sgRelFather')));
+  up(id, 'איידעם פון', 'שווער פון').forEach((x) => add(x, t('sgRelFil')));
+  [...up(id, 'אייניקל פון', 'זיידע פון'), ...fathers.flatMap((f) => up(f, 'זון פון', 'טאטע פון'))].forEach((x) => add(x, t('sgRelGrand')));
+  return out;
+}
+
 // ---------- דער טופס ----------
 function honoreeRow(x, i) {
   const c = contactOf(x.id);
@@ -748,6 +770,28 @@ export function openSimchaForm(s = {}) {
       });
     };
     $('#sg-add-h', form).onclick = () => { read(); hs.push({}); draw(); };
+    // ווען מ'קלייבט א בעל שמחה: זיין טאטע, שווער, זיידע — צולייגן?
+    const offerRelatives = (fs, c) => {
+      const prev = $('.sg-offer', fs);
+      if (prev && prev.dataset.cid === String(c.contact_id)) return; // שוין דא (א צווייטער "change" ביים בלור)
+      prev?.remove();
+      const rels = relativesOf(c).filter((r) => !hs.some((x) => String(x.id) === String(r.c.contact_id)));
+      if (!rels.length) return;
+      const box = document.createElement('div');
+      box.className = 'sg-offer';
+      box.dataset.cid = String(c.contact_id);
+      box.innerHTML = `<span class="small">${h(t('sgOfferQ'))}</span>
+        ${rels.map((r) => `<label class="chip-check"><input type="checkbox" value="${h(r.c.contact_id)}" checked> ${h(r.label)}: ${h(ui.fullNameHe(r.c))}</label>`).join('')}
+        <button type="button" class="btn small-btn primary sg-offer-yes">${h(t('sgOfferAdd'))}</button>
+        <button type="button" class="linkish sg-offer-no">${h(t('sgOfferNo'))}</button>`;
+      fs.append(box);
+      $('.sg-offer-no', box).onclick = () => box.remove();
+      $('.sg-offer-yes', box).onclick = () => {
+        read();
+        $$('input:checked', box).forEach((i) => { if (!hs.some((x) => String(x.id) === i.value)) hs.push({ id: i.value }); });
+        draw();
+      };
+    };
     $$('.sg-remove', form).forEach((b) => { b.onclick = () => { read(); hs.splice(Number(b.closest('.sg-h').dataset.i), 1); draw(); }; });
     $$('.sg-h', form).forEach((fs) => {
       $('.sg-pick', fs).addEventListener('change', () => {
@@ -761,6 +805,7 @@ export function openSimchaForm(s = {}) {
           if (c.name_note) { $('.sg-note-on', fs).checked = true; $('.sg-note-in', fs).hidden = false; }
         }
         read(); refreshLinks(); live();
+        if (c) offerRelatives(fs, c);
       });
       $('.sg-note-on', fs).addEventListener('change', (e) => { $('.sg-note-in', fs).hidden = !e.target.checked; });
       $$('input[type=radio]', fs).forEach((r) => r.addEventListener('change', () => { $('.sg-suf-other', fs).hidden = r.value !== '__other' || !r.checked; }));
