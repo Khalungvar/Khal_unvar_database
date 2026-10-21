@@ -1344,3 +1344,6 @@ body.lobby-mode #btn-lobby { display: none; }
 .sg-h-line:has(.sg-pickwrap) { align-items: flex-start; }
 .sg-exports { display: inline-flex; flex-direction: column; gap: 4px; align-items: stretch; }
 .sg-exports-row { display: inline-flex; gap: 4px; }
+.login-about { max-width: 520px; margin: 18px auto 0; text-align: center; font-size: 12.5px; color: #6b5a4a; line-height: 1.5; }
+.login-about a { color: inherit; }
+.login { display: flex; flex-direction: column; align-items: center; justify-content: center; }
