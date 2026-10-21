@@ -57,7 +57,7 @@ export function memberOrgs(c, type) {
 /** איז ער א "יוצא" פון דעם ארגון? (ביי נשי — קיינמאל) */
 export function isFormerOf(c, type, value) {
   const tg = orgEntries(c, type);
-  if (tg) { const mine = tg.filter((x) => x.org === value); return mine.length > 0 && mine.every((x) => x.s === 'fc' || x.s === 'fn'); }
+  if (tg) { const mine = tg.filter((x) => x.org === value); return mine.length > 0 && mine.every((x) => x.s === 'f'); }
   return value !== NESHEI_ORG && isTrue(c[`${type}_former`]);
 }
 

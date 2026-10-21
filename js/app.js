@@ -31,7 +31,7 @@ import { initMerge, openMerge } from './merge.js';
 import { loadFonts } from './fonts.js';
 import { initFeedback, openFeedbackCount } from './feedback.js';
 import { strictMember, tagsOf as tagEntries } from './tags.js';
-import { initTags, cardTagsHtml, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
+import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
 import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount, parseOrgTags, splitEntry, entry } from './orgtags.js';
@@ -558,8 +558,8 @@ function matchesOrg(c) {
 
 // ---------- חיפוש לויט עץ התגיות: שלב 1 → 2 → 3 → 4, און א מצב ----------
 const tf = { path: [], st: '' };
-const TF_ST = () => [['', t('tfAllStatus')], ['active', t('tfActive')], ...TAG_ST, [TAG_U, `⚠ ${t('tgUnchecked')}`]];
-const tfStatuses = () => (tf.st === '' ? null : tf.st === 'active' ? ['va', 'sa'] : [tf.st]);
+const TF_ST = () => [['', t('tfAllStatus')], ...TAG_ST, [TAG_U, `⚠ ${t('tgUnchecked')}`]];
+const tfStatuses = () => (tf.st === '' ? null : tf.st === 'active' ? ['a'] : [tf.st]);
 function tfMatch(c, path = tf.path) {
   const st = tfStatuses();
   if (!path.length && !st) return true;
@@ -572,12 +572,16 @@ function renderTagFilter() {
   const base = state.contacts.filter((c) => contactInScope(c));
   const count = (p) => base.filter((c) => tfMatch(c, p)).length;
   const levels = [];
-  let opts = tagRoots().map((r) => ({ id: r.id, name: r.name }));
+  let opts = tagRoots().map((r) => ({ id: r.id, name: r.name, group: r.group }));
   for (let i = 0; i < 4 && opts.length; i += 1) {
     const sel = tf.path[i];
     const prefix = tf.path.slice(0, i);
-    levels.push(`<select data-tf="${i}" aria-label="${h(t('tfLevel', { n: i + 1 }))}"><option value="">${h(i === 0 ? `🏷 ${t('tgAll')}` : t('tfAny'))}</option>${
-      opts.map((o) => { const n = count([...prefix, o.id]); return n || String(o.id) === String(sel) ? `<option value="${h(o.id)}"${String(o.id) === String(sel) ? ' selected' : ''}>${h(o.name)} (${n})</option>` : ''; }).join('')}</select>`);
+    const optHtml = (list) => list.map((o) => { const n = count([...prefix, o.id]); return n || String(o.id) === String(sel) ? `<option value="${h(o.id)}"${String(o.id) === String(sel) ? ' selected' : ''}>${h(o.name)} (${n})</option>` : ''; }).join('');
+    // שלב 1: לויט די 3 גרופעס (און אלטע רשימה באזונדער)
+    const body = i === 0
+      ? [...TAG_GROUPS, 'old'].map((g) => { const xs = opts.filter((o) => o.group === g); return xs.length ? `<optgroup label="${h(g === 'old' ? t('tgGroupOld') : t(`tgG${g}`))}">${optHtml(xs)}</optgroup>` : ''; }).join('')
+      : optHtml(opts);
+    levels.push(`<select data-tf="${i}" aria-label="${h(t('tfLevel', { n: i + 1 }))}"><option value="">${h(i === 0 ? `🏷 ${t('tgAll')}` : t('tfAny'))}</option>${body}</select>`);
     if (!sel) break;
     opts = tagChildren([...prefix, sel]);
   }
@@ -712,14 +716,15 @@ function contactRow(c) {
     !isAlive(c.is_alive) ? `<span class="badge muted">${t('deceased')}</span>` : '',
     c.is_active === false || c.is_active === 'FALSE' ? `<span class="badge muted">${t('inactive')}</span>` : '',
     hasUnchecked(c) ? `<span class="badge tg-u-badge" title="${h(t('tgUncheckedTip'))}">⚠ ${t('tgUnchecked')}</span>` : '',
-    ...orgLabels(c).map((o) => orgChip(o, 'badge org')),
+    ...(String(c.tags || '').trim() ? [] : orgLabels(c).map((o) => orgChip(o, 'badge org'))),
   ].join('');
-  const tags = String(c.tags || '').trim() ? '' : splitTags(c.community_tags).map((tag) => `<span class="chip">${h(tag)}</span>`).join('');
+  const roles = String(c.tags || '').trim() ? roleMarks(c) : [];
+  const tags = String(c.tags || '').trim() ? rowChipsHtml(c) : splitTags(c.community_tags).map((tag) => `<span class="chip">${h(tag)}</span>`).join('');
   const en = [c.first_name_en, c.last_name_en].filter(Boolean).join(' ');
   return `
     <button type="button" class="row${missingEn ? ' missing-en' : ''}" data-id="${h(c.contact_id)}">
       <span class="row-main">
-        <span class="row-name">${h(fullNameHe(c))} ${badges}</span>
+        <span class="row-name">${h(fullNameHe(c))}${roles.length ? `<span class="row-roles"> · ${h(roles.join(' · '))}</span>` : ''} ${badges}</span>
         ${fatherLine(c)}
         <span class="row-en" dir="ltr">${en ? unverifiedWrap(c, ['first_name_en', 'last_name_en'], h(en)) : `<em>${t('noEnName')}</em>`}</span>
       </span>
@@ -742,6 +747,17 @@ function tagChips(value) {
 
 let currentCardId = null;
 let cardTab = 'details'; // הלשונית הפתוחה בכרטיס
+
+/** 📬 שיקן אין כרטיס — א קליק טוישט און שפייכלערט */
+function wireCardTagBox(c) {
+  const box = $('#card-body .tg-card');
+  if (!box) return;
+  wireCardTags(box, c, () => {
+    box.outerHTML = cardTagsHtml(c);
+    wireCardTagBox(c);
+    renderList();
+  });
+}
 
 function openCard(id, tab = null) {
   const c = state.contacts.find((x) => String(x.contact_id) === String(id));
@@ -794,7 +810,7 @@ function openCard(id, tab = null) {
       ${field(t('mailingName'), mail ? h(mail) : '', true)}
       ${p.comments ? field(t('comments'), `<span class="card-notes" dir="auto">${h(p.comments)}</span>`) : ''}
       ${field(t('wife'), wife)}
-      ${field(t('organizations'), orgLabels(c).map((o) => orgChip(o, 'chip')).join(''))}
+      ${String(c.tags || '').trim() ? '' : field(t('organizations'), orgLabels(c).map((o) => orgChip(o, 'chip')).join(''))}
       ${String(c.tags || '').trim() ? '' : field(t('community'), tagChips(c.community_tags))}
     </section>
     ${cardTagsHtml(c)}
@@ -822,6 +838,7 @@ function openCard(id, tab = null) {
     </p>
     <details class="hist"><summary>📜 ${h(t('histTitle'))}</summary><div class="hist-list"><p class="muted small">${h(t('loading'))}</p></div></details>`;
 
+  wireCardTagBox(c);
   wireFamily(c);
   wireDonationsSection(c);
   wireOccasionsSection(c);

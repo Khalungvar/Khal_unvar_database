@@ -1348,3 +1348,43 @@ body.lobby-mode #btn-lobby { display: none; }
 .login-about { max-width: 520px; margin: 18px auto 0; text-align: center; font-size: 12.5px; color: #6b5a4a; line-height: 1.5; }
 .login-about a { color: inherit; }
 .login { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+/* ---------- עץ התגיות: 3 גרופעס, פעיל/יוצא, שיקן ---------- */
+.tg-g1 { --tg-bg: #f3efe2; --tg-bd: #ddcfa6; }
+.tg-g2 { --tg-bg: #ece9f6; --tg-bd: #c9c2e4; }
+.tg-g3 { --tg-bg: #e6f1f0; --tg-bd: #b7d6d2; }
+.tg-gold { --tg-bg: #f3f3f3; --tg-bd: #ddd; }
+.tg-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-inline-end: 5px; vertical-align: middle; background: #2e9a3c; flex: none; }
+.tg-dot-f { background: #a3a3a3; }
+.tg-dot-u { background: #fff; border: 1.5px solid #e09a2b; width: 7px; height: 7px; }
+.tg-chip { display: inline-flex; align-items: center; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--tg-bg); border: 1px solid var(--tg-bd); white-space: nowrap; color: #333; }
+.tg-chip.off { color: #888; }
+.tg-oldchips { font-size: 11px; color: #aaa; align-self: center; }
+.row-roles { font-size: 13px; color: var(--accent, #7a1f2b); font-weight: 600; }
+.tg-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.tg-col { background: var(--tg-bg); border: 1px solid var(--tg-bd); border-radius: 10px; padding: 6px 10px; min-width: 0; }
+.tg-col h4 { margin: 0 0 6px; font-size: 13px; color: #555; }
+.tg-cline { padding: 4px 0; border-top: 1px dotted var(--tg-bd); }
+.tg-cline:first-of-type { border-top: 0; }
+.tg-cline.off b { color: #888; font-weight: 600; }
+.tg-ctop { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.tg-ctop b { flex: 1; min-width: 0; }
+.tg-cdet { font-size: 12.5px; color: #555; padding-inline-start: 13px; }
+.tg-off { color: #999; }
+.tg-send { font: inherit; font-size: 11.5px; padding: 0 6px; border-radius: 999px; border: 1px solid #ccc; background: #fff; color: #888; cursor: pointer; white-space: nowrap; }
+.tg-send.on { border-color: #9fd19b; color: #1e5b1b; background: #eef8ec; }
+.tg-oldline { margin: 6px 2px 0; font-size: 12px; color: #999; }
+.tg-ecols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: start; }
+.tg-ecol { background: var(--tg-bg); border: 1px solid var(--tg-bd); border-radius: 10px; padding: 4px 8px; min-width: 0; }
+.tg-ecol > summary { font-weight: 700; cursor: pointer; padding: 4px 0; }
+.tg-ebody { padding-bottom: 4px; }
+.tg-edit .tg-node { margin: 2px 0; }
+.tg-rowline { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.tg-edit .tg-stbox { display: inline-flex; gap: 3px; margin-inline-start: 4px; }
+.tg-r-a:has(input:checked) { background: #e5f4e4; border-color: #9fd19b; color: #1e5b1b; }
+.tg-r-f:has(input:checked) { background: #eee; border-color: #bbb; color: #555; }
+.tg-ulabel { font-size: 11px; color: #a05a00; align-self: center; }
+.tg-sel-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+.tg-sel-g { background: var(--tg-bg, #f6f6f6); border: 1px solid var(--tg-bd, #ddd); border-radius: 10px; padding: 6px 8px; }
+.tg-sel-g .tg-sel-tree { column-width: auto; }
+@media (max-width: 760px) { .tg-cols, .tg-ecols { grid-template-columns: 1fr; } }
