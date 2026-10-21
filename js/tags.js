@@ -133,11 +133,16 @@ export function tagsOf(c) {
   return [...st.filter((x) => x.s !== 'auto'), ...autoDonors(c, st)];
 }
 export const serialize = (list) => (list.length ? JSON.stringify(list.map((x) => { const o = { p: x.p, s: x.s }; if (x.d) o.d = x.d; if (x.n) o.n = 1; if (x.o) o.o = x.o; return o; })) : '');
-export const hasUnchecked = (c) => storedTags(c).some((x) => x.s === UNCHECKED);
-/** "דער כרטיס איז נבדק": לא נבדק → פעיל (וואס איז געווען לשעבר → יוצא). מ'קען עס נישט צוריקלייגן. */
+// "⚠ לא נבדק": יעדער קאנטאקט ביז מ'זאגט "נבדק" (א סימן { p: ['_ok'] }). מ'קען עס נישט צוריקלייגן.
+const OK = '_ok';
+export const hasUnchecked = (c) => !storedTags(c).some((x) => x.p[0] === OK);
+/** האט ער אמת'ע תגיות (נישט נאר דעם "נבדק" סימן)? */
+export const hasRealTags = (c) => storedTags(c).some((x) => x.p[0] !== OK);
+/** "דער כרטיס איז נבדק": לא נבדק → פעיל (וואס איז געווען לשעבר → יוצא), און דער סימן */
 export function markChecked(contact) {
-  const list = storedTags(contact);
+  const list = storedTags(contact).filter((x) => x.p[0] !== OK);
   list.forEach((x) => { if (x.s === UNCHECKED) { x.s = x.o === 'f' ? 'f' : 'a'; x.d = today(); delete x.o; } });
+  list.push({ p: [OK], s: 'ok', d: today() });
   contact.tags = serialize(list);
 }
 const startsWith = (p, prefix) => prefix.every((x, i) => String(p[i]) === String(x));
@@ -153,7 +158,7 @@ export function matchesTagSel(c, sel) {
 export const memberCount = (prefix) => state.contacts.filter((c) => tagsOf(c).some((x) => MEMBER.includes(x.s) && startsWith(x.p, prefix.map(String)))).length;
 
 export function orgEntries(c, type) {
-  if (!String(c?.tags || '').trim()) return null;
+  if (!hasRealTags(c)) return null;
   const g = roots().find((r) => r.kind === `orgs:${type}`);
   if (!g) return null;
   return storedTags(c).filter((x) => x.p[0] === g.id && isOrg(x.p[1] || '')).map((x) => ({ org: orgName(x.p[1]), s: x.s }));
@@ -216,7 +221,7 @@ function lineDetail(l) {
 }
 export function cardTagsHtml(c) {
   const lines = linesOf(c);
-  if (!lines.length) return '';
+  if (!lines.length) return hasUnchecked(c) ? `<section class="tg-card"><h3>🏷 ${h(t('tgTitle'))} <span class="tg-warn">⚠ ${h(t('tgUnchecked'))}</span></h3></section>` : '';
   const col = (g) => {
     const ls = lines.filter((l) => l.g === g);
     return `<div class="tg-col tg-g${g}"><h4>${h(groupName(g))}</h4>${ls.length ? ls.map((l) => `<div class="tg-cline${l.st === 'f' ? ' off' : ''}">

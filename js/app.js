@@ -31,7 +31,7 @@ import { initMerge, openMerge } from './merge.js';
 import { loadFonts } from './fonts.js';
 import { initFeedback, openFeedbackCount } from './feedback.js';
 import { strictMember, tagsOf as tagEntries } from './tags.js';
-import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, markChecked, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
+import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, markChecked, hasRealTags, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
 import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount, parseOrgTags, splitEntry, entry } from './orgtags.js';
@@ -716,10 +716,10 @@ function contactRow(c) {
     !isAlive(c.is_alive) ? `<span class="badge muted">${t('deceased')}</span>` : '',
     c.is_active === false || c.is_active === 'FALSE' ? `<span class="badge muted">${t('inactive')}</span>` : '',
     hasUnchecked(c) ? `<span class="badge tg-u-badge" title="${h(t('tgUncheckedTip'))}">⚠ ${t('tgUnchecked')}</span>` : '',
-    ...(String(c.tags || '').trim() ? [] : orgLabels(c).map((o) => orgChip(o, 'badge org'))),
+    ...(hasRealTags(c) ? [] : orgLabels(c).map((o) => orgChip(o, 'badge org'))),
   ].join('');
-  const roles = String(c.tags || '').trim() ? roleMarks(c) : [];
-  const tags = String(c.tags || '').trim() ? rowChipsHtml(c) : splitTags(c.community_tags).map((tag) => `<span class="chip">${h(tag)}</span>`).join('');
+  const roles = hasRealTags(c) ? roleMarks(c) : [];
+  const tags = hasRealTags(c) ? rowChipsHtml(c) : splitTags(c.community_tags).map((tag) => `<span class="chip">${h(tag)}</span>`).join('');
   const en = [c.first_name_en, c.last_name_en].filter(Boolean).join(' ');
   return `
     <button type="button" class="row${missingEn ? ' missing-en' : ''}" data-id="${h(c.contact_id)}">
@@ -799,7 +799,7 @@ function openCard(id, tab = null) {
       <button type="button" data-tab="family">${t('cardTabFamily')}${familyCount(c) + occasionCount(c) ? ` <span class="count-pill">${familyCount(c) + occasionCount(c)}</span>` : ''}</button>
       <button type="button" data-tab="money">${t('cardTabMoney')}${donationCount(c) ? ` <span class="count-pill">${donationCount(c)}</span>` : ''}</button>
       <button type="button" data-tab="org">${t('cardTabOrg')}${orgNotesOf(c).length ? ` <span class="count-pill">${orgNotesOf(c).length}</span>` : ''}</button>
-      <button type="button" data-tab="otags"${String(c.tags || '').trim() ? ' hidden' : ''}>🏷 ${t('otTitle')}${orgTagsCount(c) ? ` <span class="count-pill">${orgTagsCount(c)}</span>` : ''}</button>
+      <button type="button" data-tab="otags"${hasRealTags(c) ? ' hidden' : ''}>🏷 ${t('otTitle')}${orgTagsCount(c) ? ` <span class="count-pill">${orgTagsCount(c)}</span>` : ''}</button>
       ${schoolCount(c) ? `<button type="button" data-tab="school">🎓 ${t('cardTabSchool')} <span class="count-pill">${schoolCount(c)}</span></button>` : ''}
     </nav>
     <div class="card-pane" data-tab="details">
@@ -810,8 +810,8 @@ function openCard(id, tab = null) {
       ${field(t('mailingName'), mail ? h(mail) : '', true)}
       ${p.comments ? field(t('comments'), `<span class="card-notes" dir="auto">${h(p.comments)}</span>`) : ''}
       ${field(t('wife'), wife)}
-      ${String(c.tags || '').trim() ? '' : field(t('organizations'), orgLabels(c).map((o) => orgChip(o, 'chip')).join(''))}
-      ${String(c.tags || '').trim() ? '' : field(t('community'), tagChips(c.community_tags))}
+      ${hasRealTags(c) ? '' : field(t('organizations'), orgLabels(c).map((o) => orgChip(o, 'chip')).join(''))}
+      ${hasRealTags(c) ? '' : field(t('community'), tagChips(c.community_tags))}
     </section>
     ${cardTagsHtml(c)}
     ${address || c.area ? `<section><h3>${t('address')}${c.area ? ` · ${unverifiedWrap(c, ['area'], h(c.area))}` : ''}</h3><p dir="ltr" class="addr">${address}</p></section>` : ''}
@@ -1763,7 +1763,8 @@ async function submit(form, original) {
     return;
   }
   // "⚠ לא נבדק": פרעגן ביי יעדער שפייכלערן — מ'קען עס נאכדעם נישט צוריקלייגן
-  if (hasUnchecked(contact)) {
+  if (!original.contact_id) markChecked(contact); // א נייער קאנטאקט — מ'האט אים יעצט אריינגעשריבן
+  else if (hasUnchecked(contact)) {
     const ans = await choose(`⚠ ${t('tgUnchecked')}`, t('tgCheckQ'), [['yes', t('tgCheckYes'), true], ['no', t('tgCheckNo')]], t('tgCheckSaved'));
     if (!ans) return;
     if (ans === 'yes') markChecked(contact);
