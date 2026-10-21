@@ -560,7 +560,7 @@ function relativesOf(c) {
 // ---------- דער טופס ----------
 function honoreeRow(x, i) {
   const c = contactOf(x.id);
-  const suf = x.suffix || 'שליט"א';
+  const suf = x.suffix || 'הי"ו';
   const isOther = suf && !SUFFIXES.includes(suf);
   return `<fieldset class="sg-h" data-i="${i}">
     <div class="sg-h-line">
