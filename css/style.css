@@ -1252,6 +1252,7 @@ html[dir="ltr"] .sg-preview { transform-origin: top left; margin-left: 0; margin
 .sg-new-big { font-size: 1.25rem; padding: 0 26px; border-radius: 12px; white-space: nowrap; }
 @media (max-width: 700px) { .sg-bar { flex-direction: column; } .sg-new-big { padding: 12px; } }
 .chip-simcha { background: color-mix(in srgb, #7a1f1f 12%, var(--surface)); border-color: #b98b8b; }
+.sg-by { margin-top: 6px; padding-top: 4px; border-top: 1px dashed var(--line, #ddd); font-family: Heebo, sans-serif; font-size: 11.5px; color: var(--muted, #777); }
 .sg-late { margin-top: 6px; font-family: Heebo, sans-serif; font-size: 12px; color: #8a5a00; }
 .sg-late-warn { margin: 6px 0; padding: 6px 10px; border-radius: 8px; background: color-mix(in srgb, var(--gold) 18%, transparent); border: 1px solid var(--gold); font-size: 14px; }
 .sg-yt { font-size: 13px; padding: 4px 10px; border: 1px dashed var(--gold); border-radius: 999px; }

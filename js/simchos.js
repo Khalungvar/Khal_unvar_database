@@ -3,7 +3,7 @@
 // תואר + נאמען (משפחה פעט) + סיומת (שליט"א א.א.וו.), און "לרגל ..." מיט דער קרבה (בנו-נכדו...) וואס ווערט אויסגערעכנט
 // פון די קשרים אין די כרטיסן. נייע קשרים צווישן בעלי השמחה ווערן אריינגעלייגט אין די כרטיסן.
 // לשונית Simchos (גיליון). די הערה נאכן נאמען (למשל "אב"ד בערז'אן") — אין כרטיס, קאלום name_note.
-import { state, loadAll, saveRecord, deleteRecord, saveContact, addRelation, removeRelation } from './data.js';
+import { state, loadAll, saveRecord, deleteRecord, saveContact, addRelation, removeRelation, displayName } from './data.js';
 import { t } from './i18n.js';
 import { escapeHtml as h } from './util.js';
 import { toHebrew, monthHe, hebrewNumber, todayIso, fromHebrew } from './hebdate.js';
@@ -11,6 +11,14 @@ import { parashaOf, shabbatOfWeek, shabbatTitle } from './parasha.js';
 import { customFontNames } from './fonts.js';
 import { htmlToJpeg, jpegsToPdf } from './pdf.js';
 import { tagsOf as tagEntries, nameOf as tagNodeName, roots as tagRoots, UNCHECKED as TAG_U } from './tags.js';
+
+/** בלויז פאר די גבאים (נישט אין דער תצוגה): ווער האט צוגעלייגט די שמחה */
+function addedByHtml(s) {
+  if (!s.created_by) return '';
+  const d = String(s.created_at || '').slice(0, 10).split('-');
+  const when = d.length === 3 ? ` · ${Number(d[2])}/${Number(d[1])}` : '';
+  return `<div class="sg-by">👤 ${h(t('sgAddedBy', { name: displayName(s.created_by) }))}${when}</div>`;
+}
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -386,7 +394,7 @@ export function renderSimchos() {
     </div>
     <div class="sg-wrap">
       <div class="sg-list">${list.length ? list.map((s, i) => `<div class="sg-item">
-          <div class="sg-item-text">${simchaHtml(s)}${s._carried ? `<div class="sg-late">↩ ${h(t('sgCarried'))}</div>` : isOn(s.also_next) ? `<div class="sg-late">↪ ${h(t('sgAlsoNext'))}</div>` : ''}</div>
+          <div class="sg-item-text">${simchaHtml(s)}${s._carried ? `<div class="sg-late">↩ ${h(t('sgCarried'))}</div>` : isOn(s.also_next) ? `<div class="sg-late">↪ ${h(t('sgAlsoNext'))}</div>` : ''}${addedByHtml(s)}</div>
           <div class="sg-item-acts">
             <button type="button" class="btn small-btn" data-sg-edit="${h(s.simcha_id)}" title="${h(t('scEdit'))}">✎</button>
             <button type="button" class="btn small-btn" data-sg-up="${h(s.simcha_id)}"${i ? '' : ' disabled'}>▲</button>
