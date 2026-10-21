@@ -1342,3 +1342,5 @@ body.lobby-mode #btn-lobby { display: none; }
 .sg-pickwrap .sg-pick { width: 100%; min-width: 0; }
 .sg-pickwrap .sg-who { display: block; margin: 0 6px; line-height: 1.3; }
 .sg-h-line:has(.sg-pickwrap) { align-items: flex-start; }
+.sg-exports { display: inline-flex; flex-direction: column; gap: 4px; align-items: stretch; }
+.sg-exports-row { display: inline-flex; gap: 4px; }

@@ -375,8 +375,13 @@ export function renderSimchos() {
       <span class="spacer"></span>
       <label class="small">${h(t('sgFont'))} <select id="sg-font">${fonts.map((f) => `<option${f === getFont() ? ' selected' : ''}>${h(f)}</option>`).join('')}</select></label>
       <label class="small">${h(t('sgCols'))} <select id="sg-cols">${[['auto', t('sgColsAuto')], ['1', '1'], ['2', '2']].map(([v, l]) => `<option value="${v}"${getCols() === v ? ' selected' : ''}>${h(l)}</option>`).join('')}</select></label>
-      <button type="button" class="btn small-btn" id="sg-jpg"${list.length ? '' : ' disabled'} title="${h(t('sgJpgHint'))}">🖼 JPG</button>
-      <button type="button" class="btn small-btn" id="sg-pdf"${list.length ? '' : ' disabled'} title="${h(t('sgPdfHint'))}">⬇ Print to PDF</button>
+      <span class="sg-exports">
+        <span class="sg-exports-row">
+          <button type="button" class="btn small-btn" id="sg-jpg"${list.length ? '' : ' disabled'} title="${h(t('sgJpgHint'))}">🖼 JPG</button>
+          <button type="button" class="btn small-btn" id="sg-pdf"${list.length ? '' : ' disabled'} title="${h(t('sgPdfHint'))}">⬇ Print to PDF</button>
+        </span>
+        <button type="button" class="btn small-btn" id="sg-jpg-big"${list.length ? '' : ' disabled'} title="${h(t('sgJpgBigHint'))}">🖼 JPG 11×17</button>
+      </span>
     </div>
     </div>
     <div class="sg-wrap">
@@ -407,6 +412,7 @@ function wire(main, list) {
   $$('[data-yt]', main).forEach((cb) => { cb.onchange = () => toggleYt(cb.dataset.yt, cb.checked, cb); });
   $('#sg-cols', main).onchange = (e) => { setCols(e.target.value); renderSimchos(); };
   $('#sg-jpg', main).onclick = () => jpgPages();
+  $('#sg-jpg-big', main).onclick = () => jpgPages(true);
   $('#sg-pdf', main).onclick = () => { ui.toast(t('sgPdfHint')); printPage(list); };
   void pdfPage; // דער אלטער PDF (בילד) — אויב מ'וועט עס דארפן
   $$('[data-sg-edit]', main).forEach((b) => { b.onclick = () => openSimchaForm(list.find((s) => String(s.simcha_id) === b.dataset.sgEdit)); });
@@ -448,16 +454,17 @@ function printPage(list) {
 }
 
 /** יעדער בלאט אלס א באזונדערע JPG, 150 DPI (825×1275) */
-async function jpgPages() {
-  const btn = $('#sg-jpg'); btn.disabled = true;
+/** big = 11×17 אינטש (דער זעלבער בלאט, צוויי מאל גרעסער — 150 DPI) */
+async function jpgPages(big = false) {
+  const btn = $(big ? '#sg-jpg-big' : '#sg-jpg'); btn.disabled = true;
   try {
     const title = issueTitle(cur.week);
     for (const [i, p] of lastPages.entries()) {
       const multi = lastPages.length > 1;
-      const jpg = await htmlToJpeg(pageHtml(p.list, p.pt, p.cols, multi ? i + 1 : 0, p), { widthIn: 5.5, heightIn: 8.5, scale: 150 / 96, quality: 0.92 });
+      const jpg = await htmlToJpeg(pageHtml(p.list, p.pt, p.cols, multi ? i + 1 : 0, p), { widthIn: 5.5, heightIn: 8.5, scale: (big ? 300 : 150) / 96, quality: 0.92 });
       const a = document.createElement('a');
       a.href = jpg.dataUrl;
-      a.download = `${t('lobbySimchos')} - ${title}${multi ? ` - ${i + 1}` : ''}.jpg`;
+      a.download = `${t('lobbySimchos')} - ${title}${multi ? ` - ${i + 1}` : ''}${big ? ' - 11x17' : ''}.jpg`;
       document.body.appendChild(a); a.click(); a.remove();
       await new Promise((r) => setTimeout(r, 400)); // דער בראוזער זאל נישט בלאקירן כמה דאונלאודס
     }
