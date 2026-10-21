@@ -61,8 +61,17 @@ export function childrenOf(path) {
 }
 
 // ---------- די תגיות פון א קאנטאקט ----------
+const parsed = new Map(); // tags-טעקסט → מערך (א קעש — מ'לייענט עס אסאך מאל)
 export function tagsOf(c) {
-  try { const v = JSON.parse(c?.tags || '[]'); return Array.isArray(v) ? v.filter((x) => Array.isArray(x.p) && x.p.length) : []; } catch { return []; }
+  const raw = String(c?.tags || '');
+  if (!raw) return [];
+  if (!parsed.has(raw)) {
+    let v = [];
+    try { const j = JSON.parse(raw); v = Array.isArray(j) ? j.filter((x) => Array.isArray(x.p) && x.p.length) : []; } catch { v = []; }
+    if (parsed.size > 20000) parsed.clear();
+    parsed.set(raw, v);
+  }
+  return parsed.get(raw).map((x) => ({ ...x, p: [...x.p] }));
 }
 export const serialize = (list) => (list.length ? JSON.stringify(list) : '');
 export const hasUnchecked = (c) => tagsOf(c).some((x) => x.s === UNCHECKED);

@@ -30,7 +30,7 @@ import { openHelp, initHelpChat } from './help.js';
 import { initMerge, openMerge } from './merge.js';
 import { loadFonts } from './fonts.js';
 import { initFeedback, openFeedbackCount } from './feedback.js';
-import { strictMember } from './tags.js';
+import { strictMember, tagsOf as tagEntries } from './tags.js';
 import { initTags, cardTagsHtml, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
 import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
@@ -471,7 +471,7 @@ function fillFilters() {
       return values.length ? `<optgroup label="${h(t(label))}">${values.map((v) => `<option value="${h(`${name}|${v}`)}">${h(v)}</option>`).join('')}</optgroup>` : '';
     }).join('');
   orgSel.value = currentOrg;
-  $('#org-former-wrap').hidden = !orgSel.value;
+  $('#org-former-wrap').hidden = true;
 }
 
 // ---------- תפריט צד: ארגונים = "הקשר" (כל האתר מציג רק מה ששייך לארגון שנבחר) ----------
@@ -556,6 +556,47 @@ function matchesOrg(c) {
   return $('#org-former').checked || !isTrue(c[`${name}_former`]);
 }
 
+// ---------- חיפוש לויט עץ התגיות: שלב 1 → 2 → 3 → 4, און א מצב ----------
+const tf = { path: [], st: '' };
+const TF_ST = () => [['', t('tfAllStatus')], ['active', t('tfActive')], ...TAG_ST, [TAG_U, `⚠ ${t('tgUnchecked')}`]];
+const tfStatuses = () => (tf.st === '' ? null : tf.st === 'active' ? ['va', 'sa'] : [tf.st]);
+function tfMatch(c, path = tf.path) {
+  const st = tfStatuses();
+  if (!path.length && !st) return true;
+  return tagEntries(c).some((x) => (!st || st.includes(x.s)) && path.every((id, i) => String(x.p[i]) === String(id)));
+}
+function renderTagFilter() {
+  const row = $('#tf-row');
+  if (!row) return;
+  if (!tagRoots().length) { row.innerHTML = ''; return; }
+  const base = state.contacts.filter((c) => contactInScope(c));
+  const count = (p) => base.filter((c) => tfMatch(c, p)).length;
+  const levels = [];
+  let opts = tagRoots().map((r) => ({ id: r.id, name: r.name }));
+  for (let i = 0; i < 4 && opts.length; i += 1) {
+    const sel = tf.path[i];
+    const prefix = tf.path.slice(0, i);
+    levels.push(`<select data-tf="${i}" aria-label="${h(t('tfLevel', { n: i + 1 }))}"><option value="">${h(i === 0 ? `🏷 ${t('tgAll')}` : t('tfAny'))}</option>${
+      opts.map((o) => { const n = count([...prefix, o.id]); return n || String(o.id) === String(sel) ? `<option value="${h(o.id)}"${String(o.id) === String(sel) ? ' selected' : ''}>${h(o.name)} (${n})</option>` : ''; }).join('')}</select>`);
+    if (!sel) break;
+    opts = tagChildren([...prefix, sel]);
+  }
+  row.innerHTML = levels.join('<span class="tf-sep">›</span>')
+    + `<select data-tfst aria-label="${h(t('tgStatuses'))}">${TF_ST().map(([k, l]) => `<option value="${h(k)}"${tf.st === k ? ' selected' : ''}>${h(l)}</option>`).join('')}</select>`
+    + (tf.path.length || tf.st ? `<button type="button" class="linkish" data-tfx>✕</button>` : '');
+}
+function wireTagFilter() {
+  const row = $('#tf-row');
+  if (!row) return;
+  row.addEventListener('change', (e) => {
+    const lv = e.target.dataset.tf;
+    if (lv !== undefined) { const i = Number(lv); tf.path = tf.path.slice(0, i); if (e.target.value) tf.path.push(e.target.value); }
+    if (e.target.matches('[data-tfst]')) tf.st = e.target.value;
+    renderList();
+  });
+  row.addEventListener('click', (e) => { if (e.target.closest('[data-tfx]')) { tf.path = []; tf.st = ''; renderList(); } });
+}
+
 /** פילטער לויט עץ התגיות (אדער "⚠ לא נבדק") */
 function matchesTreeFilter(c) {
   const v = $('#tt-filter')?.value;
@@ -614,7 +655,7 @@ function visibleContacts() {
     .filter((c) => showInactive || isTrue(c.is_active) || c.is_active === '')
     .filter((c) => !tag || splitTags(c.community_tags).includes(tag))
     .filter(matchesOrgTag)
-    .filter(matchesTreeFilter)
+    .filter((c) => tfMatch(c))
     .filter((c) => !area || c.area === area)
     .filter(matchesOrg)
     .filter((c) => matches(c, query))
@@ -652,7 +693,7 @@ function fatherLine(c) {
 function renderList() {
   buildFatherMap();
   fillOrgTagFilter();
-  fillTreeFilter();
+  renderTagFilter();
   const list = visibleContacts();
   const sc = getScope();
   $('#count').textContent = t('count', { n: list.length }) + (sc ? ` · ${scopeLabel(sc)}` : '');
@@ -1798,7 +1839,7 @@ function start() {
   $('#search').addEventListener('input', renderList);
   $('#tag-filter').addEventListener('change', renderList);
   $('#otag-filter').addEventListener('change', renderList);
-  $('#tt-filter')?.addEventListener('change', renderList);
+  wireTagFilter();
   $('#area-filter').addEventListener('change', renderList);
   $('#org-filter').addEventListener('change', () => { $('#org-former-wrap').hidden = !$('#org-filter').value; renderList(); });
   $('#org-former').addEventListener('change', renderList);

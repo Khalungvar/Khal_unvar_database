@@ -1331,3 +1331,6 @@ body.lobby-mode #btn-lobby { display: none; }
 .tt-mig { margin-top: 18px; padding: 10px 14px; border: 1px dashed var(--gold); border-radius: 10px; background: #fffdf6; }
 .tt-mig h4 { margin: 0 0 4px; }
 #tag-filter, #otag-filter { display: none !important; }
+.tf-row { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.tf-row select { max-width: 220px; }
+.tf-sep { color: var(--gold); font-weight: 700; }
