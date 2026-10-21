@@ -9,7 +9,7 @@
  *  MAX_TOKENS — די לענג פונעם ענטפער, דיפאלט 4096. די נייע מאדעלן "טראכטן" אויך מיט די טאקענס — דערפאר גרויס.)
  */
 
-const SITE = 'https://app.ungvar.org/';
+const SITE = 'https://ungvar.org/';
 const SHEET_ID = '16gyhQ4W7p2DHjPMtdXldFynG1KUzDypGvTvYlS7cnJY';
 
 function doPost(e) {
