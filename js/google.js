@@ -61,6 +61,7 @@ export async function initAuth() {
   tokenClient = window.google.accounts.oauth2.initTokenClient({
     client_id: CONFIG.CLIENT_ID,
     scope: SCOPES,
+    include_granted_scopes: true, // דער טאקען נעמט אריין אלע הרשאות וואס מען האט שוין אמאל דערלויבט (Gmail, Drive)
     callback: (resp) => {
       if (resp.error) {
         pendingReject?.(new Error(resp.error_description || resp.error));
@@ -113,7 +114,7 @@ export function ensureDriveScope() {
     pendingResolve = resolve;
     pendingReject = reject;
     tokenClient.requestAccessToken({
-      scope: `${SCOPES} ${DRIVE_SCOPE}`, include_granted_scopes: true, prompt: 'consent', login_hint: hintEmail || undefined,
+      scope: `${SCOPES} ${DRIVE_SCOPE}`, include_granted_scopes: true, prompt: '', login_hint: hintEmail || undefined,
     });
   });
 }
@@ -130,7 +131,7 @@ export function ensureGmailScope() {
     pendingResolve = resolve;
     pendingReject = reject;
     tokenClient.requestAccessToken({
-      scope: `${SCOPES} ${GMAIL_SCOPE}`, include_granted_scopes: true, prompt: 'consent', login_hint: hintEmail || undefined,
+      scope: `${SCOPES} ${GMAIL_SCOPE}`, include_granted_scopes: true, prompt: '', login_hint: hintEmail || undefined,
     });
   });
 }
@@ -235,7 +236,7 @@ export async function driveUpload(file, name, folderId) {
 }
 
 export function signOut() {
-  if (accessToken) window.google.accounts.oauth2.revoke(accessToken, () => {});
+  // נישט revoke: דאס מעקט אויס די דערלויבעניש ביי גוגל, און ביים קומענדיגן אריינגיין פרעגט גוגל אלעס פון ס'ניי
   accessToken = null;
   expiresAt = 0;
   clearTimeout(expireTimer);
