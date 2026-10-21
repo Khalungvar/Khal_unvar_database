@@ -1,6 +1,6 @@
 // מסך אנשי הקשר: התחברות, חיפוש, כרטיס אישי, הוספה ועריכה.
 import {
-  initAuth, requestToken, signOut, getUserEmail, hasSavedSession, setOnExpire, rememberEmail, hasSheetsScope,
+  initAuth, requestToken, signOut, getUserEmail, hasSavedSession, setSilent, setOnExpire, rememberEmail, hasSheetsScope,
 } from './google.js';
 import {
   state, loadAll, displayName, trashContact, orgLogo, NESHEI_ORG, getHistory, getPhoto, savePhoto, saveOriginalToDrive, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
@@ -1954,7 +1954,12 @@ function start() {
   initAuth().then(async () => {
     $('#btn-login').disabled = false;
     if (hasSavedSession()) {
-      try { await enterApp(); } catch (err) { if (err.code === 'not-registered' || err.status === 403) showLoginProblem(err); /* אנדערש: נשארים במסך ההתחברות */ }
+      setSilent(true);
+      try { await enterApp(); } catch (err) {
+        console.warn('[auth] restore failed', err);
+        if (err.code === 'not-registered' || err.status === 403) showLoginProblem(err);
+        else if (err.status !== 401) showLoginProblem(err); // ווייזן פארוואס, כדי מ'זאל וויסן
+      } finally { setSilent(false); }
     }
   }).catch(() => toast(t('gisFail'), 'error'));
 }

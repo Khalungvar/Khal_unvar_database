@@ -11,6 +11,9 @@ let hintEmail = '';
 let onExpire = null;
 let expireTimer = null;
 let grantedScopes = '';
+let silentMode = false;
+/** ביים ארויפלאדן פונעם בלאט: א פארפאלענער טאקען → צוריק צום לאגאין, אן א פאפ-אפ */
+export function setSilent(v) { silentMode = v; }
 
 function save() {
   try { localStorage.setItem(STORE, JSON.stringify({ accessToken, expiresAt, hintEmail, grantedScopes })); } catch { /* ignore */ }
@@ -250,7 +253,8 @@ async function authFetch(url, options = {}, retried = false) {
     headers: { ...(options.headers || {}), Authorization: `Bearer ${accessToken}` },
   });
   if (res.status === 401 && !retried) {
-    accessToken = null;                   // הטוקן לא תקף — מבקשים חדש ומנסים שוב
+    accessToken = null;
+    if (silentMode) { save(); const e = new Error('session-expired'); e.status = 401; throw e; } // ביים ארויפלאדן: נישט עפענען קיין פענצטער אן א קליק                   // הטוקן לא תקף — מבקשים חדש ומנסים שוב
     await requestToken();
     return authFetch(url, options, true);
   }
