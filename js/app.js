@@ -79,10 +79,10 @@ function friendlyError(err) {
 }
 
 /** חלון בחירה עם כמה כפתורים. מחזיר את הערך שנבחר, או null. */
-function choose(title, text, options) {
+function choose(title, text, options, boldFirst = '') {
   const dlg = $('#choice-dialog');
   $('#choice-title', dlg).textContent = title;
-  $('#choice-text', dlg).textContent = text;
+  $('#choice-text', dlg).innerHTML = (boldFirst ? `<b>${h(boldFirst)}</b>\n\n` : '') + h(text);
   const box = $('#choice-buttons', dlg);
   box.innerHTML = '';
   return new Promise((resolve) => {
@@ -1764,7 +1764,7 @@ async function submit(form, original) {
   }
   // "⚠ לא נבדק": פרעגן ביי יעדער שפייכלערן — מ'קען עס נאכדעם נישט צוריקלייגן
   if (hasUnchecked(contact)) {
-    const ans = await choose(`⚠ ${t('tgUnchecked')}`, t('tgCheckQ'), [['yes', t('tgCheckYes'), true], ['no', t('tgCheckNo')]]);
+    const ans = await choose(`⚠ ${t('tgUnchecked')}`, t('tgCheckQ'), [['yes', t('tgCheckYes'), true], ['no', t('tgCheckNo')]], t('tgCheckSaved'));
     if (!ans) return;
     if (ans === 'yes') markChecked(contact);
   }
