@@ -1403,3 +1403,11 @@ body.lobby-mode #btn-lobby { display: none; }
 .work-x select { width: auto; }
 .work-adds { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 13px; }
 .work-add, .work-more { font-size: 13px; }
+
+/* כפתורים פון א פענצטער (נישט קיין טופס) — אלעמאל זעבאר אונטן */
+dialog > .actions, dialog :not(form) > .actions:last-child {
+  position: sticky; bottom: -20px; z-index: 6;
+  background: var(--surface); margin: 18px -20px -20px; padding: 10px 20px 12px;
+  border-top: 1px solid var(--line); box-shadow: 0 -6px 12px -10px rgba(0, 0, 0, .25);
+  border-radius: 0 0 14px 14px;
+}
