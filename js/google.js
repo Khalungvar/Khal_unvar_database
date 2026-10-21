@@ -137,6 +137,17 @@ export function ensureGmailScope() {
 
 /** שיקט איין אימעיל (א פולשטענדיגער MIME טעקסט). ביז ~35MB. */
 export async function gmailSend(mime) {
+  // דער געווענליכער וועג (JSON מיט "raw") — ער ארבעט פונעם בראוזער. דער "upload" וועג ווערט אפט אפגעשטעלט
+  // אין בראוזער ("Failed to fetch"), דעריבער נאר פאר גאר גרויסע אימעילס.
+  const bytes = new TextEncoder().encode(mime);
+  if (bytes.length < 4.5 * 1024 * 1024) {
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    const raw = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    return authFetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ raw }),
+    });
+  }
   return authFetch('https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=media', {
     method: 'POST', headers: { 'Content-Type': 'message/rfc822' }, body: mime,
   });
