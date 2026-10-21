@@ -30,6 +30,7 @@ import { openHelp, initHelpChat } from './help.js';
 import { initMerge, openMerge } from './merge.js';
 import { loadFonts } from './fonts.js';
 import { initFeedback, openFeedbackCount } from './feedback.js';
+import { strictMember } from './tags.js';
 import { initTags, cardTagsHtml, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
 import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
@@ -483,7 +484,10 @@ function orgPages() {
 
 /** כמה שייכים עכשיו (לא יוצאים) לערך — או לכל הסוג אם value ריק. */
 function currentCount(name, value) {
+  // ספירת חברים: נאר פעיל מאוד / פעיל לפעמים (לא נבדק — נישט)
   return state.contacts.filter((c) => {
+    const st = strictMember(c, name, value);
+    if (st !== null) return st;
     const mine = memberOrgs(c, name);
     if (value) return mine.includes(value) && !isFormerOf(c, name, value);
     return mine.some((v) => !isFormerOf(c, name, v));
@@ -669,7 +673,7 @@ function contactRow(c) {
     hasUnchecked(c) ? `<span class="badge tg-u-badge" title="${h(t('tgUncheckedTip'))}">⚠ ${t('tgUnchecked')}</span>` : '',
     ...orgLabels(c).map((o) => orgChip(o, 'badge org')),
   ].join('');
-  const tags = splitTags(c.community_tags).map((tag) => `<span class="chip">${h(tag)}</span>`).join('');
+  const tags = String(c.tags || '').trim() ? '' : splitTags(c.community_tags).map((tag) => `<span class="chip">${h(tag)}</span>`).join('');
   const en = [c.first_name_en, c.last_name_en].filter(Boolean).join(' ');
   return `
     <button type="button" class="row${missingEn ? ' missing-en' : ''}" data-id="${h(c.contact_id)}">
@@ -738,7 +742,7 @@ function openCard(id, tab = null) {
       <button type="button" data-tab="family">${t('cardTabFamily')}${familyCount(c) + occasionCount(c) ? ` <span class="count-pill">${familyCount(c) + occasionCount(c)}</span>` : ''}</button>
       <button type="button" data-tab="money">${t('cardTabMoney')}${donationCount(c) ? ` <span class="count-pill">${donationCount(c)}</span>` : ''}</button>
       <button type="button" data-tab="org">${t('cardTabOrg')}${orgNotesOf(c).length ? ` <span class="count-pill">${orgNotesOf(c).length}</span>` : ''}</button>
-      <button type="button" data-tab="otags">🏷 ${t('otTitle')}${orgTagsCount(c) ? ` <span class="count-pill">${orgTagsCount(c)}</span>` : ''}</button>
+      <button type="button" data-tab="otags"${String(c.tags || '').trim() ? ' hidden' : ''}>🏷 ${t('otTitle')}${orgTagsCount(c) ? ` <span class="count-pill">${orgTagsCount(c)}</span>` : ''}</button>
       ${schoolCount(c) ? `<button type="button" data-tab="school">🎓 ${t('cardTabSchool')} <span class="count-pill">${schoolCount(c)}</span></button>` : ''}
     </nav>
     <div class="card-pane" data-tab="details">
@@ -750,7 +754,7 @@ function openCard(id, tab = null) {
       ${p.comments ? field(t('comments'), `<span class="card-notes" dir="auto">${h(p.comments)}</span>`) : ''}
       ${field(t('wife'), wife)}
       ${field(t('organizations'), orgLabels(c).map((o) => orgChip(o, 'chip')).join(''))}
-      ${field(t('community'), tagChips(c.community_tags))}
+      ${String(c.tags || '').trim() ? '' : field(t('community'), tagChips(c.community_tags))}
     </section>
     ${cardTagsHtml(c)}
     ${address || c.area ? `<section><h3>${t('address')}${c.area ? ` · ${unverifiedWrap(c, ['area'], h(c.area))}` : ''}</h3><p dir="ltr" class="addr">${address}</p></section>` : ''}
@@ -1384,7 +1388,7 @@ function openForm(c = {}) {
         <label class="check"><input type="checkbox" name="deceased" ${!isAlive(c.is_alive) ? 'checked' : ''}> ${t('deceased')}</label>
         <label class="check"><input type="checkbox" name="inactive" ${!isNew && c.is_active !== '' && !isTrue(c.is_active) ? 'checked' : ''}> ${t('inactive')}</label>
       </div>
-      ${orgRow(c)}
+      <div class="legacy-fields" hidden>${orgRow(c)}</div>
     </fieldset>
     ${tagsEditorHtml(c)}
 
@@ -1418,12 +1422,13 @@ function openForm(c = {}) {
       </label>
     </fieldset>
 
+    <div class="legacy-fields" hidden>
     <fieldset><legend>${t('community')}</legend>
       <p class="hint-line">${t('communityNote')}</p>
       ${tagPicker('community_tags', 'community_tag', c.community_tags)}
     </fieldset>
-
     ${orgTagsFormHtml(c)}
+    </div>
 
     <fieldset><legend>${t('secAddress')}</legend>
       <div class="grid" dir="ltr">

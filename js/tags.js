@@ -78,6 +78,21 @@ export function matchesTagSel(c, sel) {
 /** וויפיל חברים (פעיל מאוד / לפעמים) אונטער א וועג */
 export const memberCount = (prefix) => state.contacts.filter((c) => tagsOf(c).some((x) => MEMBER.includes(x.s) && startsWith(x.p.map(String), prefix.map(String)))).length;
 
+/** די תגיות אונטער די מוסדות פון א סארט (beis_medrash/kollel/organization): [{ org, s }],
+ *  אדער null ווען דער קאנטאקט האט נאך גארנישט קיין תגיות (דאן — די אלטע פעלדער) */
+export function orgEntries(c, type) {
+  if (!String(c?.tags || '').trim()) return null;
+  const g = roots().find((r) => r.kind === `orgs:${type}`);
+  if (!g) return null;
+  return tagsOf(c).filter((x) => String(x.p[0]) === g.id && isOrg(x.p[1] || '')).map((x) => ({ org: orgName(x.p[1]), s: x.s }));
+}
+/** אמת'ע חברים (פעיל מאוד / לפעמים) פון א מוסד; value ליידיג = די גאנצע גרופע */
+export function strictMember(c, type, value) {
+  const tg = orgEntries(c, type);
+  if (!tg) return null;
+  return tg.some((x) => (!value || x.org === value) && MEMBER.includes(x.s));
+}
+
 // ---------- כרטיס: ווייזן ----------
 const pill = (s) => `<span class="tg-pill tg-${h(s)}">${s === UNCHECKED ? '⚠ ' : ''}${h(statusLabel(s))}</span>`;
 function blockOf(p) {

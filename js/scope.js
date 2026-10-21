@@ -2,6 +2,7 @@
 // קאנטאקטן, נדבות, קאמפיין'ס, יארצייטן — עד שיוצאים ל"הויפט בלאט" (הכללי).
 import { state, NESHEI_ORG } from './data.js';
 import { isTrue, splitTags } from './util.js';
+import { orgEntries } from './tags.js';
 
 export const ORG_TYPES = ['beis_medrash', 'kollel', 'organization'];
 export const NO_AREA = '__none__'; // געגנט: "אן געגנט" = אלע וואס האבן נישט קיין געגנט
@@ -45,6 +46,9 @@ export function setWithFormer(v) {
  * ווערט באשטימט דורכן קנעפל "נעמט א חלק אין נשי אונגוואר" אין זיין כרטיס.
  */
 export function memberOrgs(c, type) {
+  // עץ התגיות: די מוסדות פון דער גרופע (יעדער מצב). ווער עס האט נאך נישט קיין תגיות — די אלטע פעלדער.
+  const tg = orgEntries(c, type);
+  if (tg) return [...new Set(tg.map((x) => x.org))];
   const list = splitTags(c[type]).filter((v) => v !== NESHEI_ORG);
   if (type === 'organization' && isTrue(c.wife_in_neshei)) list.push(NESHEI_ORG);
   return list;
@@ -52,6 +56,8 @@ export function memberOrgs(c, type) {
 
 /** איז ער א "יוצא" פון דעם ארגון? (ביי נשי — קיינמאל) */
 export function isFormerOf(c, type, value) {
+  const tg = orgEntries(c, type);
+  if (tg) { const mine = tg.filter((x) => x.org === value); return mine.length > 0 && mine.every((x) => x.s === 'fc' || x.s === 'fn'); }
   return value !== NESHEI_ORG && isTrue(c[`${type}_former`]);
 }
 
@@ -72,12 +78,15 @@ export function contactInScope(c, former = withFormer()) {
   const hit = s.value ? mine.includes(s.value) : mine.length > 0;
   if (!hit) return false;
   if (s.value) return former || !isFormerOf(c, s.type, s.value);
+  if (orgEntries(c, s.type)) return former || mine.some((v) => !isFormerOf(c, s.type, v));
   return former || !isTrue(c[`${s.type}_former`]) || mine.includes(NESHEI_ORG);
 }
 
 export function isFormerInScope(c) {
   const s = getScope();
-  return Boolean(s) && s.type !== 'area' && isTrue(c[`${s.type}_former`]);
+  if (!s || s.type === 'area') return false;
+  if (orgEntries(c, s.type)) return s.value ? isFormerOf(c, s.type, s.value) : memberOrgs(c, s.type).every((v) => isFormerOf(c, s.type, v));
+  return isTrue(c[`${s.type}_former`]);
 }
 
 /** צו וועלכן יערליכן קאמפיין געהערט א נאמען ווי "קאווע תשפ"ז"? (דער לענגסטער נאמען וואס פאסט) */

@@ -224,7 +224,7 @@ export function renderBuilder() {
         <div class="lb-block"><span class="quick-label">${t('organizations')}</span>
           ${chips('orgs', orgKeys, cr.orgs, (k) => k.split('|')[1])}
           <label class="check"><input type="checkbox" name="orgFormer" ${cr.orgFormer ? 'checked' : ''}> ${t('withFormer')}</label></div>
-        <div class="lb-block"><span class="quick-label">${t('community')}</span>${chips('tags', state.lists.community_tag || [], cr.tags)}</div>
+        <div class="lb-block" hidden><span class="quick-label">${t('community')}</span>${chips('tags', state.lists.community_tag || [], cr.tags)}</div>
         <div class="lb-block"><span class="quick-label">${t('area')}</span>${chips('areas', state.lists.area || [], cr.areas)}</div>
         <div class="lb-block"><span class="quick-label">${t('marital')}</span>${chips('marital', state.lists.marital_status || [], cr.marital)}</div>
         <div class="lb-row">
