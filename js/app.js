@@ -710,19 +710,25 @@ function renderList() {
 }
 
 /** שורה של איש קשר ברשימה. */
+/** וועלכע נעמען פעלן (עברית / ענגליש) */
+function missingNames(c) {
+  const no = (k) => !String(c[k] ?? '').trim();
+  return [['first_name_he', 'missFirstHe'], ['last_name_he', 'missLastHe'], ['first_name_en', 'missFirstEn'], ['last_name_en', 'missLastEn']].filter(([k]) => no(k)).map(([, l]) => t(l));
+}
+
 function contactRow(c) {
-  const missingEn = !String(c.first_name_en ?? '').trim() || !String(c.last_name_en ?? '').trim();
   const badges = [
     !isAlive(c.is_alive) ? `<span class="badge muted">${t('deceased')}</span>` : '',
     c.is_active === false || c.is_active === 'FALSE' ? `<span class="badge muted">${t('inactive')}</span>` : '',
     hasUnchecked(c) ? `<span class="badge tg-u-badge" title="${h(t('tgUncheckedTip'))}">⚠ ${t('tgUnchecked')}</span>` : '',
+    missingNames(c).length ? `<span class="badge tg-u-badge miss-badge">⚠ ${h(t('missLabel'))}: ${h(missingNames(c).join(' · '))}</span>` : '',
     ...(hasRealTags(c) ? [] : orgLabels(c).map((o) => orgChip(o, 'badge org'))),
   ].join('');
   const roles = hasRealTags(c) ? roleMarks(c) : [];
   const tags = hasRealTags(c) ? rowChipsHtml(c) : splitTags(c.community_tags).map((tag) => `<span class="chip">${h(tag)}</span>`).join('');
   const en = [c.first_name_en, c.last_name_en].filter(Boolean).join(' ');
   return `
-    <button type="button" class="row${missingEn ? ' missing-en' : ''}" data-id="${h(c.contact_id)}">
+    <button type="button" class="row" data-id="${h(c.contact_id)}">
       <span class="row-main">
         <span class="row-name">${h(fullNameHe(c))}${roles.length ? `<span class="row-roles"> · ${h(roles.join(' · '))}</span>` : ''} ${badges}</span>
         ${fatherLine(c)}
