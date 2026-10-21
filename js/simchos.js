@@ -10,6 +10,7 @@ import { toHebrew, monthHe, hebrewNumber, todayIso, fromHebrew } from './hebdate
 import { parashaOf, shabbatOfWeek, shabbatTitle } from './parasha.js';
 import { customFontNames } from './fonts.js';
 import { htmlToJpeg, jpegsToPdf } from './pdf.js';
+import { tagsOf as tagEntries, nameOf as tagNodeName, roots as tagRoots, UNCHECKED as TAG_U } from './tags.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -535,6 +536,28 @@ async function deleteSimcha(s) {
   await deleteRecord('Simchos', 'simcha_id', s);
 }
 
+// ---------- ווער איז עס: א קליינע שורה אונטערן נאמען (כדי צו זען אז מ'האט אויסגעקליבן דעם ריכטיגן) ----------
+function whoHint(c) {
+  const rel = state.relations || [];
+  const fatherId = rel.find((r) => String(r.contact_id_a) === String(c.contact_id) && r.relation_type === 'זון פון')?.contact_id_b
+    || rel.find((r) => String(r.contact_id_b) === String(c.contact_id) && r.relation_type === 'טאטע פון')?.contact_id_a;
+  const father = fatherId ? contactOf(fatherId) : null;
+  const orgGroups = new Set(tagRoots().filter((r) => r.kind.startsWith('orgs:')).map((r) => r.id));
+  const seen = new Set(); const tags = [];
+  tagEntries(c).forEach((x) => {
+    const label = orgGroups.has(String(x.p[0])) && x.p[1] ? tagNodeName(x.p[1]) : tagNodeName(x.p[x.p.length > 1 ? 1 : 0]);
+    if (String(x.p[0]) === String(tagRoots().find((r) => r.name === 'אלטע רשימה')?.id)) return;
+    if (!seen.has(label)) { seen.add(label); tags.push(`${label}${x.s === TAG_U ? ' ⚠' : ''}`); }
+  });
+  const bits = [
+    `#${c.contact_id}`,
+    c.area || c.city || '',
+    father ? `${t('sonOf')} ${ui.fullNameHe(father)}` : '',
+    ...tags,
+  ].filter(Boolean);
+  return `🔎 ${bits.map(h).join(' · ')}`;
+}
+
 // ---------- קרובים פון א בעל שמחה: טאטע, שווער, זיידע (פון די קשרים; נאר לעבעדיגע) ----------
 function relativesOf(c) {
   const id = String(c.contact_id);
@@ -574,6 +597,7 @@ function honoreeRow(x, i) {
       ${i === 0 ? `<label class="small">${h(t('sgToChild'))} <select class="sg-tochild">${TO_CHILD.map(([v, l]) => `<option value="${v}"${String(x.toChild || '1') === v ? ' selected' : ''}>${h(l)}</option>`).join('')}</select></label>` : ''}
       ${i > 0 ? '<button type="button" class="linkish sg-remove">✕</button>' : ''}
     </div>
+    <div class="sg-who small">${c ? whoHint(c) : ''}</div>
     ${i > 0 ? `<div class="sg-link" data-link></div>` : ''}
     <div class="sg-h-line"><label class="check small"><input type="checkbox" class="sg-note-on"${x.noteOn ? ' checked' : ''}> ${h(t('sgNote'))}</label>
       <input class="sg-note-in" placeholder="${h(t('sgNotePh'))}" value="${h(x.note ?? (c?.name_note || ''))}"${x.noteOn ? '' : ' hidden'}></div>
@@ -715,7 +739,7 @@ export function openSimchaForm(s = {}) {
     const childIn = form.elements.child_name;
     const drawChild = () => {
       const c = contactOf(rec.child_contact_id);
-      $('#sg-child-link', form).innerHTML = c ? `✓ ${h(ui.fullNameHe(c))} <button type="button" class="linkish" id="sg-child-x">✕</button>` : '';
+      $('#sg-child-link', form).innerHTML = c ? `✓ ${h(ui.fullNameHe(c))} <button type="button" class="linkish" id="sg-child-x">✕</button><div class="sg-who small">${whoHint(c)}</div>` : '';
       const x = $('#sg-child-x', form);
       if (x) x.onclick = () => { rec.child_contact_id = ''; drawChild(); };
     };
@@ -799,6 +823,7 @@ export function openSimchaForm(s = {}) {
         $('.sg-pick', fs).dataset.id = c ? String(c.contact_id) : '';
         $('.sg-open-card', fs).hidden = !c;
         $('.sg-new-contact', fs).hidden = !!c;
+        $('.sg-who', fs).innerHTML = c ? whoHint(c) : '';
         if (c) {
           if (!$('.sg-title', fs).value.trim()) $('.sg-title', fs).value = c.title_he || '';
           $('.sg-note-in', fs).value = c.name_note || '';

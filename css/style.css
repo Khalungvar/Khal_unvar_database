@@ -1336,3 +1336,5 @@ body.lobby-mode #btn-lobby { display: none; }
 .tf-sep { color: var(--gold); font-weight: 700; }
 .sg-offer { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; padding: 6px 10px; background: #fff8e6; border: 1px dashed var(--gold); border-radius: 8px; }
 .sg-offer .chip-check input { width: auto; margin: 0; }
+.sg-who { color: #6b5a2a; margin: 2px 4px 0; }
+.sg-who:empty { display: none; }
