@@ -31,7 +31,7 @@ import { initMerge, openMerge } from './merge.js';
 import { loadFonts } from './fonts.js';
 import { initFeedback, openFeedbackCount } from './feedback.js';
 import { strictMember, tagsOf as tagEntries } from './tags.js';
-import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
+import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, markChecked, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
 import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount, parseOrgTags, splitEntry, entry } from './orgtags.js';
@@ -1761,6 +1761,12 @@ async function submit(form, original) {
   if (!contact.last_name_he || (!contact.first_name_he && !original.contact_id)) {
     toast(t('required'), 'error');
     return;
+  }
+  // "⚠ לא נבדק": פרעגן ביי יעדער שפייכלערן — מ'קען עס נאכדעם נישט צוריקלייגן
+  if (hasUnchecked(contact)) {
+    const ans = await choose(`⚠ ${t('tgUnchecked')}`, t('tgCheckQ'), [['yes', t('tgCheckYes'), true], ['no', t('tgCheckNo')]]);
+    if (!ans) return;
+    if (ans === 'yes') markChecked(contact);
   }
 
   // אזהרת כפילות שם — נאר ביי א נייעם, אדער ווען מ'האט געטוישט דעם נאמען

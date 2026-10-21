@@ -1388,3 +1388,4 @@ body.lobby-mode #btn-lobby { display: none; }
 .tg-sel-g { background: var(--tg-bg, #f6f6f6); border: 1px solid var(--tg-bd, #ddd); border-radius: 10px; padding: 6px 8px; }
 .tg-sel-g .tg-sel-tree { column-width: auto; }
 @media (max-width: 760px) { .tg-cols, .tg-ecols { grid-template-columns: 1fr; } }
+#choice-text { white-space: pre-line; }

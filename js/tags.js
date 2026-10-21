@@ -133,7 +133,13 @@ export function tagsOf(c) {
   return [...st.filter((x) => x.s !== 'auto'), ...autoDonors(c, st)];
 }
 export const serialize = (list) => (list.length ? JSON.stringify(list.map((x) => { const o = { p: x.p, s: x.s }; if (x.d) o.d = x.d; if (x.n) o.n = 1; if (x.o) o.o = x.o; return o; })) : '');
-export const hasUnchecked = (c) => storedTags(c).some((x) => x.s === UNCHECKED && !isArchive(x.p[0]));
+export const hasUnchecked = (c) => storedTags(c).some((x) => x.s === UNCHECKED);
+/** "דער כרטיס איז נבדק": לא נבדק → פעיל (וואס איז געווען לשעבר → יוצא). מ'קען עס נישט צוריקלייגן. */
+export function markChecked(contact) {
+  const list = storedTags(contact);
+  list.forEach((x) => { if (x.s === UNCHECKED) { x.s = x.o === 'f' ? 'f' : 'a'; x.d = today(); delete x.o; } });
+  contact.tags = serialize(list);
+}
 const startsWith = (p, prefix) => prefix.every((x, i) => String(p[i]) === String(x));
 
 /** sel = { keys: ['1>o:...'], st: ['a',...], send: true } — send: בלויז די וואס מ'שיקט זיי */
