@@ -276,6 +276,8 @@ export function treeAdminHtml() {
       ${orgCol(r) ? `<p class="muted small tt-orgs">${h(t('tgOrgsFromLists'))}: ${h(orgsOf(r).join(' · '))}</p>` : ''}
       <ul>${sorted(nodes().filter((x) => x.parent === r.id)).map((k) => nodeRow(k, orgCol(r) ? 3 : 2)).join('')}</ul></li>`).join('')}</ul>
     <button type="button" class="btn small-btn" data-tt="addroot">＋ ${h(t('tgAddRoot'))}</button>
+    ${state.isOwner ? `<div class="tt-mig"><h4>${h(t('tgMigTitle'))}</h4><p class="hint-line">${h(t('tgMigHint'))}</p>
+      <button type="button" class="btn" data-tt="mig">${h(t('tgMigBtn'))}</button></div>` : ''}
   </div>`;
 }
 
@@ -316,6 +318,16 @@ export function wireTreeAdmin(main, rerender) {
         const bad = chosen.filter((x) => !all.includes(x));
         if (bad.length) { ui.toast(t('tgAppliesBad', { list: bad.join(', ') }), 'error'); return; }
         await saveRecord('TagTree', 'node_id', { ...n.raw, applies: chosen.join('|') });
+      } else if (act === 'mig') {
+        const { planMigration, runMigration } = await import('./tagmigrate.js');
+        const { plan, unknown, skipped } = planMigration();
+        const n = plan.reduce((a, x) => a + x.tags.length, 0);
+        const msg = t('tgMigConfirm', { people: plan.length, n, skip: skipped.hasTags }) + (unknown.length ? `\n\n${t('tgMigUnknown')}\n${unknown.slice(0, 15).map(([k, v]) => `${k} (${v})`).join('\n')}` : '');
+        if (!plan.length) { ui.toast(t('tgMigNothing')); return; }
+        if (!confirm(msg)) return;
+        b.disabled = true;
+        const done = await runMigration((i, all) => { b.textContent = `${i} / ${all}`; });
+        ui.toast(t('tgMigDone', { n: done }));
       } else if (act === 'del') {
         const ids = [id, ...descendants(id)];
         const affected = state.contacts.filter((c) => tagsOf(c).some((x) => x.p.map(String).some((q) => ids.includes(q))));

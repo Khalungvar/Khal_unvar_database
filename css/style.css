@@ -1328,3 +1328,5 @@ body.lobby-mode #btn-lobby { display: none; }
 .tg-sel-tree details { display: inline; }
 .tg-sel-tree details > summary { display: inline; cursor: pointer; list-style: none; }
 .tg-sel-st { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; align-items: center; }
+.tt-mig { margin-top: 18px; padding: 10px 14px; border: 1px dashed var(--gold); border-radius: 10px; background: #fffdf6; }
+.tt-mig h4 { margin: 0 0 4px; }
