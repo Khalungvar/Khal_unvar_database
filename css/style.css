@@ -1389,3 +1389,17 @@ body.lobby-mode #btn-lobby { display: none; }
 .tg-sel-g .tg-sel-tree { column-width: auto; }
 @media (max-width: 760px) { .tg-cols, .tg-ecols { grid-template-columns: 1fr; } }
 #choice-text { white-space: pre-line; }
+
+/* ---------- ארבעט ---------- */
+.work-card .work-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 2px 0; }
+.work-card .work-line a { font-size: 14px; }
+.work-edit .work-item { padding: 4px 0; border-bottom: 1px dotted #e6dcc0; }
+.work-edit .work-item:last-child { border-bottom: 0; }
+.work-top { display: flex; gap: 6px; align-items: center; }
+.work-top .work-t { flex: 1; }
+.work-xs { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 4px; }
+.work-x { display: inline-flex; align-items: center; gap: 4px; }
+.work-x input { width: 190px; }
+.work-x select { width: auto; }
+.work-adds { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 13px; }
+.work-add, .work-more { font-size: 13px; }

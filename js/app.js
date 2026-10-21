@@ -31,6 +31,7 @@ import { initMerge, openMerge } from './merge.js';
 import { loadFonts } from './fonts.js';
 import { initFeedback, openFeedbackCount } from './feedback.js';
 import { strictMember, tagsOf as tagEntries } from './tags.js';
+import { workCardHtml, workFormHtml, wireWorkForm, readWorkForm, workSearchText } from './work.js';
 import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, markChecked, hasRealTags, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
 import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
@@ -432,7 +433,7 @@ function haystack(c) {
   const text = [
     c.first_name_he, c.last_name_he, c.first_name_en, c.last_name_en, c.legal_first_name,
     c.wife_name_he, c.wife_name_en, c.city, c.address, c.contact_id,
-    p.email_1, p.email_2,
+    p.email_1, p.email_2, workSearchText(c),
   ].map(normalize).join(' ');
   const phoneDigits = phoneFields().map(([k]) => digits(p[k])).join(' ');
   return `${text} ${phoneDigits}`;
@@ -821,6 +822,7 @@ function openCard(id, tab = null) {
     </section>
     ${cardTagsHtml(c)}
     ${address || c.area ? `<section><h3>${t('address')}${c.area ? ` · ${unverifiedWrap(c, ['area'], h(c.area))}` : ''}</h3><p dir="ltr" class="addr">${address}</p></section>` : ''}
+    ${workCardHtml(c)}
     ${phones || emails ? `<section><h3>${t('phonesEmail')}</h3>${phones}${emails}</section>` : ''}
     </div>
     <div class="card-pane" data-tab="family">
@@ -1508,6 +1510,8 @@ function openForm(c = {}) {
       </div>
     </fieldset>
 
+    ${workFormHtml(c)}
+
     <fieldset><legend>${t('phonesEmail')}</legend>
       ${phoneFields().map(([k, label]) => `
         <div class="contact-line">
@@ -1546,6 +1550,7 @@ function openForm(c = {}) {
 
   wireForm(form, c);
   wireTagsEditor(form);
+  wireWorkForm(form);
   // א נייער קאנטאקט מיט א נאמען פון פריער (למשל פונעם טופס פון א שמחה) — גלייך די הצעה אויף ענגליש
   if (!c.contact_id) {
     ['first_name_he', 'last_name_he', 'wife_name_he'].forEach((n) => { if (form.elements[n]?.value.trim()) form.elements[n].dispatchEvent(new Event('blur')); });
@@ -1760,6 +1765,7 @@ async function submit(form, original) {
   const tg = readTagsEditor(form, original);
   if (tg.error) { toast(tg.error, 'error'); $('.tg-missing', form)?.scrollIntoView({ block: 'center' }); return; }
   contact.tags = tg.tags;
+  contact.work = readWorkForm(form, original);
   applyMaritalRule(contact, original);
   nesheiFromTags(contact);
   contact.is_active = !form.elements.inactive.checked;
