@@ -600,7 +600,9 @@ function printTable(title, cols, list, checkCol) {
     <script>
       // די ברייט פונעם בלאט אין פיקסלען (96 פאר א אינטש), מינוס די ראנדן
       const W = ${land ? 10.2 : 7.7} * 96; const tb = document.getElementById('t'); let fs = 11;
-      while (tb.scrollWidth > W && fs > 6) { fs -= 0.5; document.body.style.fontSize = fs + 'px'; }
+      tb.style.width = 'auto';
+      while (tb.offsetWidth > W && fs > 6) { fs -= 0.5; document.body.style.fontSize = fs + 'px'; }
+      tb.style.width = '';
       window.onload = () => window.print();
     <\/script></body></html>`);
   w.document.close();
