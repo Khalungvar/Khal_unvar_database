@@ -428,12 +428,13 @@ function fitIn(root) {
   let over = false;
   $$('.mx-lbl-text', root).forEach((el) => {
     const box = el.closest('.lbl');
+    const tooBig = () => el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1;
     let guard = 0;
-    while ((el.scrollHeight > box.clientHeight + 1 || el.scrollWidth > box.clientWidth + 1) && guard < 14) {
-      $$('.mx-rcp-part', el).forEach((p) => { const s = parseFloat(p.style.fontSize) || 10; p.style.fontSize = `${Math.max(6, s - 0.5)}pt`; });
+    while (tooBig() && guard < 16) {
+      $$('.mx-rcp-part', el).forEach((p) => { const s = parseFloat(p.style.fontSize) || 10; p.style.fontSize = `${Math.max(5.5, s - 0.5)}pt`; });
       guard += 1;
     }
-    if (el.scrollHeight > box.clientHeight + 1) { over = true; box.classList.add('mx-over'); }
+    if (tooBig()) { over = true; box.classList.add('mx-over'); }
   });
   $$('.mx-body', root).forEach((el) => { if (el.scrollHeight > el.clientHeight + 2) { over = true; el.classList.add('mx-over'); } });
   $$('.mx-win', root).forEach((el) => { if (el.scrollHeight > el.clientHeight + 2) { over = true; el.classList.add('mx-over'); } });

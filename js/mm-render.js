@@ -236,7 +236,9 @@ export function labelPages(D, list, { test = false, all = true, nums = null } = 
     const inner = it === 'same'
       ? `<div class="mx-rcp-part" dir="${L.dir || 'ltr'}" style="font-family:'${L.font || D.rcp.font}';font-size:${L.size}pt">${h(L.text).replace(/\n/g, '<br>')}</div>`
       : rcpBlock({ ...D, rcp: { ...D.rcp, size: L.size, sizeHe: L.size, align: L.align } }, it, vals, null, { cls: 'mx-rcp mx-lbl-rcp' });
-    return `<div class="lbl mx-lbl${shape} mx-lbl-${L.logoPos || 'left'}" style="${pos};padding:${L.pad}in;text-align:${L.align}">
+    // עגול: דער טעקסט אינעם ריבוע וואס פאסט אריין אין דעם קרייז (~71%)
+    const pad = round ? Math.max(Number(L.pad) || 0, Math.min(S.w, S.h) * 0.146) : L.pad;
+    return `<div class="lbl mx-lbl${shape} mx-lbl-${L.logoPos || 'left'}" style="${pos};padding:${pad}in;text-align:${L.align}">
       ${D.background_data ? `<img class="mx-lbl-bg" src="${D.background_data}" style="opacity:${D.bg.opacity}" alt="">` : ''}
       ${logo && (it === 'same' || L.logoAll) ? `<img class="mx-lbl-logo" src="${logo}" alt="">` : ''}
       <div class="mx-lbl-text">${inner}</div>${n ? `<span class="mx-num">${h(n)}</span>` : ''}</div>`;
