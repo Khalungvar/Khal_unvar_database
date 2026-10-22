@@ -146,12 +146,18 @@ Keywords: list, lists, filter, saved, excel, export, private, public
 - **Excel** — export the list.
 
 ## Mail Merge: letters, envelopes, labels
-Keywords: mail merge, envelope, labels, print, address, return address
+Keywords: mail merge, envelope, labels, letter, print, PDF, address, return address, window
 
-- **Mail Merge** (lobby): pick a size (envelope / labels), a list, and how the name should appear.
-- Logo, return address, stamp, border, background — drag with the mouse to move.
-- Labels: "start after" — when part of the sheet is already used.
-- Save the design with a name for next time.
+- **Mail Merge** (lobby): three columns — **✉ Envelopes**, **🏷 Labels**, **📄 Letters**. Each has **"+ New"** and the saved designs (open, duplicate, delete).
+- Everything **saves automatically**. **⚙ Settings**: who can see (everyone / only me), who can edit, which institution it belongs to.
+- **Recipients**: a list, one contact, or paste. Household mode as in the list or different. **"To the wife"**. Order: name / ZIP / area.
+- **Envelopes**: sizes (also custom); recipient in English / Hebrew / both (Hebrew only works without an address); return address with logo, postage, background, **text boxes**. Drag with the mouse.
+- **Labels**: Avery 5160–5167 or **your own sheets** (⚙ Label sheets — rectangle or round). Logo, background on each label, "start after" (already used), **test sheet** and **nudge** to match the printer. "Whole sheet with one text" — for return-address labels.
+- **Letters**: Yiddish / Hebrew / English; institution template (banner + footer) or a full-page background; rich text. Fields: {תואר} {שם_מלא} {פנייה} {תאריך} {סכום} {שולם} {נשאר} {הקדשה} etc. — **"Linked campaign"** for the donation fields.
+- **Window envelope**: the address is printed where the window is (#10 Window). Print a test and check it in an envelope.
+- **Pair**: letter + envelope — two PDFs in the same order with small numbers.
+- **Problems bar** (green / yellow / red): no address, deceased, no English name, empty fields, text overflow, same address twice… Click a problem to see only those. **"Skip"** — leave one out.
+- **Print** or **PDF** (each page at the right size), **from–to**, **test (one page)**. Letters can also be **sent by email** (those without email are printed).
 
 ## Yahrzeits and occasions
 Keywords: yahrzeit, occasion, simcha, birthday, calendar, reminder
@@ -159,6 +165,18 @@ Keywords: yahrzeit, occasion, simcha, birthday, calendar, reminder
 - **Calendar of occasions** (lobby): what's coming — yahrzeits, simchas.
 - Add: **"New occasion"**, or in the card ← Family. Choose the type, the person, and the Hebrew date.
 - The list "yahrzeits this week" — in Lists.
+
+## Calls & SMS: texts and recorded calls
+Keywords: sms, text, robocall, call, recording, credits, STOP, JOIN, Telnyx
+
+- **Calls & SMS** (lobby). **Send**: choose SMS or a recording, a list, the text, and when (empty = now). You see how many will get it and the cost.
+- Only people who **agreed** get it (📱 on the card). "⚠ without consent" — mark them with the source (old list / asked verbally).
+- Not on **Shabbos / Yom Tov**, not Erev Shabbos afternoon, and only 8am–9pm — otherwise it waits by itself.
+- **STOP** — nobody sends to him anymore. **JOIN** — a person signs up by himself.
+- **Credits**: each gabbai sends from his credits. **"Buy credits"** by card, or an admin adds.
+- **Recordings**: upload an MP3, or call the recording number from your phone and press 2.
+- Replies arrive in the **personal area**.
+- **SMS from a gabbai to the system**: from a registered phone just write: "add…", "what is the phone of…", "a donation from…", or send a photo of an invitation. The system answers what it understood — **1** = confirm, **2** = cancel.
 
 ## Personal area: messages and tasks
 Keywords: personal, messages, task, todo, inbox, reminder
