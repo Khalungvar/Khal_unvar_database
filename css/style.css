@@ -1597,3 +1597,5 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .mx-saved > h3 { margin: 0 0 10px; color: var(--accent); }
 .mx-saved .mx-col h4 { margin: 0; }
 .mx-saved .mx-cols { margin-top: 0; }
+.mx-new-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.mx-pick li { margin: 4px 0; }

@@ -236,7 +236,8 @@ function renderHome(main) {
       <button type="button" class="linkish" id="mx-pending-x">${h(t('mxPendingCancel'))}</button></div>` : ''}
     <div class="mx-cols">${KINDS.map(([k, ico, lbl]) => `<section class="mx-col">
       <h3>${ico} ${h(t(lbl))}</h3>
-      <button type="button" class="btn primary mx-new" data-new="${k}">+ ${h(t('mxNew'))}</button>
+      <div class="mx-new-row"><button type="button" class="btn primary mx-new" data-new="${k}">+ ${h(t('mxNew'))}</button>
+      ${k !== 'ltr' ? `<button type="button" class="btn mx-new" data-match="${k}">📄 ${h(t(k === 'env' ? 'mxMatchEnv' : 'mxMatchLbl'))}</button>` : ''}</div>
     </section>`).join('')}</div>
     ${[['public', '🌐', 'mxPublicSaved'], ['private', '🔒', 'mxPrivateSaved']].map(([vis, ico, title]) => `<section class="mx-saved">
       <h3>${ico} ${h(t(title))}</h3>
@@ -247,6 +248,7 @@ function renderHome(main) {
       }).join('')}</div></section>`).join('')}`;
   $('#mx-pending-x', main)?.addEventListener('click', () => { pending = null; pendingList = ''; renderHome(main); });
   $$('[data-new]', main).forEach((b) => { b.onclick = () => createNew(b.dataset.new); });
+  $$('[data-match]', main).forEach((b) => { b.onclick = () => pickLetter(b.dataset.match); });
   $$('[data-open]', main).forEach((b) => { b.onclick = () => openTemplate(b.dataset.open); });
   $$('[data-dup]', main).forEach((b) => { b.onclick = () => duplicate(b.dataset.dup); });
   $$('[data-del]', main).forEach((b) => {
@@ -263,6 +265,43 @@ function renderHome(main) {
 }
 function listName(id) { return state.savedLists.find((l) => String(l.list_id) === String(id))?.name || ''; }
 
+/** "תואם למכתב": בוחרים מכתב קיים → מעטפה / מדבקות עם אותם נמענים, באותו סדר, ומקושר ל"זוג" */
+function pickLetter(kind) {
+  const letters = templatesOf('ltr');
+  if (!letters.length) { ui.toast(t('mxNoLetters'), 'error'); return; }
+  const dlg = dialog(`<h3>📄 ${h(t(kind === 'env' ? 'mxMatchEnv' : 'mxMatchLbl'))}</h3>
+    <p class="muted small">${h(t('mxMatchHint'))}</p>
+    <ul class="mx-plist mx-pick">${letters.map((x) => `<li><button type="button" class="linkish" data-letter="${h(x.template_id)}">📄 ${h(x.name)}</button>
+      <span class="muted small">${h(String(x.updated_at || x.created_at || '').slice(0, 10))}</span></li>`).join('')}</ul>
+    <div class="dialog-actions"><button type="button" class="btn" data-x>${h(t('cancel'))}</button></div>`);
+  $$('[data-letter]', dlg).forEach((b) => { b.onclick = () => { dlg.close(); createMatched(kind, b.dataset.letter); }; });
+}
+async function createMatched(kind, letterId) {
+  const row = state.mailTemplates.find((r) => String(r.template_id) === String(letterId));
+  if (!row) return;
+  const L = fromRow(row);
+  D = defaults(kind);
+  D.matchOf = String(letterId);
+  D.meta = { ...D.meta, visibility: L.meta.visibility || 'public', editors: L.meta.editors || [], org: L.meta.org || '' };
+  D.name = `${t(kind === 'env' ? 'mxEnvFor' : 'mxLblFor')} ${L.name}`;
+  view = 'edit';
+  idx = 0;
+  skipIds = new Set();
+  saveState = '';
+  renderMailMerge();
+  try {
+    await persist();
+    // דאס מכתב: דער "זוג" ווייזט אויף דעם נייעם עיצוב
+    if (!L.ltr.pairEnv) {
+      const s2 = settingsOf(row);
+      s2.ltr = { ...(s2.ltr || {}), pairEnv: String(D.template_id) };
+      const rec = { ...row, settings: JSON.stringify(s2) };
+      await saveRecord('MailTemplates', 'template_id', rec);
+      row.settings = rec.settings;
+    }
+    ui.toast(t('mxMatchedDone', { name: L.name }));
+  } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+}
 async function createNew(kind) {
   D = defaults(kind);
   applyPending();
@@ -330,16 +369,24 @@ function parsePaste(text) {
   });
 }
 function areaOf(c) { return nz(c.area) || detectArea(state.areas || [], { zip: c.zip, city: c.city, neighborhood: c.neighborhood, country: c.country }); }
+/** תואם למכתב: דאס מכתב (אדער null) */
+function matchedLetter() {
+  if (!D?.matchOf) return null;
+  const x = state.mailTemplates.find((r) => String(r.template_id) === String(D.matchOf));
+  return x ? fromRow(x) : null;
+}
 function computeRows() {
   info = { excluded: [], nosend: [] };
   let list = [];
-  const s = D.src;
+  const M = matchedLetter();
+  const s = M ? { ...M.src, email: false } : D.src;
+  const sortBy = M ? M.sort : D.sort;
   if (D.kind === 'lbl' && D.lbl.mode === 'same') { rows = []; return; }
   if (D._ids) list = D._ids.map((id) => ui.contactById(id)).filter(Boolean);
   else if (s.type === 'contact') { const c = s.contact ? ui.contactById(s.contact) : null; list = c ? [c] : []; }
   else if (s.type === 'paste') list = parsePaste(s.paste);
   else {
-    const id = listKey().split(':')[1];
+    const id = (M ? (M.src.list || listKey()) : listKey()).split(':')[1];
     const l = state.savedLists.find((x) => String(x.list_id) === String(id));
     if (l) {
       const { cr } = parseSaved(l);
@@ -358,9 +405,9 @@ function computeRows() {
   }
   if (s.toWife) list = list.map((c) => ({ ...c, _toWife: true }));
   const byName = (a, b) => nz(a.last_name_he || a.last_name_en).localeCompare(nz(b.last_name_he || b.last_name_en), 'he') || nz(a.first_name_he).localeCompare(nz(b.first_name_he), 'he');
-  if (D.sort === 'name') list.sort(byName);
-  else if (D.sort === 'zip') list.sort((a, b) => nz(a.zip).localeCompare(nz(b.zip)) || nz(a.address).localeCompare(nz(b.address)));
-  else if (D.sort === 'area') list.sort((a, b) => areaOf(a).localeCompare(areaOf(b), 'he') || byName(a, b));
+  if (sortBy === 'name') list.sort(byName);
+  else if (sortBy === 'zip') list.sort((a, b) => nz(a.zip).localeCompare(nz(b.zip)) || nz(a.address).localeCompare(nz(b.address)));
+  else if (sortBy === 'area') list.sort((a, b) => areaOf(a).localeCompare(areaOf(b), 'he') || byName(a, b));
   rows = list.filter((c) => !skipIds.has(keyOf(c)));
 }
 
@@ -505,6 +552,13 @@ function orgOptions() {
 function recipientsHtml() {
   const s = D.src;
   if (D.kind === 'lbl' && D.lbl.mode === 'same') return '';
+  const M = matchedLetter();
+  if (M) {
+    return `<details open><summary>${h(t('mxRecipients'))}</summary>
+      <p class="mx-pending small">📄 ${h(t('mxMatchedTo', { name: M.name }))}</p>
+      <button type="button" class="linkish small" id="mx-unmatch">${h(t('mxUnmatch'))}</button>
+      <p class="muted small" id="mx-count">${h(t('mmCount', { n: rows.length }))}</p></details>`;
+  }
   if (D._ids) {
     return `<details open><summary>${h(t('mxRecipients'))}</summary>
       <p class="mx-pending small">📬 ${h(t('mxFromReceipts', { n: D._ids.length }))} <button type="button" class="linkish" id="mx-ids-x">${h(t('mxPendingCancel'))}</button></p>
@@ -579,7 +633,7 @@ function rteHtml(target, html, dir) {
 function letterEditHtml() {
   const L = D.ltr;
   const camps = allCampaigns().map((c) => [c.name, c.name]);
-  const envs = templatesOf('env').map((x) => [x.template_id, x.name]);
+  const envs = [...templatesOf('env').map((x) => [x.template_id, `✉ ${x.name}`]), ...templatesOf('lbl').map((x) => [x.template_id, `🏷 ${x.name}`])];
   return `<details open><summary>${h(t('mxLetterLang'))}</summary>
       <div class="mm-grid"><label>${h(t('mxLang'))}${sel('ltr.lang', [['yi', 'אידיש'], ['he', 'עברית'], ['en', 'English']], L.lang)}</label>
       <label>${h(t('mxDir'))}${sel('ltr.dir', [['rtl', t('mxRtl')], ['ltr', t('mxLtr')]], L.dir)}</label></div>
@@ -808,6 +862,13 @@ function wireEditor(main) {
   };
   $('#mx-name', main)?.addEventListener('input', (e) => { D.name = e.target.value; scheduleSave(); });
   $('#mx-settings', main)?.addEventListener('click', openSettings);
+  $('#mx-unmatch', main)?.addEventListener('click', () => {
+    const M = matchedLetter();
+    if (M) { D.src = { ...M.src, email: false }; D.sort = M.sort; }
+    D.matchOf = '';
+    scheduleSave();
+    renderMailMerge();
+  });
   $('#mx-ids-x', main)?.addEventListener('click', () => { delete D._ids; pending = null; renderMailMerge(); });
   $$('[data-src]', main).forEach((b) => { b.onclick = () => { D.src.type = b.dataset.src; D._ids = undefined; scheduleSave(); renderMailMerge(); }; });
   const ci = $('#mx-contact', main);
