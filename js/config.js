@@ -4,6 +4,9 @@ export const CONFIG = {
   // דער "סערווער" (Apps Script) פונעם הילף-AI. ליידיג = נאר דער פירער מיט זוכן.
   HELP_AI_URL: 'https://script.google.com/macros/s/AKfycbyva11piQYE0c-FIhWoHHJj_zqtOf3bB2DM_5S1WGUyXZ9WJqWamkDDMRqPYsoFsYKR/exec',
   // עוזר התמונות (Apps Script בחשבון הדאטבייס) — עדיין לא בשימוש עד שהקוד בצד האתר ייבנה
+  // SMS און טעלעפאן: דער "מוח" (Apps Script sms.gs) און דער Worker (Cloudflare). ליידיג = נאך נישט פארבונדן.
+  SMS_URL: '',
+  SMS_WORKER_URL: '',
   IMAGES_URL: 'https://script.google.com/macros/s/AKfycbzi44y-tKi2B3wnAvd93WOlxqJPULhWjsgAJqcMr1DAVvyx1HmQPr4o0rKypIxVgnju_Q/exec',
 
   // מזהה הלוגאין (Google Auth Platform → Clients → Khal Ungvar Website)

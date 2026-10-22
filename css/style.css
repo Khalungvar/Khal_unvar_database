@@ -1579,3 +1579,17 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
   body.printing-rc #rc-print-area .mx-win { border-color: transparent; background: none; }
 }
 .rc-win .rd-banner img { max-height: 1.5in; }
+
+/* Calls & SMS */
+.sms-credits { font-size: 15px; }
+.sms-send { max-width: 720px; display: flex; flex-direction: column; gap: 8px; }
+.sms-send textarea, .sms-send input, .sms-send select { font: inherit; padding: 6px 8px; }
+.sms-stats { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--gold); border-radius: 10px; padding: 8px 12px; }
+.sms-stats .ok, .ok { color: #2f7d32; } .warn { color: #b3261e; }
+.sms-buy { background: var(--surface); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; }
+.sms-buy .seg button { min-width: 70px; }
+.sms-admin { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.sms-admin section { background: var(--surface); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 14px; }
+.sms-admin h3 { margin-top: 0; }
+.sms-mark { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.sms-card { margin: 6px 0 0; }

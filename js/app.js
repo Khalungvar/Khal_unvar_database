@@ -32,6 +32,7 @@ import { initMerge, openMerge } from './merge.js';
 import { loadFonts } from './fonts.js';
 import { initFeedback, openFeedbackCount } from './feedback.js';
 import { strictMember, tagsOf as tagEntries } from './tags.js';
+import { initSms, openCalls, renderCalls, smsCardHtml, wireSmsCard } from './sms.js';
 import { workCardHtml, workFormHtml, wireWorkForm, readWorkForm, workSearchText } from './work.js';
 import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, markChecked, hasRealTags, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
 import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
@@ -276,6 +277,7 @@ function lobbyClick(e) {
   if (key === 'lists') { openOverview(); return; }
   if (key === 'simchos') { enterScope(null); document.body.classList.add('solo-mode'); openSimchos(); return; }
   if (key === 'mailmerge') { openMailMerge(); return; }
+  if (key === 'calls') { enterScope(null); openCalls(); return; }
   if (key === 'personal') { document.body.classList.add('solo-mode'); openPersonal(); return; }
   if (key === 'receipts') { enterScope(null); document.body.classList.add('solo-mode'); openReceipts(); return; }
   // נדבות / לוח המאורעות: א באזונדערער בלאט פון אלע רעקארדס — אן די לשוניות
@@ -338,6 +340,7 @@ function showView(name) {
   if (name === 'admin') renderAdmin();
   if (name === 'lobby') renderLobby();
   if (name === 'mailmerge') renderMailMerge();
+  if (name === 'calls') renderCalls();
   if (name === 'personal') renderPersonal();
   if (name === 'lists') renderBuilder();
   if (name === 'school') renderSchool();
@@ -824,7 +827,7 @@ function openCard(id, tab = null) {
     ${cardTagsHtml(c)}
     ${address || c.area ? `<section><h3>${t('address')}${c.area ? ` · ${unverifiedWrap(c, ['area'], h(c.area))}` : ''}</h3><p dir="ltr" class="addr">${address}</p></section>` : ''}
     ${workCardHtml(c)}
-    ${phones || emails ? `<section><h3>${t('phonesEmail')}</h3>${phones}${emails}</section>` : ''}
+    ${phones || emails ? `<section><h3>${t('phonesEmail')}</h3>${phones}${emails}${smsCardHtml(c)}</section>` : ''}
     </div>
     <div class="card-pane" data-tab="family">
       ${familySection(c)}
@@ -848,6 +851,7 @@ function openCard(id, tab = null) {
     <details class="hist"><summary>📜 ${h(t('histTitle'))}</summary><div class="hist-list"><p class="muted small">${h(t('loading'))}</p></div></details>`;
 
   wireCardTagBox(c);
+  wireSmsCard(c);
   wireFamily(c);
   wireDonationsSection(c);
   wireOccasionsSection(c);
@@ -1961,6 +1965,7 @@ function start() {
   initReceipts({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, refreshAdmin: () => renderAdmin() });
   initMailMerge({ showView, fullNameHe, toast, friendlyError, openCard, pickerLabel, contactById });
   initMail({ toast, friendlyError });
+  initSms({ showView, fullNameHe, toast, friendlyError, openCard, pickerLabel });
   initRequests({ toast, friendlyError, refreshAll, updateBadges, showView, openCard });
   initMerge({ contactById, fullNameHe, pickerLabel, fieldLabel, toast, friendlyError, refreshAll, openCard });
   initSimchos({ showView, contactById, fullNameHe, pickerLabel, toast, friendlyError, refreshAll, openCard, openForm });
