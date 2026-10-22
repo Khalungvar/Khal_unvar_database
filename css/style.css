@@ -1593,3 +1593,7 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .sms-admin h3 { margin-top: 0; }
 .sms-mark { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
 .sms-card { margin: 6px 0 0; }
+.mx-saved { margin-top: 18px; border: 1px solid var(--gold); border-radius: 14px; padding: 12px 14px; background: rgba(255,255,255,.35); }
+.mx-saved > h3 { margin: 0 0 10px; color: var(--accent); }
+.mx-saved .mx-col h4 { margin: 0; }
+.mx-saved .mx-cols { margin-top: 0; }

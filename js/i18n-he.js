@@ -763,6 +763,8 @@ export const HE = {
   "mxHomeHint": "בחרו סוג ועיצוב — או צרו חדש.",
   "mxNew": "חדש",
   "mxNone": "אין עדיין עיצובים",
+  "mxPublicSaved": "שמורים — ציבוריים",
+  "mxPrivateSaved": "שמורים — פרטיים",
   "mxOpen": "פתיחה",
   "mxDuplicate": "שכפול",
   "mxDuplicated": "שוכפל",

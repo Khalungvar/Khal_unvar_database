@@ -220,7 +220,7 @@ function renderHome(main) {
   const card = (x) => {
     const m = metaOf(x);
     return `<div class="mx-card" data-id="${h(x.template_id)}">
-      <div class="mx-card-name">${m.visibility === 'private' ? '🔒 ' : ''}${h(x.name || t('mxUntitled'))}</div>
+      <div class="mx-card-name">${h(x.name || t('mxUntitled'))}</div>
       <div class="muted small">${h(who(x))} · ${h(String(x.updated_at || x.created_at || '').slice(0, 10))}${m.org ? ` · <span class="chip mini">${h(m.org)}</span>` : ''}</div>
       <div class="mx-card-act">
         <button type="button" class="btn small-btn primary" data-open="${h(x.template_id)}">${h(t('mxOpen'))}</button>
@@ -237,8 +237,14 @@ function renderHome(main) {
     <div class="mx-cols">${KINDS.map(([k, ico, lbl]) => `<section class="mx-col">
       <h3>${ico} ${h(t(lbl))}</h3>
       <button type="button" class="btn primary mx-new" data-new="${k}">+ ${h(t('mxNew'))}</button>
-      <div class="mx-list">${templatesOf(k).map(card).join('') || `<p class="muted small">${h(t('mxNone'))}</p>`}</div>
-    </section>`).join('')}</div>`;
+    </section>`).join('')}</div>
+    ${[['public', '🌐', 'mxPublicSaved'], ['private', '🔒', 'mxPrivateSaved']].map(([vis, ico, title]) => `<section class="mx-saved">
+      <h3>${ico} ${h(t(title))}</h3>
+      <div class="mx-cols">${KINDS.map(([k, kico, lbl]) => {
+        const list = templatesOf(k).filter((x) => (metaOf(x).visibility === 'private') === (vis === 'private'));
+        return `<div class="mx-col"><h4>${kico} ${h(t(lbl))}</h4>
+          <div class="mx-list">${list.map(card).join('') || `<p class="muted small">${h(t('mxNone'))}</p>`}</div></div>`;
+      }).join('')}</div></section>`).join('')}`;
   $('#mx-pending-x', main)?.addEventListener('click', () => { pending = null; pendingList = ''; renderHome(main); });
   $$('[data-new]', main).forEach((b) => { b.onclick = () => createNew(b.dataset.new); });
   $$('[data-open]', main).forEach((b) => { b.onclick = () => openTemplate(b.dataset.open); });
