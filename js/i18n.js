@@ -1,3 +1,4 @@
+import { HE } from './i18n-he.js';
 // שפות הממשק: אידיש ואנגלית. הנתונים עצמם (שמות, תגיות, רשימות) לא מתורגמים.
 const STRINGS = {
   yi: {
@@ -1780,14 +1781,17 @@ const STRINGS = {
   },
 };
 
+// עברית: א באזונדערע טעקע (i18n-he.js); וואס פעלט דארט — אידיש
+STRINGS.he = { marital_values: {}, relation_values: {}, ...HE, langName: 'עברית' };
+const LANGS = ['yi', 'he', 'en'];
 const KEY = 'khal-lang';
 let lang = 'yi';
-try { lang = localStorage.getItem(KEY) === 'en' ? 'en' : 'yi'; } catch { /* ignore */ }
+try { const v = localStorage.getItem(KEY); lang = LANGS.includes(v) ? v : 'yi'; } catch { /* ignore */ }
 
 export function getLang() { return lang; }
 
 export function setLang(next) {
-  lang = next === 'en' ? 'en' : 'yi';
+  lang = LANGS.includes(next) ? next : 'yi';
   try { localStorage.setItem(KEY, lang); } catch { /* ignore */ }
   applyStatic();
 }
@@ -1800,18 +1804,18 @@ export function t(key, vars = {}) {
 
 /** ערך מרשימת המצב המשפחתי, מוצג בשפת הממשק (הנתון בגליון לא משתנה). */
 export function maritalLabel(value) {
-  return STRINGS[lang].marital_values[value] || value;
+  return STRINGS[lang].marital_values?.[value] || value;
 }
 
 /** סוג קשר משפחתי בשפת הממשק (הנתון בגליון לא משתנה). */
 export function relationLabel(value) {
-  return STRINGS[lang].relation_values[value] || value;
+  return STRINGS[lang].relation_values?.[value] || value;
 }
 
 /** מעדכן את הטקסטים הקבועים בדף ואת כיוון הכתיבה. */
 export function applyStatic() {
   const root = document.documentElement;
-  root.lang = lang === 'en' ? 'en' : 'yi';
+  root.lang = lang;
   root.dir = lang === 'en' ? 'ltr' : 'rtl';
   document.title = `${t('appName')} – ${t('subtitle')}`;
   document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
