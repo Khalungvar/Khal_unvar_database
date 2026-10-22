@@ -1615,3 +1615,19 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 #mailmerge-main .mm-canvas.mx-zoomed > :first-child { position: absolute; top: 10px; left: 10px; }
 .mx-sizer { pointer-events: none; }
 #mailmerge-main .mm-canvas:not(.mx-zoomed) .mx-sizer { display: none; }
+/* מכתב: לכתוב על הדף (כמו Word) */
+.mx-mode { margin-bottom: 6px; }
+.mx-ribbon { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 8px; background: #fbf7ee; border: 1px solid #e3d3ad; border-radius: 10px; margin-bottom: 8px; position: sticky; top: 0; z-index: 5; }
+.mx-ribbon button { min-width: 28px; padding: 3px 7px; border: 1px solid #d9cba8; background: #fff; border-radius: 6px; cursor: pointer; font: inherit; font-size: 14px; }
+.mx-ribbon button:hover { background: #f3ead6; }
+.mx-ribbon select { font: inherit; font-size: 13px; padding: 3px 4px; border-radius: 6px; }
+.mx-ribbon input[type=color] { width: 30px; height: 26px; padding: 0; border: 0; background: none; }
+.mx-sep { width: 1px; height: 22px; background: #e3d3ad; margin: 0 3px; }
+.mx-letter.mx-editing { overflow: visible; }
+.mx-edit-col { position: relative; box-sizing: border-box; }
+.mx-edit-body { position: static !important; outline: none; min-height: 3in; cursor: text; }
+.mx-edit-body:focus { box-shadow: 0 0 0 1px rgba(122,18,25,.15); }
+.mx-edit-body p { margin: 0 0 0.55em; }
+.mx-tok { display: inline-block; background: #fff1b8; border: 1px solid #e7c96a; border-radius: 5px; padding: 0 4px; margin: 0 1px; font-size: 0.85em; line-height: 1.35; color: #6b4e00; user-select: all; }
+.mx-pb { position: relative; margin-top: 1.6em !important; }
+.mx-pb::before { content: '— ' attr(data-pb) ' —'; position: absolute; left: 0; right: 0; top: -1.3em; border-top: 2px dashed #b9a06a; text-align: center; font: 9pt Arial, sans-serif; color: #8a6d2b; padding-top: 1px; }

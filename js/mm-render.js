@@ -255,7 +255,7 @@ export function labelPages(D, list, { test = false, all = true, nums = null } = 
 export const labelsPerSheet = (D) => { const S = sheetOf(D.lbl.sheet || D.format); return S.cols * S.rows; };
 
 // ---------- בריוו ----------
-export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties = null, extraClass = '', cont = 0, bodyOverride = null } = {}) {
+export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties = null, extraClass = '', cont = 0, bodyOverride = null, editBody = null } = {}) {
   const L = D.ltr;
   const vals = valuesFor(D, c, ctx);
   const det = L.design === 'org' ? (orgDetailsOf(L.org) || {}) : {};
@@ -269,7 +269,7 @@ export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties =
   const headBottom = banner ? 0.3 + bh + 0.25 : logo ? 1.45 : 0;
   // עמוד המשך: בלי באנר / חלון / תיבות, ושורת "המשך" קטנה למעלה
   const first = !cont;
-  const body = bodyOverride !== null ? bodyOverride : fillHtml(cleanHtml(L.html), vals, empties);
+  const body = editBody !== null ? editBody : bodyOverride !== null ? bodyOverride : fillHtml(cleanHtml(L.html), vals, empties);
   const foot = L.design === 'org' ? [det.footer_line ? `<div class="mx-foot-yi" dir="rtl">${h(det.footer_line)}</div>` : '',
     `<div class="mx-foot-legal">${[det.legal_name || L.org, [det.address, det.city_state_zip].filter(Boolean).join(', '), det.phone, det.email].filter(Boolean).map(h).join(' · ')}</div>`].join('') : '';
   const sig = bodyOverride !== null ? '' : L.sig && L.design === 'org' ? `<div class="mx-sig">${det.signature_text ? `<div style="font-family:'Playpen Sans Hebrew';font-size:20pt">${h(det.signature_text)}</div>`
@@ -277,15 +277,18 @@ export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties =
   const winBlock = win && first ? rcpBlock({ ...D, lang: L.winLang || 'en' }, c, vals, empties, {
     attrs: 'data-part="win"', cls: `mx-win${edit ? ' mx-drag' : ''}`, style: `left:${win.x}in;top:${win.y}in;width:${win.w}in;height:${win.h}in`,
   }) : '';
-  return `<div class="mx-letter mx-page ${extraClass}" style="width:8.5in;height:11in">
+  const ed = editBody !== null;
+  return `<div class="mx-letter mx-page ${extraClass}${ed ? ' mx-editing' : ''}" style="width:8.5in;${ed ? 'min-height:11in' : 'height:11in'}">
     ${L.design === 'bg' && D.background_data ? `<img class="mx-letter-bg" src="${imgSrc(D.background_data)}" style="opacity:${D.bg.opacity}" alt="">` : ''}
     ${banner && first ? `<img class="mx-banner" src="${imgSrc(banner)}" style="top:0.3in;left:${m.side * 0.6}in;right:${m.side * 0.6}in;height:${bh}in" alt="">` : ''}
     ${logo && first ? `<div class="mx-band" style="top:0.3in;left:${m.side}in;right:${m.side}in"><img src="${imgSrc(logo)}" alt=""><div dir="rtl">${h(det.org_name_he || L.org)}</div></div>` : ''}
     ${winBlock}
     ${cont ? `<div class="mx-cont" dir="${dirv(L.dir)}" style="left:${m.side}in;right:${m.side}in;top:${m.top}in">${h(L.dir === 'ltr' ? 'continued' : 'המשך')} · ${h(vals.שם_מלא || vals.Name || '')} · ${cont + 1}</div>` : ''}
-    <div class="mx-body" dir="${dirv(L.dir)}" style="left:${m.side}in;right:${m.side}in;top:${first ? Math.max(m.top, headBottom, winBottom) : m.top + 0.4}in;bottom:${m.bottom + (foot ? 0.55 : 0)}in;font-family:'${css(L.font)}';font-size:${Number(L.size) || 13}pt;line-height:${Number(L.lineH) || 1.5}">
-      ${body}${sig}</div>
-    ${foot ? `<div class="mx-foot" style="left:${m.side}in;right:${m.side}in;bottom:${Math.max(0.3, m.bottom - 0.3)}in">${foot}</div>` : ''}
+    ${ed ? `<div class="mx-edit-col" style="padding:${Math.max(m.top, headBottom, winBottom)}in ${m.side}in ${m.bottom + 0.6}in">
+      <div class="mx-body mx-edit-body" contenteditable="true" spellcheck="false" dir="${dirv(L.dir)}" style="font-family:'${css(L.font)}';font-size:${Number(L.size) || 13}pt;line-height:${Number(L.lineH) || 1.5}">${body}</div>${sig}</div>`
+    : `<div class="mx-body" dir="${dirv(L.dir)}" style="left:${m.side}in;right:${m.side}in;top:${first ? Math.max(m.top, headBottom, winBottom) : m.top + 0.4}in;bottom:${m.bottom + (foot ? 0.55 : 0)}in;font-family:'${css(L.font)}';font-size:${Number(L.size) || 13}pt;line-height:${Number(L.lineH) || 1.5}">
+      ${body}${sig}</div>`}
+    ${foot ? `<div class="mx-foot" style="left:${m.side}in;right:${m.side}in;${ed ? `top:${11 - Math.max(0.3, m.bottom - 0.3) - 0.5}in` : `bottom:${Math.max(0.3, m.bottom - 0.3)}in`}">${foot}</div>` : ''}
     ${first ? boxesHtml(D, vals, empties, edit) : ''}
     ${num ? `<div class="mx-num">${h(num)}</div>` : ''}
   </div>`;
@@ -320,6 +323,34 @@ export function letterPages(D, c, opts = {}) {
   }
   box.innerHTML = '';
   return pages;
+}
+
+/** פאר'ן עדיטירן: {שדה} → א קאלירטע תגית (נישט רעדאגירבאר) */
+export function tokensToChips(html) {
+  return String(html || '').replace(TOKEN_RE, (m, k) => `<span class="mx-tok" contenteditable="false" data-tok="${h(k)}">${h(k.replace(/_/g, ' '))}</span>`);
+}
+/** צוריק: די תגיות → {שדה} */
+export function chipsToTokens(root) {
+  const el = root.cloneNode(true);
+  el.querySelectorAll('.mx-tok').forEach((x) => x.replaceWith(document.createTextNode(`{${x.dataset.tok}}`)));
+  el.querySelectorAll('.mx-pb').forEach((x) => { x.classList.remove('mx-pb'); x.removeAttribute('data-pb'); if (!x.getAttribute('class')) x.removeAttribute('class'); });
+  return el.innerHTML;
+}
+/** וואו הייבט זיך אן יעדער נייער בלאט: א ליסטע פון אינדעקסן (וועלכער עלעמענט פונעם טעקסט) */
+export function pageBreaks(D, c) {
+  const pages = letterPages(D, c);
+  if (pages.length < 2) return [];
+  const out = [];
+  let count = 0;
+  const tmp = document.createElement('div');
+  pages.slice(0, -1).forEach((pg) => {
+    tmp.innerHTML = pg;
+    const b = tmp.querySelector('.mx-body');
+    // די חתימה (mx-sig) איז נישט טייל פונעם טעקסט
+    count += [...b.children].filter((x) => !x.classList.contains('mx-sig')).length;
+    out.push(count);
+  });
+  return out;
 }
 
 /** איין בלאט פאר א מענטש (קאנווערט אדער בריוו) */

@@ -14,7 +14,7 @@ import { ensureGmailScope } from './google.js';
 import { helperOn } from './images.js';
 import {
   ENVELOPES, FONTS_EN, FONTS_HE, allSheets, sheetOf, setCustomSheets, envSize, pageSize, envHtml, labelPages, letterHtml,
-  labelsPerSheet, letterPages, valuesFor, fillText, fillHtml, cleanHtml, donationCtx, hasAddr, partAddr, addrKey, isDeceased,
+  labelsPerSheet, letterPages, tokensToChips, chipsToTokens, pageBreaks, valuesFor, fillText, fillHtml, cleanHtml, donationCtx, hasAddr, partAddr, addrKey, isDeceased,
 } from './mm-render.js';
 
 let ui = null;
@@ -653,7 +653,7 @@ function letterEditHtml() {
     </details>
     <!--@L--><details open><summary>${h(t('mxBody'))}</summary>
       <label class="mm-l">${h(t('mxSalutation'))}<input data-k="ltr.salutation" dir="rtl" value="${h(L.salutation)}"></label>
-      ${rteHtml('ltr', L.html, L.dir)}
+      <p class="muted small">✏️ ${h(t('mxWriteOnPage'))}</p>
       <div class="mm-grid"><label>${h(t('mmFont'))}${sel('ltr.font', [...new Set([...customFontNames(), ...FONTS_HE, ...FONTS_EN])].map((f) => [f, f]), L.font)}</label>
       <label>${h(t('mmSize'))}${num('ltr.size', L.size, 8, 30, 0.5)}</label>
       <label>${h(t('mxLineH'))}${sel('ltr.lineH', [1, 1.15, 1.3, 1.45, 1.6, 1.8, 2].map((n) => [n, n]), L.lineH)}</label></div>
@@ -764,7 +764,8 @@ function stageHtml() {
       const pages = labelPages(D, rows);
       page = pages[sheetNo] || pages[0];
     }
-  } else page = D.kind === 'ltr' ? `<div class="mx-pages">${letterPages(D, c, { edit: true }).join('')}</div>` : envHtml(D, c, { edit: true });
+  } else if (D.kind === 'ltr' && ltrEdit) page = letterHtml(D, c || null, { edit: true, editBody: tokensToChips(cleanHtml(D.ltr.html)) });
+  else page = D.kind === 'ltr' ? `<div class="mx-pages">${letterPages(D, c, { edit: true }).join('')}</div>` : envHtml(D, c, { edit: true });
   const red = worst() >= 3;
   const nav = D.kind === 'lbl' && D.lbl.mode === 'same' ? '' : `<button type="button" class="btn small-btn" id="mx-prev">‹</button>
       <span>${vr.length ? h(t('mmRecordOf', { i: idx + 1, n: vr.length })) : h(t('mmNoRecords'))}</span>
@@ -774,7 +775,10 @@ function stageHtml() {
         <button type="button" class="linkish small" id="mx-skip">${h(t('mxSkipOne'))}</button>` : ''}
       ${skipIds.size ? `<button type="button" class="linkish small" id="mx-unskip">${h(t('mxUnskip', { n: skipIds.size }))}</button>` : ''}`;
   const total = D.kind === 'lbl' && D.lbl.mode === 'same' ? `${D.lbl.sheets || 1} × ${labelsPerSheet(D)}` : rows.length;
-  return `<div class="mm-nav">${nav}<span class="spacer"></span>
+  const ribbon = D.kind === 'ltr' && ltrEdit ? ribbonHtml() : '';
+  return `${D.kind === 'ltr' ? `<div class="seg mx-mode"><button type="button" data-mode="edit" class="${ltrEdit ? 'on' : ''}">✏️ ${h(t('mxModeEdit'))}</button><button type="button" data-mode="view" class="${ltrEdit ? '' : 'on'}">👁 ${h(t('mxModeView'))}</button></div>` : ''}
+    ${ribbon}
+    <div class="mm-nav"${D.kind === 'ltr' && ltrEdit ? ' hidden' : ''}>${nav}<span class="spacer"></span>
       <span class="mx-zoom"><button type="button" class="btn small-btn" id="mx-zoom-out" title="−">−</button>
       <button type="button" class="linkish small" id="mx-zoom-fit" title="${h(t('mxZoomFit'))}"><span id="mx-zoom-val">${Math.round(zoom * 100)}%</span></button>
       <button type="button" class="btn small-btn" id="mx-zoom-in" title="+">+</button></span></div>
@@ -788,6 +792,90 @@ function stageHtml() {
       ${D.kind === 'ltr' && D.src.email ? `<button type="button" class="btn" id="mx-send">📧 ${h(t('mxSendEmail'))}</button>` : ''}
       ${red ? `<span class="mx-redwarn">⚠ ${h(t('mxRedWarn'))}</span>` : ''}
     </div>`;
+}
+
+let ltrEdit = true; // מכתב: שרייבן גלייך אויפן בלאט (ווי Word)
+/** דער סרגל (ווי Word) */
+function ribbonHtml() {
+  const fonts = [...new Set([...customFontNames(), ...FONTS_HE, ...FONTS_EN])];
+  const toks = [...TOKENS_HE, ...TOKENS_EN];
+  return `<div class="mx-ribbon">
+    <button type="button" data-cmd="undo" title="Undo">↶</button><button type="button" data-cmd="redo" title="Redo">↷</button>
+    <span class="mx-sep"></span>
+    <select data-cmdsel="fontName" title="${h(t('mmFont'))}"><option value="">${h(t('mmFont'))}</option>${fonts.map((f) => `<option>${h(f)}</option>`).join('')}</select>
+    <select data-cmdsel="size" title="${h(t('mmSize'))}"><option value="">pt</option>${[9, 10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 40].map((n) => `<option>${n}</option>`).join('')}</select>
+    <span class="mx-sep"></span>
+    <button type="button" data-cmd="bold"><b>B</b></button><button type="button" data-cmd="italic"><i>I</i></button><button type="button" data-cmd="underline"><u>U</u></button>
+    <input type="color" data-cmdsel="foreColor" value="#1f1a17" title="${h(t('mxColor'))}">
+    <span class="mx-sep"></span>
+    <button type="button" data-cmd="justifyRight" title="Right">⇥</button><button type="button" data-cmd="justifyCenter" title="Center">≡</button><button type="button" data-cmd="justifyLeft" title="Left">⇤</button><button type="button" data-cmd="justifyFull" title="Justify">☰</button>
+    <button type="button" data-cmd="insertUnorderedList">•</button><button type="button" data-cmd="insertOrderedList">1.</button>
+    <button type="button" data-cmd="removeFormat" title="${h(t('mxClearFmt'))}">⌫</button>
+    <span class="mx-sep"></span>
+    <select data-tokins title="${h(t('mxInsertField'))}"><option value="">＋ ${h(t('mxInsertField'))}</option>${toks.map((k) => `<option value="${h(k)}">${h(k.replace(/_/g, ' '))}</option>`).join('')}</select>
+  </div>`;
+}
+/** דער טעקסט פונעם בלאט → D.ltr.html, און די שורות פון א נייעם בלאט */
+let pbTimer = null;
+function markBreaks() {
+  const body = $('#mm-canvas .mx-edit-body');
+  if (!body) return;
+  $$('.mx-pb', body).forEach((x) => { x.classList.remove('mx-pb'); x.removeAttribute('data-pb'); });
+  const c = viewRows()[idx] || rows[0] || null;
+  const br = c ? pageBreaks(D, c) : [];
+  const kids = [...body.children];
+  br.forEach((i, n) => { const el = kids[i]; if (el) { el.classList.add('mx-pb'); el.dataset.pb = t('mxPageN', { n: n + 2 }); } });
+}
+function wireEditPage(main) {
+  const body = $('#mm-canvas .mx-edit-body', main);
+  if (!body) return;
+  const save = () => {
+    D.ltr.html = cleanHtml(chipsToTokens(body));
+    scheduleSave();
+    clearTimeout(pbTimer);
+    pbTimer = setTimeout(() => {
+      markBreaks();
+      computeProblems();
+      const bar = $('#mx-bar-wrap');
+      if (bar) { bar.innerHTML = barHtml(); wireBar(main); }
+    }, 500);
+  };
+  body.addEventListener('input', save);
+  const rb = $('.mx-ribbon', main);
+  $$('[data-cmd]', rb).forEach((b) => {
+    b.onmousedown = (e) => e.preventDefault();
+    b.onclick = () => { body.focus(); document.execCommand(b.dataset.cmd, false, null); save(); };
+  });
+  $$('[data-cmdsel]', rb).forEach((sl) => {
+    sl.onchange = () => {
+      const v = sl.value;
+      if (!v) return;
+      body.focus();
+      if (sl.dataset.cmdsel === 'size') {
+        document.execCommand('fontSize', false, '7');
+        $$('font[size="7"]', body).forEach((f) => { const sp = document.createElement('span'); sp.style.fontSize = `${v}pt`; sp.innerHTML = f.innerHTML; f.replaceWith(sp); });
+      } else document.execCommand(sl.dataset.cmdsel, false, v);
+      if (sl.tagName === 'SELECT') sl.value = '';
+      save();
+    };
+  });
+  // זכרון וואו דער קורסאר איז (ווען מ'קלייבט אין א select)
+  let range = null;
+  const keep = () => { const sel = window.getSelection(); if (sel.rangeCount && body.contains(sel.anchorNode)) range = sel.getRangeAt(0).cloneRange(); };
+  body.addEventListener('keyup', keep);
+  body.addEventListener('mouseup', keep);
+  const ti = $('[data-tokins]', rb);
+  ti.onchange = () => {
+    const k = ti.value;
+    ti.value = '';
+    if (!k) return;
+    body.focus();
+    if (range) { const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range); }
+    document.execCommand('insertHTML', false, `${tokensToChips(`{${k}}`)}&nbsp;`);
+    save();
+  };
+  $$('[data-cmdsel]', rb).forEach((sl) => sl.addEventListener('mousedown', keep));
+  markBreaks();
 }
 
 function renderEditor(main) {
@@ -1049,6 +1137,8 @@ function showProblemList(k) {
   $$('[data-card]', dlg).forEach((b) => { b.onclick = () => { dlg.close(); ui.openCard(b.dataset.card); }; });
 }
 function wireStage(main) {
+  $$('[data-mode]', main).forEach((b) => { b.onclick = () => { ltrEdit = b.dataset.mode === 'edit'; refreshStage(); }; });
+  if (D.kind === 'ltr' && ltrEdit) wireEditPage(main);
   $('#mx-zoom-in', main)?.addEventListener('click', () => setZoom(zoom + 0.25));
   $('#mx-zoom-out', main)?.addEventListener('click', () => setZoom(zoom - 0.25));
   $('#mx-zoom-fit', main)?.addEventListener('click', () => setZoom(1));
