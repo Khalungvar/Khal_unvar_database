@@ -90,6 +90,13 @@ export async function loadAll() {
   // אויסגעמעקטע (אין "מיסט") — נישט געוויזן אין ערגעץ, נאר אין אדמין צו צוריקברענגען אדער אויסמעקן אויף אייביג
   state.trash = contacts.objects.filter((c) => String(c.deleted_at || '').trim());
   state.contacts = contacts.objects.filter((c) => !String(c.deleted_at || '').trim());
+  // א פרוי (אלמנה): ווען עס פעלט דער אידישער תואר — פון דעם ענגלישן (Mrs. → מרת, Rebbetzin → הרבנית). ווערט געשפייכלערט ביים קומענדיגן שפייכלערן.
+  state.contacts.forEach((c) => {
+    if (String(c.title_he || '').trim()) return;
+    const en = String(c.title_en || '').trim().toLowerCase();
+    if (/^(mrs|ms)\.?$/.test(en)) c.title_he = 'מרת';
+    else if (en === 'rebbetzin') c.title_he = 'הרבנית';
+  });
 
   const phones = rowsToObjects(tabs.Phones);
   state.headers.Phones = phones.header;
