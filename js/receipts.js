@@ -17,6 +17,7 @@ import { ensureGmailScope, hasGmailScope } from './google.js';
 import { htmlToJpeg, jpegsToPdf } from './pdf.js';
 import { savedInScope, parseSaved, evaluate } from './lists.js';
 import { submitRequest } from './requests.js';
+import { letterTemplates, letterPage, openMailMergeFor } from './mailmerge.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -125,6 +126,9 @@ export function renderReceipts() {
       <label class="check"><input type="checkbox" id="rc-all"> ${h(t('rcSelectAll'))}</label>
       <span class="muted" id="rc-count"></span>
       <span class="spacer"></span>
+      ${f.kind !== 'invoice' ? `<select id="rc-letter" title="${h(t('rcWithLetterTip'))}"><option value="">📄 ${h(t('rcNoLetter'))}</option>${letterTemplates().map((x) => `<option value="${h(x.id)}"${String(x.id) === String(f.letter || '') ? ' selected' : ''}>📄 ${h(x.name)}</option>`).join('')}</select>` : ''}
+      <label class="check" title="${h(t('rcWindowTip'))}"><input type="checkbox" id="rc-window"${f.window ? ' checked' : ''}> ${h(t('rcWindow'))}</label>
+      <button type="button" class="btn" id="rc-env">✉ ${h(t('rcEnvelopes'))}</button>
       <button type="button" class="btn" id="rc-sample">👁 ${h(t('rcPreview'))}</button>
       <button type="button" class="btn" id="rc-xl">Excel</button>
       <button type="button" class="btn" id="rc-mail" disabled>✉ ${h(t('rcMailBtn'))}</button>
@@ -161,9 +165,17 @@ export function renderReceipts() {
   $('#rc-sample', main).onclick = () => {
     const d = picked()[0] || shown[0];
     if (!d) return;
-    printDocs([{ ...d, receipt_no: d.issued?.receipt_no || '—', issued_at: new Date().toISOString().slice(0, 10), forText: f.kind !== 'year' ? String(f.forText || '').trim() : '' }]);
+    printDocs([{ ...d, receipt_no: d.issued?.receipt_no || '—', issued_at: new Date().toISOString().slice(0, 10), forText: f.kind !== 'year' ? String(f.forText || '').trim() : '' }], { letter: f.letter, window: f.window });
   };
   $('#rc-edit-org', main).onclick = () => openOrgDetails(f.org);
+  $('#rc-letter', main)?.addEventListener('change', (e) => { f.letter = e.target.value; });
+  $('#rc-window', main)?.addEventListener('change', (e) => { f.window = e.target.checked; });
+  $('#rc-env', main).onclick = () => {
+    const docs = picked().length ? picked() : shown;
+    const ids = [...new Set(docs.map((d) => String(d.contact_id || '')).filter(Boolean))];
+    if (!ids.length) { ui.toast(t('rcNothing'), 'error'); return; }
+    openMailMergeFor(ids, `${t(KINDS.find(([k]) => k === f.kind)[1])} · ${f.org}`);
+  };
   const picked = () => $$('.rc-pick:checked', main).map((x) => shown[Number(x.dataset.i)]);
   const sync = () => {
     const n = picked().length;
@@ -187,7 +199,7 @@ export function renderReceipts() {
       printDocs(issued.map((x, i) => ({
         ...docs[i], receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint,
         forText,
-      })));
+      })), { letter: f.letter, window: f.window });
       await loadAll();
       rerender();
     } catch (err) {
@@ -209,7 +221,7 @@ export function renderReceipts() {
         if (f.kind !== 'invoice') await rememberLetter(f.org);
         const issued = await issueDocs(withMail.map((d) => ({ kind: d.kind, org: d.org, contact_id: d.contact_id, donor_name: d.donor_name, ids: d.ids, amount: d.amount, period: d.period })));
         const full = issued.map((x, i) => ({ ...withMail[i], receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint, forText }));
-        const r = await mailDocs(full.map((c) => ({ c, to: emailOf(ui.contactById(c.contact_id)) })), (done, total) => { btn.textContent = `✉ ${done}/${total}`; });
+        const r = await mailDocs(full.map((c) => ({ c, to: emailOf(ui.contactById(c.contact_id)) })), (done, total) => { btn.textContent = `✉ ${done}/${total}`; }, f.letter);
         ui.toast(t('mailDone', { n: r.done - r.errors, errors: r.errors }), r.errors ? 'error' : '');
         await loadAll();
         rerender();
@@ -240,9 +252,16 @@ function askAddress(contactId) {
   return e;
 }
 
-export async function receiptPdf(c) {
-  const page = await htmlToJpeg(docHtml(c));
-  const bytes = jpegsToPdf([page]);
+export async function receiptPdf(c, letter = '') {
+  const ct = letter && c.contact_id ? ui.contactById(c.contact_id) : null;
+  const lp = ct ? letterPage(letter, ct, letterCtx(c)) : '';
+  let bytes;
+  if (lp) {
+    // בריוו + קבלה: ביידע א פולער Letter בלאט
+    const a = await htmlToJpeg(`<div class="mx-out" dir="ltr">${lp}</div>`, { widthIn: 8.5, heightIn: 11, scale: 1.8 });
+    const b = await htmlToJpeg(`<div class="rc-page">${docHtml(c)}</div>`, { widthIn: 8.5, heightIn: 11 });
+    bytes = jpegsToPdf([a, b], { margin: 0 });
+  } else bytes = jpegsToPdf([await htmlToJpeg(docHtml(c))]);
   let bin = '';
   for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(bin);
@@ -271,11 +290,11 @@ function mailContent(c) {
 }
 
 /** items = [{ c, to }] — יעדע קבלה צו איר אדרעס */
-async function mailDocs(items, onProgress = () => {}) {
+async function mailDocs(items, onProgress = () => {}, letter = '') {
   const jobs = [];
   for (const { c, to } of items) {
     const m = mailContent(c);
-    const b64 = await receiptPdf(c);
+    const b64 = await receiptPdf(c, letter);
     const { html, inline } = emailLayout(c.org, m.html, [], '', { banner: m.banner });
     jobs.push({ to, contact_id: c.contact_id, subject: m.subject, html, text: m.text, inline, kind: c.kind, org: c.org, fromName: m.fromName,
       attachments: [{ name: `${c.receipt_no}.pdf`, mime: 'application/pdf', b64 }] });
@@ -341,7 +360,7 @@ function fromLog(no) {
 
 function wireLog(main) {
   main.querySelectorAll('[data-reprint]').forEach((b) => {
-    b.onclick = () => { const c = fromLog(b.dataset.reprint); if (c) printDocs([c]); };
+    b.onclick = () => { const c = fromLog(b.dataset.reprint); if (c) printDocs([c], { window: f?.window }); };
   });
   main.querySelectorAll('[data-remail]').forEach((b) => {
     b.onclick = () => {
@@ -543,23 +562,61 @@ function docHtml(c) {
   </section>`;
 }
 
-/** דרוקט (אדער PDF): יעדער דאקומענט אויף א באזונדערן בלאט. */
-export function printDocs(docs) {
+/** די נדבה-פרטים פון א קבלה — פאר די פעלדער אינעם בריוו */
+function letterCtx(c) {
+  const dates = c.list.map(paidDate).filter(Boolean).sort();
+  return {
+    total: Number(c.amount) || 0, paid: c.kind === 'invoice' ? 0 : Number(c.amount) || 0, remaining: c.kind === 'invoice' ? Number(c.amount) || 0 : 0,
+    date: dates.at(-1) || '', campaign: c.forText || forWhat(c),
+    dedication: [...new Set(c.list.map((d) => [d.dedication_type, d.dedication_text].filter(Boolean).join(' ')).filter(Boolean))].join(' · '),
+  };
+}
+/** קאנווערט מיט א פענצטער: דער אדרעס אויפן ריכטיגן פלאץ (אין דער קבלה; די בלאט-ראנד איז 0.5in) */
+function windowBlock(c) {
+  const { name, addr } = letterParts(c);
+  return `<div class="rc-winaddr" dir="ltr"><b>${h(name)}</b>${addr.map((l) => `<br>${h(l)}`).join('')}</div>`;
+}
+const WIN_BOTTOM = 3.35; // אינטשעס פונעם אויבן פונעם בלאט: אונטער דעם — דער טעקסט פונעם בריוו
+
+/** דרוקט (אדער PDF): יעדער דאקומענט אויף א באזונדערן בלאט. opts.letter = א בריוו פון Mail Merge פאר יעדן, opts.window = קאנווערט מיט א פענצטער */
+export function printDocs(docs, opts = {}) {
+  const letter = opts.letter || '';
+  const win = Boolean(opts.window);
   let area = $('#rc-print-area');
   if (!area) { area = document.createElement('div'); area.id = 'rc-print-area'; document.body.append(area); }
-  area.innerHTML = docs.map(docHtml).join('');
+  const one = (c) => {
+    const doc = docHtml(c).replace('<section class="rc-doc">', `<section class="rc-doc${win ? ' rc-win' : ''}">${win ? windowBlock(c) : ''}`);
+    if (!letter) return doc;
+    const ct = c.contact_id ? ui.contactById(c.contact_id) : null;
+    const lp = ct ? letterPage(letter, ct, letterCtx(c)) : '';
+    return `${lp ? `<div class="rc-mxwrap" dir="ltr">${lp}</div>` : ''}<div class="rc-page">${doc}</div>`;
+  };
+  area.innerHTML = docs.map(one).join('');
+  area.classList.toggle('rc-with-letter', Boolean(letter));
+  let st = $('#rc-page-style');
+  if (!st) { st = document.createElement('style'); st.id = 'rc-page-style'; document.head.append(st); }
+  st.textContent = letter ? '@page { size: letter; margin: 0; }' : '';
   document.body.classList.add('printing-rc');
-  const done = () => { document.body.classList.remove('printing-rc'); area.innerHTML = ''; window.removeEventListener('afterprint', done); };
+  const done = () => { document.body.classList.remove('printing-rc'); area.innerHTML = ''; st.textContent = ''; window.removeEventListener('afterprint', done); };
   window.addEventListener('afterprint', done);
+  // פענצטער: דער בריוו הייבט זיך אן אונטער דעם פענצטער
+  if (win) {
+    $$('.rc-win', area).forEach((doc) => {
+      const L = $('.rd-letter', doc);
+      if (!L) return;
+      const top = L.getBoundingClientRect().top - doc.getBoundingClientRect().top;
+      const need = (WIN_BOTTOM - 0.5) * 96 - top;
+      if (need > 0) L.style.paddingTop = `${need}px`;
+    });
+  }
   // די בילדער און די שריפטן (כתב-יד) מוזן זיך אויסלאדן פארן דרוקן
   const fonts = ["24px 'Playpen Sans Hebrew'", "24px 'Amatic SC'", "24px 'Noto Rashi Hebrew'", "16px 'Frank Ruhl Libre'", "bold 16px 'Frank Ruhl Libre'"]
-    .map((f) => (document.fonts?.load ? document.fonts.load(f, 'אבג').catch(() => null) : null));
+    .map((f2) => (document.fonts?.load ? document.fonts.load(f2, 'אבג').catch(() => null) : null));
   Promise.all([...fonts, ...$$('img', area).map((img) => (img.complete ? null : new Promise((r) => { img.onload = r; img.onerror = r; })))])
     .then(() => (document.fonts?.ready || null))
     .then(() => window.print());
 }
 
-/** פון דער נדבה: א קבלה (באצאלט) אדער Invoice (נישט באצאלט) — גלייך דרוקן. */
 export async function printForDonation(d, mode = 'print') {
   const org = effectiveOrg(d);
   if (!org) { ui.toast(t('rcNoOrg'), 'error'); return; }

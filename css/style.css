@@ -1566,3 +1566,16 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
   body.printing-mx .mx-page:last-child { break-after: auto; page-break-after: auto; }
 }
 @media (max-width: 900px) { .mx-cols { grid-template-columns: 1fr; } }
+/* קבלות: מיט א בריוו / קאנווערט מיט א פענצטער */
+.rc-doc { position: relative; }
+.rc-winaddr { position: absolute; left: 0.375in; top: 1.75in; width: 4in; height: 1in; overflow: hidden; font: 11pt Georgia, serif; line-height: 1.25; background: #fff; z-index: 2; padding: 0.04in 0.08in; box-sizing: border-box; }
+.rc-page { width: 8.5in; height: 11in; padding: 0.5in; box-sizing: border-box; background: #fff; }
+@media print {
+  body.printing-rc #rc-print-area.rc-with-letter .rc-page,
+  body.printing-rc #rc-print-area.rc-with-letter .mx-page { break-after: page; page-break-after: always; }
+  body.printing-rc #rc-print-area.rc-with-letter > :last-child .rc-doc,
+  body.printing-rc #rc-print-area.rc-with-letter > .rc-page:last-child { break-after: auto; page-break-after: auto; }
+  body.printing-rc #rc-print-area.rc-with-letter .rc-doc { break-after: auto; page-break-after: auto; }
+  body.printing-rc #rc-print-area .mx-win { border-color: transparent; background: none; }
+}
+.rc-win .rd-banner img { max-height: 1.5in; }
