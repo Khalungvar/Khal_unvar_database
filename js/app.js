@@ -1959,7 +1959,7 @@ function start() {
   initCampaigns({ showView, tagPicker, wireTagPicker, readTags, toast, friendlyError, refreshAll, openCard });
   initAdmin({ toast, friendlyError, refreshAll, openOrgDetails });
   initReceipts({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, refreshAdmin: () => renderAdmin() });
-  initMailMerge({ showView, fullNameHe, toast, friendlyError });
+  initMailMerge({ showView, fullNameHe, toast, friendlyError, openCard, pickerLabel, contactById });
   initMail({ toast, friendlyError });
   initRequests({ toast, friendlyError, refreshAll, updateBadges, showView, openCard });
   initMerge({ contactById, fullNameHe, pickerLabel, fieldLabel, toast, friendlyError, refreshAll, openCard });
