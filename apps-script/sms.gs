@@ -436,7 +436,7 @@ function aiParse(text, images) {
     '- query: {"who":{...},"what":"phone|address|email|all|yahrzeit|simcha|donations"}',
     '- add_note: {"who":{...},"note":"..."}',
     '- donation: {"who":{...},"amount":number,"campaign":"...","method":"cash|check|card|other","check_number":"","date":"YYYY-MM-DD or empty","paid":true}',
-    '- simcha: {"who":[{"name":"...","hint":""}],"type":"birth|bar_mitzvah|engagement|wedding|other","child":"name or empty","date":"YYYY-MM-DD or empty","note":"..."} (also when reading a simcha invitation image)',
+    '- simcha: {"who":[{"name":"...","hint":""}],"type":"birth|upsherin|barmitzvah|erusin|nisuin","child":"name or empty","date":"YYYY-MM-DD or empty","note":"..."} (also when reading a simcha invitation image)',
     '- photo: {"who":{...}}',
     '- unknown: {}',
     'Hebrew names stay in Hebrew letters; English names in English. US addresses: split city/state/zip. Phone numbers: digits only. Never invent data.',
@@ -620,11 +620,12 @@ function addSimcha(a, g, lang) {
   let img = '';
   if (a.media) img = storeImage(a.media, 'simcha-' + id);
   appendObj('Simchos', {
-    simcha_id: id, week: saturdayOf(a.date), type: a.type || 'other', honorees: JSON.stringify(hon), child_name: a.child || '',
+    simcha_id: id, week: saturdayOf(a.date), type: ({ bar_mitzvah: 'barmitzvah', engagement: 'erusin', wedding: 'nisuin' })[a.type] || a.type || 'birth', honorees: JSON.stringify(hon), child_name: a.child || '',
     text_override: '', sort: '', created_at: stamp(), created_by: g.email, updated_at: stamp(), updated_by: g.email,
-    after_note: [a.note, img ? 'drv:' + img : ''].filter(String).join(' '),
   });
-  if (!hon.length) notifyAdmins('sms_simcha', 'SMS: שמחה', 'א שמחה פון SMS (' + g.name + ') — מ\'דארף צולייגן די בעלי שמחה אויפן אתר. #' + id);
+  // דער גבאי האט עס געשיקט אין SMS — א מנהל זאל עס איבערקוקן אויפן אתר (מיט דער הזמנה אין דרייב)
+  notifyAdmins('sms_simcha', 'SMS: שמחה #' + id, 'א שמחה פון SMS (' + g.name + '): ' + (a.type || '') + ' · ' + (a.who || []).map(function (w) { return w.name; }).join(' / ')
+    + (a.child ? ' · ' + a.child : '') + (a.note ? '\n' + a.note : '') + (hon.length ? '' : '\n⚠ מ\'דארף צולייגן די בעלי שמחה אויפן אתר.') + (img ? '\nhttps://drive.google.com/file/d/' + img : ''));
   return say('done', lang) + ' #' + id;
 }
 function storeImage(url, name) {
