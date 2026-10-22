@@ -1461,3 +1461,12 @@ dialog > .actions, dialog :not(form) > .actions:last-child {
 .l2-tnrow select { width: auto; font-size: 12px; padding: 1px 4px; }
 .l2-steps { margin: 6px 0 10px; padding-inline-start: 20px; line-height: 1.9; }
 .l2-example { background: #f6f3ea; border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; white-space: pre-wrap; }
+
+/* סארטירן: א קליק אויפן קעפל */
+table thead th:not(:empty) { cursor: pointer; user-select: none; }
+table.no-sort thead th { cursor: default; }
+table thead th:not(:empty)::after { content: ' ⇅'; font-size: .75em; opacity: .35; }
+table.no-sort thead th::after { content: none; }
+table thead th[data-sort="asc"]::after { content: ' ▲'; opacity: .9; }
+table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
+@media print { table thead th::after { content: none !important; } }
