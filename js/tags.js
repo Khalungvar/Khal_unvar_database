@@ -137,7 +137,7 @@ export const serialize = (list) => (list.length ? JSON.stringify(list.map((x) =>
 const OK = '_ok';
 export const hasUnchecked = (c) => !storedTags(c).some((x) => x.p[0] === OK);
 /** האט ער אמת'ע תגיות (נישט נאר דעם "נבדק" סימן)? */
-export const hasRealTags = (c) => storedTags(c).some((x) => x.p[0] !== OK);
+export const hasRealTags = (c) => storedTags(c).some((x) => !String(x.p[0]).startsWith('_'));
 /** "דער כרטיס איז נבדק": לא נבדק → פעיל (וואס איז געווען לשעבר → יוצא), און דער סימן */
 export function markChecked(contact) {
   const list = storedTags(contact).filter((x) => x.p[0] !== OK);

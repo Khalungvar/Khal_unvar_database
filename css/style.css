@@ -1451,3 +1451,13 @@ dialog > .actions, dialog :not(form) > .actions:last-child {
 .l2-reqs { background: #fff7df; border: 1px solid #e7c66a; border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; }
 .l2-access .chip { margin: 2px; }
 .l2-actions label select { width: auto; }
+.l2-tree, .l2-tkids { list-style: none; margin: 0; padding-inline-start: 0; }
+.l2-tkids { padding-inline-start: 22px; }
+.l2-tnrow { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; padding: 1px 0; }
+.l2-tog { all: unset; cursor: pointer; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 6px; font-size: 10px; background: #fff; flex: none; }
+.l2-tog:hover { border-color: var(--gold); }
+.l2-tog-sp { width: 22px; flex: none; }
+.l2-tnroot { all: unset; cursor: pointer; font-weight: 700; }
+.l2-tnrow select { width: auto; font-size: 12px; padding: 1px 4px; }
+.l2-steps { margin: 6px 0 10px; padding-inline-start: 20px; line-height: 1.9; }
+.l2-example { background: #f6f3ea; border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; white-space: pre-wrap; }

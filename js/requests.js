@@ -58,6 +58,16 @@ const TYPES = {
     label: 'rqTypeListAccess',
     apply: async (p) => { const { grantListAccess } = await import('./lists.js'); await grantListAccess(p); },
   },
+  list_delete: {
+    icon: '🗑',
+    label: 'rqTypeListDelete',
+    apply: async (p) => { const { deleteListById } = await import('./lists.js'); await deleteListById(p.list_id); },
+  },
+  list_ext: {
+    icon: '👥',
+    label: 'rqTypeListExt',
+    apply: async (p) => { const { extToContacts } = await import('./lists.js'); await extToContacts(p.list_id); },
+  },
   void_receipt: {
     icon: '🧾',
     label: 'rqTypeVoid',

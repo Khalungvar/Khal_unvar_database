@@ -1,10 +1,11 @@
 // רשימות: א רשימה = מענטשן לויט תנאים (א בסיס, נאך רשימות, "חוץ מ...", ידני), געשפייכלערט ווי תנאים —
 // זי ווערט יעדעס מאל אויסגערעכנט פון ס'ניי. פון די מענטשן קומען לשוניות: נעמען / טעלעפאנען / פאסט / אימעיל / פרטים.
 // א פאס פון פראבלעמען אונטן. פרטי/ציבורי, עורכים, שייכות צו א מוסד, און א "זכרון" פאר יעדע רשימה.
+import { batchUpdate } from './google.js';
 import {
-  tagsOf, storedTags, linesOf, hasUnchecked, nameOf as tagName, roots as tagRoots, childrenOf as tagChildren, pathKey, GROUPS,
+  tagsOf, storedTags, linesOf, serialize, hasUnchecked, nameOf as tagName, roots as tagRoots, childrenOf as tagChildren, pathKey, GROUPS,
 } from './tags.js';
-import { state, loadAll, saveSavedList, deleteSavedList, displayName, saveRecord } from './data.js';
+import { state, loadAll, saveSavedList, deleteSavedList, displayName, saveRecord, saveContact, importContacts } from './data.js';
 import { t } from './i18n.js';
 import { isTrue, isAlive, escapeHtml as h, mailingName, digits, nowStamp } from './util.js';
 import { todayIso } from './hebdate.js';
@@ -30,7 +31,7 @@ const TAGSEL = (st = 'a') => ({ keys: [], st, per: {} });
 const EMPTY = () => ({
   v: 2, base: '', tags: TAGSEL('a'), areas: [], family: [], donation: DON(), lists: [],
   except: { tags: TAGSEL('both'), areas: [], family: [], donation: null, lists: [] },
-  marital: [], includeDeceased: false, includeInactive: false,
+  marital: [], includeDeceased: false, includeInactive: false, includeNoSend: false,
   add: [], remove: [], ext: [],
   meta: { note: '', editors: [], viewers: [], firstTab: 'names', mem: {}, sep: [], notDup: [] },
 });
@@ -87,6 +88,22 @@ function rels() {
 const of = (map, ids) => { const out = new Set(); [...ids].forEach((i) => (map.get(String(i)) || []).forEach((x) => out.add(x))); return out; };
 const uni = (...sets) => new Set(sets.flatMap((s) => [...s]));
 export const related = (a, b) => rels().any.has(`${a}|${b}`);
+/** "נישט קרובים · באזונדער" — פאר שטענדיג (געשפייכלערט ביי ביידע אין tags: { p: ['_sep', id] }) */
+export const separated = (a, b) => [[a, b], [b, a]].some(([x, y]) => storedTags(contactOf(x)).some((e) => e.p[0] === '_sep' && String(e.p[1]) === String(y)));
+async function markSeparate(a, b) {
+  const col = colLetter(state.headers.Contacts.indexOf('tags'));
+  const data = [];
+  [[a, b], [b, a]].forEach(([x, y]) => {
+    const c = contactOf(x);
+    if (!c) return;
+    const list = storedTags(c);
+    if (!list.some((e) => e.p[0] === '_sep' && String(e.p[1]) === String(y))) list.push({ p: ['_sep', String(y)], s: 'ok' });
+    c.tags = serialize(list);
+    data.push({ range: `Contacts!${col}${c._row}`, values: [[c.tags]] });
+  });
+  if (data.length) await batchUpdate(data);
+}
+function colLetter(i) { let s = ''; let n = i + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
 /** די קרובים פון איינעם לויט די אויסגעקליבענע סארטן */
 function familyOf(id, kinds) {
   const R = rels(); const me = new Set([String(id)]);
@@ -299,9 +316,9 @@ function headOf(group) {
   return group.find((x) => group.every((y) => y === x || isAnc(x.key, y.key) || !group.some((z) => isAnc(z.key, x.key)))) || group[0];
 }
 /** רעכטן פאר א קאנאל: { rows (מיט אחד'ן), missing, nosend, groups } */
-export function channel(rows, kind, mem = {}) {
-  const nosend = mem.ignoreSend ? [] : rows.filter((r) => !sendOk(r));
-  const use = mem.ignoreSend ? rows : rows.filter(sendOk);
+export function channel(rows, kind, ignore = false) {
+  const nosend = ignore ? [] : rows.filter((r) => !sendOk(r));
+  const use = ignore ? rows : rows.filter(sendOk);
   if (kind === 'phones') {
     const has = use.filter((r) => PHONE_KEYS.some(([k]) => digits(phonesOfRow(r)[k])));
     return { rows: has, missing: use.filter((r) => !has.includes(r)), nosend };
@@ -331,7 +348,7 @@ export function mailRecipients(ch, mode = 'one') {
 /** פאר מייל מירדזש: די צונעמער פון א געשפייכלערטער רשימה (לויט איר זכרון) */
 export function savedMailRows(l) {
   const { cr } = parseSaved(l);
-  const ch = channel(evaluate(cr), 'mail', cr.meta.mem || {});
+  const ch = channel(evaluate(cr), 'mail', cr.includeNoSend);
   return mailRecipients(ch, cr.meta.mem?.mailMode || 'one');
 }
 
@@ -351,7 +368,7 @@ export function problems(rows, cr) {
     m.forEach((g, v) => {
       for (let i = 0; i < g.length; i += 1) for (let j = i + 1; j < g.length; j += 1) {
         const a = g[i].key; const b = g[j].key; const pk = pairKey(a, b);
-        if (!related(a, b) && !sep.has(pk) && !shared.some((s) => s.pk === pk)) shared.push({ pk, a: g[i], b: g[j], what: label, v });
+        if (!related(a, b) && !sep.has(pk) && !separated(a, b) && !shared.some((s) => s.pk === pk)) shared.push({ pk, a: g[i], b: g[j], what: label, v });
       }
     });
   };
@@ -365,11 +382,16 @@ export function problems(rows, cr) {
   const nameKey = (c) => `${String(c.first_name_he || '').trim()}|${String(c.last_name_he || '').trim()}`;
   const byName = new Map();
   real.forEach((r) => { const k = nameKey(r.c); if (k !== '|') { if (!byName.has(k)) byName.set(k, []); byName.get(k).push(r); } });
-  byName.forEach((g) => { for (let i = 0; i < g.length; i += 1) for (let j = i + 1; j < g.length; j += 1) { const pk = pairKey(g[i].key, g[j].key); if (!nd.has(pk)) dup.push({ pk, a: g[i], b: g[j] }); } });
+  const R = rels();
+  const differ = (map, a, b) => { const x = map.get(a); const y = map.get(b); return x?.size && y?.size && ![...x].some((v) => y.has(v)); };
+  byName.forEach((g) => { for (let i = 0; i < g.length; i += 1) for (let j = i + 1; j < g.length; j += 1) {
+    const a = g[i].key; const b = g[j].key; const pk = pairKey(a, b);
+    if (nd.has(pk) || differ(R.fathers, a, b) || differ(R.sons, a, b) || related(a, b)) continue; // אנדערע טאטע / זין → נישט דער זעלבער
+    dup.push({ pk, a: g[i], b: g[j] });
+  } });
   add('dup', 2, dup);
   add('names', 1, real.filter((r) => !['first_name_he', 'last_name_he', 'first_name_en', 'last_name_en'].every((k) => String(r.c[k] || '').trim())));
   add('title', 1, real.filter((r) => !String(r.c.title_he || '').trim()));
-  add('wife', 1, real.filter((r) => r.c.marital_status === 'נשוי' && isAlive(r.c.wife_is_alive) && !String(r.c.wife_name_en || r.c.wife_name_he || '').trim()));
   add('addr', 1, rows.filter((r) => String(r.c.address || '').trim() && !(String(r.c.city || '').trim() && String(r.c.zip || '').trim())));
   add('bademail', 1, rows.filter((r) => { const p = phonesOfRow(r); return [p.email_1, p.email_2].some((e) => String(e || '').trim() && !emailOk(e)); }));
   add('dead', 2, real.filter((r) => !isAlive(r.c.is_alive)));
@@ -431,7 +453,8 @@ export function renderBuilder() {
   const rows = evaluate(current.cr);
   current.rows = rows;
   const mem = current.cr.meta.mem || {};
-  const ch = { phones: channel(rows, 'phones', mem), mail: channel(rows, 'mail', mem), email: channel(rows, 'email', mem) };
+  const ig = current.cr.includeNoSend;
+  const ch = { phones: channel(rows, 'phones', ig), mail: channel(rows, 'mail', ig), email: channel(rows, 'email', ig) };
   const edit = canEdit(current.list_id ? listById(current.list_id) : null);
   const tabBtn = (k, label, n) => `<button type="button" data-ltab="${k}" class="${current.tab === k ? 'on' : ''}">${label}${n !== undefined ? ` <span class="count-pill">${n}</span>` : ''}</button>`;
   const P = problems(rows, current.cr);
@@ -447,7 +470,7 @@ export function renderBuilder() {
       ${edit ? `<button type="button" class="btn" id="l2-settings">⚙ ${h(t('L2settings'))}</button>`
         : `<button type="button" class="btn" id="l2-askedit">✋ ${h(t('L2askEdit'))}</button>`}
       ${edit ? `<div class="l2-addwrap"><button type="button" class="btn" id="l2-add">＋ ${h(t('L2addPeople'))} ▾</button>
-        <div class="l2-addmenu" hidden><button type="button" data-add="one">👤 ${h(t('L2addOne'))}</button><button type="button" data-add="paste">📋 ${h(t('L2addPaste'))}</button><button type="button" data-add="excel">📄 ${h(t('L2addExcel'))}</button></div></div>` : ''}
+        <div class="l2-addmenu" hidden><button type="button" data-add="one">👤 ${h(t('L2addOne'))}</button><button type="button" data-add="paste">📋 ${h(t('L2addPaste'))}</button><button type="button" data-add="excel">📄 ${h(t('L2addExcel'))}</button><button type="button" data-add="list">📋 ${h(t('L2addList'))}</button></div></div>` : ''}
       <button type="button" class="btn" id="lb-back">← ${h(t('allLists'))}</button>
     </div>
     <nav class="adm-tabs l2-tabs">${tabBtn('names', `👥 ${t('L2tabNames')}`, rows.length)}${tabBtn('phones', `📞 ${t('L2tabPhones')}`, ch.phones.rows.length)}${tabBtn('mail', `📬 ${t('L2tabMail')}`, ch.mail.groups.length)}${tabBtn('email', `✉ ${t('L2tabEmail')}`, ch.email.rows.length)}${tabBtn('details', `📊 ${t('L2tabDetails')}`)}</nav>
@@ -467,7 +490,9 @@ function tabHtml(tab, rows, ch, edit) {
   const missLine = (list) => (list.length ? `<details class="l2-miss"><summary>${h(t('L2missingList', { n: list.length }))}</summary>${list.map((r) => `<button type="button" class="linkish" data-open="${h(r.key)}">${h(nm(r.c))}</button>`).join(' · ')}</details>` : '');
   const nosendLine = (list) => (list.length ? `<p class="muted small">📭 ${h(t('L2nosendList', { n: list.length }))}: ${list.map((r) => h(nm(r.c))).join(' · ')}</p>` : '');
   if (tab === 'names') {
-    return `<div class="l2-actions"><button type="button" class="btn" data-x="names">Excel</button><button type="button" class="btn" data-print>🖨</button></div>
+    const nExt = rows.filter((r) => r.ext).length;
+    return `<div class="l2-actions"><button type="button" class="btn" data-x="names">Excel</button><button type="button" class="btn" data-pdf="names">PDF</button>
+      ${nExt && edit && current.list_id ? `<span class="spacer"></span><button type="button" class="btn" id="l2-extall">＋ ${h(t(state.isAdmin ? 'L2extAll' : 'L2extAllReq', { n: nExt }))}</button>` : ''}</div>
       <table class="lb-table"><thead><tr><th>${h(t('colNameHe'))}</th><th>${h(t('enName'))}</th><th>${h(t('area'))}</th><th></th></tr></thead>
       <tbody>${rows.map((r) => `<tr data-open="${h(r.key)}"><td>${rowName(r)}</td><td dir="ltr">${h([r.c.first_name_en, r.c.last_name_en].filter(Boolean).join(' '))}</td><td>${h(r.c.area || r.c.city || '')}</td>
         <td class="no-print">${r.ext && edit ? `<button type="button" class="linkish" data-mk="${h(r.key)}">＋ ${h(t('L2makeContact'))}</button> ` : ''}${rmBtn(r, edit)}</td></tr>`).join('')}</tbody></table>
@@ -475,8 +500,7 @@ function tabHtml(tab, rows, ch, edit) {
   }
   if (tab === 'phones') {
     const c = ch.phones;
-    return `<div class="l2-actions"><button type="button" class="btn" data-x="phones">Excel</button><button type="button" class="btn" data-print>🖨 ${h(t('L2printCalls'))}</button>
-        <label class="check"><input type="checkbox" data-mem="ignoreSend"${mem.ignoreSend ? ' checked' : ''}> ${h(t('L2ignoreSend'))}</label></div>
+    return `<div class="l2-actions"><button type="button" class="btn" data-x="phones">Excel</button><button type="button" class="btn" data-pdf="phones">PDF</button></div>
       <table class="lb-table"><thead><tr><th>${h(t('colNameHe'))}</th>${PHONE_KEYS.map(([, l]) => `<th>${h(t(l))}</th>`).join('')}<th class="print-only">✓</th></tr></thead>
       <tbody>${c.rows.map((r) => `<tr data-open="${h(r.key)}"><td>${rowName(r)}</td>${PHONE_KEYS.map(([k]) => `<td dir="ltr">${h(phonesOfRow(r)[k] || '')}</td>`).join('')}<td class="print-only"></td></tr>`).join('')}</tbody></table>
       ${missLine(c.missing)}${nosendLine(c.nosend)}`;
@@ -486,9 +510,8 @@ function tabHtml(tab, rows, ch, edit) {
     const recips = mailRecipients(c, mode);
     return `<div class="l2-actions">
         <label>${h(t('L2mailMode'))} <select data-mem="mailMode">${[['one', 'L2mmOne'], ['all', 'L2mmAll'], ['each', 'L2mmEach']].map(([k, l]) => `<option value="${k}"${mode === k ? ' selected' : ''}>${h(t(l))}</option>`).join('')}</select></label>
-        <label class="check"><input type="checkbox" data-mem="ignoreSend"${mem.ignoreSend ? ' checked' : ''}> ${h(t('L2ignoreSend'))}</label>
         <span class="spacer"></span>
-        ${current.list_id ? `<button type="button" class="btn primary" id="l2-mm">✉ ${h(t('L2mailMerge'))}</button>` : ''}<button type="button" class="btn" data-x="mail">Excel</button></div>
+        ${current.list_id ? `<button type="button" class="btn primary" id="l2-mm">✉ ${h(t('L2mailMerge'))}</button>` : ''}<button type="button" class="btn" data-x="mail">Excel</button><button type="button" class="btn" data-pdf="mail">PDF</button></div>
       <p class="muted small">${h(t('L2mailCount', { n: recips.length, p: c.rows.length }))}</p>
       <table class="lb-table"><thead><tr><th>${h(t('mailingName'))}</th><th>${h(t('address'))}</th><th>City</th><th>ZIP</th></tr></thead>
       <tbody>${recips.map((x) => `<tr data-open="${h(x.contact_id)}"><td dir="ltr">${h(mailingName(x) || nm(x))}</td><td dir="ltr">${h(x.address || '')}</td><td dir="ltr">${h([x.city, x.state].filter(Boolean).join(', '))}</td><td dir="ltr">${h(x.zip || '')}</td></tr>`).join('')}</tbody></table>
@@ -497,8 +520,7 @@ function tabHtml(tab, rows, ch, edit) {
   if (tab === 'email') {
     const c = ch.email; const both = Boolean(mem.email2);
     return `<div class="l2-actions"><label class="check"><input type="checkbox" data-mem="email2"${both ? ' checked' : ''}> ${h(t('L2email2'))}</label>
-        <label class="check"><input type="checkbox" data-mem="ignoreSend"${mem.ignoreSend ? ' checked' : ''}> ${h(t('L2ignoreSend'))}</label>
-        <span class="spacer"></span><button type="button" class="btn primary" id="l2-mail">✉ ${h(t('L2sendEmail'))}</button><button type="button" class="btn" data-x="email">Excel</button></div>
+        <span class="spacer"></span><button type="button" class="btn primary" id="l2-mail">✉ ${h(t('L2sendEmail'))}</button><button type="button" class="btn" data-x="email">Excel</button><button type="button" class="btn" data-pdf="email">PDF</button></div>
       <table class="lb-table"><thead><tr><th>${h(t('colNameHe'))}</th><th>Email 1</th><th>Email 2</th></tr></thead>
       <tbody>${c.rows.map((r) => `<tr data-open="${h(r.key)}"><td>${rowName(r)}</td><td dir="ltr">${h(phonesOfRow(r).email_1 || '')}</td><td dir="ltr">${h(phonesOfRow(r).email_2 || '')}</td></tr>`).join('')}</tbody></table>
       ${missLine(c.missing)}${nosendLine(c.nosend)}`;
@@ -506,7 +528,7 @@ function tabHtml(tab, rows, ch, edit) {
   // פרטים
   const cols = detailCols(); const sel = mem.cols || ['name_he', 'mailing', 'address', 'city', 'zip', 'mobile'];
   return `<div class="l2-actions"><div class="tags lb-chips">${cols.map(([k, l]) => `<button type="button" class="chip toggle${sel.includes(k) ? ' on' : ''}" data-col="${k}">${h(l)}</button>`).join('')}</div>
-      <span class="spacer"></span><button type="button" class="btn" data-x="details">Excel</button><button type="button" class="btn" data-print>🖨</button></div>
+      <span class="spacer"></span><button type="button" class="btn" data-x="details">Excel</button><button type="button" class="btn" data-pdf="details">PDF</button></div>
     <table class="lb-table"><thead><tr>${sel.map((k) => `<th>${h(cols.find(([x]) => x === k)?.[1] || k)}</th>`).join('')}</tr></thead>
     <tbody>${rows.map((r) => `<tr data-open="${h(r.key)}">${sel.map((k) => `<td>${h(cols.find(([x]) => x === k)?.[2](r) ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
@@ -518,7 +540,8 @@ function detailCols() {
     ['address', t('address'), (r) => r.c.address || ''], ['city', 'City', (r) => r.c.city || ''], ['state', 'State', (r) => r.c.state || ''],
     ['zip', 'ZIP', (r) => r.c.zip || ''], ['area', t('area'), (r) => r.c.area || ''],
     ['mobile', t('colMobile'), (r) => P(r).mobile || ''], ['home_phone', t('colHome'), (r) => P(r).home_phone || ''],
-    ['email', t('colEmail'), (r) => P(r).email_1 || ''], ['marital', t('marital'), (r) => r.c.marital_status || ''],
+    ['wife_mobile', t('L2wifeMobile'), (r) => P(r).wife_mobile || ''], ['other_phone', t('L2otherPhone'), (r) => P(r).other_phone || ''],
+    ['email', t('colEmail'), (r) => P(r).email_1 || ''], ['email2', 'Email 2', (r) => P(r).email_2 || ''], ['marital', t('marital'), (r) => r.c.marital_status || ''],
     ['tags', t('tgTitle'), (r) => (r.ext ? '' : linesOf(r.c).filter((l) => GROUPS.includes(l.g)).map((l) => l.title).join(', '))],
     ['don_total', t('colDonTotal'), (r) => (r.ext ? '' : money((state.donations || []).filter((d) => String(d.contact_id) === r.key).reduce((s, d) => s + Number(d.amount_usd || 0), 0)))],
     ['id', '#', (r) => (r.ext ? '' : r.key)],
@@ -535,6 +558,43 @@ function exportTab(kind, rows, ch) {
     const cols = detailCols(); const sel = (mem.cols || ['name_he', 'mailing', 'address', 'city', 'zip', 'mobile']).map((k) => cols.find(([x]) => x === k)).filter(Boolean);
     downloadXlsx(name, sel.map(([, l]) => l), rows.map((r) => sel.map(([, , fn]) => fn(r))), { sheet: name });
   }
+}
+
+// ---------- PDF: פריער פרעגן וועלכע פרטים ----------
+const PDF_DEFAULT = { names: ['name_he', 'name_en', 'area'], phones: ['name_he', 'mobile', 'home_phone', 'wife_mobile'], mail: ['mailing', 'address', 'city', 'state', 'zip'], email: ['name_he', 'email', 'email2'] };
+function pdfDialog(tab, rows, ch) {
+  const mem = current.cr.meta.mem || {};
+  const cols = detailCols();
+  const sel = mem[`pdf_${tab}`] || PDF_DEFAULT[tab] || mem.cols || ['name_he', 'mailing', 'address', 'city', 'zip', 'mobile'];
+  const dlg = dialog(`<h2>PDF · ${h(t(`L2tab${tab[0].toUpperCase()}${tab.slice(1)}`))}</h2><p class="hint-line">${h(t('L2pdfWhich'))}</p>
+    <div class="tags lb-chips">${cols.map(([k, l]) => `<button type="button" class="chip toggle${sel.includes(k) ? ' on' : ''}" data-v="${k}">${h(l)}</button>`).join('')}</div>
+    ${tab === 'phones' ? `<label class="check"><input type="checkbox" id="l2-pdf-check" checked> ${h(t('L2pdfCheckCol'))}</label>` : ''}
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-close>${h(t('cancel'))}</button><button type="button" class="btn primary" id="l2-pdf-go">PDF</button></div>`);
+  dlg.querySelector('.lb-chips').onclick = (e) => { const c = e.target.closest('.chip'); if (c) c.classList.toggle('on'); };
+  $('#l2-pdf-go', dlg).onclick = () => {
+    const keys = $$('.lb-chips .chip.on', dlg).map((b) => b.dataset.v);
+    if (!keys.length) return;
+    const check = $('#l2-pdf-check', dlg)?.checked;
+    const list = tab === 'mail' ? mailRecipients(ch.mail, mem.mailMode || 'one').map((c) => ({ c, key: String(c.contact_id) }))
+      : tab === 'phones' ? ch.phones.rows : tab === 'email' ? ch.email.rows : rows;
+    const use = keys.map((k) => cols.find(([x]) => x === k)).filter(Boolean);
+    current.cr.meta.mem = { ...mem, [`pdf_${tab}`]: keys };
+    dlg.close();
+    printTable(current.name, use, list, check);
+    if (canEdit(listById(current.list_id))) persist().catch(() => {});
+  };
+}
+function printTable(title, cols, list, checkCol) {
+  const w = window.open('', '_blank');
+  if (!w) { ui.toast(t('L2popup'), 'error'); return; }
+  const ltr = ['mailing', 'name_en', 'address', 'city', 'state', 'zip', 'mobile', 'home_phone', 'wife_mobile', 'other_phone', 'email', 'email2'];
+  w.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>${h(title)}</title>
+    <style>body{font-family:Heebo,Arial,sans-serif;margin:24px;font-size:12px}h1{font-size:18px;margin:0 0 4px}p{color:#666;margin:0 0 12px}
+    table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 6px;text-align:start}th{background:#f3efe2}tr{page-break-inside:avoid}.ltr{direction:ltr;text-align:left}</style></head>
+    <body><h1>${h(title)}</h1><p>${h(todayIso())} · ${list.length}</p><table><thead><tr><th>#</th>${cols.map(([, l]) => `<th>${h(l)}</th>`).join('')}${checkCol ? '<th>✓</th><th>' + h(t('L2notes')) + '</th>' : ''}</tr></thead>
+    <tbody>${list.map((r, i) => `<tr><td>${i + 1}</td>${cols.map(([k, , fn]) => `<td${ltr.includes(k) ? ' class="ltr"' : ''}>${h(fn(r) ?? '')}</td>`).join('')}${checkCol ? '<td style="width:24px"></td><td style="width:30%"></td>' : ''}</tr>`).join('')}</tbody></table>
+    <script>window.onload=()=>{window.print();}<\/script></body></html>`);
+  w.document.close();
 }
 
 // ---------- שפייכלערן ----------
@@ -578,7 +638,8 @@ function wireBuilder(main, rows, ch, P) {
     if (mk) { e.stopPropagation(); makeContact(mk.dataset.mk); return; }
     const x = e.target.closest('[data-x]');
     if (x) { exportTab(x.dataset.x, rows, ch); return; }
-    if (e.target.closest('[data-print]')) { window.print(); return; }
+    const pdf = e.target.closest('[data-pdf]');
+    if (pdf) { pdfDialog(pdf.dataset.pdf, rows, ch); return; }
     const col = e.target.closest('[data-col]');
     if (col) {
       const sel = new Set(current.cr.meta.mem?.cols || ['name_he', 'mailing', 'address', 'city', 'zip', 'mobile']);
@@ -587,6 +648,7 @@ function wireBuilder(main, rows, ch, P) {
       return;
     }
     if (e.target.closest('#l2-mm')) { await openMM(); return; }
+    if (e.target.closest('#l2-extall')) { await bulkExt(); return; }
     if (e.target.closest('#l2-mail')) {
       const mem = current.cr.meta.mem || {};
       const list = ch.email.rows.map((r) => r.c);
@@ -719,30 +781,56 @@ function openAdd(kind) {
     };
     return;
   }
-  const dlg = dialog(`<h2>${kind === 'excel' ? '📄' : '📋'} ${h(t(kind === 'excel' ? 'L2addExcel' : 'L2addPaste'))}</h2>
-    <p class="hint-line">${h(t('L2pasteHint'))}</p>
-    ${kind === 'excel' ? `<input type="file" id="l2-file" accept=".xlsx,.xls,.csv,.txt">` : ''}
-    <textarea id="l2-paste" rows="8" dir="auto" placeholder="Moshe Klein, 1520 50th St, (718) 555-0100&#10;מו&quot;ה יעקב כהן, 718-555-0101"></textarea>
+  if (kind === 'list') {
+    const dlg = dialog(`<h2>📋 ${h(t('L2addList'))}</h2><p class="hint-line">${h(t('L2addListHint'))}</p>${listPick(current.cr.lists, true)}
+      <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-close>${h(t('cancel'))}</button><button type="button" class="btn primary" id="l2-al-ok">${h(t('L2addAll'))}</button></div>`);
+    $('#l2-al-ok', dlg).onclick = async () => {
+      current.cr.lists = $$('[data-il]:checked', dlg).map((x) => ({ id: x.dataset.il, ex: $(`[data-ilex="${x.dataset.il}"]`, dlg)?.checked !== false }));
+      dlg.close();
+      await saveAndRender();
+    };
+    return;
+  }
+  const isX = kind === 'excel';
+  const dlg = dialog(`<h2>${isX ? '📄' : '📋'} ${h(t(isX ? 'L2addExcel' : 'L2addPaste'))}</h2>
+    ${isX ? `<ol class="l2-steps"><li>${h(t('L2xStep1'))} <button type="button" class="btn small-btn" id="l2-tpl">⬇ ${h(t('L2xTemplate'))}</button></li>
+        <li>${h(t('L2xStep2'))}</li><li>${h(t('L2xStep3'))} <input type="file" id="l2-file" accept=".xlsx,.csv,.txt"></li></ol>`
+    : `<ol class="l2-steps"><li>${h(t('L2pStep1'))}</li><li>${h(t('L2pStep2'))}</li></ol>
+       <pre class="l2-example" dir="ltr">Moshe Klein, 1520 50th St, Brooklyn, (718) 555-0100, moshe@mail.com
+מו"ה יעקב כהן, (718) 555-0101</pre>`}
+    <textarea id="l2-paste" rows="${isX ? 4 : 8}" dir="auto"${isX ? ' hidden' : ''} placeholder="${h(t('L2pastePh'))}"></textarea>
+    <p class="muted small" id="l2-loaded"></p>
     ${durationHtml()}
     <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-close>${h(t('cancel'))}</button><button type="button" class="btn primary" id="l2-match">${h(t('L2matchBtn'))}</button></div>`, true);
+  let table = null;
+  $('#l2-tpl', dlg)?.addEventListener('click', () => downloadXlsx(t('L2xTemplateName'), XL_HEAD.map(([, l]) => l), [['משה', 'קליין', 'Moshe', 'Klein', '1520 50th St', 'Brooklyn', 'NY', '11219', '(718) 555-0100', 'moshe@mail.com']], { sheet: 'list' }));
   $('#l2-file', dlg)?.addEventListener('change', async (e) => {
     const f = e.target.files[0];
     if (!f) return;
     try {
-      let text = '';
-      if (/\.(xlsx|xls)$/i.test(f.name)) {
-        const { readXlsx } = await import('./import.js');
-        const rows = await readXlsx(f);
-        text = rows.map((r) => r.join('\t')).join('\n');
-      } else text = await f.text();
-      $('#l2-paste', dlg).value = text;
+      const { readXlsx } = await import('./import.js');
+      const rows = /\.xlsx$/i.test(f.name) ? await readXlsx(f) : (await f.text()).split(/\r?\n/).map((l) => l.split(/\t|,/));
+      table = rows.filter((r) => r.some((v) => String(v ?? '').trim()));
+      $('#l2-loaded', dlg).textContent = t('L2xLoaded', { n: Math.max(0, table.length - 1) });
     } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
   });
   $('#l2-match', dlg).onclick = () => {
-    const items = parseLines($('#l2-paste', dlg).value);
+    const items = isX ? fromTable(table || []) : parseLines($('#l2-paste', dlg).value);
     if (!items.length) { ui.toast(t('L2nothing'), 'error'); return; }
     matchScreen(items, readDuration(dlg));
   };
+}
+// דער מוסטער פאר Excel: די קעפלעך → פעלדער
+const XL_HEAD = [['first_he', 'ערשטער נאמען (אידיש)'], ['last_he', 'פאמיליע (אידיש)'], ['first_en', 'First name'], ['last_en', 'Last name'], ['address', 'Address'], ['city', 'City'], ['state', 'State'], ['zip', 'ZIP'], ['phone', 'Phone'], ['email', 'Email']];
+function fromTable(rows) {
+  if (!rows.length) return [];
+  const head = rows[0].map((v) => String(v ?? '').trim().toLowerCase());
+  const map = XL_HEAD.map(([k, l]) => [k, head.findIndex((x) => x === l.toLowerCase() || x === k)]);
+  if (map.filter(([, i]) => i >= 0).length >= 2) {
+    return rows.slice(1).map((r) => Object.fromEntries(map.filter(([, i]) => i >= 0).map(([k, i]) => [k, String(r[i] ?? '').trim()])))
+      .filter((x) => Object.values(x).some(Boolean));
+  }
+  return parseLines(rows.map((r) => r.join('\t')).join('\n')); // נישט לויטן מוסטער — מ'פרובירט צו פארשטיין
 }
 function addIds(ids, until) {
   const cr = current.cr;
@@ -808,18 +896,60 @@ export async function grantListAccess(p) {
   await saveSavedList({ ...l, criteria: JSON.stringify(cr) });
 }
 
+/** די דרויסנדיגע שורות פון א רשימה → נייע קאנטאקטן (נאר א מנהל, אדער מיט זיין באשטעטיגונג) */
+export async function extToContacts(listId) {
+  const l = listById(listId);
+  if (!l) throw new Error(t('rqGone'));
+  const { cr } = parseSaved(l);
+  const ext = cr.ext.filter(live);
+  if (!ext.length) return 0;
+  const items = ext.map((x) => ({
+    contact: { first_name_he: x.first_he || '', last_name_he: x.last_he || '', first_name_en: x.first_en || '', last_name_en: x.last_en || x.name || '', address: x.address || '', city: x.city || '', state: x.state || '', zip: x.zip || '', country: 'USA', is_alive: true },
+    phones: { mobile: x.phone || '', email_1: x.email || '' },
+  }));
+  let ids = [];
+  if (state.isOwner) { const { first } = await importContacts(items); ids = items.map((_, i) => first + i); }
+  else for (const it of items) ids.push(await saveContact(it.contact, it.phones));
+  cr.ext = cr.ext.filter((x) => !ext.includes(x));
+  ext.forEach((x, i) => { cr.add.push({ id: String(ids[i]), ...(x.until ? { until: x.until } : {}) }); });
+  await saveSavedList({ ...l, criteria: JSON.stringify(cr) });
+  return ids.length;
+}
+export async function deleteListById(listId) {
+  const l = listById(listId);
+  if (l) await deleteSavedList(l);
+}
+async function bulkExt() {
+  const n = current.cr.ext.filter(live).length;
+  if (!n || !current.list_id) return;
+  if (!state.isAdmin) {
+    const { submitRequest } = await import('./requests.js');
+    await submitRequest('list_ext', { list_id: String(current.list_id) }, t('L2reqExt', { n, name: current.name }));
+    return;
+  }
+  if (!confirm(t('L2extAllQ', { n }))) return;
+  try { await extToContacts(current.list_id); await loadAll(); current.cr = parseSaved(listById(current.list_id)).cr; renderBuilder(); ui.toast(t('L2extDone', { n })); }
+  catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+}
+
 // ---------- ⚙ הגדרות ----------
 function tagPick(sel, prefix) {
   const keys = new Set(sel.keys || []);
-  const item = (path) => {
-    const key = pathKey(path); const kids = tagChildren(path);
-    const open = [...keys].some((k) => k.startsWith(`${key}>`));
-    return `<li><label class="check"><input type="checkbox" data-${prefix}k="${h(key)}"${keys.has(key) ? ' checked' : ''}> ${h(tagName(path[path.length - 1]))}</label>
-      ${sel.st === 'per' && keys.has(key) ? `<select data-${prefix}per="${h(key)}">${[['a', 'L2stA'], ['f', 'L2stF'], ['both', 'L2stBoth']].map(([v, l]) => `<option value="${v}"${(sel.per[key] || 'a') === v ? ' selected' : ''}>${h(t(l))}</option>`).join('')}</select>` : ''}
-      ${kids.length ? `<details${open ? ' open' : ''}><summary class="muted small">▸</summary><ul>${kids.map((k) => item([...path, k.id])).join('')}</ul></details>` : ''}</li>`;
+  // שלב 1 (ביהמ"ד / כולל...) = נאר א קעפל צו עפענען; פון שלב 2 און ווייטער — ☑
+  const node = (path, depth) => {
+    const key = pathKey(path); const kids = tagChildren(path); const name = tagName(path[path.length - 1]);
+    const open = depth === 0 ? [...keys].some((k) => k.startsWith(`${key}>`)) : [...keys].some((k) => k.startsWith(`${key}>`));
+    const tog = kids.length ? `<button type="button" class="l2-tog" data-tog title="${h(t('L2openClose'))}">${open ? '▼' : '◀'}</button>` : '<span class="l2-tog-sp"></span>';
+    const label = depth === 0
+      ? `<button type="button" class="l2-tnroot" data-tog>${h(name)}</button>`
+      : `<label class="check"><input type="checkbox" data-${prefix}k="${h(key)}"${keys.has(key) ? ' checked' : ''}> ${h(name)}</label>`;
+    const per = depth > 0 && sel.st === 'per' && keys.has(key) ? `<select data-${prefix}per="${h(key)}">${[['a', 'L2stA'], ['f', 'L2stF'], ['both', 'L2stBoth']].map(([v, l]) => `<option value="${v}"${(sel.per[key] || 'a') === v ? ' selected' : ''}>${h(t(l))}</option>`).join('')}</select>` : '';
+    return `<li class="l2-tn"><div class="l2-tnrow">${tog}${label}${per}</div>
+      ${kids.length ? `<ul class="l2-tkids"${open ? '' : ' hidden'}>${kids.map((k) => node([...path, k.id], depth + 1)).join('')}</ul>` : ''}</li>`;
   };
-  const grp = (g, title) => { const rs = tagRoots().filter((r) => r.group === g); return rs.length ? `<div class="tg-sel-g tg-g${g === 'old' ? 'old' : g}"><b>${h(title)}</b><ul class="tg-sel-tree">${rs.map((r) => item([r.id])).join('')}</ul></div>` : ''; };
+  const grp = (g, title) => { const rs = tagRoots().filter((r) => r.group === g); return rs.length ? `<div class="tg-sel-g tg-g${g === 'old' ? 'old' : g}"><b>${h(title)}</b><ul class="l2-tree">${rs.map((r) => node([r.id], 0)).join('')}</ul></div>` : ''; };
   return `<div class="l2-st">${h(t('L2status'))} ${[['a', 'L2stA'], ['f', 'L2stF'], ['both', 'L2stBoth'], ['per', 'L2stPer']].map(([v, l]) => `<label class="check"><input type="radio" name="${prefix}st" value="${v}"${sel.st === v ? ' checked' : ''}> ${h(t(l))}</label>`).join('')}</div>
+    <p class="hint-line">${h(t('L2tagHint'))}</p>
     <div class="tg-sel-cols">${GROUPS.map((g) => grp(g, t(`tgG${g}`))).join('')}${grp('old', t('tgGroupOld'))}</div>`;
 }
 function readTagPick(root, prefix, prev) {
@@ -896,7 +1026,7 @@ function openSettings() {
       <div class="l2-row"><label class="check"><input type="radio" name="vis" value="private"${current.visibility === 'private' ? ' checked' : ''}> 🔒 ${h(t('lbPrivate'))}</label>
         <label class="check"><input type="radio" name="vis" value="public"${current.visibility !== 'private' ? ' checked' : ''}> ${h(t('lbPublic'))}</label></div>
       <label>${h(t('L2belongs'))}<select name="scope">${scopeOpts.map(([v, l]) => `<option value="${h(v)}"${current.scope === v ? ' selected' : ''}>${h(l)}</option>`).join('')}</select></label>
-      <label>${h(t('L2firstTab'))}<select name="firstTab">${TABS.map((k) => `<option value="${k}"${(cr.meta.firstTab || 'names') === k ? ' selected' : ''}>${h(t(`L2tab${k[0].toUpperCase()}${k.slice(1)}`))}</option>`).join('')}</select></label>
+      <label>${h(t('L2purpose'))}<select name="firstTab">${TABS.map((k) => `<option value="${k}"${(cr.meta.firstTab || 'names') === k ? ' selected' : ''}>${h(t(`L2tab${k[0].toUpperCase()}${k.slice(1)}`))}</option>`).join('')}</select></label>
       ${own && current.list_id ? `<div class="l2-access">${['editors', 'viewers'].map((k) => `<p><b>${h(t(`L2${k}`))}:</b> ${(cr.meta[k] || []).map((e) => `<span class="chip">${h(displayName(e))} <button type="button" class="linkish" data-revoke="${k}|${h(e)}">✕</button></span>`).join(' ') || '—'}</p>`).join('')}</div>` : ''}
     </fieldset>
     <fieldset><legend>✚ ${h(t('L2whoIn'))}</legend>
@@ -916,8 +1046,10 @@ function openSettings() {
       <div class="tags lb-chips" data-marital>${(state.lists.marital_status || []).map((m) => `<button type="button" class="chip toggle${cr.marital.includes(m) ? ' on' : ''}" data-v="${h(m)}">${h(m)}</button>`).join('')}</div>
       <label class="check"><input type="checkbox" name="dead"${cr.includeDeceased ? ' checked' : ''}> ${h(t('lbInclDeceased'))}</label>
       <label class="check"><input type="checkbox" name="inact"${cr.includeInactive ? ' checked' : ''}> ${h(t('inclInactive'))}</label>
+      <label class="check"><input type="checkbox" name="nosend"${cr.includeNoSend ? ' checked' : ''}> 📭 ${h(t('L2inclNoSend'))}</label>
     </fieldset>
     <div class="actions">${current.list_id && own ? `<button type="button" class="btn danger" id="l2-del">🗑 ${h(t('deleteBtn'))}</button>` : ''}
+      ${current.list_id && !own ? `<button type="button" class="btn" id="l2-delreq">🗑 ${h(t('L2askDelete'))}</button>` : ''}
       <span class="spacer"></span><span class="muted small" id="l2-preview"></span>
       <button type="button" class="btn" data-close>${h(t('cancel'))}</button><button type="submit" class="btn primary">${h(t('saveBtn'))}</button></div>
     </form>`, true);
@@ -941,7 +1073,7 @@ function openSettings() {
         lists: on('lists') ? $$('[data-xl]:checked', form).map((x) => x.dataset.xl) : [],
       },
       marital: $$('[data-marital] .chip.on', form).map((b) => b.dataset.v),
-      includeDeceased: form.elements.dead.checked, includeInactive: form.elements.inact.checked,
+      includeDeceased: form.elements.dead.checked, includeInactive: form.elements.inact.checked, includeNoSend: form.elements.nosend.checked,
       meta: { ...cr.meta, note: form.elements.note.value.trim(), firstTab: form.elements.firstTab.value },
     });
   };
@@ -967,12 +1099,22 @@ function openSettings() {
     preview();
   });
   form.addEventListener('click', (e) => {
+    const tg = e.target.closest('[data-tog]');
+    if (tg) {
+      const li = tg.closest('.l2-tn'); const ul = li && li.querySelector(':scope > .l2-tkids');
+      if (ul) { ul.hidden = !ul.hidden; const b = li.querySelector(':scope > .l2-tnrow > .l2-tog'); if (b) b.textContent = ul.hidden ? '◀' : '▼'; }
+      return;
+    }
     const chip = e.target.closest('.lb-chips .chip');
     if (chip) { chip.classList.toggle('on'); const part = chip.closest('.l2-xpart'); if (part) $('[data-xon]', part).checked = true; preview(); return; }
     const ab = e.target.closest('[data-allbut]');
     if (ab) { $$(`[data-area="${ab.dataset.allbut}"] .chip`, form).forEach((c) => c.classList.add('on')); $('[data-xon=area]', form).checked = true; preview(); return; }
     const rv = e.target.closest('[data-revoke]');
     if (rv) { const [k, em] = rv.dataset.revoke.split('|'); cr.meta[k] = (cr.meta[k] || []).filter((x) => x !== em); rv.closest('.chip').remove(); }
+  });
+  $('#l2-delreq', dlg)?.addEventListener('click', async () => {
+    const { submitRequest } = await import('./requests.js');
+    if (await submitRequest('list_delete', { list_id: String(current.list_id) }, t('L2reqDelete', { name: current.name }))) dlg.close();
   });
   $('#l2-del', dlg)?.addEventListener('click', async () => {
     if (!confirm(t('lbConfirmDelete', { name: current.name }))) return;
@@ -1019,7 +1161,7 @@ function openProblems(P) {
     const a = e.target.closest('[data-act]');
     if (!a) return;
     const k = a.dataset.k; const meta = current.cr.meta;
-    if (a.dataset.act === 'sep') meta.sep = [...new Set([...(meta.sep || []), k])];
+    if (a.dataset.act === 'sep') { const [x, y] = k.split('~'); try { await markSeparate(x, y); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); return; } }
     if (a.dataset.act === 'notdup') meta.notDup = [...new Set([...(meta.notDup || []), k])];
     if (a.dataset.act === 'extend') {
       const n = prompt(t('L2extendQ'), '1');
@@ -1039,7 +1181,7 @@ function openProblems(P) {
 // ---------- איבערבליק ----------
 function renderOverview(main) {
   const lists = savedInScope({ all: true });
-  const myReqs = (state.requests || []).filter((r) => r.type === 'list_access' && (r.status || 'pending') === 'pending')
+  const myReqs = (state.requests || []).filter((r) => ['list_access', 'list_delete'].includes(r.type) && (r.status || 'pending') === 'pending')
     .filter((r) => { try { const l = listById(JSON.parse(r.payload).list_id); return l && isOwner(l) && !state.isAdmin; } catch { return false; } });
   main.innerHTML = `
     <div class="camp-page-head">
