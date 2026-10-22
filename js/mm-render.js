@@ -70,6 +70,8 @@ export function cleanHtml(html) {
         ch.replaceWith(...ch.childNodes); // נאר דער טעקסט
         return;
       }
+      const st = ch.getAttribute('style');
+      if (st && /mso-/i.test(st)) ch.setAttribute('style', st.split(';').filter((d) => d.trim() && !/^\s*mso-/i.test(d)).join(';'));
       [...ch.attributes].forEach((a) => {
         if (!OK_ATTR.has(a.name.toLowerCase()) || /url\s*\(|expression|javascript:/i.test(a.value)) ch.removeAttribute(a.name);
       });
@@ -255,9 +257,9 @@ export function labelPages(D, list, { test = false, all = true, nums = null } = 
 export const labelsPerSheet = (D) => { const S = sheetOf(D.lbl.sheet || D.format); return S.cols * S.rows; };
 
 // ---------- בריוו ----------
-export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties = null, extraClass = '', cont = 0, bodyOverride = null } = {}) {
+/** דער פלאץ פונעם טעקסט אויף א בלאט (אינטשעס) */
+export function letterGeo(D) {
   const L = D.ltr;
-  const vals = valuesFor(D, c, ctx);
   const det = L.design === 'org' ? (orgDetailsOf(L.org) || {}) : {};
   const yc = L.design === 'org' && D.link?.series ? state.yearly.find((y) => y.series === D.link.series) : null;
   const banner = L.design === 'org' ? (joinImg(yc, 'header_img') || joinImg(det, 'header_img')) : '';
@@ -267,13 +269,39 @@ export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties =
   const winBottom = win ? win.y + win.h + 0.2 : 0;
   const bh = Number(L.bannerH) || 1.6;
   const headBottom = banner ? 0.3 + bh + 0.25 : logo ? 1.45 : 0;
+  const foot = L.design === 'org';
+  return {
+    det, banner, logo, m, win, bh, foot,
+    top1: Math.max(m.top, headBottom, winBottom), // ערשטער בלאט
+    topN: m.top + 0.4,                            // המשך בלעטער
+    bottom: m.bottom + (foot ? 0.55 : 0),         // פון אונטן
+  };
+}
+/** די חתימה */
+export function sigHtml(D) {
+  const L = D.ltr;
+  if (!(L.sig && L.design === 'org')) return '';
+  const det = orgDetailsOf(L.org) || {};
+  return `<div class="mx-sig">${det.signature_text ? `<div style="font-family:'Playpen Sans Hebrew';font-size:20pt">${h(det.signature_text)}</div>`
+    : det.signature_img ? `<img src="${imgSrc(det.signature_img)}" alt="">` : ''}<div>${h(det.signer_he || '')}</div></div>`;
+}
+/** די סטיילס פונעם טעקסט (שריפט, גרייס, שורות) */
+export const bodyStyle = (L) => `font-family:'${css(L.font)}';font-size:${Number(L.size) || 13}pt;line-height:${Number(L.lineH) || 1.5}`;
+/** א "מעבר עמוד" אין טעקסט */
+export const PGBRK = '<div style="page-break-before:always"></div>';
+export const isPgBrk = (el) => el?.nodeType === 1 && /page-break-before\s*:\s*always|break-before\s*:\s*page/i.test(el.getAttribute('style') || '');
+
+export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties = null, extraClass = '', cont = 0, bodyOverride = null } = {}) {
+  const L = D.ltr;
+  const vals = valuesFor(D, c, ctx);
+  const G = letterGeo(D);
+  const { det, banner, logo, m, win, bh } = G;
   // עמוד המשך: בלי באנר / חלון / תיבות, ושורת "המשך" קטנה למעלה
   const first = !cont;
   const body = bodyOverride !== null ? bodyOverride : fillHtml(cleanHtml(L.html), vals, empties);
-  const foot = L.design === 'org' ? [det.footer_line ? `<div class="mx-foot-yi" dir="rtl">${h(det.footer_line)}</div>` : '',
+  const foot = G.foot ? [det.footer_line ? `<div class="mx-foot-yi" dir="rtl">${h(det.footer_line)}</div>` : '',
     `<div class="mx-foot-legal">${[det.legal_name || L.org, [det.address, det.city_state_zip].filter(Boolean).join(', '), det.phone, det.email].filter(Boolean).map(h).join(' · ')}</div>`].join('') : '';
-  const sig = bodyOverride !== null ? '' : L.sig && L.design === 'org' ? `<div class="mx-sig">${det.signature_text ? `<div style="font-family:'Playpen Sans Hebrew';font-size:20pt">${h(det.signature_text)}</div>`
-    : det.signature_img ? `<img src="${imgSrc(det.signature_img)}" alt="">` : ''}<div>${h(det.signer_he || '')}</div></div>` : '';
+  const sig = bodyOverride !== null ? '' : sigHtml(D);
   const winBlock = win && first ? rcpBlock({ ...D, lang: L.winLang || 'en' }, c, vals, empties, {
     attrs: 'data-part="win"', cls: `mx-win${edit ? ' mx-drag' : ''}`, style: `left:${win.x}in;top:${win.y}in;width:${win.w}in;height:${win.h}in`,
   }) : '';
@@ -283,7 +311,7 @@ export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties =
     ${logo && first ? `<div class="mx-band" style="top:0.3in;left:${m.side}in;right:${m.side}in"><img src="${imgSrc(logo)}" alt=""><div dir="rtl">${h(det.org_name_he || L.org)}</div></div>` : ''}
     ${winBlock}
     ${cont ? `<div class="mx-cont" dir="${dirv(L.dir)}" style="left:${m.side}in;right:${m.side}in;top:${m.top}in">${h(L.dir === 'ltr' ? 'continued' : 'המשך')} · ${h(vals.שם_מלא || vals.Name || '')} · ${cont + 1}</div>` : ''}
-    <div class="mx-body" dir="${dirv(L.dir)}" style="left:${m.side}in;right:${m.side}in;top:${first ? Math.max(m.top, headBottom, winBottom) : m.top + 0.4}in;bottom:${m.bottom + (foot ? 0.55 : 0)}in;font-family:'${css(L.font)}';font-size:${Number(L.size) || 13}pt;line-height:${Number(L.lineH) || 1.5}">
+    <div class="mx-body" dir="${dirv(L.dir)}" style="left:${m.side}in;right:${m.side}in;top:${first ? G.top1 : G.topN}in;bottom:${G.bottom}in;${bodyStyle(L)}">
       ${body}${sig}</div>
     ${foot ? `<div class="mx-foot" style="left:${m.side}in;right:${m.side}in;bottom:${Math.max(0.3, m.bottom - 0.3)}in">${foot}</div>` : ''}
     ${first ? boxesHtml(D, vals, empties, edit) : ''}
@@ -301,14 +329,21 @@ export function letterPages(D, c, opts = {}) {
   }
   const box = pageHost;
   const over = (b) => b.scrollHeight > b.clientHeight + 2;
+  // וואס גייט אריבער צום קומענדיגן בלאט: נאך א "מעבר עמוד", אדער וואס פאסט נישט אריין
+  const cut = (body) => {
+    const kids = [...body.childNodes];
+    const i = kids.findIndex(isPgBrk);
+    const rest = [];
+    if (i >= 0) kids.slice(i).forEach((x, j) => { x.remove(); if (j > 0) rest.push(x); });
+    while (over(body) && body.childNodes.length > 1) { rest.unshift(body.lastChild); body.lastChild.remove(); }
+    return rest;
+  };
   box.innerHTML = letterHtml(D, c, opts);
   let page = box.firstElementChild;
   let body = page.querySelector('.mx-body');
-  if (!over(body)) { const one = box.innerHTML; box.innerHTML = ''; return [one]; }
   const pages = [];
-  for (let n = 0; n < 5; n += 1) {
-    const rest = [];
-    while (over(body) && body.childNodes.length > 1) { rest.unshift(body.lastChild); body.lastChild.remove(); }
+  for (let n = 0; n < 8; n += 1) {
+    const rest = cut(body);
     pages.push(page.outerHTML);
     if (!rest.some((x) => x.nodeType === 1 || String(x.textContent || '').trim())) break;
     const tmp = document.createElement('div');
@@ -316,7 +351,6 @@ export function letterPages(D, c, opts = {}) {
     box.innerHTML = letterHtml(D, c, { ...opts, edit: false, cont: n + 1, bodyOverride: tmp.innerHTML });
     page = box.firstElementChild;
     body = page.querySelector('.mx-body');
-    if (!over(body)) { pages.push(page.outerHTML); break; }
   }
   box.innerHTML = '';
   return pages;
