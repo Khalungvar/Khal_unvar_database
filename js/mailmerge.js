@@ -774,7 +774,10 @@ function stageHtml() {
         <button type="button" class="linkish small" id="mx-skip">${h(t('mxSkipOne'))}</button>` : ''}
       ${skipIds.size ? `<button type="button" class="linkish small" id="mx-unskip">${h(t('mxUnskip', { n: skipIds.size }))}</button>` : ''}`;
   const total = D.kind === 'lbl' && D.lbl.mode === 'same' ? `${D.lbl.sheets || 1} × ${labelsPerSheet(D)}` : rows.length;
-  return `<div class="mm-nav">${nav}</div>
+  return `<div class="mm-nav">${nav}<span class="spacer"></span>
+      <span class="mx-zoom"><button type="button" class="btn small-btn" id="mx-zoom-out" title="−">−</button>
+      <button type="button" class="linkish small" id="mx-zoom-fit" title="${h(t('mxZoomFit'))}"><span id="mx-zoom-val">${Math.round(zoom * 100)}%</span></button>
+      <button type="button" class="btn small-btn" id="mx-zoom-in" title="+">+</button></span></div>
     <div class="mm-canvas" id="mm-canvas" dir="ltr">${page}</div>
     <div class="mx-print">
       <button type="button" class="btn primary" id="mx-print">🖨 ${h(t('mxPrint', { n: total }))}</button>
@@ -821,11 +824,29 @@ function fitPreview() {
   if (!inner) return;
   fitIn(canvas);
   const avail = canvas.clientWidth - 20;
-  const scale = Math.min(1.3, avail / inner.offsetWidth);
+  const fit = Math.min(1.3, avail / inner.offsetWidth);
+  const scale = fit * zoom;
   inner.style.transform = `scale(${scale})`;
   inner.style.transformOrigin = 'top left';
+  // גרעסער ווי דער פלאץ: מען קען שלעפן (scroll) אין דער תצוגה
   canvas.style.height = `${inner.offsetHeight * scale + 20}px`;
+  inner.style.marginBottom = '0';
+  canvas.classList.toggle('mx-zoomed', zoom > 1.01);
+  const sizer = canvas.querySelector('.mx-sizer') || canvas.appendChild(Object.assign(document.createElement('div'), { className: 'mx-sizer' }));
+  sizer.style.width = `${inner.offsetWidth * scale + 20}px`;
+  sizer.style.height = `${inner.offsetHeight * scale + 20}px`;
   canvas.dataset.scale = scale;
+  const lbl = $('#mx-zoom-val');
+  if (lbl) lbl.textContent = `${Math.round(zoom * 100)}%`;
+}
+let zoom = (() => { try { return Number(localStorage.getItem('khal-mx-zoom')) || 1; } catch { return 1; } })();
+function setZoom(z) {
+  zoom = Math.max(0.5, Math.min(3, Math.round(z * 100) / 100));
+  try { localStorage.setItem('khal-mx-zoom', String(zoom)); } catch { /* */ }
+  fitPreview();
+  // טעקסט פון רעכטס: אנהייבן פון דער רעכטער זייט
+  const cv = $('#mm-canvas');
+  if (cv && (D?.kind !== 'ltr' || D.ltr.dir !== 'ltr')) cv.scrollLeft = cv.scrollWidth;
 }
 function refreshStage() {
   const st = $('#mx-stage');
@@ -1028,6 +1049,9 @@ function showProblemList(k) {
   $$('[data-card]', dlg).forEach((b) => { b.onclick = () => { dlg.close(); ui.openCard(b.dataset.card); }; });
 }
 function wireStage(main) {
+  $('#mx-zoom-in', main)?.addEventListener('click', () => setZoom(zoom + 0.25));
+  $('#mx-zoom-out', main)?.addEventListener('click', () => setZoom(zoom - 0.25));
+  $('#mx-zoom-fit', main)?.addEventListener('click', () => setZoom(1));
   const vr = () => viewRows();
   $('#mx-prev', main)?.addEventListener('click', () => { idx = Math.max(0, idx - 1); refreshStage(); });
   $('#mx-next', main)?.addEventListener('click', () => { idx = Math.min(vr().length - 1, idx + 1); refreshStage(); });
