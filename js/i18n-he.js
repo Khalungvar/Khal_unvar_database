@@ -777,6 +777,8 @@ export const HE = {
   "mxSaving": "שומר…",
   "mxSavedAuto": "נשמר",
   "mxSaveFail": "השמירה נכשלה",
+  "mxNeedName": "לא נשמר — כתבו שם כדי לשמור",
+  "mxLeaveUnsaved": "העיצוב לא נשמר (אין שם). לצאת בלי לשמור?",
   "mxReadOnly": "צפייה בלבד",
   "mxRecipients": "נמענים",
   "mxSrcList": "רשימה",

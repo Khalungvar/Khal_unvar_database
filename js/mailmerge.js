@@ -173,6 +173,8 @@ function fromRow(x) {
 function scheduleSave(ms = 1800) {
   if (!D || !canEditT(current())) return;
   clearTimeout(saveTimer);
+  // א נייער עיצוב ווערט אפגעהיט נאר ווען ער האט א נאמען
+  if (!nz(D.name)) { saveState = 'unnamed'; showSaveState(); return; }
   saveState = 'dirty';
   showSaveState();
   saveTimer = setTimeout(() => { persist().catch((err) => { saveState = 'error'; showSaveState(); ui.toast(ui.friendlyError(err), 'error'); }); }, ms);
@@ -180,7 +182,7 @@ function scheduleSave(ms = 1800) {
 let saving = null;   // דער שפייכלער וואס לויפט יעצט
 let again = false;   // נאך א טויש בשעת'ן שפייכלערן
 async function persist() {
-  if (!D) return;
+  if (!D || !nz(D.name)) return;
   clearTimeout(saveTimer);
   if (saving) { again = true; return saving; }
   saving = persistNow().finally(() => { saving = null; });
@@ -208,7 +210,7 @@ async function persistNow() {
 function showSaveState() {
   const el = $('#mx-save-state');
   if (!el) return;
-  el.textContent = { dirty: '…', saving: t('mxSaving'), saved: `✓ ${t('mxSavedAuto')}`, error: `⚠ ${t('mxSaveFail')}`, ro: t('mxReadOnly') }[saveState] || '';
+  el.textContent = { dirty: '…', saving: t('mxSaving'), saved: `✓ ${t('mxSavedAuto')}`, error: `⚠ ${t('mxSaveFail')}`, ro: t('mxReadOnly'), unnamed: `⚠ ${t('mxNeedName')}` }[saveState] || '';
   el.className = `mx-save ${saveState}`;
 }
 
@@ -257,13 +259,13 @@ function listName(id) { return state.savedLists.find((l) => String(l.list_id) ==
 
 async function createNew(kind) {
   D = defaults(kind);
-  D.name = `${t(KINDS.find(([k]) => k === kind)[2])} ${nowStamp().slice(0, 10)}`;
   applyPending();
   view = 'edit';
   idx = 0;
   skipIds = new Set();
+  saveState = 'unnamed';
   renderMailMerge();
-  try { await persist(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  $('#mx-name')?.focus();
 }
 function openTemplate(id) {
   const x = state.mailTemplates.find((r) => String(r.template_id) === String(id));
@@ -792,6 +794,7 @@ const ROWS = new Set(['src.paste', 'lang', 'ltr.window', 'ltr.winLang']);
 
 function wireEditor(main) {
   $('#mx-back', main).onclick = async () => {
+    if (!D.template_id && !nz(D.name) && !confirm(t('mxLeaveUnsaved'))) return;
     if (saveState === 'dirty') { try { await persist(); } catch { /* */ } }
     view = 'home';
     D = null;
