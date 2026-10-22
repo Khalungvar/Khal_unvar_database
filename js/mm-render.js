@@ -255,7 +255,7 @@ export function labelPages(D, list, { test = false, all = true, nums = null } = 
 export const labelsPerSheet = (D) => { const S = sheetOf(D.lbl.sheet || D.format); return S.cols * S.rows; };
 
 // ---------- בריוו ----------
-export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties = null, extraClass = '' } = {}) {
+export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties = null, extraClass = '', cont = 0, bodyOverride = null } = {}) {
   const L = D.ltr;
   const vals = valuesFor(D, c, ctx);
   const det = L.design === 'org' ? (orgDetailsOf(L.org) || {}) : {};
@@ -267,25 +267,59 @@ export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties =
   const winBottom = win ? win.y + win.h + 0.2 : 0;
   const bh = Number(L.bannerH) || 1.6;
   const headBottom = banner ? 0.3 + bh + 0.25 : logo ? 1.45 : 0;
-  const body = fillHtml(cleanHtml(L.html), vals, empties);
+  // עמוד המשך: בלי באנר / חלון / תיבות, ושורת "המשך" קטנה למעלה
+  const first = !cont;
+  const body = bodyOverride !== null ? bodyOverride : fillHtml(cleanHtml(L.html), vals, empties);
   const foot = L.design === 'org' ? [det.footer_line ? `<div class="mx-foot-yi" dir="rtl">${h(det.footer_line)}</div>` : '',
     `<div class="mx-foot-legal">${[det.legal_name || L.org, [det.address, det.city_state_zip].filter(Boolean).join(', '), det.phone, det.email].filter(Boolean).map(h).join(' · ')}</div>`].join('') : '';
-  const sig = L.sig && L.design === 'org' ? `<div class="mx-sig">${det.signature_text ? `<div style="font-family:'Playpen Sans Hebrew';font-size:20pt">${h(det.signature_text)}</div>`
+  const sig = bodyOverride !== null ? '' : L.sig && L.design === 'org' ? `<div class="mx-sig">${det.signature_text ? `<div style="font-family:'Playpen Sans Hebrew';font-size:20pt">${h(det.signature_text)}</div>`
     : det.signature_img ? `<img src="${imgSrc(det.signature_img)}" alt="">` : ''}<div>${h(det.signer_he || '')}</div></div>` : '';
-  const winBlock = win ? rcpBlock({ ...D, lang: L.winLang || 'en' }, c, vals, empties, {
+  const winBlock = win && first ? rcpBlock({ ...D, lang: L.winLang || 'en' }, c, vals, empties, {
     attrs: 'data-part="win"', cls: `mx-win${edit ? ' mx-drag' : ''}`, style: `left:${win.x}in;top:${win.y}in;width:${win.w}in;height:${win.h}in`,
   }) : '';
   return `<div class="mx-letter mx-page ${extraClass}" style="width:8.5in;height:11in">
     ${L.design === 'bg' && D.background_data ? `<img class="mx-letter-bg" src="${imgSrc(D.background_data)}" style="opacity:${D.bg.opacity}" alt="">` : ''}
-    ${banner ? `<img class="mx-banner" src="${imgSrc(banner)}" style="top:0.3in;left:${m.side * 0.6}in;right:${m.side * 0.6}in;height:${bh}in" alt="">` : ''}
-    ${logo ? `<div class="mx-band" style="top:0.3in;left:${m.side}in;right:${m.side}in"><img src="${imgSrc(logo)}" alt=""><div dir="rtl">${h(det.org_name_he || L.org)}</div></div>` : ''}
+    ${banner && first ? `<img class="mx-banner" src="${imgSrc(banner)}" style="top:0.3in;left:${m.side * 0.6}in;right:${m.side * 0.6}in;height:${bh}in" alt="">` : ''}
+    ${logo && first ? `<div class="mx-band" style="top:0.3in;left:${m.side}in;right:${m.side}in"><img src="${imgSrc(logo)}" alt=""><div dir="rtl">${h(det.org_name_he || L.org)}</div></div>` : ''}
     ${winBlock}
-    <div class="mx-body" dir="${dirv(L.dir)}" style="left:${m.side}in;right:${m.side}in;top:${Math.max(m.top, headBottom, winBottom)}in;bottom:${m.bottom + (foot ? 0.55 : 0)}in;font-family:'${css(L.font)}';font-size:${Number(L.size) || 13}pt;line-height:${Number(L.lineH) || 1.5}">
+    ${cont ? `<div class="mx-cont" dir="${dirv(L.dir)}" style="left:${m.side}in;right:${m.side}in;top:${m.top}in">${h(L.dir === 'ltr' ? 'continued' : 'המשך')} · ${h(vals.שם_מלא || vals.Name || '')} · ${cont + 1}</div>` : ''}
+    <div class="mx-body" dir="${dirv(L.dir)}" style="left:${m.side}in;right:${m.side}in;top:${first ? Math.max(m.top, headBottom, winBottom) : m.top + 0.4}in;bottom:${m.bottom + (foot ? 0.55 : 0)}in;font-family:'${css(L.font)}';font-size:${Number(L.size) || 13}pt;line-height:${Number(L.lineH) || 1.5}">
       ${body}${sig}</div>
     ${foot ? `<div class="mx-foot" style="left:${m.side}in;right:${m.side}in;bottom:${Math.max(0.3, m.bottom - 0.3)}in">${foot}</div>` : ''}
-    ${boxesHtml(D, vals, empties, edit)}
+    ${first ? boxesHtml(D, vals, empties, edit) : ''}
     ${num ? `<div class="mx-num">${h(num)}</div>` : ''}
   </div>`;
+}
+
+/** מכתב → איינס אדער מער בלעטער: וואס פאסט נישט אריין גייט ווייטער אויפן קומענדיגן בלאט (ביז 5) */
+let pageHost = null;
+export function letterPages(D, c, opts = {}) {
+  if (!pageHost) {
+    pageHost = document.createElement('div');
+    pageHost.id = 'mx-measure2';
+    document.body.append(pageHost);
+  }
+  const box = pageHost;
+  const over = (b) => b.scrollHeight > b.clientHeight + 2;
+  box.innerHTML = letterHtml(D, c, opts);
+  let page = box.firstElementChild;
+  let body = page.querySelector('.mx-body');
+  if (!over(body)) { const one = box.innerHTML; box.innerHTML = ''; return [one]; }
+  const pages = [];
+  for (let n = 0; n < 5; n += 1) {
+    const rest = [];
+    while (over(body) && body.childNodes.length > 1) { rest.unshift(body.lastChild); body.lastChild.remove(); }
+    pages.push(page.outerHTML);
+    if (!rest.some((x) => x.nodeType === 1 || String(x.textContent || '').trim())) break;
+    const tmp = document.createElement('div');
+    rest.forEach((x) => tmp.appendChild(x));
+    box.innerHTML = letterHtml(D, c, { ...opts, edit: false, cont: n + 1, bodyOverride: tmp.innerHTML });
+    page = box.firstElementChild;
+    body = page.querySelector('.mx-body');
+    if (!over(body)) { pages.push(page.outerHTML); break; }
+  }
+  box.innerHTML = '';
+  return pages;
 }
 
 /** איין בלאט פאר א מענטש (קאנווערט אדער בריוו) */

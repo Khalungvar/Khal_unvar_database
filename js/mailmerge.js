@@ -14,7 +14,7 @@ import { ensureGmailScope } from './google.js';
 import { helperOn } from './images.js';
 import {
   ENVELOPES, FONTS_EN, FONTS_HE, allSheets, sheetOf, setCustomSheets, envSize, pageSize, envHtml, labelPages, letterHtml,
-  labelsPerSheet, valuesFor, fillText, fillHtml, cleanHtml, donationCtx, hasAddr, partAddr, addrKey, isDeceased,
+  labelsPerSheet, letterPages, valuesFor, fillText, fillHtml, cleanHtml, donationCtx, hasAddr, partAddr, addrKey, isDeceased,
 } from './mm-render.js';
 
 let ui = null;
@@ -516,7 +516,7 @@ async function measureAll() {
   for (let i = 0; i < rows.length; i += 1) {
     if (run !== measureRun) return;
     const c = rows[i];
-    box.innerHTML = D.kind === 'lbl' ? labelPages({ ...D, lbl: { ...D.lbl, skip: 0 } }, [c], { all: false })[0] : D.kind === 'ltr' ? letterHtml(D, c) : envHtml(D, c);
+    box.innerHTML = D.kind === 'lbl' ? labelPages({ ...D, lbl: { ...D.lbl, skip: 0 } }, [c], { all: false })[0] : D.kind === 'ltr' ? letterPages(D, c).join('') : envHtml(D, c);
     if (fitIn(box)) over.push(c);
     if (i % 25 === 24) await new Promise((r) => setTimeout(r, 0));
   }
@@ -764,7 +764,7 @@ function stageHtml() {
       const pages = labelPages(D, rows);
       page = pages[sheetNo] || pages[0];
     }
-  } else page = D.kind === 'ltr' ? letterHtml(D, c, { edit: true }) : envHtml(D, c, { edit: true });
+  } else page = D.kind === 'ltr' ? `<div class="mx-pages">${letterPages(D, c, { edit: true }).join('')}</div>` : envHtml(D, c, { edit: true });
   const red = worst() >= 3;
   const nav = D.kind === 'lbl' && D.lbl.mode === 'same' ? '' : `<button type="button" class="btn small-btn" id="mx-prev">‹</button>
       <span>${vr.length ? h(t('mmRecordOf', { i: idx + 1, n: vr.length })) : h(t('mmNoRecords'))}</span>
@@ -1150,7 +1150,7 @@ function rangeRows() {
 }
 function pagesFor(D2, list, { nums = false, start = 0 } = {}) {
   if (D2.kind === 'lbl') return labelPages(D2, list, { all: false, nums: nums ? list.map((_, i) => String(start + i + 1)) : null });
-  return list.map((c, i) => (D2.kind === 'ltr' ? letterHtml(D2, c, { num: nums ? String(start + i + 1) : '' }) : envHtml(D2, c, { num: nums ? String(start + i + 1) : '' })));
+  return list.flatMap((c, i) => (D2.kind === 'ltr' ? letterPages(D2, c, { num: nums ? String(start + i + 1) : '' }) : [envHtml(D2, c, { num: nums ? String(start + i + 1) : '' })]));
 }
 function confirmRed() {
   if (worst() < 3) return true;
@@ -1249,10 +1249,11 @@ async function sendEmails() {
       const body = `<div dir="${D.ltr.dir}" style="text-align:${D.ltr.dir === 'rtl' ? 'right' : 'left'}">${fillHtml(cleanHtml(D.ltr.html), vals)}</div>`;
       const org = D.ltr.design === 'org' ? D.ltr.org : umbrellaName();
       const { html, inline } = emailLayout(org, body);
-      const [pg] = await fitted([letterHtml(D, c)]);
+      const pgs = await fitted(letterPages(D, c));
+      const jpgs = [];
       // eslint-disable-next-line no-await-in-loop
-      const jpg = await htmlToJpeg(`<div dir="ltr" class="mx-out" style="width:8.5in;height:11in">${pg}</div>`, { widthIn: 8.5, heightIn: 11, scale: 1.6 });
-      const bytes = jpegsToPdf([jpg], { pageW: 612, pageH: 792, margin: 0 });
+      for (const pg of pgs) jpgs.push(await htmlToJpeg(`<div dir="ltr" class="mx-out" style="width:8.5in;height:11in">${pg}</div>`, { widthIn: 8.5, heightIn: 11, scale: 1.6 }));
+      const bytes = jpegsToPdf(jpgs, { pageW: 612, pageH: 792, margin: 0 });
       let bin = '';
       for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       jobs.push({
@@ -1278,6 +1279,11 @@ export function letterTemplates() {
 export function letterPage(templateId, c, ctx = null) {
   const x = state.mailTemplates.find((r) => String(r.template_id) === String(templateId));
   if (!x || !c) return '';
-  const T = fromRow(x);
-  return letterHtml(T, c, { ctx });
+  return letterPagesFor(templateId, c, ctx).join('');
+}
+/** די בלעטער פון א מכתב (איינס אדער מער) */
+export function letterPagesFor(templateId, c, ctx = null) {
+  const x = state.mailTemplates.find((r) => String(r.template_id) === String(templateId));
+  if (!x || !c) return [];
+  return letterPages(fromRow(x), c, { ctx });
 }

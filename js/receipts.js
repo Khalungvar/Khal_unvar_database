@@ -17,7 +17,7 @@ import { ensureGmailScope, hasGmailScope } from './google.js';
 import { htmlToJpeg, jpegsToPdf } from './pdf.js';
 import { savedInScope, parseSaved, evaluate } from './lists.js';
 import { submitRequest } from './requests.js';
-import { letterTemplates, letterPage, openMailMergeFor } from './mailmerge.js';
+import { letterTemplates, letterPage, letterPagesFor, openMailMergeFor } from './mailmerge.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -254,13 +254,14 @@ function askAddress(contactId) {
 
 export async function receiptPdf(c, letter = '') {
   const ct = letter && c.contact_id ? ui.contactById(c.contact_id) : null;
-  const lp = ct ? letterPage(letter, ct, letterCtx(c)) : '';
+  const lps = ct ? letterPagesFor(letter, ct, letterCtx(c)) : [];
   let bytes;
-  if (lp) {
-    // בריוו + קבלה: ביידע א פולער Letter בלאט
-    const a = await htmlToJpeg(`<div class="mx-out" dir="ltr">${lp}</div>`, { widthIn: 8.5, heightIn: 11, scale: 1.8 });
-    const b = await htmlToJpeg(`<div class="rc-page">${docHtml(c)}</div>`, { widthIn: 8.5, heightIn: 11 });
-    bytes = jpegsToPdf([a, b], { margin: 0 });
+  if (lps.length) {
+    // בריוו (איין אדער מער בלעטער) + קבלה: יעדעס א פולער Letter בלאט
+    const pages = [];
+    for (const lp of lps) pages.push(await htmlToJpeg(`<div class="mx-out" dir="ltr">${lp}</div>`, { widthIn: 8.5, heightIn: 11, scale: 1.8 }));
+    pages.push(await htmlToJpeg(`<div class="rc-page">${docHtml(c)}</div>`, { widthIn: 8.5, heightIn: 11 }));
+    bytes = jpegsToPdf(pages, { margin: 0 });
   } else bytes = jpegsToPdf([await htmlToJpeg(docHtml(c))]);
   let bin = '';
   for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));

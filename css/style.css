@@ -1602,3 +1602,10 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .mm-layout.mx-three { grid-template-columns: 290px minmax(0, 1fr) 330px; }
 @media (max-width: 1200px) { .mm-layout.mx-three { grid-template-columns: 1fr; } .mm-layout.mx-three .mm-panel { position: static; max-height: none; } }
 .mm-panel .mx-tools input[type=color] { width: 30px !important; height: 24px; padding: 0 !important; margin: 0 !important; }
+/* מכתב: כמה עמודים; כל הדף גולל, התצוגה נשארת באמצע */
+.mx-pages { display: flex; flex-direction: column; gap: 0.25in; width: 8.5in; }
+.mx-cont { position: absolute; font-size: 9pt; color: #777; border-bottom: 1px solid #ddd; padding-bottom: 2px; }
+.mx-sig img { height: 0.6in; width: auto; }
+#mx-measure2 { position: fixed; left: -20000px; top: 0; visibility: hidden; pointer-events: none; }
+#mailmerge-main .mm-panel { max-height: none; overflow: visible; position: static; }
+#mailmerge-main .mm-stage { position: sticky; top: 10px; align-self: start; max-height: calc(100vh - 20px); overflow-y: auto; }
