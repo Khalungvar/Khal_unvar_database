@@ -82,9 +82,12 @@ export default {
 
     // ---- טעלעפאנען (TeXML) ----
     if (path === '/voice' || path === '/voice/menu' || path === '/voice/recorded') {
+      // Telnyx חתמ'ט אויך די TeXML בקשות — נאר א באשטעטיגטע בקשה מעג טוישן א הקלטה
+      const raw = await req.clone().text();
+      const signed = await verifyTelnyx(env, req, raw).catch(() => false);
       const f = await formOf(req);
       const action = path === '/voice' ? 'call_in' : path === '/voice/menu' ? 'call_menu' : 'call_recorded';
-      const r = await brain(env, { action, from: f.From, to: f.To, digits: f.Digits, url: f.RecordingUrl, duration: f.RecordingDuration });
+      const r = await brain(env, { action, signed, from: f.From, to: f.To, digits: f.Digits, url: f.RecordingUrl, duration: f.RecordingDuration });
       return xml(r.xml || texml('<Hangup/>'));
     }
     if (path === '/voice/play') {

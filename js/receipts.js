@@ -599,22 +599,24 @@ export function printDocs(docs, opts = {}) {
   document.body.classList.add('printing-rc');
   const done = () => { document.body.classList.remove('printing-rc'); area.innerHTML = ''; st.textContent = ''; window.removeEventListener('afterprint', done); };
   window.addEventListener('afterprint', done);
-  // פענצטער: דער בריוו הייבט זיך אן אונטער דעם פענצטער
-  if (win) {
+  // פענצטער: דער בריוו הייבט זיך אן אונטער דעם פענצטער (געמאסטן נאכדעם וואס די בילדער זענען געלאדן)
+  const placeWindow = () => {
+    if (!win) return;
     $$('.rc-win', area).forEach((doc) => {
       const L = $('.rd-letter', doc);
       if (!L) return;
+      L.style.paddingTop = '';
       const top = L.getBoundingClientRect().top - doc.getBoundingClientRect().top;
       const need = (WIN_BOTTOM - 0.5) * 96 - top;
       if (need > 0) L.style.paddingTop = `${need}px`;
     });
-  }
+  };
   // די בילדער און די שריפטן (כתב-יד) מוזן זיך אויסלאדן פארן דרוקן
   const fonts = ["24px 'Playpen Sans Hebrew'", "24px 'Amatic SC'", "24px 'Noto Rashi Hebrew'", "16px 'Frank Ruhl Libre'", "bold 16px 'Frank Ruhl Libre'"]
     .map((f2) => (document.fonts?.load ? document.fonts.load(f2, 'אבג').catch(() => null) : null));
   Promise.all([...fonts, ...$$('img', area).map((img) => (img.complete ? null : new Promise((r) => { img.onload = r; img.onerror = r; })))])
     .then(() => (document.fonts?.ready || null))
-    .then(() => window.print());
+    .then(() => { placeWindow(); window.print(); });
 }
 
 export async function printForDonation(d, mode = 'print') {

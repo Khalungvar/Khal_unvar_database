@@ -177,9 +177,17 @@ function scheduleSave(ms = 1800) {
   showSaveState();
   saveTimer = setTimeout(() => { persist().catch((err) => { saveState = 'error'; showSaveState(); ui.toast(ui.friendlyError(err), 'error'); }); }, ms);
 }
+let saving = null;   // דער שפייכלער וואס לויפט יעצט
+let again = false;   // נאך א טויש בשעת'ן שפייכלערן
 async function persist() {
   if (!D) return;
   clearTimeout(saveTimer);
+  if (saving) { again = true; return saving; }
+  saving = persistNow().finally(() => { saving = null; });
+  await saving;
+  if (again) { again = false; await persist(); }
+}
+async function persistNow() {
   saveState = 'saving';
   showSaveState();
   const {

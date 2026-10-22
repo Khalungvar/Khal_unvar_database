@@ -108,9 +108,10 @@ export async function resolveState(state) {
   Object.values(state.orgLogos || {}).forEach(scan);
   if (!ids.length) return;
   await fetchImages(ids);
-  const fix = (o) => Object.keys(o).forEach((k) => { if (isDrv(o[k])) o[k] = imageOf(o[k]); });
+  // נאר ווען דאס בילד איז געקומען — אנדערש בלייבט "drv:" (אזוי ווערט עס נישט אויסגעמעקט ביים קומענדיגן שפייכלערן)
+  const fix = (o) => Object.keys(o).forEach((k) => { if (isDrv(o[k]) && imageOf(o[k])) o[k] = imageOf(o[k]); });
   recs.forEach(fix);
-  Object.keys(state.orgLogos || {}).forEach((k) => { if (isDrv(state.orgLogos[k])) state.orgLogos[k] = imageOf(state.orgLogos[k]); });
+  Object.keys(state.orgLogos || {}).forEach((k) => { if (isDrv(state.orgLogos[k]) && imageOf(state.orgLogos[k])) state.orgLogos[k] = imageOf(state.orgLogos[k]); });
 }
 
 /** וויפל בילדער שטייען נאך אינעם גיליון (נישט אין דרייב)? */

@@ -24,6 +24,7 @@ const TZ = 'America/New_York';
 const REC_FOLDER = 'Mosdos Ungvar – הקלטות';
 const IMG_FOLDER = 'Mosdos Ungvar – תמונות';
 const FIRST_CONTACT_ID = 2001;
+const SITE_CLIENT_ID = '73541082309-bb0bc3jv1dchtpgsr129m5bbertk79ua.apps.googleusercontent.com';
 
 const TABS = {
   SmsLog: ['at', 'dir', 'line', 'from', 'to', 'gabbai_email', 'contact_id', 'text', 'media', 'status', 'cost', 'telnyx_id', 'job_id'],
@@ -62,6 +63,14 @@ function setup() {
   const cfg = sheetOf('SmsConfig');
   const have = cfg.getDataRange().getValues().map(function (r) { return String(r[0]); });
   Object.keys(DEFAULT_CONFIG).forEach(function (k) { if (have.indexOf(k) < 0) cfg.appendRow([k, DEFAULT_CONFIG[k]]); });
+  // קרעדיטן / שליחות / הגדרות: נאר דער סקריפט (און דער בעל הבית) קען טוישן — נישט די גבאים
+  ['Credits', 'SmsJobs', 'SmsConfig', 'SmsRecordings'].forEach(function (n) {
+    const pr = sheetOf(n).protect().setDescription('SMS — only the script');
+    const me = Session.getEffectiveUser();
+    pr.addEditor(me);
+    pr.removeEditors(pr.getEditors().filter(function (u) { return u.getEmail() !== me.getEmail(); }));
+    if (pr.canDomainEdit()) pr.setDomainEdit(false);
+  });
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'runJobs') ScriptApp.deleteTrigger(t); });
   ScriptApp.newTrigger('runJobs').timeBased().everyMinutes(5).create();
   Logger.log('ok — tabs + trigger');
@@ -87,14 +96,20 @@ function readTab(name) {
   for (let i = 1; i < v.length; i += 1) {
     const o = { _row: i + 1 };
     let any = false;
-    head.forEach(function (h, j) { if (h) { o[h] = v[i][j]; if (v[i][j] !== '' && v[i][j] !== null) any = true; } });
+    head.forEach(function (h, j) { if (h) { o[h] = cellOut(v[i][j]); if (v[i][j] !== '' && v[i][j] !== null) any = true; } });
     if (any) rows.push(o);
   }
   return { head: head, rows: rows, sheet: sh };
 }
+/** א טעקסט וואס זעט אויס ווי א דאטום → בלייבט טעקסט (נישט א Date אין גיליון) */
+function txt(v) { return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) ? "'" + v : v; }
+function cellOut(v) {
+  if (v instanceof Date) { const s = Utilities.formatDate(v, TZ, 'yyyy-MM-dd HH:mm'); return / 00:00$/.test(s) ? s.slice(0, 10) : s; }
+  return v;
+}
 function appendObj(name, obj) {
   const t = readHead(name);
-  t.sheet.appendRow(t.head.map(function (h) { return obj[h] === undefined || obj[h] === null ? '' : obj[h]; }));
+  t.sheet.appendRow(t.head.map(function (h) { return obj[h] === undefined || obj[h] === null ? '' : txt(obj[h]); }));
   return t.sheet.getLastRow();
 }
 function readHead(name) {
@@ -106,7 +121,7 @@ function setFields(name, row, fields) {
   const t = readHead(name);
   Object.keys(fields).forEach(function (k) {
     const j = t.head.indexOf(k);
-    if (j >= 0) t.sheet.getRange(row, j + 1).setValue(fields[k]);
+    if (j >= 0) t.sheet.getRange(row, j + 1).setValue(txt(fields[k]));
   });
 }
 function stamp() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'); }
@@ -118,7 +133,7 @@ function config() {
   return c;
 }
 function history(by, entity, id, contactId, field, oldV, newV) {
-  try { sheetOf('History').appendRow([stamp(), by, entity, String(id), String(contactId || ''), field, String(oldV || '').slice(0, 500), String(newV || '').slice(0, 500)]); } catch (e) { /* */ }
+  try { sheetOf('History').appendRow([txt(stamp()), by, entity, String(id), String(contactId || ''), field, String(oldV || '').slice(0, 500), String(newV || '').slice(0, 500)]); } catch (e) { /* */ }
 }
 
 // ====================================================================== ווער איז ער
@@ -129,7 +144,10 @@ function whoIs(token) {
   if (hit) return hit;
   const r = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?access_token=' + encodeURIComponent(token), { muteHttpExceptions: true });
   if (r.getResponseCode() !== 200) return '';
-  const email = String(JSON.parse(r.getContentText()).email || '').toLowerCase();
+  const info = JSON.parse(r.getContentText());
+  // נאר א טאקען וואס איז געמאכט געווארן פאר אונזער אתר
+  if (info.aud !== SITE_CLIENT_ID && info.azp !== SITE_CLIENT_ID) return '';
+  const email = String(info.email || '').toLowerCase();
   if (email) cache.put('t:' + token.slice(-24), email, 1800);
   return email;
 }
@@ -179,7 +197,7 @@ function fromWorker(req) {
   if (req.action === 'stripe_paid') return stripePaid(req);
   return { error: 'unknown-action' };
 }
-function rowOf(name, obj) { return TABS[name].map(function (h) { return obj[h] === undefined ? '' : obj[h]; }); }
+function rowOf(name, obj) { return TABS[name].map(function (h) { return obj[h] === undefined ? '' : txt(obj[h]); }); }
 
 // ====================================================================== שיקן א SMS
 function sendSms(fromNumber, to, text, media, meta) {
@@ -656,7 +674,7 @@ function savePhoto(a, g, lang) {
   }
   const t = readTab('Photos');
   const row = t.rows.filter(function (x) { return String(x.contact_id) === String(id); })[0];
-  const vals = [Number(id), 'data:image/jpeg;base64,' + b64, stamp(), g.email, driveId];
+  const vals = [Number(id), 'data:image/jpeg;base64,' + b64, txt(stamp()), g.email, driveId];
   if (row) t.sheet.getRange(row._row, 1, 1, 5).setValues([vals]); else t.sheet.appendRow(vals);
   history(g.email, 'photo', id, id, '*', '', 'photo (SMS)');
   return say('done', lang);
@@ -760,61 +778,52 @@ function sendWindowOk(now, cfg) {
 }
 
 // ---------- דער זייגער: שיקן ----------
+const NEW_LINE_NOTE = '\n\nThis is the new number of Mosdos Ungvar. Reply STOP to unsubscribe.';
 function runJobs() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(1000)) return;
   try {
     const cfg = config();
-    const now = new Date();
-    if (!sendWindowOk(now, cfg)) return;
+    if (!sendWindowOk(new Date(), cfg)) return;
     const P = PropertiesService.getScriptProperties();
     const started = Date.now();
     const optOut = {};
     readTab('SmsOptIn').rows.forEach(function (r) { if (String(r.status) === 'out') optOut[last10(r.phone)] = true; });
+    // ווער האט שוין באקומען עפעס פונעם שליחה-נומער (→ נישט נאכאמאל די STOP שורה)
+    const seen = {};
+    readTab('SmsLog').rows.forEach(function (r) { if (r.dir === 'out' && r.line === 'broadcast' && String(r.status).indexOf('sent') === 0) seen[last10(r.to)] = true; });
     const jobs = readTab('SmsJobs').rows.filter(function (j) { return ['scheduled', 'running'].indexOf(String(j.status)) >= 0 && String(j.send_at) <= stamp(); });
-    for (let ji = 0; ji < jobs.length; ji += 1) {
+    for (let ji = 0; ji < jobs.length && Date.now() - started < 270000; ji += 1) {
       const j = jobs[ji];
       const rec = JSON.parse(j.recipients || '[]');
       let cur = Number(j.cursor) || 0; let sent = Number(j.sent) || 0; let failed = Number(j.failed) || 0; let skipped = Number(j.skipped) || 0; let credits = Number(j.credits) || 0;
-      const price = unitPrice(j, cfg);
-      let have = creditsOf(lower(j.created_by)) ;
-      let first = sent === 0 && failed === 0 && cur === 0;
-      while (cur < rec.length && Date.now() - started < 270000) {
-        if (have < price) { setFields('SmsJobs', j._row, { status: 'no_credits', cursor: cur, sent: sent, failed: failed, skipped: skipped, credits: credits, updated_at: stamp() }); break; }
-        const r = rec[cur];
-        cur += 1;
-        if (optOut[last10(r.p)]) { skipped += 1; continue; }
-        let ok = false;
-        if (j.kind === 'call') ok = placeCall(r, j, P);
-        else {
-          // די ערשטע הודעה פונעם נייעם נומער: א שורה מיט STOP
-          const text = String(j.text) + (first || firstFromLine(r.p) ? '\n\nThis is the new number of Mosdos Ungvar. Reply STOP to unsubscribe.' : '');
-          ok = sendSms(P.getProperty('TELNYX_BROADCAST_NUMBER'), r.p, text, null, { line: 'broadcast', email: j.created_by, contact_id: r.c, job_id: j.job_id }).status === 'sent';
+      let have = creditsOf(lower(j.created_by)); // וואס די שליחה האט שוין גענוצט איז שוין אראפגערעכנט
+      let status = 'running';
+      const save = function () {
+        setFields('SmsJobs', j._row, { status: status, cursor: cur, sent: sent, failed: failed, skipped: skipped, credits: Math.round(credits * 10000) / 10000, updated_at: stamp() });
+        chargeJob(j, credits);
+      };
+      try {
+        while (cur < rec.length && Date.now() - started < 270000) {
+          const r = rec[cur];
+          const d = last10(r.p);
+          if (optOut[d]) { cur += 1; skipped += 1; continue; }
+          const text = j.kind === 'call' ? '' : String(j.text) + (seen[d] ? '' : NEW_LINE_NOTE);
+          const price = j.kind === 'call' ? unitPrice(j, cfg) : (Number(cfg.price_sms) || 0.01) * segments(text);
+          if (have < price) { status = 'no_credits'; break; }
+          cur += 1;
+          let ok = false;
+          try {
+            if (j.kind === 'call') ok = placeCall(r, j, P);
+            else ok = sendSms(P.getProperty('TELNYX_BROADCAST_NUMBER'), r.p, text, null, { line: 'broadcast', email: j.created_by, contact_id: r.c, job_id: j.job_id }).status === 'sent';
+          } catch (e) { ok = false; }
+          if (ok) { sent += 1; credits += price; have -= price; seen[d] = true; } else failed += 1;
+          if (cur % 10 === 0) save();
         }
-        if (ok) { sent += 1; credits += price; have -= price; } else failed += 1;
-        if (cur % 25 === 0) setFields('SmsJobs', j._row, { status: 'running', cursor: cur, sent: sent, failed: failed, skipped: skipped, credits: credits, updated_at: stamp() });
-      }
-      const done = cur >= rec.length;
-      setFields('SmsJobs', j._row, { status: done ? 'done' : (have < price ? 'no_credits' : 'running'), cursor: cur, sent: sent, failed: failed, skipped: skipped, credits: Math.round(credits * 10000) / 10000, updated_at: stamp() });
-      // קרעדיטן: איין שורה פער שליחה (דערהיינטיגט)
-      chargeJob(j, credits);
-      if (Date.now() - started > 270000) break;
-      first = false;
+        if (cur >= rec.length) status = 'done';
+      } finally { save(); }
     }
   } finally { lock.releaseLock(); }
-}
-/** האט דער מענטש שוין באקומען עפעס פון דעם נומער? (ניין → די STOP שורה) */
-function firstFromLine(phone) {
-  const c = CacheService.getScriptCache();
-  const k = 'seen:' + last10(phone);
-  if (c.get(k)) return false;
-  const P = PropertiesService.getScriptProperties();
-  const seen = P.getProperty('SEEN_LIST') || '';
-  const d = last10(phone);
-  if (seen.indexOf(d) >= 0) { c.put(k, '1', 21600); return false; }
-  if (seen.length < 450000) P.setProperty('SEEN_LIST', seen + d + ',');
-  c.put(k, '1', 21600);
-  return true;
 }
 function chargeJob(j, credits) {
   const t = readTab('Credits');
@@ -876,7 +885,7 @@ function callIn(req) {
   // א גבאי רופט דעם הקלטות-נומער: 1 = הערן, 2 = א נייע הקלטה
   if (to === last10(P.getProperty('TELNYX_VOICE_NUMBER'))) {
     const g = gabbaiByPhone(req.from);
-    if (g) {
+    if (g && req.signed) {
       return texml('<Gather numDigits="1" timeout="6" action="' + W + '/voice/menu"><Say voice="alice">Press 1 to hear the last message. Press 2 to record a new message.</Say></Gather>' + playLast(W));
     }
     return texml(playLast(W) || '<Say voice="alice">' + xmlEsc(cfg.call_text) + '</Say>');
@@ -888,17 +897,22 @@ function callIn(req) {
 function playLast(W) { const r = lastRecording(); return r ? '<Play>' + W + '/audio/' + encodeURIComponent(r.rec_id) + '</Play>' : ''; }
 function callMenu(req) {
   const W = PropertiesService.getScriptProperties().getProperty('WORKER_URL');
-  if (String(req.digits) === '2' && gabbaiByPhone(req.from)) {
+  if (String(req.digits) === '2' && req.signed && gabbaiByPhone(req.from)) {
     return texml('<Say voice="alice">Record after the beep. Press the pound key when done.</Say><Record maxLength="300" finishOnKey="#" playBeep="true" action="' + W + '/voice/recorded"/>');
   }
   return texml(playLast(W));
 }
 function callRecorded(req) {
   const g = gabbaiByPhone(req.from);
-  // נאר א הקלטה פון Telnyx (דער שליסל גייט נאר צו זיי)
-  if (!g || !/^https:\/\/[\w.-]*telnyx\.com\//.test(String(req.url || ''))) return texml('<Hangup/>');
+  // נאר א באשטעטיגטע בקשה פון Telnyx (דער Worker האט געקוקט די חתימה), און נאר א הקלטה אויף זייערע סערווערס
+  let host = '';
+  try { host = String(req.url || '').match(/^https:\/\/([^/?#]+)/)[1].toLowerCase(); } catch (e) { host = ''; }
+  const telnyxHost = host === 'telnyx.com' || /\.telnyx\.com$/.test(host);
+  const s3Host = /\.amazonaws\.com$/.test(host);
+  if (!g || !req.signed || !(telnyxHost || s3Host)) return texml('<Hangup/>');
   const P = PropertiesService.getScriptProperties();
-  const r = UrlFetchApp.fetch(req.url, { headers: { Authorization: 'Bearer ' + P.getProperty('TELNYX_API_KEY') }, muteHttpExceptions: true });
+  let r = UrlFetchApp.fetch(req.url, { muteHttpExceptions: true });
+  if ((r.getResponseCode() === 401 || r.getResponseCode() === 403) && telnyxHost) r = UrlFetchApp.fetch(req.url, { headers: { Authorization: 'Bearer ' + P.getProperty('TELNYX_API_KEY') }, muteHttpExceptions: true });
   if (r.getResponseCode() !== 200) return texml('<Say voice="alice">Sorry, the recording failed.</Say>');
   const f = recFolder().createFile(r.getBlob().setName('phone-' + stamp()));
   appendObj('SmsRecordings', { rec_id: 'R' + Date.now(), name: '📞 ' + g.name + ' ' + stamp(), drive_id: f.getId(), mime: r.getBlob().getContentType(), seconds: Number(req.duration) || '', created_at: stamp(), created_by: g.email, source: 'phone' });
@@ -929,6 +943,11 @@ function stripeCheckout(req, email) {
   return { url: JSON.parse(r.getContentText()).url };
 }
 function stripePaid(req) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try { return stripePaid_(req); } finally { lock.releaseLock(); }
+}
+function stripePaid_(req) {
   const email = lower(req.email);
   if (!email || !req.session_id) return { error: 'bad' };
   const t = readTab('Credits');

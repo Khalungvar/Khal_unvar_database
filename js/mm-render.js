@@ -77,11 +77,16 @@ export function cleanHtml(html) {
     });
   };
   const root = doc.body.firstElementChild;
-  walk(root);
-  // נאכאמאל — "replaceWith" קען ברענגען נייע קינדער
-  walk(root);
+  // ביז גארנישט טוישט זיך מער ("replaceWith" קען ברענגען נייע קינדער)
+  let prev = '';
+  for (let i = 0; i < 50 && prev !== root.innerHTML; i += 1) { prev = root.innerHTML; walk(root); }
   return root.innerHTML;
 }
+
+/** פאר א CSS / attribute ווערט (שריפט, ריכטונג) — נאר זיכערע אותיות */
+const css = (v) => String(v ?? '').replace(/["'<>;{}\\]/g, '');
+const dirv = (v) => (v === 'ltr' ? 'ltr' : 'rtl');
+const imgSrc = (v) => (/^(data:image\/|img\/|https:\/\/)/.test(String(v || '')) ? h(v) : '');
 
 // ---------- די פעלדער ----------
 const nz = (v) => String(v ?? '').trim();
@@ -169,7 +174,7 @@ export function fillHtml(html, vals, empties = null) {
 // ---------- דער נמען (ענגליש / לשון קודש / ביידע) ----------
 function rcpBlock(D, c, vals, empties, { cls = 'mx-rcp', style = '', attrs = '' } = {}) {
   const r = D.rcp;
-  const lines = (txt, dir, font, size, bold) => `<div class="mx-rcp-part" dir="${dir}" style="font-family:'${font}';font-size:${size}pt">${
+  const lines = (txt, dir, font, size, bold) => `<div class="mx-rcp-part" dir="${dir}" style="font-family:'${css(font)}';font-size:${Number(size) || 11}pt">${
     txt.split('\n').map((l, i) => `<div${i === 0 && bold ? ' class="mx-b"' : ''}>${h(l)}</div>`).join('')}</div>`;
   const lang = D.lang || 'en';
   const he = lang !== 'en' && c ? fillText(r.templateHe, vals, empties) : '';
@@ -181,8 +186,8 @@ function rcpBlock(D, c, vals, empties, { cls = 'mx-rcp', style = '', attrs = '' 
 
 // ---------- פרייע טעקסט קעסטלעך (קאנווערט / בריוו) ----------
 function boxesHtml(D, vals, empties, edit) {
-  return (D.boxes || []).map((b) => `<div class="mx-box${edit ? ' mx-drag' : ''}" data-part="box:${h(b.id)}" dir="${b.dir || 'rtl'}"
-    style="left:${b.x}in;top:${b.y}in;width:${b.w}in;font-family:'${b.font || 'Frank Ruhl Libre'}';font-size:${b.size || 12}pt">${fillHtml(cleanHtml(b.html), vals, empties)}</div>`).join('');
+  return (D.boxes || []).map((b) => `<div class="mx-box${edit ? ' mx-drag' : ''}" data-part="box:${h(b.id)}" dir="${dirv(b.dir)}"
+    style="left:${Number(b.x) || 0}in;top:${Number(b.y) || 0}in;width:${Number(b.w) || 3}in;font-family:'${css(b.font || 'Frank Ruhl Libre')}';font-size:${Number(b.size) || 12}pt">${fillHtml(cleanHtml(b.html), vals, empties)}</div>`).join('');
 }
 
 // ---------- קאנווערט ----------
@@ -193,12 +198,12 @@ export function envHtml(D, c, { edit = false, num = '', ctx = null, empties = nu
   const logo = resolveLogo(r.logo, D.logo_data);
   const p = D.post;
   const post = p.mode === 'stamp' ? `<div class="env-stamp${p.border ? '' : ' no-border'}"></div>`
-    : p.mode === 'image' && D.postage_data ? `<div class="env-stamp no-border"><img src="${D.postage_data}" alt=""></div>`
+    : p.mode === 'image' && D.postage_data ? `<div class="env-stamp no-border"><img src="${imgSrc(D.postage_data)}" alt=""></div>`
       : p.mode === 'text' ? `<div class="env-stamp env-indicia${p.border ? '' : ' no-border'}" style="font-size:${p.size}pt">${h(p.text).replace(/\n/g, '<br>')}</div>` : '';
   return `<div class="env mx-page" style="width:${W}in;height:${H}in">
-    ${D.background_data ? `<img class="env-bg" src="${D.background_data}" style="opacity:${D.bg.opacity}" alt="">` : ''}
-    ${r.show ? `<div class="env-part env-ret${edit ? ' mx-drag' : ''}" data-part="ret" style="left:${r.x}in;top:${r.y}in;font-family:'${r.font}';font-size:${r.size}pt" dir="${r.dir || 'ltr'}">
-      ${logo ? `<img src="${logo}" style="height:${r.logoH}in" alt="">` : ''}<div>${h(r.text).replace(/\n/g, '<br>')}</div></div>` : ''}
+    ${D.background_data ? `<img class="env-bg" src="${imgSrc(D.background_data)}" style="opacity:${D.bg.opacity}" alt="">` : ''}
+    ${r.show ? `<div class="env-part env-ret${edit ? ' mx-drag' : ''}" data-part="ret" style="left:${Number(r.x) || 0}in;top:${Number(r.y) || 0}in;font-family:'${css(r.font)}';font-size:${Number(r.size) || 9}pt" dir="${r.dir === 'rtl' ? 'rtl' : 'ltr'}">
+      ${logo ? `<img src="${imgSrc(logo)}" style="height:${r.logoH}in" alt="">` : ''}<div>${h(r.text).replace(/\n/g, '<br>')}</div></div>` : ''}
     ${rcpBlock(D, c, vals, empties, { attrs: 'data-part="rcp"', cls: `env-part env-rcp mx-rcp${edit ? ' mx-drag' : ''}`, style: `left:${D.rcp.x}in;top:${D.rcp.y}in;max-width:${Math.max(1, W - D.rcp.x - 0.2)}in` })}
     ${post}
     ${boxesHtml(D, vals, empties, edit)}
@@ -234,13 +239,13 @@ export function labelPages(D, list, { test = false, all = true, nums = null } = 
     const n = nums && it !== 'same' ? nums[k++] : '';
     const vals = it === 'same' ? {} : valuesFor(D, it);
     const inner = it === 'same'
-      ? `<div class="mx-rcp-part" dir="${L.dir || 'ltr'}" style="font-family:'${L.font || D.rcp.font}';font-size:${L.size}pt">${h(L.text).replace(/\n/g, '<br>')}</div>`
+      ? `<div class="mx-rcp-part" dir="${L.dir === 'rtl' ? 'rtl' : 'ltr'}" style="font-family:'${css(L.font || D.rcp.font)}';font-size:${Number(L.size) || 10}pt">${h(L.text).replace(/\n/g, '<br>')}</div>`
       : rcpBlock({ ...D, rcp: { ...D.rcp, size: L.size, sizeHe: L.size, align: L.align } }, it, vals, null, { cls: 'mx-rcp mx-lbl-rcp' });
     // עגול: דער טעקסט אינעם ריבוע וואס פאסט אריין אין דעם קרייז (~71%)
     const pad = round ? Math.max(Number(L.pad) || 0, Math.min(S.w, S.h) * 0.146) : L.pad;
     return `<div class="lbl mx-lbl${shape} mx-lbl-${L.logoPos || 'left'}" style="${pos};padding:${pad}in;text-align:${L.align}">
-      ${D.background_data ? `<img class="mx-lbl-bg" src="${D.background_data}" style="opacity:${D.bg.opacity}" alt="">` : ''}
-      ${logo && (it === 'same' || L.logoAll) ? `<img class="mx-lbl-logo" src="${logo}" alt="">` : ''}
+      ${D.background_data ? `<img class="mx-lbl-bg" src="${imgSrc(D.background_data)}" style="opacity:${D.bg.opacity}" alt="">` : ''}
+      ${logo && (it === 'same' || L.logoAll) ? `<img class="mx-lbl-logo" src="${imgSrc(logo)}" alt="">` : ''}
       <div class="mx-lbl-text">${inner}</div>${n ? `<span class="mx-num">${h(n)}</span>` : ''}</div>`;
   };
   return pages.map((page) => `<div class="lbl-sheet mx-page" style="width:8.5in;height:11in">
@@ -266,16 +271,16 @@ export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties =
   const foot = L.design === 'org' ? [det.footer_line ? `<div class="mx-foot-yi" dir="rtl">${h(det.footer_line)}</div>` : '',
     `<div class="mx-foot-legal">${[det.legal_name || L.org, [det.address, det.city_state_zip].filter(Boolean).join(', '), det.phone, det.email].filter(Boolean).map(h).join(' · ')}</div>`].join('') : '';
   const sig = L.sig && L.design === 'org' ? `<div class="mx-sig">${det.signature_text ? `<div style="font-family:'Playpen Sans Hebrew';font-size:20pt">${h(det.signature_text)}</div>`
-    : det.signature_img ? `<img src="${det.signature_img}" alt="">` : ''}<div>${h(det.signer_he || '')}</div></div>` : '';
+    : det.signature_img ? `<img src="${imgSrc(det.signature_img)}" alt="">` : ''}<div>${h(det.signer_he || '')}</div></div>` : '';
   const winBlock = win ? rcpBlock({ ...D, lang: L.winLang || 'en' }, c, vals, empties, {
     attrs: 'data-part="win"', cls: `mx-win${edit ? ' mx-drag' : ''}`, style: `left:${win.x}in;top:${win.y}in;width:${win.w}in;height:${win.h}in`,
   }) : '';
   return `<div class="mx-letter mx-page ${extraClass}" style="width:8.5in;height:11in">
-    ${L.design === 'bg' && D.background_data ? `<img class="mx-letter-bg" src="${D.background_data}" style="opacity:${D.bg.opacity}" alt="">` : ''}
-    ${banner ? `<img class="mx-banner" src="${banner}" style="top:0.3in;left:${m.side * 0.6}in;right:${m.side * 0.6}in;height:${bh}in" alt="">` : ''}
-    ${logo ? `<div class="mx-band" style="top:0.3in;left:${m.side}in;right:${m.side}in"><img src="${logo}" alt=""><div dir="rtl">${h(det.org_name_he || L.org)}</div></div>` : ''}
+    ${L.design === 'bg' && D.background_data ? `<img class="mx-letter-bg" src="${imgSrc(D.background_data)}" style="opacity:${D.bg.opacity}" alt="">` : ''}
+    ${banner ? `<img class="mx-banner" src="${imgSrc(banner)}" style="top:0.3in;left:${m.side * 0.6}in;right:${m.side * 0.6}in;height:${bh}in" alt="">` : ''}
+    ${logo ? `<div class="mx-band" style="top:0.3in;left:${m.side}in;right:${m.side}in"><img src="${imgSrc(logo)}" alt=""><div dir="rtl">${h(det.org_name_he || L.org)}</div></div>` : ''}
     ${winBlock}
-    <div class="mx-body" dir="${L.dir || 'rtl'}" style="left:${m.side}in;right:${m.side}in;top:${Math.max(m.top, headBottom, winBottom)}in;bottom:${m.bottom + (foot ? 0.55 : 0)}in;font-family:'${L.font}';font-size:${L.size}pt;line-height:${L.lineH}">
+    <div class="mx-body" dir="${dirv(L.dir)}" style="left:${m.side}in;right:${m.side}in;top:${Math.max(m.top, headBottom, winBottom)}in;bottom:${m.bottom + (foot ? 0.55 : 0)}in;font-family:'${css(L.font)}';font-size:${Number(L.size) || 13}pt;line-height:${Number(L.lineH) || 1.5}">
       ${body}${sig}</div>
     ${foot ? `<div class="mx-foot" style="left:${m.side}in;right:${m.side}in;bottom:${Math.max(0.3, m.bottom - 0.3)}in">${foot}</div>` : ''}
     ${boxesHtml(D, vals, empties, edit)}
