@@ -1,0 +1,33 @@
+# SMS dialogue for gabbaim (dialogue in progress, NOT approved to build)
+- Two parts: (1) gabbai<->system dialogue  (2) broadcasts SMS/robocalls. Separate numbers. Telnyx account not opened yet.
+- Part 1 actions: add contact, update contact, query (phone etc), simcha invitation image -> simchos, photo to contact, record donation, add note, check yahrzeit/simcha.
+- Free language, AI (Gemini) parses.
+- Only registered gabbai phones (admin sets per gabbai on site). Everything logged under gabbai's name.
+- Permissions exactly as on site (can = can; request flow where site uses requests).
+- Always confirm before saving (reply with understanding, "1" to confirm).
+- Unknown number: reply once "not registered" + notify admin on site.
+- Same-name: numbered list; each option shows "son of / son-in-law of", else address.
+- Reply in the language the gabbai wrote.
+- Images must be tied to something (simcha or contact); if unclear ask "simcha (1) / contact photo (2)".
+- Info queries: only what the gabbai has permission to see on the site.
+- APPROVED part 1 spec (2026-10-22). Gabbai line = Telnyx Toll-Free number (free verification). Inbound via Cloudflare Worker. Build only when user says (and Telnyx needs account first).
+# Part 2 (broadcast) – dialogue in progress
+- One broadcast number for now; per-org numbers later.
+- Who sends: OPEN – user has questions first.
+- Recipients: saved lists (list purpose = phone/SMS).
+- Robocall recording: both upload MP3 on site AND record by calling the system number.
+- Credits: tracked on site (ledger). Gabbai buys credits mainly via Stripe Checkout (auto credit via Worker webhook) + admin can add manually (Zelle/check). Min purchase suggested. Telnyx funded by org card auto-recharge (no direct Stripe<->Telnyx link). Optional: show Telnyx balance read-only to admin.
+- Still open: budget per org/gabbai?, monthly refresh?, show $ or message count?, who sends.
+- Org pays fixed Telnyx costs (numbers, 10DLC) + gabbai dialogue (part 1). Gabbaim credits pay only broadcast usage (SMS/calls). Monthly report separates fixed vs usage. Org has dedicated credit card for Telnyx auto-recharge. Payment processor: Stripe preferred, alternatives PayPal etc – asked if org already uses a processor (unanswered).
+- New Stripe account. Credit price slightly above cost; admin sets price. Site records actual per-message cost from Telnyx webhooks, alerts admin if cost nears credit price; shows Telnyx balance.
+- Who sends: any gabbai with credits, on his own credits (to lists he can see).
+- Auto: STOP/START global opt-out; quiet hours 8am-9pm; no sending Shabbos/YT (scheduled delays). Replies from public -> site inbox of sending gabbai (b).
+- NOTE: שיקן flag = internal "we send to him" choice, NOT consent. Discussing separate SMS consent marker + importing existing Shabbos list as consented + old provider opt-outs.
+- First msg from new number includes "new number of Mosdos Ungvar, reply STOP to stop". Old provider opt-out list: too hard -> skip, rely on STOP line.
+- SMS consent marker separate from שיקן (with source). JOIN keyword: system asks for name, links to contact (auto if phone matches, else admin review). JOIN by someone with שיקן OFF -> joins SMS group, contact's שיקן unchanged (self-join overrides for SMS).
+- JOIN auto-replies in ENGLISH.
+- Existing ~250 Shabbos list: export from old service to Excel -> import as list (existing add-from-Excel w/ matching) -> mark SMS consent source "old list".
+- Broadcast SMS number: Toll-Free (current service uses 833 too). Robocalls: prefer local number; user thinks later/maybe separate - clarified: local voice-only number in same Telnyx account, no 10DLC needed.
+- Scheduling: yes. Callback to local voice number: play last recording sent. Voicemail drop: proposed yes (pending confirm).
+- Calling the broadcast toll-free number: English TTS reads "this week's zmanim" from a site schedule (option b). NEW FEATURE needed: weekly zmanim/schedule page auto-built from calculated zmanim (Brooklyn) + davening-time rules; used for SMS + phone. Separate dialogue.
+- APPROVED part 2 spec incl. voicemail drop (2026-10-22). Build only when user says; needs Telnyx + Stripe accounts first.
