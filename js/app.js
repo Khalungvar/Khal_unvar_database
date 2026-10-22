@@ -21,7 +21,7 @@ import {
   initCampaigns, renderCampaignSide, renderCampaignMain, showCampaign, renderDonHub,
 } from './campaigns.js';
 import { initReceipts, renderReceipts, openReceipts, printForDonation, openOrgDetails } from './receipts.js';
-import { initLists, renderListsSide, renderBuilder, openOverview, exportContacts } from './lists.js';
+import { initLists, renderListsSide, renderBuilder, openOverview, exportContacts, linkPendingExt } from './lists.js';
 import { initAdmin, renderAdmin, adminDirty, setAdminTab } from './admin.js';
 import { initMailMerge, renderMailMerge, openMailMerge } from './mailmerge.js';
 import { initMail, openCompose, emailOf } from './mail.js';
@@ -425,7 +425,7 @@ function fullNameHe(c) {
 }
 
 function phonesOf(c) {
-  return state.phones.get(String(c.contact_id)) || {};
+  return c?._phones || state.phones.get(String(c.contact_id)) || {};
 }
 
 function haystack(c) {
@@ -1815,6 +1815,7 @@ async function submit(form, original) {
       try { await addGeneralTask(form.elements.gtd_missing_text.value.trim() || t('cfMissingDefault'), id); } catch { /* */ }
     }
     await loadAll();
+    if (!original.contact_id) { try { if (await linkPendingExt(id)) renderBuilder(); } catch { /* */ } }
     renderList();
     $('#contact-form').dataset.dirty = '';
     $('#form-dialog').close();
@@ -1972,7 +1973,7 @@ function start() {
   });
   initPersonal({ showView, fullNameHe, openCard, contactById, toast, friendlyError, updateBadges });
   $('#btn-personal').onclick = () => { document.body.classList.add('solo-mode'); openPersonal(); };
-  initLists({ showView, fullNameHe, phonesOf, contactById, pickerLabel, openCard, toast, friendlyError, refreshAll });
+  initLists({ showView, fullNameHe, phonesOf, contactById, pickerLabel, openCard, toast, friendlyError, refreshAll, openForm });
   $('#btn-help').onclick = () => openHelp();
   $('#btn-admin').onclick = () => { if (pendingRequests().length) setAdminTab('requests'); document.body.classList.add('solo-mode'); showView('admin'); };
   closeOnBackdrop($('#form-dialog'), closeForm);

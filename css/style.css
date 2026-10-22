@@ -1411,3 +1411,43 @@ dialog > .actions, dialog :not(form) > .actions:last-child {
   border-top: 1px solid var(--line); box-shadow: 0 -6px 12px -10px rgba(0, 0, 0, .25);
   border-radius: 0 0 14px 14px;
 }
+
+/* ---------- רשימות (נייע) ---------- */
+.l2-tabs { margin: 8px 0; }
+.l2-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
+.l2-addwrap { position: relative; }
+.l2-addmenu { position: absolute; inset-inline-end: 0; top: 100%; z-index: 20; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 18px rgba(0,0,0,.15); display: flex; flex-direction: column; min-width: 200px; }
+.l2-addmenu button { all: unset; cursor: pointer; padding: 8px 12px; }
+.l2-addmenu button:hover { background: var(--chip); }
+.l2-bar { position: sticky; bottom: 0; width: 100%; margin-top: 12px; padding: 10px 14px; border-radius: 10px; border: 1px solid; font: inherit; font-weight: 600; text-align: start; cursor: pointer; }
+.l2-bar.ok { background: #eaf6ea; border-color: #9fd19b; color: #1e5b1b; }
+.l2-bar.warn { background: #fff7df; border-color: #e7c66a; color: #7a5a14; }
+.l2-bar.bad { background: #fdecea; border-color: #e7a19a; color: #8a2a1f; }
+.l2-fam { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-inline-end: 4px; vertical-align: middle; }
+.l2-miss { margin-top: 8px; font-size: 13px; }
+.l2-dur { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; }
+.l2-durn { width: 70px !important; }
+.l2-year { width: 90px !important; }
+.l2-set fieldset { margin-bottom: 12px; }
+.l2-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 4px 0; }
+.l2-base { font-weight: 600; }
+.l2-basebox { margin-top: 8px; padding: 8px; border: 1px dashed var(--line); border-radius: 10px; }
+.l2-st { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 6px; }
+.l2-fam-row { display: grid; grid-template-columns: 14px minmax(160px, 260px) 1fr; gap: 6px; align-items: start; padding: 6px 0; border-bottom: 1px dotted var(--line); }
+.l2-rels { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 13px; }
+.l2-don { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.l2-don select, .l2-don input { width: auto; }
+.l2-lists { display: flex; flex-direction: column; gap: 2px; }
+.l2-xpart { border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; margin: 4px 0; }
+.l2-xpart > summary { cursor: pointer; }
+.l2-xbody { padding: 6px 0; }
+.l2-prow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 4px 0; border-bottom: 1px dotted var(--line); }
+.l2-pgroup { border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; margin: 6px 0; }
+.l2-pgroup.sev2 { border-color: #e7a19a; }
+.l2-pgroup > summary { cursor: pointer; font-weight: 600; }
+.l2-mrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 3px 0; }
+.l2-mrow select { width: auto; max-width: 340px; }
+.l2-locked { opacity: .65; }
+.l2-reqs { background: #fff7df; border: 1px solid #e7c66a; border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; }
+.l2-access .chip { margin: 2px; }
+.l2-actions label select { width: auto; }

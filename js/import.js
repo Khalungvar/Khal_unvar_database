@@ -126,7 +126,7 @@ async function unzip(buf, want) {
 const colIndex = (ref) => { let n = 0; for (const ch of ref.replace(/\d+/g, '')) n = n * 26 + (ch.charCodeAt(0) - 64); return n - 1; };
 
 /** .xlsx → רשימה פון שורות (דער ערשטער בלאט) */
-async function readXlsx(file) {
+export async function readXlsx(file) {
   const files = await unzip(await file.arrayBuffer(), (n) => /^xl\/(sharedStrings\.xml|workbook\.xml|_rels\/workbook\.xml\.rels|worksheets\/[^/]+\.xml)$/.test(n));
   const dec = new TextDecoder();
   const parse = (name) => (files[name] ? new DOMParser().parseFromString(dec.decode(files[name]), 'application/xml') : null);

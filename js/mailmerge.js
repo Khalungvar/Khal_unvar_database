@@ -9,7 +9,7 @@ import { t } from './i18n.js';
 import {
   escapeHtml as h, mailingName, shrinkImage as shrink, isTrue,
 } from './util.js';
-import { evaluate, parseSaved, templates as readyLists, savedInScope } from './lists.js';
+import { evaluate, parseSaved, templates as readyLists, savedInScope, savedMailRows } from './lists.js';
 import { umbrellaName } from './scope.js';
 
 let ui = null;
@@ -65,6 +65,12 @@ export function initMailMerge(helpers) {
   ui = helpers;
 }
 
+/** פון א רשימה: עפענען מיט דער רשימה אויסגעקליבן */
+export function openMailMergeWith(listKey) {
+  d.list = listKey;
+  openMailMerge();
+}
+
 export function openMailMerge() {
   document.body.classList.add('solo-mode');
   ui.showView('mailmerge');
@@ -82,11 +88,11 @@ function loadRows() {
   let cr;
   if (kind === 'saved') {
     const l = state.savedLists.find((x) => String(x.list_id) === id);
-    cr = l ? parseSaved(l).cr : null;
+    rows = l ? savedMailRows(l) : []; // לויט דער רשימה: איין קאנווערט פאר א שטוב א.א.וו.
   } else {
     cr = readyLists()[Number(id)]?.criteria;
+    rows = cr ? evaluate(cr).map((x) => x.c) : [];
   }
-  rows = cr ? evaluate(cr).map((x) => x.c) : [];
   if (d.skipNoAddress) rows = rows.filter((c) => String(c.address || '').trim() && mailingName(c));
   idx = Math.min(idx, Math.max(0, rows.length - 1));
 }

@@ -38,7 +38,7 @@ function dataUrlParts(url) {
 
 /** אן אימעיל אדרעס פון א קאנטאקט (דער ערשטער וואס איז דא). */
 export function emailOf(c) {
-  const p = state.phones.get(String(c?.contact_id)) || {};
+  const p = c?._phones || state.phones.get(String(c?.contact_id)) || {};
   const e = String(p.email_1 || p.email_2 || '').trim();
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e) ? e : '';
 }

@@ -53,6 +53,11 @@ const TYPES = {
       await mergeContactPair(p.keep, p.drop, p.contact, p.phones);
     },
   },
+  list_access: {
+    icon: '📋',
+    label: 'rqTypeListAccess',
+    apply: async (p) => { const { grantListAccess } = await import('./lists.js'); await grantListAccess(p); },
+  },
   void_receipt: {
     icon: '🧾',
     label: 'rqTypeVoid',
@@ -88,6 +93,8 @@ export async function submitRequest(type, payload, summary) {
 }
 
 /** מנהל: באשטעטיגן (טוט דאס זאך) אדער אפזאגן. */
+export async function decideRequest(r, status) { return decide(r, status); }
+
 async function decide(r, status) {
   let note = '';
   if (status === 'declined') {

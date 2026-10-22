@@ -95,6 +95,7 @@ const RABBI_TITLES = ['Rabbi', 'Grand Rabbi'];
  * מחזיר null כשאין למי לשלוח (שניהם נפטרו).
  */
 export function mailingName(c) {
+  if (c?._mailing) return c._mailing; // עטליכע נעמען אויף איין קאנווערט
   const title = (c.title_en || 'Mr.').trim();
   const wifeTitle = isTrue(c.wife_is_rebbetzin) ? 'Rebbetzin' : 'Mrs.';
   const first = (c.first_name_en || '').trim();
