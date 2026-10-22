@@ -47,7 +47,7 @@ const TOKENS = ['mailing', 'wife', 'first', 'last', 'address', 'city', 'state', 
 function defaults() {
   return {
     template_id: '', name: '', format: 'env10',
-    list: 'tpl:0', skipNoAddress: true, toWife: false,
+    list: '', skipNoAddress: true, toWife: false,
     ret: { show: true, logo: 'crown', logoH: 0.55, text: `${'Khal Ungvar'}\n123 Main Street\nBrooklyn, NY 11219`, font: 'Georgia', size: 9, x: 0.25, y: 0.22 },
     rcp: { template: '{mailing}\n{address}\n{city}, {state} {zip}\n{country}', font: 'Georgia', size: 12, bold: true, align: 'left', x: 3.8, y: 1.9 },
     post: { mode: 'stamp', text: 'PRSRT STD\nU.S. POSTAGE\nPAID\nPERMIT #000', size: 7, border: true },
@@ -84,6 +84,7 @@ function listOptions() {
 }
 
 function loadRows() {
+  if (!d.list) { const first = savedInScope()[0]; if (first) d.list = `saved:${first.list_id}`; } // ברירת מחדל: די ערשטע רשימה
   const [kind, id] = String(d.list).split(':');
   let cr;
   if (kind === 'saved') {
