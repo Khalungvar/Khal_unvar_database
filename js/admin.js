@@ -1,8 +1,9 @@
 // עמוד אדמין: כל הרשימות של האתר במקום אחד — ארגונים, טעג'ס, אופני תשלום, טיטלען, געגנטן, קרבות, מנהלים.
 // הכל נשמר בגליון (לשונית Lists / Settings). רק מנהל רואה את העמוד ויכול לשמור.
 import { customFonts, uploadFont, removeFont, loadFonts } from './fonts.js';
+import { helperOn, helperWorks, sheetImageCount } from './images.js';
 import {
-  state, loadAll, saveListColumns, saveSettingsColumns, rawListColumn, rawSettingsColumn, orgLogo, hasUploadedLogo, NESHEI_ORG, saveOrgLogo, saveOriginalToDrive, isDatabaseAccount, hasDriveScope, connectDrive,
+  state, loadAll, migrateImagesToDrive, saveListColumns, saveSettingsColumns, rawListColumn, rawSettingsColumn, orgLogo, hasUploadedLogo, NESHEI_ORG, saveOrgLogo, saveOriginalToDrive, isDatabaseAccount, hasDriveScope, connectDrive,
 } from './data.js';
 import { t } from './i18n.js';
 import { splitTags, escapeHtml as h, shrinkImage } from './util.js';
@@ -567,9 +568,13 @@ function logosHtml() {
     ? (hasDriveScope() ? `<p class="drive-ok">✓ ${t('driveConnected')}</p>`
       : `<p class="drive-warn">${t('driveNeedConnect')} <button type="button" class="btn small-btn primary" id="btn-connect-drive">🔗 ${t('driveConnectBtn')}</button></p>`)
     : `<p class="drive-warn">${h(t('driveNotDatabase', { email: state.email }))}</p>`;
+  const nImg = state.isOwner && helperOn() ? sheetImageCount(state) : -1;
+  const migBox = nImg < 0 ? '' : `<div class="img-mig"><b>${h(t('imgMigTitle'))}</b> <span class="muted small">${h(t('imgMigHint'))}</span><br>
+      ${nImg ? `<span>${h(t('imgMigCount', { n: nImg }))}</span> <button type="button" class="btn small-btn primary" id="btn-img-mig">${h(t('imgMigBtn'))}</button> <span class="muted small" id="img-mig-status"></span>`
+    : `<span class="drive-ok">${h(t('imgMigNone'))}</span>`}</div>`;
   return `<div class="adm-group"><h3 class="adm-group-title">${t('admLogos')}</h3>
     <p class="hint-line">${t('admLogosHint')}</p>
-    ${driveLine}
+    ${driveLine}${migBox}
     <div class="logo-grid">${logoOrgs().map(([name, kind]) => {
       const src = orgLogo(name);
       return `<div class="logo-card" data-org="${h(name)}">
@@ -582,6 +587,19 @@ function logosHtml() {
 }
 
 function wireLogos(main) {
+  $('#btn-img-mig', main)?.addEventListener('click', async (e) => {
+    const b = e.currentTarget;
+    const st = $('#img-mig-status', main);
+    b.disabled = true;
+    try {
+      const n = await migrateImagesToDrive((k) => { st.textContent = t('imgMigRunning', { n: k }); });
+      if (!n && helperWorks() === false) { ui.toast(t('imgMigFail'), 'error'); b.disabled = false; return; }
+      await loadAll();
+      ui.refreshAll();
+      renderAdmin();
+      ui.toast(t('imgMigDone', { n }));
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); b.disabled = false; }
+  });
   $('#btn-connect-drive', main)?.addEventListener('click', () => {
     // גלייך פון דעם קליק — כדי דער בראוזער זאל נישט בלאקירן דעם פענצטער פון גוגל
     connectDrive().then(() => { ui.toast(t('driveConnected')); renderAdmin(); })

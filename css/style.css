@@ -1470,3 +1470,6 @@ table.no-sort thead th::after { content: none; }
 table thead th[data-sort="asc"]::after { content: ' ▲'; opacity: .9; }
 table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 @media print { table thead th::after { content: none !important; } }
+
+/* בילדער אין דרייב (אדמין) */
+.img-mig { margin: 8px 0 12px; padding: 8px 12px; border: 1px dashed var(--line, #e2d6bf); border-radius: 8px; background: #fffaf0; line-height: 1.8; }

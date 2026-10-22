@@ -8,6 +8,7 @@ import {
 import { CONFIG } from './config.js';
 import { nowStamp } from './util.js';
 import { t } from './i18n.js';
+import { resolveState, persistImages } from './images.js';
 
 export const state = {
   email: '',
@@ -194,6 +195,8 @@ export async function loadAll() {
   // אויך פארשלאסן אין גוגל שיטס (Protected range) — נאר ער קען זי טוישן, אפילו גלייך אין שיט.
   const owners = settings.map((s) => String(s.owner_email || '').trim().toLowerCase()).filter(Boolean);
   state.isOwner = owners.length ? owners.includes(state.email) : state.isAdmin;
+  // בילדער וואס ליגן אין דרייב (drv:<id>) → אין זכרון. ווען דער הילף ענטפערט נישט — די בילדער זענען בלויז ליידיג.
+  if (state.isAllowed) { try { await resolveState(state); } catch { /* */ } }
 }
 
 /** המספר הבא, לפי מה שכתוב בגליון ממש עכשיו (למקרה שגבאי אחר הוסיף בינתיים). */
@@ -523,7 +526,8 @@ export function hasUploadedLogo(name) {
 export async function saveOrgLogo(org, data, driveId = '') {
   if (!state.isAdmin) throw new Error(t('adminOnly'));
   const row = await findRow('OrgLogos', org);
-  const values = objectToRow(state.headers.OrgLogos, { org, logo_data: data, updated_at: nowStamp(), updated_by: state.email, drive_id: driveId });
+  const stored = data ? (await persistImages('OrgLogos', { logo_data: data })).logo_data : data;
+  const values = objectToRow(state.headers.OrgLogos, { org, logo_data: stored, updated_at: nowStamp(), updated_by: state.email, drive_id: driveId });
   if (row) await updateRow('OrgLogos', row, data ? values : state.headers.OrgLogos.map(() => ''));
   else if (data) await appendRow('OrgLogos', values);
 }
@@ -650,7 +654,7 @@ export async function applySharing(plan, { remove = true } = {}) {
 /** שומר רשומה כללית (חדשה או קיימת) לפי שדה ה-ID. מחזיר את ה-ID. */
 export async function saveRecord(tab, idField, record) {
   const stamp = nowStamp();
-  const r = { ...record, updated_at: stamp, updated_by: state.email };
+  const r = { ...(await persistImages(tab, record)), updated_at: stamp, updated_by: state.email };
   delete r._row;
   if (!r[idField]) {
     const ids = (await readColumn(tab, 'A')).slice(1).map(Number).filter(Number.isFinite);
@@ -813,8 +817,9 @@ export async function saveYearly(y) {
   const o = { ...(existing || { created_at: stamp, created_by: state.email, active: true }), ...y, updated_at: stamp, updated_by: state.email };
   delete o._row;
   const row = existing ? await findRow('YearlyCampaigns', o.series) : null;
-  if (row) await updateRow('YearlyCampaigns', row, objectToRow(state.headers.YearlyCampaigns, o));
-  else await appendRow('YearlyCampaigns', objectToRow(state.headers.YearlyCampaigns, o));
+  const so = await persistImages('YearlyCampaigns', o);
+  if (row) await updateRow('YearlyCampaigns', row, objectToRow(state.headers.YearlyCampaigns, so));
+  else await appendRow('YearlyCampaigns', objectToRow(state.headers.YearlyCampaigns, so));
   await logChanges('yearly', o.series, '', existing || {}, o);
 }
 
@@ -830,8 +835,9 @@ export async function saveOrgDetails(d) {
   const o = { ...(existing || {}), ...d, updated_at: stamp, updated_by: state.email };
   delete o._row;
   const row = existing ? await findRow('OrgDetails', o.org) : null;
-  if (row) await updateRow('OrgDetails', row, objectToRow(state.headers.OrgDetails, o));
-  else await appendRow('OrgDetails', objectToRow(state.headers.OrgDetails, o));
+  const so = await persistImages('OrgDetails', o);
+  if (row) await updateRow('OrgDetails', row, objectToRow(state.headers.OrgDetails, so));
+  else await appendRow('OrgDetails', objectToRow(state.headers.OrgDetails, so));
   await logChanges('orgDetails', o.org, '', existing || {}, o);
 }
 
@@ -1108,4 +1114,32 @@ function markLegacy() {
     if (String(r.updated_by || '').toLowerCase() === owner && String(r.updated_at || '') < LEGACY_UNTIL) r.updated_by = 'database';
   };
   [state.contacts, state.trash, state.donations, state.occasions].forEach((list) => (list || []).forEach(fix));
+}
+
+// ---------- בילדער: איבערפירן פונעם גיליון צו דרייב (איינמאל, דער בעל הבית) ----------
+const colA1 = (i) => { let s = ''; let n = i + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+
+/** פירט איבער יעדעס בילד וואס שטייט נאך אינעם גיליון (data:) צו דרייב ("drv:<id>"). גיט צוריק וויפל. */
+export async function migrateImagesToDrive(onProgress = () => {}) {
+  const { IMG_FIELDS, isDrv } = await import('./images.js');
+  const tabs = await readTabs(Object.keys(IMG_FIELDS));
+  let moved = 0;
+  for (const [tab, fields] of Object.entries(IMG_FIELDS)) {
+    const { header, objects } = rowsToObjects(tabs[tab] || []);
+    for (const o of objects) {
+      const p = await persistImages(tab, o);
+      const data = [];
+      fields.forEach((f) => {
+        if (p[f] === o[f] || !isDrv(p[f])) return;
+        moved++;
+        [f, `${f}_2`, `${f}_3`].forEach((k) => {
+          const j = header.indexOf(k);
+          if (j >= 0 && (k === f || o[k])) data.push({ range: `${tab}!${colA1(j)}${o._row}`, values: [[k === f ? p[f] : '']] });
+        });
+      });
+      if (data.length) { await batchUpdate(data); onProgress(moved); }
+    }
+  }
+  if (moved) await logChanges('images', 'drive', '', null, null, `moved ${moved} images to Drive`);
+  return moved;
 }
