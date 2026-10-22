@@ -354,6 +354,15 @@ export function savedMailRows(l) {
 
 // ---------- פראבלעמען ----------
 const nm = (c) => ui.fullNameHe(c) || [c.first_name_en, c.last_name_en].join(' ');
+/** "זון פון X" (דער טאטע), אדער "איידעם פון Y" (דער שווער) */
+function parentLine(key) {
+  if (String(key).startsWith('x:')) return '';
+  const R = rels();
+  const f = [...(R.fathers.get(String(key)) || [])].map(contactOf).find(Boolean);
+  if (f) return `${t('sonOf')} ${nm(f)}`;
+  const fil = [...(R.fil.get(String(key)) || [])].map(contactOf).find(Boolean);
+  return fil ? `${t('L2silOf')} ${nm(fil)}` : '';
+}
 export function problems(rows, cr) {
   const P = [];
   const add = (type, sev, items) => { if (items.length) P.push({ type, sev, items }); };
@@ -493,8 +502,8 @@ function tabHtml(tab, rows, ch, edit) {
     const nExt = rows.filter((r) => r.ext).length;
     return `<div class="l2-actions"><button type="button" class="btn" data-x="names">Excel</button><button type="button" class="btn" data-pdf="names">PDF</button>
       ${nExt && edit && current.list_id ? `<span class="spacer"></span><button type="button" class="btn" id="l2-extall">＋ ${h(t(state.isAdmin ? 'L2extAll' : 'L2extAllReq', { n: nExt }))}</button>` : ''}</div>
-      <table class="lb-table"><thead><tr><th>${h(t('colNameHe'))}</th><th>${h(t('enName'))}</th><th>${h(t('area'))}</th><th></th></tr></thead>
-      <tbody>${rows.map((r) => `<tr data-open="${h(r.key)}"><td>${rowName(r)}</td><td dir="ltr">${h([r.c.first_name_en, r.c.last_name_en].filter(Boolean).join(' '))}</td><td>${h(r.c.area || r.c.city || '')}</td>
+      <table class="lb-table"><thead><tr><th>${h(t('colNameHe'))}</th><th>${h(t('L2parent'))}</th><th>${h(t('enName'))}</th><th>${h(t('area'))}</th><th></th></tr></thead>
+      <tbody>${rows.map((r) => `<tr data-open="${h(r.key)}"><td>${rowName(r)}</td><td class="muted small">${h(parentLine(r.key))}</td><td dir="ltr">${h([r.c.first_name_en, r.c.last_name_en].filter(Boolean).join(' '))}</td><td>${h(r.c.area || r.c.city || '')}</td>
         <td class="no-print">${r.ext && edit ? `<button type="button" class="linkish" data-mk="${h(r.key)}">＋ ${h(t('L2makeContact'))}</button> ` : ''}${rmBtn(r, edit)}</td></tr>`).join('')}</tbody></table>
       ${removed.length ? `<p class="lb-removed">${h(t('lbRemovedLabel', { n: removed.length }))} ${removed.map((x) => { const c = String(x.id).startsWith('x:') ? null : contactOf(x.id); return `<span class="chip lb-minus">${h(c ? nm(c) : x.id)}${x.until ? ` ⏳ ${h(x.until)}` : ''}${edit ? ` <button type="button" class="linkish" data-restore="${h(x.id)}">↺</button>` : ''}</span>`; }).join(' ')}</p>` : ''}`;
   }
@@ -535,7 +544,7 @@ function tabHtml(tab, rows, ch, edit) {
 function detailCols() {
   const P = (r) => phonesOfRow(r);
   return [
-    ['name_he', t('colNameHe'), (r) => nm(r.c)], ['mailing', t('mailingName'), (r) => mailingName(r.c) || ''],
+    ['name_he', t('colNameHe'), (r) => nm(r.c)], ['parent', t('L2parent'), (r) => parentLine(r.key)], ['mailing', t('mailingName'), (r) => mailingName(r.c) || ''],
     ['name_en', t('enName'), (r) => [r.c.first_name_en, r.c.last_name_en].filter(Boolean).join(' ')],
     ['address', t('address'), (r) => r.c.address || ''], ['city', 'City', (r) => r.c.city || ''], ['state', 'State', (r) => r.c.state || ''],
     ['zip', 'ZIP', (r) => r.c.zip || ''], ['area', t('area'), (r) => r.c.area || ''],
@@ -550,7 +559,7 @@ function detailCols() {
 function exportTab(kind, rows, ch) {
   const name = current.name || 'list';
   const mem = current.cr.meta.mem || {};
-  if (kind === 'names') downloadXlsx(name, [t('colNameHe'), t('enName'), t('area')], rows.map((r) => [nm(r.c), [r.c.first_name_en, r.c.last_name_en].filter(Boolean).join(' '), r.c.area || '']), { sheet: name });
+  if (kind === 'names') downloadXlsx(name, [t('colNameHe'), t('L2parent'), t('enName'), t('area')], rows.map((r) => [nm(r.c), parentLine(r.key), [r.c.first_name_en, r.c.last_name_en].filter(Boolean).join(' '), r.c.area || '']), { sheet: name });
   if (kind === 'phones') downloadXlsx(name, [t('colNameHe'), ...PHONE_KEYS.map(([, l]) => t(l))], ch.phones.rows.map((r) => [nm(r.c), ...PHONE_KEYS.map(([k]) => phonesOfRow(r)[k] || '')]), { sheet: name });
   if (kind === 'email') downloadXlsx(name, [t('colNameHe'), 'Email 1', 'Email 2'], ch.email.rows.map((r) => [nm(r.c), phonesOfRow(r).email_1 || '', phonesOfRow(r).email_2 || '']), { sheet: name });
   if (kind === 'mail') downloadXlsx(name, [t('mailingName'), t('address'), 'City', 'State', 'ZIP'], mailRecipients(ch.mail, mem.mailMode || 'one').map((x) => [mailingName(x) || nm(x), x.address || '', x.city || '', x.state || '', x.zip || '']), { sheet: name });
@@ -561,7 +570,7 @@ function exportTab(kind, rows, ch) {
 }
 
 // ---------- PDF: פריער פרעגן וועלכע פרטים ----------
-const PDF_DEFAULT = { names: ['name_he', 'name_en', 'area'], phones: ['name_he', 'mobile', 'home_phone', 'wife_mobile'], mail: ['mailing', 'address', 'city', 'state', 'zip'], email: ['name_he', 'email', 'email2'] };
+const PDF_DEFAULT = { names: ['name_he', 'parent', 'name_en', 'area'], phones: ['name_he', 'mobile', 'home_phone', 'wife_mobile'], mail: ['mailing', 'address', 'city', 'state', 'zip'], email: ['name_he', 'email', 'email2'] };
 function pdfDialog(tab, rows, ch) {
   const mem = current.cr.meta.mem || {};
   const cols = detailCols();
