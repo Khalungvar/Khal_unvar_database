@@ -1599,3 +1599,6 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .mx-saved .mx-cols { margin-top: 0; }
 .mx-new-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .mx-pick li { margin: 4px 0; }
+.mm-layout.mx-three { grid-template-columns: 290px minmax(0, 1fr) 330px; }
+@media (max-width: 1200px) { .mm-layout.mx-three { grid-template-columns: 1fr; } .mm-layout.mx-three .mm-panel { position: static; max-height: none; } }
+.mm-panel .mx-tools input[type=color] { width: 30px !important; height: 24px; padding: 0 !important; margin: 0 !important; }

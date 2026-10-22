@@ -634,11 +634,11 @@ function letterEditHtml() {
   const L = D.ltr;
   const camps = allCampaigns().map((c) => [c.name, c.name]);
   const envs = [...templatesOf('env').map((x) => [x.template_id, `✉ ${x.name}`]), ...templatesOf('lbl').map((x) => [x.template_id, `🏷 ${x.name}`])];
-  return `<details open><summary>${h(t('mxLetterLang'))}</summary>
+  return `<!--@R--><details open><summary>${h(t('mxLetterLang'))}</summary>
       <div class="mm-grid"><label>${h(t('mxLang'))}${sel('ltr.lang', [['yi', 'אידיש'], ['he', 'עברית'], ['en', 'English']], L.lang)}</label>
       <label>${h(t('mxDir'))}${sel('ltr.dir', [['rtl', t('mxRtl')], ['ltr', t('mxLtr')]], L.dir)}</label></div>
     </details>
-    <details open><summary>${h(t('mxDesign'))}</summary>
+    <!--@L--><details open><summary>${h(t('mxDesign'))}</summary>
       ${sel('ltr.design', [['org', t('mxDesignOrg')], ['bg', t('mxDesignBg')], ['none', t('mxDesignNone')]], L.design)}
       ${L.design === 'org' ? `<label class="mm-l">${h(t('mxOrg'))}${sel('ltr.org', orgOptions().map((o) => [o, o]), L.org)}</label>
         <label class="mm-l">${h(t('mxBannerH'))}${num('ltr.bannerH', L.bannerH, 0.5, 4, 0.1)}</label>
@@ -647,11 +647,11 @@ function letterEditHtml() {
         ${D.background_data ? `<button type="button" class="btn small-btn" data-clear="background_data">${h(t('mmRemoveBg'))}</button>` : ''}
         <label class="mm-l">${h(t('mmOpacity'))}<input type="range" data-k="bg.opacity" min="0.05" max="1" step="0.01" value="${D.bg.opacity}"></label>` : ''}
     </details>
-    <details open><summary>${h(t('mxLink'))}</summary>
+    <!--@R--><details open><summary>${h(t('mxLink'))}</summary>
       <p class="muted small">${h(t('mxLinkHint'))}</p>
       ${sel('link.name', [['', t('mmNone')], ...camps], D.link.name)}
     </details>
-    <details open><summary>${h(t('mxBody'))}</summary>
+    <!--@L--><details open><summary>${h(t('mxBody'))}</summary>
       <label class="mm-l">${h(t('mxSalutation'))}<input data-k="ltr.salutation" dir="rtl" value="${h(L.salutation)}"></label>
       ${rteHtml('ltr', L.html, L.dir)}
       <div class="mm-grid"><label>${h(t('mmFont'))}${sel('ltr.font', [...new Set([...customFontNames(), ...FONTS_HE, ...FONTS_EN])].map((f) => [f, f]), L.font)}</label>
@@ -661,19 +661,23 @@ function letterEditHtml() {
       <label>${h(t('mxMarginSide'))}${num('ltr.margins.side', L.margins.side, 0.2, 2.5, 0.05)}</label>
       <label>${h(t('mxMarginBottom'))}${num('ltr.margins.bottom', L.margins.bottom, 0.2, 3, 0.05)}</label></div>
     </details>
-    <details${L.window ? ' open' : ''}><summary>${h(t('mxWindow'))}</summary>
+    <!--@R--><details${L.window ? ' open' : ''}><summary>${h(t('mxWindow'))}</summary>
       ${chk('ltr.window', L.window, t('mxWindowOn'))}
       ${L.window ? `<p class="muted small">${h(t('mxWindowHint'))}</p>
         <label class="mm-l">${h(t('mxLang'))}${sel('ltr.winLang', [['en', 'English'], ['he', 'לשון קודש'], ['both', t('mxBoth')]], L.winLang)}</label>
         <div class="mm-grid"><label>X (in)${num('ltr.win.x', L.win.x, 0, 7, 0.05)}</label><label>Y (in)${num('ltr.win.y', L.win.y, 0, 9, 0.05)}</label>
         <label>${h(t('mxWidth'))}${num('ltr.win.w', L.win.w, 1, 7, 0.05)}</label><label>${h(t('mxHeight'))}${num('ltr.win.h', L.win.h, 0.5, 3, 0.05)}</label></div>` : ''}
     </details>
-    ${D.src.email ? `<details open><summary>${h(t('mxEmail'))}</summary>
+    <!--@R-->${D.src.email ? `<details open><summary>${h(t('mxEmail'))}</summary>
       <label class="mm-l">${h(t('mxSubject'))}<input data-k="ltr.subject" dir="auto" value="${h(L.subject)}"></label></details>` : ''}
-    <details><summary>${h(t('mxPair'))}</summary>
+    <!--@R--><details><summary>${h(t('mxPair'))}</summary>
       <p class="muted small">${h(t('mxPairHint'))}</p>
       ${sel('ltr.pairEnv', [['', t('mmNone')], ...envs], L.pairEnv)}
     </details>`;
+}
+/** מכתב: R = הגדרות (מימין לתצוגה), L = עיצוב (משמאל) */
+function letterSide(side) {
+  return letterEditHtml().split(/<!--@([RL])-->/).reduce((acc, part, i, arr) => (i % 2 === 1 && part === side ? acc + arr[i + 1] : acc), '');
 }
 function envEditHtml() {
   const [W, H] = envSize(D);
@@ -797,12 +801,13 @@ function renderEditor(main) {
       ${ro ? '' : `<button type="button" class="btn" id="mx-settings">⚙ ${h(t('mxSettings'))}</button>`}
     </div>
     <div id="mx-bar-wrap">${barHtml()}</div>
-    <div class="mm-layout">
+    <div class="mm-layout${D.kind === 'ltr' ? ' mx-three' : ''}">
       <aside class="mm-panel"${ro ? ' inert' : ''}>
         ${recipientsHtml()}
-        ${D.kind === 'env' ? envEditHtml() : D.kind === 'lbl' ? lblEditHtml() : letterEditHtml()}
+        ${D.kind === 'env' ? envEditHtml() : D.kind === 'lbl' ? lblEditHtml() : letterSide('R')}
       </aside>
       <section class="mm-stage" id="mx-stage">${stageHtml()}</section>
+      ${D.kind === 'ltr' ? `<aside class="mm-panel mx-design-panel"${ro ? ' inert' : ''}>${letterSide('L')}</aside>` : ''}
     </div>`;
   showSaveState();
   fitPreview();
