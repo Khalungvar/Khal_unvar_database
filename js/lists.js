@@ -588,12 +588,21 @@ function printTable(title, cols, list, checkCol) {
   const w = window.open('', '_blank');
   if (!w) { ui.toast(t('L2popup'), 'error'); return; }
   const ltr = ['mailing', 'name_en', 'address', 'city', 'state', 'zip', 'mobile', 'home_phone', 'wife_mobile', 'other_phone', 'email', 'email2'];
+  // 8.5×11: ביז 6 שפאלטן — געשטעלט, מער — געלייגט. יעדער מענטש = איין שורה; ווען ס'איז צו ברייט, ווערט די שריפט קלענער.
+  const land = cols.length + (checkCol ? 2 : 0) > 6;
   w.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>${h(title)}</title>
-    <style>body{font-family:Heebo,Arial,sans-serif;margin:24px;font-size:12px}h1{font-size:18px;margin:0 0 4px}p{color:#666;margin:0 0 12px}
-    table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px 6px;text-align:start}th{background:#f3efe2}tr{page-break-inside:avoid}.ltr{direction:ltr;text-align:left}</style></head>
-    <body><h1>${h(title)}</h1><p>${h(todayIso())} · ${list.length}</p><table><thead><tr><th>#</th>${cols.map(([, l]) => `<th>${h(l)}</th>`).join('')}${checkCol ? '<th>✓</th><th>' + h(t('L2notes')) + '</th>' : ''}</tr></thead>
-    <tbody>${list.map((r, i) => `<tr><td>${i + 1}</td>${cols.map(([k, , fn]) => `<td${ltr.includes(k) ? ' class="ltr"' : ''}>${h(fn(r) ?? '')}</td>`).join('')}${checkCol ? '<td style="width:24px"></td><td style="width:30%"></td>' : ''}</tr>`).join('')}</tbody></table>
-    <script>window.onload=()=>{window.print();}<\/script></body></html>`);
+    <style>@page{size:letter ${land ? 'landscape' : 'portrait'};margin:0.4in}
+    body{font-family:Heebo,Arial,sans-serif;margin:0;font-size:11px}h1{font-size:16px;margin:0 0 2px}p{color:#666;margin:0 0 8px;font-size:10px}
+    table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:2px 5px;text-align:start;white-space:nowrap}
+    th{background:#f3efe2}tr{page-break-inside:avoid}thead{display:table-header-group}.ltr{direction:ltr;text-align:left}td.note{width:30%}</style></head>
+    <body><h1>${h(title)}</h1><p>${h(todayIso())} · ${list.length}</p><table id="t"><thead><tr><th>#</th>${cols.map(([, l]) => `<th>${h(l)}</th>`).join('')}${checkCol ? `<th>✓</th><th>${h(t('L2notes'))}</th>` : ''}</tr></thead>
+    <tbody>${list.map((r, i) => `<tr><td>${i + 1}</td>${cols.map(([k, , fn]) => `<td${ltr.includes(k) ? ' class="ltr"' : ''}>${h(fn(r) ?? '')}</td>`).join('')}${checkCol ? '<td style="width:22px"></td><td class="note"></td>' : ''}</tr>`).join('')}</tbody></table>
+    <script>
+      // די ברייט פונעם בלאט אין פיקסלען (96 פאר א אינטש), מינוס די ראנדן
+      const W = ${land ? 10.2 : 7.7} * 96; const tb = document.getElementById('t'); let fs = 11;
+      while (tb.scrollWidth > W && fs > 6) { fs -= 0.5; document.body.style.fontSize = fs + 'px'; }
+      window.onload = () => window.print();
+    <\/script></body></html>`);
   w.document.close();
 }
 
