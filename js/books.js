@@ -104,7 +104,7 @@ function optionsHtml(sel) {
   return `<option value="">— ${h(t('bkPick'))} —</option>${allBooks().map((b) => {
     const st = stockOf(b, sold);
     const sale = effSale(b).on ? ' 🏷' : '';
-    const out = [opt(String(b.book_id), `${b.name} · ${money(priceNow(b))}${sale}${st != null ? ` · ${t('bkStockShort')} ${st}` : ''}`)];
+    const out = [opt(String(b.book_id), `${b.name} · ${money(priceNow(b))}${sale}${st != null ? (st <= 0 ? ` · ⛔ ${t('bkOutOfStock')}` : ` · ${t('bkStockShort')} ${st}`) : ''}`)];
     if (num(b.vol_price) != null) out.push(opt(`${b.book_id}:vol`, `${b.name} · ${t('bkVol')} · ${money(b.vol_price)}`));
     if (num(b.old_price) != null) out.push(opt(`${b.book_id}:old`, `${b.name} · ${t('bkOld')} · ${money(b.old_price)}`));
     return out.join('');
@@ -180,11 +180,12 @@ function bookCard(b, sold, out, given) {
   const id = h(b.book_id);
   const extras = [num(b.vol_price) != null ? `${t('bkVol')} ${money(b.vol_price)}` : '', num(b.old_price) != null ? `${t('bkOld')} ${money(b.old_price)}` : ''].filter(Boolean);
   const range = [shortDate(b.sale_from), shortDate(b.sale_to)].filter(Boolean).join('–');
-  return `<div class="bk-card${e.on ? ' bk-onsale' : ''}" data-id="${id}">
+  const gone = st != null && st <= 0;
+  return `<div class="bk-card${e.on ? ' bk-onsale' : ''}${gone ? ' bk-gone' : ''}" data-id="${id}">
     <div class="bk-img">${img ? `<img src="${h(img)}" alt="" loading="lazy">` : '<span class="bk-noimg">📖</span>'}</div>
     <div class="bk-body">
       <div class="bk-title"><b>${h(b.name)}</b>${num(b.old_price) != null ? ` <span class="bk-new" title="${h(t('bkNewEd'))}">✱</span>` : ''}
-        <button type="button" class="linkish bk-edbtn" data-edit="${id}" title="${h(t('bkEdit'))}">✎</button></div>
+        ${gone ? `<span class="bk-oos">${h(t('bkOutOfStock'))}</span>` : ''}<button type="button" class="linkish bk-edbtn" data-edit="${id}" title="${h(t('bkEdit'))}">✎</button></div>
       ${b.subtitle || Number(b.volumes) > 1 ? `<div class="muted small bk-sub">${h([b.subtitle, Number(b.volumes) > 1 && !/כרכים|חלקים/.test(b.subtitle || '') ? t('bkVolsN', { n: b.volumes }) : ''].filter(Boolean).join(' · '))}</div>` : ''}
       <div class="bk-nums">
         <label>${h(t('bkPrice'))}<span class="bk-money">$<input type="number" min="0" step="0.01" dir="ltr" data-f="price" value="${h(b.price ?? '')}"></span>
@@ -263,9 +264,11 @@ async function makePricePdf(day, withImgs) {
     const e = effSale(b, day);
     const ex = [num(b.vol_price) != null ? `${t('bkVol')} ${money(b.vol_price)}` : '', num(b.old_price) != null ? `${t('bkOld')} ${money(b.old_price)}` : ''].filter(Boolean).join(' · ');
     const img = imgOf(b);
-    return `<tr>${withImgs ? `<td class="pp-img">${img ? `<img src="${h(img)}">` : ''}</td>` : ''}
+    const st = stockOf(b);
+    const gone = st != null && st <= 0;
+    return `<tr class="${gone ? 'pp-gone' : ''}">${withImgs ? `<td class="pp-img">${img ? `<img src="${h(img)}">` : ''}</td>` : ''}
       <td class="pp-name"><b>${h(b.name)}</b>${num(b.old_price) != null ? ' <span class="pp-star">✱</span>' : ''}${b.subtitle ? `<div class="pp-sub">${h(b.subtitle)}</div>` : ''}</td>
-      <td class="pp-ex">${h(ex)}</td>
+      <td class="pp-ex">${gone ? `<div class="pp-oos">${h(t('bkOutOfStock'))}</div>` : ''}${h(ex)}</td>
       <td class="pp-price${e.on ? ' pp-was' : ''}">${num(b.price) != null ? money(b.price) : ''}</td>
       ${anySale ? `<td class="pp-sale">${e.on ? `${money(e.price)}${e.src === 'all' ? `<div class="pp-pct">−${e.pct}%</div>` : ''}` : ''}</td>` : ''}</tr>`;
   };
@@ -279,7 +282,7 @@ async function makePricePdf(day, withImgs) {
     .pp-img{width:0.55in;text-align:center}.pp-img img{max-height:${rowH - 0.06}in;max-width:0.5in;display:block;margin:auto}
     .pp-sub{font-size:9pt;color:#7a6a5c}.pp-star{color:#b8860b}.pp-ex{font-size:9pt;color:#6b5a3a;width:1.6in}
     .pp-price,.pp-sale{text-align:left;direction:ltr;width:0.85in;font-weight:bold;white-space:nowrap}.pp-was{text-decoration:line-through;color:#999;font-weight:normal}
-    .pp-sale{color:#1f6b35}.pp-pct{font-size:8pt;font-weight:normal}
+    .pp-sale{color:#1f6b35}.pp-oos{color:#b3261e;font-weight:bold;font-size:11pt}.pp-gone .pp-img img{opacity:.45}.pp-gone .pp-name b{color:#8a7f74}.pp-pct{font-size:8pt;font-weight:normal}
     .pp-foot{position:absolute;bottom:0.35in;left:0.5in;right:0.5in;display:flex;justify-content:space-between;font-size:9pt;color:#7a6a5c;border-top:1px solid #d9c9a3;padding-top:4px}</style>`;
   const contact = [det.phone, det.email, det.website].filter(Boolean).join(' · ');
   const jpgs = [];

@@ -875,6 +875,7 @@ export const HE = {
   "bkPickTitle": "ספרים (מכון משנה הלכות)",
   "bkAddLine": "עוד ספר",
   "bkQty": "כמות",
+  "bkOutOfStock": "אזל מהמלאי",
   "bkCancelSale": "בטל מכירה",
   "bkCancelAsk": "לבטל את המכירה?\n{what}\n{who} · {amt}\n\nכל הספרים של המכירה חוזרים למלאי, והרישום נמחק.",
   "bkCancelRc": "קבלה #{no} תסומן כמבוטלת.",

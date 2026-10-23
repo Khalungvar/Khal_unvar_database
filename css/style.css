@@ -1984,3 +1984,6 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .bk-allprev { margin: 6px 0; }
 .bk-h-act { white-space: nowrap; }
 .bk-h-cancel { color: #b3261e; margin-inline-start: 8px; font-size: 0.85em; }
+.bk-oos { background: #b3261e; color: #fff; font-size: 0.72em; font-weight: bold; border-radius: 10px; padding: 1px 7px; white-space: nowrap; }
+.bk-card.bk-gone { background: #fbf3f2; }
+.bk-card.bk-gone .bk-img img { opacity: 0.5; }
