@@ -844,13 +844,20 @@ async function decide(ev, face, status, cid = '') {
   // באשטעטיגט דורך א גבאי → צום "לערנען" (ביז 10 פארשידענע פאר א מענטש)
   if (status === 'ok' && cid) await learn(String(cid), embs, String(face.face_id));
   // צוריק פון א באשטעטיגונג → ארויס פונעם "לערנען"
-  if (was.status === 'ok' && status !== 'ok' && was.cid) await unlearn(was.cid, String(face.face_id));
+  const moved = was.cid && (status !== was.status || String(cid) !== was.cid);
+  if (was.status === 'ok' && moved) await unlearn(was.cid, String(face.face_id));
   const rec = { ...face, status, contact_id: cid, decided_by: status ? state.email : '', decided_at: status ? nowStamp() : '' };
-  // נאך א באשטעטיגונג פון א גבאי איז די טביעה שוין אינעם "לערנען" — די שורה ווערט לייכט (אזוי בלייבט דער גיליון שנעל)
-  if (status === 'ok') rec.emb = '';
+  // נאך א באשטעטיגונג פון א גבאי איז די טביעה שוין אינעם "לערנען" — אין דער שורה בלייבט נאר איינע (קליין),
+  // אז ווען מ'מאכט עס צוריק (א טעות) זאל נאך אלץ קומען א הצעה
+  if (status === 'ok' && embs.length > 1) rec.emb = q8Encode([embs[0]]);
+  // צוריק פון א באשטעטיגונג: ווען דאס בילד פונעם כרטיס איז געקומען פון דעם פנים — אראפנעמען
+  if (isOk({ status: was.status }) && (!isOk({ status }) || String(cid) !== was.cid) && was.cid && T.photos.get(was.cid) && T.photos.get(was.cid) === faceImg(face)) {
+    try { await savePhoto(was.cid, ''); T.photos.delete(was.cid); } catch { /* נישט קריטיש */ }
+  }
   await updateFaceShot(rec);
   embCache.delete(face);
   Object.assign(face, rec);
+  if (!status && T.human) T.sugg.set(face.face_id, suggest(face));
   if (isOk(rec) && cid) {
     // דער כרטיס האט נאך נישט קיין בילד → דאס בילד פון דער שמחה
     if (!T.photos.has(String(cid))) {
@@ -968,7 +975,8 @@ function renderTag(ev) {
 function controlsHtml(s, big = false) {
   if (isOk(s)) {
     return `<div class="fc-who"><b>✓ ${h(nameOf(s.contact_id))}</b>${s.status === 'auto' ? ' <span title="🤖">🤖</span>' : ''}
-      <button type="button" class="linkish" data-undo="${h(s.face_id)}" title="${h(t('fcUndo'))}">↩</button></div>`;
+      <span><button type="button" class="linkish" data-fix="${h(s.face_id)}" title="${h(t('fcFix'))}">✏️</button> <button type="button" class="linkish" data-undo="${h(s.face_id)}" title="${h(t('fcUndo'))}">↩</button></span></div>
+      <div class="fc-inrow fc-fixrow" data-fixrow="${h(s.face_id)}" hidden><input class="fc-in" list="fc-dl" data-in="${h(s.face_id)}" placeholder="${h(t('fcFixPh'))}" autocomplete="off"><button type="button" class="btn small-btn primary" data-ok="${h(s.face_id)}">✓</button></div>`;
   }
   if (s.status === 'skip') return `<div class="fc-who muted">⤼ ${h(t('fcSkipped'))} <span><button type="button" class="linkish" data-undo="${h(s.face_id)}">↩</button> <button type="button" class="linkish fc-del" data-delf="${h(s.face_id)}" title="${h(t('fcDelFace'))}">🗑</button></span></div>`;
   const sg = T.sugg.get(s.face_id) || { lv: '', top: [] };
@@ -980,9 +988,13 @@ function gridView(ev, list) {
   const box = $('#fc-tlist');
   box.className = 'fc-grid';
   box.style.setProperty('--fc-size', `${T.size}px`);
-  box.innerHTML = list.length ? list.map((s) => `<div class="fc-card st-${s.status || 'wait'} lv-${T.sugg.get(s.face_id)?.lv || ''}" data-fid="${h(s.face_id)}">
-      <img src="${h(faceImg(s))}" alt="" loading="lazy" data-zoom="${h(s.face_id)}"><div class="fc-cbody">${controlsHtml(s)}</div></div>`).join('')
-    : `<p class="muted">${h(t('fcNothingHere'))}</p>`;
+  const card = (s) => `<div class="fc-card st-${s.status || 'wait'} lv-${T.sugg.get(s.face_id)?.lv || ''}" data-fid="${h(s.face_id)}">
+      <img src="${h(faceImg(s))}" alt="" loading="lazy" data-zoom="${h(s.face_id)}"><div class="fc-cbody">${controlsHtml(s)}</div></div>`;
+  // ביי "ווארטן": אונטן — די וואס זענען שוין דערקענט (די לעצטע פריער), אז מ'זאל קענען פאררעכטן
+  const done = T.filter === 'wait' || T.filter === 'green'
+    ? shotsOf(ev).filter(isOk).sort((a, b) => String(b.decided_at || '').localeCompare(String(a.decided_at || ''))) : [];
+  box.innerHTML = (list.length ? list.map(card).join('') : `<p class="muted fc-allgrid">${h(t(done.length ? 'fcAllDone' : 'fcNothingHere'))}</p>`)
+    + (done.length ? `<h3 class="fc-donesec">✓ ${h(t('fcDoneSec', { n: done.length }))}</h3>${done.map(card).join('')}` : '');
   wireActions(ev, box, () => renderTag(ev));
 }
 function oneView(ev, list) {
@@ -1032,6 +1044,7 @@ function wireActions(ev, box, after) {
     if (b.dataset.acc) { const [fid, cid] = b.dataset.acc.split('|'); run(b, () => decide(ev, face(fid), 'ok', cid)); return; }
     if (b.dataset.ok) { const cid = pick(b.dataset.ok); if (!cid) { ui.toast(t('pickValid'), 'error'); return; } run(b, () => decide(ev, face(b.dataset.ok), 'ok', cid)); return; }
     if (b.dataset.skip) { run(b, () => decide(ev, face(b.dataset.skip), 'skip')); return; }
+    if (b.dataset.fix) { const row = $(`[data-fixrow="${CSS.escape(b.dataset.fix)}"]`, box); row.hidden = !row.hidden; if (!row.hidden) $('input', row).focus(); return; }
     if (b.dataset.undo) { run(b, () => decide(ev, face(b.dataset.undo), '')); return; }
     if (b.dataset.delf) {
       if (!confirm(t('fcDelFaceAsk'))) return;
