@@ -2,8 +2,7 @@
 // לשונית Books. דער מלאי = stock_base − וויפל מ'האט פארקויפט (פון די "מכירה" נדבות, קאלום books = JSON [{id, v, q, p}]).
 // אזוי ווען מ'מעקט אויס א מכירה קומט דער ספר צוריק אין מלאי, אן קיין באזונדער חשבון.
 // v: '' = דער ספר (סט) · 'vol' = כרך בודד · 'old' = מהדורה קודמת (די צוויי — אן מלאי).
-import { state, saveRecord, deleteRecord, deleteDonation, voidReceipt, loadAll } from './data.js';
-import { submitRequest } from './requests.js';
+import { state, saveRecord, deleteRecord } from './data.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, isTrue } from './util.js';
 import { imageOf } from './images.js';
@@ -546,18 +545,10 @@ function histDialog(b) {
     const cn = e.target.closest('[data-cancel]');
     if (cn) {
       const r = rows[Number(cn.dataset.cancel)];
-      const all = booksDesc(booksOf(r.d));
-      if (!state.isAdmin) {
-        try { await submitRequest('delete_donation', { donation_id: String(r.d.donation_id) }, `${t('bkCancelSale')}: ${all} — ${r.who}`); ui.toast(t('bkCancelReq')); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
-        return;
-      }
-      if (!confirm(t('bkCancelAsk', { what: all, who: r.who || '—', amt: money(r.d.amount_usd) }) + (r.rc ? `\n\n${t('bkCancelRc', { no: r.rc.receipt_no })}` : ''))) return;
-      try {
-        if (r.rc) await voidReceipt(r.rc.receipt_no);
-        await deleteDonation(r.d);
-        await loadAll();
-        dlg.close(); renderBooks(); ui.toast(t('bkCanceled')); histDialog(bookById(bid) || b);
-      } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+      const ids = r.rc ? String(r.rc.donation_ids || '').split(',').filter(Boolean) : [String(r.d.donation_id)];
+      const list = ids.map((x) => (state.donations || []).find((d) => String(d.donation_id) === x)).filter(Boolean);
+      const done = await ui.cancelDoc({ receipt_no: r.rc ? r.rc.receipt_no : '', kind: r.rc ? r.rc.kind : 'receipt', contact_id: r.d.contact_id, donor_name: r.d.donor_name, list });
+      if (done) { dlg.close(); renderBooks(); }
       return;
     }
     const un = e.target.closest('[data-undo]');

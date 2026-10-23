@@ -68,6 +68,18 @@ const TYPES = {
     label: 'rqTypeListExt',
     apply: async (p) => { const { extToContacts } = await import('./lists.js'); await extToContacts(p.list_id); },
   },
+  // ביטול: די קבלה (בטל) + די נדבות/מכירות (אויסגעמעקט; ספרים קומען צוריק אין מלאי)
+  cancel_doc: {
+    icon: '🗑',
+    label: 'rqTypeCancelDoc',
+    apply: async (p) => {
+      if (p.receipt_no) await voidReceipt(p.receipt_no);
+      for (const id of p.donation_ids || []) {
+        const d = state.donations.find((x) => String(x.donation_id) === String(id));
+        if (d) await deleteDonation(d);
+      }
+    },
+  },
   void_receipt: {
     icon: '🧾',
     label: 'rqTypeVoid',

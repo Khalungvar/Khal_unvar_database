@@ -359,6 +359,59 @@ function addrOf(c) {
   return ct && ct.address ? ct : null;
 }
 
+// ---------- ביטול: די קבלה (בטל) און די נדבות (אויסמעקן) — מיט א חלון פון אישור; א גבאי → צום מנהל ----------
+/** c = { receipt_no?, kind, list, contact_id, donor_name }. מחזיר true ווען עס איז געטון (אדער געשיקט צום מנהל) */
+export function cancelDoc(c) {
+  return new Promise((resolve) => {
+    const no = c.receipt_no && c.receipt_no !== '—' ? String(c.receipt_no) : '';
+    const list = (c.list || []).filter((d) => d && d.donation_id && !String(d.donation_id).startsWith('T'));
+    // א יערליכער / קאמפיין סיכום: נאר די קבלה בטל — די נדבות בלייבן
+    const canDel = list.length && !['year', 'campaign', 'tuition'].includes(c.kind);
+    const sale = list.some((d) => d.kind === 'sale');
+    const dlg = document.createElement('dialog');
+    dlg.className = 'sheet rc-cancel-dlg';
+    document.body.append(dlg);
+    let ok = false;
+    dlg.addEventListener('close', () => { dlg.remove(); resolve(ok); });
+    const total = list.reduce((s2, d) => s2 + (Number(d.amount_usd) || 0), 0);
+    dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button>
+      <h2>🗑 ${h(t(sale ? 'rcCancelSaleT' : 'rcCancelT'))}</h2>
+      <p><b>${h(donorLabel(c))}</b>${no ? ` · ${h(t('rcNumber'))} <b dir="ltr">#${h(no)}</b>` : ''}</p>
+      ${list.length ? `<ul class="rc-cancel-list">${list.slice(0, 12).map((d) => `<li><span dir="ltr">${h(paidDate(d))}</span> · ${h(d.goods_desc || descText(d) || '—')} · <b dir="ltr">${money(d.amount_usd)}</b></li>`).join('')}${list.length > 12 ? `<li>… +${list.length - 12}</li>` : ''}</ul>` : ''}
+      <div class="rc-cancel-opts">
+        ${no ? `<p>🧾 ${h(t('rcCancelVoid', { no }))}</p>` : ''}
+        ${canDel ? `<label class="check"><input type="checkbox" id="rcc-del" checked> ${h(t(sale ? 'rcCancelDelSale' : 'rcCancelDel', { n: list.length, amt: money(total) }))}</label>` : ''}
+      </div>
+      ${state.isAdmin ? '' : `<p class="mx-pending">⏳ ${h(t('rcCancelAdmin'))}</p>`}
+      <div class="actions"><span class="spacer"></span>
+        <button type="button" class="btn" data-x>${h(t('rcCancelNo'))}</button>
+        <button type="button" class="btn danger" id="rcc-yes">🗑 ${h(t(state.isAdmin ? 'rcCancelYes' : 'rcCancelSend'))}</button></div>`;
+    $$('[data-x]', dlg).forEach((b) => { b.onclick = () => dlg.close(); });
+    $('#rcc-yes', dlg).onclick = async () => {
+      const del = canDel && ($('#rcc-del', dlg)?.checked ?? false);
+      if (!no && !del) { dlg.close(); return; }
+      const ids = del ? list.map((d) => String(d.donation_id)) : [];
+      const btn = $('#rcc-yes', dlg); btn.disabled = true;
+      try {
+        if (!state.isAdmin) {
+          await submitRequest('cancel_doc', { receipt_no: no, donation_ids: ids },
+            `${t(sale ? 'rcCancelSaleT' : 'rcCancelT')}: ${no ? `#${no} · ` : ''}${donorLabel(c)} · ${money(total)}`);
+          ui.toast(t('bkCancelReq'));
+        } else {
+          if (no) await voidReceipt(no);
+          for (const d of list.filter((x) => ids.includes(String(x.donation_id)))) await deleteDonation(d);
+          await loadAll();
+          ui.toast(t(del ? (sale ? 'bkCanceled' : 'rcCanceled') : 'rcVoidedT'));
+          ui.refreshAll?.();
+        }
+        ok = true;
+        dlg.close();
+      } catch (err) { btn.disabled = false; ui.toast(ui.friendlyError(err), 'error'); }
+    };
+    dlg.showModal();
+  });
+}
+
 // ---------- ליסטע פון וואס איז שוין ארויסגעגעבן ----------
 function issuedLogHtml() {
   const kinds = f.kind === 'invoice' ? ['invoice'] : f.kind === 'year' ? ['year'] : f.kind === 'campaign' ? ['campaign'] : ['receipt', 'tuition'];
@@ -374,7 +427,7 @@ function issuedLogHtml() {
       <td class="num" dir="ltr">${money(r.amount)}</td><td class="small muted" dir="ltr">${h(r.issued_at)}</td>
       <td>${isTrue(r.void) ? h(t('rcVoided')) : `<button type="button" class="btn small-btn" data-reprint="${h(r.receipt_no)}">🖨</button>
         <button type="button" class="btn small-btn" data-remail="${h(r.receipt_no)}" title="${h(t('rcMailBtn'))}">✉</button>
-        <button type="button" class="linkish" data-void="${h(r.receipt_no)}">${h(t('rcVoid'))}</button>`}</td></tr>`).join('')}</tbody></table>`;
+        <button type="button" class="linkish rc-cancel-btn" data-void="${h(r.receipt_no)}" title="${h(t('rcCancelT'))}">🗑 ${h(t('rcVoid'))}</button>`}</td></tr>`).join('')}</tbody></table>`;
 }
 /** טעקסט פאר'ן חיפוש (קליינע אותיות) */
 const qText = (...xs) => xs.map((x) => String(x ?? '')).join(' ').toLowerCase();
@@ -415,12 +468,11 @@ function wireLog(main) {
   });
   main.querySelectorAll('[data-void]').forEach((b) => {
     b.onclick = async () => {
-      if (!state.isAdmin) {
-        try { await submitRequest('void_receipt', { receipt_no: b.dataset.void }, t('rqSumVoid', { no: b.dataset.void })); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
-        return;
-      }
-      if (!confirm(t('rcVoidConfirm', { no: b.dataset.void }))) return;
-      try { await voidReceipt(b.dataset.void); await loadAll(); renderReceipts(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+      const r = state.receipts.find((x) => x.receipt_no === b.dataset.void);
+      if (!r) return;
+      const ids = String(r.donation_ids || '').split(',').filter(Boolean);
+      const list = ids.map((id) => state.donations.find((d) => String(d.donation_id) === id)).filter(Boolean);
+      if (await cancelDoc({ ...r, list })) renderReceipts();
     };
   });
 }
@@ -936,7 +988,7 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
           <label>📄 ${h(t('rcWithLetterTip'))} <select id="rxf-letter"><option value="">${h(t('rcNoLetter'))}</option>${letterTemplates().map((x) => `<option value="${h(x.id)}"${String(x.id) === String(F.letter || '') ? ' selected' : ''}>${h(x.name)}${letterHasReceipt(x.id) ? ' 🧾' : ''}</option>`).join('')}</select></label>
         </div>
       </div>
-      <div class="actions">${sale || isSaleDoc(c0) ? `<button type="button" class="btn danger" id="rxf-cancel-sale">🗑 ${h(t('bkCancelSale'))}</button>` : ''}<span class="spacer"></span>
+      <div class="actions"><button type="button" class="btn danger" id="rxf-cancel-sale">🗑 ${h(t(sale ? 'bkCancelSale' : (locked ? 'rcCancelT' : 'rcCancelDon')))}</button><span class="spacer"></span>
         <button type="button" class="btn" data-x>${h(t('cancelBtn'))}</button>
         <button type="button" class="btn" id="rxf-mail">✉ ${h(t('rcMailBtn'))}</button>
         <button type="button" class="btn" id="rxf-pdf">⬇ PDF</button>
@@ -992,28 +1044,10 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
       };
       if (mode === 'mail') withGmail(run); else run();
     };
-    // א מכירה וואס איז נישט געשען: אויסמעקן (די ספרים קומען צוריק אין מלאי; א קבלה וואס איז שוין ארויס — "בטל")
+    // ביטול: די נדבה/מכירה און די קבלה (מיט אישור; א גבאי → צום מנהל)
     $('#rxf-cancel-sale', dlg)?.addEventListener('click', async () => {
-      const list = locked ? c0.list : F.list;
-      const what = list.map((d) => d.goods_desc || descText(d)).filter(Boolean).join(' | ');
-      const amt = money(list.reduce((s2, d) => s2 + (Number(d.amount_usd) || 0), 0));
-      if (!state.isAdmin) {
-        try {
-          for (const d of list) await submitRequest('delete_donation', { donation_id: String(d.donation_id) }, `${t('bkCancelSale')}: ${d.goods_desc || descText(d)} — ${donorLabel(c0)}`);
-          ui.toast(t('bkCancelReq')); dlg.close();
-        } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
-        return;
-      }
-      if (!confirm(t('bkCancelAsk', { what, who: donorLabel(c0), amt }) + (locked ? `\n\n${t('bkCancelRc', { no: c0.receipt_no })}` : ''))) return;
-      try {
-        if (locked) await voidReceipt(c0.receipt_no);
-        for (const d of list) await deleteDonation(d);
-        await loadAll();
-        dlg.close();
-        ui.toast(t('bkCanceled'));
-        ui.refreshAll?.();
-        if (done) done();
-      } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+      const c = locked ? c0 : { ...docOf(), receipt_no: '' };
+      if (await cancelDoc(c)) { dlg.close(); if (done) done(); }
     });
     $('#rxf-print', dlg).onclick = () => go('print');
     $('#rxf-pdf', dlg).onclick = () => go('pdf');
@@ -1376,7 +1410,7 @@ export function openInvoiceForm(c0, { done = null } = {}) {
           <label>${h(t('ivNote'))} <input id="ivf-note" dir="auto" value="${h(F.note)}"></label>
         </div>
       </div>
-      <div class="actions"><span class="spacer"></span>
+      <div class="actions"><button type="button" class="btn danger" id="ivf-cancel">🗑 ${h(t(locked ? 'rcCancelT' : 'rcCancelDon'))}</button><span class="spacer"></span>
         <button type="button" class="btn" data-x>${h(t('cancelBtn'))}</button>
         <button type="button" class="btn" id="ivf-mail">✉ ${h(t('rcMailBtn'))}</button>
         <button type="button" class="btn" id="ivf-pdf">⬇ PDF</button>
@@ -1423,6 +1457,11 @@ export function openInvoiceForm(c0, { done = null } = {}) {
         } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
       };
       if (mode === 'mail') withGmail(run); else run();
+    };
+    $('#ivf-cancel', dlg).onclick = async () => {
+      const c = locked ? c0 : { ...docOf(), receipt_no: '' };
+      if (!c.receipt_no && !(c.list || []).length) { dlg.close(); return; }
+      if (await cancelDoc(c)) { dlg.close(); if (done) done(); }
     };
     $('#ivf-print', dlg).onclick = () => go('print');
     $('#ivf-pdf', dlg).onclick = () => go('pdf');
