@@ -44,7 +44,9 @@ async function saveScan(id, data) {
     await new Promise((res) => { const tx = db.transaction('scan', 'readwrite'); tx.objectStore('scan').put(data, String(id)); tx.oncomplete = res; tx.onerror = res; });
   } catch { /* פול / נישט ערלויבט — מ'ארבעט ווייטער נאר אין זכרון */ }
 }
-const emptyScan = () => ({ v: 1, files: {}, clusters: [], nextId: 1 });
+const emptyScan = () => ({ v: 1, files: {}, clusters: [], nextId: 1, sid: Date.now().toString(36) });
+// די סריקה וואס לויפט יעצט (דאס ארויפלייגן ניצט די זעלבע, אז מ'זאל זיך נישט איבערשרייבן)
+const LIVE = { eventId: '', scan: null };
 
 // ---------- דער מאטאר (Human) ----------
 let humanP = null;
@@ -172,8 +174,14 @@ async function runScan(ev, files, opts) {
   const box = $('#fc-scanbox');
   const say = (msg, kind = '') => { const m = $('#fc-msg', box); if (m) { m.textContent = msg; m.className = `fc-msg ${kind}`; } };
   SCAN.running = true; SCAN.stop = false;
+  PILL.ev = ev;
   renderScanButtons();
   let scan = (await loadScan(ev.event_id)) || emptyScan();
+  if (!scan.sid) scan.sid = Date.now().toString(36);
+  LIVE.eventId = String(ev.event_id); LIVE.scan = scan;
+  // בשעת'ן סקענען: די נייע פנים גייען שוין ארויף (מ'קען אנהייבן דערקענען פאר'ן ענדע)
+  const quiet = () => {};
+  const bgUpload = () => { if (!uploading) uploadScan(ev, quiet, { bg: true }); };
   try {
     say(t('fcLoadingEngine'));
     const human = await loadHuman();
@@ -200,7 +208,7 @@ async function runScan(ev, files, opts) {
         progressImgs(scan, imgs.length - todo.length + n, imgs.length, per * (todo.length - n));
         if (added) liveGrid(scan);
         // eslint-disable-next-line no-await-in-loop
-        if (n % 10 === 0) await saveScan(ev.event_id, scan);
+        if (n % 10 === 0) { await saveScan(ev.event_id, scan); bgUpload(); }
       }
       if (bad) say(t('fcBadImgs', { n: bad }), 'err');
       await saveScan(ev.event_id, scan);
@@ -240,24 +248,55 @@ async function runScan(ev, files, opts) {
         if (added) liveGrid(scan);
         // eslint-disable-next-line no-await-in-loop
         if (n % 15 === 0) await saveScan(ev.event_id, scan);
+        if (n % 60 === 0) bgUpload();
       }
       await saveScan(ev.event_id, scan);
       URL.revokeObjectURL(url);
     }
     say(SCAN.stop ? t('fcPaused') : t('fcDone', { n: scan.clusters.length }), SCAN.stop ? '' : 'ok');
-    if (!SCAN.stop) { await saveScan(ev.event_id, scan); await uploadScan(ev, say); }
+    await saveScan(ev.event_id, scan);
+    // ארויפלייגן וואס איז נאך געבליבן (אויך ביי אפשטעלן — אזוי קען מען שוין דערקענען)
+    while (uploading) await new Promise((r) => setTimeout(r, 300)); // eslint-disable-line no-await-in-loop
+    const ok = await uploadScan(ev, say, { final: true });
+    // גלייך צום דערקענען
+    if (ok && !SCAN.stop && String(cur.eventId) === String(ev.event_id) && cur.tab === 'scan') {
+      cur.tab = 'tag';
+      const main = $('#faces-main');
+      if (main) renderEventPage(main, ev);
+    }
   } catch (err) {
     say(`${t('fcEngineErr')} ${err?.message || err}`, 'err');
   } finally {
     await saveScan(ev.event_id, scan);
     SCAN.running = false;
+    LIVE.eventId = ''; LIVE.scan = null;
+    pillUpdate(100, '');
     renderScanButtons();
     liveGrid(scan);
     filesList(scan);
   }
 }
 
+// ---------- א קליין פענצטערל אויף יעדן בלאט בשעת'ן סקענען ----------
+const PILL = { ev: null, pct: 0, text: '' };
+function pillUpdate(pct, text) {
+  PILL.pct = pct; PILL.text = text;
+  let el = document.getElementById('fc-pill');
+  if (!SCAN.running) { el?.remove(); return; }
+  if (!el) {
+    el = document.createElement('button');
+    el.id = 'fc-pill'; el.type = 'button'; el.className = 'fc-pill';
+    el.onclick = () => { if (!PILL.ev) return; cur.eventId = String(PILL.ev.event_id); cur.tab = 'scan'; ui.showView('faces'); };
+    document.body.append(el);
+  }
+  el.innerHTML = `📸 <b>${pct}%</b> <span>${h(text)}</span><i style="width:${pct}%"></i>`;
+  // אויפן בלאט פון דער סריקה אליין — נישט נויטיג
+  el.hidden = !document.querySelector('.view[data-view="faces"]')?.hidden && String(cur.eventId) === String(PILL.ev?.event_id) && cur.tab === 'scan';
+}
+window.addEventListener('beforeunload', (e) => { if (SCAN.running) { e.preventDefault(); e.returnValue = ''; } });
+
 function progressImgs(scan, done, total, left) {
+  pillUpdate(total ? Math.round((done / total) * 100) : 0, t('fcImgsN', { n: done, total }));
   const box = $('#fc-scanbox');
   if (!box) return;
   const pct = total ? Math.round((done / total) * 100) : 0;
@@ -266,6 +305,7 @@ function progressImgs(scan, done, total, left) {
   $('#fc-count', box).textContent = t('fcPeopleN', { n: scan.clusters.length });
 }
 function progress(scan, rec, left) {
+  pillUpdate(rec.dur ? Math.round((rec.done / rec.dur) * 100) : 0, `${fmtT(rec.done)} / ${fmtT(rec.dur)}`);
   const box = $('#fc-scanbox');
   if (!box) return;
   const pct = rec.dur ? Math.round((rec.done / rec.dur) * 100) : 0;
@@ -416,7 +456,8 @@ function renderEventPage(main, ev) {
       <span class="spacer"></span><button type="button" class="btn" id="fc-evback">← ${h(t('fcAllEvents'))}</button></div>
     <nav class="fc-tabs">${tabs.map(([k, l]) => `<button type="button" data-ftab="${k}" class="${cur.tab === k ? 'on' : ''}">${h(l)}</button>`).join('')}</nav>
     <div id="fc-pane"></div>`;
-  $('#fc-evback').onclick = () => { if (SCAN.running && !confirm(t('fcLeaveScan'))) return; SCAN.stop = true; cur.eventId = ''; renderFaces(); };
+  // די סריקה לויפט ווייטער אויך ווען מ'גייט צו אנדערע בלעטער (א קליין פענצטערל ווייזט וויפל)
+  $('#fc-evback').onclick = () => { cur.eventId = ''; renderFaces(); };
   $('#fc-edit').onclick = () => eventDialog(ev);
   $$('[data-ftab]', main).forEach((b) => { b.onclick = () => { cur.tab = b.dataset.ftab; renderEventPage(main, ev); }; });
   const pane = $('#fc-pane');
@@ -453,6 +494,15 @@ async function scanPane(pane, ev) {
   $('#fc-count').textContent = t('fcPeopleN', { n: scan.clusters.length });
   renderScanButtons();
   upButton(scan);
+  // נאך א ריענון / ווען דער קאמפיוטער איז אויסגעלאשן: וואס איז נאך נישט פארטיג
+  const unfinished = Object.values(scan.files).filter((f) => !f.img && f.dur && f.done < f.dur);
+  const imgsLeft = Object.values(scan.files).filter((f) => f.img && !(f.done >= 1)).length;
+  if (!SCAN.running && (unfinished.length || imgsLeft)) {
+    const m = $('#fc-msg'); m.className = 'fc-msg';
+    m.textContent = t('fcResume', { names: [...unfinished.map((f) => f.name), ...(imgsLeft ? [t('fcImgsChosen', { n: imgsLeft })] : [])].join(', ') });
+  } else if (SCAN.running && String(LIVE.eventId) === String(ev.event_id)) {
+    $('#fc-msg').textContent = t('fcScanning');
+  }
   $('#fc-up').onclick = () => uploadScan(ev, (m, k) => { const el = $('#fc-msg'); if (el) { el.textContent = m; el.className = `fc-msg ${k || ''}`; } });
   $('#fc-pick').onchange = (e) => {
     chosen = [...e.target.files];
@@ -570,17 +620,22 @@ function smallJpeg(dataUrl, size = 200, q = 0.82) {
 function upButton(scan) {
   const b = $('#fc-up');
   if (!b) return;
+  // נאר ווען עפעס איז נישט ארויף (למשל א פראבלעם מיט דער פארבינדונג) — אנדערש גייט עס אליין
   const n = scan.clusters.filter((c) => !c.up).length;
-  b.hidden = !n || SCAN.running;
+  b.hidden = !n || SCAN.running || uploading;
   $('span', b).textContent = t('fcUpload', { n });
 }
 let uploading = false;
-/** די געפינענע פנים (וואס זענען נאך נישט ארויף) → דרייב + לשונית FaceShots, אז אלע גבאים זאלן קענען דערקענען */
-async function uploadScan(ev, say) {
-  if (uploading) return;
+const faceIdOf = (ev, scan, cl) => `${ev.event_id}-${scan.sid || 's'}-${cl.id}`;
+/** די געפינענע פנים → דרייב + לשונית FaceShots, אז אלע גבאים זאלן קענען דערקענען.
+ *  bg = בשעת'ן סקענען (שטיל); final = צום סוף: אויך בילדער וואס זענען שפעטער געווארן בעסער ווערן דערהיינטיגט */
+async function uploadScan(ev, say, { bg = false, final = false } = {}) {
+  if (uploading) return false;
   uploading = true;
-  const scan = (await loadScan(ev.event_id)) || emptyScan();
+  const scan = LIVE.eventId === String(ev.event_id) && LIVE.scan ? LIVE.scan : ((await loadScan(ev.event_id)) || emptyScan());
+  if (!scan.sid) scan.sid = Date.now().toString(36);
   const todo = scan.clusters.filter((c) => !c.up);
+  let ok = true;
   try {
     let done = 0;
     for (let i = 0; i < todo.length; i += 8) {
@@ -591,30 +646,60 @@ async function uploadScan(ev, say) {
         const img = await storeImage(await smallJpeg(a.img), 'face');
         const img2 = b ? await storeImage(await smallJpeg(b.img), 'face') : '';
         return {
-          face_id: `${ev.event_id}-${cl.id}`, event_id: ev.event_id, img, img2, emb: q8Encode(cl.embs.slice(0, 3)),
+          face_id: faceIdOf(ev, scan, cl), event_id: ev.event_id, img, img2, emb: q8Encode(cl.embs.slice(0, 3)),
           status: '', contact_id: '', src: `${a.file}|${a.t}`, count: cl.count, quality: Math.round(a.q),
         };
       }));
       // eslint-disable-next-line no-await-in-loop
       await appendFaceShots(rows);
-      part.forEach((cl) => { cl.up = true; });
+      part.forEach((cl) => { cl.up = true; cl.upQ = cl.shots[0].q; cl.upN = cl.count; });
       done += part.length;
-      say(t('fcUploading', { n: done, total: todo.length }));
+      if (!bg) say(t('fcUploading', { n: done, total: todo.length }));
       // eslint-disable-next-line no-await-in-loop
       await saveScan(ev.event_id, scan);
     }
-    if (todo.length) {
+    // צום סוף: א בעסערער בילד / מער מאל געזען → די שורה דערהיינטיגן (נאר ווען נאך נישט באשטעטיגט)
+    let upd = 0;
+    if (final) {
+      const better = scan.clusters.filter((c) => c.up && (c.shots[0].q > (c.upQ || 0) * 1.25 || c.count !== c.upN));
+      if (better.length) {
+        await loadFaceShots();
+        for (const cl of better) {
+          const row = (state.faceShots || []).find((x) => String(x.face_id) === faceIdOf(ev, scan, cl));
+          if (!row || row.status) { cl.upQ = cl.shots[0].q; cl.upN = cl.count; continue; }
+          const imgChanged = cl.shots[0].q > (cl.upQ || 0) * 1.25;
+          const [a, b] = cl.shots;
+          // eslint-disable-next-line no-await-in-loop
+          const patch = imgChanged ? { img: await storeImage(await smallJpeg(a.img), 'face'), img2: b ? await storeImage(await smallJpeg(b.img), 'face') : '', src: `${a.file}|${a.t}`, quality: Math.round(a.q), emb: q8Encode(cl.embs.slice(0, 3)) } : {};
+          // eslint-disable-next-line no-await-in-loop
+          await updateFaceShot({ ...row, ...patch, count: cl.count });
+          cl.upQ = cl.shots[0].q; cl.upN = cl.count; upd += 1;
+        }
+        await saveScan(ev.event_id, scan);
+      }
+    }
+    if (todo.length || upd) {
       await loadFaceShots();
       await syncEvent(ev);
       T.ready = false;
-      say(t('fcUploaded', { n: todo.length }), 'ok');
+      if (!bg) say(t('fcUploaded', { n: scan.clusters.length }), 'ok');
+      newFacesNotice(ev);
     }
   } catch (err) {
+    ok = false;
     say(`${t('fcUploadErr')} ${ui.friendlyError(err)}`, 'err');
   } finally {
     uploading = false;
     upButton(scan);
   }
+  return ok;
+}
+/** ווען מ'איז אינעם "דערקענען" און עס זענען צוגעקומען נייע פנים */
+function newFacesNotice(ev) {
+  const box = $('#fc-tmsg');
+  if (!box || cur.tab !== 'tag' || String(cur.eventId) !== String(ev.event_id)) return;
+  box.innerHTML = `<button type="button" class="btn small-btn primary" id="fc-refresh">🔄 ${h(t('fcNewFaces'))}</button>`;
+  $('#fc-refresh').onclick = () => { const pane = $('#fc-pane'); if (pane) tagPane(pane, ev); };
 }
 
 // ---------- וויפל עס זענען באשטעטיגט — אינעם אירוע (פאר'ן פאס, די רשימות און דער כרטיס) ----------
@@ -824,7 +909,8 @@ function tagCounts(ev) {
   return { total: shots.length, ok: shots.filter(isOk).length, skip: shots.filter((s) => s.status === 'skip').length };
 }
 function filtered(ev) {
-  const shots = shotsOf(ev).sort((a, b) => Number(String(a.face_id).split('-')[1]) - Number(String(b.face_id).split('-')[1]));
+  const num = (x) => Number(String(x.face_id).split('-').pop()) || 0;
+  const shots = shotsOf(ev).sort((a, b) => num(a) - num(b));
   const f = T.filter;
   return shots.filter((s) => (f === 'all' ? true : f === 'ok' ? isOk(s) : f === 'skip' ? s.status === 'skip' : f === 'green' ? !s.status && T.sugg.get(s.face_id)?.lv === 'g' : !s.status));
 }
