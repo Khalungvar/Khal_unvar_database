@@ -3,13 +3,14 @@
 // און ביים נאכאמאל דרוקן — דער זעלבער נומער.
 import { customFontNames } from './fonts.js';
 import {
-  state, loadAll, orgDetailsOf, issueDocs, findIssued, voidReceipt, metaOfReceipt, orgLogo, saveOrgDetails, saveYearly, saveOrgLogo,
+  state, loadAll, orgDetailsOf, issueDocs, saveDonation, findIssued, voidReceipt, metaOfReceipt, orgLogo, saveOrgDetails, saveYearly, saveOrgLogo,
 } from './data.js';
 import { t } from './i18n.js';
 import { isTrue, escapeHtml as h, mailingName, splitTags, shrinkImage } from './util.js';
 import { isoToHebrewText } from './hebdate.js';
-import { effectiveOrg, umbrellaName, entityOrgs, isEntityOrg } from './scope.js';
+import { effectiveOrg, umbrellaName, entityOrgs, isEntityOrg, campaignOrg } from './scope.js';
 import { money, orgSelect } from './donations.js';
+import { campaignOptions } from './campaigns.js';
 import { allCampaigns } from './campaigns.js';
 import { downloadXlsx } from './excel.js';
 import { emailOf, emailLayout, sendJobs } from './mail.js';
@@ -128,6 +129,7 @@ export function renderReceipts() {
       : `<p class="muted small">${h(det.legal_name)} · EIN ${h(det.ein || '—')} <button type="button" class="linkish" id="rc-edit-org">${h(t('rcEditDetails'))}</button></p>`}
 
     ${f.kind === 'invoice' && !missing ? `<p><button type="button" class="btn" id="rc-newinv">+ ${h(t('ivNew'))}</button> <span class="muted small">${h(t('ivNewHint'))}</span></p>` : ''}
+    ${f.kind === 'receipt' ? `<p><button type="button" class="btn primary" id="rc-quick">+ ${h(t('rqTitle'))}</button> <span class="muted small">${h(t('rqHint'))}</span></p>` : ''}
     <div class="rc-actions">
       <label class="check"><input type="checkbox" id="rc-all"> ${h(t('rcSelectAll'))}</label>
       <span class="muted" id="rc-count"></span>
@@ -176,6 +178,7 @@ export function renderReceipts() {
   };
   $('#rc-edit-org', main).onclick = () => openOrgDetails(f.org);
   $('#rc-letter', main)?.addEventListener('change', (e) => { f.letter = e.target.value; });
+  $('#rc-quick', main)?.addEventListener('click', () => openQuickReceipt(f.org, rerender));
   $('#rc-newinv', main)?.addEventListener('click', () => { if (missing) { openOrgDetails(f.org); return; } openInvoiceForm({ kind: 'invoice', org: f.org, contact_id: '', donor_name: '', list: [], ids: [], amount: 0, period: '' }, { done: rerender }); });
   $$('[data-form]', main).forEach((b) => { b.onclick = () => { if (missing) { openOrgDetails(f.org); return; } const c = shown[Number(b.dataset.form)]; if (c.kind === 'invoice') { openInvoiceForm(c, { done: rerender }); return; } openReceiptForm(shown[Number(b.dataset.form)], { letter: f.letter, forText: f.kind !== 'year' ? String(f.forText || '').trim() : '', done: rerender }); }; });
   $('#rc-env', main).onclick = () => {
@@ -646,6 +649,102 @@ function issueOf(d) {
 }
 function defaultMeta(d) {
   return { type: d.list?.[0]?.kind === 'sale' ? 'sale' : 'donation', sig: { mode: 'org' } };
+}
+
+// ---------- "קבלה בודדת": ערשט די פרטים → א נדבה (באצאלט) → דער טופס פון דער קבלה ----------
+export function openQuickReceipt(org0 = '', done = null) {
+  const today = new Date().toISOString().slice(0, 10);
+  const dlg = document.createElement('dialog');
+  dlg.className = 'sheet rq-dlg';
+  document.body.append(dlg);
+  dlg.addEventListener('close', () => dlg.remove());
+  const methods = state.lists.payment_method || [];
+  dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button>
+    <h2>🧾 ${h(t('rqTitle'))}</h2>
+    <p class="muted small">${h(t('rqHint'))}</p>
+    <form class="rq-form" autocomplete="off">
+      <div class="seg">${[['', 'donKindDonation'], ['sale', 'donKindSale']].map(([k, l], i) => `<button type="button" data-qk="${k}" class="${i ? '' : 'on'}">${h(t(l))}</button>`).join('')}</div>
+      <label class="wide">${h(t('donor'))} *<input name="who" list="dl-rq" placeholder="${h(t('rqWhoPh'))}" required>
+        <datalist id="dl-rq">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist></label>
+      <div class="grid">
+        <label>${h(t('amount'))} ($) *<input name="amount" type="number" min="0.01" step="0.01" dir="ltr" required></label>
+        <label>${h(t('dateLegend'))}<input name="date" type="date" value="${today}"></label>
+        <label>${h(t('paymentMethod'))}<select name="method"><option value=""></option>${methods.map((m) => `<option>${h(m)}</option>`).join('')}</select></label>
+        <label class="rq-check" hidden>${h(t('checkNumber'))}<input name="check" dir="ltr"></label>
+        <label class="rq-card" hidden>${h(t('cardLast4'))}<input name="card" dir="ltr" maxlength="4"></label>
+      </div>
+      <label class="wide">${h(t('campaignOptional'))}<select name="campaign">${campaignOptions('')}</select></label>
+      <label class="wide">${h(t('forOrg'))} *${orgSelect('org', org0)}</label>
+      <label class="wide"><span class="rq-for-don">${h(t('rqFor'))}</span><span class="rq-for-sale" hidden>${h(t('saleWhat'))}</span><input name="for" dir="auto"></label>
+      <div class="grid rq-goods">
+        <label class="wide">${h(t('goodsDesc'))}<input name="gdesc" dir="auto" placeholder="${h(t('goodsDescPh'))}"></label>
+        <label>${h(t('goodsValue'))}<input name="gval" type="number" min="0" step="0.01" dir="ltr" placeholder="$"></label>
+      </div>
+      <div class="actions"><span class="spacer"></span>
+        <button type="button" class="btn" data-x>${h(t('cancelBtn'))}</button>
+        <button type="submit" class="btn primary">${h(t('rqNext'))} →</button></div>
+    </form>`;
+  const form = $('form', dlg);
+  const el = (n) => form.elements[n];
+  let kind = '';
+  $$('[data-x]', dlg).forEach((b) => { b.onclick = () => dlg.close(); });
+  $$('[data-qk]', dlg).forEach((b) => {
+    b.onclick = () => {
+      kind = b.dataset.qk;
+      $$('[data-qk]', dlg).forEach((x) => x.classList.toggle('on', x === b));
+      $('.rq-goods', dlg).hidden = kind === 'sale';
+      $('.rq-for-don', dlg).hidden = kind === 'sale';
+      $('.rq-for-sale', dlg).hidden = kind !== 'sale';
+    };
+  });
+  el('method').onchange = () => {
+    $('.rq-check', dlg).hidden = el('method').value !== "צ'ק";
+    $('.rq-card', dlg).hidden = el('method').value !== 'כרטיס אשראי';
+  };
+  el('campaign').onchange = () => {
+    const co = campaignOrg(el('campaign').value);
+    if (co) el('org').value = co;
+    // די "תמורה" פונעם קאמפיין
+    const cr = state.campaigns.find((x) => x.campaign === el('campaign').value);
+    if (cr?.goods_desc && !el('gdesc').value) { el('gdesc').value = cr.goods_desc; if (cr.goods_value !== '' && cr.goods_value != null) el('gval').value = cr.goods_value; }
+  };
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const who = el('who').value.trim();
+    const m = who.match(/\(#(\d+)\)/);
+    const ct = m ? ui.contactById(m[1]) : null;
+    const amount = Number(el('amount').value);
+    const org = campaignOrg(el('campaign').value) || el('org').value;
+    if (!who) { el('who').focus(); return; }
+    if (!(amount > 0)) { el('amount').focus(); return; }
+    if (!org) { ui.toast(t('orgRequired'), 'error'); el('org').focus(); return; }
+    const date = el('date').value || today;
+    const method = el('method').value;
+    const sale = kind === 'sale';
+    const d = {
+      contact_id: ct ? Number(ct.contact_id) : '', donor_name: ct ? '' : who,
+      date, hebrew_date: isoToHebrewText(date) || '', event_tags: '', event_year: '', event_note: sale ? '' : el('for').value.trim(),
+      campaign: el('campaign').value, org, amount_usd: amount, is_paid: true, paid_date: date, paid_note: '',
+      payment_method: method, check_number: method === "צ'ק" ? el('check').value.trim() : '', card_last4: method === 'כרטיס אשראי' ? el('card').value.trim() : '',
+      payment_note: '', dedication_type: '', dedication_text: '',
+      kind, goods_desc: sale ? el('for').value.trim() : el('gdesc').value.trim(), goods_value: sale || el('gval').value === '' ? '' : Number(el('gval').value),
+    };
+    const btn = $('button[type=submit]', form);
+    btn.disabled = true;
+    try {
+      const id = await saveDonation(d);
+      await loadAll();
+      const dd = state.donations.find((x) => String(x.donation_id) === String(id)) || { ...d, donation_id: id };
+      dlg.close();
+      const det = orgDetailsOf(effectiveOrg(dd));
+      if (!det || !det.legal_name) { ui.toast(t('rcMissingDetails', { org: effectiveOrg(dd) }), 'error'); openOrgDetails(effectiveOrg(dd)); return; }
+      if (done) done();
+      openReceiptForm({ kind: 'receipt', org: effectiveOrg(dd), contact_id: dd.contact_id || '', donor_name: dd.contact_id ? '' : dd.donor_name, ids: [String(id)], amount, period: '', list: [dd] },
+        { forText: sale ? '' : el('for').value.trim(), done });
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); btn.disabled = false; }
+  };
+  dlg.showModal();
+  el('who').focus();
 }
 
 // ---------- דער טופס פון א קבלה: סארט, שורות, תמורה, חתימה ----------
