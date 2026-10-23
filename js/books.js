@@ -6,6 +6,8 @@ import { state, saveRecord, deleteRecord } from './data.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, isTrue } from './util.js';
 import { imageOf } from './images.js';
+import { htmlToJpeg, jpegsToPdf } from './pdf.js';
+import { isoToHebrewText } from './hebdate.js';
 
 export const BOOKS_ORG = 'מכון משנה הלכות';
 const CATS = ['mechon', 'kovetz', 'rabbis', 'other'];
@@ -18,7 +20,11 @@ export function initBooks(helpers) { ui = helpers; }
 const today = () => new Date().toISOString().slice(0, 10);
 const num = (v) => (v === '' || v == null ? null : Number(v));
 const money = (v) => `$${(Number(v) || 0).toLocaleString('en-US', { minimumFractionDigits: Number(v) % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
-export const allBooks = () => [...(state.books || [])].sort((a, b) => (Number(a.sort) || 0) - (Number(b.sort) || 0) || Number(a.book_id) - Number(b.book_id));
+// א מבצע אויף דעם גאנצן מכון ווערט געהאלטן אין א שורה פון Books מיט category = '__all__':
+// sale_price = פראצענט, vol_price = 1 → ארומרונדן צו א האלבן דאלער, sale_from / sale_to
+const ALL = '__all__';
+export const globalSale = () => (state.books || []).find((b) => b.category === ALL) || null;
+export const allBooks = () => [...(state.books || [])].filter((b) => b.category !== ALL).sort((a, b) => (Number(a.sort) || 0) - (Number(b.sort) || 0) || Number(a.book_id) - Number(b.book_id));
 export const bookById = (id) => (state.books || []).find((b) => String(b.book_id) === String(id));
 // (די ערשטע בילדער זענען געווען jpg מיט א ווייסן הינטערגרונט — יעצט webp אן הינטערגרונט)
 const imgOf = (b) => (imageOf(b.image) || '').replace(/^(img\/books\/\d+)\.jpg$/, '$1.webp');
@@ -31,11 +37,23 @@ export function saleState(b, day = today()) {
   if (b.sale_to && day > b.sale_to) return 'over';
   return 'on';
 }
+const roundHalf = (v) => Math.round(v * 2) / 2;
+/** דער מבצע וואס גילט היינט: פונעם ספר אליין (גייט פאר), אדער פונעם גאנצן מכון (פראצענט) */
+export function effSale(b, day = today()) {
+  if (saleState(b, day) === 'on') return { on: true, price: Number(b.sale_price), src: 'book' };
+  const g = globalSale();
+  if (g && saleState(g, day) === 'on' && num(b.price) != null) {
+    const raw = Number(b.price) * (1 - (Number(g.sale_price) || 0) / 100);
+    return { on: true, price: g.vol_price ? roundHalf(raw) : Math.round(raw * 100) / 100, src: 'all', pct: Number(g.sale_price) };
+  }
+  return { on: false };
+}
 /** דער פרייז היינט: פון מבצע אדער דער רעגולערער */
 export function priceNow(b, v = '', day = today()) {
   if (v === 'vol') return num(b.vol_price) ?? 0;
   if (v === 'old') return num(b.old_price) ?? 0;
-  return saleState(b, day) === 'on' ? Number(b.sale_price) : (num(b.price) ?? 0);
+  const e = effSale(b, day);
+  return e.on ? e.price : (num(b.price) ?? 0);
 }
 
 /** די ספרים פון א מכירה (נדבה) */
@@ -84,7 +102,7 @@ function optionsHtml(sel) {
   const opt = (val, label) => `<option value="${h(val)}"${val === sel ? ' selected' : ''}>${h(label)}</option>`;
   return `<option value="">— ${h(t('bkPick'))} —</option>${allBooks().map((b) => {
     const st = stockOf(b, sold);
-    const sale = saleState(b) === 'on' ? ' 🏷' : '';
+    const sale = effSale(b).on ? ' 🏷' : '';
     const out = [opt(String(b.book_id), `${b.name} · ${money(priceNow(b))}${sale}${st != null ? ` · ${t('bkStockShort')} ${st}` : ''}`)];
     if (num(b.vol_price) != null) out.push(opt(`${b.book_id}:vol`, `${b.name} · ${t('bkVol')} · ${money(b.vol_price)}`));
     if (num(b.old_price) != null) out.push(opt(`${b.book_id}:old`, `${b.name} · ${t('bkOld')} · ${money(b.old_price)}`));
@@ -154,20 +172,22 @@ const shortDate = (iso) => { const m = String(iso || '').match(/^(\d{4})-(\d{2})
 function bookCard(b, sold, out, given) {
   const st = stockOf(b, out);
   const s = saleState(b);
+  const e = effSale(b);
   const n = sold.get(String(b.book_id)) || 0;
   const g = given.get(String(b.book_id)) || 0;
   const img = imgOf(b);
   const id = h(b.book_id);
   const extras = [num(b.vol_price) != null ? `${t('bkVol')} ${money(b.vol_price)}` : '', num(b.old_price) != null ? `${t('bkOld')} ${money(b.old_price)}` : ''].filter(Boolean);
   const range = [shortDate(b.sale_from), shortDate(b.sale_to)].filter(Boolean).join('–');
-  return `<div class="bk-card${s === 'on' ? ' bk-onsale' : ''}" data-id="${id}">
+  return `<div class="bk-card${e.on ? ' bk-onsale' : ''}" data-id="${id}">
     <div class="bk-img">${img ? `<img src="${h(img)}" alt="" loading="lazy">` : '<span class="bk-noimg">📖</span>'}</div>
     <div class="bk-body">
       <div class="bk-title"><b>${h(b.name)}</b>${num(b.old_price) != null ? ` <span class="bk-new" title="${h(t('bkNewEd'))}">✱</span>` : ''}
         <button type="button" class="linkish bk-edbtn" data-edit="${id}" title="${h(t('bkEdit'))}">✎</button></div>
       ${b.subtitle || Number(b.volumes) > 1 ? `<div class="muted small bk-sub">${h([b.subtitle, Number(b.volumes) > 1 && !/כרכים|חלקים/.test(b.subtitle || '') ? t('bkVolsN', { n: b.volumes }) : ''].filter(Boolean).join(' · '))}</div>` : ''}
       <div class="bk-nums">
-        <label>${h(t('bkPrice'))}<span class="bk-money">$<input type="number" min="0" step="0.01" dir="ltr" data-f="price" value="${h(b.price ?? '')}"></span></label>
+        <label>${h(t('bkPrice'))}<span class="bk-money">$<input type="number" min="0" step="0.01" dir="ltr" data-f="price" value="${h(b.price ?? '')}"></span>
+          ${e.on ? `<span class="bk-now">${h(t('bkNow'))} <b>${money(e.price)}</b>${e.src === 'all' ? ` (−${e.pct}%)` : ''}</span>` : ''}</label>
         <label>${h(t('bkStock'))}<input type="number" step="1" dir="ltr" data-f="stock" value="${st == null ? '' : st}" placeholder="—" class="bk-stockin${st != null && st <= 0 ? ' bk-zero' : ''}"></label>
         <div class="bk-out">
           <button type="button" class="bk-soldbtn" data-hist="${id}" title="${h(t('bkHist'))}">${h(t('bkSoldBtn', { n }))}${g ? ` · 🎁${g}` : ''}</button>
@@ -180,6 +200,162 @@ function bookCard(b, sold, out, given) {
       </div>
       ${extras.length ? `<div class="muted small bk-extras">${h(extras.join(' · '))}</div>` : ''}
     </div></div>`;
+}
+
+// ---------- 📄 מחירון (PDF) לויט א טאג — למשל צו זען ווי א מבצע וועט אויסזען ----------
+function pdfDialog() {
+  const dlg = document.createElement('dialog');
+  dlg.className = 'sheet bk-saledlg';
+  document.body.append(dlg);
+  dlg.addEventListener('close', () => dlg.remove());
+  dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button>
+    <h2>📄 ${h(t('bkPdf'))}</h2>
+    <p class="muted small">${h(t('bkPdfHint'))}</p>
+    <form class="bk-pdfform">
+      <label>${h(t('bkPdfDate'))}<input name="day" type="date" value="${today()}" required></label>
+      <label class="check"><input type="checkbox" name="imgs" checked> ${h(t('bkPdfImgs'))}</label>
+      <div class="actions"><span class="spacer"></span>
+        <button type="button" class="btn" data-x>${h(t('cancelBtn'))}</button>
+        <button type="submit" class="btn primary">⬇ ${h(t('bkPdfMake'))}</button></div>
+    </form>`;
+  const form = $('form', dlg);
+  $$('[data-x]', dlg).forEach((x) => { x.onclick = () => dlg.close(); });
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = $('button[type=submit]', form);
+    btn.disabled = true; btn.textContent = t('bkPdfWorking');
+    try { await makePricePdf(form.elements.day.value || today(), form.elements.imgs.checked); dlg.close(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); btn.disabled = false; btn.textContent = `⬇ ${t('bkPdfMake')}`; }
+  };
+  dlg.showModal();
+}
+
+const fmtUs = (iso) => { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${Number(m[2])}/${Number(m[3])}/${m[1]}` : ''; };
+async function makePricePdf(day, withImgs) {
+  const det = (state.orgDetails || []).find((o) => o.org === BOOKS_ORG) || {};
+  const books = allBooks();
+  const anySale = books.some((b) => effSale(b, day).on);
+  const G = globalSale();
+  const gOn = G && saleState(G, day) === 'on';
+  const he = isoToHebrewText(day) || '';
+  // שורות: א קעפל פאר יעדן סארט, דערנאך די ספרים
+  const items = [];
+  CATS.forEach((c) => {
+    const l = books.filter((b) => (CATS.includes(b.category) ? b.category : 'other') === c);
+    if (!l.length) return;
+    items.push({ head: t(`bkCat_${c}`) });
+    l.forEach((b) => items.push({ b }));
+  });
+  const rowH = withImgs ? 0.5 : 0.34;
+  const pages = [];
+  let curP = []; let used = 0;
+  items.forEach((it) => {
+    const cap = 8.45 - (pages.length || !gOn ? 0 : 0.35);
+    const hgt = it.head ? 0.45 : rowH;
+    if (used + hgt > cap || (it.head && used + hgt + rowH > cap)) { pages.push(curP); curP = []; used = 0; }
+    curP.push(it); used += hgt;
+  });
+  if (curP.length) pages.push(curP);
+  const cols = 3 + (withImgs ? 1 : 0) + (anySale ? 1 : 0);
+  const row = (it) => {
+    if (it.head) return `<tr class="pp-cat"><td colspan="${cols}">${h(it.head)}</td></tr>`;
+    const { b } = it;
+    const e = effSale(b, day);
+    const ex = [num(b.vol_price) != null ? `${t('bkVol')} ${money(b.vol_price)}` : '', num(b.old_price) != null ? `${t('bkOld')} ${money(b.old_price)}` : ''].filter(Boolean).join(' · ');
+    const img = imgOf(b);
+    return `<tr>${withImgs ? `<td class="pp-img">${img ? `<img src="${h(img)}">` : ''}</td>` : ''}
+      <td class="pp-name"><b>${h(b.name)}</b>${num(b.old_price) != null ? ' <span class="pp-star">✱</span>' : ''}${b.subtitle ? `<div class="pp-sub">${h(b.subtitle)}</div>` : ''}</td>
+      <td class="pp-ex">${h(ex)}</td>
+      <td class="pp-price${e.on ? ' pp-was' : ''}">${num(b.price) != null ? money(b.price) : ''}</td>
+      ${anySale ? `<td class="pp-sale">${e.on ? `${money(e.price)}${e.src === 'all' ? `<div class="pp-pct">−${e.pct}%</div>` : ''}` : ''}</td>` : ''}</tr>`;
+  };
+  const css = `<style>.pp{width:8.5in;height:11in;box-sizing:border-box;padding:0.45in 0.5in;font-family:'Frank Ruhl Libre',serif;color:#2b2118;direction:rtl;position:relative;background:#fff}
+    .pp-top{display:flex;align-items:center;gap:16px;border-bottom:2px solid #7a1219;padding-bottom:8px;margin-bottom:6px}
+    .pp-top img{height:62px}.pp-top h1{margin:0;font-size:24pt;color:#7a1219}.pp-top .pp-d{margin-inline-start:auto;text-align:left;font-size:11pt;color:#5a4a3a;line-height:1.4}
+    .pp-note{background:#eaf6ed;color:#1f6b35;border-radius:6px;padding:4px 10px;font-size:11pt;margin:6px 0;font-weight:bold}
+    .pp table{width:100%;border-collapse:collapse;font-size:12pt}.pp th{font-size:9pt;color:#7a6a5c;text-align:right;border-bottom:1px solid #d9c9a3;padding:2px 6px;font-weight:normal}
+    .pp td{border-bottom:1px dotted #d9c9a3;padding:0 6px;box-sizing:border-box;vertical-align:middle;height:${rowH}in}
+    .pp-cat td{border:0;height:auto;padding:10px 4px 3px;font-size:13pt;font-weight:bold;color:#7a1219}
+    .pp-img{width:0.55in;text-align:center}.pp-img img{max-height:${rowH - 0.06}in;max-width:0.5in;display:block;margin:auto}
+    .pp-sub{font-size:9pt;color:#7a6a5c}.pp-star{color:#b8860b}.pp-ex{font-size:9pt;color:#6b5a3a;width:1.6in}
+    .pp-price,.pp-sale{text-align:left;direction:ltr;width:0.85in;font-weight:bold;white-space:nowrap}.pp-was{text-decoration:line-through;color:#999;font-weight:normal}
+    .pp-sale{color:#1f6b35}.pp-pct{font-size:8pt;font-weight:normal}
+    .pp-foot{position:absolute;bottom:0.35in;left:0.5in;right:0.5in;display:flex;justify-content:space-between;font-size:9pt;color:#7a6a5c;border-top:1px solid #d9c9a3;padding-top:4px}</style>`;
+  const contact = [det.phone, det.email, det.website].filter(Boolean).join(' · ');
+  const jpgs = [];
+  for (const [i, pg] of pages.entries()) {
+    const html = `${css}<div class="pp">
+      <div class="pp-top"><img src="${BOOKS_LOGO}"><div><h1>${h(t('bkPdfTitle'))}</h1><div>${h(BOOKS_ORG)}</div></div>
+        <div class="pp-d">${h(t('bkPdfAsOf'))} <b dir="ltr">${h(fmtUs(day))}</b><br>${h(he)}</div></div>
+      ${i === 0 && gOn ? `<div class="pp-note">🏷 ${h(t('bkAllSale'))} −${h(G.sale_price)}%${G.sale_to ? ` · ${h(t('bkTo'))} ${h(fmtUs(G.sale_to))}` : ''}</div>` : ''}
+      <table><thead><tr>${withImgs ? '<th></th>' : ''}<th>${h(t('bkName'))}</th><th></th><th style="text-align:left">${h(t('bkPrice'))}</th>${anySale ? `<th style="text-align:left">${h(t('bkSale'))}</th>` : ''}</tr></thead>
+      <tbody>${pg.map(row).join('')}</tbody></table>
+      <div class="pp-foot"><span>✱ ${h(t('bkNewEd'))}${contact ? ` · <span dir="ltr">${h(contact)}</span>` : ''}</span><span dir="ltr">${pages.length > 1 ? `${i + 1} / ${pages.length}` : ''}</span></div></div>`;
+    jpgs.push(await htmlToJpeg(html, { widthIn: 8.5, heightIn: 11, scale: 2, quality: 0.9 }));
+  }
+  const pdf = jpegsToPdf(jpgs, { margin: 0 });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([pdf], { type: 'application/pdf' }));
+  a.download = `${BOOKS_ORG} - ${t('bkPdfTitle')} ${day}.pdf`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+/** 🏷 א מבצע אויף דעם גאנצן מכון: פראצענט, ארומרונדן צו א האלבן דאלער, פון / ביז */
+function allSaleDialog() {
+  const G = globalSale();
+  const gs = G ? saleState(G) : '';
+  const dlg = document.createElement('dialog');
+  dlg.className = 'sheet bk-saledlg';
+  document.body.append(dlg);
+  dlg.addEventListener('close', () => dlg.remove());
+  dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button>
+    <h2>🏷 ${h(t('bkAllSale'))}</h2>
+    <p class="muted small">${h(t('bkAllSaleHint'))}${gs ? ` · <span class="bk-badge bk-${gs}">${h(t(SALE_TXT[gs]))}</span>` : ''}</p>
+    <form class="bk-allform">
+      <div class="grid">
+        <label>${h(t('bkPct'))} *<input name="pct" type="number" min="1" max="99" step="0.5" dir="ltr" value="${h(G?.sale_price ?? '')}" required></label>
+        <label>${h(t('bkFrom'))}<input name="from" type="date" value="${h(G?.sale_from || today())}"></label>
+        <label>${h(t('bkTo'))}<input name="to" type="date" value="${h(G?.sale_to || '')}"></label>
+      </div>
+      <label class="check"><input type="checkbox" name="round"${!G || G.vol_price ? ' checked' : ''}> ${h(t('bkRoundHalf'))}</label>
+      <div class="bk-allprev muted small"></div>
+      <div class="actions">${G ? `<button type="button" class="btn danger" id="bk-all-del">✕ ${h(t('bkSaleClear'))}</button>` : ''}<span class="spacer"></span>
+        <button type="button" class="btn" data-x>${h(t('cancelBtn'))}</button>
+        <button type="submit" class="btn primary">${h(t('saveBtn'))}</button></div>
+    </form>`;
+  const form = $('form', dlg);
+  const el = (n) => form.elements[n];
+  $$('[data-x]', dlg).forEach((x) => { x.onclick = () => dlg.close(); });
+  const prev = () => {
+    const pct = Number(el('pct').value) || 0;
+    const ex = allBooks().filter((b) => num(b.price) != null).slice(0, 3).map((b) => {
+      const raw = Number(b.price) * (1 - pct / 100);
+      return `${b.name}: ${money(b.price)} → ${money(el('round').checked ? roundHalf(raw) : Math.round(raw * 100) / 100)}`;
+    });
+    $('.bk-allprev', dlg).innerHTML = pct ? ex.map((x) => `<div>${h(x)}</div>`).join('') : '';
+  };
+  el('pct').oninput = prev; el('round').onchange = prev; prev();
+  const del = $('#bk-all-del', dlg);
+  if (del) {
+    del.onclick = async () => {
+      try {
+        await deleteRecord('Books', 'book_id', G);
+        state.books = state.books.filter((x) => x !== G);
+        dlg.close(); renderBooks(); ui.toast(t('bkSaved'));
+      } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+    };
+  }
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const pct = Number(el('pct').value);
+    if (!(pct > 0 && pct < 100)) { el('pct').focus(); return; }
+    const from = el('from').value; const to = el('to').value;
+    if (from && to && from > to) { ui.toast(t('bkDatesBad'), 'error'); el('to').focus(); return; }
+    dlg.close();
+    await saveBook({ ...(G || {}), category: ALL, name: t('bkAllSale'), sale_price: pct, vol_price: el('round').checked ? 1 : '', sale_from: from, sale_to: to, sort: 99999 });
+  };
+  dlg.showModal();
+  el('pct').focus();
 }
 
 /** דער מבצע פון א ספר: פרייז, פון, ביז — און אויסמעקן */
@@ -228,17 +404,21 @@ export function renderBooks() {
   const q = cur.q.trim();
   const list = allBooks().filter((b) => !q || `${b.name} ${b.subtitle} ${b.notes}`.includes(q));
   const groups = CATS.map((c) => [c, list.filter((b) => (CATS.includes(b.category) ? b.category : 'other') === c)]).filter(([, l]) => l.length);
-  const onSale = list.filter((b) => saleState(b) === 'on').length;
+  const onSale = list.filter((b) => effSale(b).on).length;
+  const G = globalSale();
+  const gs = G ? saleState(G) : '';
   const sales = (state.donations || []).filter((d) => booksOf(d).length);
   main.innerHTML = `<div class="sc-head bk-head">
       <img class="bk-logo" src="${BOOKS_LOGO}" alt="">
-      <div><h1>${h(BOOKS_ORG)}</h1><p class="muted small">${h(t('bkSub', { n: (state.books || []).length }))}${onSale ? ` · 🏷 ${h(t('bkOnSaleN', { n: onSale }))}` : ''}</p></div>
+      <div><h1>${h(BOOKS_ORG)}</h1><p class="muted small">${h(t('bkSub', { n: allBooks().length }))}${onSale ? ` · 🏷 ${h(t('bkOnSaleN', { n: onSale }))}` : ''}</p></div>
       <span class="spacer"></span>
       <button type="button" class="btn" id="bk-back">← ${h(t('lobbyBack'))}</button>
     </div>
     <div class="bk-bar">
       <button type="button" class="btn primary" id="bk-sell">🧾 ${h(t('bkSell'))}</button>
       <button type="button" class="btn" id="bk-new">＋ ${h(t('bkNew'))}</button>
+      <button type="button" class="btn" id="bk-pdf">📄 ${h(t('bkPdf'))}</button>
+      <button type="button" class="btn bk-allsale${gs ? ` bk-s-${gs}` : ''}" id="bk-allsale" title="${h(gs ? t(SALE_TXT[gs]) : t('bkAllSale'))}">🏷 ${G ? `${h(t('bkAllSale'))} −${h(G.sale_price)}%${[shortDate(G.sale_from), shortDate(G.sale_to)].filter(Boolean).length ? ` <span dir="ltr">${h([shortDate(G.sale_from), shortDate(G.sale_to)].filter(Boolean).join('–'))}</span>` : ''}` : h(t('bkAllSale'))}</button>
       <input type="search" id="bk-q" placeholder="🔍 ${h(t('bkSearch'))}" value="${h(cur.q)}">
       <span class="spacer"></span>
       <span class="muted small">${h(t('bkSalesN', { n: sales.length }))}</span>
@@ -248,6 +428,8 @@ export function renderBooks() {
       <div class="bk-grid">${l.map((b) => bookCard(b, sold, out, given)).join('')}</div>`).join('') || `<p class="muted">${h(t('noResults'))}</p>`}`;
   $('#bk-back').onclick = () => ui.showView('lobby');
   $('#bk-new').onclick = () => editBook({});
+  $('#bk-allsale').onclick = () => allSaleDialog();
+  $('#bk-pdf').onclick = () => pdfDialog();
   $('#bk-sell').onclick = () => {
     ui.quickSale(BOOKS_ORG, () => renderBooks());
     // ווען דער דיאלאג מאכט זיך צו — דער מלאי איז שוין אנדערש
@@ -468,7 +650,7 @@ function editBook(b0) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const n = (k) => (el(k).value.trim() === '' ? '' : Number(el(k).value));
-    const maxSort = Math.max(0, ...(state.books || []).map((x) => Number(x.sort) || 0));
+    const maxSort = Math.max(0, ...allBooks().map((x) => Number(x.sort) || 0));
     const rec = { ...b, name: el('name').value.trim(), subtitle: el('subtitle').value.trim(), volumes: n('volumes') || 1, category: el('category').value,
       price: n('price'), vol_price: n('vol_price'), old_price: n('old_price'), notes: el('notes').value.trim(), image,
       sort: n('sort') === '' ? (isNew ? maxSort + 1 : b.sort) : n('sort') };
