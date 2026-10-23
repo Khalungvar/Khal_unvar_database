@@ -9,6 +9,7 @@ import { storeImage, fetchImages, imageOf, isDrv } from './images.js';
 import { downloadXlsx } from './excel.js';
 import { toHebrew, hebrewNumber, isoToHebrewText } from './hebdate.js';
 import { submitRequest } from './requests.js';
+import { hasSavedSession } from './google.js';
 
 const HUMAN_VER = '3.3.6';
 const CDN = `https://cdn.jsdelivr.net/npm/@vladmandic/human@${HUMAN_VER}`;
@@ -258,6 +259,8 @@ async function runScan(ev, files, opts) {
     // ארויפלייגן וואס איז נאך געבליבן (אויך ביי אפשטעלן — אזוי קען מען שוין דערקענען)
     while (uploading) await new Promise((r) => setTimeout(r, 300)); // eslint-disable-line no-await-in-loop
     const ok = await uploadScan(ev, say, { final: true });
+    // נישט ארויף (למשל די כניסה צו גוגל איז אויסגעלאפן ביינאכט) — ס'וועט פרובירן אליין ווען מ'קומט צוריק
+    if (!ok) { pendingUp = ev; say(t('fcUpLater'), 'err'); }
     // גלייך צום דערקענען
     if (ok && !SCAN.stop && String(cur.eventId) === String(ev.event_id) && cur.tab === 'scan') {
       cur.tab = 'tag';
@@ -694,6 +697,15 @@ async function uploadScan(ev, say, { bg = false, final = false } = {}) {
   }
   return ok;
 }
+// וואס איז נישט ארויף — יעדע מינוט נאכאמאל פרובירן (ווען די כניסה איז ווידער גילטיג)
+let pendingUp = null;
+setInterval(async () => {
+  if (!pendingUp || uploading || SCAN.running || !hasSavedSession()) return;
+  const ev = pendingUp;
+  const ok = await uploadScan(ev, () => {}, { final: true });
+  if (ok) { pendingUp = null; ui?.toast?.(t('fcUpDoneLater', { name: ev.name })); }
+}, 60000);
+
 /** ווען מ'איז אינעם "דערקענען" און עס זענען צוגעקומען נייע פנים */
 function newFacesNotice(ev) {
   const box = $('#fc-tmsg');
