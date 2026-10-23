@@ -20,6 +20,7 @@ import { savedInScope, parseSaved, evaluate } from './lists.js';
 import { submitRequest } from './requests.js';
 import { letterSizeFor, letterTemplates, letterPagesFor, letterHasReceipt, openMailMergeFor, mySigObj } from './mailmerge.js';
 import { imageOf } from './images.js';
+import { workOf } from './work.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -104,7 +105,8 @@ export function renderReceipts() {
     .map((c) => ({ ...c, issued: findIssued(c.kind, c.org, c.ids, c.period, c.contact_id || c.donor_name) || (c.kind === 'receipt' ? receiptWith(c.ids[0]) : null) }));
   const whoC = f.whoC ? ui.contactById(f.whoC) : null;
   const lists = savedInScope();
-  const shown = f.onlyNew && f.kind !== 'invoice' ? list.filter((c) => !c.issued) : list;
+  // לינקס: נאך אן א קבלה; רעכטס: וואס איז שוין ארויס
+  const shown = list.filter((c) => !c.issued);
   const years = [...new Set(state.donations.map((d) => paidDate(d).slice(0, 4)).filter(Boolean).concat(String(new Date().getFullYear())))].sort().reverse();
   const camps = allCampaigns().filter((c) => c.list.length);
   main.innerHTML = `<div class="camp-page-head"><h2>🧾 Invoice &amp; Receipt</h2><span class="spacer"></span>
@@ -123,13 +125,16 @@ export function renderReceipts() {
         <select id="rc-who-l"><option value="">${h(t('rcWhoAll'))}</option>${lists.map((l) => `<option value="${h(l.list_id)}"${String(l.list_id) === String(f.whoL || '') ? ' selected' : ''}>📋 ${h(l.name)}</option>`).join('')}</select>
         ${f.whoC || f.whoL ? `<button type="button" class="linkish" id="rc-who-x">✕</button>` : ''}</span>
       ${f.kind !== 'year' ? `<label class="rc-for">${h(t('rcForLabel'))} <input id="rc-for" value="${h(f.forText || '')}" placeholder="${h(t('rcForPh'))}" dir="rtl"></label>` : ''}
-      ${f.kind !== 'invoice' ? `<label class="check"><input type="checkbox" id="rc-onlynew"${f.onlyNew ? ' checked' : ''}> ${h(t('rcOnlyNew'))}</label>` : ''}
     </div>
     ${missing ? `<p class="drive-warn">⚠ ${h(t('rcMissingDetails', { org: f.org }))} <button type="button" class="btn small-btn primary" id="rc-edit-org">${h(t('rcEditDetails'))}</button></p>`
       : `<p class="muted small">${h(det.legal_name)} · EIN ${h(det.ein || '—')} <button type="button" class="linkish" id="rc-edit-org">${h(t('rcEditDetails'))}</button></p>`}
 
     ${f.kind === 'invoice' && !missing ? `<p><button type="button" class="btn" id="rc-newinv">+ ${h(t('ivNew'))}</button> <span class="muted small">${h(t('ivNewHint'))}</span></p>` : ''}
     ${f.kind === 'receipt' ? `<p><button type="button" class="btn primary" id="rc-quick">+ ${h(t('rqTitle'))}</button> <span class="muted small">${h(t('rqHint'))}</span></p>` : ''}
+    <div class="rc-search"><input id="rc-q" type="search" placeholder="🔍 ${h(t('rcSearchPh'))}" value="${h(f.q || '')}"></div>
+    <div class="rc-cols">
+    <section class="rc-col">
+    <h3 class="rc-colh">${h(t(f.kind === 'invoice' ? 'rcColPending' : 'rcColNoReceipt'))} <span class="muted small">(${shown.length})</span></h3>
     <div class="rc-actions">
       <label class="check"><input type="checkbox" id="rc-all"> ${h(t('rcSelectAll'))}</label>
       <span class="muted" id="rc-count"></span>
@@ -142,15 +147,24 @@ export function renderReceipts() {
       <button type="button" class="btn" id="rc-mail" disabled>✉ ${h(t('rcMailBtn'))}</button>
       <button type="button" class="btn primary" id="rc-print" disabled>🖨 ${h(t('rcPrint'))}</button>
     </div>
-    ${shown.length ? `<table class="lapsed-table rc-table"><thead><tr><th></th><th>${h(t('xlDonor'))}</th><th>${h(t('rcWhat'))}</th><th>${h(t('xlAmount'))}</th><th>${h(t('rcNumber'))}</th></tr></thead>
-      <tbody>${shown.map((c, i) => `<tr><td><input type="checkbox" class="rc-pick" data-i="${i}"></td>
+    ${shown.length ? `<table class="lapsed-table rc-table no-sort"><thead><tr><th></th><th>${h(t('xlDonor'))}</th><th>${h(t('rcWhat'))}</th><th>${h(t('xlAmount'))}</th></tr></thead>
+      <tbody>${shown.map((c, i) => `<tr data-q="${h(qText(donorLabel(c), englishName(c), whatText(c), c.amount))}"><td><input type="checkbox" class="rc-pick" data-i="${i}"></td>
         <td>${h(donorLabel(c))}${addrOf(c) ? '' : ` <span class="badge muted" title="${h(t('rcNoAddress'))}">✉?</span>`}
           <button type="button" class="linkish small rc-formbtn" data-form="${i}" title="${h(t(c.kind === 'invoice' ? 'ivFormTip' : 'rcFormTip'))}">${c.kind === 'invoice' ? '📄' : '🧾'} ${h(t('rcForm'))}</button></td>
         <td class="muted small">${h(whatText(c))}</td>
-        <td class="num" dir="ltr">${money(c.amount)}</td>
-        <td class="small" dir="ltr">${c.issued ? h(c.issued.receipt_no) : '—'}</td></tr>`).join('')}</tbody></table>`
+        <td class="num" dir="ltr">${money(c.amount)}</td></tr>`).join('')}</tbody></table>`
       : `<p class="empty">${h(t(f.kind === 'campaign' && !f.campaign ? 'rcPickCampaign' : 'rcNothing'))}</p>`}
-    ${issuedLogHtml()}`;
+    </section>
+    <section class="rc-col">${issuedLogHtml()}</section>
+    </div>`;
+  // חיפוש — אין ביידע טורים
+  const doSearch = () => {
+    const q = String($('#rc-q', main).value || '').trim().toLowerCase();
+    f.q = q;
+    $$('tr[data-q]', main).forEach((tr) => { tr.hidden = Boolean(q) && !tr.dataset.q.includes(q); });
+  };
+  $('#rc-q', main).addEventListener('input', doSearch);
+  doSearch();
   const rerender = () => renderReceipts();
   $('#rc-lobby', main).onclick = () => ui.showView('lobby');
   $$('[data-kind]', main).forEach((b) => { b.onclick = () => { f.kind = b.dataset.kind; rerender(); }; });
@@ -346,18 +360,24 @@ function addrOf(c) {
 
 // ---------- ליסטע פון וואס איז שוין ארויסגעגעבן ----------
 function issuedLogHtml() {
-  const mine = state.receipts.filter((r) => r.org === f.org || (f.kind === 'campaign' && r.period === f.campaign)).slice(-40).reverse();
-  if (!mine.length) return '';
+  const kinds = f.kind === 'invoice' ? ['invoice'] : f.kind === 'year' ? ['year'] : f.kind === 'campaign' ? ['campaign'] : ['receipt', 'tuition'];
+  const mine = state.receipts.filter((r) => kinds.includes(r.kind) && (r.org === f.org || (f.kind === 'campaign' && r.period === f.campaign))).slice(-300).reverse();
   const kindLabel = (k) => t(k === 'tuition' ? 'rcKindTuition' : KINDS.find(([x]) => x === k)?.[1] || 'rcKindReceipt');
-  return `<details class="rc-log"><summary>${h(t('rcLog', { n: mine.length }))}</summary>
-    <table class="lapsed-table"><thead><tr><th>${h(t('rcNumber'))}</th><th>${h(t('xlType'))}</th><th>${h(t('xlDonor'))}</th><th>${h(t('xlAmount'))}</th><th>${h(t('rcIssued'))}</th><th></th></tr></thead>
-    <tbody>${mine.map((r) => `<tr class="${isTrue(r.void) ? 'rc-void' : ''}"><td dir="ltr">${h(r.receipt_no)}</td><td>${h(kindLabel(r.kind))}${r.period && !/^M\d+$/.test(r.period) ? ` · ${h(r.period)}` : ''}${r.kind === 'invoice' && paidBy(r) ? ` · <b class="rc-paid">✓ ${h(t('ivPaid', { no: paidBy(r) }))}</b>` : ''}</td>
+  const who = (r) => (r.contact_id ? (ui.contactById(r.contact_id) ? ui.fullNameHe(ui.contactById(r.contact_id)) : `#${r.contact_id}`) : r.donor_name);
+  const en = (r) => { const ct = r.contact_id ? ui.contactById(r.contact_id) : null; return ct ? (mailingName(ct) || '') : ''; };
+  if (!mine.length) return `<h3 class="rc-colh">${h(t(f.kind === 'invoice' ? 'rcColInvoices' : 'rcColIssued'))} <span class="muted small">(0)</span></h3><p class="empty">—</p>`;
+  return `<h3 class="rc-colh">${h(t(f.kind === 'invoice' ? 'rcColInvoices' : 'rcColIssued'))} <span class="muted small">(${mine.length})</span></h3>
+    <table class="lapsed-table rc-issued no-sort"><thead><tr><th>${h(t('rcNumber'))}</th><th>${h(t('xlType'))}</th><th>${h(t('xlDonor'))}</th><th>${h(t('xlAmount'))}</th><th>${h(t('rcIssued'))}</th><th></th></tr></thead>
+    <tbody>${mine.map((r) => `<tr class="${isTrue(r.void) ? 'rc-void' : ''}" data-q="${h(qText(r.receipt_no, who(r), en(r), r.amount, r.period))}"><td dir="ltr">${h(r.receipt_no)}</td><td>${h(kindLabel(r.kind))}${r.period && !/^M\d+$/.test(r.period) ? ` · ${h(r.period)}` : ''}${r.kind === 'invoice' && paidBy(r) ? ` · <b class="rc-paid">✓ ${h(t('ivPaid', { no: paidBy(r) }))}</b>` : ''}</td>
       <td>${h(r.contact_id ? (ui.contactById(r.contact_id) ? ui.fullNameHe(ui.contactById(r.contact_id)) : `#${r.contact_id}`) : r.donor_name)}</td>
       <td class="num" dir="ltr">${money(r.amount)}</td><td class="small muted" dir="ltr">${h(r.issued_at)}</td>
       <td>${isTrue(r.void) ? h(t('rcVoided')) : `<button type="button" class="btn small-btn" data-reprint="${h(r.receipt_no)}">🖨</button>
         <button type="button" class="btn small-btn" data-remail="${h(r.receipt_no)}" title="${h(t('rcMailBtn'))}">✉</button>
-        <button type="button" class="linkish" data-void="${h(r.receipt_no)}">${h(t('rcVoid'))}</button>`}</td></tr>`).join('')}</tbody></table></details>`;
+        <button type="button" class="linkish" data-void="${h(r.receipt_no)}">${h(t('rcVoid'))}</button>`}</td></tr>`).join('')}</tbody></table>`;
 }
+/** טעקסט פאר'ן חיפוש (קליינע אותיות) */
+const qText = (...xs) => xs.map((x) => String(x ?? '')).join(' ').toLowerCase();
+function englishName(c) { const ct = c.contact_id ? ui.contactById(c.contact_id) : null; return ct ? (mailingName(ct) || '') : ''; }
 
 function fromLog(no) {
   const r = state.receipts.find((x) => x.receipt_no === no);
@@ -504,7 +524,14 @@ function letterParts(c) {
   const yc = yearlyFor(c);
   const ct = c.contact_id ? ui.contactById(c.contact_id) : null;
   const name = ct ? (mailingName(ct) || [ct.legal_first_name || ct.first_name_en, ct.last_name_en].filter(Boolean).join(' ') || ui.fullNameHe(ct)) : c.donor_name;
-  const addr = ct ? [ct.address, [ct.city, ct.state].filter(Boolean).join(', ') + (ct.zip ? ` ${ct.zip}` : '')].filter((x) => String(x || '').trim()) : [];
+  let addr = ct ? [ct.address, [ct.city, ct.state].filter(Boolean).join(', ') + (ct.zip ? ` ${ct.zip}` : '')].filter((x) => String(x || '').trim()) : [];
+  // א קבלה מיט אן אנדער אדרעס: פון דער ארבעט, אדער א פרייער טעקסט
+  const AD = c.meta?.addr;
+  if (AD?.mode === 'free') addr = String(AD.text || '').split('\n').map((x) => x.trim()).filter(Boolean);
+  else if (AD?.mode === 'work' && ct) {
+    const w = workOf(ct)[Number(AD.i) || 0];
+    if (w?.ad) { const parts = String(w.ad).split(/\s*,\s*/); addr = [w.t, parts[0], parts.slice(1).join(', ')].filter((x) => String(x || '').trim()); }
+  }
   const banner = joinImg(yc, 'header_img') || joinImg(det, 'header_img');
   const sig = String(det.signature_img || '');
   const logo = orgLogo(c.org);
@@ -643,12 +670,42 @@ async function prepareDocs(docs, forText = '') {
     return { ...d, receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint, meta: x.meta, forText };
   }).filter(Boolean);
 }
+/** וואו די לעצטע קבלה פון דעם מענטש איז געשיקט געווארן (ער וויל אפשר אן אנדער אדרעס) */
+function lastAddr(contactId) {
+  if (!contactId) return null;
+  const r = [...state.receipts].reverse().find((x) => String(x.contact_id) === String(contactId) && !isTrue(x.void) && metaOfReceipt(x).addr);
+  return r ? metaOfReceipt(r).addr : null;
+}
+/** קלייבן דעם אדרעס פאר דער קבלה: אינדערהיים / די ארבעט / פרייער טעקסט */
+function addrPickerHtml(contactId, A) {
+  const ct = contactId ? ui.contactById(contactId) : null;
+  const home = ct ? [ct.address, [ct.city, ct.state].filter(Boolean).join(', '), ct.zip].filter(Boolean).join(' ') : '';
+  const works = ct ? workOf(ct).map((w, i) => ({ w, i })).filter((x) => x.w.ad) : [];
+  const mode = A?.mode || (ct ? 'home' : 'free');
+  const cur = mode === 'work' ? `work:${Number(A.i) || 0}` : mode;
+  const opt = (v, l) => `<option value="${h(v)}"${v === cur ? ' selected' : ''}>${l}</option>`;
+  return `<label class="rxf-addr">${h(t('rcAddr'))} <select id="rxf-addr">
+      ${ct ? opt('home', `🏠 ${h(t('rcAddrHome'))}${home ? `: ${h(home)}` : ` (${h(t('rcAddrNone'))})`}`) : ''}
+      ${works.map((x) => opt(`work:${x.i}`, `💼 ${h(x.w.t || t('rcAddrWork'))}: ${h(x.w.ad)}`)).join('')}
+      ${opt('free', `✏️ ${h(t('rcAddrFree'))}`)}</select></label>
+    ${mode === 'free' ? `<textarea id="rxf-addrtxt" rows="3" dir="ltr" placeholder="${h(t('rcAddrFreePh'))}">${h(A?.text || '')}</textarea>` : ''}
+    ${ct && !works.length ? `<span class="muted small">${h(t('rcAddrWorkHint'))}</span>` : ''}`;
+}
+function wireAddrPicker(dlg, F, render) {
+  $('#rxf-addr', dlg)?.addEventListener('change', (e) => {
+    const v = e.target.value;
+    F.addr = v === 'home' ? { mode: 'home' } : v.startsWith('work:') ? { mode: 'work', i: Number(v.slice(5)) } : { mode: 'free', text: F.addr?.text || '' };
+    render();
+  });
+  $('#rxf-addrtxt', dlg)?.addEventListener('change', (e) => { F.addr = { mode: 'free', text: e.target.value }; render(); });
+}
 /** וואס מ'שרייבט אריין אין לשונית Receipts */
 function issueOf(d) {
   return { kind: d.kind, org: d.org, contact_id: d.contact_id, donor_name: d.donor_name, ids: d.ids, amount: d.amount, period: d.period, note: d.note || '', meta: d.meta || defaultMeta(d) };
 }
 function defaultMeta(d) {
-  return { type: d.list?.[0]?.kind === 'sale' ? 'sale' : 'donation', sig: { mode: 'org' } };
+  const a = lastAddr(d.contact_id);
+  return { type: d.list?.[0]?.kind === 'sale' ? 'sale' : 'donation', sig: { mode: 'org' }, ...(a ? { addr: a } : {}) };
 }
 
 // ---------- "קבלה בודדת": ערשט די פרטים → א נדבה (באצאלט) → דער טופס פון דער קבלה ----------
@@ -666,6 +723,7 @@ export function openQuickReceipt(org0 = '', done = null) {
       <div class="seg">${[['', 'donKindDonation'], ['sale', 'donKindSale']].map(([k, l], i) => `<button type="button" data-qk="${k}" class="${i ? '' : 'on'}">${h(t(l))}</button>`).join('')}</div>
       <label class="wide">${h(t('donor'))} *<input name="who" list="dl-rq" placeholder="${h(t('rqWhoPh'))}" required>
         <datalist id="dl-rq">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist></label>
+      <label class="wide rq-addr">${h(t('rcAddr'))}<textarea name="addr" rows="3" dir="ltr" placeholder="${h(t('rcAddrFreePh'))}"></textarea></label>
       <div class="grid">
         <label>${h(t('amount'))} ($) *<input name="amount" type="number" min="0.01" step="0.01" dir="ltr" required></label>
         <label>${h(t('dateLegend'))}<input name="date" type="date" value="${today}"></label>
@@ -697,6 +755,9 @@ export function openQuickReceipt(org0 = '', done = null) {
       $('.rq-for-sale', dlg).hidden = kind !== 'sale';
     };
   });
+  // א מענטש פון דער ליסטע — דער אדרעס קומט פון כרטיס (מ'קען אים טוישן אינעם טופס); אנדערש — מ'שרייבט אים
+  const syncWho = () => { $('.rq-addr', dlg).hidden = /\(#\d+\)/.test(el('who').value); };
+  el('who').addEventListener('input', syncWho);
   el('method').onchange = () => {
     $('.rq-check', dlg).hidden = el('method').value !== "צ'ק";
     $('.rq-card', dlg).hidden = el('method').value !== 'כרטיס אשראי';
@@ -739,7 +800,9 @@ export function openQuickReceipt(org0 = '', done = null) {
       const det = orgDetailsOf(effectiveOrg(dd));
       if (!det || !det.legal_name) { ui.toast(t('rcMissingDetails', { org: effectiveOrg(dd) }), 'error'); openOrgDetails(effectiveOrg(dd)); return; }
       if (done) done();
-      openReceiptForm({ kind: 'receipt', org: effectiveOrg(dd), contact_id: dd.contact_id || '', donor_name: dd.contact_id ? '' : dd.donor_name, ids: [String(id)], amount, period: '', list: [dd] },
+      const freeAddr = !ct && el('addr').value.trim() ? { mode: 'free', text: el('addr').value.trim() } : null;
+      openReceiptForm({ kind: 'receipt', org: effectiveOrg(dd), contact_id: dd.contact_id || '', donor_name: dd.contact_id ? '' : dd.donor_name, ids: [String(id)], amount, period: '', list: [dd],
+        ...(freeAddr ? { meta: { type: sale ? 'sale' : 'donation', sig: { mode: 'org' }, addr: freeAddr } } : {}) },
         { forText: sale ? '' : el('for').value.trim(), done });
     } catch (err) { ui.toast(ui.friendlyError(err), 'error'); btn.disabled = false; }
   };
@@ -761,7 +824,7 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
   const st0 = c0.meta && Object.keys(c0.meta).length ? c0.meta : defaultMeta(c0);
   const F = {
     type: st0.type || 'donation', tax: Boolean(st0.tax), taxRate: Number(st0.taxRate) || rate0, sig: st0.sig || { mode: 'org' },
-    list: [...c0.list], lines: { ...(st0.lines || {}) }, letter,
+    list: [...c0.list], lines: { ...(st0.lines || {}) }, letter, addr: st0.addr || lastAddr(c0.contact_id),
   };
   const mine = mySigObj();
   const sameWho = (d) => (c0.contact_id ? String(d.contact_id) === String(c0.contact_id) : !d.contact_id && String(d.donor_name || '').trim() === String(c0.donor_name || '').trim());
@@ -776,7 +839,7 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
     const amount = F.type === 'sale' && F.tax ? base + Math.round(base * F.taxRate) / 100 : base;
     return {
       ...c0, list: F.list, ids: F.list.map((d) => String(d.donation_id)), amount, forText: F.list.length === 1 ? forText : '',
-      meta: { type: F.type, tax: F.type === 'sale' && F.tax, taxRate: F.taxRate, sig: F.sig, lines: F.lines },
+      meta: { type: F.type, tax: F.type === 'sale' && F.tax, taxRate: F.taxRate, sig: F.sig, lines: F.lines, ...(F.addr ? { addr: F.addr } : {}) },
     };
   };
   const sigSel = (m) => (F.sig.mode === m ? ' selected' : '');
@@ -808,6 +871,7 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
           ${others().length ? `<label class="rxf-add">+ ${h(t('rcAddDonation'))} <select id="rxf-add"><option value=""></option>${others().map((d) => `<option value="${h(d.donation_id)}">${h(paidDate(d))} · ${money(d.amount_usd)} · ${h(descText(d))}</option>`).join('')}</select></label>`
             : `<p class="muted small">${h(t('rcNoMore'))}</p>`}
           <p class="rxf-total"><b>${h(t('rcTotal'))}: ${money(tot)}</b> <span class="muted small" dir="ltr">${h(amountWords(tot))}</span></p>
+          ${addrPickerHtml(c0.contact_id, F.addr)}
           <label>${h(t('wrSignature'))} <select id="rxf-sig">
             <option value="org"${sigSel('org')}>${h(t('rcSigOrg'))}</option>
             <option value="mine"${sigSel('mine')}${mine ? '' : ' disabled'}>${h(t('wrMySig'))}${mine ? '' : ` (${h(t('wrSigNone'))})`}</option>
@@ -838,6 +902,7 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
     $$('[data-gv]', dlg).forEach((el) => { el.onchange = () => { keepLine(Number(el.dataset.gv), 'goods_value', el.value === '' ? '' : Number(el.value)); render(); }; });
     $$('[data-rm]', dlg).forEach((b) => { b.onclick = () => { F.list.splice(Number(b.dataset.rm), 1); render(); }; });
     $('#rxf-add', dlg)?.addEventListener('change', (e) => { const d = state.donations.find((x) => String(x.donation_id) === e.target.value); if (d) { F.list.push(d); F.list.sort((a, b) => paidDate(a).localeCompare(paidDate(b))); } render(); });
+    wireAddrPicker(dlg, F, render);
     $('#rxf-sig', dlg).onchange = (e) => {
       const m = e.target.value;
       F.sig = m === 'mine' ? { mode: 'mine', sig: mine } : m === 'temp' ? { mode: 'temp', sig: { type: 'text', text: '', font: 'Playpen Sans Hebrew' } } : { mode: m };
@@ -1130,7 +1195,7 @@ export function openInvoiceForm(c0, { done = null } = {}) {
   if (prior) c0 = prior;
   const locked = Boolean(prior);
   const M0 = c0.meta || {};
-  const F = { list: [...(c0.list || [])], manual: [...(M0.manual || [])], due: M0.due || '', note: M0.note || '', who: c0.contact_id || '' };
+  const F = { list: [...(c0.list || [])], manual: [...(M0.manual || [])], due: M0.due || '', note: M0.note || '', who: c0.contact_id || '', addr: M0.addr || lastAddr(c0.contact_id) };
   const sameWho = (d) => (F.who ? String(d.contact_id) === String(F.who) : false);
   const others = () => state.donations.filter((d) => sameWho(d) && effectiveOrg(d) === c0.org && !isTrue(d.is_paid)
     && !F.list.some((x) => String(x.donation_id) === String(d.donation_id)))
@@ -1138,7 +1203,7 @@ export function openInvoiceForm(c0, { done = null } = {}) {
   const docOf = () => {
     const c = {
       ...c0, kind: 'invoice', contact_id: F.who || c0.contact_id || '', list: F.list, ids: F.list.map((d) => String(d.donation_id)),
-      meta: { manual: F.manual.filter((x) => String(x.desc || '').trim() || Number(x.amount)), due: F.due, note: F.note },
+      meta: { manual: F.manual.filter((x) => String(x.desc || '').trim() || Number(x.amount)), due: F.due, note: F.note, ...(F.addr ? { addr: F.addr } : {}) },
     };
     c.amount = invTotal(c);
     // שורות מיט דער האנט: יעדער Invoice באזונדער (נישט דער זעלבער ווי א פריערדיגער)
@@ -1169,6 +1234,7 @@ export function openInvoiceForm(c0, { done = null } = {}) {
             <button type="button" class="btn small-btn" id="ivf-line">+ ${h(t('ivAddLine'))}</button>
           </div>
           <p class="rxf-total"><b>${h(t('rcTotal'))}: ${usd(c.amount)}</b></p>
+          ${addrPickerHtml(F.who || c0.contact_id, F.addr)}
           <label>${h(t('ivDue'))} <input type="date" id="ivf-due" value="${h(F.due)}"></label>
           <label>${h(t('ivNote'))} <input id="ivf-note" dir="auto" value="${h(F.note)}"></label>
         </div>
@@ -1190,6 +1256,7 @@ export function openInvoiceForm(c0, { done = null } = {}) {
     $$('[data-ma]', dlg).forEach((el) => { el.onchange = () => { F.manual[Number(el.dataset.ma)].amount = el.value === '' ? '' : Number(el.value); render(); }; });
     $('#ivf-add', dlg)?.addEventListener('change', (e) => { const d = state.donations.find((x) => String(x.donation_id) === e.target.value); if (d) F.list.push(d); render(); });
     $('#ivf-line', dlg)?.addEventListener('click', () => { F.manual.push({ desc: '', amount: '' }); render(); });
+    wireAddrPicker(dlg, F, render);
     $('#ivf-due', dlg)?.addEventListener('change', (e) => { F.due = e.target.value; render(); });
     $('#ivf-note', dlg)?.addEventListener('change', (e) => { F.note = e.target.value.trim(); render(); });
     const go = async (mode) => {

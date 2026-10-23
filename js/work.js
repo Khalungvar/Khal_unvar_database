@@ -8,10 +8,10 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 export const ROLES = ['owner', 'manager', 'employee'];
 const roleLabel = (r) => (ROLES.includes(r) ? t(`work_${r}`) : '');
-const EXTRAS = [['ph', '📞', 'tel'], ['em', '✉', 'email'], ['web', '🌐', 'url'], ['role', '👤', '']];
+const EXTRAS = [['ph', '📞', 'tel'], ['em', '✉', 'email'], ['web', '🌐', 'url'], ['ad', '📍', 'text'], ['role', '👤', '']];
 
 export function workOf(c) {
-  try { const v = JSON.parse(String(c?.work || '') || '[]'); return Array.isArray(v) ? v.filter((x) => x && (x.t || x.ph || x.em || x.web)) : []; } catch { return []; }
+  try { const v = JSON.parse(String(c?.work || '') || '[]'); return Array.isArray(v) ? v.filter((x) => x && (x.t || x.ph || x.em || x.web || x.ad)) : []; } catch { return []; }
 }
 export const workSearchText = (c) => workOf(c).map((x) => [x.t, x.em, x.web, roleLabel(x.role)].filter(Boolean).join(' ')).join(' ');
 
@@ -24,7 +24,8 @@ export function workCardHtml(c) {
       <b dir="auto">${h(x.t || '')}</b>${x.role ? ` <span class="muted">· ${h(roleLabel(x.role))}</span>` : ''}
       ${x.ph ? `<a href="tel:${h(String(x.ph).replace(/[^\d+]/g, ''))}" dir="ltr">📞 ${h(x.ph)}</a>` : ''}
       ${x.em ? `<a href="mailto:${h(x.em)}" dir="ltr">✉ ${h(x.em)}</a>` : ''}
-      ${x.web ? `<a href="${h(webHref(x.web))}" target="_blank" rel="noopener" dir="ltr">🌐 ${h(x.web)}</a>` : ''}</div>`).join('')}</section>`;
+      ${x.web ? `<a href="${h(webHref(x.web))}" target="_blank" rel="noopener" dir="ltr">🌐 ${h(x.web)}</a>` : ''}
+      ${x.ad ? `<span dir="ltr">📍 ${h(x.ad)}</span>` : ''}</div>`).join('')}</section>`;
 }
 
 // ---------- טופס ----------
@@ -34,7 +35,7 @@ function extraField(k, x) {
     return `<span class="work-x" data-k="role">👤 <select>${['', ...ROLES].map((r) => `<option value="${r}"${r === v ? ' selected' : ''}>${h(r ? roleLabel(r) : '—')}</option>`).join('')}</select><button type="button" class="linkish work-del" title="✕">✕</button></span>`;
   }
   const [, icon, type] = EXTRAS.find(([kk]) => kk === k);
-  return `<span class="work-x" data-k="${k}">${icon} <input type="${type}" dir="ltr" value="${h(v)}"><button type="button" class="linkish work-del" title="✕">✕</button></span>`;
+  return `<span class="work-x" data-k="${k}">${icon} <input type="${type}" dir="ltr" value="${h(v)}"${k === 'ad' ? ` placeholder="${h(t('work_ad_ph'))}" class="work-ad"` : ''}><button type="button" class="linkish work-del" title="✕">✕</button></span>`;
 }
 function itemHtml(x = {}) {
   return `<div class="work-item">
@@ -85,6 +86,6 @@ export function readWorkForm(form, original) {
     const x = { t: $('.work-t', it).value.trim() };
     $$('.work-x', it).forEach((f) => { const v = ($('input, select', f).value || '').trim(); if (v) x[f.dataset.k] = v; });
     return x;
-  }).filter((x) => x.t || x.ph || x.em || x.web);
+  }).filter((x) => x.t || x.ph || x.em || x.web || x.ad);
   return out.length ? JSON.stringify(out) : '';
 }

@@ -1884,3 +1884,15 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .rq-form { display: flex; flex-direction: column; gap: 8px; }
 .rq-form label { display: flex; flex-direction: column; gap: 3px; }
 .rq-form .seg { align-self: flex-start; }
+/* דף הקבלות: שני טורים + חיפוש */
+.rc-search { margin: 8px 0; }
+.rc-search input { width: 100%; max-width: 520px; font-size: 16px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); }
+.rc-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .rc-cols { grid-template-columns: 1fr; } }
+.rc-col { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0; overflow-x: auto; }
+.rc-colh { margin: 0 0 8px; color: var(--accent); font-size: 17px; }
+.rc-col .rc-actions { flex-wrap: wrap; }
+.rc-issued td { font-size: 13px; }
+.rxf-addr select { max-width: 100%; }
+#rxf-addrtxt { width: 100%; font-family: inherit; }
+.work-ad { min-width: 260px; }
