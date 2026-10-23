@@ -123,6 +123,10 @@ export function defaultOrg() {
   return s && s.type !== 'area' ? s.value || '' : '';
 }
 
+/** "עמותות" (MHGI, CLNH...): נאר פאר קבלות — נישט קיין טעג, נישט קיין רשימה; זייערע סכומים זענען נישט אין די כללי'דיגע סיכומים */
+export const entityOrgs = () => (state.lists.entity_org || []).filter(Boolean);
+export const isEntityOrg = (org) => entityOrgs().includes(String(org || ''));
+
 /** שם ארגון הגג (כלל מוסדות אונגוואר) — מלשונית Lists, עמודה umbrella_org. */
 export function umbrellaName() {
   return (state.lists.umbrella_org || [])[0] || 'כלל מוסדות אונגוואר';

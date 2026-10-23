@@ -9,7 +9,7 @@ import { state, loadAll, saveSavedList, deleteSavedList, displayName, saveRecord
 import { t } from './i18n.js';
 import { isTrue, isAlive, escapeHtml as h, mailingName, digits, nowStamp } from './util.js';
 import { todayIso } from './hebdate.js';
-import { effectiveOrg, getScope, NO_AREA, ORG_TYPES } from './scope.js';
+import { effectiveOrg, getScope, NO_AREA, ORG_TYPES, isEntityOrg } from './scope.js';
 import { allCampaigns } from './campaigns.js';
 import { downloadXlsx } from './excel.js';
 import { openCompose } from './mail.js';
@@ -552,7 +552,7 @@ function detailCols() {
     ['wife_mobile', t('L2wifeMobile'), (r) => P(r).wife_mobile || ''], ['other_phone', t('L2otherPhone'), (r) => P(r).other_phone || ''],
     ['email', t('colEmail'), (r) => P(r).email_1 || ''], ['email2', 'Email 2', (r) => P(r).email_2 || ''], ['marital', t('marital'), (r) => r.c.marital_status || ''],
     ['tags', t('tgTitle'), (r) => (r.ext ? '' : linesOf(r.c).filter((l) => GROUPS.includes(l.g)).map((l) => l.title).join(', '))],
-    ['don_total', t('colDonTotal'), (r) => (r.ext ? '' : money((state.donations || []).filter((d) => String(d.contact_id) === r.key).reduce((s, d) => s + Number(d.amount_usd || 0), 0)))],
+    ['don_total', t('colDonTotal'), (r) => (r.ext ? '' : money((state.donations || []).filter((d) => String(d.contact_id) === r.key && !isEntityOrg(effectiveOrg(d))).reduce((s, d) => s + Number(d.amount_usd || 0), 0)))],
     ['id', '#', (r) => (r.ext ? '' : r.key)],
   ];
 }

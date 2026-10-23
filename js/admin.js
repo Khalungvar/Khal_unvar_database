@@ -33,6 +33,7 @@ const GROUPS = [
     { cols: ['kollel'], label: 'orgKollel' },
     { cols: ['organization'], label: 'orgOrganization' },
     { cols: ['school_org'], label: 'admSchoolOrgs' },
+    { cols: ['entity_org'], label: 'admEntities' },
   ] },
   { title: 'admTags', lists: [
     { cols: ['community_tag'], label: 'admCommunityTags' },
@@ -70,7 +71,7 @@ function usage(col, value) {
   const count = (arr, fn) => arr.filter(fn).length;
   const inTags = (v) => splitTags(v).includes(value);
   switch (col) {
-    case 'umbrella_org': return count(state.donations, (d) => d.org === value) + count(state.campaigns, (c) => c.org === value);
+    case 'umbrella_org': case 'entity_org': return count(state.donations, (d) => d.org === value) + count(state.campaigns, (c) => c.org === value) + count(state.receipts || [], (r) => r.org === value);
     case 'beis_medrash': case 'kollel': case 'organization':
       return count(state.contacts, (c) => inTags(c[col])) + count(state.donations, (d) => d.org === value)
         + count(state.campaigns, (c) => c.org === value);

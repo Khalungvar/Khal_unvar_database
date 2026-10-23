@@ -824,6 +824,8 @@ export const HE = {
   "wrPageOf": "עמוד {i} מתוך {n}",
   "wrWords": "{n} מילים",
   "wrWriteOnPage": "את הטקסט כותבים ישר על הדף, כמו בוורד.",
+  "admEntities": "עמותות (רק לקבלות)",
+  "entityTag": "עמותה",
   "rcfEinUm": "ה-EIN של כלל מוסדות אונגוואר ({ein})",
   "rcfEinOwnPh": "EIN משלו (ריק = בלי EIN)",
   "rcS8": "⑦ Invoice",

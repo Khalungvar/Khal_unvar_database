@@ -8,7 +8,7 @@ import {
   parseHebrewText, todayIso, hebrewNumber,
 } from './hebdate.js';
 import {
-  campaignOrg, effectiveOrg, donationInScope, defaultOrg, umbrellaName,
+  campaignOrg, effectiveOrg, donationInScope, defaultOrg, umbrellaName, entityOrgs, isEntityOrg,
 } from './scope.js';
 import { downloadXlsx } from './excel.js';
 import { submitRequest } from './requests.js';
@@ -52,7 +52,7 @@ function contactName(id) {
 const ORG_LISTS = [['beis_medrash', 'orgBeisMedrash'], ['kollel', 'orgKollel'], ['organization', 'orgOrganization']];
 
 function allOrgs() {
-  return [umbrellaName(), ...ORG_LISTS.flatMap(([name]) => state.lists[name] || [])];
+  return [umbrellaName(), ...ORG_LISTS.flatMap(([name]) => state.lists[name] || []), ...entityOrgs()];
 }
 
 /** <select> עם כל הארגונים, מחולק לפי ביהמ"ד / כולל / ארגון. */
@@ -62,7 +62,7 @@ export function orgSelect(name, value, extra = '') {
   return `<select name="${name}" ${extra}><option value=""></option><optgroup label="${h(t('umbrellaGroup'))}"><option${u === value ? ' selected' : ''}>${h(u)}</option></optgroup>${ORG_LISTS.map(([list, label]) => {
     const vals = state.lists[list] || [];
     return vals.length ? `<optgroup label="${h(t(label))}">${vals.map((v) => `<option${v === value ? ' selected' : ''}>${h(v)}</option>`).join('')}</optgroup>` : '';
-  }).join('')}${value && !known.includes(value) ? `<option selected>${h(value)}</option>` : ''}</select>`;
+  }).join('')}${entityOrgs().length ? `<optgroup label="${h(t('admEntities'))}">${entityOrgs().map((v) => `<option value="${h(v)}"${v === value ? ' selected' : ''}>${h(v)} · ${h(t('entityTag'))}</option>`).join('')}</optgroup>` : ''}${value && !known.includes(value) ? `<option selected>${h(value)}</option>` : ''}</select>`;
 }
 
 
@@ -150,8 +150,9 @@ export function donationRow(d, withName = true) {
 export function renderDonations() {
   if (!$('#don-list')) return;
   const list = visibleDonations();
-  const total = list.reduce((s, d) => s + Number(d.amount_usd || 0), 0);
-  const open = list.filter((d) => !isTrue(d.is_paid)).reduce((s, d) => s + Number(d.amount_usd || 0), 0);
+  const sumList = $('#don-org')?.value ? list : list.filter((d) => !isEntityOrg(effectiveOrg(d)));
+  const total = sumList.reduce((s, d) => s + Number(d.amount_usd || 0), 0);
+  const open = sumList.filter((d) => !isTrue(d.is_paid)).reduce((s, d) => s + Number(d.amount_usd || 0), 0);
   $('#don-summary').innerHTML = `${h(t('donCount', { n: list.length }))} · ${h(t('donTotal'))} <b>${money(total)}</b>`
     + (open ? ` · ${h(t('donOpen'))} <b class="unpaid-text">${money(open)}</b>` : '');
   $('#don-list').innerHTML = list.length ? list.map((d) => donationRow(d)).join('')
@@ -163,7 +164,8 @@ export function donationsSection(c) {
   const mine = state.donations.filter((d) => String(d.contact_id) === String(c.contact_id))
     .filter(donationInScope)
     .sort((a, b) => String(b.date).localeCompare(String(a.date)));
-  const total = mine.reduce((s, d) => s + Number(d.amount_usd || 0), 0);
+  // עמותות (MHGI, CLNH...) — נישט אינעם סך הכל
+  const total = mine.filter((d) => !isEntityOrg(effectiveOrg(d))).reduce((s, d) => s + Number(d.amount_usd || 0), 0);
   return `<section class="card-donations">
     <h3>${t('donations')}${mine.length ? ` · ${money(total)}` : ''}</h3>
     <div class="list compact">${mine.map((d) => donationRow(d, false)).join('')}</div>

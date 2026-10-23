@@ -11,7 +11,7 @@ import { scopeOrgs, defaultOrg, yearlyOf } from './scope.js';
 import {
   money, orgSelect, donorName, donationRow, openDonationForm, openBulk, exportDonations,
 } from './donations.js';
-import { donationInScope } from './scope.js';
+import { donationInScope, isEntityOrg, effectiveOrg } from './scope.js';
 import { downloadXlsx } from './excel.js';
 import { openReceipts } from './receipts.js';
 import { compareChartHtml, wireCompareChart, yearBarsHtml, compareToDate, deltaHtml } from './chart.js';
@@ -172,7 +172,7 @@ export function renderDonHub() {
   const groups = seriesList();
   const yearly = groups.filter((g) => g.kind === 'yearly');
   const once = groups.filter((g) => g.kind !== 'yearly');
-  const recent = state.donations.filter(donationInScope)
+  const recent = state.donations.filter(donationInScope).filter((d) => !isEntityOrg(effectiveOrg(d)))
     .sort((a, b) => Number(b.donation_id || 0) - Number(a.donation_id || 0)).slice(0, 25);
   main.innerHTML = `<div class="camp-page-head hub-head">
       <h2>${h(t('hubTitle'))}</h2>

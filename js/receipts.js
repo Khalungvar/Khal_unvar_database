@@ -8,7 +8,7 @@ import {
 import { t } from './i18n.js';
 import { isTrue, escapeHtml as h, mailingName, splitTags, shrinkImage } from './util.js';
 import { isoToHebrewText } from './hebdate.js';
-import { effectiveOrg, umbrellaName } from './scope.js';
+import { effectiveOrg, umbrellaName, entityOrgs, isEntityOrg } from './scope.js';
 import { money, orgSelect } from './donations.js';
 import { allCampaigns } from './campaigns.js';
 import { downloadXlsx } from './excel.js';
@@ -47,7 +47,7 @@ export function openReceipts(preset = {}) {
 
 function allOrgs() {
   const lists = ['beis_medrash', 'kollel', 'organization'].flatMap((n) => state.lists[n] || []);
-  return [umbrellaName(), ...lists].filter(Boolean);
+  return [umbrellaName(), ...lists, ...entityOrgs()].filter(Boolean);
 }
 
 const paidDate = (d) => String(d.paid_date || d.date || '').slice(0, 10);
@@ -113,7 +113,7 @@ export function renderReceipts() {
       ${f.kind === 'campaign'
         ? `<label>${h(t('xlCampaign'))} <select id="rc-campaign"><option value=""></option>${camps.map((c) => `<option${c.name === f.campaign ? ' selected' : ''}>${h(c.name)}</option>`).join('')}</select></label>
            <span class="muted">${f.org ? `${h(t('forOrg'))}: <b>${h(f.org)}</b>` : ''}</span>`
-        : `<label>${h(t('forOrg'))} <select id="rc-org">${orgs.map((o) => `<option${o === f.org ? ' selected' : ''}>${h(o)}</option>`).join('')}</select></label>`}
+        : `<label>${h(t('forOrg'))} <select id="rc-org">${orgs.map((o) => `<option value="${h(o)}"${o === f.org ? ' selected' : ''}>${h(o)}${isEntityOrg(o) ? ` · ${h(t('entityTag'))}` : ''}</option>`).join('')}</select></label>`}
       ${f.kind === 'receipt' ? `<label>${h(t('rcFrom'))} <input type="date" id="rc-from" value="${h(f.from)}"></label><label>${h(t('rcTo'))} <input type="date" id="rc-to" value="${h(f.to)}"></label>` : ''}
       ${f.kind === 'year' ? `<label>${h(t('rcTaxYear'))} <select id="rc-year">${years.map((y) => `<option${y === f.year ? ' selected' : ''}>${y}</option>`).join('')}</select></label>` : ''}
       <span class="rc-who">${h(t('rcWho'))}
@@ -1016,7 +1016,7 @@ export function invoiceHtml(c) {
     <div class="iv-body">
     <table class="iv-table no-sort"><thead><tr><th>Description</th><th class="amt">Amount</th></tr></thead>
       <tbody>${lines.map((l) => `<tr><td><bdi dir="auto">${h(l.desc)}</bdi>${l.date ? ` <span class="iv-date">${h(shortDateEn(l.date))}</span>` : ''}</td><td class="amt">${usd(l.amount)}</td></tr>`).join('')}
-      ${'<tr><td>&nbsp;</td><td></td></tr>'.repeat(fill)}</tbody></table>
+      ${'<tr><td>&nbsp;</td><td class="amt"></td></tr>'.repeat(fill)}</tbody></table>
     <div class="iv-due"><div class="iv-lbl">AMOUNT DUE</div><div class="iv-dueval"><span>$</span>${(total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></div>
     <div class="iv-words">${h(amountWords(total))}</div>
     ${M.note ? `<div class="iv-note"><bdi dir="auto">${h(M.note)}</bdi></div>` : ''}
