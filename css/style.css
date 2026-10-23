@@ -2113,3 +2113,11 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .fc-cldlg .fc-shots { max-height: 65vh; overflow: auto; }
 .fc-cldlg .fc-shots img { width: 150px; height: 150px; }
 .fc-cldlg .fc-shots figcaption { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-card { position: relative; }
+.fc-gn { position: absolute; top: 6px; inset-inline-start: 6px; background: rgba(20,20,20,.72); color: #fff; border-radius: 10px; padding: 1px 7px; font-size: .8em; pointer-events: none; }
+.fc-gal { margin: 8px 0 10px; }
+.fc-galrow { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 4px; }
+.fc-galrow figure { position: relative; margin: 0; text-align: center; }
+.fc-galrow img { width: 120px; height: 120px; object-fit: cover; border-radius: 8px; background: #eee; }
+.fc-galrow figcaption { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-galrow .fc-split { font-size: .75em; padding: 2px 6px; }

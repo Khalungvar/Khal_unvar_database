@@ -601,6 +601,9 @@ function clusterDialog(ev, scan, cl) {
   document.body.append(dlg);
   dlg.addEventListener('close', () => dlg.remove());
   let split = 0;
+  // א סריקה פון פריער (אן שליסלען) — מ'קען אויך אפטיילן
+  cl.shots.forEach((x, i) => { if (!x.k) x.k = `o${cl.id}_${i}`; });
+  const isOld = !cl.shots.some((x) => x.emb);
   const draw = () => {
     const more = cl.count - cl.shots.length;
     dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button>
@@ -609,7 +612,7 @@ function clusterDialog(ev, scan, cl) {
       <div class="fc-shots">${cl.shots.map((s) => `<figure><img src="${s.img}" alt="">
         ${cl.shots.length > 1 && s.k ? `<button type="button" class="fc-split" data-k="${h(s.k)}" title="${h(t('fcSplitTip'))}">✕ ${h(t('fcSplit'))}</button>` : ''}
         <figcaption class="muted small" dir="ltr">${s.t >= 0 ? '🎬' : '📷'} ${h(s.file)}${s.t >= 0 ? ` · ${fmtT(s.t)}` : ''}</figcaption></figure>`).join('')}</div>
-      ${more > 0 ? `<p class="muted small">${h(t('fcMoreSame', { n: more }))}</p>` : ''}
+      ${more > 0 ? `<p class="${isOld ? 'fc-msg' : 'muted small'}">${h(t(isOld ? 'fcMoreOld' : 'fcMoreSame', { n: more }))}</p>` : ''}
       <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>${h(t('close'))}</button></div>`;
     $$('[data-x]', dlg).forEach((x) => { x.onclick = () => dlg.close(); });
   };
@@ -713,6 +716,26 @@ function upButton(scan) {
   $('span', b).textContent = t('fcUpload', { n });
 }
 let uploading = false;
+// ---------- אלע בילדער פון א מענטש אין דער שורה (more) — צו זען און אפטיילן ביים דערקענען ----------
+const MORE_MAX = 12;
+/** { a: [{ i: בילד, s: "טעקע|צייט", k: שליסל }], x: [אפגעטיילטע שליסלען] } */
+function moreOf(row) {
+  try { const m = JSON.parse(row?.more || ''); return { a: Array.isArray(m?.a) ? m.a : [], x: Array.isArray(m?.x) ? m.x : [] }; } catch { return { a: [], x: [] }; }
+}
+const moreStr = (items, x) => (items.length > 1 || x.length ? JSON.stringify({ a: items.length > 1 && items.every((it) => isDrv(it.i)) ? items : [], x }) : '');
+/** די בילדער פאר דער שורה: וואס איז שוין ארויף — נישט נאכאמאל */
+async function moreFor(cl, prev = { a: [], x: [] }) {
+  const have = new Map(prev.a.filter((x) => x.k).map((x) => [x.k, x.i]));
+  const list = cl.shots.filter((s) => !s.k || !prev.x.includes(s.k)).slice(0, MORE_MAX);
+  const a = [];
+  for (const s of list) {
+    // eslint-disable-next-line no-await-in-loop
+    const i = (s.k && have.get(s.k)) || await storeImage(await smallJpeg(s.img), 'face');
+    a.push({ i, s: `${s.file}|${s.t}`, k: s.k || '' });
+  }
+  return { list, a };
+}
+const embsFor = (cl, list) => { const e = list.filter((x) => x.emb).slice(0, 3).map((x) => x.emb); return e.length ? e : cl.embs.slice(0, 3); };
 const faceIdOf = (ev, scan, cl) => `${ev.event_id}-${scan.sid || 's'}-${cl.id}`;
 /** די געפינענע פנים → דרייב + לשונית FaceShots, אז אלע גבאים זאלן קענען דערקענען.
  *  bg = בשעת'ן סקענען (שטיל); final = צום סוף: אויך בילדער וואס זענען שפעטער געווארן בעסער ווערן דערהיינטיגט */
@@ -729,12 +752,11 @@ async function uploadScan(ev, say, { bg = false, final = false } = {}) {
       const part = todo.slice(i, i + 8);
       // eslint-disable-next-line no-await-in-loop
       const rows = await Promise.all(part.map(async (cl) => {
-        const [a, b] = cl.shots;
-        const img = await storeImage(await smallJpeg(a.img), 'face');
-        const img2 = b ? await storeImage(await smallJpeg(b.img), 'face') : '';
+        const { list, a: items } = await moreFor(cl);
+        const a = list[0] || cl.shots[0];
         return {
-          face_id: faceIdOf(ev, scan, cl), event_id: ev.event_id, img, img2, emb: q8Encode(cl.embs.slice(0, 3)),
-          status: '', contact_id: '', src: `${a.file}|${a.t}`, count: cl.count, quality: Math.round(a.q),
+          face_id: faceIdOf(ev, scan, cl), event_id: ev.event_id, img: items[0]?.i || '', img2: items[1]?.i || '', emb: q8Encode(embsFor(cl, list)),
+          status: '', contact_id: '', src: `${a.file}|${a.t}`, count: cl.count, quality: Math.round(a.q), more: moreStr(items, []),
         };
       }));
       // eslint-disable-next-line no-await-in-loop
@@ -754,12 +776,14 @@ async function uploadScan(ev, say, { bg = false, final = false } = {}) {
         for (const cl of better) {
           const row = (state.faceShots || []).find((x) => String(x.face_id) === faceIdOf(ev, scan, cl));
           if (!row || row.status) { cl.upQ = cl.shots[0].q; cl.upN = cl.count; continue; }
-          const imgChanged = cl.shots[0].q > (cl.upQ || 0) * 1.25;
-          const [a, b] = cl.shots;
+          // די בילדער (ביז 12) — אחוץ די וואס מ'האט שוין אפגעטיילט ביים דערקענען ("נישט ער")
+          const prev = moreOf(row);
           // eslint-disable-next-line no-await-in-loop
-          const patch = imgChanged ? { img: await storeImage(await smallJpeg(a.img), 'face'), img2: b ? await storeImage(await smallJpeg(b.img), 'face') : '', src: `${a.file}|${a.t}`, quality: Math.round(a.q), emb: q8Encode(cl.embs.slice(0, 3)) } : {};
+          const { list, a: items } = await moreFor(cl, prev);
+          const a = list[0] || cl.shots[0];
+          const patch = { img: items[0]?.i || row.img, img2: items[1]?.i || '', src: `${a.file}|${a.t}`, quality: Math.round(a.q), emb: q8Encode(embsFor(cl, list)), more: moreStr(items, prev.x) };
           // eslint-disable-next-line no-await-in-loop
-          await updateFaceShot({ ...row, ...patch, count: cl.count });
+          await updateFaceShot({ ...row, ...patch, count: Math.max(1, cl.count - prev.x.length) });
           cl.upQ = cl.shots[0].q; cl.upN = cl.count; upd += 1;
         }
         await saveScan(ev.event_id, scan);
@@ -921,6 +945,63 @@ function suggest(face) {
 }
 const faceImg = (s, k = 'img') => imageOf(s[k]) || (String(s[k] || '').startsWith('data:') ? s[k] : '');
 const nameOf = (cid) => { const c = ui.contactById(cid); return c ? ui.fullNameHe(c) : `#${cid}`; };
+/** אלע בילדער פון א פנים (פון "more"; ביי אלטע שורות — img + img2) */
+function galOf(s) {
+  const m = moreOf(s);
+  if (m.a.length) return m.a;
+  return [s.img, s.img2].filter(Boolean).map((i, n) => ({ i, s: n ? '' : s.src, k: '' }));
+}
+const loadImg = (src) => new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
+/** די טביעה פון איין בילד (דער מאטאר איז שוין געלאדן ביים דערקענען) */
+async function embOfImg(ref) {
+  const data = imageOf(ref) || (String(ref || '').startsWith('data:') ? ref : '');
+  if (!data || !T.human) return null;
+  const im = await loadImg(data);
+  if (!im) return null;
+  const pick = (r) => (r.face || []).filter((x) => x.embedding?.length).sort((a, b) => b.box[2] * b.box[3] - a.box[2] * a.box[3])[0];
+  let f = pick(await T.human.detect(im));
+  if (!f) {
+    // א פנים וואס פילט אויס דאס גאנצע בילד — מיט א ראנד ארום געפינט מען עס בעסער
+    const side = Math.round(Math.max(im.width, im.height) * 1.7);
+    const c = document.createElement('canvas'); c.width = side; c.height = side;
+    const g = c.getContext('2d'); g.fillStyle = '#808080'; g.fillRect(0, 0, side, side);
+    g.drawImage(im, (side - im.width) / 2, (side - im.height) / 2);
+    f = pick(await T.human.detect(c));
+  }
+  return f ? Float32Array.from(f.embedding) : null;
+}
+/** "נישט ער": איין בילד פון א פנים ווערט א באזונדערער פנים (צו דערקענען באזונדער) */
+async function splitFace(ev, face, n) {
+  const gal = galOf(face);
+  const it = gal[n];
+  if (!it || gal.length < 2) return;
+  const m = moreOf(face);
+  const rest = gal.filter((_, j) => j !== n);
+  const e1 = await embOfImg(it.i);
+  const restE = [];
+  for (const r of rest.slice(0, 3)) {
+    // eslint-disable-next-line no-await-in-loop
+    const e = await embOfImg(r.i);
+    if (e) restE.push(e);
+  }
+  const nf = { face_id: `${face.face_id}-x${Date.now().toString(36)}`, event_id: face.event_id, img: it.i, img2: '', emb: e1 ? q8Encode([e1]) : '', status: '', contact_id: '', src: it.s || '', count: 1, quality: '', more: '' };
+  await appendFaceShots([nf]);
+  const x = [...m.x, it.k || `i${n}`];
+  const upd = { ...face, img: rest[0].i, img2: rest[1]?.i || '', src: rest[0].s || face.src, count: Math.max(1, (Number(face.count) || 1) - 1), more: JSON.stringify({ a: rest.length > 1 ? rest : [], x }) };
+  if (restE.length && !isOk(face)) upd.emb = q8Encode(restE);
+  // שוין באשטעטיגט: דאס פרעמדע בילד ארויס פונעם "לערנען"
+  if (isOk(face) && face.contact_id) {
+    await unlearn(String(face.contact_id), String(face.face_id));
+    if (restE.length) { await learn(String(face.contact_id), restE, String(face.face_id)); upd.emb = q8Encode([restE[0]]); }
+  }
+  delete upd._row;
+  await updateFaceShot(upd);
+  embCache.delete(face);
+  Object.assign(face, upd);
+  (state.faceShots ||= []).push(nf);
+  if (T.human) { T.sugg.set(nf.face_id, suggest(nf)); if (!face.status) T.sugg.set(face.face_id, suggest(face)); }
+  scheduleSync(ev);
+}
 
 async function decide(ev, face, status, cid = '') {
   const was = { status: face.status, cid: String(face.contact_id || '') };
@@ -1012,7 +1093,8 @@ function tagCounts(ev) {
   return { total: shots.length, ok: shots.filter(isOk).length, skip: shots.filter((s) => s.status === 'skip').length };
 }
 function filtered(ev) {
-  const num = (x) => Number(String(x.face_id).split('-').pop()) || 0;
+  // event-sid-id, און אן אפגעטיילטער: event-sid-id-x… (גלייך נאך זיין "עלטערן")
+  const num = (x) => { const p = String(x.face_id).split('-'); return (Number(p[2] ?? p[1]) || 0) + (p[3] ? 0.5 : 0); };
   const shots = shotsOf(ev).sort((a, b) => num(a) - num(b));
   const f = T.filter;
   return shots.filter((s) => (f === 'all' ? true : f === 'ok' ? isOk(s) : f === 'skip' ? s.status === 'skip' : f === 'green' ? !s.status && T.sugg.get(s.face_id)?.lv === 'g' : !s.status));
@@ -1088,7 +1170,7 @@ function gridView(ev, list) {
   box.className = 'fc-grid';
   box.style.setProperty('--fc-size', `${T.size}px`);
   const card = (s) => `<div class="fc-card st-${s.status || 'wait'} lv-${T.sugg.get(s.face_id)?.lv || ''}" data-fid="${h(s.face_id)}">
-      <img src="${h(faceImg(s))}" alt="" loading="lazy" data-zoom="${h(s.face_id)}"><div class="fc-cbody">${controlsHtml(s)}</div></div>`;
+      <img src="${h(faceImg(s))}" alt="" loading="lazy" data-zoom="${h(s.face_id)}">${galOf(s).length > 1 ? `<span class="fc-gn" title="${h(t('fcGalTip'))}">🖼 ${galOf(s).length}</span>` : ''}<div class="fc-cbody">${controlsHtml(s)}</div></div>`;
   // ביי "ווארטן": אונטן — די וואס זענען שוין דערקענט (די לעצטע פריער), אז מ'זאל קענען פאררעכטן
   const done = T.filter === 'wait' || T.filter === 'green'
     ? shotsOf(ev).filter(isOk).sort((a, b) => String(b.decided_at || '').localeCompare(String(a.decided_at || ''))) : [];
@@ -1105,13 +1187,20 @@ function oneView(ev, list) {
   const sg = T.sugg.get(s.face_id);
   const cmp = sg?.top?.[0] ? T.photos.get(sg.top[0].cid) : '';
   const [file, tt] = String(s.src || '').split('|');
+  const gal = galOf(s);
+  const gImg = (it) => imageOf(it.i) || (String(it.i).startsWith('data:') ? it.i : '');
+  const galHtml = gal.length > 1 ? `<div class="fc-gal"><div class="muted small">${h(t('fcGalT', { n: gal.length }))}</div>
+      <div class="fc-galrow">${gal.map((it, n) => `<figure><img src="${h(gImg(it))}" alt="" data-gimg="${n}">
+        ${s.status !== 'skip' ? `<button type="button" class="fc-split" data-gsplit="${n}" title="${h(t('fcSplitTip'))}">✕ ${h(t('fcSplit'))}</button>` : ''}
+        ${it.s ? `<figcaption class="muted small" dir="ltr">${Number(String(it.s).split('|')[1]) >= 0 ? '🎬' : '📷'} ${h(String(it.s).split('|')[0])}</figcaption>` : ''}</figure>`).join('')}</div></div>` : '';
   box.innerHTML = `<div class="fc-onewrap">
       <button type="button" class="btn fc-nav" data-nav="-1" ${T.pos ? '' : 'disabled'}>›</button>
       <div class="fc-onemain">
         <div class="fc-onepics"><img class="fc-big" src="${h(faceImg(s))}" alt="">
-          <div class="fc-side">${faceImg(s, 'img2') ? `<figure><img src="${h(faceImg(s, 'img2'))}" alt=""><figcaption class="muted small">${h(t('fcOther'))}</figcaption></figure>` : ''}
+          <div class="fc-side">${gal.length <= 1 && faceImg(s, 'img2') ? `<figure><img src="${h(faceImg(s, 'img2'))}" alt=""><figcaption class="muted small">${h(t('fcOther'))}</figcaption></figure>` : ''}
             ${cmp ? `<figure><img src="${h(cmp)}" alt=""><figcaption class="muted small">${h(t('fcCardOf', { name: nameOf(sg.top[0].cid) }))}</figcaption></figure>` : ''}</div></div>
         <p class="muted small" dir="ltr">${Number(tt) >= 0 ? '🎬' : '📷'} ${h(file || '')}${Number(tt) >= 0 ? ` · ${fmtT(Number(tt))}` : ''} · ${h(t('fcSeenN', { n: s.count || 1 }))} · ${T.pos + 1}/${list.length}</p>
+        ${galHtml}
         <div class="fc-onectl" data-fid="${h(s.face_id)}">${controlsHtml(s, true)}
           ${isOk(s) && T.photos.has(String(s.contact_id)) && T.photos.get(String(s.contact_id)) !== faceImg(s) ? `<button type="button" class="linkish" data-setphoto="${h(s.face_id)}">🖼 ${h(t('fcSetPhoto'))}</button>` : ''}</div>
       </div>
@@ -1119,6 +1208,21 @@ function oneView(ev, list) {
   $$('[data-nav]', box).forEach((b) => { b.onclick = () => { T.pos += Number(b.dataset.nav); oneView(ev, list); }; });
   // נאך א באשלוס: ביי "ווארטן" פארשווינדט ער פון דער ליסטע (דער זעלבער פלאץ = דער קומענדיגער); אנדערש — ווייטער
   wireActions(ev, box, () => { if (T.filter === 'all' || T.filter === 'ok' || T.filter === 'skip') T.pos += 1; renderTag(ev); });
+  // אלע בילדער פון דעם מענטש: "נישט ער" → א באזונדערער פנים
+  $$('[data-gsplit]', box).forEach((b) => {
+    b.onclick = async (e) => {
+      e.stopPropagation();
+      if (b.disabled) return;
+      $$('[data-gsplit]', box).forEach((x) => { x.disabled = true; });
+      try { await splitFace(ev, s, Number(b.dataset.gsplit)); ui.toast(t('fcSplitDone')); renderTag(ev); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); $$('[data-gsplit]', box).forEach((x) => { x.disabled = false; }); }
+    };
+  });
+  const needImg = gal.map((it) => it.i).filter((i) => isDrv(i) && !imageOf(i));
+  if (needImg.length) {
+    fetchImages(needImg.map((x) => String(x).slice(4))).then(() => {
+      $$('[data-gimg]', box).forEach((im) => { const it = gal[Number(im.dataset.gimg)]; if (it && !im.getAttribute('src')) im.src = gImg(it); });
+    }).catch(() => {});
+  }
   const inp = $('.fc-in', box); inp?.focus();
   box.onkeydown = (e) => {
     if (e.target.matches('.fc-in')) return;
@@ -1180,10 +1284,18 @@ function newPersonDialog(ev, f, after) {
     <form autocomplete="off"><div class="grid">
       <label>${h(t('fcFirstHe'))} *<input name="fh" required dir="rtl"></label><label>${h(t('fcLastHe'))} *<input name="lh" required dir="rtl"></label>
       <label>First name<input name="fe" dir="ltr"></label><label>Last name<input name="le" dir="ltr"></label></div>
-      <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>${h(t('cancelBtn'))}</button><button type="submit" class="btn primary">${h(t('saveBtn'))}</button></div>
+      <p class="muted small">${h(t('fcNewPersonNote'))}</p>
+      <div class="actions"><button type="button" class="btn" id="fc-fullform">📋 ${h(t('fcFullForm'))}</button><span class="spacer"></span><button type="button" class="btn" data-x>${h(t('cancelBtn'))}</button><button type="submit" class="btn primary">${h(t('saveBtn'))}</button></div>
     </form></div>`;
   $$('[data-x]', dlg).forEach((x) => { x.onclick = () => dlg.close(); });
   const form = $('form', dlg);
+  // דער פולער טאפס פון א נייעם קאנטאקט (אדרעס, טעלעפאן, תגיות...) — נאכ'ן שפייכלערן ווערט דער פנים גלייך דערקענט
+  $('#fc-fullform', dlg).onclick = () => {
+    const el = (n) => form.elements[n].value.trim();
+    const pre = { first_name_he: el('fh'), last_name_he: el('lh'), first_name_en: el('fe'), last_name_en: el('le') };
+    dlg.close();
+    ui.openForm(pre, { onSaved: async (id) => { await decide(ev, f, 'ok', String(id)); after(); } });
+  };
   form.onsubmit = async (e) => {
     e.preventDefault();
     const el = (n) => form.elements[n].value.trim();

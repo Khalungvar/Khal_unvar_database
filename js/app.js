@@ -1449,7 +1449,8 @@ function wireFormFamily(form, c) {
   render();
 }
 
-function openForm(c = {}) {
+function openForm(c = {}, opts = {}) {
+  $('#contact-form')._onSaved = opts.onSaved || null; // למשל: פון "רשימות משתתפים" — דער נייער מענטש ווערט גלייך דערקענט
   const sc = getScope();
   if (!c.contact_id && sc?.value && !c[sc.type]) c = { ...c, [sc.type]: sc.value }; // אויך געגנט (area)
   const p = c.contact_id ? phonesOf(c) : {};
@@ -1848,6 +1849,8 @@ async function submit(form, original) {
     }
     await loadAll();
     if (!original.contact_id) { try { if (await linkPendingExt(id)) renderBuilder(); } catch { /* */ } }
+    const onSaved = form._onSaved; form._onSaved = null;
+    if (onSaved) { try { await onSaved(id); } catch (e2) { toast(friendlyError(e2), 'error'); } }
     renderList();
     $('#contact-form').dataset.dirty = '';
     $('#form-dialog').close();
@@ -1996,7 +1999,7 @@ function start() {
   initRequests({ toast, friendlyError, refreshAll, updateBadges, showView, openCard });
   initMerge({ contactById, fullNameHe, pickerLabel, fieldLabel, toast, friendlyError, refreshAll, openCard });
   initListSync({ toast, friendlyError, fullNameHe, refreshAll });
-  initFaces({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard });
+  initFaces({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard, openForm });
   initBooks({ showView, toast, friendlyError, contactById, fullNameHe, receiptFor: (d) => printForDonation(d), cancelDoc: (c) => cancelDoc(c), quickSale: (org, done) => openQuickReceipt(org, done, { sale: true }) });
   initSimchos({ showView, contactById, fullNameHe, pickerLabel, toast, friendlyError, refreshAll, openCard, openForm });
   initSchool({
