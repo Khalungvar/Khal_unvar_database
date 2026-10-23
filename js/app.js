@@ -36,6 +36,7 @@ import { initSms, openCalls, renderCalls, smsCardHtml, wireSmsCard } from './sms
 import { workCardHtml, workFormHtml, wireWorkForm, readWorkForm, workSearchText } from './work.js';
 import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, markChecked, hasRealTags, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
 import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
+import { initFaces, openFaces, renderFaces } from './faces.js';
 import { initBooks, openBooks, renderBooks, allBooks, BOOKS_ORG, BOOKS_LOGO } from './books.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount, parseOrgTags, splitEntry, entry } from './orgtags.js';
@@ -209,6 +210,7 @@ function renderLobby() {
       ${tile('receipts', '🧾', 'Invoice & Receipt', t('lobbyReceiptsSub'))}
     </div>
     <div class="lobby-row lobby-assoc">
+      ${tile('faces', '📸', t('fcTitle'), t('fcTileSub', { n: (state.faceEvents || []).length }))}
       ${tile('books', `<img class="tile-logo bk-tile-logo" src="${BOOKS_LOGO}" alt="">`, BOOKS_ORG, t('bkTileSub', { n: allBooks().length }))}
     </div>`;
 }
@@ -284,6 +286,7 @@ function lobbyClick(e) {
   if (key === 'calls') { enterScope(null); openCalls(); return; }
   if (key === 'personal') { document.body.classList.add('solo-mode'); openPersonal(); return; }
   if (key === 'receipts') { enterScope(null); document.body.classList.add('solo-mode'); openReceipts(); return; }
+  if (key === 'faces') { enterScope(null); document.body.classList.add('solo-mode'); openFaces(); return; }
   if (key === 'books') { enterScope(null); document.body.classList.add('solo-mode'); openBooks(); return; }
   // נדבות / לוח המאורעות: א באזונדערער בלאט פון אלע רעקארדס — אן די לשוניות
   if (key === 'donations' || key === 'occasions') {
@@ -327,6 +330,7 @@ function refreshAll() {
   if (!$('.view[data-view="school"]').hidden) renderSchool();
   if (!$('.view[data-view="simchos"]').hidden) renderSimchos();
   if (!$('.view[data-view="books"]').hidden) renderBooks();
+  if (!$('.view[data-view="faces"]').hidden) renderFaces();
   if ($('#card-dialog').open && currentCardId) openCard(currentCardId);
 }
 
@@ -353,6 +357,7 @@ function showView(name) {
   if (name === 'school') renderSchool();
   if (name === 'simchos') renderSimchos();
   if (name === 'books') renderBooks();
+  if (name === 'faces') renderFaces();
   renderListsSide();
   $('#btn-admin')?.classList.toggle('on', name === 'admin');
   renderCampaignSide();
@@ -1903,6 +1908,7 @@ function start() {
   initSms({ showView, fullNameHe, toast, friendlyError, openCard, pickerLabel });
   initRequests({ toast, friendlyError, refreshAll, updateBadges, showView, openCard });
   initMerge({ contactById, fullNameHe, pickerLabel, fieldLabel, toast, friendlyError, refreshAll, openCard });
+  initFaces({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel });
   initBooks({ showView, toast, friendlyError, contactById, fullNameHe, receiptFor: (d) => printForDonation(d), cancelDoc: (c) => cancelDoc(c), quickSale: (org, done) => openQuickReceipt(org, done, { sale: true }) });
   initSimchos({ showView, contactById, fullNameHe, pickerLabel, toast, friendlyError, refreshAll, openCard, openForm });
   initSchool({

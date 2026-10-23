@@ -84,7 +84,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts', 'Requests', 'Enrollments', 'Tuition', 'Simchos', 'SimchaIssues', 'TagTree', 'Books', 'BookMoves']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts', 'Requests', 'Enrollments', 'Tuition', 'Simchos', 'SimchaIssues', 'TagTree', 'Books', 'BookMoves', 'FaceEvents']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -169,6 +169,9 @@ export async function loadAll() {
   const bm = rowsToObjects(tabs.BookMoves || [['move_id']]);
   state.headers.BookMoves = bm.header;
   state.bookMoves = bm.objects.filter((x) => String(x.move_id || '').trim()).map((x) => ({ ...x, date: x.date ? isoDay(x.date) : '' }));
+  const fe = rowsToObjects(tabs.FaceEvents || [['event_id']]);
+  state.headers.FaceEvents = fe.header;
+  state.faceEvents = fe.objects.filter((x) => String(x.event_id || '').trim()).map((x) => ({ ...x, date: x.date ? isoDay(x.date) : '' }));
 
   const yearly = rowsToObjects(tabs.YearlyCampaigns || [['series']]);
   state.headers.YearlyCampaigns = yearly.header;
