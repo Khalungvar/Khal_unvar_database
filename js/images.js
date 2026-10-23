@@ -116,6 +116,8 @@ export async function resolveState(state) {
   const ids = [];
   const scan = (v) => { if (isDrv(v)) ids.push(String(v).slice(4)); };
   recs.forEach((o) => Object.values(o).forEach(scan));
+  // בילדער אינעם טעקסט פון א בריוו און א סימן מים (settings)
+  (state.mailTemplates || []).forEach((x) => { for (const m of String(x.settings || '').matchAll(/drv:([\w-]+)/g)) ids.push(m[1]); });
   Object.values(state.orgLogos || {}).forEach(scan);
   if (!ids.length) return;
   await fetchImages(ids);

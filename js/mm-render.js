@@ -88,6 +88,7 @@ function attrOk(name, v) {
   if (name === 'src') return /^(drv:[\w-]+|data:image\/(png|jpe?g|gif|webp);base64,[\w+/=]+)$/i.test(v);
   if (name === 'data-rep') return REP_TYPES.includes(v);
   if (name === 'colspan' || name === 'rowspan') return /^\d{1,2}$/.test(v);
+  if (name === 'style') return !/url\s*\(|expression|javascript:|\\|image-set|@import|position\s*:\s*(fixed|sticky)|behavior\s*:|-moz-binding/i.test(v);
   return !/url\s*\(|expression|javascript:/i.test(v);
 }
 export function cleanHtml(html) {
@@ -209,7 +210,10 @@ export function expandRepeats(html, D, c, ctx = null) {
   return doc.body.firstElementChild.innerHTML;
 }
 /** בילדער אינעם טעקסט: "drv:<id>" → דאס בילד */
-export const resolveImgs = (html) => String(html || '').replace(/src="drv:([\w-]+)"/g, (m, id) => `src="${imageOf(`drv:${id}`) || ''}" data-drv="${id}"`);
+export const resolveImgs = (html) => String(html || '').replace(/src="drv:([\w-]+)"/g, (m, id) => {
+  const d = imageOf(`drv:${id}`);
+  return `src="${/^data:image\/(png|jpe?g|gif|webp);base64,[\w+/=]+$/i.test(d || '') ? d : ''}" data-drv="${id}"`;
+});
 /** א טיוטה: די פעלדער בלייבן «פעלד» */
 const draftHtml = (html) => String(html || '').replace(TOKEN_RE, (m, k) => `«${h(k)}»`);
 
@@ -462,7 +466,8 @@ export function letterPages(D, c, opts = {}) {
       // א טאבעלע / טורים: נאר א טייל גייט אריבער
       const part = splitOff(last, () => over(body));
       if (part) { rest.unshift(part); break; }
-      if (body.childNodes.length <= 1) break;
+      // נאר דאס איינציגע עלעמענט אויפן בלאט — בלייבט (אנדערש: ליידיגע בלעטער)
+      if ([...body.childNodes].filter((x) => x.nodeType === 1 || String(x.textContent || '').trim()).length <= 1) break;
       rest.unshift(last);
       last.remove();
     }
@@ -472,7 +477,7 @@ export function letterPages(D, c, opts = {}) {
   let page = box.firstElementChild;
   let body = page.querySelector('.mx-body');
   const pages = [];
-  for (let n = 0; n < 8; n += 1) {
+  for (let n = 0; n < 200; n += 1) {
     const rest = cut(body);
     pages.push(page.outerHTML);
     if (!rest.some((x) => x.nodeType === 1 || String(x.textContent || '').trim())) break;

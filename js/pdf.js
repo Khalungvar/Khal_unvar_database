@@ -90,12 +90,14 @@ export function jpegsToPdf(pages, { pageW = 612, pageH = 792, margin = 36 } = {}
   obj(2, () => push(`<< /Type /Pages /Count ${n} /Kids [${pages.map((_, i) => `${pageNum(i)} 0 R`).join(' ')}] >>`));
   pages.forEach((p, i) => {
     const pn = pageNum(i);
-    const bw = pageW - margin * 2; const bh = pageH - margin * 2;
+    // א בלאט קען האבן אן אייגענע גרייס (p.pageW / p.pageH)
+    const PW = p.pageW || pageW; const PH = p.pageH || pageH;
+    const bw = PW - margin * 2; const bh = PH - margin * 2;
     const k = Math.min(bw / p.w, bh / p.h);
     const dw = p.w * k; const dh = p.h * k;
-    const x = (pageW - dw) / 2; const y = pageH - margin - dh;
+    const x = (PW - dw) / 2; const y = PH - margin - dh;
     const content = `q ${dw.toFixed(2)} 0 0 ${dh.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm /Im${i} Do Q`;
-    obj(pn, () => push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Resources << /XObject << /Im${i} ${pn + 2} 0 R >> >> /Contents ${pn + 1} 0 R >>`));
+    obj(pn, () => push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im${i} ${pn + 2} 0 R >> >> /Contents ${pn + 1} 0 R >>`));
     obj(pn + 1, () => push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`));
     obj(pn + 2, () => {
       push(`<< /Type /XObject /Subtype /Image /Width ${p.w} /Height ${p.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.bytes.length} >>\nstream\n`);

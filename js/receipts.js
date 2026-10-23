@@ -17,7 +17,7 @@ import { ensureGmailScope, hasGmailScope } from './google.js';
 import { htmlToJpeg, jpegsToPdf } from './pdf.js';
 import { savedInScope, parseSaved, evaluate } from './lists.js';
 import { submitRequest } from './requests.js';
-import { letterTemplates, letterPage, letterPagesFor, openMailMergeFor } from './mailmerge.js';
+import { letterSizeFor, letterTemplates, letterPage, letterPagesFor, openMailMergeFor } from './mailmerge.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -259,7 +259,11 @@ export async function receiptPdf(c, letter = '') {
   if (lps.length) {
     // בריוו (איין אדער מער בלעטער) + קבלה: יעדעס א פולער Letter בלאט
     const pages = [];
-    for (const lp of lps) pages.push(await htmlToJpeg(`<div class="mx-out" dir="ltr">${lp}</div>`, { widthIn: 8.5, heightIn: 11, scale: 1.8 }));
+    const [W, H] = letterSizeFor(letter);
+    for (const lp of lps) {
+      const j = await htmlToJpeg(`<div class="mx-out" dir="ltr" style="width:${W}in;height:${H}in">${lp}</div>`, { widthIn: W, heightIn: H, scale: 1.8 });
+      pages.push(Object.assign(j, { pageW: W * 72, pageH: H * 72 }));
+    }
     pages.push(await htmlToJpeg(`<div class="rc-page">${docHtml(c)}</div>`, { widthIn: 8.5, heightIn: 11 }));
     bytes = jpegsToPdf(pages, { margin: 0 });
   } else bytes = jpegsToPdf([await htmlToJpeg(docHtml(c))]);

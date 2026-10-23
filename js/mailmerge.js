@@ -14,7 +14,7 @@ import { ensureGmailScope } from './google.js';
 import { helperOn, storeImage, fetchImages, imageOf, isDrv, listImages } from './images.js';
 import {
   ENVELOPES, FONTS_EN, FONTS_HE, allSheets, sheetOf, setCustomSheets, envSize, pageSize, envHtml, labelPages, letterHtml,
-  labelsPerSheet, letterPages, letterGeo, sigHtml, bodyStyle, PGBRK, isPgBrk, TOKEN_RE, PAGE_SIZES, letterDims, resolveImgs,
+  labelsPerSheet, letterPages, expandRepeats, letterGeo, sigHtml, bodyStyle, PGBRK, isPgBrk, TOKEN_RE, PAGE_SIZES, letterDims, resolveImgs,
   DON_TOKENS, DON_TOKENS_EN, TOTAL_TOKENS, TOTAL_TOKENS_EN, valuesFor, fillText, fillHtml, cleanHtml, donationCtx, hasAddr, partAddr, addrKey, isDeceased,
 } from './mm-render.js';
 
@@ -191,20 +191,22 @@ async function persist() {
   if (again) { again = false; await persist(); }
 }
 async function persistNow() {
+  const target = D; // נישט דער גלאבאלער D — "שמור בשם" קען אים טוישן אינצווישן
   saveState = 'saving';
   showSaveState();
   const {
     template_id: tid, name, format, logo_data: ld, background_data: bd, postage_data: pd, _ids, ...rest
-  } = D;
+  } = target;
   const settings = JSON.stringify({ ...rest, _v: 2 });
-  const fmt = D.kind === 'lbl' ? D.lbl.sheet : D.kind === 'ltr' ? 'letter' : format;
-  const prev = current();
+  const fmt = target.kind === 'lbl' ? target.lbl.sheet : target.kind === 'ltr' ? 'letter' : format;
+  const prev = tid ? state.mailTemplates.find((x) => String(x.template_id) === String(tid)) : null;
   const rec = { ...(prev || {}), template_id: tid || '', name: nz(name) || t('mxUntitled'), format: fmt, settings, logo_data: ld, background_data: bd, postage_data: pd };
   const id = await saveRecord('MailTemplates', 'template_id', rec);
   const stamp = nowStamp();
   if (prev) Object.assign(prev, rec, { updated_at: stamp, updated_by: state.email });
   else state.mailTemplates.push({ ...rec, template_id: id, created_at: stamp, created_by: state.email, updated_at: stamp, updated_by: state.email });
-  D.template_id = id;
+  target.template_id = id;
+  if (target !== D) return;
   saveState = 'saved';
   showSaveState();
 }
@@ -819,8 +821,23 @@ const CELL = 'border:1px solid #888888;padding:2px 6px';
 const TABS = [['home', 'wrHome'], ['settings', 'wrLetterSettings'], ['insert', 'wrInsert'], ['design', 'wrDesign'], ['layout', 'wrLayout'], ['mail', 'wrMailings'], ['fields', 'wrFields']];
 
 /** {שדה} → «שדה» (א קעסטל וואס מען קען נישט טוישן, נאר אויסמעקן) */
+const chipOf = (k) => `<span class="mx-tok" contenteditable="false" data-tok="${h(k)}">«${h(k)}»</span>`;
 function tokensToChips(html) {
-  return String(html || '').replace(TOKEN_RE, (m, k) => `<span class="mx-tok" contenteditable="false" data-tok="${h(k)}">«${h(k)}»</span>`);
+  const src = String(html || '');
+  if (!/\{[^{}\s]{1,24}\}/.test(src)) return src;
+  // נאר אינעם טעקסט (נישט אין an attribute ווי href="...{x}")
+  const tpl = document.createElement('template');
+  tpl.innerHTML = `<div>${src}</div>`;
+  const root = tpl.content.firstElementChild;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (w.nextNode()) if (/\{[^{}\s]{1,24}\}/.test(w.currentNode.textContent)) nodes.push(w.currentNode);
+  nodes.forEach((n) => {
+    const box = document.createElement('template');
+    box.innerHTML = h(n.textContent).replace(TOKEN_RE, (m, k) => chipOf(k.replace(/&quot;/g, '"').replace(/&amp;/g, '&')));
+    n.replaceWith(box.content);
+  });
+  return root.innerHTML;
 }
 /** דער טעקסט פונעם בלאט → HTML צום שפייכלערן */
 function chipsToTokens(root) {
@@ -1425,7 +1442,8 @@ function saveAsDialog() {
 /** א נייער עיצוב מיט די טוישן; דער אלטער — צוריק ווי ער איז געווען ביים עפענען (ווי אין Word) */
 async function saveAs(name, vis) {
   clearTimeout(saveTimer);
-  if (saving) await saving.catch(() => {});
+  again = false;
+  while (saving) await saving.catch(() => {}); // eslint-disable-line no-await-in-loop
   const orig = current();
   const snap = openSnap;
   const ndoc = JSON.parse(JSON.stringify(D));
@@ -1434,7 +1452,8 @@ async function saveAs(name, vis) {
   ndoc.meta = { ...(D.meta || {}), visibility: vis };
   if (!canEditT(orig) || !orig) ndoc.meta.editors = [];
   D = ndoc;
-  await persistNow();
+  saving = persistNow().finally(() => { saving = null; });
+  await saving;
   if (orig && snap && canEditT(orig) && JSON.stringify(snap) !== JSON.stringify(orig)) {
     await saveRecord('MailTemplates', 'template_id', snap);
     Object.keys(orig).forEach((k) => { if (!(k in snap)) delete orig[k]; });
@@ -1538,17 +1557,21 @@ function pasteInto(body, html, txt) {
   if (html) {
     // פון Word: אן "<!-- -->", אן די Word סטיילס
     const d = new DOMParser().parseFromString(String(html).replace(/<!--[\s\S]*?-->/g, ''), 'text/html');
+    // פון דעם עדיטאר אליין: נישט מיטנעמען די צעטיילונג אויף בלעטער
+    d.querySelectorAll('[data-wrsp]').forEach((x) => x.remove());
+    d.querySelectorAll('[data-pbm]').forEach((x) => { x.style.marginTop = x.getAttribute('data-pbm'); });
     d.querySelectorAll('img').forEach((im) => { if (!/^data:image\//.test(im.getAttribute('src') || '')) im.remove(); });
     document.execCommand('insertHTML', false, cleanHtml(d.body.innerHTML));
   } else document.execCommand('insertText', false, txt || '');
   chipify(body);
   normalizeTop(body);
   // בילדער וואס זענען אריינגעקומען מיטן טעקסט → אין דרייב
-  $$('img', body).forEach((im) => { if (!im.dataset.drv && /^data:/.test(im.src)) uploadInline(im); });
+  $$('img', body).forEach((im) => { if (!im.dataset.drv && !im.dataset.up && /^data:/.test(im.src)) { im.dataset.up = '1'; uploadInline(im); } });
   body._save?.();
 }
 async function uploadInline(im) {
   const v = await storeImage(im.src, 'letter');
+  delete im.dataset.up;
   if (isDrv(v)) { im.dataset.drv = v.slice(4); wbody()?._save?.(); } else { im.remove(); ui.toast(t('wrImgNoHelper'), 'error'); wbody()?._save?.(); }
 }
 /** Backspace / Delete ביי א "מעבר עמוד" — אים אויסמעקן (ווי אין Word) */
@@ -2736,14 +2759,19 @@ async function sendEmails() {
     const jobs = [];
     for (const c of withMail) {
       const vals = valuesFor(D, c);
-      const body = `<div dir="${D.ltr.dir}" style="text-align:${D.ltr.dir === 'rtl' ? 'right' : 'left'}">${fillHtml(cleanHtml(D.ltr.html), vals)}</div>`;
+      // בילדער אינעם טעקסט → "cid:" (אימעיל פראגראמען ווייזן נישט קיין data:)
+      const imgs = [];
+      const filled = resolveImgs(fillHtml(expandRepeats(cleanHtml(D.ltr.html), D, c), vals)).replace(/src="(data:image\/[^"]+)" data-drv="([\w-]+)"/g, (m, d) => { imgs.push(d); return `src="cid:bimg${imgs.length}" style="max-width:100%"`; });
+      const body = `<div dir="${D.ltr.dir}" style="text-align:${D.ltr.dir === 'rtl' ? 'right' : 'left'}">${filled}</div>`;
       const org = D.ltr.design === 'org' ? D.ltr.org : umbrellaName();
       const { html, inline } = emailLayout(org, body);
+      imgs.forEach((d, i) => inline.push({ cid: `bimg${i + 1}`, dataUrl: d }));
       const pgs = await fitted(letterPages(D, c));
       const jpgs = [];
+      const [PW, PH] = pageSize(D);
       // eslint-disable-next-line no-await-in-loop
-      for (const pg of pgs) jpgs.push(await htmlToJpeg(`<div dir="ltr" class="mx-out" style="width:8.5in;height:11in">${pg}</div>`, { widthIn: 8.5, heightIn: 11, scale: 1.6 }));
-      const bytes = jpegsToPdf(jpgs, { pageW: 612, pageH: 792, margin: 0 });
+      for (const pg of pgs) jpgs.push(await htmlToJpeg(`<div dir="ltr" class="mx-out" style="width:${PW}in;height:${PH}in">${pg}</div>`, { widthIn: PW, heightIn: PH, scale: 1.6 }));
+      const bytes = jpegsToPdf(jpgs, { pageW: PW * 72, pageH: PH * 72, margin: 0 });
       let bin = '';
       for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       jobs.push({
@@ -2757,7 +2785,7 @@ async function sendEmails() {
     const res = await sendJobs(jobs, { fromName: det.org_name_he || jobs[0].org, onProgress: (d, n) => { const p = $('#mx-prog', prog); if (p) p.textContent = `${d} / ${n}`; } });
     prog.close();
     ui.toast(t('mxSent', { n: res.done - res.errors, e: res.errors }));
-    if (without.length && confirm(t('mxPrintRest', { n: without.length }))) printPages(pagesFor(D, without), [8.5, 11]);
+    if (without.length && confirm(t('mxPrintRest', { n: without.length }))) printPages(pagesFor(D, without), pageSize(D));
   } catch (err) { prog.close(); ui.toast(ui.friendlyError(err), 'error'); }
 }
 
@@ -2772,6 +2800,11 @@ export function letterPage(templateId, c, ctx = null) {
   return letterPagesFor(templateId, c, ctx).join('');
 }
 /** די בלעטער פון א מכתב (איינס אדער מער) */
+/** די גרייס פונעם בלאט פון א בריוו (אינטשעס) */
+export function letterSizeFor(templateId) {
+  const x = state.mailTemplates.find((r) => String(r.template_id) === String(templateId));
+  return x ? letterDims(fromRow(x)) : [8.5, 11];
+}
 export function letterPagesFor(templateId, c, ctx = null) {
   const x = state.mailTemplates.find((r) => String(r.template_id) === String(templateId));
   if (!x || !c) return [];
