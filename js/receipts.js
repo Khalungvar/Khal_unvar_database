@@ -21,7 +21,7 @@ import { submitRequest } from './requests.js';
 import { letterSizeFor, letterTemplates, letterPagesFor, letterHasReceipt, openMailMergeFor, mySigObj } from './mailmerge.js';
 import { imageOf } from './images.js';
 import { workOf } from './work.js';
-import { bookPickerHtml, wireBookPicker, BOOKS_ORG } from './books.js';
+import { bookPickerHtml, wireBookPicker, BOOKS_ORG, booksOf, bookById } from './books.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -1076,6 +1076,24 @@ export function amountWords(v) {
 }
 const rxMeta = (c) => c.meta || {};
 /** די שורות פון דער קבלה — מיט דער "תמורה" פון יעדער נדבה (אדער ווי מ'האט עס געטוישט אין טופס) */
+/** די שורות וואס מ'ווייזט אויף דער קבלה: א מכירה פון ספרים — א שורה פאר יעדן ספר (וויפל × פרייז) */
+function rxDisp(lines) {
+  const out = [];
+  lines.forEach((l) => {
+    const bl = l.d.kind === 'sale' ? booksOf(l.d) : [];
+    if (!bl.length) { out.push({ l, first: true }); return; }
+    bl.forEach((x, i) => {
+      const b = bookById(x.id);
+      const name = `${b ? b.name : x.n || `#${x.id}`}${x.v === 'vol' ? ' (כרך בודד)' : x.v === 'old' ? ' (מהדורה קודמת)' : ''}`;
+      out.push({ l, first: !i, item: name, qty: Number(x.q) || 1, price: Number(x.p) || 0 });
+    });
+    // א סכום וואס איז אנדערש ווי די ספרים (מ'האט עס געטוישט) — א שורה פאר דעם חילוק
+    const diff = Math.round(((Number(l.d.amount_usd) || 0) - bl.reduce((s2, x) => s2 + (Number(x.q) || 1) * (Number(x.p) || 0), 0)) * 100) / 100;
+    if (diff) out.push({ l, first: false, item: diff < 0 ? 'Discount' : 'Other', qty: '', price: diff, amt: diff });
+  });
+  return out;
+}
+const rxCount = (c) => rxDisp(rxLines(c)).length;
 function rxLines(c) {
   const ov = rxMeta(c).lines || {};
   return c.list.map((d) => {
@@ -1106,7 +1124,9 @@ export function receiptHtml(c, opts = {}) {
   const sale = isSaleDoc(c);
   const isInv = c.kind === 'invoice';
   const isTu = c.kind === 'tuition';
-  const full = opts.full ?? lines.length > RX_MAX_LINES;
+  const allDisp = rxDisp(lines);
+  const hasQty = allDisp.some((r) => r.item != null);
+  const full = opts.full ?? allDisp.length > RX_MAX_LINES;
   const issued = String(c.issued_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
   const total = lines.reduce((s, l) => s + (Number(l.d.amount_usd) || 0), 0) || Number(c.amount) || 0;
   const M = rxMeta(c);
@@ -1140,8 +1160,17 @@ export function receiptHtml(c, opts = {}) {
   // א לאנגע קבלה אויף עטליכע בלעטער: opts.rows = די שורות פון דעם בלאט, opts.pg = {i, n}, opts.last = מיט'ן סך הכל
   const pg = opts.pg || { i: 0, n: 1 };
   const last = opts.last ?? true;
-  const rows = (opts.rows || lines).map((l) => `<tr><td>${h(shortDateEn(isInv ? l.d.date : paidDate(l.d)))}</td><td><bdi dir="auto">${h(forOf(l))}</bdi></td>
-      <td>${h(isInv ? '' : payText(l.d))}</td><td class="amt">${usd(l.d.amount_usd)}</td></tr>`).join('');
+  const rows = (opts.rows || allDisp).map((r) => {
+    const { l } = r;
+    const date = r.first ? h(shortDateEn(isInv ? l.d.date : paidDate(l.d))) : '';
+    const pay = r.first && !isInv ? h(payText(l.d)) : '';
+    if (r.item == null) {
+      return `<tr><td>${date}</td><td><bdi dir="auto">${h(forOf(l))}</bdi></td>${hasQty ? '<td></td><td></td>' : ''}
+      <td>${pay}</td><td class="amt">${usd(l.d.amount_usd)}</td></tr>`;
+    }
+    return `<tr><td>${date}</td><td><bdi dir="auto">${h(r.item)}</bdi></td><td class="qty">${h(r.qty)}</td><td class="amt">${r.qty === '' ? '' : usd(r.price)}</td>
+      <td>${pay}</td><td class="amt">${usd(r.amt ?? r.qty * r.price)}</td></tr>`;
+  }).join('');
   return `<div class="rx${full ? ' rx-full' : ''}${pg.i ? ' rx-cont' : ''}" dir="ltr" style="width:8.5in;height:${full ? 11 : RX_H}in">
     <div class="rx-main">
       <div class="rx-head"><div class="rx-title">${h(title)}</div>
@@ -1150,7 +1179,7 @@ export function receiptHtml(c, opts = {}) {
       <div class="rx-body">
         <div class="rx-info"><span><span class="rx-l">Date</span> ${h(longDate(issued))} <span class="rx-hed" dir="rtl">${h(P.heDate)}</span></span>
           <span><span class="rx-l">${isInv ? 'Bill to' : h(det.received_label || 'Received from')}</span> <b><bdi dir="auto">${h(name)}</bdi></b></span></div>
-        <table class="rx-lines no-sort"><thead><tr><th>Date</th><th>${sale ? 'Item' : 'For'}</th><th>${isInv ? '' : 'Payment'}</th><th class="amt">Amount</th></tr></thead><tbody>${rows}</tbody></table>
+        <table class="rx-lines no-sort"><thead><tr><th>Date</th><th>${sale ? 'Item' : 'For'}</th>${hasQty ? '<th class="qty">Qty</th><th class="amt">Price</th>' : ''}<th>${isInv ? '' : 'Payment'}</th><th class="amt">Amount</th></tr></thead><tbody>${rows}</tbody></table>
         ${last ? `${taxRate ? `<div class="rx-sub"><span>Subtotal ${usd(total)}</span><span>Sales tax ${taxRate}% ${usd(taxAmt)}</span></div>` : ''}
         <div class="rx-total"><span class="rx-l">${isInv ? 'Amount due' : 'Total'}</span><b>${usd(grand)}</b><span class="rx-words">${h(amountWords(grand))}</span></div>
         <div class="rx-foot"><div class="rx-tax">${h(stmt)}${det.receipt_note ? ` ${h(det.receipt_note)}` : ''}</div>
@@ -1174,7 +1203,7 @@ function rxFits(html) {
 }
 /** א גאנצע-בלאט קבלה — ווען זי פאסט נישט אריין אין איין בלאט, גייט זי ווייטער אויף נאך בלעטער (סך הכל נאר אויפן לעצטן) */
 export function receiptFullPages(c, opts = {}) {
-  const all = rxLines(c);
+  const all = rxDisp(rxLines(c));
   const mk = (rows, i, n, last) => receiptHtml(c, { ...opts, full: true, rows, pg: { i, n }, last });
   if (typeof document === 'undefined' || !document.body) return [mk(all, 0, 1, true)];
   const chunks = [];
@@ -1193,8 +1222,7 @@ export function receiptFullPages(c, opts = {}) {
 /** א קבלה לבד אויף א בלאט: אויבן די קבלה, אין מיטן ליידיג, אונטן דער אדרעס פאר א #10 קאנווערט מיט א פענצטער */
 export function receiptSheetHtml(c) {
   if (c.kind === 'invoice') return `<div class="rx-sheet">${invoiceHtml(c)}</div>`;
-  const lines = rxLines(c);
-  if (lines.length > RX_MAX_LINES) return receiptFullPages(c, { window: true }).map((x) => `<div class="rx-sheet">${x}</div>`).join('');
+  if (rxCount(c) > RX_MAX_LINES) return receiptFullPages(c, { window: true }).map((x) => `<div class="rx-sheet">${x}</div>`).join('');
   const P = letterParts(c);
   const det = P.det;
   return `<div class="rx-sheet">${receiptHtml(c)}
@@ -1204,14 +1232,14 @@ export function receiptSheetHtml(c) {
 }
 /** פאר א בריוו מיט "ייבוא קבלה": די קבלה אינעם אונטערשטן דריטל (ביז 5 שורות; מער — א סיכום, און דער גאנצער בלאט קומט נאכן בריוו) */
 export function receiptSlotHtml(c) {
+  if (rxCount(c) <= RX_MAX_LINES) return receiptHtml(c, { full: false });
   const lines = rxLines(c);
-  if (lines.length <= RX_MAX_LINES) return receiptHtml(c, { full: false });
   const gd = lines.filter((l) => l.goods_desc || l.goods_value);
-  const short = { ...c, meta: { ...rxMeta(c), lines: {} }, list: [{ ...lines[0].d, amount_usd: lines.reduce((s, l) => s + (Number(l.d.amount_usd) || 0), 0), campaign: '', event_tags: '', dedication_text: `${lines.length} contributions — see attached statement`, date: lines[0].d.date, paid_date: paidDate(lines.at(-1).d), payment_method: '', check_number: '', card_last4: '',
+  const short = { ...c, meta: { ...rxMeta(c), lines: {} }, list: [{ ...lines[0].d, amount_usd: lines.reduce((s, l) => s + (Number(l.d.amount_usd) || 0), 0), campaign: '', event_tags: '', books: '', dedication_text: `${lines.length} ${isSaleDoc(c) ? 'items' : 'contributions'} — see attached statement`, date: lines[0].d.date, paid_date: paidDate(lines.at(-1).d), payment_method: '', check_number: '', card_last4: '',
     goods_desc: gd.map((l) => l.goods_desc).filter(Boolean).join(', '), goods_value: gd.reduce((s, l) => s + l.goods_value, 0) || '' }] };
   return receiptHtml(short, { full: false });
 }
-export const needsFullPage = (c) => rxLines(c).length > RX_MAX_LINES;
+export const needsFullPage = (c) => rxCount(c) > RX_MAX_LINES;
 /** א קבלה לדוגמא (פאר די תצוגה מקדימה פון א בריוו) */
 export function sampleReceiptHtml(org = '') {
   const o = org || umbrellaName();

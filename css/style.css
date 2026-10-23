@@ -1777,6 +1777,7 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .rx-lines th { text-align: left; font-size: 7pt; color: #7a6a5c; text-transform: uppercase; border-bottom: 1px solid #e3d3ad; padding: 1px 4px; font-weight: 600; }
 .rx-lines td { padding: 1.5px 4px; border-bottom: 1px dotted #e3d3ad; vertical-align: top; }
 .rx-lines .amt { text-align: right; white-space: nowrap; }
+.rx-lines .qty { text-align: center; white-space: nowrap; }
 .rx-lines td:nth-child(2) bdi { font-family: 'Frank Ruhl Libre', Arial, sans-serif; }
 .rx-sub { display: flex; justify-content: flex-end; gap: 14px; font-size: 8pt; font-family: Arial, sans-serif; margin-top: 2px; }
 .rx-total { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; font-family: Arial, sans-serif; border-top: 1px solid #c9a23f; padding-top: 3px; }
