@@ -1838,3 +1838,41 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .rx-prev-scale { zoom: 1; }
 .rx thead th::after { content: none !important; }
 .rxf-temp input, .rxf-temp select { min-width: 0; flex: 1; }
+/* ===== Invoice (לפי הדוגמה) ===== */
+.iv { position: relative; width: 8.5in; height: 11in; box-sizing: border-box; padding: 0.45in 0.5in; background: #fff; color: #111; font-family: Georgia, 'Times New Roman', serif; }
+.iv-bsd { position: absolute; top: 0.25in; right: 0.4in; font-size: 8pt; font-family: 'Frank Ruhl Libre', serif; }
+.iv-top { text-align: center; }
+.iv-logo { max-height: 0.7in; margin-bottom: 2px; }
+.iv-he { font-family: 'Frank Ruhl Libre', serif; font-size: 20pt; font-weight: 700; letter-spacing: .08em; }
+.iv-en { font-family: Arial, sans-serif; font-weight: 800; font-style: italic; font-size: 12.5pt; text-transform: uppercase; letter-spacing: .02em; }
+.iv-tag { font-size: 7pt; text-transform: uppercase; letter-spacing: .05em; }
+.iv-est { font-size: 8pt; font-family: 'Old English Text MT', Georgia, serif; font-style: italic; }
+.iv-rule { position: relative; margin: 8px -0.2in 0; border-top: 2px solid #111; border-bottom: 2px solid #111; height: 22px; display: flex; align-items: center; justify-content: center; }
+.iv-rule::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid #111; }
+.iv-rule span { position: relative; background: #fff; padding: 0 14px; font-size: 8.5pt; font-variant: small-caps; letter-spacing: .03em; }
+.iv-sub { text-align: center; font-size: 7.5pt; color: #444; margin-top: 3px; font-family: Arial, sans-serif; }
+.iv-head { display: flex; align-items: flex-end; justify-content: space-between; margin-top: 0.12in; }
+.iv-title { font-family: Impact, 'Arial Black', 'Arial Narrow', sans-serif; font-weight: 900; font-size: 34pt; letter-spacing: .02em; line-height: 1; }
+.iv-boxes { display: flex; gap: 8px; }
+.iv-box { width: 1.45in; text-align: center; }
+.iv-lbl { background: #1a1a1a; color: #fff; font: 700 8.5pt Arial, sans-serif; text-transform: uppercase; padding: 2px 6px; letter-spacing: .03em; }
+.iv-val { font-size: 10.5pt; padding: 3px 0; }
+.iv-bill { position: absolute; width: 3.5in; }
+.iv-bill .iv-lbl { width: 3.2in; text-align: center; }
+.iv-to { font-size: 11pt; line-height: 1.4; margin-top: 3px; }
+.iv-body { position: absolute; left: 0.5in; right: 0.5in; top: 4.4in; }
+.iv-table { width: 100%; border-collapse: separate; border-spacing: 0; border: 2px solid #111; font-size: 10.5pt; }
+.iv-table th { background: #1a1a1a; color: #fff; font: 700 9.5pt Arial, sans-serif; text-align: left; padding: 3px 12px; }
+.iv-table th.amt { width: 1.9in; text-align: center; border-left: 2px solid #fff; }
+.iv-table td { border-top: 1px solid #111; padding: 9px 14px; height: 0.25in; }
+.iv-table td.amt { border-left: 1px solid #111; width: 1.9in; }
+.iv-table td bdi { font-family: Georgia, 'Frank Ruhl Libre', serif; }
+.iv-date { color: #777; font-size: 8.5pt; }
+.iv-due { width: 2.4in; margin-left: auto; margin-top: 0.15in; border: 2px solid #111; position: relative; }
+.iv-dueval { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 14px; font-size: 15pt; font-weight: 700; border-top: 1px solid #111; }
+.iv-dueval span { font-size: 18pt; }
+.iv-words { text-align: right; font-style: italic; font-size: 8.5pt; margin-top: 3px; }
+.iv-note { margin-top: 0.3in; font-weight: 700; text-decoration: underline; font-size: 11pt; }
+.iv-pay { position: absolute; left: 0.5in; right: 0.5in; bottom: 0.45in; font-size: 9pt; color: #333; border-top: 1px solid #ccc; padding-top: 5px; font-family: Arial, sans-serif; }
+.rc-paid { color: #2f7a3e; }
+.iv-prev .iv { box-shadow: none; }
