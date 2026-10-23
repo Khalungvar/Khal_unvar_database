@@ -145,6 +145,11 @@ export function donationCtx(D, c) {
   return { n: list.length, total, paid, remaining: Math.max(0, total - paid), date: dates.at(-1) || '', dedication: ded, campaign: link.name };
 }
 
+/** א לועזישער טאג אויף לשון קודש: "22 באוקטובר 2026" */
+export const gregHe = (iso) => {
+  const dt = new Date(`${String(iso || '').slice(0, 10)}T12:00:00`);
+  return Number.isNaN(dt.getTime()) ? '' : dt.toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' });
+};
 /** די נדבות פאר א "שורה חוזרת" און די סכומים — לויט דעם סינון פונעם בריוו (אדער די נדבות פון א קבלה) */
 export function donationList(D, c, ctx = null) {
   if (Array.isArray(ctx?.list)) return ctx.list;
@@ -240,6 +245,7 @@ export function valuesFor(D, c, ctx = null) {
     City: cityLine(c),
     Country: countryOf(c),
     תאריך: he ? `${he} לפ"ק` : '',
+    תאריך_לועזי: gregHe(todayIso()),
     Date: longDateEn(todayIso()),
     סכום: x.total ? money(x.total) : '',
     שולם: x.paid ? money(x.paid) : '',

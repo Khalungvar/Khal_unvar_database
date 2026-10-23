@@ -5,6 +5,7 @@ import { customFontNames } from './fonts.js';
 import { state, saveRecord, deleteRecord, allUsers, orgDetailsOf } from './data.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, shrinkImage, nowStamp, detectArea } from './util.js';
+import { isoToHebrewText, todayIso } from './hebdate.js';
 import { evaluate, parseSaved, savedInScope, channel, mailRecipients } from './lists.js';
 import { umbrellaName, getScope } from './scope.js';
 import { allCampaigns } from './campaigns.js';
@@ -14,7 +15,7 @@ import { ensureGmailScope } from './google.js';
 import { helperOn, storeImage, fetchImages, imageOf, isDrv, listImages } from './images.js';
 import {
   ENVELOPES, FONTS_EN, FONTS_HE, allSheets, sheetOf, setCustomSheets, envSize, pageSize, envHtml, labelPages, letterHtml,
-  labelsPerSheet, letterPages, expandRepeats, letterGeo, sigHtml, bodyStyle, PGBRK, isPgBrk, TOKEN_RE, PAGE_SIZES, letterDims, resolveImgs,
+  labelsPerSheet, letterPages, expandRepeats, gregHe, longDateEn, letterGeo, sigHtml, bodyStyle, PGBRK, isPgBrk, TOKEN_RE, PAGE_SIZES, letterDims, resolveImgs,
   DON_TOKENS, DON_TOKENS_EN, TOTAL_TOKENS, TOTAL_TOKENS_EN, valuesFor, fillText, fillHtml, cleanHtml, donationCtx, hasAddr, partAddr, addrKey, isDeceased,
 } from './mm-render.js';
 
@@ -24,7 +25,7 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 const KINDS = [['env', '✉', 'mxEnvelopes'], ['lbl', '🏷', 'mxLabels'], ['ltr', '📄', 'mxLetters']];
 const SHEETS_NAME = '__label_sheets__';
-const TOKENS_HE = ['פנייה', 'תואר', 'שם_מלא', 'שם', 'שם_פרטי', 'משפחה', 'אשה', 'תאריך', 'סכום', 'שולם', 'נשאר', 'תאריך_נדבה', 'הקדשה', 'קאמפיין'];
+const TOKENS_HE = ['פנייה', 'תואר', 'שם_מלא', 'שם', 'שם_פרטי', 'משפחה', 'אשה', 'תאריך', 'תאריך_לועזי', 'סכום', 'שולם', 'נשאר', 'תאריך_נדבה', 'הקדשה', 'קאמפיין'];
 const TOKENS_EN = ['Name', 'First', 'Last', 'Wife', 'Address', 'City', 'Country', 'Date', 'DonationDate'];
 const SEV = { red: 3, yellow: 2, info: 1 };
 
@@ -818,7 +819,13 @@ const MARGINS = { normal: { top: 1, side: 1, bottom: 1 }, narrow: { top: 0.5, si
 const LINE_SP = [1, 1.15, 1.5, 2, 2.5, 3];
 const PARA_SP = [0, 3, 6, 9, 12, 18, 24];
 const CELL = 'border:1px solid #888888;padding:2px 6px';
-const TABS = [['home', 'wrHome'], ['settings', 'wrLetterSettings'], ['insert', 'wrInsert'], ['design', 'wrDesign'], ['layout', 'wrLayout'], ['mail', 'wrMailings'], ['fields', 'wrFields']];
+const TABS = [['home', 'wrHome'], ['settings', 'wrLetterSettings'], ['insert', 'wrInsert'], ['design', 'wrDesignLayout'], ['mail', 'wrMailings'], ['fields', 'wrFields']];
+// קליינע בילדלעך (ווי אין Word)
+const ICON = {
+  copy: '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="6" y="5" width="9" height="11" rx="1" fill="#fff" stroke="currentColor" stroke-width="1.4"/><path d="M3.5 12.5V3.2c0-.4.3-.7.7-.7H11" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
+  cut: '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="5" cy="13.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="13" cy="13.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6.6 11.6 13 2.5M11.4 11.6 5 2.5" stroke="currentColor" stroke-width="1.4"/></svg>',
+  painter: '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="2.5" y="2" width="11" height="5" rx="1" fill="#f3e3b8" stroke="currentColor" stroke-width="1.4"/><path d="M13.5 4.5h2v4H8.5v2.5" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="7" y="11" width="3" height="5.5" rx="1" fill="currentColor"/></svg>',
+};
 
 /** {שדה} → «שדה» (א קעסטל וואס מען קען נישט טוישן, נאר אויסמעקן) */
 const chipOf = (k) => `<span class="mx-tok" contenteditable="false" data-tok="${h(k)}">«${h(k)}»</span>`;
@@ -869,8 +876,10 @@ function ribbonHome() {
   const fonts = fontList();
   const sz = Number(D.ltr.size) || 13;
   return group(t('wrClipboard'), `${big('wr-paste', '📋', t('wrPaste'))}
-      <div class="wr-col">${btn('cut', '✂', `${t('wrCut')} (Ctrl+X)`)}${btn('copy', '⧉', `${t('wrCopy')} (Ctrl+C)`)}
-      <button type="button" class="wr-b${painter ? ' on' : ''}" id="wr-painter" title="${h(t('wrPainter'))}">🖌</button></div>`)
+      <div class="wr-col wr-small">
+        <button type="button" class="wr-b wr-wide" data-wcmd="cut" title="${h(t('wrCut'))} (Ctrl+X)">${ICON.cut} ${h(t('wrCut'))}</button>
+        <button type="button" class="wr-b wr-wide" data-wcmd="copy" title="${h(t('wrCopy'))} (Ctrl+C)">${ICON.copy} ${h(t('wrCopy'))}</button>
+        <button type="button" class="wr-b wr-wide${painter ? ' on' : ''}" id="wr-painter" title="${h(t('wrPainter'))}">${ICON.painter} ${h(t('wrPainterShort'))}</button></div>`)
     + group(t('wrFontGroup'), `
       <div class="wr-row">
         <select id="wr-font" title="${h(t('mmFont'))}">${fonts.map((f) => `<option style="font-family:'${h(f)}'"${f === D.ltr.font ? ' selected' : ''}>${h(f)}</option>`).join('')}</select>
@@ -897,7 +906,15 @@ function ribbonHome() {
     + group(t('wrEditing'), `<div class="wr-col">
       <button type="button" class="wr-b wr-wide" id="wr-find" title="Ctrl+F">🔍 ${h(t('wrFind'))}</button>
       <button type="button" class="wr-b wr-wide" id="wr-replace" title="Ctrl+H">⇄ ${h(t('wrReplace'))}</button>
-      <button type="button" class="wr-b wr-wide" data-wcmd="selectAll" title="Ctrl+A">⬚ ${h(t('wrSelectAll'))}</button></div>`);
+      <button type="button" class="wr-b wr-wide" data-wcmd="selectAll" title="Ctrl+A">⬚ ${h(t('wrSelectAll'))}</button></div>`)
+    + group(t('wrFields'), bigdd('«»', t('wrFieldsBtn'), allFieldsMenu(), 'wr-allfields'));
+}
+/** אלע פעלדער: פערזענליך, נדבות, סכומים */
+function allFieldsMenu() {
+  return `<div class="wr-mh">${h(t('wrPersonal'))}</div>${TOKENS_HE.map((k) => mi(`data-field="${h(k)}"`, `«${h(k)}»`)).join('')}
+    ${TOKENS_EN.map((k) => mi(`dir="ltr" data-field="${h(k)}"`, `«${h(k)}»`)).join('')}
+    <div class="wr-mh">${h(t('wrDonations'))} (${h(t('wrRepRow'))})</div>${DON_TOKENS.map((k) => mi(`data-field="${h(k)}"`, `«${h(k)}»`)).join('')}
+    <div class="wr-mh">${h(t('wrTotals'))}</div>${[...TOTAL_TOKENS, ...TOTAL_TOKENS_EN].map((k) => mi(`data-field="${h(k)}"`, `«${h(k)}»`)).join('')}`;
 }
 function foreColorDd() {
   return dd('wr-color', '<span class="wr-fc">A</span>▾', t('wrFontColor'), `${mi('data-fore="#000000"', h(t('wrAuto')))}
@@ -942,8 +959,12 @@ function ribbonInsert() {
     + group(t('wrIllus'), bigdd('🖼', t('wrPicture'), `${mi('id="wr-img-pc"', `💻 ${h(t('wrPicPc'))}`)}${mi('id="wr-img-drive"', `📁 ${h(t('wrPicDrive'))}`)}
       <input type="file" accept="image/*" id="wr-img-file" hidden>`))
     + group(t('wrLinks'), big('wr-link', '🔗', t('wrLink'), ' title="Ctrl+K"'))
-    + group(t('wrTextGroup'), `${big('wr-date', '📅', t('wrDate'))}
-      ${L.design === 'org' ? big('wr-sig', '✍', t('wrSignature'), L.sig ? ' aria-pressed="true"' : '') : ''}`);
+    + group(t('wrTextGroup'), `${bigdd('📅', t('wrDate'), `${mi('data-date="he"', `${h(t('wrDateTodayHe'))} <span class="muted small">«תאריך»</span>`)}
+        ${mi('data-date="greg"', `${h(t('wrDateTodayGreg'))} <span class="muted small">«${D.ltr.dir === 'ltr' ? 'Date' : 'תאריך_לועזי'}»</span>`)}
+        ${mi('id="wr-date-other"', `🗓 ${h(t('wrDateOther'))}`)}`)}
+      ${bigdd('✍', t('wrSignature'), `${mi('id="wr-sig-mine"', `✍ ${h(t('wrMySig'))}${mySig() ? '' : ` <span class="muted small">(${h(t('wrSigNone'))})</span>`}`)}
+        ${mi('id="wr-sig-setup"', h(t('wrSigSetup')))}
+        ${L.design === 'org' ? mi('id="wr-sig"', `${L.sig ? '✓ ' : ''}${h(t('wrOrgSig'))}`, L.sig) : ''}`)}`);
 }
 function ribbonDesign() {
   const L = D.ltr;
@@ -1001,7 +1022,8 @@ function ribbonMail(c, vr) {
 function ribbonFields() {
   const F = D.ltr.reps?.don || {};
   const camps = allCampaigns().map((c) => c.name);
-  return group(t('wrDonations'), `${big('wr-rep-don', '🔁', t('wrRepRow'))}
+  return group(t('wrPersonal'), bigdd('«»', t('wrFieldsBtn'), fieldMenu(TOKENS_HE, TOKENS_EN)))
+    + group(t('wrDonations'), `${big('wr-rep-don', '🔁', t('wrRepRow'))}
       ${bigdd('«»', t('wrFieldsBtn'), fieldMenu(DON_TOKENS, DON_TOKENS_EN))}
       ${bigdd('Σ', t('wrTotals'), fieldMenu(TOTAL_TOKENS, TOTAL_TOKENS_EN))}
       ${bigdd('⚙', t('wrFilter'), `<div class="wr-form" id="wr-don-filter">
@@ -1065,7 +1087,7 @@ function tabsHtml() {
 function ribbonFor(tab) {
   const vr = viewRows();
   return ({
-    home: ribbonHome, settings: ribbonSettings, insert: ribbonInsert, design: ribbonDesign, layout: ribbonLayout,
+    home: ribbonHome, settings: ribbonSettings, insert: ribbonInsert, design: () => ribbonDesign() + ribbonLayout(),
     mail: () => ribbonMail(vr[idx] || null, vr), fields: ribbonFields, table: ribbonTable, img: ribbonImg,
   }[tab] || ribbonHome)();
 }
@@ -1947,6 +1969,139 @@ async function imageFromDrive() {
     };
   });
 }
+/** א פעלד «...» אויפן קורסאר (execCommand מאכט א נייע פסקה ביים סוף פון א שורה) */
+function insertChip(body, k) {
+  restoreSel(body);
+  const s = window.getSelection();
+  if (!s.rangeCount || !body.contains(s.anchorNode)) return;
+  const r = s.getRangeAt(0);
+  r.deleteContents();
+  const tpl = document.createElement('template');
+  tpl.innerHTML = `${tokensToChips(`{${k}}`)}\u00a0`;
+  const last = tpl.content.lastChild;
+  r.insertNode(tpl.content);
+  const c = document.createRange();
+  c.setStartAfter(last);
+  c.collapse(true);
+  s.removeAllRanges();
+  s.addRange(c);
+  wrRange = c.cloneRange();
+  body._save?.();
+}
+// ---------- תאריך ----------
+function dateDialog(body) {
+  const saved = wrRange;
+  const dlg = dialog(`<h3>🗓 ${h(t('wrDateOther'))}</h3>
+    <input type="date" id="wrdt-d" value="${todayIso()}" class="wr-cal">
+    <div class="seg" style="margin:8px 0"><button type="button" data-df="he" class="on">${h(t('wrDateHeb'))}</button><button type="button" data-df="greg">${h(t('wrDateGreg'))}</button></div>
+    <p class="wr-dprev" id="wrdt-prev"></p>
+    <div class="dialog-actions"><button type="button" class="btn primary" id="wrdt-ok">OK</button><button type="button" class="btn" data-x>${h(t('cancel'))}</button></div>`);
+  let fmt = 'he';
+  const text = () => {
+    const iso = $('#wrdt-d', dlg).value;
+    if (!iso) return '';
+    if (fmt === 'he') { const x = isoToHebrewText(iso); return x ? `${x} לפ"ק` : ''; }
+    return D.ltr.dir === 'ltr' ? longDateEn(iso) : gregHe(iso);
+  };
+  const show = () => { $('#wrdt-prev', dlg).textContent = text(); };
+  $$('[data-df]', dlg).forEach((b) => { b.onclick = () => { fmt = b.dataset.df; $$('[data-df]', dlg).forEach((x) => x.classList.toggle('on', x === b)); show(); }; });
+  $('#wrdt-d', dlg).oninput = show;
+  show();
+  $('#wrdt-ok', dlg).onclick = () => {
+    const v = text();
+    dlg.close();
+    if (!v) return;
+    wrRange = saved;
+    restoreSel(body);
+    document.execCommand('insertText', false, v);
+    body._save?.();
+  };
+}
+// ---------- די אייגענע חתימה פונעם גבאי ----------
+const SIG_FONTS = ['Playpen Sans Hebrew', 'Amatic SC', 'Noto Rashi Hebrew', 'Frank Ruhl Libre'];
+function mySigRow() { return state.mailTemplates.find((x) => x.format === 'sig' && String(x.created_by || '').toLowerCase() === state.email); }
+function mySig() { const r = mySigRow(); return r ? settingsOf(r).sig || null : null; }
+async function saveMySig(sig) {
+  const row = mySigRow();
+  const rec = {
+    ...(row || {}), template_id: row?.template_id || '', name: `__sig__:${state.email}`, format: 'sig',
+    settings: JSON.stringify({ kind: 'sig', meta: { visibility: 'private' }, sig }), logo_data: '', background_data: '', postage_data: '',
+  };
+  const id = await saveRecord('MailTemplates', 'template_id', rec);
+  const stamp = nowStamp();
+  if (row) Object.assign(row, rec, { updated_at: stamp, updated_by: state.email });
+  else state.mailTemplates.push({ ...rec, template_id: id, created_at: stamp, created_by: state.email, updated_at: stamp, updated_by: state.email });
+}
+function sigHtmlOf(sig) {
+  if (!sig) return '';
+  if (sig.type === 'img') {
+    const d = imageOf(sig.img);
+    return d ? `<img src="${h(d)}" data-drv="${h(String(sig.img).slice(4))}" style="height:${Number(sig.h) || 0.8}in;width:auto" alt="">` : '';
+  }
+  return `<span style="font-family:'${h(sig.font || SIG_FONTS[0])}';font-size:${Number(sig.size) || 22}pt">${h(sig.text || '')}</span>`;
+}
+async function insertMySig(body) {
+  const sig = mySig();
+  if (!sig) { sigDialog(() => insertMySig(body)); return; }
+  if (sig.type === 'img' && !imageOf(sig.img) && isDrv(sig.img)) await fetchImages([String(sig.img).slice(4)]);
+  const html = sigHtmlOf(sig);
+  if (!html) { ui.toast(t('wrImgNoHelper'), 'error'); return; }
+  restoreSel(body);
+  document.execCommand('insertHTML', false, html);
+  body._save?.();
+}
+function sigDialog(after = null) {
+  const cur = mySig() || { type: 'text', text: '', font: SIG_FONTS[0], size: 22 };
+  let img = cur.type === 'img' ? cur.img : '';
+  const fonts = [...new Set([...SIG_FONTS, ...customFontNames()])];
+  const dlg = dialog(`<h3>✍ ${h(t('wrSigSetup'))}</h3>
+    <p class="muted small">${h(t('wrSigPrivate'))}</p>
+    <div class="seg"><button type="button" data-st="text" class="${cur.type !== 'img' ? 'on' : ''}">${h(t('wrSigTyped'))}</button><button type="button" data-st="img" class="${cur.type === 'img' ? 'on' : ''}">${h(t('wrSigImage'))}</button></div>
+    <div id="wrs-text"${cur.type === 'img' ? ' hidden' : ''}>
+      <label class="mm-l">${h(t('wrSigText'))}<input id="wrs-t" dir="auto" value="${h(cur.text || '')}"></label>
+      <div class="mm-grid"><label>${h(t('mmFont'))}<select id="wrs-f">${fonts.map((f) => `<option style="font-family:'${h(f)}'"${f === cur.font ? ' selected' : ''}>${h(f)}</option>`).join('')}</select></label>
+      <label>${h(t('mmSize'))}<input type="number" id="wrs-s" min="10" max="60" value="${Number(cur.size) || 22}"></label></div>
+    </div>
+    <div id="wrs-img"${cur.type === 'img' ? '' : ' hidden'}>
+      <label class="btn">🖼 ${h(t('wrSigUpload'))}<input type="file" accept="image/*" id="wrs-file" hidden></label>
+      <label class="mm-l">${h(t('mxHeight'))} (in)<input type="number" id="wrs-h" min="0.3" max="3" step="0.1" value="${Number(cur.h) || 0.8}"></label>
+    </div>
+    <div class="wr-sigprev" id="wrs-prev"></div>
+    <div class="dialog-actions"><button type="button" class="btn primary" id="wrs-ok">${h(t('saveBtn'))}</button><button type="button" class="btn" data-x>${h(t('cancel'))}</button></div>`);
+  let type = cur.type === 'img' ? 'img' : 'text';
+  const val = () => (type === 'img' ? { type, img, h: Number($('#wrs-h', dlg).value) || 0.8 }
+    : { type, text: nz($('#wrs-t', dlg).value), font: $('#wrs-f', dlg).value, size: Number($('#wrs-s', dlg).value) || 22 });
+  const show = () => { $('#wrs-prev', dlg).innerHTML = sigHtmlOf(val()) || `<span class="muted small">—</span>`; };
+  $$('[data-st]', dlg).forEach((b) => {
+    b.onclick = () => {
+      type = b.dataset.st;
+      $$('[data-st]', dlg).forEach((x) => x.classList.toggle('on', x === b));
+      $('#wrs-text', dlg).hidden = type === 'img';
+      $('#wrs-img', dlg).hidden = type !== 'img';
+      show();
+    };
+  });
+  ['#wrs-t', '#wrs-f', '#wrs-s', '#wrs-h'].forEach((s) => { $(s, dlg).addEventListener('input', show); $(s, dlg).addEventListener('change', show); });
+  $('#wrs-file', dlg).onchange = async () => {
+    const f = $('#wrs-file', dlg).files[0];
+    if (!f) return;
+    try {
+      const data = await shrinkImage(f, 900, 1500000);
+      const v = await storeImage(data, 'signature');
+      if (!isDrv(v)) { ui.toast(t('wrImgNoHelper'), 'error'); return; }
+      img = v;
+      show();
+    } catch (err) { ui.toast(t(err.message === 'too-big' ? 'mmImageTooBig' : 'mmImageBad'), 'error'); }
+  };
+  if (type === 'img' && img && !imageOf(img) && isDrv(img)) fetchImages([String(img).slice(4)]).then(show);
+  show();
+  $('#wrs-ok', dlg).onclick = async () => {
+    const v = val();
+    if ((v.type === 'text' && !v.text) || (v.type === 'img' && !v.img)) return;
+    dlg.close();
+    try { await saveMySig(v); ui.toast(t('mxSavedAuto')); if (after) after(); else setTab(wrTab); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  };
+}
 // ---------- קישור ----------
 function linkDialog() {
   const body = wbody();
@@ -2142,12 +2297,22 @@ function wireRibbon(main) {
   paraSp('spa', 'marginBottom');
   // הוספה
   $('#wr-pgbrk', rb)?.addEventListener('click', () => body && insertPageBreak(body));
-  $('#wr-date', rb)?.addEventListener('click', () => body && exec('insertHTML', `${tokensToChips('{תאריך}')}&nbsp;`));
+  $$('[data-date]', rb).forEach((b) => {
+    b.onclick = () => {
+      closeDd(b);
+      if (!body) return;
+      const k = b.dataset.date === 'he' ? 'תאריך' : D.ltr.dir === 'ltr' ? 'Date' : 'תאריך_לועזי';
+      insertChip(body, k);
+    };
+  });
+  $('#wr-date-other', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); if (body) dateDialog(body); });
+  $('#wr-sig-mine', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); if (body) insertMySig(body); });
+  $('#wr-sig-setup', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); sigDialog(); });
   $$('[data-field]', rb).forEach((b) => {
     b.onclick = () => {
       closeDd(b);
       if (!body) return;
-      exec('insertHTML', `${tokensToChips(`{${b.dataset.field}}`)}&nbsp;`);
+      insertChip(body, b.dataset.field);
     };
   });
   const grid = $('#wr-grid', rb);
@@ -2172,7 +2337,7 @@ function wireRibbon(main) {
   if (imgFile) imgFile.onchange = () => { if (imgFile.files[0]) imageFromPc(imgFile.files[0]); };
   $('#wr-img-drive', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); imageFromDrive(); });
   $('#wr-link', rb)?.addEventListener('click', () => linkDialog());
-  $('#wr-sig', rb)?.addEventListener('click', () => { D.ltr.sig = !D.ltr.sig; scheduleSave(); refreshStage(); });
+  $('#wr-sig', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); D.ltr.sig = !D.ltr.sig; scheduleSave(); refreshStage(); });
   // עיצוב: סימן מים
   $$('[data-wm]', rb).forEach((b) => {
     b.onclick = () => {

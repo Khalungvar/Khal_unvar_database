@@ -1749,3 +1749,10 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .wr-body table thead th, .mx-body table thead th { cursor: text; user-select: text; }
 .wr-lbl select { max-width: 140px; }
 .wr-lbl input:not([type]) { width: 120px; }
+.wr-small .wr-b { justify-content: flex-start; gap: 5px; height: 24px; font-size: 12px; }
+.wr-small svg { flex: none; }
+.wr-allfields .wr-menu { min-width: 220px; }
+.wr-cal { font-size: 18px; padding: 6px; }
+.wr-dprev { font-size: 18px; min-height: 1.4em; color: var(--accent); }
+.wr-sigprev { min-height: 60px; border: 1px dashed var(--line); border-radius: 8px; padding: 8px; margin-top: 8px; display: flex; align-items: center; justify-content: center; background: #fff; color: #1f1a17; }
+.wr-sigprev img { max-height: 1.2in; }
