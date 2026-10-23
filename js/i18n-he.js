@@ -824,6 +824,7 @@ export const HE = {
   "wrPageOf": "עמוד {i} מתוך {n}",
   "wrWords": "{n} מילים",
   "wrWriteOnPage": "את הטקסט כותבים ישר על הדף, כמו בוורד.",
+  "rcAddrOther": "כתובת אחרת",
   "rcSearchPh": "חיפוש: שם, סכום, מספר קבלה",
   "rcColNoReceipt": "נדבות בלי קבלה",
   "rcColPending": "לא שולם — בלי Invoice",

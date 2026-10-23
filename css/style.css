@@ -1896,3 +1896,7 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .rxf-addr select { max-width: 100%; }
 #rxf-addrtxt { width: 100%; font-family: inherit; }
 .work-ad { min-width: 260px; }
+.rq-addrbox { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--surface); }
+.rq-addrh { font-size: 14px; }
+.rq-opt { font-size: 14px; }
+.rq-addrbox textarea { width: 100%; font-family: inherit; }

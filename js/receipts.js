@@ -723,9 +723,9 @@ export function openQuickReceipt(org0 = '', done = null) {
       <div class="seg">${[['', 'donKindDonation'], ['sale', 'donKindSale']].map(([k, l], i) => `<button type="button" data-qk="${k}" class="${i ? '' : 'on'}">${h(t(l))}</button>`).join('')}</div>
       <label class="wide">${h(t('donor'))} *<input name="who" list="dl-rq" placeholder="${h(t('rqWhoPh'))}" required>
         <datalist id="dl-rq">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist></label>
-      <label class="wide rq-addr">${h(t('rcAddr'))}<textarea name="addr" rows="3" dir="ltr" placeholder="${h(t('rcAddrFreePh'))}"></textarea></label>
+      <div class="rq-addrbox" hidden></div>
       <div class="grid">
-        <label>${h(t('amount'))} ($) *<input name="amount" type="number" min="0.01" step="0.01" dir="ltr" required></label>
+        <label>${h(t('amount'))} *<input name="amount" type="number" min="0.01" step="0.01" dir="ltr" required></label>
         <label>${h(t('dateLegend'))}<input name="date" type="date" value="${today}"></label>
         <label>${h(t('paymentMethod'))}<select name="method"><option value=""></option>${methods.map((m) => `<option>${h(m)}</option>`).join('')}</select></label>
         <label class="rq-check" hidden>${h(t('checkNumber'))}<input name="check" dir="ltr"></label>
@@ -755,9 +755,47 @@ export function openQuickReceipt(org0 = '', done = null) {
       $('.rq-for-sale', dlg).hidden = kind !== 'sale';
     };
   });
-  // א מענטש פון דער ליסטע — דער אדרעס קומט פון כרטיס (מ'קען אים טוישן אינעם טופס); אנדערש — מ'שרייבט אים
-  const syncWho = () => { $('.rq-addr', dlg).hidden = /\(#\d+\)/.test(el('who').value); };
-  el('who').addEventListener('input', syncWho);
+  // דער אדרעס: פון כרטיס (✓) אדער אן אנדערער (טעקסט); א מענטש וואס איז נישט אין דער ליסטע — נאר טעקסט
+  let addrSel = 'home';
+  let addrText = '';
+  const whoCt = () => { const m = el('who').value.match(/\(#(\d+)\)/); return m ? ui.contactById(m[1]) : null; };
+  const renderAddr = () => {
+    const box = $('.rq-addrbox', dlg);
+    const ct = whoCt();
+    const name = el('who').value.trim();
+    box.hidden = !name;
+    if (!name) return;
+    const homeTxt = ct ? [ct.address, [ct.city, ct.state].filter(Boolean).join(', '), ct.zip].filter(Boolean).join(' ') : '';
+    const works = ct ? workOf(ct).map((w, i) => ({ w, i })).filter((x) => x.w.ad) : [];
+    if (!ct) addrSel = 'free';
+    else if (addrSel === 'home' && !homeTxt) addrSel = 'free';
+    const chk = (v, label) => `<label class="check rq-opt"><input type="checkbox" data-as="${h(v)}"${addrSel === v ? ' checked' : ''}> ${label}</label>`;
+    box.innerHTML = `<b class="rq-addrh">${h(t('rcAddr'))}</b>
+      ${ct && homeTxt ? chk('home', `🏠 <span dir="ltr">${h(homeTxt)}</span>`) : ''}
+      ${works.map((x) => chk(`work:${x.i}`, `💼 ${h(x.w.t || '')}: <span dir="ltr">${h(x.w.ad)}</span>`)).join('')}
+      ${ct ? chk('free', `✏️ ${h(t('rcAddrOther'))}`) : ''}
+      <textarea name="addr" rows="3" dir="ltr" placeholder="${h(t('rcAddrFreePh'))}"${addrSel === 'free' ? '' : ' hidden'}>${h(addrText)}</textarea>`;
+    $$('[data-as]', box).forEach((cb) => {
+      cb.onchange = () => {
+        addrSel = cb.checked ? cb.dataset.as : (homeTxt ? 'home' : 'free');
+        addrText = el('addr')?.value || addrText;
+        renderAddr();
+        if (addrSel === 'free') el('addr')?.focus();
+      };
+    });
+    el('addr')?.addEventListener('input', () => { addrText = el('addr').value; });
+  };
+  // נאר ווען דער מענטש האט זיך געטוישט — אנדערש מעקט דער "change" (ביים פארלאזן דאס פעלד) דעם קליק אויף א ✓
+  let whoKey = null;
+  const onWho = () => {
+    const ct = whoCt();
+    const k = ct ? `#${ct.contact_id}` : (el('who').value.trim() ? 'free' : '');
+    if (k === whoKey) return;
+    if (ct && whoKey !== null) addrSel = 'home';
+    whoKey = k; renderAddr();
+  };
+  el('who').addEventListener('input', onWho);
+  el('who').addEventListener('change', onWho);
   el('method').onchange = () => {
     $('.rq-check', dlg).hidden = el('method').value !== "צ'ק";
     $('.rq-card', dlg).hidden = el('method').value !== 'כרטיס אשראי';
@@ -800,9 +838,10 @@ export function openQuickReceipt(org0 = '', done = null) {
       const det = orgDetailsOf(effectiveOrg(dd));
       if (!det || !det.legal_name) { ui.toast(t('rcMissingDetails', { org: effectiveOrg(dd) }), 'error'); openOrgDetails(effectiveOrg(dd)); return; }
       if (done) done();
-      const freeAddr = !ct && el('addr').value.trim() ? { mode: 'free', text: el('addr').value.trim() } : null;
+      const txt = String(addrText || '').trim();
+      const chosen = addrSel === 'free' ? (txt ? { mode: 'free', text: txt } : null) : addrSel.startsWith('work:') ? { mode: 'work', i: Number(addrSel.slice(5)) } : (ct ? { mode: 'home' } : null);
       openReceiptForm({ kind: 'receipt', org: effectiveOrg(dd), contact_id: dd.contact_id || '', donor_name: dd.contact_id ? '' : dd.donor_name, ids: [String(id)], amount, period: '', list: [dd],
-        ...(freeAddr ? { meta: { type: sale ? 'sale' : 'donation', sig: { mode: 'org' }, addr: freeAddr } } : {}) },
+        ...(chosen ? { meta: { type: sale ? 'sale' : 'donation', sig: { mode: 'org' }, addr: chosen } } : {}) },
         { forText: sale ? '' : el('for').value.trim(), done });
     } catch (err) { ui.toast(ui.friendlyError(err), 'error'); btn.disabled = false; }
   };
