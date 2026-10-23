@@ -7,6 +7,7 @@ import { t } from './i18n.js';
 import { escapeHtml as h, nowStamp } from './util.js';
 import { storeImage, fetchImages, imageOf, isDrv } from './images.js';
 import { downloadXlsx } from './excel.js';
+import { toHebrew, hebrewNumber, isoToHebrewText } from './hebdate.js';
 import { submitRequest } from './requests.js';
 
 const HUMAN_VER = '3.3.6';
@@ -315,10 +316,11 @@ function renderEventsPage(main) {
       <div><h1>${h(t('fcTitle'))}</h1><p class="muted small">${h(t('fcSub'))}</p></div>
       <span class="spacer"></span><button type="button" class="btn" id="fc-back">← ${h(t('lobbyBack'))}</button></div>
     <div class="fc-bar"><button type="button" class="btn primary" id="fc-new">➕ ${h(t('fcNewEvent'))}</button></div>
-    ${evs.length ? `<div class="fc-events">${evs.map((e) => `<button type="button" class="fc-ev" data-ev="${h(e.event_id)}">
-        <b>${h(e.name)}</b><span class="muted small" dir="ltr">${h(e.date || '')}</span>
+    ${evs.length ? yearGroups(evs).map(([y, list]) => `<h3 class="fc-year">${h(y ? hebrewNumber(y % 1000) : t('fcNoDate'))}</h3>
+      <div class="fc-events">${list.map((e) => `<button type="button" class="fc-ev" data-ev="${h(e.event_id)}">
+        <b>${h(e.name)}</b><span class="muted small">${h(e.date ? isoToHebrewText(e.date) || '' : '')} <span dir="ltr">· ${h(e.date || '')}</span></span>
         <span class="fc-mode">${e.mode === 'fast' ? `⚡ ${h(t('fcModeFast'))}` : `🔒 ${h(t('fcModeNormal'))}`}</span>
-        <span class="fc-evbar" data-evbar="${h(e.event_id)}"><span class="muted small">…</span></span></button>`).join('')}</div>`
+        <span class="fc-evbar" data-evbar="${h(e.event_id)}"><span class="muted small">…</span></span></button>`).join('')}</div>`).join('')
     : `<p class="muted">${h(t('fcNoEvents'))}</p>`}`;
   $('#fc-back').onclick = () => ui.showView('lobby');
   $('#fc-new').onclick = () => eventDialog({});
@@ -330,6 +332,12 @@ function renderEventsPage(main) {
     const sc = await loadScan(e.event_id);
     if (el()) el().innerHTML = statusBar(sc);
   });
+}
+/** די אירועים לויט די אידישע יארן (די נייסטע פריער) → [[יאר, אירועים]] */
+function yearGroups(evs) {
+  const m = new Map();
+  evs.forEach((e) => { const y = e.date ? toHebrew(e.date)?.y || 0 : 0; if (!m.has(y)) m.set(y, []); m.get(y).push(e); });
+  return [...m].sort((a, b) => (b[0] || -1) - (a[0] || -1));
 }
 function barHtml(total, ok, skip) {
   if (!total) return `<span class="muted small">${h(t('fcNotScanned'))}</span>`;

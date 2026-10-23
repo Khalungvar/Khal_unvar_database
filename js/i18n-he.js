@@ -875,6 +875,7 @@ export const HE = {
   "bkPickTitle": "ספרים (מכון משנה הלכות)",
   "bkAddLine": "עוד ספר",
   "bkQty": "כמות",
+  "fcNoDate": "ללא תאריך",
   "fcDelFace": "מחק",
   "fcDelFaceAsk": "למחוק את התמונה מהאירוע? (אי אפשר להחזיר)",
   "fcDelSkipped": "מחק את כל הדולגים ({n})",
