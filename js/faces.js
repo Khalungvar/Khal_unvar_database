@@ -848,6 +848,30 @@ function scheduleSync(ev) {
 export function eventParticipants(ev) {
   return String(ev?.participants || '').split(',').filter(Boolean).map((x) => ({ id: x.replace(/a$/, ''), auto: x.endsWith('a') }));
 }
+// ---------- "נאר פאר דעם אירוע": מענטשן וואס גייען נישט אריין אין דעם אלגעמיינעם מאגר ----------
+/** FaceEvents.guests = [{ k, fh, lh, fe, le, ph }] ; אין FaceShots: contact_id = "g:k" */
+export function eventGuests(ev) {
+  try { const a = JSON.parse(ev?.guests || '[]'); return Array.isArray(a) ? a : []; } catch { return []; }
+}
+export const isGuestId = (cid) => String(cid || '').startsWith('g:');
+const guestOf = (ev, cid) => eventGuests(ev).find((g) => `g:${g.k}` === String(cid));
+export function guestContact(g) {
+  return { contact_id: `g:${g.k}`, first_name_he: g.fh || '', last_name_he: g.lh || '', first_name_en: g.fe || '', last_name_en: g.le || '',
+    is_alive: true, is_active: true, _ext: true, _guest: true, _phones: { mobile: g.ph || '' } };
+}
+const guestName = (g) => [g.fh, g.lh].filter(Boolean).join(' ') || [g.fe, g.le].filter(Boolean).join(' ');
+async function saveGuests(ev, list) {
+  const rec = { ...eventById(ev.event_id), guests: list.length ? JSON.stringify(list) : '' };
+  await saveRecord('FaceEvents', 'event_id', rec);
+  const i = state.faceEvents.findIndex((x) => String(x.event_id) === String(ev.event_id));
+  if (i >= 0) state.faceEvents[i] = rec;
+  Object.assign(ev, rec);
+}
+async function addGuest(ev, g) {
+  const k = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  await saveGuests(ev, [...eventGuests(ev), { k, ...g }]);
+  return `g:${k}`;
+}
 /** אין וועלכע אירועים איז א מענטש געווען */
 export function eventsOfContact(cid) {
   return faceEvents().map((e) => ({ e, p: eventParticipants(e).find((x) => x.id === String(cid)) })).filter((x) => x.p);
@@ -944,7 +968,10 @@ function suggest(face) {
   return { lv, top: lv === 'g' ? top.slice(0, 1) : top };
 }
 const faceImg = (s, k = 'img') => imageOf(s[k]) || (String(s[k] || '').startsWith('data:') ? s[k] : '');
-const nameOf = (cid) => { const c = ui.contactById(cid); return c ? ui.fullNameHe(c) : `#${cid}`; };
+const nameOf = (cid) => {
+  if (isGuestId(cid)) { const g = guestOf(T.ev, cid); return g ? `${guestName(g)} (${t('fcGuestMark')})` : String(cid); }
+  const c = ui.contactById(cid); return c ? ui.fullNameHe(c) : `#${cid}`;
+};
 /** אלע בילדער פון א פנים (פון "more"; ביי אלטע שורות — img + img2) */
 function galOf(s) {
   const m = moreOf(s);
@@ -990,7 +1017,7 @@ async function splitFace(ev, face, n) {
   const upd = { ...face, img: rest[0].i, img2: rest[1]?.i || '', src: rest[0].s || face.src, count: Math.max(1, (Number(face.count) || 1) - 1), more: JSON.stringify({ a: rest.length > 1 ? rest : [], x }) };
   if (restE.length && !isOk(face)) upd.emb = q8Encode(restE);
   // שוין באשטעטיגט: דאס פרעמדע בילד ארויס פונעם "לערנען"
-  if (isOk(face) && face.contact_id) {
+  if (isOk(face) && face.contact_id && !isGuestId(face.contact_id)) {
     await unlearn(String(face.contact_id), String(face.face_id));
     if (restE.length) { await learn(String(face.contact_id), restE, String(face.face_id)); upd.emb = q8Encode([restE[0]]); }
   }
@@ -1007,10 +1034,10 @@ async function decide(ev, face, status, cid = '') {
   const was = { status: face.status, cid: String(face.contact_id || '') };
   const embs = embsOf(face);
   // באשטעטיגט דורך א גבאי → צום "לערנען" (ביז 10 פארשידענע פאר א מענטש)
-  if (status === 'ok' && cid) await learn(String(cid), embs, String(face.face_id));
+  if (status === 'ok' && cid && !isGuestId(cid)) await learn(String(cid), embs, String(face.face_id));
   // צוריק פון א באשטעטיגונג → ארויס פונעם "לערנען"
   const moved = was.cid && (status !== was.status || String(cid) !== was.cid);
-  if (was.status === 'ok' && moved) await unlearn(was.cid, String(face.face_id));
+  if (was.status === 'ok' && moved && !isGuestId(was.cid)) await unlearn(was.cid, String(face.face_id));
   const rec = { ...face, status, contact_id: cid, decided_by: status ? state.email : '', decided_at: status ? nowStamp() : '' };
   // נאך א באשטעטיגונג פון א גבאי איז די טביעה שוין אינעם "לערנען" — אין דער שורה בלייבט נאר איינע (קליין),
   // אז ווען מ'מאכט עס צוריק (א טעות) זאל נאך אלץ קומען א הצעה
@@ -1023,7 +1050,7 @@ async function decide(ev, face, status, cid = '') {
   embCache.delete(face);
   Object.assign(face, rec);
   if (!status && T.human) T.sugg.set(face.face_id, suggest(face));
-  if (isOk(rec) && cid) {
+  if (isOk(rec) && cid && !isGuestId(cid)) {
     // דער כרטיס האט נאך נישט קיין בילד → דאס בילד פון דער שמחה
     if (!T.photos.has(String(cid))) {
       const data = faceImg(face);
@@ -1140,6 +1167,7 @@ function renderTag(ev) {
 }
 /** די רשימה פון מענטשן: ביי די וואס האבן דעם זעלבן נאמען — דער טאטע / שווער / געגנט, כדי צו וויסן ווער */
 function dlOptions() {
+  const guests = eventGuests(T.ev).map((g) => `<option value="${h(`${guestName(g)} (#g:${g.k})`)}" label="${h(t('fcGuestMark'))}">`).join('');
   const cnt = new Map();
   state.contacts.forEach((x) => { const k = ui.fullNameHe(x); cnt.set(k, (cnt.get(k) || 0) + 1); });
   return state.contacts.map((x) => {
@@ -1147,7 +1175,7 @@ function dlOptions() {
     // whoHint איז שוין אויסגעלאזט (escaped)
     const lbl = dup ? whoHint(x).replace(/^🔎\s*/, '') : h([x.first_name_en, x.last_name_en].filter(Boolean).join(' '));
     return `<option value="${h(ui.pickerLabel(x))}"${lbl ? ` label="${lbl}"` : ''}>`;
-  }).join('');
+  }).join('') + guests;
 }
 const dupName = (cid) => { const c = ui.contactById(cid); if (!c) return false; const n = ui.fullNameHe(c); return state.contacts.filter((x) => ui.fullNameHe(x) === n).length > 1; };
 const hintFor = (cid) => { const c = ui.contactById(cid); return c ? whoHint(c) : ''; };
@@ -1238,8 +1266,10 @@ function wireActions(ev, box, after) {
   };
   const pick = (fid) => {
     const v = $(`[data-in="${CSS.escape(fid)}"]`, box)?.value || '';
-    const m = v.match(/\(#(\d+)\)/);
-    return m && ui.contactById(m[1]) ? m[1] : '';
+    const m = v.match(/\(#(\d+|g:[a-z0-9]+)\)/);
+    if (!m) return '';
+    if (isGuestId(m[1])) return guestOf(ev, m[1]) ? m[1] : '';
+    return ui.contactById(m[1]) ? m[1] : '';
   };
   box.onclick = (e) => {
     const b = e.target.closest('button, img[data-zoom]');
@@ -1283,32 +1313,61 @@ function newPersonDialog(ev, f, after) {
     <div class="fc-newp"><img src="${h(faceImg(f))}" alt="">
     <form autocomplete="off"><div class="grid">
       <label>${h(t('fcFirstHe'))} *<input name="fh" required dir="rtl"></label><label>${h(t('fcLastHe'))} *<input name="lh" required dir="rtl"></label>
-      <label>First name<input name="fe" dir="ltr"></label><label>Last name<input name="le" dir="ltr"></label></div>
-      <p class="muted small">${h(t('fcNewPersonNote'))}</p>
-      <div class="actions"><button type="button" class="btn" id="fc-fullform">📋 ${h(t('fcFullForm'))}</button><span class="spacer"></span><button type="button" class="btn" data-x>${h(t('cancelBtn'))}</button><button type="submit" class="btn primary">${h(t('saveBtn'))}</button></div>
+      <label>First name<input name="fe" dir="ltr"></label><label>Last name<input name="le" dir="ltr"></label>
+      <label>${h(t('fcPhone'))}<input name="ph" dir="ltr" inputmode="tel"></label></div>
+      <p class="muted small">${h(t('fcGuestNote'))}</p>
+      <div class="actions"><button type="button" class="btn" id="fc-togen">➕ ${h(t('fcToGeneral'))}</button><button type="button" class="btn" id="fc-fullform">📋 ${h(t('fcFullForm'))}</button>
+        <span class="spacer"></span><button type="button" class="btn" data-x>${h(t('cancelBtn'))}</button><button type="submit" class="btn primary">💾 ${h(t('fcSaveGuest'))}</button></div>
     </form></div>`;
   $$('[data-x]', dlg).forEach((x) => { x.onclick = () => dlg.close(); });
   const form = $('form', dlg);
+  const el = (n) => form.elements[n].value.trim();
+  const busy = (on) => $$('button', form).forEach((b) => { b.disabled = on; });
+  // נאר פאר דעם אירוע — נישט אין דעם אלגעמיינעם מאגר
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    busy(true);
+    try {
+      const gid = await addGuest(ev, { fh: el('fh'), lh: el('lh'), fe: el('fe'), le: el('le'), ph: el('ph') });
+      await decide(ev, f, 'ok', gid);
+      dlg.close(); after();
+    } catch (err) { busy(false); ui.toast(ui.friendlyError(err), 'error'); }
+  };
+  // אין דעם אלגעמיינעם מאגר (א קאנטאקט) — שנעל, נאר מיט די נעמען
+  $('#fc-togen', dlg).onclick = async () => {
+    if (!form.reportValidity()) return;
+    busy(true);
+    try {
+      const id = await saveContact({ first_name_he: el('fh'), last_name_he: el('lh'), first_name_en: el('fe'), last_name_en: el('le'), is_alive: true }, el('ph') ? { mobile: el('ph') } : {});
+      await loadAll();
+      await decide(ev, f, 'ok', String(id));
+      dlg.close(); after();
+    } catch (err) { busy(false); ui.toast(ui.friendlyError(err), 'error'); }
+  };
   // דער פולער טאפס פון א נייעם קאנטאקט (אדרעס, טעלעפאן, תגיות...) — נאכ'ן שפייכלערן ווערט דער פנים גלייך דערקענט
   $('#fc-fullform', dlg).onclick = () => {
-    const el = (n) => form.elements[n].value.trim();
     const pre = { first_name_he: el('fh'), last_name_he: el('lh'), first_name_en: el('fe'), last_name_en: el('le') };
     dlg.close();
     ui.openForm(pre, { onSaved: async (id) => { await decide(ev, f, 'ok', String(id)); after(); } });
   };
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    const el = (n) => form.elements[n].value.trim();
-    const btn = $('button[type=submit]', form); btn.disabled = true;
-    try {
-      const id = await saveContact({ first_name_he: el('fh'), last_name_he: el('lh'), first_name_en: el('fe'), last_name_en: el('le'), is_alive: true }, {});
-      await loadAll();
-      await decide(ev, f, 'ok', String(id));
-      dlg.close(); after();
-    } catch (err) { btn.disabled = false; ui.toast(ui.friendlyError(err), 'error'); }
-  };
   dlg.showModal();
   form.elements.fh.focus();
+}
+/** א מענטש "נאר פאר דעם אירוע" → אריין אין דעם אלגעמיינעם מאגר (דער טאפס); אלע זיינע פנים ווערן דער נייער קאנטאקט */
+function guestToContact(ev, gid, after) {
+  const g = guestOf(ev, gid);
+  if (!g) return;
+  ui.openForm({ first_name_he: g.fh || '', last_name_he: g.lh || '', first_name_en: g.fe || '', last_name_en: g.le || '' }, {
+    onSaved: async (id) => {
+      for (const s of shotsOf(ev).filter((x) => String(x.contact_id) === gid)) {
+        // eslint-disable-next-line no-await-in-loop
+        await decide(ev, s, s.status || 'ok', String(id));
+      }
+      await saveGuests(ev, eventGuests(ev).filter((x) => `g:${x.k}` !== gid));
+      await syncEvent(ev);
+      after();
+    },
+  });
 }
 function approveGreens(ev) {
   const list = shotsOf(ev).filter((s) => !s.status && T.sugg.get(s.face_id)?.lv === 'g');
@@ -1363,27 +1422,29 @@ function renderPeople(ev) {
   if (!box) return;
   const by = new Map();
   shotsOf(ev).filter((s) => isOk(s) && s.contact_id).forEach((s) => { const k = String(s.contact_id); if (!by.has(k)) by.set(k, []); by.get(k).push(s); });
-  const rows = [...by].map(([cid, ss]) => ({ cid, ss, c: ui.contactById(cid), auto: ss.every((x) => x.status === 'auto') }))
+  const rows = [...by].map(([cid, ss]) => ({ cid, ss, g: isGuestId(cid), c: isGuestId(cid) ? (guestOf(ev, cid) ? guestContact(guestOf(ev, cid)) : null) : ui.contactById(cid), auto: ss.every((x) => x.status === 'auto') }))
     .sort((a, b) => String(a.c?.last_name_he || '').localeCompare(String(b.c?.last_name_he || ''), 'he'));
   const c = tagCounts(ev);
   box.innerHTML = `<div class="fc-evbar wide">${barHtml(c.total, c.ok, c.skip)}</div>
     <div class="fc-row"><b>${h(t('fcPeopleN', { n: rows.length }))}</b>${rows.some((r) => r.auto) ? `<span class="muted small">🤖 = ${h(t('fcAutoMark'))}</span>` : ''}<span class="spacer"></span>
       <button type="button" class="btn small-btn" id="fc-xl">⬇ Excel</button></div>
     ${rows.length ? `<div class="fc-people">${rows.map((r) => `<div class="fc-prow"><img src="${h(faceImg(r.ss[0]))}" alt="">
-      <span class="fc-pname"><b>${h(r.c ? ui.fullNameHe(r.c) : `#${r.cid}`)}</b>${r.auto ? ' 🤖' : ''}${r.ss.length > 1 ? ` <span class="muted small">(${r.ss.length})</span>` : ''}</span>
-      <span class="spacer"></span><button type="button" class="linkish" data-card="${h(r.cid)}">${h(t('clOpen'))}</button>
+      <span class="fc-pname"><b>${h(r.c ? (r.g ? guestName(guestOf(ev, r.cid)) : ui.fullNameHe(r.c)) : `#${r.cid}`)}</b>${r.g ? ` <span class="badge muted">${h(t('fcGuestMark'))}</span>` : ''}${r.auto ? ' 🤖' : ''}${r.ss.length > 1 ? ` <span class="muted small">(${r.ss.length})</span>` : ''}</span>
+      <span class="spacer"></span>${r.g ? `<button type="button" class="linkish" data-g2c="${h(r.cid)}">➕ ${h(t('fcToGeneral'))}</button>` : `<button type="button" class="linkish" data-card="${h(r.cid)}">${h(t('clOpen'))}</button>`}
       <button type="button" class="linkish cl-rm" data-prm="${h(r.cid)}">✕ ${h(t('clRemove'))}</button></div>`).join('')}</div>`
     : `<p class="muted">${h(t('fcNoPeople'))}</p>`}`;
-  const phoneOf = (cid) => { const p = state.phones?.get(String(cid)) || {}; return p.mobile || p.home_phone || p.other_phone || ''; };
+  const phoneOf = (cid) => { if (isGuestId(cid)) return guestOf(ev, cid)?.ph || ''; const p = state.phones?.get(String(cid)) || {}; return p.mobile || p.home_phone || p.other_phone || ''; };
   $('#fc-xl', box).onclick = () => downloadXlsx(`${ev.name} - ${t('fcTabPeople')}`, ['ID', t('fcNameCol'), 'English', t('address'), t('fcPhone'), t('fcAutoCol')],
-    rows.map((r) => [Number(r.cid) || r.cid, r.c ? ui.fullNameHe(r.c) : '', r.c ? [r.c.first_name_en, r.c.last_name_en].filter(Boolean).join(' ') : '', r.c ? [r.c.address, r.c.city, r.c.state, r.c.zip].filter(Boolean).join(' ') : '', phoneOf(r.cid), r.auto ? '🤖' : '']));
+    rows.map((r) => [r.g ? t('fcGuestMark') : (Number(r.cid) || r.cid), r.c ? (r.g ? guestName(guestOf(ev, r.cid)) : ui.fullNameHe(r.c)) : '', r.c ? [r.c.first_name_en, r.c.last_name_en].filter(Boolean).join(' ') : '', r.c ? [r.c.address, r.c.city, r.c.state, r.c.zip].filter(Boolean).join(' ') : '', phoneOf(r.cid), r.auto ? '🤖' : '']));
   box.onclick = async (e) => {
     const cd = e.target.closest('[data-card]');
     if (cd) { ui.openCard?.(cd.dataset.card); return; }
+    const gc = e.target.closest('[data-g2c]');
+    if (gc) { guestToContact(ev, gc.dataset.g2c, () => renderPeople(ev)); return; }
     const rm = e.target.closest('[data-prm]');
     if (rm) {
       const r = rows.find((x) => x.cid === rm.dataset.prm);
-      if (!confirm(t('fcRemoveAsk', { name: r.c ? ui.fullNameHe(r.c) : r.cid }))) return;
+      if (!confirm(t('fcRemoveAsk', { name: r.c ? (r.g ? guestName(guestOf(ev, r.cid)) : ui.fullNameHe(r.c)) : r.cid }))) return;
       try { for (const s of r.ss) await decide(ev, s, ''); await syncEvent(ev); renderPeople(ev); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
     }
   };

@@ -13,7 +13,7 @@ import { effectiveOrg, getScope, NO_AREA, ORG_TYPES, isEntityOrg } from './scope
 import { allCampaigns } from './campaigns.js';
 import { downloadXlsx } from './excel.js';
 import { openCompose } from './mail.js';
-import { faceEvents, eventParticipants, eventsOfContact } from './faces.js';
+import { faceEvents, eventParticipants, eventsOfContact, eventGuests, isGuestId, guestContact } from './faces.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -253,6 +253,13 @@ export function evaluate(raw, seen = new Set()) {
   (cr.events || []).forEach((eid) => {
     const ev = (state.faceEvents || []).find((e) => String(e.event_id) === String(eid));
     eventParticipants(ev).forEach((p) => {
+      // "נאר פאר דעם אירוע" — א דרויסנדיגע שורה (נישט אין מאגר)
+      if (isGuestId(p.id)) {
+        const g = eventGuests(ev).find((x) => `g:${x.k}` === p.id);
+        const key = `x:@${eid}_${g?.k}`;
+        if (g && !ex.has(key)) put(key, { c: { ...guestContact(g), contact_id: key }, ev: String(eid), ext: { first_he: g.fh, last_he: g.lh, first_en: g.fe, last_en: g.le, phone: g.ph }, guest: true });
+        return;
+      }
       const c = contactOf(p.id);
       if (c && !ex.has(p.id) && general(c)) put(p.id, { c, ev: String(eid) });
     });
@@ -518,7 +525,7 @@ function tabHtml(tab, rows, ch, edit) {
       ${nExt && edit && current.list_id ? `<span class="spacer"></span><button type="button" class="btn" id="l2-extall">＋ ${h(t(state.isAdmin ? 'L2extAll' : 'L2extAllReq', { n: nExt }))}</button>` : ''}</div>
       <table class="lb-table"><thead><tr><th>${h(t('colNameHe'))}</th><th>${h(t('L2parent'))}</th><th>${h(t('enName'))}</th><th>${h(t('area'))}</th><th></th></tr></thead>
       <tbody>${rows.map((r) => `<tr data-open="${h(r.key)}"><td>${rowName(r)}</td><td class="muted small">${h(parentLine(r.key))}</td><td dir="ltr">${h([r.c.first_name_en, r.c.last_name_en].filter(Boolean).join(' '))}</td><td>${h(r.c.area || r.c.city || '')}</td>
-        <td class="no-print">${r.ext && edit ? `<button type="button" class="linkish" data-mk="${h(r.key)}">＋ ${h(t('L2makeContact'))}</button> ` : ''}${rmBtn(r, edit)}</td></tr>`).join('')}</tbody></table>
+        <td class="no-print">${r.ext && edit && !r.guest ? `<button type="button" class="linkish" data-mk="${h(r.key)}">＋ ${h(t('L2makeContact'))}</button> ` : ''}${rmBtn(r, edit)}</td></tr>`).join('')}</tbody></table>
       ${removed.length ? `<p class="lb-removed">${h(t('lbRemovedLabel', { n: removed.length }))} ${removed.map((x) => { const c = String(x.id).startsWith('x:') ? null : contactOf(x.id); return `<span class="chip lb-minus">${h(c ? nm(c) : x.id)}${x.until ? ` ⏳ ${h(x.until)}` : ''}${edit ? ` <button type="button" class="linkish" data-restore="${h(x.id)}">↺</button>` : ''}</span>`; }).join(' ')}</p>` : ''}`;
   }
   if (tab === 'phones') {
@@ -746,7 +753,7 @@ async function removeFlow(key) {
   $('#l2-rm-ok', dlg).onclick = async () => {
     const until = readDuration(dlg);
     const cr = current.cr;
-    if (key.startsWith('x:') && !until) cr.ext = cr.ext.filter((x) => `x:${x.key}` !== key);
+    if (key.startsWith('x:') && !key.startsWith('x:@') && !until) cr.ext = cr.ext.filter((x) => `x:${x.key}` !== key);
     else {
       cr.add = cr.add.filter((x) => String(x.id) !== key);
       cr.remove = [...cr.remove.filter((x) => String(x.id) !== key), { id: key, ...(until ? { until } : {}) }];
@@ -1195,7 +1202,7 @@ function openProblems(P) {
       <button type="button" class="btn small-btn" data-open="${h(x.a.key)}" data-tabopen="family">${h(t('L2addRel'))}</button>${btn('sep', x.pk, t('L2notRelated'))}</div>`).join('');
     if (p.type === 'dup') return p.items.map((x) => `<div class="l2-prow">${card(x.a)} ⇄ ${card(x.b)} ${btn('notdup', x.pk, t('L2notSame'))}</div>`).join('');
     if (p.type === 'soon') return p.items.map((x) => `<div class="l2-prow">${h(nm(x.c))} <span class="muted small">⏳ ${h(x.until)}</span> ${btn('extend', x.key, t('L2extend'))}</div>`).join('');
-    if (p.type === 'ext') return p.items.map((r) => `<div class="l2-prow">${h(nm(r.c))} ${btn('mk', r.key, `＋ ${t('L2makeContact')}`)}</div>`).join('');
+    if (p.type === 'ext') return p.items.map((r) => `<div class="l2-prow">${h(nm(r.c))} ${r.guest ? `<span class="muted small">📸 ${h(t('fcGuestMark'))}</span>` : btn('mk', r.key, `＋ ${t('L2makeContact')}`)}</div>`).join('');
     if (p.type === 'dead') return p.items.map((r) => `<div class="l2-prow">${card(r)} ${btn('rm', r.key, t('L2removeBtn'))}</div>`).join('');
     return `<div class="l2-prow">${p.items.slice(0, 200).map((r) => card(r)).join(' · ')}</div>`;
   };
