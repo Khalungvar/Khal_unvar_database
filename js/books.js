@@ -136,33 +136,68 @@ export function wireBookPicker(root, onChange) {
 export function openBooks() { ui.showView('books'); }
 
 const SALE_TXT = { on: 'bkSaleOn', soon: 'bkSaleSoon', over: 'bkSaleOver' };
-function bookRows(b, sold) {
+const shortDate = (iso) => { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${Number(m[2])}/${Number(m[3])}` : ''; };
+function bookCard(b, sold) {
   const st = stockOf(b, sold);
   const s = saleState(b);
   const n = sold.get(String(b.book_id)) || 0;
   const img = imgOf(b);
   const id = h(b.book_id);
-  return `<tbody class="bk-book${s === 'on' ? ' bk-onsale' : ''}" data-id="${id}">
-    <tr class="bk-r1">
-      <td class="bk-img" rowspan="2">${img ? `<img src="${h(img)}" alt="" loading="lazy">` : '<span class="bk-noimg">📖</span>'}</td>
-      <td class="bk-name"><b>${h(b.name)}</b>${num(b.old_price) != null ? ` <span class="bk-new" title="${h(t('bkNewEd'))}">✱</span>` : ''}
-        ${b.subtitle ? `<div class="muted small">${h(b.subtitle)}</div>` : ''}${b.notes ? `<div class="bk-note small">${h(b.notes)}</div>` : ''}</td>
-      <td class="bk-vols">${Number(b.volumes) > 1 ? h(t('bkVolsN', { n: b.volumes })) : ''}</td>
-      <td class="bk-price"><label>${h(t('bkPrice'))}<span class="bk-money">$<input type="number" min="0" step="0.01" dir="ltr" data-f="price" value="${h(b.price ?? '')}"></span></label>
-        ${s === 'on' ? `<div class="bk-now">🏷 ${h(t('bkNow'))} <b>${money(b.sale_price)}</b></div>` : ''}</td>
-      <td class="bk-stock"><label>${h(t('bkStock'))}<input type="number" step="1" dir="ltr" data-f="stock" value="${st == null ? '' : st}" placeholder="—" class="${st != null && st <= 0 ? 'bk-zero' : ''}"></label>
-        ${n ? `<div class="muted small">${h(t('bkSoldN', { n }))}</div>` : ''}</td>
-      <td class="bk-ed"><button type="button" class="linkish" data-edit="${id}" title="${h(t('bkEdit'))}">✎</button></td>
-    </tr>
-    <tr class="bk-r2"><td colspan="5"><div class="bk-r2-in">
-      <span class="bk-sale">🏷 ${h(t('bkSale'))} <span class="bk-money">$<input type="number" min="0" step="0.01" dir="ltr" data-f="sale_price" value="${h(b.sale_price ?? '')}"></span>
-        ${h(t('bkFrom'))} <input type="date" data-f="sale_from" value="${h(b.sale_from || '')}">
-        ${h(t('bkTo'))} <input type="date" data-f="sale_to" value="${h(b.sale_to || '')}">
-        ${s ? `<span class="bk-badge bk-${s}">${h(t(SALE_TXT[s]))}</span>` : ''}
-        ${num(b.sale_price) != null || b.sale_from || b.sale_to ? `<button type="button" class="linkish bk-clear" data-clear="${id}" title="${h(t('bkSaleClear'))}">✕</button>` : ''}</span>
-      ${num(b.vol_price) != null ? `<span class="bk-extra">${h(t('bkVol'))} <span class="bk-money">$<input type="number" min="0" step="0.01" dir="ltr" data-f="vol_price" value="${h(b.vol_price)}"></span></span>` : ''}
-      ${num(b.old_price) != null ? `<span class="bk-extra">${h(t('bkOld'))} <span class="bk-money">$<input type="number" min="0" step="0.01" dir="ltr" data-f="old_price" value="${h(b.old_price)}"></span></span>` : ''}
-    </div></td></tr></tbody>`;
+  const extras = [num(b.vol_price) != null ? `${t('bkVol')} ${money(b.vol_price)}` : '', num(b.old_price) != null ? `${t('bkOld')} ${money(b.old_price)}` : ''].filter(Boolean);
+  const range = [shortDate(b.sale_from), shortDate(b.sale_to)].filter(Boolean).join('–');
+  return `<div class="bk-card${s === 'on' ? ' bk-onsale' : ''}" data-id="${id}">
+    <div class="bk-img">${img ? `<img src="${h(img)}" alt="" loading="lazy">` : '<span class="bk-noimg">📖</span>'}</div>
+    <div class="bk-body">
+      <div class="bk-title"><b>${h(b.name)}</b>${num(b.old_price) != null ? ` <span class="bk-new" title="${h(t('bkNewEd'))}">✱</span>` : ''}
+        <button type="button" class="linkish bk-edbtn" data-edit="${id}" title="${h(t('bkEdit'))}">✎</button></div>
+      ${b.subtitle || Number(b.volumes) > 1 ? `<div class="muted small bk-sub">${h([b.subtitle, Number(b.volumes) > 1 && !/כרכים|חלקים/.test(b.subtitle || '') ? t('bkVolsN', { n: b.volumes }) : ''].filter(Boolean).join(' · '))}</div>` : ''}
+      <div class="bk-nums">
+        <label>${h(t('bkPrice'))}<span class="bk-money">$<input type="number" min="0" step="0.01" dir="ltr" data-f="price" value="${h(b.price ?? '')}"></span></label>
+        <label>${h(t('bkStock'))}<input type="number" step="1" dir="ltr" data-f="stock" value="${st == null ? '' : st}" placeholder="—" class="bk-stockin${st != null && st <= 0 ? ' bk-zero' : ''}"></label>
+      </div>
+      <div class="bk-foot">
+        <button type="button" class="bk-salebtn${s ? ` bk-s-${s}` : ''}" data-sale="${id}" title="${h(s ? t(SALE_TXT[s]) : t('bkSaleAdd'))}">🏷 ${s ? `${money(b.sale_price)}${range ? ` <span dir="ltr">${h(range)}</span>` : ''}` : h(t('bkSaleAdd'))}</button>
+        ${n ? `<span class="muted small">${h(t('bkSoldN', { n }))}</span>` : ''}
+      </div>
+      ${extras.length ? `<div class="muted small bk-extras">${h(extras.join(' · '))}</div>` : ''}
+    </div></div>`;
+}
+
+/** דער מבצע פון א ספר: פרייז, פון, ביז — און אויסמעקן */
+function saleDialog(b) {
+  const has = num(b.sale_price) != null;
+  const dlg = document.createElement('dialog');
+  dlg.className = 'sheet bk-saledlg';
+  document.body.append(dlg);
+  dlg.addEventListener('close', () => dlg.remove());
+  const s = saleState(b);
+  dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button>
+    <h2>🏷 ${h(t('bkSale'))} · ${h(b.name)}</h2>
+    <p class="muted small">${h(t('bkPrice'))}: ${money(b.price)}${s ? ` · <span class="bk-badge bk-${s}">${h(t(SALE_TXT[s]))}</span>` : ''}</p>
+    <form class="bk-saleform">
+      <div class="grid">
+        <label>${h(t('bkSalePrice'))} *<input name="sp" type="number" min="0" step="0.01" dir="ltr" value="${h(b.sale_price ?? '')}" required></label>
+        <label>${h(t('bkFrom'))}<input name="from" type="date" value="${h(b.sale_from || today())}"></label>
+        <label>${h(t('bkTo'))}<input name="to" type="date" value="${h(b.sale_to || '')}"></label>
+      </div>
+      <div class="actions">${has ? `<button type="button" class="btn danger" id="bk-sale-del">✕ ${h(t('bkSaleClear'))}</button>` : ''}<span class="spacer"></span>
+        <button type="button" class="btn" data-x>${h(t('cancelBtn'))}</button>
+        <button type="submit" class="btn primary">${h(t('saveBtn'))}</button></div>
+    </form>`;
+  const form = $('form', dlg);
+  const el = (n) => form.elements[n];
+  $$('[data-x]', dlg).forEach((x) => { x.onclick = () => dlg.close(); });
+  const del = $('#bk-sale-del', dlg);
+  if (del) del.onclick = async () => { dlg.close(); await saveBook({ ...b, sale_price: '', sale_from: '', sale_to: '' }); };
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const from = el('from').value; const to = el('to').value;
+    if (from && to && from > to) { ui.toast(t('bkDatesBad'), 'error'); el('to').focus(); return; }
+    dlg.close();
+    await saveBook({ ...b, sale_price: Number(el('sp').value), sale_from: from, sale_to: to });
+  };
+  dlg.showModal();
+  el('sp').focus();
 }
 
 export function renderBooks() {
@@ -189,7 +224,7 @@ export function renderBooks() {
     </div>
     <p class="muted small bk-hint">${h(t('bkHint'))}</p>
     ${groups.map(([c, l]) => `<h3 class="bk-group">${h(t(`bkCat_${c}`))}</h3>
-      <table class="bk-table no-sort">${l.map((b) => bookRows(b, sold)).join('')}</table>`).join('') || `<p class="muted">${h(t('noResults'))}</p>`}`;
+      <div class="bk-grid">${l.map((b) => bookCard(b, sold)).join('')}</div>`).join('') || `<p class="muted">${h(t('noResults'))}</p>`}`;
   $('#bk-back').onclick = () => ui.showView('lobby');
   $('#bk-new').onclick = () => editBook({});
   $('#bk-sell').onclick = () => {
@@ -206,8 +241,8 @@ export function renderBooks() {
   main.onclick = (e) => {
     const ed = e.target.closest('[data-edit]');
     if (ed) { editBook(bookById(ed.dataset.edit) || {}); return; }
-    const cl = e.target.closest('[data-clear]');
-    if (cl) { const b = bookById(cl.dataset.clear); if (b) saveBook({ ...b, sale_price: '', sale_from: '', sale_to: '' }); }
+    const sb = e.target.closest('[data-sale]');
+    if (sb) { const b = bookById(sb.dataset.sale); if (b) saleDialog(b); }
   };
   main.onchange = (e) => {
     const inp = e.target.closest('[data-f]');
@@ -219,12 +254,6 @@ export function renderBooks() {
     if (f === 'stock') {
       // דער גבאי שרייבט וויפל עס איז דא איצט → stock_base = דאס + וויפל מ'האט שוין פארקויפט
       saveBook({ ...b, stock_base: v === '' ? '' : Math.round(Number(v)) + (soldMap().get(String(b.book_id)) || 0) });
-      return;
-    }
-    if (f === 'sale_from' || f === 'sale_to') {
-      const other = f === 'sale_from' ? b.sale_to : b.sale_from;
-      if (v && other && (f === 'sale_from' ? v > other : v < other)) { ui.toast(t('bkDatesBad'), 'error'); inp.value = b[f] || ''; return; }
-      saveBook({ ...b, [f]: v });
       return;
     }
     saveBook({ ...b, [f]: v === '' ? '' : Number(v) });
