@@ -952,8 +952,9 @@ function renderPeople(ev) {
       <span class="spacer"></span><button type="button" class="linkish" data-card="${h(r.cid)}">${h(t('clOpen'))}</button>
       <button type="button" class="linkish cl-rm" data-prm="${h(r.cid)}">✕ ${h(t('clRemove'))}</button></div>`).join('')}</div>`
     : `<p class="muted">${h(t('fcNoPeople'))}</p>`}`;
-  $('#fc-xl', box).onclick = () => downloadXlsx(`${ev.name} - ${t('fcTabPeople')}`, [t('xlDonor'), 'English', t('address'), 'Auto'],
-    rows.map((r) => [r.c ? ui.fullNameHe(r.c) : r.cid, r.c ? [r.c.first_name_en, r.c.last_name_en].filter(Boolean).join(' ') : '', r.c ? [r.c.address, r.c.city, r.c.state, r.c.zip].filter(Boolean).join(' ') : '', r.auto ? '🤖' : '']));
+  const phoneOf = (cid) => { const p = state.phones?.get(String(cid)) || {}; return p.mobile || p.home_phone || p.other_phone || ''; };
+  $('#fc-xl', box).onclick = () => downloadXlsx(`${ev.name} - ${t('fcTabPeople')}`, ['ID', t('fcNameCol'), 'English', t('address'), t('fcPhone'), t('fcAutoCol')],
+    rows.map((r) => [Number(r.cid) || r.cid, r.c ? ui.fullNameHe(r.c) : '', r.c ? [r.c.first_name_en, r.c.last_name_en].filter(Boolean).join(' ') : '', r.c ? [r.c.address, r.c.city, r.c.state, r.c.zip].filter(Boolean).join(' ') : '', phoneOf(r.cid), r.auto ? '🤖' : '']));
   box.onclick = async (e) => {
     const cd = e.target.closest('[data-card]');
     if (cd) { ui.openCard?.(cd.dataset.card); return; }
