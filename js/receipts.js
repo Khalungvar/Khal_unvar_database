@@ -567,7 +567,7 @@ function docHtml(c) {
 function letterCtx(c) {
   const dates = c.list.map(paidDate).filter(Boolean).sort();
   return {
-    total: Number(c.amount) || 0, paid: c.kind === 'invoice' ? 0 : Number(c.amount) || 0, remaining: c.kind === 'invoice' ? Number(c.amount) || 0 : 0,
+    list: c.list, total: Number(c.amount) || 0, paid: c.kind === 'invoice' ? 0 : Number(c.amount) || 0, remaining: c.kind === 'invoice' ? Number(c.amount) || 0 : 0,
     date: dates.at(-1) || '', campaign: c.forText || forWhat(c),
     dedication: [...new Set(c.list.map((d) => [d.dedication_type, d.dedication_text].filter(Boolean).join(' ')).filter(Boolean))].join(' · '),
   };

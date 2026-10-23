@@ -11,7 +11,7 @@ export function initSortTables() {
     const th = e.target.closest('table thead th');
     if (!th || e.target.closest('button, a, input, select, label')) return;
     const table = th.closest('table');
-    if (table.classList.contains('no-sort') || !th.textContent.trim()) return;
+    if (table.classList.contains('no-sort') || !th.textContent.trim() || table.closest('.wr-body, .mx-page, [contenteditable]')) return;
     const body = table.tBodies[0];
     if (!body || body.rows.length < 2) return;
     const i = [...th.parentElement.cells].indexOf(th);

@@ -24,7 +24,7 @@ import { initReceipts, renderReceipts, openReceipts, printForDonation, openOrgDe
 import { initSortTables } from './sorttables.js';
 import { initLists, renderListsSide, renderBuilder, openOverview, exportContacts, linkPendingExt } from './lists.js';
 import { initAdmin, renderAdmin, adminDirty, setAdminTab } from './admin.js';
-import { initMailMerge, renderMailMerge, openMailMerge } from './mailmerge.js';
+import { initMailMerge, renderMailMerge, openMailMerge, mailMergeCanLeave } from './mailmerge.js';
 import { initMail, openCompose, emailOf } from './mail.js';
 import { initRequests, submitRequest, pendingRequests } from './requests.js';
 import { openHelp, initHelpChat } from './help.js';
@@ -329,6 +329,7 @@ function showView(name) {
   if (name === 'lobby') document.body.classList.remove('solo-mode');
   const leavingAdmin = !$('.view[data-view="admin"]').hidden && name !== 'admin';
   if (leavingAdmin && adminDirty() && !confirm(t('discardChanges'))) return;
+  if (!$('.view[data-view="mailmerge"]').hidden && name !== 'mailmerge' && !mailMergeCanLeave()) return;
   document.body.classList.remove('menu-open');
   $$('.view').forEach((v) => { v.hidden = v.dataset.view !== name; });
   $$('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === name));

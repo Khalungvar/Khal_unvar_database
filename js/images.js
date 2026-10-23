@@ -52,7 +52,8 @@ export async function storeImage(data, name = 'image') {
   if (!isData(data) || !helperOn() || helperOk === false) return data;
   if (byData.has(data)) return `drv:${byData.get(data)}`;
   try {
-    const r = await call({ action: 'img_put', data, name });
+    // בילדער פאר בריוו → די טעקע "תמונות למכתבים" (מ'קען זיי נאכאמאל נוצן)
+    const r = await call({ action: 'img_put', data, name, folder: ['letter', 'watermark'].includes(name) ? 'letters' : '' });
     if (!r.id) { helperOk = false; return data; }
     helperOk = true;
     remember(r.id, data);
@@ -62,6 +63,16 @@ export async function storeImage(data, name = 'image') {
     helperOk = false;
     return data;
   }
+}
+
+/** די בילדער אין דער טעקע "תמונות למכתבים" (מיט קליינע בילדלעך) */
+export async function listImages() {
+  if (!helperOn()) return { error: 'no-helper', files: [] };
+  try {
+    const r = await call({ action: 'img_list' }, 30000);
+    if (r.error) return { error: r.error, files: [] };
+    return { files: Array.isArray(r.files) ? r.files : [] };
+  } catch { return { error: 'failed', files: [] }; }
 }
 
 /** לייגט אריין אין זכרון די בילדער פון די ids (פון קעש אדער פונעם הילף) */

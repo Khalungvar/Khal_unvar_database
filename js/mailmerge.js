@@ -11,10 +11,11 @@ import { allCampaigns } from './campaigns.js';
 import { htmlToJpeg, jpegsToPdf } from './pdf.js';
 import { emailOf, emailLayout, sendJobs } from './mail.js';
 import { ensureGmailScope } from './google.js';
-import { helperOn } from './images.js';
+import { helperOn, storeImage, fetchImages, imageOf, isDrv, listImages } from './images.js';
 import {
   ENVELOPES, FONTS_EN, FONTS_HE, allSheets, sheetOf, setCustomSheets, envSize, pageSize, envHtml, labelPages, letterHtml,
-  labelsPerSheet, letterPages, letterGeo, sigHtml, bodyStyle, PGBRK, isPgBrk, TOKEN_RE, valuesFor, fillText, fillHtml, cleanHtml, donationCtx, hasAddr, partAddr, addrKey, isDeceased,
+  labelsPerSheet, letterPages, letterGeo, sigHtml, bodyStyle, PGBRK, isPgBrk, TOKEN_RE, PAGE_SIZES, letterDims, resolveImgs,
+  DON_TOKENS, DON_TOKENS_EN, TOTAL_TOKENS, TOTAL_TOKENS_EN, valuesFor, fillText, fillHtml, cleanHtml, donationCtx, hasAddr, partAddr, addrKey, isDeceased,
 } from './mm-render.js';
 
 let ui = null;
@@ -281,6 +282,7 @@ async function createMatched(kind, letterId) {
   if (!row) return;
   const L = fromRow(row);
   D = defaults(kind);
+  openSnap = null;
   D.matchOf = String(letterId);
   D.meta = { ...D.meta, visibility: L.meta.visibility || 'public', editors: L.meta.editors || [], org: L.meta.org || '' };
   D.name = `${t(kind === 'env' ? 'mxEnvFor' : 'mxLblFor')} ${L.name}`;
@@ -304,11 +306,12 @@ async function createMatched(kind, letterId) {
 }
 async function createNew(kind) {
   D = defaults(kind);
+  openSnap = null;
   applyPending();
   view = 'edit';
   idx = 0;
   skipIds = new Set();
-  saveState = 'unnamed';
+  saveState = '';
   renderMailMerge();
   $('#mx-name')?.focus();
 }
@@ -316,6 +319,7 @@ function openTemplate(id) {
   const x = state.mailTemplates.find((r) => String(r.template_id) === String(id));
   if (!x) return;
   D = fromRow(x);
+  openSnap = { ...x };
   applyPending();
   view = 'edit';
   idx = 0;
@@ -328,6 +332,7 @@ async function duplicate(id) {
   const x = state.mailTemplates.find((r) => String(r.template_id) === String(id));
   if (!x) return;
   D = fromRow(x);
+  openSnap = null;
   D.template_id = '';
   D.name = `${x.name} (${t('mxCopy')})`;
   D.meta = { ...D.meta, editors: [] };
@@ -794,16 +799,24 @@ function stageHtml() {
 // ================= מכתב: עורך כמו Word =================
 let ltrEdit = true;   // false = "תצוגה מקדימה של תוצאות"
 let wrTab = (() => { try { return localStorage.getItem('khal-wr-tab') || 'home'; } catch { return 'home'; } })();
-let wrDrawer = (() => { try { return localStorage.getItem('khal-wr-drawer') === '1'; } catch { return false; } })();
+let wrDrawer = false; // דער פענצטערל פון די נמענים
 let wrRange = null;   // וואו דער קורסאר איז געווען
 let wrTimer = null;
+let wrCtx = '';       // 'table' / 'img' — א לשונית וואס ווייזט זיך נאר דעמאלט
+let selImg = null;    // די אויסגעקליבענע בילד
+let painter = null;   // מברשת עיצוב: { st, sticky }
+let openSnap = null;  // ווי דער עיצוב איז געווען ביים עפענען (פאר "שמור בשם")
 const GAP = 0.3;      // צווישן בלעטער (אינטש)
 const PX = 96;
 const WORD_COLORS = ['#000000', '#7a1219', '#c00000', '#ff0000', '#ffc000', '#c9a23f', '#00b050', '#0070c0', '#002060', '#7030a0', '#7f7f7f'];
 const HILITE = ['#ffff00', '#00ff00', '#00ffff', '#ff00ff', '#ffc000', '#d9d9d9'];
+const SHADES = ['#f1e7d3', '#f3e3b8', '#f6e5d5', '#e2efda', '#ddebf7', '#ededed', '#ffffff'];
 const SIZES = [8, 9, 10, 10.5, 11, 12, 13, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
 const MARGINS = { normal: { top: 1, side: 1, bottom: 1 }, narrow: { top: 0.5, side: 0.5, bottom: 0.5 }, moderate: { top: 1, side: 0.75, bottom: 1 }, wide: { top: 1, side: 2, bottom: 1 } };
 const LINE_SP = [1, 1.15, 1.5, 2, 2.5, 3];
+const PARA_SP = [0, 3, 6, 9, 12, 18, 24];
+const CELL = 'border:1px solid #888888;padding:2px 6px';
+const TABS = [['home', 'wrHome'], ['settings', 'wrLetterSettings'], ['insert', 'wrInsert'], ['design', 'wrDesign'], ['layout', 'wrLayout'], ['mail', 'wrMailings'], ['fields', 'wrFields']];
 
 /** {שדה} → «שדה» (א קעסטל וואס מען קען נישט טוישן, נאר אויסמעקן) */
 function tokensToChips(html) {
@@ -811,8 +824,13 @@ function tokensToChips(html) {
 }
 /** דער טעקסט פונעם בלאט → HTML צום שפייכלערן */
 function chipsToTokens(root) {
-  const el = root.cloneNode(true);
+  // א <template> — די בילדער ווערן נישט געלאדן (src="drv:...")
+  const tpl = document.createElement('template');
+  tpl.innerHTML = `<div>${root.innerHTML}</div>`;
+  const el = tpl.content.firstElementChild;
+  el.querySelectorAll('[data-wrsp]').forEach((x) => x.remove());
   el.querySelectorAll('.mx-tok').forEach((x) => x.replaceWith(document.createTextNode(`{${x.dataset.tok}}`)));
+  el.querySelectorAll('img[data-drv]').forEach((x) => x.setAttribute('src', `drv:${x.dataset.drv}`));
   el.querySelectorAll('[data-pbm]').forEach((x) => {
     x.style.marginTop = x.dataset.pbm;
     x.removeAttribute('data-pbm');
@@ -821,72 +839,136 @@ function chipsToTokens(root) {
   return el.innerHTML;
 }
 
+// ---------- קנעפלעך ----------
 const btn = (cmd, label, title, extra = '') => `<button type="button" class="wr-b" data-wcmd="${cmd}" title="${h(title)}"${extra}>${label}</button>`;
 const big = (id, icon, label, extra = '') => `<button type="button" class="wr-big" id="${id}"${extra}><span class="wr-ic">${icon}</span><span>${h(label)}</span></button>`;
 const group = (label, inner) => `<div class="wr-group"><div class="wr-gbody">${inner}</div><div class="wr-glabel">${h(label)}</div></div>`;
 const dd = (cls, summary, title, menu) => `<details class="wr-dd ${cls}"><summary title="${h(title)}">${summary}</summary><div class="wr-menu">${menu}</div></details>`;
+const bigdd = (icon, label, menu, cls = '') => dd(`wr-bigdd ${cls}`, `<span class="wr-ic">${icon}</span><span>${h(label)} ▾</span>`, label, menu);
+const mi = (attrs, label, on = false) => `<button type="button" class="wr-mi${on ? ' on' : ''}" ${attrs}>${label}</button>`;
+const fontList = () => [...new Set([...customFontNames(), ...FONTS_HE, ...FONTS_EN])];
 
 function ribbonHome() {
-  const fonts = [...new Set([...customFontNames(), ...FONTS_HE, ...FONTS_EN])];
-  return group(t('wrFontGroup'), `
+  const fonts = fontList();
+  const sz = Number(D.ltr.size) || 13;
+  return group(t('wrClipboard'), `${big('wr-paste', '📋', t('wrPaste'))}
+      <div class="wr-col">${btn('cut', '✂', `${t('wrCut')} (Ctrl+X)`)}${btn('copy', '⧉', `${t('wrCopy')} (Ctrl+C)`)}
+      <button type="button" class="wr-b${painter ? ' on' : ''}" id="wr-painter" title="${h(t('wrPainter'))}">🖌</button></div>`)
+    + group(t('wrFontGroup'), `
       <div class="wr-row">
         <select id="wr-font" title="${h(t('mmFont'))}">${fonts.map((f) => `<option style="font-family:'${h(f)}'"${f === D.ltr.font ? ' selected' : ''}>${h(f)}</option>`).join('')}</select>
-        <select id="wr-size" title="${h(t('mmSize'))}">${[...new Set([...SIZES, Number(D.ltr.size) || 13])].sort((a, b) => a - b).map((n) => `<option${n === (Number(D.ltr.size) || 13) ? ' selected' : ''}>${n}</option>`).join('')}</select>
+        <select id="wr-size" title="${h(t('mmSize'))}">${[...new Set([...SIZES, sz])].sort((a, b) => a - b).map((n) => `<option${n === sz ? ' selected' : ''}>${n}</option>`).join('')}</select>
+        ${dd('', 'Aa▾', t('wrCase'), [['lower', 'wrCaseLower'], ['upper', 'wrCaseUpper'], ['title', 'wrCaseTitle'], ['sentence', 'wrCaseSentence']].map(([k, l]) => mi(`data-case="${k}"`, h(t(l)))).join(''))}
       </div>
       <div class="wr-row">
         ${btn('bold', '<b>B</b>', `${t('wrBold')} (Ctrl+B)`)}${btn('italic', '<i>I</i>', `${t('wrItalic')} (Ctrl+I)`)}${btn('underline', '<u>U</u>', `${t('wrUnderline')} (Ctrl+U)`)}
         ${dd('wr-color', '<span class="wr-hl">ab</span>▾', t('wrHighlight'), `${HILITE.map((c) => `<button type="button" class="wr-sw" data-hilite="${c}" style="background:${c}"></button>`).join('')}
-          <button type="button" class="wr-mi" data-hilite="transparent">${h(t('wrNoColor'))}</button>`)}
-        ${dd('wr-color', '<span class="wr-fc">A</span>▾', t('wrFontColor'), `<button type="button" class="wr-mi" data-fore="#000000">${h(t('wrAuto'))}</button>
-          ${WORD_COLORS.map((c) => `<button type="button" class="wr-sw" data-fore="${c}" style="background:${c}"></button>`).join('')}
-          <label class="wr-mi">… <input type="color" id="wr-forecustom" value="#7a1219"></label>`)}
+          ${mi('data-hilite="transparent"', h(t('wrNoColor')))}`)}
+        ${foreColorDd()}
         ${btn('removeFormat', '<span class="wr-clear">A</span>', t('wrClear'))}
       </div>`)
     + group(t('wrParaGroup'), `
       <div class="wr-row">
         ${btn('insertUnorderedList', '•≡', t('wrBullets'))}${btn('insertOrderedList', '1≡', t('wrNumbering'))}
         ${btn('outdent', '⇤', t('wrIndentLess'))}${btn('indent', '⇥', t('wrIndentMore'))}
-        ${dd('', '↕▾', t('wrLineSp'), LINE_SP.map((n) => `<button type="button" class="wr-mi" data-linesp="${n}">${n.toFixed(n % 1 ? (String(n).length - 2) : 1)}</button>`).join(''))}
+        ${dd('', '↕▾', t('wrLineSp'), LINE_SP.map((n) => mi(`data-linesp="${n}"`, String(n))).join(''))}
       </div>
       <div class="wr-row">
         ${btn('justifyRight', alignIcon('r'), t('wrAlignR'))}${btn('justifyCenter', alignIcon('c'), t('wrAlignC'))}${btn('justifyLeft', alignIcon('l'), t('wrAlignL'))}${btn('justifyFull', alignIcon('j'), t('wrJustify'))}
         ${btn('pdir-rtl', '¶◂', t('wrRtl'))}${btn('pdir-ltr', '▸¶', t('wrLtr'))}
-      </div>`);
+      </div>`)
+    + group(t('wrEditing'), `<div class="wr-col">
+      <button type="button" class="wr-b wr-wide" id="wr-find" title="Ctrl+F">🔍 ${h(t('wrFind'))}</button>
+      <button type="button" class="wr-b wr-wide" id="wr-replace" title="Ctrl+H">⇄ ${h(t('wrReplace'))}</button>
+      <button type="button" class="wr-b wr-wide" data-wcmd="selectAll" title="Ctrl+A">⬚ ${h(t('wrSelectAll'))}</button></div>`);
+}
+function foreColorDd() {
+  return dd('wr-color', '<span class="wr-fc">A</span>▾', t('wrFontColor'), `${mi('data-fore="#000000"', h(t('wrAuto')))}
+    ${WORD_COLORS.map((c) => `<button type="button" class="wr-sw" data-fore="${c}" style="background:${c}"></button>`).join('')}
+    <label class="wr-mi">… <input type="color" class="wr-forecustom" value="#7a1219"></label>`);
 }
 function alignIcon(k) {
   const w = { r: [14, 9, 14, 9], c: [14, 9, 14, 9], l: [14, 9, 14, 9], j: [14, 14, 14, 14] }[k];
   const x = (len) => (k === 'r' ? 16 - len : k === 'c' ? (16 - len) / 2 : 1);
   return `<svg width="16" height="14" viewBox="0 0 17 14" aria-hidden="true">${w.map((len, i) => `<rect x="${x(len)}" y="${1 + i * 3.4}" width="${len}" height="1.6" fill="currentColor"/>`).join('')}</svg>`;
 }
+/** הגדרות המכתב — אלעס וואס איז נישט דער טעקסט */
+function ribbonSettings() {
+  const L = D.ltr;
+  const camps = allCampaigns().map((c) => [c.name, c.name]);
+  const envs = [...templatesOf('env').map((x) => [x.template_id, `✉ ${x.name}`]), ...templatesOf('lbl').map((x) => [x.template_id, `🏷 ${x.name}`])];
+  return group(t('mxRecipients'), `${big('wr-rcp', '👥', t('wrEditRcp'))}<span class="wr-note">${h(t('mmCount', { n: rows.length }))}</span>`)
+    + group(t('mxLetterLang'), `<label class="wr-lbl">${h(t('mxLang'))}${sel('ltr.lang', [['yi', 'אידיש'], ['he', 'עברית'], ['en', 'English']], L.lang)}</label>
+      <label class="wr-lbl">${h(t('mxDir'))}${sel('ltr.dir', [['rtl', t('mxRtl')], ['ltr', t('mxLtr')]], L.dir)}</label>`)
+    + group(t('mxLink'), `<label class="wr-lbl" title="${h(t('mxLinkHint'))}">${h(t('wrCampaign'))}${sel('link.name', [['', t('mmNone')], ...camps], D.link.name)}</label>`)
+    + group(t('mxDesign'), `<label class="wr-lbl">${h(t('mxDesign'))}${sel('ltr.design', [['org', t('mxDesignOrg')], ['bg', t('mxDesignBg')], ['none', t('mxDesignNone')]], L.design)}</label>
+      ${L.design === 'org' ? `<label class="wr-lbl">${h(t('mxOrg'))}${sel('ltr.org', orgOptions().map((o) => [o, o]), L.org)}</label>
+        <div class="wr-col"><label class="wr-lbl">${h(t('mxBannerH'))}${num('ltr.bannerH', L.bannerH, 0.5, 4, 0.1)}</label>${chk('ltr.sig', L.sig, t('mxSig'))}</div>` : ''}
+      ${L.design === 'bg' ? `<div class="wr-col"><label class="wr-b wr-wide wr-file">🖼 ${h(t('wrBgImage'))}<input type="file" accept="image/*" data-upload="background_data" hidden></label>
+        ${D.background_data ? `<button type="button" class="wr-b wr-wide" data-clear="background_data">${h(t('mmRemoveBg'))}</button>` : ''}
+        <label class="wr-lbl">${h(t('mmOpacity'))}<input type="range" data-k="bg.opacity" min="0.05" max="1" step="0.01" value="${D.bg.opacity}"></label></div>` : ''}`)
+    + group(t('wrEnvGroup'), `<div class="wr-col">${chk('ltr.window', L.window, t('mxWindowOn'))}
+      ${L.window ? `<label class="wr-lbl">${h(t('mxLang'))}${sel('ltr.winLang', [['en', 'English'], ['he', 'לשון קודש'], ['both', t('mxBoth')]], L.winLang)}</label>` : ''}</div>
+      <label class="wr-lbl" title="${h(t('mxPairHint'))}">${h(t('mxPair'))}${sel('ltr.pairEnv', [['', t('mmNone')], ...envs], L.pairEnv)}</label>`)
+    + (D.src.email ? group(t('mxEmail'), `<label class="wr-lbl">${h(t('mxSubject'))}<input data-k="ltr.subject" dir="auto" value="${h(L.subject)}"></label>`) : '')
+    + group(t('wrDefaults'), `<label class="wr-lbl">${h(t('mxSalutation'))}<input data-k="ltr.salutation" dir="rtl" value="${h(L.salutation)}"></label>
+      <div class="wr-col"><label class="wr-lbl">${h(t('mmFont'))}${sel('ltr.font', fontList().map((f) => [f, f]), L.font)}</label>
+      <div class="wr-row"><label class="wr-lbl">${h(t('mmSize'))}${num('ltr.size', L.size, 8, 30, 0.5)}</label>
+      <label class="wr-lbl">${h(t('mxLineH'))}${sel('ltr.lineH', [1, 1.15, 1.3, 1.45, 1.6, 1.8, 2].map((n) => [n, n]), L.lineH)}</label></div></div>`);
+}
 function ribbonInsert() {
   const L = D.ltr;
-  return group(t('wrPages'), big('wr-pgbrk', '⤓', t('wrPageBreak'), ` title="Ctrl+Enter"`))
-    + group(t('wrHeaderGroup'), `<label class="wr-lbl">${h(t('mxDesign'))}${sel('ltr.design', [['org', t('mxDesignOrg')], ['bg', t('mxDesignBg')], ['none', t('mxDesignNone')]], L.design)}</label>
-      ${L.design === 'org' ? `<label class="wr-lbl">${h(t('mxOrg'))}${sel('ltr.org', orgOptions().map((o) => [o, o]), L.org)}</label>` : ''}`)
+  return group(t('wrPages'), big('wr-pgbrk', '⤓', t('wrPageBreak'), ' title="Ctrl+Enter"'))
+    + group(t('wrTables'), bigdd('▦', t('wrTable'), `<div class="wr-grid" id="wr-grid">${Array.from({ length: 8 }, (_, r) => Array.from({ length: 8 }, (__, c) => `<span data-gr="${r + 1}" data-gc="${c + 1}"></span>`).join('')).join('')}</div>
+      <div class="wr-gridlbl" id="wr-gridlbl">${h(t('wrTable'))}</div>
+      ${mi('id="wr-table-dlg"', h(t('wrInsertTable')))}`))
+    + group(t('wrIllus'), bigdd('🖼', t('wrPicture'), `${mi('id="wr-img-pc"', `💻 ${h(t('wrPicPc'))}`)}${mi('id="wr-img-drive"', `📁 ${h(t('wrPicDrive'))}`)}
+      <input type="file" accept="image/*" id="wr-img-file" hidden>`))
+    + group(t('wrLinks'), big('wr-link', '🔗', t('wrLink'), ' title="Ctrl+K"'))
     + group(t('wrTextGroup'), `${big('wr-date', '📅', t('wrDate'))}
       ${L.design === 'org' ? big('wr-sig', '✍', t('wrSignature'), L.sig ? ' aria-pressed="true"' : '') : ''}`);
+}
+function ribbonDesign() {
+  const L = D.ltr;
+  const w = L.wm || {};
+  return group(t('wrFontGroup'), `<div class="wr-row">${foreColorDd()}
+      ${dd('wr-color', '<span class="wr-outl">A</span>▾', t('wrOutline'), `${mi('data-outline=""', h(t('wrNoOutline')))}
+        ${WORD_COLORS.map((c) => `<button type="button" class="wr-sw" data-outline="${c}" style="background:${c}"></button>`).join('')}
+        <div class="wr-mh">${h(t('wrOutlineW'))}</div>${[['0.5', 'wrThin'], ['1', 'wrMedium'], ['1.6', 'wrThick']].map(([v, l]) => mi(`data-outw="${v}"`, h(t(l)))).join('')}`)}
+      ${dd('wr-color', '<span class="wr-hl">ab</span>▾', t('wrHighlight'), `${HILITE.map((c) => `<button type="button" class="wr-sw" data-hilite="${c}" style="background:${c}"></button>`).join('')}
+        ${mi('data-hilite="transparent"', h(t('wrNoColor')))}`)}</div>`)
+    + group(t('wrParaSpacing'), `<div class="wr-col">
+      ${dd('', `↥ ${h(t('wrSpBefore'))} ▾`, t('wrSpBefore'), PARA_SP.map((n) => mi(`data-spb="${n}"`, `${n} pt`)).join(''))}
+      ${dd('', `↧ ${h(t('wrSpAfter'))} ▾`, t('wrSpAfter'), PARA_SP.map((n) => mi(`data-spa="${n}"`, `${n} pt`)).join(''))}
+      <label class="wr-lbl">${h(t('wrSpDefault'))}${sel('ltr.paraAfter', [[0, '0'], [0.3, '0.3'], [0.55, '0.55'], [0.8, '0.8'], [1.2, '1.2']], L.paraAfter ?? 0.55)}</label></div>`)
+    + group(t('wrPageBg'), bigdd('💧', t('wrWatermark'), `${mi('data-wm=""', h(t('wrNoWm')), !w.on)}
+      ${['טיוטה', 'דוגמה', 'העתק', 'DRAFT', 'COPY', 'SAMPLE'].map((x) => mi(`data-wm="${h(x)}"`, `<span class="wr-wmprev">${h(x)}</span>`, w.on && w.type !== 'img' && w.text === x)).join('')}
+      ${mi('id="wr-wm-custom"', h(t('wrWmCustom')))}${mi('id="wr-wm-img"', `🖼 ${h(t('wrWmImage'))}`)}
+      <input type="file" accept="image/*" id="wr-wm-file" hidden>`));
 }
 function ribbonLayout() {
   const L = D.ltr;
   const m = L.margins || {};
   const cur = Object.entries(MARGINS).find(([, v]) => v.top === m.top && v.side === m.side && v.bottom === m.bottom)?.[0];
-  return group(t('wrPageSetup'), `${dd('wr-bigdd', `<span class="wr-ic">▭</span><span>${h(t('wrMargins'))} ▾</span>`, t('wrMargins'),
-    `${Object.entries(MARGINS).map(([k, v]) => `<button type="button" class="wr-mi${cur === k ? ' on' : ''}" data-margins="${k}"><b>${h(t(`wrM_${k}`))}</b><span class="muted small"> ${v.top}" · ${v.side}"</span></button>`).join('')}
-     <button type="button" class="wr-mi" data-open-drawer="margins">${h(t('wrMCustom'))}</button>`)}
-     <div class="wr-big wr-static"><span class="wr-ic">📄</span><span>Letter 8.5×11</span></div>`)
+  const [W, H] = letterDims(D);
+  return group(t('wrPageSetup'), `${bigdd('▭', t('wrMargins'),
+    `${Object.entries(MARGINS).map(([k, v]) => mi(`data-margins="${k}"`, `<b>${h(t(`wrM_${k}`))}</b><span class="muted small"> ${v.top}" · ${v.side}"</span>`, cur === k)).join('')}
+     ${mi('id="wr-margins-dlg"', h(t('wrMCustom')))}`)}
+     ${bigdd('⤢', t('wrOrient'), `${mi('data-orient="p"', `▯ ${h(t('wrPortrait'))}`, L.orient !== 'l')}${mi('data-orient="l"', `▭ ${h(t('wrLandscape'))}`, L.orient === 'l')}`)}
+     ${bigdd('📄', t('wrSize'), `${PAGE_SIZES.map(([k, n]) => mi(`data-psize="${k}"`, h(n), (L.page || 'letter') === k)).join('')}${mi('id="wr-size-dlg"', h(t('wrSizeCustom')), L.page === 'custom')}`)}
+     ${bigdd('▥', t('wrColumns'), `${[[1, 'wrCol1'], [2, 'wrCol2'], [3, 'wrCol3']].map(([n, l]) => mi(`data-cols="${n}"`, h(t(l)))).join('')}${mi('data-cols="2r"', h(t('wrCol2Line')))}`)}
+     <span class="wr-note" dir="ltr">${W}" × ${H}"</span>`)
     + group(t('wrDirection'), `<div class="wr-row">
       <button type="button" class="wr-b wr-wide${L.dir === 'rtl' ? ' on' : ''}" data-docdir="rtl">${h(t('mxRtl'))}</button>
-      <button type="button" class="wr-b wr-wide${L.dir === 'ltr' ? ' on' : ''}" data-docdir="ltr">${h(t('mxLtr'))}</button></div>`)
-    + group(t('wrDefaults'), `<button type="button" class="wr-b wr-wide" data-open-drawer="body">${h(t('wrDefaultsBtn'))}</button>`);
+      <button type="button" class="wr-b wr-wide${L.dir === 'ltr' ? ' on' : ''}" data-docdir="ltr">${h(t('mxLtr'))}</button></div>`);
+}
+function fieldMenu(he, en) {
+  return `<div class="wr-mh">${h(t('wrFieldsHe'))}</div>${he.map((k) => mi(`data-field="${h(k)}"`, `«${h(k)}»`)).join('')}
+    <div class="wr-mh">${h(t('wrFieldsEn'))}</div>${en.map((k) => mi(`dir="ltr" data-field="${h(k)}"`, `«${h(k)}»`)).join('')}`;
 }
 function ribbonMail(c, vr) {
-  const red = worst() >= 3;
-  const total = rows.length;
-  return group(t('wrStartGroup'), big('wr-rcp', '👥', t('wrSelectRcp'))
-      + `<span class="wr-note">${h(t('mmCount', { n: total }))}</span>`)
-    + group(t('wrWriteGroup'), `${dd('wr-bigdd', `<span class="wr-ic">«»</span><span>${h(t('wrInsertField'))} ▾</span>`, t('wrInsertField'),
-      `<div class="wr-mh">${h(t('wrFieldsHe'))}</div>${TOKENS_HE.map((k) => `<button type="button" class="wr-mi" data-field="${h(k)}">«${h(k)}»</button>`).join('')}
-       <div class="wr-mh">${h(t('wrFieldsEn'))}</div>${TOKENS_EN.map((k) => `<button type="button" class="wr-mi" dir="ltr" data-field="${h(k)}">«${h(k)}»</button>`).join('')}`)}
+  return group(t('wrStartGroup'), big('wr-rcp', '👥', t('wrSelectRcp')) + `<span class="wr-note">${h(t('mmCount', { n: rows.length }))}</span>`)
+    + group(t('wrWriteGroup'), `${bigdd('«»', t('wrInsertField'), fieldMenu(TOKENS_HE, TOKENS_EN))}
       ${big('wr-win', '🪟', t('mxWindow'), D.ltr.window ? ' aria-pressed="true"' : '')}`)
     + group(t('wrPreviewGroup'), `${big('wr-preview', '«ABC»', t('wrPreview'), ltrEdit ? '' : ' aria-pressed="true"')}
       <div class="wr-nav">
@@ -897,58 +979,105 @@ function ribbonMail(c, vr) {
       <div class="wr-who">${c ? `${h(nameOf(c))}${(byRow.get(keyOf(c)) || []).length ? ` · ⚠ ${(byRow.get(keyOf(c)) || []).map((k) => h(t(PROB_LABEL[k]))).join(', ')}` : ''}
         ${c.contact_id && !c._ext ? ` · <button type="button" class="linkish small" data-card="${h(c.contact_id)}">${h(t('mxOpenCard'))}</button>` : ''}
         · <button type="button" class="linkish small" id="mx-skip">${h(t('mxSkipOne'))}</button>` : h(t('mmNoRecords'))}
-        ${skipIds.size ? ` · <button type="button" class="linkish small" id="mx-unskip">${h(t('mxUnskip', { n: skipIds.size }))}</button>` : ''}</div>`)
-    + group(t('wrFinishGroup'), dd('wr-bigdd wr-finish', `<span class="wr-ic">⎙</span><span>${h(t('wrFinish'))} ▾</span>`, t('wrFinish'), `
-      <button type="button" class="wr-mi" id="mx-print">🖨 ${h(t('mxPrint', { n: total }))}</button>
-      <button type="button" class="wr-mi" id="mx-pdf">⬇ PDF</button>
-      <button type="button" class="wr-mi" id="mx-test">${h(t('mxTestOne'))}</button>
-      <div class="wr-mi wr-range">${h(t('mxRange'))} <input type="number" id="mx-from" min="1" value="1"> – <input type="number" id="mx-to" min="1" value="${total || 1}"></div>
-      ${D.ltr.pairEnv ? `<button type="button" class="wr-mi" id="mx-pair">✉+📄 ${h(t('mxPairBtn'))}</button>` : ''}
-      ${D.src.email ? `<button type="button" class="wr-mi" id="mx-send">📧 ${h(t('mxSendEmail'))}</button>` : ''}
-      ${red ? `<div class="wr-mi mx-redwarn">⚠ ${h(t('mxRedWarn'))}</div>` : ''}`));
+        ${skipIds.size ? ` · <button type="button" class="linkish small" id="mx-unskip">${h(t('mxUnskip', { n: skipIds.size }))}</button>` : ''}</div>`);
+}
+function ribbonFields() {
+  const F = D.ltr.reps?.don || {};
+  const camps = allCampaigns().map((c) => c.name);
+  return group(t('wrDonations'), `${big('wr-rep-don', '🔁', t('wrRepRow'))}
+      ${bigdd('«»', t('wrFieldsBtn'), fieldMenu(DON_TOKENS, DON_TOKENS_EN))}
+      ${bigdd('Σ', t('wrTotals'), fieldMenu(TOTAL_TOKENS, TOTAL_TOKENS_EN))}
+      ${bigdd('⚙', t('wrFilter'), `<div class="wr-form" id="wr-don-filter">
+        <label>${h(t('wrFCamp'))}<select data-f="camp"><option value="link"${!F.camp || F.camp === 'link' ? ' selected' : ''}>${h(t('wrFCampLink'))}</option>
+          <option value="all"${F.camp === 'all' ? ' selected' : ''}>${h(t('wrFCampAll'))}</option>${camps.map((n) => `<option${F.camp === n ? ' selected' : ''}>${h(n)}</option>`).join('')}</select></label>
+        <label>${h(t('rcFrom'))}<input type="date" data-f="from" value="${h(F.from || '')}"></label>
+        <label>${h(t('rcTo'))}<input type="date" data-f="to" value="${h(F.to || '')}"></label>
+        <label class="check"><input type="checkbox" data-f="unpaid"${F.unpaid ? ' checked' : ''}> ${h(t('wrFUnpaid'))}</label>
+        <label>${h(t('wrFOrder'))}<select data-f="order"><option value="asc">${h(t('wrFAsc'))}</option><option value="desc"${F.order === 'desc' ? ' selected' : ''}>${h(t('wrFDesc'))}</option></select></label>
+      </div>`)}`)
+    + `<div class="wr-group wr-soon"><div class="wr-gbody"><span class="wr-note">${h(t('wrMoreLists'))}</span></div><div class="wr-glabel">&nbsp;</div></div>`;
+}
+function ribbonTable() {
+  return group(t('wrRowsCols'), `<div class="wr-col">
+      <button type="button" class="wr-b wr-wide" data-tbl="rowAbove">⬆ ${h(t('wrRowAbove'))}</button>
+      <button type="button" class="wr-b wr-wide" data-tbl="rowBelow">⬇ ${h(t('wrRowBelow'))}</button></div>
+      <div class="wr-col">
+      <button type="button" class="wr-b wr-wide" data-tbl="colRight">➡ ${h(t('wrColRight'))}</button>
+      <button type="button" class="wr-b wr-wide" data-tbl="colLeft">⬅ ${h(t('wrColLeft'))}</button></div>
+      ${bigdd('✖', t('wrDelete'), `${mi('data-tbl="delRow"', h(t('wrDelRow')))}${mi('data-tbl="delCol"', h(t('wrDelCol')))}${mi('data-tbl="delTable"', h(t('wrDelTable')))}`)}`)
+    + group(t('wrMerge'), `<div class="wr-col"><button type="button" class="wr-b wr-wide" data-tbl="merge">⊞ ${h(t('wrMergeNext'))}</button>
+      <button type="button" class="wr-b wr-wide" data-tbl="split">⊟ ${h(t('wrSplit'))}</button></div>`)
+    + group(t('wrRowsKind'), `<div class="wr-col"><button type="button" class="wr-b wr-wide" data-tbl="header">▤ ${h(t('wrHeaderRow'))}</button>
+      <button type="button" class="wr-b wr-wide" data-tbl="repeat">🔁 ${h(t('wrRepRow'))}</button></div>`)
+    + group(t('wrTblStyle'), `${bigdd('▦', t('wrBorders'), `${mi('data-tbl="bAll"', h(t('wrBAll')))}${mi('data-tbl="bNone"', h(t('wrBNone')))}${mi('data-tbl="bOut"', h(t('wrBOut')))}`)}
+      ${bigdd('🎨', t('wrShading'), `${SHADES.map((c) => `<button type="button" class="wr-sw" data-shade="${c}" style="background:${c}"></button>`).join('')}${mi('data-shade=""', h(t('wrNoColor')))}`)}`);
+}
+function ribbonImg() {
+  const w = selImg ? (parseFloat(selImg.style.width) || Math.round((selImg.offsetWidth / PX) * 100) / 100) : 3;
+  const fl = selImg?.style.float || '';
+  return group(t('wrPicSize'), `<label class="wr-lbl">${h(t('mxWidth'))} (in)<input type="number" id="wr-img-w" min="0.3" max="20" step="0.1" value="${w}"></label>`)
+    + group(t('wrWrap'), `<div class="wr-col">
+      <button type="button" class="wr-b wr-wide${!fl && selImg?.style.display !== 'block' ? ' on' : ''}" data-imgwrap="inline">▭ ${h(t('wrWrapInline'))}</button>
+      <button type="button" class="wr-b wr-wide${fl === 'right' ? ' on' : ''}" data-imgwrap="right">⇥ ${h(t('wrWrapRight'))}</button>
+      <button type="button" class="wr-b wr-wide${fl === 'left' ? ' on' : ''}" data-imgwrap="left">⇤ ${h(t('wrWrapLeft'))}</button></div>
+      <button type="button" class="wr-b wr-wide${selImg?.style.display === 'block' ? ' on' : ''}" data-imgwrap="center">≡ ${h(t('wrWrapCenter'))}</button>`)
+    + group(t('wrDelete'), big('wr-img-del', '🗑', t('wrDelPic')));
 }
 
-/** די בלעטער הינטער'ן טעקסט (לאָגאָ, פענצטער, אונטערשריפט...) */
+/** די בלעטער הינטער'ן טעקסט (לאָגאָ, פענצטער, אונטערשריפט, סימן מים...) */
 function sheetsHtml(n, c) {
-  return Array.from({ length: n }, (_, i) => `<div class="wr-sheet" style="top:${i * (11 + GAP)}in">${letterHtml(D, c, { edit: true, cont: i, bodyOverride: '' })}</div>`).join('');
+  const [, H] = letterDims(D);
+  return Array.from({ length: n }, (_, i) => `<div class="wr-sheet" style="top:${i * (H + GAP)}in">${letterHtml(D, c, { edit: true, cont: i, bodyOverride: '' })}</div>`).join('');
 }
 function wordDocHtml(c, ro) {
   const L = D.ltr;
   const G = letterGeo(D);
-  const body = tokensToChips(cleanHtml(L.html)).trim() || '<p><br></p>';
-  return `<div class="wr-doc" data-n="1" style="width:8.5in;height:11in">
+  const body = resolveImgs(tokensToChips(cleanHtml(L.html))).trim() || '<p><br></p>';
+  return `<div class="wr-doc" data-n="1" style="width:${G.W}in;height:${G.H}in">
       <div class="wr-sheets">${sheetsHtml(1, c)}</div>
       <div class="wr-flow" style="left:${G.m.side}in;right:${G.m.side}in;top:${G.top1}in">
-        <div class="wr-body" contenteditable="${ro ? 'false' : 'true'}" spellcheck="false" dir="${L.dir === 'ltr' ? 'ltr' : 'rtl'}" style="${bodyStyle(L)}">${body}</div>
+        <div class="wr-body mx-body-ed" contenteditable="${ro ? 'false' : 'true'}" spellcheck="false" dir="${L.dir === 'ltr' ? 'ltr' : 'rtl'}" style="${bodyStyle(L)}">${body}</div>
         ${sigHtml(D)}
       </div>
     </div>`;
+}
+function tabsHtml() {
+  const ctx = wrCtx === 'table' ? [['table', 'wrTableTab']] : wrCtx === 'img' ? [['img', 'wrPicTab']] : [];
+  return [...TABS, ...ctx].map(([k, lbl]) => `<button type="button" class="wr-tab${wrTab === k ? ' on' : ''}${ctx.some(([x]) => x === k) ? ' wr-ctx' : ''}" data-wrtab="${k}">${h(t(lbl))}</button>`).join('');
+}
+function ribbonFor(tab) {
+  const vr = viewRows();
+  return ({
+    home: ribbonHome, settings: ribbonSettings, insert: ribbonInsert, design: ribbonDesign, layout: ribbonLayout,
+    mail: () => ribbonMail(vr[idx] || null, vr), fields: ribbonFields, table: ribbonTable, img: ribbonImg,
+  }[tab] || ribbonHome)();
 }
 function wordStageHtml() {
   const ro = !canEditT(current());
   const vr = viewRows();
   if (idx >= vr.length) idx = Math.max(0, vr.length - 1);
   const c = vr[idx] || null;
-  const tabs = [['home', 'wrHome'], ['insert', 'wrInsert'], ['layout', 'wrLayout'], ['mail', 'wrMailings']];
-  const rib = { home: ribbonHome, insert: ribbonInsert, layout: ribbonLayout, mail: () => ribbonMail(c, vr) }[wrTab] || ribbonHome;
+  if ((wrTab === 'table' && wrCtx !== 'table') || (wrTab === 'img' && wrCtx !== 'img')) wrTab = 'home';
   const doc = ltrEdit ? wordDocHtml(c, ro) : `<div class="mx-pages">${letterPages(D, c, { edit: true }).join('')}</div>`;
   return `<div class="wr" dir="${document.documentElement.dir || 'rtl'}">
     <div class="wr-tabs">
       <span class="wr-qat">
-        <button type="button" class="wr-q" data-wcmd="save" title="${h(t('wrSave'))} (Ctrl+S)">💾</button>
+        ${dd('wr-savedd', '<span class="wr-q-ic">💾</span>▾', t('wrSave'), `${mi('data-wcmd="save"', `💾 ${h(t('wrSave'))} <span class="muted small">Ctrl+S</span>`)}${mi('id="wr-saveas"', `${h(t('wrSaveAs'))} <span class="muted small">F12</span>`)}`)}
         <button type="button" class="wr-q" data-wcmd="undo" title="${h(t('wrUndo'))} (Ctrl+Z)">↶</button>
         <button type="button" class="wr-q" data-wcmd="redo" title="${h(t('wrRedo'))} (Ctrl+Y)">↷</button>
+        <span class="wr-qsep"></span>
+        <button type="button" class="wr-q" id="wr-print" title="${h(t('wrPrint'))} (Ctrl+P)">🖨</button>
+        <button type="button" class="wr-q wr-q-txt" id="wr-finish" title="${h(t('wrFinish'))}">⎙ ${h(t('wrFinish'))}</button>
       </span>
-      ${tabs.map(([k, lbl]) => `<button type="button" class="wr-tab${wrTab === k ? ' on' : ''}" data-wrtab="${k}">${h(t(lbl))}</button>`).join('')}
-      <span class="spacer"></span>
-      <button type="button" class="wr-tab wr-side${wrDrawer ? ' on' : ''}" id="wr-drawer-btn">⚙ ${h(t('wrLetterSettings'))}</button>
+      <span class="wr-tabnames">${tabsHtml()}</span>
     </div>
-    <div class="wr-ribbon"${ro || (!ltrEdit && wrTab !== 'mail') ? ' inert' : ''}>${rib()}</div>
+    <div class="wr-ribbon"${ro || (!ltrEdit && !['mail', 'settings'].includes(wrTab)) ? ' inert' : ''}>${ribbonFor(wrTab)}</div>
     ${ltrEdit ? '' : `<div class="wr-previewbar">👁 ${h(t('wrPreviewOn'))} <button type="button" class="btn small-btn" id="wr-back-edit">✏️ ${h(t('wrBackToEdit'))}</button></div>`}
     <div class="mm-canvas wr-canvas" id="mm-canvas" dir="ltr"><div class="wr-scaler">${doc}</div></div>
     <div class="wr-status">
       <span id="wr-pages">${h(t('wrPageOf', { i: 1, n: 1 }))}</span>
       <span id="wr-words"></span>
+      <span id="wr-painter-note">${painter ? `🖌 ${h(t('wrPainterOn'))}` : ''}</span>
       <span class="spacer"></span>
       <span class="mx-zoom"><button type="button" class="wr-b" id="mx-zoom-out" title="−">−</button>
       <input type="range" id="wr-zoom" min="50" max="300" step="10" value="${Math.round(zoom * 100)}">
@@ -988,31 +1117,63 @@ function layoutPages() {
   const flow = $('.wr-flow', doc);
   const body = $('.wr-body', doc);
   const G = letterGeo(D);
+  const scale = Number($('#mm-canvas').dataset.scale || 1);
+  $$('[data-wrsp]', flow).forEach((el) => el.remove());
   $$('[data-pbm]', flow).forEach((el) => {
     el.style.marginTop = el.dataset.pbm;
     el.removeAttribute('data-pbm');
     if (!el.getAttribute('style')) el.removeAttribute('style');
   });
-  const items = [...body.children, ...$$(':scope > .mx-sig', flow)];
-  const limit = (p) => (p * (11 + GAP) + 11 - G.bottom) * PX;
-  const topOf = (el) => G.top1 * PX + el.offsetTop;
+  const fr = () => flow.getBoundingClientRect().top;
+  const topOf = (el) => (el.getBoundingClientRect().top - fr()) / scale + G.top1 * PX;
+  const bottomOf = (el) => {
+    let b = el.getBoundingClientRect().bottom;
+    el.querySelectorAll?.('img').forEach((im) => { b = Math.max(b, im.getBoundingClientRect().bottom); });
+    return (b - fr()) / scale + G.top1 * PX;
+  };
+  const limit = (p) => (p * (G.H + GAP) + G.H - G.bottom) * PX;
+  const pageTop = (p) => (p * (G.H + GAP) + G.topN) * PX;
   let page = 0;
   let onPage = 0;
   let force = false;
+  const push = (el) => {
+    const y = topOf(el);
+    page += 1;
+    onPage = 0;
+    const target = pageTop(page);
+    el.dataset.pbm = el.style.marginTop || '';
+    const cur = parseFloat(getComputedStyle(el).marginTop) || 0;
+    el.style.marginTop = `${cur + target - y}px`;
+    const y2 = topOf(el);
+    if (Math.abs(y2 - target) > 0.5) el.style.marginTop = `${parseFloat(el.style.marginTop) + target - y2}px`;
+  };
+  const items = [...body.children, ...$$(':scope > .mx-sig', flow)];
   items.forEach((el) => {
     if (isPgBrk(el)) { force = true; return; }
-    const y = topOf(el);
-    const mb = parseFloat(getComputedStyle(el).marginBottom) || 0; // אזוי ווי ביים דרוקן
-    if (force || (onPage && y + el.offsetHeight + mb > limit(page) + 2)) {
-      page += 1;
-      onPage = 0;
-      const target = (page * (11 + GAP) + G.topN) * PX;
-      el.dataset.pbm = el.style.marginTop || '';
-      const cur = parseFloat(getComputedStyle(el).marginTop) || 0;
-      el.style.marginTop = `${cur + target - y}px`;
-      const y2 = topOf(el);
-      if (Math.abs(y2 - target) > 0.5) el.style.marginTop = `${parseFloat(el.style.marginTop) + target - y2}px`;
+    if (el.tagName === 'TABLE' && !force) {
+      // א טאבעלע: שורה ביי שורה (ווי ביים דרוקן)
+      const bodyRows = [...el.rows].filter((r) => r.parentElement.tagName !== 'THEAD');
+      const head = el.tHead ? el.tHead.getBoundingClientRect().height / scale : 0;
+      const firstBottom = bodyRows[0] ? bottomOf(bodyRows[0]) : bottomOf(el);
+      if (onPage && firstBottom > limit(page) + 2) push(el);
+      onPage += 1;
+      bodyRows.forEach((r, i) => {
+        if (i === 0) return;
+        const y = topOf(r);
+        if (bottomOf(r) > limit(page) + 2) {
+          page += 1;
+          const target = pageTop(page) + head;
+          const sp = document.createElement('tr');
+          sp.setAttribute('data-wrsp', '1');
+          sp.contentEditable = 'false';
+          sp.innerHTML = `<td colspan="99" style="border:none;padding:0;height:${Math.max(0, target - y)}px"></td>`;
+          r.before(sp);
+        }
+      });
+      return;
     }
+    const mb = parseFloat(getComputedStyle(el).marginBottom) || 0; // אזוי ווי ביים דרוקן
+    if (force || (onPage && bottomOf(el) + mb > limit(page) + 2)) push(el);
     force = false;
     onPage += 1;
   });
@@ -1021,7 +1182,7 @@ function layoutPages() {
     doc.dataset.n = n;
     const vr = viewRows();
     $('.wr-sheets', doc).innerHTML = sheetsHtml(n, vr[idx] || null);
-    doc.style.height = `${n * 11 + (n - 1) * GAP}in`;
+    doc.style.height = `${n * G.H + (n - 1) * GAP}in`;
     fitWord();
     wireDrag();
   }
@@ -1031,8 +1192,7 @@ function layoutPages() {
   if (s.rangeCount && body.contains(s.anchorNode)) {
     const r = s.getRangeAt(0).getBoundingClientRect();
     const d = doc.getBoundingClientRect();
-    const scale = Number($('#mm-canvas').dataset.scale || 1);
-    if (r.height) at = Math.min(n, Math.floor((r.top - d.top) / scale / ((11 + GAP) * PX)) + 1);
+    if (r.height) at = Math.min(n, Math.floor((r.top - d.top) / scale / ((G.H + GAP) * PX)) + 1);
   }
   const p = $('#wr-pages');
   if (p) p.textContent = t('wrPageOf', { i: at, n });
@@ -1040,9 +1200,18 @@ function layoutPages() {
   if (w) w.textContent = t('wrWords', { n: (body.innerText.match(/\S+/g) || []).length });
 }
 
-/** דער ריבן ווייזט וואס איז אויסגעקליבן (שריפט, גרייס, B/I/U) */
+const wbody = () => $('#mm-canvas .wr-body');
+const cellAt = () => {
+  const b = wbody();
+  const n = wrRange?.startContainer;
+  if (!b || !n || !b.contains(n)) return null;
+  const el = n.nodeType === 1 ? n : n.parentElement;
+  const c = el.closest('td, th');
+  return c && b.contains(c) ? c : null;
+};
+/** דער ריבן ווייזט וואס איז אויסגעקליבן (שריפט, גרייס, B/I/U); א טאבעלע → די לשונית "טבלה" */
 function syncRibbon() {
-  const body = $('#mm-canvas .wr-body');
+  const body = wbody();
   const s = window.getSelection();
   if (!body || !s.rangeCount || !body.contains(s.anchorNode)) return;
   wrRange = s.getRangeAt(0).cloneRange();
@@ -1063,6 +1232,33 @@ function syncRibbon() {
     const b = $(`.wr-ribbon [data-wcmd="${cmd}"]`);
     if (b) { let on = false; try { on = document.queryCommandState(cmd); } catch { /* */ } b.classList.toggle('on', on); }
   });
+  const ctx = selImg && body.contains(selImg) ? 'img' : cellAt() ? 'table' : '';
+  if (ctx !== wrCtx) {
+    const was = wrCtx;
+    wrCtx = ctx;
+    if (ctx) setTab(ctx);
+    else if (wrTab === was) setTab('home');
+    else renderTabs();
+  }
+}
+function renderTabs() {
+  const tn = $('#mx-stage .wr-tabnames');
+  if (!tn) return;
+  tn.innerHTML = tabsHtml();
+  $$('[data-wrtab]', tn).forEach((b) => {
+    b.addEventListener('mousedown', (e) => e.preventDefault());
+    b.onclick = () => setTab(b.dataset.wrtab);
+  });
+}
+function setTab(tab) {
+  wrTab = tab;
+  if (!['table', 'img'].includes(tab)) { try { localStorage.setItem('khal-wr-tab', tab); } catch { /* */ } }
+  const r = $('#mx-stage .wr-ribbon');
+  if (!r) return;
+  r.innerHTML = ribbonFor(tab);
+  r.inert = !canEditT(current()) || (!ltrEdit && !['mail', 'settings'].includes(tab));
+  renderTabs();
+  wireRibbon($('#mailmerge-main'));
 }
 let wrGlobal = false;
 function wireWordGlobal() {
@@ -1071,6 +1267,27 @@ function wireWordGlobal() {
   document.addEventListener('selectionchange', syncRibbon);
   document.addEventListener('click', (e) => {
     $$('.wr-dd[open]').forEach((d) => { if (!d.contains(e.target)) d.open = false; });
+  });
+  // קיצורים ווי אין Word (נאר ווען דער עדיטאר איז אפן)
+  document.addEventListener('keydown', (e) => {
+    if (!$('#mx-stage .wr') || view !== 'edit' || D?.kind !== 'ltr') return;
+    if ($('dialog[open]') && !$('dialog[open].wr-find-dlg')) return;
+    const k = e.key.toLowerCase();
+    const ctl = e.ctrlKey || e.metaKey;
+    if (k === 'f12') { e.preventDefault(); saveAsDialog(); }
+    else if (ctl && k === 's') { e.preventDefault(); saveCmd(); }
+    else if (ctl && k === 'p') { e.preventDefault(); printDialog('draft'); }
+    else if (ctl && (k === 'f' || k === 'h')) { e.preventDefault(); findDialog(k === 'h'); }
+    else if (ctl && k === 'k' && ltrEdit) { e.preventDefault(); linkDialog(); }
+    else if (k === 'escape' && painter) { painter = null; updatePainter(); }
+  });
+  window.addEventListener('beforeunload', (e) => {
+    if (!D || view !== 'edit') return;
+    if (['dirty', 'saving', 'unnamed'].includes(saveState)) {
+      if (saveState === 'dirty') persist().catch(() => {});
+      e.preventDefault();
+      e.returnValue = '';
+    }
   });
 }
 function restoreSel(body) {
@@ -1087,40 +1304,25 @@ function selBlocks(body) {
   if (!r) return [];
   return [...body.children].filter((k) => r.intersectsNode(k));
 }
-function setDrawer(open, section = '') {
+function setDrawer(open) {
   wrDrawer = open;
-  try { localStorage.setItem('khal-wr-drawer', open ? '1' : '0'); } catch { /* */ }
-  const lay = $('#mailmerge-main .mx-wordlay');
   const dr = $('#mailmerge-main .wr-drawer');
-  if (lay) lay.classList.toggle('with-drawer', open);
   if (dr) dr.hidden = !open;
-  $('#wr-drawer-btn')?.classList.toggle('on', open);
-  fitWord();
-  if (open && section) {
-    const el = $(`#mailmerge-main .wr-drawer [data-sec="${section}"]`);
-    if (el) { if (el.tagName === 'DETAILS') el.open = true; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-  }
 }
 function wireWord(main) {
   wireWordGlobal();
   const st = $('#mx-stage', main);
-  $$('[data-wrtab]', st).forEach((b) => {
-    b.onclick = () => {
-      wrTab = b.dataset.wrtab;
-      try { localStorage.setItem('khal-wr-tab', wrTab); } catch { /* */ }
-      const r = $('.wr-ribbon', st);
-      const vr = viewRows();
-      r.innerHTML = { home: ribbonHome, insert: ribbonInsert, layout: ribbonLayout, mail: () => ribbonMail(vr[idx] || null, vr) }[wrTab]();
-      r.inert = !canEditT(current()) || (!ltrEdit && wrTab !== 'mail');
-      $$('[data-wrtab]', st).forEach((x) => x.classList.toggle('on', x === b));
-      wireRibbon(main);
-      syncRibbon();
-    };
-  });
-  $('#wr-drawer-btn', st).onclick = () => setDrawer(!wrDrawer);
+  renderTabs();
   $('#wr-back-edit', st)?.addEventListener('click', () => { ltrEdit = true; refreshStage(); });
   const zr = $('#wr-zoom', st);
   if (zr) zr.oninput = () => setZoom(Number(zr.value) / 100);
+  // דער אויבערשטער שטרייף (שמור, בטל, הדפסה...)
+  const qat = $('.wr-qat', st);
+  $$('button, summary', qat).forEach((b) => b.addEventListener('mousedown', (e) => e.preventDefault()));
+  $$('[data-wcmd]', qat).forEach((b) => { b.onclick = () => qatCmd(b.dataset.wcmd); });
+  $('#wr-saveas', qat).onclick = () => { $('.wr-savedd', qat).open = false; saveAsDialog(); };
+  $('#wr-print', qat).onclick = () => printDialog('draft');
+  $('#wr-finish', qat).onclick = () => printDialog('all');
   wireRibbon(main);
   const body = $('.wr-body', st);
   if (!body) { fitWord(); return; }
@@ -1141,38 +1343,169 @@ function wireWord(main) {
   body._save = save;
   body.addEventListener('input', save);
   body.addEventListener('paste', (e) => {
-    const html = e.clipboardData.getData('text/html');
-    const txt = e.clipboardData.getData('text/plain');
     e.preventDefault();
-    if (html) {
-      // פון Word: טאבעלעס → שורות
-      const d = new DOMParser().parseFromString(html.replace(/<!--[\s\S]*?-->/g, ''), 'text/html');
-      d.querySelectorAll('table').forEach((tb) => {
-        const ps = [...tb.querySelectorAll('tr')].map((tr) => { const pp = d.createElement('p'); pp.textContent = [...tr.cells].map((c) => c.textContent.trim()).join('   '); return pp; });
-        tb.replaceWith(...ps);
-      });
-      document.execCommand('insertHTML', false, cleanHtml(d.body.innerHTML));
-    } else document.execCommand('insertText', false, txt);
-    chipify(body);
-    normalizeTop(body);
-    save();
+    pasteInto(body, e.clipboardData.getData('text/html'), e.clipboardData.getData('text/plain'));
   });
   body.addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
     if ((e.ctrlKey || e.metaKey) && k === 'enter') { e.preventDefault(); insertPageBreak(body); }
     else if ((k === 'backspace' || k === 'delete') && removeBreakAt(body, k === 'backspace')) { e.preventDefault(); save(); }
-    else if ((e.ctrlKey || e.metaKey) && k === 's') { e.preventDefault(); persistNow(); }
-    else if (k === 'tab' && !e.ctrlKey && !e.altKey) { e.preventDefault(); document.execCommand('insertText', false, '    '); }
+    else if ((k === 'backspace' || k === 'delete') && selImg && body.contains(selImg)) { e.preventDefault(); selImg.remove(); selImg = null; save(); syncRibbon(); }
+    else if (k === 'tab' && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      const c = cellAt();
+      // אין א טאבעלע: צום קומענדיגן תא (ווי אין Word)
+      if (c) {
+        const cells = [...c.closest('table').querySelectorAll('td, th')];
+        let nx = cells[cells.indexOf(c) + (e.shiftKey ? -1 : 1)];
+        if (!nx && !e.shiftKey) { tableOp('rowBelow'); nx = c.closest('tr').nextElementSibling?.cells[0]; }
+        if (nx) { const r = document.createRange(); r.selectNodeContents(nx); r.collapse(true); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+      } else document.execCommand('insertText', false, '    ');
+    }
   });
+  // א בילד: קליקן = אויסקלייבן (די לשונית "תמונה")
+  body.addEventListener('mousedown', (e) => {
+    const im = e.target.closest?.('img');
+    $$('img.wr-selimg', body).forEach((x) => x.classList.remove('wr-selimg'));
+    selImg = im && body.contains(im) ? im : null;
+    if (selImg) {
+      selImg.classList.add('wr-selimg');
+      const r = document.createRange();
+      r.selectNode(selImg);
+      setTimeout(() => { const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); syncRibbon(); }, 0);
+    }
+  });
+  body.addEventListener('mouseup', () => { if (painter) setTimeout(applyPainter, 0); });
   // נאך די בילדער/שריפטן — נאכאמאל צעטיילן
   fitWord();
   layoutPages();
   (document.fonts?.ready || Promise.resolve()).then(() => { layoutPages(); fitWord(); });
   $$('img', st).forEach((im) => { if (!im.complete) im.addEventListener('load', () => layoutPages(), { once: true }); });
+  ensureBodyImages();
 }
+/** בילדער אינעם טעקסט וואס זענען נאך נישט געלאדן (drv:) */
+function ensureBodyImages() {
+  const ids = [...String(D.ltr.html || '').matchAll(/src="drv:([\w-]+)"/g)].map((m) => m[1]);
+  if (D.ltr.wm?.img && isDrv(D.ltr.wm.img)) ids.push(String(D.ltr.wm.img).slice(4));
+  const missing = ids.filter((id) => !imageOf(`drv:${id}`));
+  if (!missing.length) return;
+  fetchImages(missing).then(() => { if (missing.some((id) => imageOf(`drv:${id}`))) refreshStage(); });
+}
+function qatCmd(cmd) {
+  const body = wbody();
+  if (cmd === 'save') { $('.wr-savedd')?.removeAttribute('open'); saveCmd(); return; }
+  if (body) { restoreSel(body); document.execCommand(cmd); body._save?.(); }
+}
+
+// ---------- שמירה / שמור בשם ----------
+function saveCmd() {
+  if (!canEditT(current())) return;
+  if (!nz(D.name)) { saveAsDialog(); return; }
+  persist().then(() => ui.toast(t('mxSavedAuto'))).catch((err) => ui.toast(ui.friendlyError(err), 'error'));
+}
+function saveAsDialog() {
+  const dlg = dialog(`<h3>💾 ${h(t('wrSaveAs'))}</h3>
+    <label class="mm-l">${h(t('mmDesignName'))}<input id="wrsa-name" value="${h(nz(D.name) ? `${D.name} (2)` : '')}" dir="auto"></label>
+    <label class="mm-l">${h(t('mxVisibility'))}<select id="wrsa-vis"><option value="public"${D.meta?.visibility !== 'private' ? ' selected' : ''}>${h(t('mxPublic'))}</option><option value="private"${D.meta?.visibility === 'private' ? ' selected' : ''}>${h(t('mxPrivate'))}</option></select></label>
+    ${D.template_id && openSnap ? `<p class="muted small">${h(t('wrSaveAsNote', { name: D.name }))}</p>` : ''}
+    <div class="dialog-actions"><button type="button" class="btn primary" id="wrsa-ok">${h(t('saveBtn'))}</button><button type="button" class="btn" data-x>${h(t('cancel'))}</button></div>`);
+  const inp = $('#wrsa-name', dlg);
+  inp.focus();
+  inp.select();
+  const go = async () => {
+    const name = nz(inp.value);
+    if (!name) { inp.focus(); return; }
+    const vis = $('#wrsa-vis', dlg).value;
+    dlg.close();
+    try { await saveAs(name, vis); ui.toast(t('mxSavedAuto')); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  };
+  $('#wrsa-ok', dlg).onclick = go;
+  inp.onkeydown = (e) => { if (e.key === 'Enter') go(); };
+}
+/** א נייער עיצוב מיט די טוישן; דער אלטער — צוריק ווי ער איז געווען ביים עפענען (ווי אין Word) */
+async function saveAs(name, vis) {
+  clearTimeout(saveTimer);
+  if (saving) await saving.catch(() => {});
+  const orig = current();
+  const snap = openSnap;
+  const ndoc = JSON.parse(JSON.stringify(D));
+  ndoc.template_id = '';
+  ndoc.name = name;
+  ndoc.meta = { ...(D.meta || {}), visibility: vis };
+  if (!canEditT(orig) || !orig) ndoc.meta.editors = [];
+  D = ndoc;
+  await persistNow();
+  if (orig && snap && canEditT(orig) && JSON.stringify(snap) !== JSON.stringify(orig)) {
+    await saveRecord('MailTemplates', 'template_id', snap);
+    Object.keys(orig).forEach((k) => { if (!(k in snap)) delete orig[k]; });
+    Object.assign(orig, snap);
+  }
+  openSnap = { ...current() };
+  renderMailMerge();
+}
+/** איידער מ'גייט אוועק פון Mail Merge (אן אנדער בלאט אינעם אתר) */
+export function mailMergeCanLeave() {
+  if (!D || view !== 'edit') return true;
+  if (saveState === 'unnamed' && !confirm(t('mxLeaveUnsaved'))) return false;
+  if (saveState === 'dirty') persist().catch(() => {});
+  return true;
+}
+
+// ---------- דרוקן ----------
+function printDialog(which = 'draft') {
+  const vr = viewRows();
+  const c = vr[idx];
+  const red = worst() >= 3;
+  const dlg = dialog(`<h3>🖨 ${h(t('wrPrint'))}</h3>
+    <div class="wr-pd">
+      <b>${h(t('wrPdWhat'))}</b>
+      <label class="check"><input type="radio" name="wrpd" value="draft"${which === 'draft' ? ' checked' : ''}> ${h(t('wrPdDraft'))}</label>
+      <label class="check"><input type="radio" name="wrpd" value="one"${which === 'one' ? ' checked' : ''}${c ? '' : ' disabled'}> ${h(t('wrPdOne'))}${c ? ` — ${h(nameOf(c))}` : ''}</label>
+      <label class="check"><input type="radio" name="wrpd" value="all"${which === 'all' ? ' checked' : ''}${rows.length ? '' : ' disabled'}> ${h(t('wrPdAll', { n: rows.length }))}</label>
+      <div class="mx-range wr-pd-range">${h(t('mxRange'))} <input type="number" id="mx-from" min="1" value="1"> – <input type="number" id="mx-to" min="1" value="${rows.length || 1}"></div>
+      ${red ? `<div class="mx-redwarn">⚠ ${h(t('mxRedWarn'))}</div>` : ''}
+      ${D.ltr.page && D.ltr.page !== 'letter' ? `<p class="muted small">📄 ${h(t('wrPdPaper', { size: letterDims(D).join('" × ') }))}"</p>` : ''}
+    </div>
+    <div class="dialog-actions">
+      <button type="button" class="btn primary" id="wrpd-print">🖨 ${h(t('wrPrint'))}</button>
+      <button type="button" class="btn" id="wrpd-pdf">⬇ PDF</button>
+      ${D.src.email ? `<button type="button" class="btn" id="wrpd-mail">📧 ${h(t('mxSendEmail'))}</button>` : ''}
+      ${D.ltr.pairEnv ? `<button type="button" class="btn" id="wrpd-pair">✉+📄 ${h(t('mxPairBtn'))}</button>` : ''}
+      <button type="button" class="btn" data-x>${h(t('cancel'))}</button></div>`);
+  const what = () => $('input[name=wrpd]:checked', dlg)?.value || 'draft';
+  const sync = () => { $('.wr-pd-range', dlg).hidden = what() !== 'all'; const m = $('#wrpd-mail', dlg); if (m) m.disabled = what() !== 'all'; const p = $('#wrpd-pair', dlg); if (p) p.disabled = what() !== 'all'; };
+  $$('input[name=wrpd]', dlg).forEach((r) => { r.onchange = sync; });
+  sync();
+  const run = async (how) => {
+    const w = what();
+    if (w === 'all' && how !== 'pdf' && how !== 'print') {
+      // די אלטע פונקציעס לייענען #mx-from / #mx-to
+      if (how === 'mail') await sendEmails(); else await outputPair();
+      dlg.close();
+      return;
+    }
+    let pages;
+    if (w === 'draft') pages = letterPages(D, null, { draft: true });
+    else if (w === 'one') pages = letterPages(D, c);
+    else {
+      if (!confirmRed()) return;
+      pages = pagesFor(D, rangeRows());
+    }
+    dlg.close();
+    const size = pageSize(D);
+    if (how === 'print') printPages(pages, size);
+    else await downloadPdf(pages, size, w === 'draft' ? `${D.name || 'letter'} – draft` : D.name);
+  };
+  $('#wrpd-print', dlg).onclick = () => run('print');
+  $('#wrpd-pdf', dlg).onclick = () => run('pdf');
+  $('#wrpd-mail', dlg)?.addEventListener('click', () => run('mail'));
+  $('#wrpd-pair', dlg)?.addEventListener('click', () => run('pair'));
+}
+
+// ---------- טעקסט ----------
 /** טעקסט וואס ליגט גלייך אין בלאט (נישט אין א פסקה) → אריין אין א <p>, כדי מ'זאל קענען צעטיילן אויף בלעטער */
 function normalizeTop(body) {
-  const inline = (n) => (n.nodeType === 3 ? n.textContent.length > 0 : n.nodeType === 1 && /^(B|I|U|SPAN|FONT|STRONG|EM|SUB|SUP|BR)$/.test(n.tagName));
+  const inline = (n) => (n.nodeType === 3 ? n.textContent.length > 0 : n.nodeType === 1 && /^(B|I|U|SPAN|FONT|STRONG|EM|SUB|SUP|BR|A|IMG)$/.test(n.tagName));
   if (![...body.childNodes].some((n) => inline(n) && (n.nodeType !== 3 || n.textContent.trim()))) return;
   const s = window.getSelection();
   const an = s.anchorNode;
@@ -1200,6 +1533,23 @@ function chipify(body) {
     n.replaceWith(...tmp.childNodes);
   });
   if (last) { const s = window.getSelection(); s.removeAllRanges(); const r = document.createRange(); r.setStartAfter(last); s.addRange(r); }
+}
+function pasteInto(body, html, txt) {
+  if (html) {
+    // פון Word: אן "<!-- -->", אן די Word סטיילס
+    const d = new DOMParser().parseFromString(String(html).replace(/<!--[\s\S]*?-->/g, ''), 'text/html');
+    d.querySelectorAll('img').forEach((im) => { if (!/^data:image\//.test(im.getAttribute('src') || '')) im.remove(); });
+    document.execCommand('insertHTML', false, cleanHtml(d.body.innerHTML));
+  } else document.execCommand('insertText', false, txt || '');
+  chipify(body);
+  normalizeTop(body);
+  // בילדער וואס זענען אריינגעקומען מיטן טעקסט → אין דרייב
+  $$('img', body).forEach((im) => { if (!im.dataset.drv && /^data:/.test(im.src)) uploadInline(im); });
+  body._save?.();
+}
+async function uploadInline(im) {
+  const v = await storeImage(im.src, 'letter');
+  if (isDrv(v)) { im.dataset.drv = v.slice(4); wbody()?._save?.(); } else { im.remove(); ui.toast(t('wrImgNoHelper'), 'error'); wbody()?._save?.(); }
 }
 /** Backspace / Delete ביי א "מעבר עמוד" — אים אויסמעקן (ווי אין Word) */
 function removeBreakAt(body, back) {
@@ -1246,6 +1596,410 @@ function insertPageBreak(body) {
   sel.addRange(c);
   body._save?.();
 }
+/** די טעקסט-נאודס אינעם אויסגעקליבענעם טייל (צעשניטן ביי די ראנדן) */
+function selectedTextNodes(body) {
+  const r = wrRange;
+  if (!r || r.collapsed) return [];
+  if (r.startContainer.nodeType === 3 && r.startOffset > 0) {
+    const tail = r.startContainer.splitText(r.startOffset);
+    if (r.endContainer === r.startContainer) r.setEnd(tail, r.endOffset - r.startOffset);
+    r.setStart(tail, 0);
+  }
+  if (r.endContainer.nodeType === 3 && r.endOffset < r.endContainer.length) r.endContainer.splitText(r.endOffset);
+  const out = [];
+  const w = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+  while (w.nextNode()) { const n = w.currentNode; if (r.intersectsNode(n) && !n.parentElement.closest('.mx-tok') && n.textContent) out.push(n); }
+  return out;
+}
+function changeCase(body, kind) {
+  restoreSel(body);
+  const nodes = selectedTextNodes(body);
+  if (!nodes.length) return;
+  const txt = nodes.map((n) => n.textContent).join('');
+  let out;
+  if (kind === 'lower') out = txt.toLowerCase();
+  else if (kind === 'upper') out = txt.toUpperCase();
+  else if (kind === 'title') out = txt.toLowerCase().replace(/(^|[\s(\-"'])([a-z])/g, (m, a, b) => a + b.toUpperCase());
+  else out = txt.toLowerCase().replace(/(^\s*|[.!?]\s+)([a-z])/g, (m, a, b) => a + b.toUpperCase());
+  let pos = 0;
+  nodes.forEach((n) => { const len = n.textContent.length; n.textContent = out.slice(pos, pos + len); pos += len; });
+  const r = document.createRange();
+  r.setStart(nodes[0], 0);
+  r.setEnd(nodes.at(-1), nodes.at(-1).length);
+  const s = window.getSelection();
+  s.removeAllRanges();
+  s.addRange(r);
+  body._save?.();
+}
+/** אן אייגענע סטייל אויפן אויסגעקליבענעם טעקסט (ווען עס איז נישטא קיין execCommand) */
+function styleSelection(body, styles) {
+  restoreSel(body);
+  const nodes = selectedTextNodes(body);
+  nodes.forEach((n) => {
+    const p = n.parentElement;
+    if (p.tagName === 'SPAN' && p.childNodes.length === 1 && p !== body) { Object.assign(p.style, styles); return; }
+    const sp = document.createElement('span');
+    Object.assign(sp.style, styles);
+    n.replaceWith(sp);
+    sp.append(n);
+  });
+  body._save?.();
+}
+// ---------- מברשת עיצוב ----------
+function updatePainter() {
+  $('#wr-painter')?.classList.toggle('on', Boolean(painter));
+  const n = $('#wr-painter-note');
+  if (n) n.textContent = painter ? `🖌 ${t('wrPainterOn')}` : '';
+  wbody()?.classList.toggle('wr-painting', Boolean(painter));
+}
+function takePainter(body, sticky) {
+  const s = window.getSelection();
+  if (!s.rangeCount || !body.contains(s.anchorNode)) { restoreSel(body); }
+  // דער ערשטער אות פונעם אויסגעקליבענעם טעקסט (ווי אין Word)
+  const sel2 = window.getSelection();
+  let node = sel2.rangeCount ? sel2.getRangeAt(0).startContainer : body;
+  if (node.nodeType === 1 && sel2.rangeCount) node = node.childNodes[sel2.getRangeAt(0).startOffset] || node;
+  if (node.nodeType === 1) { const tw = document.createTreeWalker(node, NodeFilter.SHOW_TEXT); if (tw.nextNode()) node = tw.currentNode; }
+  const el = node.nodeType === 1 ? node : node.parentElement;
+  const cs = getComputedStyle(el);
+  const hl = (() => { let x = el; while (x && x !== body) { const bg = getComputedStyle(x).backgroundColor; if (bg && !/rgba\(0, 0, 0, 0\)|transparent/.test(bg)) return bg; x = x.parentElement; } return ''; })();
+  painter = {
+    sticky,
+    st: {
+      font: cs.fontFamily.split(',')[0].replace(/["']/g, '').trim(), pt: Math.round(parseFloat(cs.fontSize) * 0.75 * 2) / 2, color: cs.color,
+      bold: Number(cs.fontWeight) >= 600, italic: cs.fontStyle === 'italic', underline: Boolean(el.closest('u')) || /underline/.test(cs.textDecorationLine), hl,
+    },
+  };
+  updatePainter();
+}
+function applyPainter() {
+  const body = wbody();
+  const s = window.getSelection();
+  if (!painter || !body || !s.rangeCount || s.isCollapsed || !body.contains(s.anchorNode)) return;
+  wrRange = s.getRangeAt(0).cloneRange();
+  const p = painter.st;
+  const ex = (c, v = null, css = false) => { document.execCommand('styleWithCSS', false, css); document.execCommand(c, false, v); };
+  ex('removeFormat');
+  ex('fontName', p.font);
+  ex('foreColor', p.color, true);
+  if (p.hl) ex('hiliteColor', p.hl, true);
+  if (p.bold) ex('bold');
+  if (p.italic) ex('italic');
+  if (p.underline) ex('underline');
+  // די גרייס — צום סוף (דאס טוישט די עלעמענטן)
+  ex('fontSize', '7');
+  $$('font[size="7"]', body).forEach((x) => { const sp = document.createElement('span'); sp.style.fontSize = `${p.pt}pt`; sp.innerHTML = x.innerHTML; x.replaceWith(sp); });
+  document.execCommand('styleWithCSS', false, false);
+  if (!painter.sticky) painter = null;
+  updatePainter();
+  body._save?.();
+}
+// ---------- חיפוש והחלפה ----------
+function findDialog(replace = false) {
+  $('dialog.wr-find-dlg')?.close();
+  const body = wbody();
+  if (!body) return;
+  const pre = window.getSelection().toString().slice(0, 80);
+  const dlg = document.createElement('dialog');
+  dlg.className = 'sheet mx-dlg wr-find-dlg';
+  dlg.innerHTML = `<h3>🔍 ${h(t('wrFindTitle'))}</h3>
+    <label class="mm-l">${h(t('wrFindWhat'))}<input id="wrf-q" dir="auto" value="${h(pre)}"></label>
+    <label class="mm-l"${replace ? '' : ' hidden'} id="wrf-rl">${h(t('wrReplaceWith'))}<input id="wrf-r" dir="auto"></label>
+    <label class="check"><input type="checkbox" id="wrf-case"> ${h(t('wrMatchCase'))}</label>
+    <p class="muted small" id="wrf-msg"></p>
+    <div class="dialog-actions">
+      <button type="button" class="btn primary" id="wrf-next">${h(t('wrFindNext'))}</button>
+      <button type="button" class="btn" id="wrf-one">${h(t('wrReplace'))}</button>
+      <button type="button" class="btn" id="wrf-all">${h(t('wrReplaceAll'))}</button>
+      <button type="button" class="btn" data-x>${h(t('close'))}</button></div>`;
+  document.body.append(dlg);
+  dlg.addEventListener('close', () => dlg.remove());
+  $('[data-x]', dlg).onclick = () => dlg.close();
+  dlg.show();
+  const q = $('#wrf-q', dlg);
+  q.focus();
+  const msg = (m) => { $('#wrf-msg', dlg).textContent = m; };
+  const showRep = () => { $('#wrf-rl', dlg).hidden = false; };
+  const opts = () => ({ q: q.value, cs: $('#wrf-case', dlg).checked });
+  const next = () => {
+    const { q: s, cs } = opts();
+    if (!s) return false;
+    const r = findNext(body, s, cs);
+    if (!r) { msg(t('wrNotFound')); return false; }
+    msg('');
+    return true;
+  };
+  $('#wrf-next', dlg).onclick = next;
+  q.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); next(); } };
+  $('#wrf-one', dlg).onclick = () => {
+    showRep();
+    const { q: s, cs } = opts();
+    const cur = window.getSelection().toString();
+    if (s && body.contains(window.getSelection().anchorNode) && (cs ? cur === s : cur.toLowerCase() === s.toLowerCase())) {
+      document.execCommand('insertText', false, $('#wrf-r', dlg).value);
+      body._save?.();
+    }
+    next();
+  };
+  $('#wrf-all', dlg).onclick = () => {
+    showRep();
+    const { q: s, cs } = opts();
+    if (!s) return;
+    const rep = $('#wrf-r', dlg).value;
+    // פונעם אנהייב
+    const r0 = document.createRange();
+    r0.setStart(body, 0);
+    r0.collapse(true);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(r0);
+    let n = 0;
+    while (n < 1000 && findNext(body, s, cs, false)) { document.execCommand('insertText', false, rep); n += 1; }
+    body._save?.();
+    msg(t('wrReplacedN', { n }));
+  };
+}
+/** די קומענדיגע שטעלע וואו דער טעקסט קומט פאר (נאך'ן קורסאר); wrap = נאכאמאל פונעם אנהייב */
+function findNext(body, q, cs, wrap = true) {
+  const nodes = [];
+  const w = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.parentElement.closest('.mx-tok, [data-wrsp]') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
+  let all = '';
+  while (w.nextNode()) { nodes.push([w.currentNode, all.length]); all += w.currentNode.textContent; }
+  const hay = cs ? all : all.toLowerCase();
+  const needle = cs ? q : q.toLowerCase();
+  // וואו מיר זענען יעצט
+  let from = 0;
+  const s = window.getSelection();
+  if (s.rangeCount && body.contains(s.focusNode)) {
+    const r = s.getRangeAt(0);
+    const hit = nodes.find(([n]) => n === r.endContainer);
+    if (hit) from = hit[1] + r.endOffset;
+    else { const pre = document.createRange(); pre.setStart(body, 0); pre.setEnd(r.endContainer, r.endOffset); from = pre.toString().length; }
+  }
+  let i = hay.indexOf(needle, from);
+  if (i < 0 && wrap) i = hay.indexOf(needle);
+  if (i < 0) return null;
+  const at = (pos, end) => {
+    for (let k = nodes.length - 1; k >= 0; k -= 1) {
+      const [n, off] = nodes[k];
+      if (off < pos || (end && off === pos && k > 0 && off + n.textContent.length > pos) || (!end && off <= pos)) {
+        if (off <= pos && pos <= off + n.textContent.length) return [n, pos - off];
+      }
+    }
+    return [nodes[0][0], 0];
+  };
+  const [sn, so] = at(i, false);
+  const [en, eo] = at(i + needle.length, true);
+  const r = document.createRange();
+  r.setStart(sn, so);
+  r.setEnd(en, eo);
+  s.removeAllRanges();
+  s.addRange(r);
+  wrRange = r.cloneRange();
+  sn.parentElement.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  return r;
+}
+// ---------- טאבעלעס ----------
+function insertTable(rowsN, colsN, header = true) {
+  const body = wbody();
+  if (!body) return;
+  const cell = (tag) => `<${tag} style="${CELL}${tag === 'th' ? ';background-color:#f1e7d3;font-weight:bold' : ''}"><br></${tag}>`;
+  const row = (tag) => `<tr>${Array.from({ length: colsN }, () => cell(tag)).join('')}</tr>`;
+  const html = `<table style="border-collapse:collapse;width:100%">${header ? `<thead>${row('th')}</thead>` : ''}<tbody>${Array.from({ length: Math.max(1, rowsN - (header ? 1 : 0)) }, () => row('td')).join('')}</tbody></table><p><br></p>`;
+  restoreSel(body);
+  document.execCommand('insertHTML', false, html);
+  normalizeTop(body);
+  body._save?.();
+}
+function tableOp(op, val) {
+  const body = wbody();
+  const c = cellAt();
+  if (!body || !c) return;
+  const tr = c.parentElement;
+  const tbl = c.closest('table');
+  const blank = (x, tag) => { const n = document.createElement(tag || x.tagName); n.setAttribute('style', x.getAttribute('style') || CELL); n.innerHTML = '<br>'; return n; };
+  const newRow = (like, tag = 'TD') => { const r = document.createElement('tr'); [...like.cells].forEach((x) => r.append(blank(x, tag))); return r; };
+  const rtl = getComputedStyle(tbl).direction === 'rtl';
+  const ci = c.cellIndex;
+  if (op === 'rowAbove' || op === 'rowBelow') {
+    if (tr.parentElement.tagName === 'THEAD') {
+      const tb = tbl.tBodies[0] || tbl.appendChild(document.createElement('tbody'));
+      tb.prepend(newRow(tr));
+    } else if (op === 'rowAbove') tr.before(newRow(tr)); else tr.after(newRow(tr));
+  } else if (op === 'colRight' || op === 'colLeft') {
+    const after = (op === 'colLeft') === rtl;
+    [...tbl.rows].forEach((r) => {
+      const ref = r.cells[Math.min(ci, r.cells.length - 1)];
+      if (!ref) return;
+      const n = blank(ref);
+      if (after) ref.after(n); else ref.before(n);
+    });
+  } else if (op === 'delRow') {
+    if (tbl.rows.length <= 1) tbl.remove(); else tr.remove();
+  } else if (op === 'delCol') {
+    [...tbl.rows].forEach((r) => r.cells[Math.min(ci, r.cells.length - 1)]?.remove());
+    if (!tbl.rows[0]?.cells.length) tbl.remove();
+  } else if (op === 'delTable') tbl.remove();
+  else if (op === 'merge') {
+    const nx = c.nextElementSibling;
+    if (nx) { c.colSpan = (c.colSpan || 1) + (nx.colSpan || 1); if (nx.textContent.trim()) c.append(' ', ...nx.childNodes); nx.remove(); }
+  } else if (op === 'split') {
+    if ((c.colSpan || 1) > 1) { c.colSpan -= 1; c.after(blank(c)); }
+  } else if (op === 'header') {
+    if (tbl.tHead) {
+      const tb = tbl.tBodies[0] || tbl.appendChild(document.createElement('tbody'));
+      [...tbl.tHead.rows].reverse().forEach((r) => { [...r.cells].forEach((x) => { const td = document.createElement('td'); td.setAttribute('style', (x.getAttribute('style') || CELL).replace(/;?background-color:[^;]+|;?font-weight:bold/g, '')); td.innerHTML = x.innerHTML; x.replaceWith(td); }); tb.prepend(r); });
+      tbl.tHead.remove();
+    } else {
+      const first = tbl.rows[0];
+      const th = tbl.createTHead();
+      [...first.cells].forEach((x) => { const n = document.createElement('th'); n.setAttribute('style', `${x.getAttribute('style') || CELL};background-color:#f1e7d3;font-weight:bold`); n.innerHTML = x.innerHTML; x.replaceWith(n); });
+      first.removeAttribute('data-rep');
+      th.append(first);
+    }
+  } else if (op === 'repeat') {
+    if (tr.parentElement.tagName === 'THEAD') { ui.toast(t('wrRepNotHead'), 'error'); return; }
+    if (tr.dataset.rep) tr.removeAttribute('data-rep'); else { $$('tr[data-rep]', tbl).forEach((x) => x.removeAttribute('data-rep')); tr.dataset.rep = val || 'don'; }
+  } else if (op === 'bAll' || op === 'bNone' || op === 'bOut') {
+    $$('td, th', tbl).forEach((x) => { x.style.border = op === 'bAll' ? '1px solid #888888' : 'none'; });
+    tbl.style.border = op === 'bOut' ? '1px solid #888888' : '';
+  } else if (op === 'shade') {
+    const cells = wrRange && !wrRange.collapsed ? $$('td, th', tbl).filter((x) => wrRange.intersectsNode(x)) : [c];
+    cells.forEach((x) => { x.style.backgroundColor = val || ''; });
+  }
+  normalizeTop(body);
+  body._save?.();
+  syncRibbon();
+}
+/** "שורה חוזרת" פון די לשונית "שדות": אין א טאבעלע — די שורה; אנדערש — א פארטיגע טאבעלע */
+function repeatRow(type) {
+  const body = wbody();
+  if (!body) return;
+  if (cellAt()) { tableOp('repeat', type); return; }
+  const he = D.ltr.dir !== 'ltr';
+  const cols = he ? [['תאריך', 'נדבה_תאריך'], ['סכום', 'נדבה_סכום'], ['שולם', 'נדבה_שולם'], ['הקדשה', 'נדבה_הקדשה']]
+    : [['Date', 'DonDate'], ['Amount', 'DonAmount'], ['Paid', 'DonPaid'], ['Dedication', 'DonDedication']];
+  const th = cols.map(([l]) => `<th style="${CELL};background-color:#f1e7d3;font-weight:bold">${h(l)}</th>`).join('');
+  const td = cols.map(([, k]) => `<td style="${CELL}">${tokensToChips(`{${k}}`)}</td>`).join('');
+  const tot = he ? `<tr><td style="${CELL};font-weight:bold" colspan="${cols.length - 1}">סה"כ</td><td style="${CELL};font-weight:bold">${tokensToChips('{סה"כ_סכום}')}</td></tr>`
+    : `<tr><td style="${CELL};font-weight:bold" colspan="${cols.length - 1}">Total</td><td style="${CELL};font-weight:bold">${tokensToChips('{TotalAmount}')}</td></tr>`;
+  restoreSel(body);
+  document.execCommand('insertHTML', false, `<table style="border-collapse:collapse;width:100%"><thead><tr>${th}</tr></thead><tbody><tr data-rep="${type}">${td}</tr>${tot}</tbody></table><p><br></p>`);
+  normalizeTop(body);
+  body._save?.();
+}
+// ---------- בילדער ----------
+async function insertImageData(data, drvId) {
+  const body = wbody();
+  if (!body) return;
+  restoreSel(body);
+  document.execCommand('insertHTML', false, `<img src="${h(data)}" data-drv="${h(drvId)}" style="width:3in;max-width:100%" alt="">`);
+  body._save?.();
+  setTimeout(() => layoutPages(), 300);
+}
+async function imageFromPc(file) {
+  if (!helperOn()) { ui.toast(t('wrImgNoHelper'), 'error'); return; }
+  try {
+    const data = await shrinkImage(file, 1600, 1500000);
+    const v = await storeImage(data, 'letter');
+    if (!isDrv(v)) { ui.toast(t('wrImgNoHelper'), 'error'); return; }
+    insertImageData(data, v.slice(4));
+  } catch (err) { ui.toast(t(err.message === 'too-big' ? 'mmImageTooBig' : 'mmImageBad'), 'error'); }
+}
+async function imageFromDrive() {
+  const dlg = dialog(`<h3>📁 ${h(t('wrPicDrive'))}</h3><p class="muted small" id="wrd-msg">${h(t('loading'))}</p><div class="wr-thumbs" id="wrd-list"></div>
+    <div class="dialog-actions"><button type="button" class="btn" data-x>${h(t('close'))}</button></div>`, true);
+  const r = await listImages();
+  const box = $('#wrd-list', dlg);
+  if (!dlg.open) return;
+  if (r.error) { $('#wrd-msg', dlg).textContent = r.error === 'unknown-action' ? t('wrHelperUpdate') : t('wrImgNoHelper'); return; }
+  $('#wrd-msg', dlg).textContent = r.files.length ? t('wrPickPic') : t('wrNoPics');
+  box.innerHTML = r.files.map((f) => `<button type="button" class="wr-thumb" data-id="${h(f.id)}" title="${h(f.name)}">${f.thumb ? `<img src="${h(f.thumb)}" alt="">` : '🖼'}<span>${h(f.name)}</span></button>`).join('');
+  $$('.wr-thumb', box).forEach((b) => {
+    b.onclick = async () => {
+      $('#wrd-msg', dlg).textContent = t('loading');
+      await fetchImages([b.dataset.id]);
+      const data = imageOf(`drv:${b.dataset.id}`);
+      dlg.close();
+      if (data) insertImageData(data, b.dataset.id); else ui.toast(t('wrImgNoHelper'), 'error');
+    };
+  });
+}
+// ---------- קישור ----------
+function linkDialog() {
+  const body = wbody();
+  if (!body) return;
+  restoreSel(body);
+  const s = window.getSelection();
+  const a = s.anchorNode && (s.anchorNode.nodeType === 1 ? s.anchorNode : s.anchorNode.parentElement).closest('a');
+  const dlg = dialog(`<h3>🔗 ${h(t('wrLink'))}</h3>
+    <label class="mm-l">${h(t('wrLinkText'))}<input id="wrl-t" dir="auto" value="${h(a ? a.textContent : s.toString())}"></label>
+    <label class="mm-l">${h(t('wrLinkUrl'))}<input id="wrl-u" dir="ltr" placeholder="https://" value="${h(a ? a.getAttribute('href') : '')}"></label>
+    <div class="dialog-actions"><button type="button" class="btn primary" id="wrl-ok">OK</button>
+    ${a ? `<button type="button" class="btn" id="wrl-del">${h(t('wrUnlink'))}</button>` : ''}<button type="button" class="btn" data-x>${h(t('cancel'))}</button></div>`);
+  const saved = wrRange;
+  $('#wrl-u', dlg).focus();
+  $('#wrl-ok', dlg).onclick = () => {
+    let u = nz($('#wrl-u', dlg).value);
+    const txt = nz($('#wrl-t', dlg).value) || u;
+    if (!u) return;
+    if (!/^(https?:\/\/|mailto:|tel:)/i.test(u)) u = /@/.test(u) ? `mailto:${u}` : `https://${u}`;
+    dlg.close();
+    wrRange = saved;
+    restoreSel(body);
+    if (a) { a.setAttribute('href', u); a.textContent = txt; } else document.execCommand('insertHTML', false, `<a href="${h(u)}">${h(txt)}</a>`);
+    body._save?.();
+  };
+  $('#wrl-del', dlg)?.addEventListener('click', () => { dlg.close(); a.replaceWith(...a.childNodes); body._save?.(); });
+}
+// ---------- טורים ----------
+function setColumns(body, n) {
+  restoreSel(body);
+  const s = window.getSelection();
+  const node = s.anchorNode && (s.anchorNode.nodeType === 1 ? s.anchorNode : s.anchorNode.parentElement);
+  const wrap = node?.closest('div[style*="column-count"]');
+  if (wrap && body.contains(wrap)) {
+    if (n === '1') wrap.replaceWith(...wrap.childNodes);
+    else { wrap.style.columnCount = String(parseInt(n, 10)); wrap.style.columnRule = n === '2r' ? '1px solid #bbbbbb' : ''; }
+    body._save?.();
+    return;
+  }
+  if (n === '1') return;
+  const blocks = selBlocks(body).filter((b) => !isPgBrk(b));
+  if (!blocks.length) return;
+  const div = document.createElement('div');
+  div.setAttribute('style', `column-count:${parseInt(n, 10)};column-gap:0.3in${n === '2r' ? ';column-rule:1px solid #bbbbbb' : ''}`);
+  blocks[0].before(div);
+  blocks.forEach((b) => div.append(b));
+  body._save?.();
+}
+// ---------- סימן מים ----------
+function wmCustomDialog() {
+  const w = D.ltr.wm || {};
+  const dlg = dialog(`<h3>💧 ${h(t('wrWatermark'))}</h3>
+    <label class="mm-l">${h(t('wrWmText'))}<input id="wrw-t" dir="auto" value="${h(w.type !== 'img' ? w.text || '' : '')}"></label>
+    <div class="mm-grid"><label>${h(t('wrFontColor'))}<input type="color" id="wrw-c" value="${h(w.color || '#888888')}"></label>
+    <label>${h(t('mmSize'))}<input type="number" id="wrw-s" min="12" max="200" value="${Number(w.size) || 90}"></label>
+    <label>${h(t('mmOpacity'))}<input type="range" id="wrw-o" min="0.03" max="0.6" step="0.01" value="${Number(w.op) || 0.15}"></label></div>
+    <label class="check"><input type="checkbox" id="wrw-d"${w.diag === false ? '' : ' checked'}> ${h(t('wrWmDiag'))}</label>
+    <div class="dialog-actions"><button type="button" class="btn primary" id="wrw-ok">OK</button><button type="button" class="btn" data-x>${h(t('cancel'))}</button></div>`);
+  $('#wrw-ok', dlg).onclick = () => {
+    D.ltr.wm = { on: Boolean(nz($('#wrw-t', dlg).value)), type: 'text', text: nz($('#wrw-t', dlg).value), color: $('#wrw-c', dlg).value, size: Number($('#wrw-s', dlg).value), op: Number($('#wrw-o', dlg).value), diag: $('#wrw-d', dlg).checked };
+    dlg.close();
+    scheduleSave();
+    refreshStage();
+  };
+}
+function numDialog(title, fields, onOk) {
+  const dlg = dialog(`<h3>${h(title)}</h3><div class="mm-grid">${fields.map(([k, l, v, min, max, step]) => `<label>${h(l)}<input type="number" data-nf="${k}" value="${v}" min="${min}" max="${max}" step="${step}"></label>`).join('')}</div>
+    <div class="dialog-actions"><button type="button" class="btn primary" id="wrn-ok">OK</button><button type="button" class="btn" data-x>${h(t('cancel'))}</button></div>`);
+  $('#wrn-ok', dlg).onclick = () => {
+    const o = {};
+    $$('[data-nf]', dlg).forEach((i) => { o[i.dataset.nf] = Number(i.value); });
+    dlg.close();
+    onOk(o);
+  };
+}
+
 function wireRibbon(main) {
   const st = $('#mx-stage', main);
   const rb = $('.wr-ribbon', st);
@@ -1259,13 +2013,12 @@ function wireRibbon(main) {
     body._save?.();
     syncRibbon();
   };
+  const closeDd = (b) => { const d = b.closest('details'); if (d) d.open = false; };
   // קנעפלעך זאלן נישט צונעמען דעם קורסאר
-  $$('button, summary', st.querySelector('.wr-tabs')).forEach((b) => { b.addEventListener('mousedown', (e) => e.preventDefault()); });
-  $$('button, summary', rb).forEach((b) => { b.addEventListener('mousedown', (e) => e.preventDefault()); });
-  $$('[data-wcmd]', st).forEach((b) => {
+  $$('button, summary, .wr-grid span', rb).forEach((b) => { b.addEventListener('mousedown', (e) => e.preventDefault()); });
+  $$('[data-wcmd]', rb).forEach((b) => {
     b.onclick = () => {
       const cmd = b.dataset.wcmd;
-      if (cmd === 'save') { persistNow(); return; }
       if (cmd.startsWith('pdir-')) {
         if (!body) return;
         restoreSel(body);
@@ -1278,9 +2031,40 @@ function wireRibbon(main) {
         body._save?.();
         return;
       }
+      if (cmd === 'cut' || cmd === 'copy') { if (body) { restoreSel(body); document.execCommand(cmd); if (cmd === 'cut') body._save?.(); } return; }
       exec(cmd);
     };
   });
+  $('#wr-paste', rb)?.addEventListener('click', async () => {
+    if (!body) return;
+    try {
+      let html = '';
+      let txt = '';
+      if (navigator.clipboard?.read) {
+        const items = await navigator.clipboard.read();
+        for (const it of items) {
+          if (it.types.includes('text/html')) html = await (await it.getType('text/html')).text();
+          else if (it.types.includes('text/plain')) txt = await (await it.getType('text/plain')).text();
+        }
+      } else txt = await navigator.clipboard.readText();
+      restoreSel(body);
+      pasteInto(body, html, txt);
+    } catch { ui.toast(t('wrPasteKeys')); }
+  });
+  const pb = $('#wr-painter', rb);
+  if (pb) {
+    let clickT = null;
+    pb.onclick = () => {
+      if (!body) return;
+      clearTimeout(clickT);
+      if (painter) { painter = null; updatePainter(); return; }
+      clickT = setTimeout(() => takePainter(body, false), 220);
+    };
+    pb.ondblclick = () => { clearTimeout(clickT); if (body) takePainter(body, true); };
+  }
+  $$('[data-case]', rb).forEach((b) => { b.onclick = () => { closeDd(b); if (body) changeCase(body, b.dataset.case); }; });
+  $('#wr-find', rb)?.addEventListener('click', () => findDialog(false));
+  $('#wr-replace', rb)?.addEventListener('click', () => findDialog(true));
   const f = $('#wr-font', rb);
   if (f) f.onchange = () => exec('fontName', f.value);
   const z = $('#wr-size', rb);
@@ -1294,13 +2078,24 @@ function wireRibbon(main) {
       body._save?.();
     };
   }
-  $$('[data-hilite]', rb).forEach((b) => { b.onclick = () => { exec('hiliteColor', b.dataset.hilite, true); b.closest('details').open = false; }; });
-  $$('[data-fore]', rb).forEach((b) => { b.onclick = () => { exec('foreColor', b.dataset.fore, true); $('.wr-fc', rb).style.borderColor = b.dataset.fore; b.closest('details').open = false; }; });
-  const fc = $('#wr-forecustom', rb);
-  if (fc) fc.onchange = () => exec('foreColor', fc.value, true);
+  $$('[data-hilite]', rb).forEach((b) => { b.onclick = () => { exec('hiliteColor', b.dataset.hilite, true); closeDd(b); }; });
+  $$('[data-fore]', rb).forEach((b) => { b.onclick = () => { exec('foreColor', b.dataset.fore, true); $$('.wr-fc', rb).forEach((x) => { x.style.borderColor = b.dataset.fore; }); closeDd(b); }; });
+  $$('.wr-forecustom', rb).forEach((fc) => { fc.onchange = () => exec('foreColor', fc.value, true); });
+  $$('[data-outline]', rb).forEach((b) => { b.onclick = () => { closeDd(b); if (body) styleSelection(body, { webkitTextStroke: b.dataset.outline ? `0.6px ${b.dataset.outline}` : '' }); }; });
+  $$('[data-outw]', rb).forEach((b) => {
+    b.onclick = () => {
+      closeDd(b);
+      if (!body) return;
+      restoreSel(body);
+      const node = window.getSelection().anchorNode;
+      const el = node && (node.nodeType === 1 ? node : node.parentElement);
+      const color = (el && getComputedStyle(el).webkitTextStrokeColor) || '#000000';
+      styleSelection(body, { webkitTextStroke: `${b.dataset.outw}px ${color}` });
+    };
+  });
   $$('[data-linesp]', rb).forEach((b) => {
     b.onclick = () => {
-      b.closest('details').open = false;
+      closeDd(b);
       if (!body) return;
       restoreSel(body);
       const bl = selBlocks(body);
@@ -1308,29 +2103,142 @@ function wireRibbon(main) {
       else { D.ltr.lineH = Number(b.dataset.linesp); scheduleSave(); refreshStage(); }
     };
   });
+  const paraSp = (attr, prop) => $$(`[data-${attr}]`, rb).forEach((b) => {
+    b.onclick = () => {
+      closeDd(b);
+      if (!body) return;
+      restoreSel(body);
+      selBlocks(body).forEach((el) => {
+        const v = `${b.dataset[attr]}pt`;
+        if (prop === 'marginTop' && el.dataset.pbm !== undefined) el.dataset.pbm = v; else el.style[prop] = v;
+      });
+      body._save?.();
+    };
+  });
+  paraSp('spb', 'marginTop');
+  paraSp('spa', 'marginBottom');
+  // הוספה
   $('#wr-pgbrk', rb)?.addEventListener('click', () => body && insertPageBreak(body));
   $('#wr-date', rb)?.addEventListener('click', () => body && exec('insertHTML', `${tokensToChips('{תאריך}')}&nbsp;`));
   $$('[data-field]', rb).forEach((b) => {
     b.onclick = () => {
-      b.closest('details').open = false;
+      closeDd(b);
       if (!body) return;
       exec('insertHTML', `${tokensToChips(`{${b.dataset.field}}`)}&nbsp;`);
     };
   });
+  const grid = $('#wr-grid', rb);
+  if (grid) {
+    const mark = (r, c) => { $$('span', grid).forEach((x) => x.classList.toggle('on', Number(x.dataset.gr) <= r && Number(x.dataset.gc) <= c)); $('#wr-gridlbl', rb).textContent = r ? `${c} × ${r}` : t('wrTable'); };
+    $$('span', grid).forEach((x) => {
+      x.onmouseenter = () => mark(Number(x.dataset.gr), Number(x.dataset.gc));
+      x.onclick = () => { closeDd(x); insertTable(Number(x.dataset.gr), Number(x.dataset.gc), true); };
+    });
+    grid.onmouseleave = () => mark(0, 0);
+  }
+  $('#wr-table-dlg', rb)?.addEventListener('click', (e) => {
+    closeDd(e.currentTarget);
+    const dlg = dialog(`<h3>▦ ${h(t('wrInsertTable'))}</h3><div class="mm-grid"><label>${h(t('wrColsN'))}<input type="number" id="wrt-c" value="3" min="1" max="20"></label>
+      <label>${h(t('wrRowsN'))}<input type="number" id="wrt-r" value="3" min="1" max="200"></label></div>
+      <label class="check"><input type="checkbox" id="wrt-h" checked> ${h(t('wrHeaderRow'))}</label>
+      <div class="dialog-actions"><button type="button" class="btn primary" id="wrt-ok">OK</button><button type="button" class="btn" data-x>${h(t('cancel'))}</button></div>`);
+    $('#wrt-ok', dlg).onclick = () => { const r = Number($('#wrt-r', dlg).value) || 3; const c = Number($('#wrt-c', dlg).value) || 3; const hh = $('#wrt-h', dlg).checked; dlg.close(); insertTable(Math.min(200, r), Math.min(20, c), hh); };
+  });
+  const imgFile = $('#wr-img-file', rb);
+  $('#wr-img-pc', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); imgFile.click(); });
+  if (imgFile) imgFile.onchange = () => { if (imgFile.files[0]) imageFromPc(imgFile.files[0]); };
+  $('#wr-img-drive', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); imageFromDrive(); });
+  $('#wr-link', rb)?.addEventListener('click', () => linkDialog());
   $('#wr-sig', rb)?.addEventListener('click', () => { D.ltr.sig = !D.ltr.sig; scheduleSave(); refreshStage(); });
-  $('#wr-win', rb)?.addEventListener('click', () => { D.ltr.window = !D.ltr.window; scheduleSave(); renderMailMerge(); });
-  $('#wr-rcp', rb)?.addEventListener('click', () => setDrawer(true, 'rcp'));
-  $$('[data-open-drawer]', rb).forEach((b) => { b.onclick = () => { b.closest('details')?.removeAttribute('open'); setDrawer(true, b.dataset.openDrawer); }; });
+  // עיצוב: סימן מים
+  $$('[data-wm]', rb).forEach((b) => {
+    b.onclick = () => {
+      closeDd(b);
+      const x = b.dataset.wm;
+      D.ltr.wm = x ? { ...(D.ltr.wm?.type === 'text' ? D.ltr.wm : {}), on: true, type: 'text', text: x } : { ...(D.ltr.wm || {}), on: false };
+      scheduleSave();
+      refreshStage();
+    };
+  });
+  $('#wr-wm-custom', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); wmCustomDialog(); });
+  const wmFile = $('#wr-wm-file', rb);
+  $('#wr-wm-img', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); wmFile.click(); });
+  if (wmFile) {
+    wmFile.onchange = async () => {
+      const file = wmFile.files[0];
+      if (!file) return;
+      try {
+        const data = await shrinkImage(file, 1600, 1500000);
+        const v = await storeImage(data, 'watermark');
+        if (!isDrv(v)) { ui.toast(t('wrImgNoHelper'), 'error'); return; }
+        D.ltr.wm = { on: true, type: 'img', img: v, op: 0.15, scale: 60 };
+        scheduleSave();
+        refreshStage();
+      } catch (err) { ui.toast(t(err.message === 'too-big' ? 'mmImageTooBig' : 'mmImageBad'), 'error'); }
+    };
+  }
+  // פריסה
   $$('[data-margins]', rb).forEach((b) => { b.onclick = () => { D.ltr.margins = { ...MARGINS[b.dataset.margins] }; scheduleSave(); renderMailMerge(); }; });
+  $('#wr-margins-dlg', rb)?.addEventListener('click', (e) => {
+    closeDd(e.currentTarget);
+    const m = D.ltr.margins;
+    numDialog(t('wrMCustom'), [['top', t('mxMarginTop'), m.top, 0.2, 4, 0.05], ['side', t('mxMarginSide'), m.side, 0.2, 2.5, 0.05], ['bottom', t('mxMarginBottom'), m.bottom, 0.2, 3, 0.05]],
+      (o) => { D.ltr.margins = o; scheduleSave(); renderMailMerge(); });
+  });
+  $$('[data-orient]', rb).forEach((b) => { b.onclick = () => { D.ltr.orient = b.dataset.orient; scheduleSave(); renderMailMerge(); }; });
+  $$('[data-psize]', rb).forEach((b) => { b.onclick = () => { D.ltr.page = b.dataset.psize; scheduleSave(); renderMailMerge(); }; });
+  $('#wr-size-dlg', rb)?.addEventListener('click', (e) => {
+    closeDd(e.currentTarget);
+    numDialog(t('wrSizeCustom'), [['pw', `${t('mxWidth')} (in)`, D.ltr.pw || 8.5, 3, 30, 0.01], ['ph', `${t('mxHeight')} (in)`, D.ltr.ph || 11, 3, 30, 0.01]],
+      (o) => { D.ltr.page = 'custom'; D.ltr.pw = o.pw; D.ltr.ph = o.ph; scheduleSave(); renderMailMerge(); });
+  });
+  $$('[data-cols]', rb).forEach((b) => { b.onclick = () => { closeDd(b); if (body) setColumns(body, b.dataset.cols); }; });
   $$('[data-docdir]', rb).forEach((b) => { b.onclick = () => { D.ltr.dir = b.dataset.docdir; scheduleSave(); renderMailMerge(); }; });
+  // דברי דואר
+  $('#wr-win', rb)?.addEventListener('click', () => { D.ltr.window = !D.ltr.window; scheduleSave(); renderMailMerge(); });
+  $('#wr-rcp', rb)?.addEventListener('click', () => setDrawer(true));
   $('#wr-preview', rb)?.addEventListener('click', () => { ltrEdit = !ltrEdit; refreshStage(); });
   const vr = () => viewRows();
   $('#mx-first', rb)?.addEventListener('click', () => { idx = 0; refreshStage(); });
   $('#mx-last', rb)?.addEventListener('click', () => { idx = Math.max(0, vr().length - 1); refreshStage(); });
   const rec = $('#wr-rec', rb);
   if (rec) rec.onchange = () => { idx = Math.min(vr().length - 1, Math.max(0, Number(rec.value) - 1)); refreshStage(); };
-  // [data-k] אין ריבן
+  // שדות
+  $('#wr-rep-don', rb)?.addEventListener('click', () => repeatRow('don'));
+  const flt = $('#wr-don-filter', rb);
+  if (flt) {
+    $$('[data-f]', flt).forEach((el) => {
+      el.onchange = () => {
+        const F = { ...(D.ltr.reps?.don || {}) };
+        F[el.dataset.f] = el.type === 'checkbox' ? el.checked : el.value;
+        D.ltr.reps = { ...(D.ltr.reps || {}), don: F };
+        scheduleSave();
+        refreshAll();
+      };
+    });
+  }
+  // טבלה
+  $$('[data-tbl]', rb).forEach((b) => { b.onclick = () => { closeDd(b); tableOp(b.dataset.tbl); }; });
+  $$('[data-shade]', rb).forEach((b) => { b.onclick = () => { closeDd(b); tableOp('shade', b.dataset.shade); }; });
+  // תמונה
+  const iw = $('#wr-img-w', rb);
+  if (iw) iw.onchange = () => { if (selImg) { selImg.style.width = `${Number(iw.value) || 3}in`; selImg.style.maxWidth = '100%'; body?._save?.(); } };
+  $$('[data-imgwrap]', rb).forEach((b) => {
+    b.onclick = () => {
+      if (!selImg) return;
+      const k = b.dataset.imgwrap;
+      Object.assign(selImg.style, { float: '', display: '', margin: '' });
+      if (k === 'right') Object.assign(selImg.style, { float: 'right', margin: '0 0 6px 12px' });
+      if (k === 'left') Object.assign(selImg.style, { float: 'left', margin: '0 12px 6px 0' });
+      if (k === 'center') Object.assign(selImg.style, { display: 'block', margin: '6px auto' });
+      body?._save?.();
+      setTab('img');
+    };
+  });
+  $('#wr-img-del', rb)?.addEventListener('click', () => { if (selImg) { selImg.remove(); selImg = null; body?._save?.(); syncRibbon(); } });
+  // הגדרות: [data-k], בילדער
   $$('[data-k]', rb).forEach((el) => { el.addEventListener('change', () => applyK(el)); });
+  wireUploads(rb);
   wireStageButtons(main, rb);
 }
 
@@ -1348,11 +2256,10 @@ function renderEditor(main) {
       ${ro ? '' : `<button type="button" class="btn" id="mx-settings">⚙ ${h(t('mxSettings'))}</button>`}
     </div>
     <div id="mx-bar-wrap">${barHtml()}</div>
-    ${D.kind === 'ltr' ? `<div class="mm-layout mx-wordlay${wrDrawer ? ' with-drawer' : ''}">
+    ${D.kind === 'ltr' ? `<div class="mm-layout mx-wordlay">
       <aside class="mm-panel wr-drawer"${wrDrawer ? '' : ' hidden'}${ro ? ' inert' : ''}>
-        <div class="wr-drawer-head"><b>⚙ ${h(t('wrLetterSettings'))}</b><button type="button" class="linkish" id="wr-drawer-x">✕</button></div>
+        <div class="wr-drawer-head"><b>👥 ${h(t('mxRecipients'))}</b><button type="button" class="btn small-btn" id="wr-drawer-x">✓ ${h(t('close'))}</button></div>
         <div data-sec="rcp">${recipientsHtml()}</div>
-        ${letterSide('R')}${letterSide('L')}
       </aside>
       <section class="mm-stage" id="mx-stage">${stageHtml()}</section>
     </div>` : `<div class="mm-layout">
@@ -1447,6 +2354,23 @@ function applyK(el) {
   else if (ROWS.has(k) || k.startsWith('rcp.template') || k === 'ltr.salutation') refreshAll();
   else refreshStage();
 }
+function wireUploads(root, skipStage = false) {
+  $$('[data-upload]', root).filter((el) => !skipStage || !el.closest('#mx-stage')).forEach((inp) => {
+    inp.onchange = async () => {
+      const file = inp.files[0];
+      if (!file) return;
+      const big = helperOn();
+      const isBg = inp.dataset.upload === 'background_data';
+      try {
+        // מיט דעם עוזר התמונות (דרייב) — א גרעסערע בילד, שיין פאר דרוקן
+        D[inp.dataset.upload] = await shrinkImage(file, big ? (isBg ? 2400 : 900) : (isBg ? 900 : 500), big ? 1500000 : 45000);
+        scheduleSave(300);
+        renderMailMerge();
+      } catch (err) { ui.toast(t(err.message === 'too-big' ? 'mmImageTooBig' : 'mmImageBad'), 'error'); }
+    };
+  });
+  $$('[data-clear]', root).filter((el) => !skipStage || !el.closest('#mx-stage')).forEach((b) => { b.onclick = () => { D[b.dataset.clear] = ''; scheduleSave(); renderMailMerge(); }; });
+}
 function wireEditor(main) {
   $('#mx-back', main).onclick = async () => {
     if (!D.template_id && !nz(D.name) && !confirm(t('mxLeaveUnsaved'))) return;
@@ -1500,21 +2424,7 @@ function wireEditor(main) {
       ta.focus();
     };
   });
-  $$('[data-upload]', main).forEach((inp) => {
-    inp.onchange = async () => {
-      const file = inp.files[0];
-      if (!file) return;
-      const big = helperOn();
-      const isBg = inp.dataset.upload === 'background_data';
-      try {
-        // מיט דעם עוזר התמונות (דרייב) — א גרעסערע בילד, שיין פאר דרוקן
-        D[inp.dataset.upload] = await shrinkImage(file, big ? (isBg ? 2400 : 900) : (isBg ? 900 : 500), big ? 1500000 : 45000);
-        scheduleSave(300);
-        renderMailMerge();
-      } catch (err) { ui.toast(t(err.message === 'too-big' ? 'mmImageTooBig' : 'mmImageBad'), 'error'); }
-    };
-  });
-  $$('[data-clear]', main).forEach((b) => { b.onclick = () => { D[b.dataset.clear] = ''; scheduleSave(); renderMailMerge(); }; });
+  wireUploads(main, true);
   // טעקסט קעסטלעך
   $('#mx-addbox', main)?.addEventListener('click', () => {
     const id = `b${Date.now().toString(36)}`;

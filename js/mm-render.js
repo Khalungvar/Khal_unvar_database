@@ -1,7 +1,8 @@
 // Mail Merge — דאס צייכענען: קאנווערטן, לעיבלס, בריוו. אלע מאסן אין אינטשעס (96px = 1in).
 // יעדע פונקציע באקומט דעם עיצוב (D) — אזוי קען מען צייכענען אויך אן אנדערן עיצוב (למשל די קאנווערטן פאר "א פּאָר").
 import { state, orgLogo, NESHEI_ORG, orgDetailsOf } from './data.js';
-import { escapeHtml as h, mailingName, isTrue, isAlive } from './util.js';
+import { escapeHtml as h, mailingName, isTrue, isAlive, splitTags } from './util.js';
+import { imageOf } from './images.js';
 import { isoToHebrewText, todayIso } from './hebdate.js';
 import { money } from './donations.js';
 import { joinImg } from './receipts.js';
@@ -46,7 +47,25 @@ export function envSize(D) {
 }
 export function pageSize(D) {
   if (D.kind === 'env') return envSize(D);
+  if (D.kind === 'ltr') return letterDims(D);
   return [8.5, 11];
+}
+// גרייסן פון א בריוו-בלאט: id, name, w, h
+export const PAGE_SIZES = [
+  ['letter', 'Letter 8.5 × 11', 8.5, 11],
+  ['half', 'Half Letter 5.5 × 8.5', 5.5, 8.5],
+  ['tabloid', 'Tabloid 11 × 17', 11, 17],
+  ['a5', 'A5 (148 × 210 mm)', 5.83, 8.27],
+  ['a4', 'A4 (210 × 297 mm)', 8.27, 11.69],
+  ['a3', 'A3 (297 × 420 mm)', 11.69, 16.54],
+];
+export function letterDims(D) {
+  const L = D.ltr || {};
+  let w;
+  let hh;
+  if (L.page === 'custom') { w = Math.min(30, Math.max(3, Number(L.pw) || 8.5)); hh = Math.min(30, Math.max(3, Number(L.ph) || 11)); }
+  else { const p = PAGE_SIZES.find(([k]) => k === L.page) || PAGE_SIZES[0]; [, , w, hh] = p; }
+  return L.orient === 'l' ? [hh, w] : [w, hh];
 }
 
 // ---------- לאגאס ----------
@@ -59,8 +78,18 @@ export function resolveLogo(key, custom) {
 }
 
 // ---------- רייניקן HTML (רייכער טעקסט פונעם עדיטאר) ----------
-const OK_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'SPAN', 'FONT', 'DIV', 'P', 'BR', 'UL', 'OL', 'LI', 'SUB', 'SUP', 'BLOCKQUOTE']);
-const OK_ATTR = new Set(['style', 'face', 'color', 'size', 'align', 'dir']);
+const OK_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'SPAN', 'FONT', 'DIV', 'P', 'BR', 'UL', 'OL', 'LI', 'SUB', 'SUP', 'BLOCKQUOTE',
+  'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TD', 'TH', 'A', 'IMG', 'H1', 'H2', 'H3', 'H4']);
+const OK_ATTR = new Set(['style', 'face', 'color', 'size', 'align', 'dir', 'colspan', 'rowspan', 'href', 'src', 'data-rep', 'alt']);
+export const REP_TYPES = ['don'];
+// א זיכערער ווערט פאר א געוויסן attribute
+function attrOk(name, v) {
+  if (name === 'href') return /^(https?:\/\/|mailto:|tel:)/i.test(v);
+  if (name === 'src') return /^(drv:[\w-]+|data:image\/(png|jpe?g|gif|webp);base64,[\w+/=]+)$/i.test(v);
+  if (name === 'data-rep') return REP_TYPES.includes(v);
+  if (name === 'colspan' || name === 'rowspan') return /^\d{1,2}$/.test(v);
+  return !/url\s*\(|expression|javascript:/i.test(v);
+}
 export function cleanHtml(html) {
   const doc = new DOMParser().parseFromString(`<div>${String(html || '')}</div>`, 'text/html');
   const walk = (el) => {
@@ -73,8 +102,9 @@ export function cleanHtml(html) {
       const st = ch.getAttribute('style');
       if (st && /mso-/i.test(st)) ch.setAttribute('style', st.split(';').filter((d) => d.trim() && !/^\s*mso-/i.test(d)).join(';'));
       [...ch.attributes].forEach((a) => {
-        if (!OK_ATTR.has(a.name.toLowerCase()) || /url\s*\(|expression|javascript:/i.test(a.value)) ch.removeAttribute(a.name);
+        if (!OK_ATTR.has(a.name.toLowerCase()) || !attrOk(a.name.toLowerCase(), a.value)) ch.removeAttribute(a.name);
       });
+      if (ch.tagName === 'IMG' && !ch.getAttribute('src')) { ch.remove(); return; }
       walk(ch);
     });
   };
@@ -114,6 +144,75 @@ export function donationCtx(D, c) {
   return { n: list.length, total, paid, remaining: Math.max(0, total - paid), date: dates.at(-1) || '', dedication: ded, campaign: link.name };
 }
 
+/** די נדבות פאר א "שורה חוזרת" און די סכומים — לויט דעם סינון פונעם בריוו (אדער די נדבות פון א קבלה) */
+export function donationList(D, c, ctx = null) {
+  if (Array.isArray(ctx?.list)) return ctx.list;
+  if (!c || String(c.contact_id || '').startsWith('x:')) return [];
+  const F = D.ltr?.reps?.don || {};
+  const camp = !F.camp || F.camp === 'link' ? (D.link?.name || '') : F.camp === 'all' ? '' : F.camp;
+  const day = (d) => String(d.date || '').slice(0, 10);
+  const list = state.donations.filter((d) => String(d.contact_id) === String(c.contact_id)
+    && (!camp || d.campaign === camp)
+    && (!F.from || day(d) >= F.from) && (!F.to || day(d) <= F.to)
+    && (!F.unpaid || !isTrue(d.is_paid)));
+  list.sort((a, b) => day(a).localeCompare(day(b)));
+  if (F.order === 'desc') list.reverse();
+  return list;
+}
+const sumOf = (arr) => arr.reduce((s, d) => s + (Number(d.amount_usd) || 0), 0);
+const shortDate = (iso) => { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${Number(m[3])}/${Number(m[2])}/${m[1]}` : nz(iso); };
+/** די ווערטער פון איין נדבה (פאר א שורה חוזרת) */
+export function donationVals(d, en = false) {
+  const paid = isTrue(d.is_paid);
+  const amt = Number(d.amount_usd) || 0;
+  const v = {
+    נדבה_תאריך: shortDate(d.date),
+    נדבה_תאריך_עברי: nz(d.hebrew_date) || (d.date ? isoToHebrewText(d.date) : ''),
+    נדבה_סכום: amt ? money(amt) : '',
+    נדבה_שולם: en ? (paid ? 'Yes' : 'No') : (paid ? 'כן' : 'לא'),
+    נדבה_נשאר: money(paid ? 0 : amt),
+    נדבה_תאריך_תשלום: shortDate(d.paid_date),
+    נדבה_אמצעי: nz(d.payment_method),
+    נדבה_צק: nz(d.check_number),
+    נדבה_הקדשה: [d.dedication_type, d.dedication_text].map(nz).filter(Boolean).join(' '),
+    נדבה_קמפיין: nz(d.campaign),
+    נדבה_אירוע: [splitTags(d.event_tags).join(', '), nz(d.event_year)].filter(Boolean).join(' '),
+    נדבה_הערה: nz(d.event_note),
+  };
+  Object.assign(v, {
+    DonDate: longDateEn(d.date), DonHebDate: v.נדבה_תאריך_עברי, DonAmount: v.נדבה_סכום, DonPaid: paid ? 'Yes' : 'No', DonDue: v.נדבה_נשאר,
+    DonPaidDate: longDateEn(d.paid_date), DonMethod: v.נדבה_אמצעי, DonCheck: v.נדבה_צק, DonDedication: v.נדבה_הקדשה,
+    DonCampaign: v.נדבה_קמפיין, DonEvent: v.נדבה_אירוע, DonNote: v.נדבה_הערה,
+  });
+  return v;
+}
+export const DON_TOKENS = ['נדבה_תאריך', 'נדבה_תאריך_עברי', 'נדבה_סכום', 'נדבה_שולם', 'נדבה_נשאר', 'נדבה_תאריך_תשלום', 'נדבה_אמצעי', 'נדבה_צק', 'נדבה_הקדשה', 'נדבה_קמפיין', 'נדבה_אירוע', 'נדבה_הערה'];
+export const DON_TOKENS_EN = ['DonDate', 'DonHebDate', 'DonAmount', 'DonPaid', 'DonDue', 'DonPaidDate', 'DonMethod', 'DonCheck', 'DonDedication', 'DonCampaign', 'DonEvent', 'DonNote'];
+export const TOTAL_TOKENS = ['סה"כ_סכום', 'סה"כ_שולם', 'סה"כ_נשאר', 'מספר_נדבות'];
+export const TOTAL_TOKENS_EN = ['TotalAmount', 'TotalPaid', 'TotalDue', 'DonCount'];
+
+/** "שורה חוזרת" אין א טאבעלע: איין שורה פאר יעדע נדבה */
+export function expandRepeats(html, D, c, ctx = null) {
+  if (!String(html).includes('data-rep') || !c) return html;
+  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
+  const en = D.ltr?.dir === 'ltr';
+  doc.querySelectorAll('tr[data-rep]').forEach((tr) => {
+    const items = tr.dataset.rep === 'don' ? donationList(D, c, ctx) : [];
+    items.forEach((d) => {
+      const cl = tr.cloneNode(true);
+      cl.removeAttribute('data-rep');
+      cl.innerHTML = fillHtml(cl.innerHTML, donationVals(d, en));
+      tr.before(cl);
+    });
+    tr.remove();
+  });
+  return doc.body.firstElementChild.innerHTML;
+}
+/** בילדער אינעם טעקסט: "drv:<id>" → דאס בילד */
+export const resolveImgs = (html) => String(html || '').replace(/src="drv:([\w-]+)"/g, (m, id) => `src="${imageOf(`drv:${id}`) || ''}" data-drv="${id}"`);
+/** א טיוטה: די פעלדער בלייבן «פעלד» */
+const draftHtml = (html) => String(html || '').replace(TOKEN_RE, (m, k) => `«${h(k)}»`);
+
 /** אלע ווערטער פאר א מענטש. ctx = { total, paid, remaining, date, dedication, campaign } (פון א קאמפיין אדער א קבלה) */
 export function valuesFor(D, c, ctx = null) {
   if (!c) return {};
@@ -146,6 +245,14 @@ export function valuesFor(D, c, ctx = null) {
     הקדשה: nz(x.dedication),
     קאמפיין: nz(x.campaign),
   };
+  // די סכומים פון די נדבות (לויט דעם סינון פון דער "שורה חוזרת")
+  const dl = donationList(D, c, ctx);
+  const tot = sumOf(dl);
+  const pd = sumOf(dl.filter((d) => isTrue(d.is_paid)));
+  Object.assign(v, {
+    'סה"כ_סכום': money(tot), 'סה"כ_שולם': money(pd), 'סה"כ_נשאר': money(Math.max(0, tot - pd)), מספר_נדבות: String(dl.length),
+    TotalAmount: money(tot), TotalPaid: money(pd), TotalDue: money(Math.max(0, tot - pd)), DonCount: String(dl.length),
+  });
   // נעמען פון דעם אלטן מייל מירדזש
   Object.assign(v, {
     mailing: v.Name, wife: v.Wife, first: v.First, last: v.Last, address: v.Address,
@@ -270,8 +377,9 @@ export function letterGeo(D) {
   const bh = Number(L.bannerH) || 1.6;
   const headBottom = banner ? 0.3 + bh + 0.25 : logo ? 1.45 : 0;
   const foot = L.design === 'org';
+  const [W, H] = letterDims(D);
   return {
-    det, banner, logo, m, win, bh, foot,
+    det, banner, logo, m, win, bh, foot, W, H,
     top1: Math.max(m.top, headBottom, winBottom), // ערשטער בלאט
     topN: m.top + 0.4,                            // המשך בלעטער
     bottom: m.bottom + (foot ? 0.55 : 0),         // פון אונטן
@@ -286,27 +394,40 @@ export function sigHtml(D) {
     : det.signature_img ? `<img src="${imgSrc(det.signature_img)}" alt="">` : ''}<div>${h(det.signer_he || '')}</div></div>`;
 }
 /** די סטיילס פונעם טעקסט (שריפט, גרייס, שורות) */
-export const bodyStyle = (L) => `font-family:'${css(L.font)}';font-size:${Number(L.size) || 13}pt;line-height:${Number(L.lineH) || 1.5}`;
+export const bodyStyle = (L) => `font-family:'${css(L.font)}';font-size:${Number(L.size) || 13}pt;line-height:${Number(L.lineH) || 1.5};--pa:${Number(L.paraAfter ?? 0.55)}em`;
+/** א סימן מים (טעקסט אדער בילד) הינטער'ן טעקסט */
+export function watermarkHtml(D) {
+  const w = D.ltr?.wm;
+  if (!w || !w.on) return '';
+  const op = Math.min(1, Math.max(0.03, Number(w.op) || 0.15));
+  if (w.type === 'img') {
+    const src = imageOf(w.img);
+    return src ? `<img class="mx-wm mx-wm-img" src="${imgSrc(src)}" style="opacity:${op};width:${Math.min(95, Math.max(10, Number(w.scale) || 60))}%" alt="">` : '';
+  }
+  return `<div class="mx-wm" style="opacity:${op};color:${css(w.color || '#888888')};font-size:${Math.min(200, Math.max(12, Number(w.size) || 90))}pt;font-family:'${css(w.font || 'Frank Ruhl Libre')}';transform:translate(-50%,-50%) rotate(${w.diag === false ? 0 : -40}deg)">${h(w.text || '')}</div>`;
+}
 /** א "מעבר עמוד" אין טעקסט */
 export const PGBRK = '<div style="page-break-before:always"></div>';
 export const isPgBrk = (el) => el?.nodeType === 1 && /page-break-before\s*:\s*always|break-before\s*:\s*page/i.test(el.getAttribute('style') || '');
 
-export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties = null, extraClass = '', cont = 0, bodyOverride = null } = {}) {
+export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties = null, extraClass = '', cont = 0, bodyOverride = null, draft = false } = {}) {
   const L = D.ltr;
   const vals = valuesFor(D, c, ctx);
   const G = letterGeo(D);
   const { det, banner, logo, m, win, bh } = G;
   // עמוד המשך: בלי באנר / חלון / תיבות, ושורת "המשך" קטנה למעלה
   const first = !cont;
-  const body = bodyOverride !== null ? bodyOverride : fillHtml(cleanHtml(L.html), vals, empties);
+  const raw = cleanHtml(L.html);
+  const body = bodyOverride !== null ? bodyOverride : resolveImgs(draft ? draftHtml(raw) : fillHtml(expandRepeats(raw, D, c, ctx), vals, empties));
   const foot = G.foot ? [det.footer_line ? `<div class="mx-foot-yi" dir="rtl">${h(det.footer_line)}</div>` : '',
     `<div class="mx-foot-legal">${[det.legal_name || L.org, [det.address, det.city_state_zip].filter(Boolean).join(', '), det.phone, det.email].filter(Boolean).map(h).join(' · ')}</div>`].join('') : '';
   const sig = bodyOverride !== null ? '' : sigHtml(D);
   const winBlock = win && first ? rcpBlock({ ...D, lang: L.winLang || 'en' }, c, vals, empties, {
     attrs: 'data-part="win"', cls: `mx-win${edit ? ' mx-drag' : ''}`, style: `left:${win.x}in;top:${win.y}in;width:${win.w}in;height:${win.h}in`,
   }) : '';
-  return `<div class="mx-letter mx-page ${extraClass}" style="width:8.5in;height:11in">
+  return `<div class="mx-letter mx-page ${extraClass}" style="width:${G.W}in;height:${G.H}in">
     ${L.design === 'bg' && D.background_data ? `<img class="mx-letter-bg" src="${imgSrc(D.background_data)}" style="opacity:${D.bg.opacity}" alt="">` : ''}
+    ${watermarkHtml(D)}
     ${banner && first ? `<img class="mx-banner" src="${imgSrc(banner)}" style="top:0.3in;left:${m.side * 0.6}in;right:${m.side * 0.6}in;height:${bh}in" alt="">` : ''}
     ${logo && first ? `<div class="mx-band" style="top:0.3in;left:${m.side}in;right:${m.side}in"><img src="${imgSrc(logo)}" alt=""><div dir="rtl">${h(det.org_name_he || L.org)}</div></div>` : ''}
     ${winBlock}
@@ -335,7 +456,16 @@ export function letterPages(D, c, opts = {}) {
     const i = kids.findIndex(isPgBrk);
     const rest = [];
     if (i >= 0) kids.slice(i).forEach((x, j) => { x.remove(); if (j > 0) rest.push(x); });
-    while (over(body) && body.childNodes.length > 1) { rest.unshift(body.lastChild); body.lastChild.remove(); }
+    while (over(body)) {
+      const last = body.lastChild;
+      if (!last) break;
+      // א טאבעלע / טורים: נאר א טייל גייט אריבער
+      const part = splitOff(last, () => over(body));
+      if (part) { rest.unshift(part); break; }
+      if (body.childNodes.length <= 1) break;
+      rest.unshift(last);
+      last.remove();
+    }
     return rest;
   };
   box.innerHTML = letterHtml(D, c, opts);
@@ -354,6 +484,37 @@ export function letterPages(D, c, opts = {}) {
   }
   box.innerHTML = '';
   return pages;
+}
+
+/** דער סוף פון א טאבעלע (אדער פון טורים) וואס פאסט נישט אריין → א נייע טאבעלע (מיט דער כותרת) פאר'ן קומענדיגן בלאט */
+function splitOff(el, over) {
+  if (el?.nodeType !== 1) return null;
+  if (el.tagName === 'TABLE') {
+    const bodyRows = [...el.rows].filter((r) => r.parentElement.tagName !== 'THEAD');
+    if (bodyRows.length < 2) return null;
+    const cl = el.cloneNode(false);
+    const th = el.tHead;
+    if (th) cl.append(th.cloneNode(true));
+    const tb = document.createElement('tbody');
+    cl.append(tb);
+    const moved = [];
+    while (over() && moved.length < bodyRows.length - 1) {
+      const r = bodyRows[bodyRows.length - 1 - moved.length];
+      moved.push(r);
+      tb.prepend(r);
+    }
+    if (over()) { moved.reverse().forEach((r) => (el.tBodies[0] || el).append(r)); return null; }
+    return moved.length ? cl : null;
+  }
+  if (el.tagName === 'DIV' && /column-count/i.test(el.getAttribute('style') || '') && el.children.length > 1) {
+    const cl = el.cloneNode(false);
+    const kids = [...el.children];
+    let n = 0;
+    while (over() && n < kids.length - 1) { cl.prepend(kids[kids.length - 1 - n]); n += 1; }
+    if (over()) { [...cl.children].forEach((k) => el.append(k)); return null; }
+    return n ? cl : null;
+  }
+  return null;
 }
 
 /** איין בלאט פאר א מענטש (קאנווערט אדער בריוו) */

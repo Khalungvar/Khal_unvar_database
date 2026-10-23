@@ -1,10 +1,11 @@
 /**
  * מוסדות אונגוואר — בילדער (Google Apps Script), אין חשבון "דאטאבייס".
  * די בילדער ליגן אין דרייב פונעם דאטאבייס, אין דער טעקע IMG_FOLDER. קיינער באקומט נישט צוטריט צו דרייב — נאר דורכן אתר.
- * action: img_put (אריינלייגן) / img_get (לייענען) / img_del (אויסמעקן — נאר מנהלים).
+ * action: img_put (אריינלייגן) / img_get (לייענען) / img_list (די טעקע "תמונות למכתבים") / img_del (אויסמעקן — נאר מנהלים).
  */
 const SHEET_ID = '16gyhQ4W7p2DHjPMtdXldFynG1KUzDypGvTvYlS7cnJY';
 const IMG_FOLDER = 'Mosdos Ungvar – תמונות';
+const LETTERS_FOLDER = 'תמונות למכתבים';
 
 function doPost(e) {
   try {
@@ -16,7 +17,7 @@ function doPost(e) {
       const m = String(req.data || '').match(/^data:([^;]+);base64,(.+)$/);
       if (!m) return out({ error: 'bad-data' });
       const blob = Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], String(req.name || 'image').slice(0, 80));
-      const file = folder.createFile(blob);
+      const file = (req.folder === 'letters' ? lettersFolder(folder) : folder).createFile(blob);
       file.setDescription('by ' + email + ' · ' + new Date().toISOString());
       return out({ id: file.getId() });
     }
@@ -26,16 +27,30 @@ function doPost(e) {
       ids.forEach(function (id) {
         try {
           const f = DriveApp.getFileById(String(id));
-          if (!inFolder(f, folder)) return;
+          if (!inFolder(f, folder) && !inFolder(f, lettersFolder(folder))) return;
           const b = f.getBlob();
           res[id] = 'data:' + b.getContentType() + ';base64,' + Utilities.base64Encode(b.getBytes());
         } catch (err) { /* נישטא */ }
       });
       return out({ images: res });
     }
+    if (req.action === 'img_list') {
+      // די בילדער אין "תמונות למכתבים" — אויך וואס מ'לייגט אריין גלייך אין דרייב
+      const files = [];
+      const it = lettersFolder(folder).getFiles();
+      while (it.hasNext() && files.length < 80) {
+        const f = it.next();
+        if (!/^image\//.test(f.getMimeType())) continue;
+        let thumb = '';
+        try { const tb = f.getThumbnail(); if (tb) thumb = 'data:' + tb.getContentType() + ';base64,' + Utilities.base64Encode(tb.getBytes()); } catch (err) { /* */ }
+        files.push({ id: f.getId(), name: f.getName(), thumb: thumb, date: f.getLastUpdated().toISOString() });
+      }
+      files.sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+      return out({ files: files });
+    }
     if (req.action === 'img_del') {
       if (!isAdmin(email)) return out({ error: 'admin-only' });
-      try { const f = DriveApp.getFileById(String(req.id)); if (inFolder(f, folder)) f.setTrashed(true); } catch (err) { /* */ }
+      try { const f = DriveApp.getFileById(String(req.id)); if (inFolder(f, folder) || inFolder(f, lettersFolder(folder))) f.setTrashed(true); } catch (err) { /* */ }
       return out({ ok: true });
     }
     return out({ error: 'unknown-action' });
@@ -62,6 +77,11 @@ function imgFolder() {
   const f = it.hasNext() ? it.next() : DriveApp.createFolder(IMG_FOLDER);
   props.setProperty('IMG_FOLDER_ID', f.getId());
   return f;
+}
+
+function lettersFolder(parent) {
+  const it = parent.getFoldersByName(LETTERS_FOLDER);
+  return it.hasNext() ? it.next() : parent.createFolder(LETTERS_FOLDER);
 }
 
 function inFolder(file, folder) {
