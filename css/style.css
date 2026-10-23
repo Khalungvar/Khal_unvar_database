@@ -1791,6 +1791,9 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .rx-full .rx-main { padding: 0.5in 0.45in 0.45in 0.6in; }
 .rx-full .rx-title { font-size: 16pt; }
 .rx-full .rx-body { margin-top: 2.6in; }
+.rx-full.rx-cont .rx-body { margin-top: 0.3in; }
+.rx-pg { font-size: 8pt; color: #7a6a5c; }
+.rx-more { margin-top: auto; text-align: right; font-size: 8.5pt; font-style: italic; color: #7a6a5c; font-family: Arial, sans-serif; }
 .rx-full .rx-lines { font-size: 9.5pt; }
 .rx-full .rx-tax { font-size: 8pt; }
 .rx-full .rx-side { width: 1.9in; padding-top: 0.5in; }

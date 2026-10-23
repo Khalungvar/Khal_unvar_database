@@ -285,9 +285,9 @@ export async function receiptPdf(c, letter = '') {
     const [W, H] = letterSizeFor(letter);
     for (const lp of letterPagesFor(letter, ct, { ...letterCtx(c), receipt: slot && c.kind !== 'invoice' ? receiptSlotHtml(c) : '' })) await page(lp, W, H);
     if (c.kind === 'invoice') await page(invoiceHtml(c), 8.5, 11);
-    else if (!slot || needsFullPage(c)) await page(receiptHtml(c, { full: needsFullPage(c) }), 8.5, needsFullPage(c) ? 11 : RX_H);
+    else if (needsFullPage(c)) { for (const x of receiptFullPages(c)) await page(x, 8.5, 11); } else if (!slot) await page(receiptHtml(c), 8.5, RX_H);
   } else if (c.kind === 'invoice') await page(invoiceHtml(c), 8.5, 11);
-  else if (needsFullPage(c)) await page(receiptHtml(c, { full: true }), 8.5, 11);
+  else if (needsFullPage(c)) { for (const x of receiptFullPages(c)) await page(x, 8.5, 11); }
   else await page(receiptHtml(c), 8.5, RX_H, 2.2); // א PDF אין דער גרייס פון א דריטל בלאט
   const bytes = jpegsToPdf(pages, { margin: 0 });
   let bin = '';
@@ -1123,31 +1123,64 @@ export function receiptHtml(c, opts = {}) {
       <div class="rx-en">${h(legal)}</div>
       <div class="rx-det">${[det.address, det.city_state_zip, det.phone ? `Tel ${det.phone}` : '', det.email, det.website, ein ? `EIN ${ein}` : ''].filter(Boolean).map(h).join('<br>')}</div>
     </div>`;
-  const rows = lines.map((l) => `<tr><td>${h(shortDateEn(isInv ? l.d.date : paidDate(l.d)))}</td><td><bdi dir="auto">${h(forOf(l))}</bdi></td>
+  // א לאנגע קבלה אויף עטליכע בלעטער: opts.rows = די שורות פון דעם בלאט, opts.pg = {i, n}, opts.last = מיט'ן סך הכל
+  const pg = opts.pg || { i: 0, n: 1 };
+  const last = opts.last ?? true;
+  const rows = (opts.rows || lines).map((l) => `<tr><td>${h(shortDateEn(isInv ? l.d.date : paidDate(l.d)))}</td><td><bdi dir="auto">${h(forOf(l))}</bdi></td>
       <td>${h(isInv ? '' : payText(l.d))}</td><td class="amt">${usd(l.d.amount_usd)}</td></tr>`).join('');
-  return `<div class="rx${full ? ' rx-full' : ''}" dir="ltr" style="width:8.5in;height:${full ? 11 : RX_H}in">
+  return `<div class="rx${full ? ' rx-full' : ''}${pg.i ? ' rx-cont' : ''}" dir="ltr" style="width:8.5in;height:${full ? 11 : RX_H}in">
     <div class="rx-main">
       <div class="rx-head"><div class="rx-title">${h(title)}</div>
-        <div class="rx-no">${isInv ? 'Invoice' : 'Receipt'} No. <b>${h(c.receipt_no || '—')}</b>${c.reprint ? ' <span class="rx-copy">(copy)</span>' : ''}</div></div>
-      ${full && opts.window ? `<div class="rx-winaddr" style="left:${0.875 + (Number(det.addr_dx) || 0)}in;top:${2.1 + (Number(det.addr_dy) || 0)}in"><b>${h(name)}</b>${addr.map((x) => `<br>${h(x)}`).join('')}</div>` : ''}
+        <div class="rx-no">${isInv ? 'Invoice' : 'Receipt'} No. <b>${h(c.receipt_no || '—')}</b>${c.reprint ? ' <span class="rx-copy">(copy)</span>' : ''}${pg.n > 1 ? ` <span class="rx-pg">· Page ${pg.i + 1} of ${pg.n}</span>` : ''}</div></div>
+      ${full && opts.window && !pg.i ? `<div class="rx-winaddr" style="left:${0.875 + (Number(det.addr_dx) || 0)}in;top:${2.1 + (Number(det.addr_dy) || 0)}in"><b>${h(name)}</b>${addr.map((x) => `<br>${h(x)}`).join('')}</div>` : ''}
       <div class="rx-body">
         <div class="rx-info"><span><span class="rx-l">Date</span> ${h(longDate(issued))} <span class="rx-hed" dir="rtl">${h(P.heDate)}</span></span>
           <span><span class="rx-l">${isInv ? 'Bill to' : h(det.received_label || 'Received from')}</span> <b><bdi dir="auto">${h(name)}</bdi></b></span></div>
         <table class="rx-lines no-sort"><thead><tr><th>Date</th><th>${sale ? 'Item' : 'For'}</th><th>${isInv ? '' : 'Payment'}</th><th class="amt">Amount</th></tr></thead><tbody>${rows}</tbody></table>
-        ${taxRate ? `<div class="rx-sub"><span>Subtotal ${usd(total)}</span><span>Sales tax ${taxRate}% ${usd(taxAmt)}</span></div>` : ''}
+        ${last ? `${taxRate ? `<div class="rx-sub"><span>Subtotal ${usd(total)}</span><span>Sales tax ${taxRate}% ${usd(taxAmt)}</span></div>` : ''}
         <div class="rx-total"><span class="rx-l">${isInv ? 'Amount due' : 'Total'}</span><b>${usd(grand)}</b><span class="rx-words">${h(amountWords(grand))}</span></div>
         <div class="rx-foot"><div class="rx-tax">${h(stmt)}${det.receipt_note ? ` ${h(det.receipt_note)}` : ''}</div>
-          <div class="rx-sig">${rxSig(c, det)}<div class="rx-sigline">Authorized signature</div></div></div>
+          <div class="rx-sig">${rxSig(c, det)}<div class="rx-sigline">Authorized signature</div></div></div>` : '<div class="rx-more">Continued on next page →</div>'}
       </div>
     </div>
     ${side}
   </div>`;
 }
+/** צי די קבלה פאסט אריין אין איר בלאט (געמאסטן אין א באהאלטענעם קאסטן) */
+function rxFits(html) {
+  const box = document.createElement('div');
+  box.style.cssText = 'position:fixed;left:-30000px;top:0;visibility:hidden;pointer-events:none';
+  box.innerHTML = html;
+  document.body.appendChild(box);
+  try {
+    const main = box.querySelector('.rx-main');
+    const bottom = main.getBoundingClientRect().bottom - (parseFloat(getComputedStyle(main).paddingBottom) || 0) + 1;
+    return [...main.querySelectorAll('.rx-lines tbody tr:last-child, .rx-total, .rx-foot, .rx-more')].every((e) => e.getBoundingClientRect().bottom <= bottom);
+  } finally { box.remove(); }
+}
+/** א גאנצע-בלאט קבלה — ווען זי פאסט נישט אריין אין איין בלאט, גייט זי ווייטער אויף נאך בלעטער (סך הכל נאר אויפן לעצטן) */
+export function receiptFullPages(c, opts = {}) {
+  const all = rxLines(c);
+  const mk = (rows, i, n, last) => receiptHtml(c, { ...opts, full: true, rows, pg: { i, n }, last });
+  if (typeof document === 'undefined' || !document.body) return [mk(all, 0, 1, true)];
+  const chunks = [];
+  let rest = all;
+  while (rest.length && chunks.length < 100) {
+    const i = chunks.length;
+    if (rxFits(mk(rest, i, 9, true))) { chunks.push(rest); break; }
+    let lo = 1; let hi = rest.length - 1; // די מערסטע שורות וואס פאסן (לכל הפחות איינע בלייבט פארן לעצטן בלאט)
+    while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); if (rxFits(mk(rest.slice(0, mid), i, 9, false))) lo = mid; else hi = mid - 1; }
+    if (rest.length - lo < 3 && lo > 3) lo = Math.max(3, rest.length - 3); // נישט לאזן איין איינזאמע שורה אויפן לעצטן בלאט
+    chunks.push(rest.slice(0, Math.max(1, lo)));
+    rest = rest.slice(Math.max(1, lo));
+  }
+  return chunks.map((rows, i) => mk(rows, i, chunks.length, i === chunks.length - 1));
+}
 /** א קבלה לבד אויף א בלאט: אויבן די קבלה, אין מיטן ליידיג, אונטן דער אדרעס פאר א #10 קאנווערט מיט א פענצטער */
 export function receiptSheetHtml(c) {
   if (c.kind === 'invoice') return `<div class="rx-sheet">${invoiceHtml(c)}</div>`;
   const lines = rxLines(c);
-  if (lines.length > RX_MAX_LINES) return `<div class="rx-sheet">${receiptHtml(c, { full: true, window: true })}</div>`;
+  if (lines.length > RX_MAX_LINES) return receiptFullPages(c, { window: true }).map((x) => `<div class="rx-sheet">${x}</div>`).join('');
   const P = letterParts(c);
   const det = P.det;
   return `<div class="rx-sheet">${receiptHtml(c)}
