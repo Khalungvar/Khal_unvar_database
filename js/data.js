@@ -878,7 +878,13 @@ export async function issueDocs(docs) {
   const out = docs.map((d) => {
     const who = d.contact_id || d.donor_name;
     const old = findIssued(d.kind, d.org, d.ids, d.period, who);
-    if (old) return { ...d, receipt_no: old.receipt_no, issued_at: old.issued_at, reprint: true, meta: d.meta || metaOfReceipt(old) };
+    if (old) { const sm = metaOfReceipt(old); return { ...d, receipt_no: old.receipt_no, issued_at: old.issued_at, reprint: true, meta: Object.keys(sm).length ? sm : d.meta }; }
+    // א נדבה וואס איז שוין אויף אן אנדער קבלה — נישט קיין צווייטע קבלה (מ'דארף ערשט בטל'ן די אלטע)
+    if (d.kind === 'receipt' || d.kind === 'tuition') {
+      const clash = state.receipts.find((r) => !isTrueVal(r.void) && (r.kind === 'receipt' || r.kind === 'tuition')
+        && String(r.donation_ids || '').split(',').some((x) => d.ids.map(String).includes(x)));
+      if (clash) throw new Error(t('rcOverlap', { no: clash.receipt_no }));
+    }
     const no = next(d.kind === 'invoice');
     const rec = {
       receipt_no: no, kind: d.kind, org: d.org, contact_id: d.contact_id || '', donor_name: d.contact_id ? '' : (d.donor_name || ''),

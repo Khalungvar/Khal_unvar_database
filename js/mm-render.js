@@ -448,7 +448,7 @@ export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties =
     <div class="mx-body" dir="${dirv(L.dir)}" style="left:${m.side}in;right:${m.side}in;top:${first ? G.top1 : G.topN}in;bottom:${first ? G.bottom1 : G.bottom}in;${bodyStyle(L)}">
       ${body}${sig}</div>
     ${foot && !(L.rcSlot && first) ? `<div class="mx-foot" style="left:${m.side}in;right:${m.side}in;bottom:${Math.max(0.3, m.bottom - 0.3)}in">${foot}</div>` : ''}
-    ${L.rcSlot && first ? `<div class="mx-rcslot" style="top:${G.H - RX_H}in"><div class="mx-rccut">✂</div>${ctx?.receipt || `<div class="mx-rcsample">${sampleReceiptHtml(L.org)}</div>`}</div>` : ''}
+    ${L.rcSlot && first ? `<div class="mx-rcslot" style="top:${G.H - RX_H}in"><div class="mx-rccut">✂</div>${ctx?.receipt || (edit || draft ? `<div class="mx-rcsample">${sampleReceiptHtml(L.org)}</div>` : '')}</div>` : ''}
     ${first ? boxesHtml(D, vals, empties, edit) : ''}
     ${num ? `<div class="mx-num">${h(num)}</div>` : ''}
   </div>`;

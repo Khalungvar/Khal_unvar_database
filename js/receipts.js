@@ -69,8 +69,8 @@ function candidates() {
   }
   const groups = new Map();
   const list = f.kind === 'year'
-    ? D.filter((d) => inOrg(d) && isTrue(d.is_paid) && paidDate(d).startsWith(`${f.year}-`))
-    : D.filter((d) => f.campaign && d.campaign === f.campaign && isTrue(d.is_paid));
+    ? D.filter((d) => inOrg(d) && isTrue(d.is_paid) && d.kind !== 'sale' && paidDate(d).startsWith(`${f.year}-`))
+    : D.filter((d) => f.campaign && d.campaign === f.campaign && isTrue(d.is_paid) && d.kind !== 'sale');
   list.forEach((d) => { const k = who(d); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(d); });
   return [...groups.values()].map((g) => doc(f.kind, g.sort((a, b) => paidDate(a).localeCompare(paidDate(b))), f.kind === 'year' ? f.year : f.campaign))
     .sort((a, b) => b.amount - a.amount);
@@ -200,12 +200,8 @@ export function renderReceipts() {
     btn.disabled = true;
     try {
       if (f.kind !== 'invoice') await rememberLetter(f.org);
-      const issued = await issueDocs(docs.map((d) => issueOf(d)));
       const forText = f.kind !== 'year' ? String(f.forText || '').trim() : '';
-      printDocs(issued.map((x, i) => ({
-        ...docs[i], receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint, meta: x.meta,
-        forText,
-      })), { letter: f.letter });
+      printDocs(await prepareDocs(docs, forText), { letter: f.letter });
       await loadAll();
       rerender();
     } catch (err) {
@@ -225,8 +221,7 @@ export function renderReceipts() {
       btn.disabled = true;
       try {
         if (f.kind !== 'invoice') await rememberLetter(f.org);
-        const issued = await issueDocs(withMail.map((d) => issueOf(d)));
-        const full = issued.map((x, i) => ({ ...withMail[i], receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint, meta: x.meta, forText }));
+        const full = await prepareDocs(withMail, forText);
         const r = await mailDocs(full.map((c) => ({ c, to: emailOf(ui.contactById(c.contact_id)) })), (done, total) => { btn.textContent = `✉ ${done}/${total}`; }, f.letter);
         ui.toast(t('mailDone', { n: r.done - r.errors, errors: r.errors }), r.errors ? 'error' : '');
         await loadAll();
@@ -621,6 +616,18 @@ export function printDocs(docs, opts = {}) {
     .then(() => window.print());
 }
 
+/** פאר'ן דרוקן/שיקן: וואס האט שוין א קבלה — די זעלבע קבלה (א קאפיע); די אנדערע — נייע נומערן */
+async function prepareDocs(docs, forText = '') {
+  const out = docs.map((d) => (d.issued && d.kind !== 'invoice' ? fromLog(d.issued.receipt_no) : null));
+  const todo = docs.filter((d, i) => !out[i]);
+  const issued = todo.length ? await issueDocs(todo.map((d) => issueOf(d))) : [];
+  let k = 0;
+  return docs.map((d, i) => {
+    if (out[i]) return { ...out[i], forText };
+    const x = issued[k++];
+    return { ...d, receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint, meta: x.meta, forText };
+  }).filter(Boolean);
+}
 /** וואס מ'שרייבט אריין אין לשונית Receipts */
 function issueOf(d) {
   return { kind: d.kind, org: d.org, contact_id: d.contact_id, donor_name: d.donor_name, ids: d.ids, amount: d.amount, period: d.period, note: d.note || '', meta: d.meta || defaultMeta(d) };
@@ -633,8 +640,14 @@ function defaultMeta(d) {
 export function openReceiptForm(c0, { letter = '', forText = '', done = null } = {}) {
   const det = orgDetailsOf(c0.org) || {};
   const um = orgDetailsOf(umbrellaName()) || {};
-  const rate0 = Number(det.sales_tax_rate || um.sales_tax_rate) || 8.875;
-  const st0 = c0.meta || defaultMeta(c0);
+  const rateOf = (o) => (o.sales_tax_rate !== '' && o.sales_tax_rate != null && !Number.isNaN(Number(o.sales_tax_rate)) ? Number(o.sales_tax_rate) : null);
+  const rate0 = rateOf(det) ?? rateOf(um) ?? 8.875;
+  // א קבלה וואס איז שוין ארויס: נאר נאכאמאל דרוקן/שיקן (א קאפיע), ווי זי איז אפגעהיט
+  const prior = c0.issued ? fromLog(c0.issued.receipt_no) : null;
+  if (c0.issued && !prior) return;
+  if (prior) c0 = prior;
+  const locked = Boolean(prior);
+  const st0 = c0.meta && Object.keys(c0.meta).length ? c0.meta : defaultMeta(c0);
   const F = {
     type: st0.type || 'donation', tax: Boolean(st0.tax), taxRate: Number(st0.taxRate) || rate0, sig: st0.sig || { mode: 'org' },
     list: [...c0.list], lines: { ...(st0.lines || {}) }, letter,
@@ -647,7 +660,9 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
     && !F.list.some((x) => String(x.donation_id) === String(d.donation_id)) && !inReceipt.has(String(d.donation_id)))
     .sort((a, b) => paidDate(b).localeCompare(paidDate(a)));
   const docOf = () => {
-    const amount = F.list.reduce((s, d) => s + (Number(d.amount_usd) || 0), 0);
+    const base = F.list.reduce((s, d) => s + (Number(d.amount_usd) || 0), 0);
+    // מיט Sales Tax: דער סכום פון דער קבלה איז מיט דעם טעקס
+    const amount = F.type === 'sale' && F.tax ? base + Math.round(base * F.taxRate) / 100 : base;
     return {
       ...c0, list: F.list, ids: F.list.map((d) => String(d.donation_id)), amount, forText: F.list.length === 1 ? forText : '',
       meta: { type: F.type, tax: F.type === 'sale' && F.tax, taxRate: F.taxRate, sig: F.sig, lines: F.lines },
@@ -660,13 +675,14 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
   dlg.addEventListener('close', () => dlg.remove());
   const render = () => {
     const sale = F.type === 'sale';
-    const c = docOf();
+    const c = locked ? c0 : docOf();
     const tot = c.amount;
     dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button>
       <h2>🧾 ${h(t('rcFormTitle'))} — ${h(donorLabel(c0))}</h2>
-      <div class="rx-form">
-        <div class="rx-form-prev"><div class="rx-prev-scale">${receiptHtml({ ...c, receipt_no: c0.issued?.receipt_no || '—', issued_at: new Date().toISOString().slice(0, 10) })}</div></div>
-        <div class="rx-form-side">
+      ${locked ? `<p class="mx-pending">🔒 ${h(t('rcLockedNote', { no: c0.receipt_no }))}</p>` : ''}
+      <div class="rx-form${locked ? ' rx-locked' : ''}">
+        <div class="rx-form-prev"><div class="rx-prev-scale">${receiptHtml(locked ? c : { ...c, receipt_no: '—', issued_at: new Date().toISOString().slice(0, 10) })}</div></div>
+        <div class="rx-form-side"${locked ? ' inert' : ''}>
           <div class="seg">${[['donation', 'donKindDonation'], ['sale', 'donKindSale']].map(([k, l]) => `<button type="button" data-ft="${k}" class="${F.type === k ? 'on' : ''}">${h(t(l))}</button>`).join('')}</div>
           ${sale ? `<label class="check"><input type="checkbox" id="rxf-tax"${F.tax ? ' checked' : ''}> Sales Tax</label>
             <label class="rxf-rate"${F.tax ? '' : ' hidden'}>% <input type="number" id="rxf-rate" step="0.001" min="0" max="30" value="${F.taxRate}" dir="ltr"></label>` : ''}
@@ -688,6 +704,7 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
             <option value="none"${sigSel('none')}>${h(t('rcSigNone'))}</option></select></label>
           ${F.sig.mode === 'temp' ? `<div class="rxf-temp"><input id="rxf-tt" dir="auto" placeholder="${h(t('wrSigText'))}" value="${h(F.sig.sig?.text || '')}">
             <select id="rxf-tf">${['Playpen Sans Hebrew', 'Amatic SC', 'Noto Rashi Hebrew', 'Frank Ruhl Libre', ...customFontNames()].map((x) => `<option${x === F.sig.sig?.font ? ' selected' : ''}>${h(x)}</option>`).join('')}</select></div>` : ''}
+          ${locked ? '</div><div class="rx-form-side">' : ''}
           <label>📄 ${h(t('rcWithLetterTip'))} <select id="rxf-letter"><option value="">${h(t('rcNoLetter'))}</option>${letterTemplates().map((x) => `<option value="${h(x.id)}"${String(x.id) === String(F.letter || '') ? ' selected' : ''}>${h(x.name)}${letterHasReceipt(x.id) ? ' 🧾' : ''}</option>`).join('')}</select></label>
         </div>
       </div>
@@ -720,13 +737,13 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
     $('#rxf-tf', dlg)?.addEventListener('change', () => { tt(); render(); });
     $('#rxf-letter', dlg).onchange = (e) => { F.letter = e.target.value; };
     const go = async (mode) => {
-      const c = docOf();
+      const c = locked ? c0 : docOf();
       if (!c.list.length) return;
       let to = '';
       if (mode === 'mail') { to = askAddress(c.contact_id); if (!to) return; }
       const run = async () => {
         try {
-          const [x] = await issueDocs([issueOf(c)]);
+          const [x] = locked ? [{ receipt_no: c0.receipt_no, issued_at: c0.issued_at, reprint: true }] : await issueDocs([issueOf(c)]);
           const full = { ...c, receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint, meta: c.meta };
           dlg.close();
           if (mode === 'print') printDocs([full], { letter: F.letter });
@@ -844,7 +861,7 @@ function rxLines(c) {
     return { d, goods_desc: String(o.goods_desc ?? d.goods_desc ?? '').trim(), goods_value: gv === '' || gv == null ? 0 : Number(gv) || 0 };
   });
 }
-export const isSaleDoc = (c) => (rxMeta(c).type || (c.list?.[0]?.kind === 'sale' ? 'sale' : '')) === 'sale';
+export const isSaleDoc = (c) => c.kind === 'receipt' && (rxMeta(c).type || (c.list?.[0]?.kind === 'sale' ? 'sale' : '')) === 'sale';
 /** די חתימה אויף דער קבלה: org / mine / temp / none */
 function rxSig(c, det) {
   const s = rxMeta(c).sig || { mode: 'org' };
@@ -868,7 +885,7 @@ export function receiptHtml(c, opts = {}) {
   const isTu = c.kind === 'tuition';
   const full = opts.full ?? lines.length > RX_MAX_LINES;
   const issued = String(c.issued_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
-  const total = Number(c.amount) || lines.reduce((s, l) => s + (Number(l.d.amount_usd) || 0), 0);
+  const total = lines.reduce((s, l) => s + (Number(l.d.amount_usd) || 0), 0) || Number(c.amount) || 0;
   const M = rxMeta(c);
   const taxRate = sale && M.tax ? Number(M.taxRate) || 0 : 0;
   const taxAmt = Math.round(total * taxRate) / 100;
@@ -886,7 +903,7 @@ export function receiptHtml(c, opts = {}) {
   else if (goods.length) {
     stmt = `${exempt} In exchange for ${lines.length > 1 ? 'these contributions' : 'this contribution'} the donor received: ${goods.map((l) => l.goods_desc || 'goods/services').join(', ')}, with an estimated fair market value of ${usd(gVal)}. The tax-deductible amount is ${usd(Math.max(0, total - gVal))}.`;
   } else {
-    stmt = String(det.tax_text || TAX_DEFAULT).replace(/\{NAME\}/g, taxEntity).replace(/\{EIN\}/g, ein || '—')
+    stmt = String(det.tax_text || TAX_DEFAULT).replace(/\s*\((EIN )?\{EIN\}\)/g, ein ? ' (EIN {EIN})' : '').replace(/\{NAME\}/g, taxEntity).replace(/\{EIN\}/g, ein || '')
       .replace('this contribution', lines.length > 1 ? 'these contributions' : 'this contribution');
   }
   const addr = P.addr;
@@ -931,7 +948,9 @@ export function receiptSheetHtml(c) {
 export function receiptSlotHtml(c) {
   const lines = rxLines(c);
   if (lines.length <= RX_MAX_LINES) return receiptHtml(c, { full: false });
-  const short = { ...c, list: [{ ...lines[0].d, amount_usd: Number(c.amount) || 0, campaign: '', event_tags: '', dedication_text: `${lines.length} contributions — see attached statement`, date: lines[0].d.date, paid_date: paidDate(lines.at(-1).d), payment_method: '', check_number: '', card_last4: '', goods_desc: '', goods_value: '' }] };
+  const gd = lines.filter((l) => l.goods_desc || l.goods_value);
+  const short = { ...c, meta: { ...rxMeta(c), lines: {} }, list: [{ ...lines[0].d, amount_usd: lines.reduce((s, l) => s + (Number(l.d.amount_usd) || 0), 0), campaign: '', event_tags: '', dedication_text: `${lines.length} contributions — see attached statement`, date: lines[0].d.date, paid_date: paidDate(lines.at(-1).d), payment_method: '', check_number: '', card_last4: '',
+    goods_desc: gd.map((l) => l.goods_desc).filter(Boolean).join(', '), goods_value: gd.reduce((s, l) => s + l.goods_value, 0) || '' }] };
   return receiptHtml(short, { full: false });
 }
 export const needsFullPage = (c) => rxLines(c).length > RX_MAX_LINES;
@@ -991,7 +1010,7 @@ const SIG_FONTS = [
   ['amatic', "'Amatic SC', cursive", 'rcSigFontAmatic'],
   ['rashi', "'Noto Rashi Hebrew', serif", 'rcSigFontRashi'],
 ];
-const allSigFonts = () => [...SIG_FONTS, ...customFontNames().map((n) => [`f:${n}`, `'${n.replace(/'/g, '')}'`, n])];
+const allSigFonts = () => [...SIG_FONTS, ...customFontNames().map((n) => [`f:${n}`, `'${n.replace(/['"<>;\\]/g, '')}'`, n])];
 const sigFont = (key) => (allSigFonts().find(([k]) => k === key) || SIG_FONTS[0])[1];
 
 function letterOf(org) {
