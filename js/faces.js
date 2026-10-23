@@ -114,7 +114,7 @@ function sharpness(g, w, hh) {
 }
 
 // ---------- סריקה ----------
-const SCAN = { running: false, stop: false };
+const SCAN = { running: false, stop: false, gentle: (() => { try { return localStorage.getItem('khal-fc-gentle') === '1'; } catch { return false; } })() };
 // געמאסטן: צוויי פארשידענע מענטשן אין איין בילד קענען דערגרייכן ~0.59, דער זעלבער מענטש אפט 0.45–0.7.
 // בעסער צוויי כרטיסן פאר איין מענטש (ווערט פאראייניגט ביים דערקענען) ווי פרעמדע אין איין כרטיס.
 const SIM_SAME = 0.66; // מער ווי דאס = דער זעלבער מענטש (ביי א שארפן, גרויסן פנים)
@@ -188,6 +188,7 @@ function splitShot(scan, cl, key) {
 const isImage = (f) => /^image\//.test(f.type) || /\.(jpe?g|png|webp|heic|heif|bmp|gif)$/i.test(f.name);
 /** די פנים פון איין בילד (א פריים פונעם ווידעא אדער א פאטא) → צוגעלייגט צו די מענטשן. מחזיר וויפל נייע */
 async function facesFrom(human, scan, src, opts, where) {
+  const t0 = performance.now();
   const r = await human.detect(src);
   let added = 0;
   for (const f of r.face || []) {
@@ -204,6 +205,8 @@ async function facesFrom(human, scan, src, opts, where) {
     const shot = { q, img: c.toDataURL('image/jpeg', 0.82), w: Math.round(w), weak, ...where };
     if (addFace(scan, human, Float32Array.from(f.embedding), shot)) added += 1;
   }
+  // "סריקה עדינה": נאך יעדן בילד א הפסקה אזוי לאנג ווי די ארבעט — דער קאמפיוטער בלייבט באקוועם
+  if (SCAN.gentle) await new Promise((res) => { setTimeout(res, Math.min(4000, Math.max(150, performance.now() - t0))); });
   return added;
 }
 /** א פאטא → א canvas (מיט דער ריכטיגער ריכטונג; גאר גרויסע ווערן קלענער) */
@@ -522,6 +525,7 @@ async function scanPane(pane, ev) {
       <div class="fc-row">
         <label class="btn primary" id="fc-pickl">🎬📷 ${h(t('fcPick2'))}<input type="file" id="fc-pick" accept="video/*,image/*,.mp4,.mov,.webm,.m4v,.jpg,.jpeg,.png,.heic" multiple hidden></label>
         <label>${h(t('fcStep'))} <select id="fc-step"><option value="1">${h(t('fcStep1'))}</option><option value="0.5">${h(t('fcStep05'))}</option><option value="2">${h(t('fcStep2'))}</option></select></label>
+        <label>${h(t('fcSpeed'))} <select id="fc-gentle"><option value="0"${SCAN.gentle ? '' : ' selected'}>⚡ ${h(t('fcFast'))}</option><option value="1"${SCAN.gentle ? ' selected' : ''}>🐢 ${h(t('fcGentle'))}</option></select></label>
         <label>${h(t('fcMin'))} <select id="fc-min"><option value="40">${h(t('fcMinN'))}</option><option value="28">${h(t('fcMinS'))}</option><option value="64">${h(t('fcMinL'))}</option></select></label>
       </div>
       <div id="fc-chosen" class="muted small"></div>
@@ -565,6 +569,8 @@ async function scanPane(pane, ev) {
     runScan(ev, chosen, { step: Number($('#fc-step').value) || 1, minPx: Number($('#fc-min').value) || 40 });
   };
   $('#fc-stop').onclick = () => { SCAN.stop = true; };
+  // מ'קען טוישן אויך אינמיטן סקענען
+  $('#fc-gentle').onchange = (e) => { SCAN.gentle = e.target.value === '1'; try { localStorage.setItem('khal-fc-gentle', SCAN.gentle ? '1' : '0'); } catch { /* */ } };
   $('#fc-reset').onclick = async () => {
     if (SCAN.running) return;
     if (!confirm(t('fcResetAsk'))) return;
