@@ -12,6 +12,7 @@ import {
 } from './scope.js';
 import { downloadXlsx } from './excel.js';
 import { submitRequest } from './requests.js';
+import { bookPickerHtml, wireBookPicker, readBookPicker, booksOf, BOOKS_ORG } from './books.js';
 
 let ui = null; // עזרים מהמסך הראשי (נמסרים ב-initDonations)
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -272,6 +273,7 @@ export function openDonationForm(donation = {}, presetContactId = null) {
         <div class="seg don-kind">${[['', 'donKindDonation'], ['sale', 'donKindSale']].map(([k, l]) => `<button type="button" data-dk="${k}" class="${(d.kind || '') === k ? 'on' : ''}">${h(t(l))}</button>`).join('')}</div>
         <input type="hidden" name="kind" value="${h(d.kind || '')}">
       </div>
+      <div class="don-books"${d.kind === 'sale' ? '' : ' hidden'}>${bookPickerHtml(booksOf(d))}</div>
 
       <label class="wide org-pick">${t('campaignOptional')}
         <select name="campaign">${campaignOptions(d.campaign)}</select>
@@ -437,8 +439,20 @@ function wireDonationForm(form, original) {
       $('.goods-lbl-don', form).hidden = sale;
       $('.goods-lbl-sale', form).hidden = !sale;
       $('.goods-val', form).hidden = sale;
+      $('.don-books', form).hidden = !sale;
       form.dataset.dirty = '1';
     };
+  });
+  // מכירה פון ספרים: דער סכום, "וואס" און דער ארגון — פון די ספרים
+  let bookLines = readBookPicker(form);
+  wireBookPicker(form, (lines, total, desc) => {
+    const had = bookLines.length;
+    bookLines = lines;
+    if (!lines.length && !had) return;
+    f('amount_usd').value = total || '';
+    f('goods_desc').value = desc;
+    if (!f('org').disabled && [...f('org').options].some((o) => o.value === BOOKS_ORG)) f('org').value = BOOKS_ORG;
+    form.dataset.dirty = '1';
   });
   f('campaign').addEventListener('change', () => {
     // די "תמורה" פונעם קאמפיין (למשל א סעודה ביים דינער) — ווען נאך נישט אויסגעפילט
@@ -540,6 +554,7 @@ function wireDonationForm(form, original) {
       kind: f('kind').value,
       goods_desc: f('goods_desc').value.trim(),
       goods_value: f('kind').value === 'sale' || f('goods_value').value === '' ? '' : Number(f('goods_value').value),
+      books: f('kind').value === 'sale' && bookLines.length ? JSON.stringify(bookLines) : '',
     };
     const btn = $('#don-save', form);
     btn.disabled = true;

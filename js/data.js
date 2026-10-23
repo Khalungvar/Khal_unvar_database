@@ -84,7 +84,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts', 'Requests', 'Enrollments', 'Tuition', 'Simchos', 'SimchaIssues', 'TagTree']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts', 'Requests', 'Enrollments', 'Tuition', 'Simchos', 'SimchaIssues', 'TagTree', 'Books']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -162,6 +162,10 @@ export async function loadAll() {
   const si = rowsToObjects(tabs.SimchaIssues || [['issue_id']]);
   state.headers.SimchaIssues = si.header;
   state.simchaIssues = si.objects.filter((x) => String(x.issue_id || '').trim()).map((x) => ({ ...x, yt_date: isoDay(x.yt_date) }));
+  // מכון משנה הלכות: די ספרים (מחיר, מבצע, מלאי)
+  const bk = rowsToObjects(tabs.Books || [['book_id']]);
+  state.headers.Books = bk.header;
+  state.books = bk.objects.filter((x) => String(x.book_id || '').trim()).map((x) => ({ ...x, sale_from: x.sale_from ? isoDay(x.sale_from) : '', sale_to: x.sale_to ? isoDay(x.sale_to) : '' }));
 
   const yearly = rowsToObjects(tabs.YearlyCampaigns || [['series']]);
   state.headers.YearlyCampaigns = yearly.header;

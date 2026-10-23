@@ -20,7 +20,7 @@ import {
 import {
   initCampaigns, renderCampaignSide, renderCampaignMain, showCampaign, renderDonHub,
 } from './campaigns.js';
-import { initReceipts, renderReceipts, openReceipts, printForDonation, openOrgDetails } from './receipts.js';
+import { initReceipts, renderReceipts, openReceipts, printForDonation, openOrgDetails, openQuickReceipt } from './receipts.js';
 import { initSortTables } from './sorttables.js';
 import { initLists, renderListsSide, renderBuilder, openOverview, exportContacts, linkPendingExt } from './lists.js';
 import { initAdmin, renderAdmin, adminDirty, setAdminTab } from './admin.js';
@@ -36,6 +36,7 @@ import { initSms, openCalls, renderCalls, smsCardHtml, wireSmsCard } from './sms
 import { workCardHtml, workFormHtml, wireWorkForm, readWorkForm, workSearchText } from './work.js';
 import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, markChecked, hasRealTags, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
 import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
+import { initBooks, openBooks, renderBooks, BOOKS_ORG } from './books.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount, parseOrgTags, splitEntry, entry } from './orgtags.js';
 import {
@@ -206,6 +207,9 @@ function renderLobby() {
       ${tile('mailmerge', '✉', 'Mail Merge', t('lobbyMailSub'))}
       ${tile('calls', '📞', 'Calls & SMS', t('lobbyCallsSub'))}
       ${tile('receipts', '🧾', 'Invoice & Receipt', t('lobbyReceiptsSub'))}
+    </div>
+    <div class="lobby-row lobby-assoc">
+      ${tile('books', '📚', BOOKS_ORG, t('bkTileSub', { n: (state.books || []).length }))}
     </div>`;
 }
 
@@ -280,6 +284,7 @@ function lobbyClick(e) {
   if (key === 'calls') { enterScope(null); openCalls(); return; }
   if (key === 'personal') { document.body.classList.add('solo-mode'); openPersonal(); return; }
   if (key === 'receipts') { enterScope(null); document.body.classList.add('solo-mode'); openReceipts(); return; }
+  if (key === 'books') { enterScope(null); document.body.classList.add('solo-mode'); openBooks(); return; }
   // נדבות / לוח המאורעות: א באזונדערער בלאט פון אלע רעקארדס — אן די לשוניות
   if (key === 'donations' || key === 'occasions') {
     enterScope(null);
@@ -321,6 +326,7 @@ function refreshAll() {
   if (!$('.view[data-view="receipts"]').hidden) renderReceipts();
   if (!$('.view[data-view="school"]').hidden) renderSchool();
   if (!$('.view[data-view="simchos"]').hidden) renderSimchos();
+  if (!$('.view[data-view="books"]').hidden) renderBooks();
   if ($('#card-dialog').open && currentCardId) openCard(currentCardId);
 }
 
@@ -346,6 +352,7 @@ function showView(name) {
   if (name === 'lists') renderBuilder();
   if (name === 'school') renderSchool();
   if (name === 'simchos') renderSimchos();
+  if (name === 'books') renderBooks();
   renderListsSide();
   $('#btn-admin')?.classList.toggle('on', name === 'admin');
   renderCampaignSide();
@@ -1969,6 +1976,7 @@ function start() {
   initSms({ showView, fullNameHe, toast, friendlyError, openCard, pickerLabel });
   initRequests({ toast, friendlyError, refreshAll, updateBadges, showView, openCard });
   initMerge({ contactById, fullNameHe, pickerLabel, fieldLabel, toast, friendlyError, refreshAll, openCard });
+  initBooks({ showView, toast, friendlyError, quickSale: (org, done) => openQuickReceipt(org, done, { sale: true }) });
   initSimchos({ showView, contactById, fullNameHe, pickerLabel, toast, friendlyError, refreshAll, openCard, openForm });
   initSchool({
     showView, contactById, fullNameHe, pickerLabel, openCard, toast, friendlyError, refreshAll,

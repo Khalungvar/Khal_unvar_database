@@ -1901,5 +1901,63 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .work-ad { min-width: 260px; }
 .rq-addrbox { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--surface); }
 .rq-addrh { font-size: 14px; }
-.rq-opt { font-size: 14px; }
+.rq-addrbox .rq-opt { font-size: 14px; display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 6px; white-space: normal; text-align: start; }
+.rq-addrbox .rq-opt input { width: auto; margin: 0; }
 .rq-addrbox textarea { width: 100%; font-family: inherit; }
+
+/* ---------- מכון משנה הלכות: ספרים ---------- */
+.lobby-assoc { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 700px) { .lobby-assoc { grid-template-columns: 1fr 1fr; } }
+.bk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 12px 0 4px; }
+.bk-bar #bk-q { min-width: 220px; }
+.bk-hint { margin: 4px 0 10px; }
+.bk-group { margin: 22px 0 6px; color: var(--accent, #7a1219); border-bottom: 2px solid #e3d3ad; padding-bottom: 4px; }
+.bk-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+.bk-book > tr > td { background: var(--card, #fff); vertical-align: middle; padding: 6px 10px; }
+.bk-book .bk-r1 > td { border-top: 1px solid #e8dcc4; }
+.bk-book .bk-r2 > td { border-bottom: 1px solid #e8dcc4; background: #fbf7ee; font-size: 0.92em; }
+.bk-book .bk-img { width: 74px; text-align: center; border-inline-start: 1px solid #e8dcc4; border-bottom: 1px solid #e8dcc4; border-radius: 0 10px 10px 0; }
+.bk-book .bk-ed { border-inline-end: 1px solid #e8dcc4; width: 30px; }
+.bk-book .bk-r2 > td { border-inline-end: 1px solid #e8dcc4; }
+.bk-img img { max-width: 64px; max-height: 84px; display: block; margin: auto; filter: drop-shadow(0 2px 3px rgba(0,0,0,.25)); }
+.bk-noimg { font-size: 30px; opacity: .5; }
+.bk-name b { font-size: 1.08em; }
+.bk-new { color: #b8860b; font-weight: bold; }
+.bk-note { color: #8a6d3b; }
+.bk-vols { white-space: nowrap; color: #6b5a3a; width: 70px; }
+.bk-price, .bk-stock { width: 120px; }
+.bk-price label, .bk-stock label { display: flex; flex-direction: column; gap: 2px; font-size: 0.8em; color: #7a6a5c; }
+.bk-stock input { width: 80px; font-weight: bold; font-size: 1.15em; text-align: center; }
+.bk-stock input.bk-zero { color: #b3261e; border-color: #e0a19c; }
+.bk-money { display: inline-flex; align-items: center; gap: 2px; direction: ltr; }
+.bk-money input { width: 78px; }
+.bk-price .bk-money input { font-weight: bold; font-size: 1.1em; }
+.bk-onsale .bk-price .bk-money input { text-decoration: line-through; color: #999; }
+.bk-now { color: #b3261e; font-size: 0.85em; margin-top: 2px; }
+.bk-r2-in { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; }
+.bk-sale, .bk-extra { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.bk-sale input[type=date] { width: 140px; }
+.bk-badge { font-size: 0.8em; padding: 1px 8px; border-radius: 10px; }
+.bk-badge.bk-on { background: #fde2e1; color: #b3261e; font-weight: bold; }
+.bk-badge.bk-soon { background: #e7f0fb; color: #1f5a99; }
+.bk-badge.bk-over { background: #eee; color: #777; }
+@media (max-width: 700px) {
+  .bk-vols { display: none; }
+  .bk-price, .bk-stock { width: auto; }
+}
+.bk-dlg { max-width: 640px; }
+.bk-form-top { display: flex; gap: 16px; align-items: flex-start; }
+.bk-imgbox { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 120px; }
+.bk-imgprev { width: 110px; height: 140px; display: flex; align-items: center; justify-content: center; font-size: 40px; background: #f6f1e6; border-radius: 8px; }
+.bk-imgprev img { max-width: 100%; max-height: 100%; }
+.bk-form-fields { flex: 1; }
+/* אויסקלייבן ספרים אין א מכירה */
+.bk-pick { border: 1px solid #e3d3ad; background: #fbf7ee; border-radius: 10px; padding: 8px 10px; margin: 8px 0; }
+.bk-pick-h { display: block; margin-bottom: 4px; }
+.bk-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0; }
+.bk-line .bk-sel { flex: 1; min-width: 200px; }
+.bk-line .bk-q { width: 56px; }
+.bk-line .bk-p { width: 76px; }
+.bk-pw { display: inline-flex; align-items: center; direction: ltr; }
+.bk-sum { min-width: 60px; text-align: end; }
+.bk-line.bk-low .bk-q { border-color: #d9534f; background: #fdeeee; }

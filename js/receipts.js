@@ -21,6 +21,7 @@ import { submitRequest } from './requests.js';
 import { letterSizeFor, letterTemplates, letterPagesFor, letterHasReceipt, openMailMergeFor, mySigObj } from './mailmerge.js';
 import { imageOf } from './images.js';
 import { workOf } from './work.js';
+import { bookPickerHtml, wireBookPicker, BOOKS_ORG } from './books.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -709,7 +710,7 @@ function defaultMeta(d) {
 }
 
 // ---------- "קבלה בודדת": ערשט די פרטים → א נדבה (באצאלט) → דער טופס פון דער קבלה ----------
-export function openQuickReceipt(org0 = '', done = null) {
+export function openQuickReceipt(org0 = '', done = null, opts = {}) {
   const today = new Date().toISOString().slice(0, 10);
   const dlg = document.createElement('dialog');
   dlg.className = 'sheet rq-dlg';
@@ -720,10 +721,11 @@ export function openQuickReceipt(org0 = '', done = null) {
     <h2>🧾 ${h(t('rqTitle'))}</h2>
     <p class="muted small">${h(t('rqHint'))}</p>
     <form class="rq-form" autocomplete="off">
-      <div class="seg">${[['', 'donKindDonation'], ['sale', 'donKindSale']].map(([k, l], i) => `<button type="button" data-qk="${k}" class="${i ? '' : 'on'}">${h(t(l))}</button>`).join('')}</div>
+      <div class="seg">${[['', 'donKindDonation'], ['sale', 'donKindSale']].map(([k, l], i) => `<button type="button" data-qk="${k}" class="${(opts.sale ? i : !i) ? 'on' : ''}">${h(t(l))}</button>`).join('')}</div>
       <label class="wide">${h(t('donor'))} *<input name="who" list="dl-rq" placeholder="${h(t('rqWhoPh'))}" required>
         <datalist id="dl-rq">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist></label>
       <div class="rq-addrbox" hidden></div>
+      <div class="rq-books"${opts.sale ? '' : ' hidden'}>${bookPickerHtml()}</div>
       <div class="grid">
         <label>${h(t('amount'))} *<input name="amount" type="number" min="0.01" step="0.01" dir="ltr" required></label>
         <label>${h(t('dateLegend'))}<input name="date" type="date" value="${today}"></label>
@@ -744,17 +746,28 @@ export function openQuickReceipt(org0 = '', done = null) {
     </form>`;
   const form = $('form', dlg);
   const el = (n) => form.elements[n];
-  let kind = '';
+  let kind = opts.sale ? 'sale' : '';
   $$('[data-x]', dlg).forEach((b) => { b.onclick = () => dlg.close(); });
+  // מכירה פון ספרים (מכון משנה הלכות): דער סכום און "וואס" ווערן אויסגעפילט פון די ספרים
+  let bookLines = [];
+  wireBookPicker(dlg, (lines, total, desc) => {
+    bookLines = lines;
+    if (!lines.length) return;
+    el('amount').value = total || '';
+    el('for').value = desc;
+    if ([...el('org').options].some((o) => o.value === BOOKS_ORG)) el('org').value = BOOKS_ORG;
+  });
   $$('[data-qk]', dlg).forEach((b) => {
     b.onclick = () => {
       kind = b.dataset.qk;
       $$('[data-qk]', dlg).forEach((x) => x.classList.toggle('on', x === b));
       $('.rq-goods', dlg).hidden = kind === 'sale';
+      $('.rq-books', dlg).hidden = kind !== 'sale';
       $('.rq-for-don', dlg).hidden = kind === 'sale';
       $('.rq-for-sale', dlg).hidden = kind !== 'sale';
     };
   });
+  if (opts.sale) $('[data-qk="sale"]', dlg).click();
   // דער אדרעס: פון כרטיס (✓) אדער אן אנדערער (טעקסט); א מענטש וואס איז נישט אין דער ליסטע — נאר טעקסט
   let addrSel = 'home';
   let addrText = '';
@@ -827,6 +840,7 @@ export function openQuickReceipt(org0 = '', done = null) {
       payment_method: method, check_number: method === "צ'ק" ? el('check').value.trim() : '', card_last4: method === 'כרטיס אשראי' ? el('card').value.trim() : '',
       payment_note: '', dedication_type: '', dedication_text: '',
       kind, goods_desc: sale ? el('for').value.trim() : el('gdesc').value.trim(), goods_value: sale || el('gval').value === '' ? '' : Number(el('gval').value),
+      books: sale && bookLines.length ? JSON.stringify(bookLines) : '',
     };
     const btn = $('button[type=submit]', form);
     btn.disabled = true;

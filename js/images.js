@@ -9,6 +9,7 @@ export const IMG_FIELDS = {
   OrgLogos: ['logo_data'],
   OrgDetails: ['header_img', 'signature_img'],
   YearlyCampaigns: ['header_img'],
+  Books: ['image'],
 };
 const byId = new Map(); // id → data:
 const byData = new Map(); // data: → id
@@ -112,7 +113,7 @@ export async function persistImages(tab, obj) {
 
 /** נאכן לאדן: אלע "drv:" אין state → די בילדער (אין זכרון). */
 export async function resolveState(state) {
-  const recs = [...(state.mailTemplates || []), ...(state.orgDetails || []), ...(state.yearly || [])];
+  const recs = [...(state.mailTemplates || []), ...(state.orgDetails || []), ...(state.yearly || []), ...(state.books || [])];
   const ids = [];
   const scan = (v) => { if (isDrv(v)) ids.push(String(v).slice(4)); };
   recs.forEach((o) => Object.values(o).forEach(scan));
