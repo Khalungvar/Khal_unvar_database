@@ -748,6 +748,7 @@ function renderTag(ev) {
         <div class="seg"><button type="button" data-tv="grid" class="${T.view === 'grid' ? 'on' : ''}">▦ ${h(t('fcVGrid'))}</button><button type="button" data-tv="one" class="${T.view === 'one' ? 'on' : ''}">🔍 ${h(t('fcVOne'))}</button></div>
         ${T.view === 'grid' ? `<label class="fc-size">🔎 <input type="range" id="fc-size" min="120" max="300" step="10" value="${T.size}"></label>` : ''}
         ${ev.mode !== 'fast' && greens ? `<button type="button" class="btn small-btn" id="fc-allg">✓ ${h(t('fcApproveGreens', { n: greens }))}</button>` : ''}
+        ${c.skip ? `<button type="button" class="btn small-btn danger" id="fc-delskip">🗑 ${h(t('fcDelSkipped', { n: c.skip }))}</button>` : ''}
       </div></div>
     <datalist id="fc-dl">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>
     <div id="fc-tlist"></div>`;
@@ -755,6 +756,11 @@ function renderTag(ev) {
   $$('[data-tv]', box).forEach((b) => { b.onclick = () => { T.view = b.dataset.tv; renderTag(ev); }; });
   $('#fc-size', box)?.addEventListener('input', (e) => { T.size = Number(e.target.value); $('#fc-tlist').style.setProperty('--fc-size', `${T.size}px`); });
   $('#fc-allg', box)?.addEventListener('click', () => approveGreens(ev));
+  $('#fc-delskip', box)?.addEventListener('click', async () => {
+    const list = shotsOf(ev).filter((s) => s.status === 'skip');
+    if (!confirm(t('fcDelSkippedAsk', { n: list.length }))) return;
+    try { await removeFaces(ev, list); renderTag(ev); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  });
   if (T.view === 'grid') gridView(ev, list); else oneView(ev, list);
 }
 function controlsHtml(s, big = false) {
@@ -762,11 +768,11 @@ function controlsHtml(s, big = false) {
     return `<div class="fc-who"><b>✓ ${h(nameOf(s.contact_id))}</b>${s.status === 'auto' ? ' <span title="🤖">🤖</span>' : ''}
       <button type="button" class="linkish" data-undo="${h(s.face_id)}" title="${h(t('fcUndo'))}">↩</button></div>`;
   }
-  if (s.status === 'skip') return `<div class="fc-who muted">⤼ ${h(t('fcSkipped'))} <button type="button" class="linkish" data-undo="${h(s.face_id)}">↩</button></div>`;
+  if (s.status === 'skip') return `<div class="fc-who muted">⤼ ${h(t('fcSkipped'))} <span><button type="button" class="linkish" data-undo="${h(s.face_id)}">↩</button> <button type="button" class="linkish fc-del" data-delf="${h(s.face_id)}" title="${h(t('fcDelFace'))}">🗑</button></span></div>`;
   const sg = T.sugg.get(s.face_id) || { lv: '', top: [] };
   return `${sg.top.map((x) => `<button type="button" class="fc-sug lv-${sg.lv}" data-acc="${h(s.face_id)}|${h(x.cid)}" title="${Math.round(x.v * 100)}%">${sg.lv === 'g' ? '🟢' : '🟡'} ${h(nameOf(x.cid))} ✓</button>`).join('')}
     <div class="fc-inrow"><input class="fc-in" list="fc-dl" data-in="${h(s.face_id)}" placeholder="${h(t('fcWhoPh'))}" autocomplete="off"><button type="button" class="btn small-btn primary" data-ok="${h(s.face_id)}">✓</button></div>
-    <div class="fc-acts"><button type="button" class="linkish" data-newp="${h(s.face_id)}">➕ ${h(t('fcNewPerson'))}</button><button type="button" class="linkish" data-skip="${h(s.face_id)}">⤼ ${h(t('fcSkip'))}</button>${big ? '' : ''}</div>`;
+    <div class="fc-acts"><button type="button" class="linkish" data-newp="${h(s.face_id)}">➕ ${h(t('fcNewPerson'))}</button><button type="button" class="linkish" data-skip="${h(s.face_id)}">⤼ ${h(t('fcSkip'))}</button><button type="button" class="linkish fc-del" data-delf="${h(s.face_id)}" title="${h(t('fcDelFace'))}">🗑${big ? ` ${h(t('fcDelFace'))}` : ''}</button></div>`;
 }
 function gridView(ev, list) {
   const box = $('#fc-tlist');
@@ -825,6 +831,11 @@ function wireActions(ev, box, after) {
     if (b.dataset.ok) { const cid = pick(b.dataset.ok); if (!cid) { ui.toast(t('pickValid'), 'error'); return; } run(b, () => decide(ev, face(b.dataset.ok), 'ok', cid)); return; }
     if (b.dataset.skip) { run(b, () => decide(ev, face(b.dataset.skip), 'skip')); return; }
     if (b.dataset.undo) { run(b, () => decide(ev, face(b.dataset.undo), '')); return; }
+    if (b.dataset.delf) {
+      if (!confirm(t('fcDelFaceAsk'))) return;
+      run(b, () => removeFaces(ev, [face(b.dataset.delf)]));
+      return;
+    }
     if (b.dataset.newp) { newPersonDialog(ev, face(b.dataset.newp), after); return; }
     if (b.dataset.setphoto) { const f = face(b.dataset.setphoto); run(b, async () => { await savePhoto(f.contact_id, faceImg(f)); T.photos.set(String(f.contact_id), faceImg(f)); ui.toast(t('fcPhotoSet')); }); return; }
     if (b.dataset.zoom) { T.view = 'one'; T.pos = filtered(ev).findIndex((x) => String(x.face_id) === b.dataset.zoom); renderTag(ev); }
@@ -895,6 +906,17 @@ function approveGreens(ev) {
     dlg.close(); renderTag(ev);
   };
   dlg.showModal();
+}
+
+/** אויסמעקן פנים פון אן אירוע (נישט פארבונדן צו קיינעם) — די שורה ווערט ליידיג; זיי ווערן נישט מער גערעכנט */
+async function removeFaces(ev, list) {
+  const ids = new Set(list.filter(Boolean).filter((s) => !isOk(s)).map((s) => String(s.face_id)));
+  if (!ids.size) return;
+  await clearFaceShots(list.filter((s) => ids.has(String(s.face_id))));
+  state.faceShots = (state.faceShots || []).filter((s) => !ids.has(String(s.face_id)));
+  ids.forEach((id) => T.sugg.delete(id));
+  await syncEvent(ev);
+  ui.toast(t('fcDeletedN', { n: ids.size }));
 }
 
 // ---------- ③ משתתפים ----------
