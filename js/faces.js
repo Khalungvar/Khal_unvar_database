@@ -75,13 +75,13 @@ function loadHuman() {
 }
 
 // ---------- א בילד פון פנים, מיט א ביסל ראנד ----------
-function cropFace(video, box, size = 260) {
+function cropFace(video, box, size = 260, W = video.videoWidth || video.width, H = video.videoHeight || video.height) {
   const [x, y, w, hh] = box;
   const pad = 0.45;
   const side = Math.max(w, hh) * (1 + pad * 2);
   const cx = x + w / 2; const cy = y + hh / 2 - hh * 0.05;
   const sx = Math.max(0, cx - side / 2); const sy = Math.max(0, cy - side / 2);
-  const sw = Math.min(video.videoWidth - sx, side); const sh = Math.min(video.videoHeight - sy, side);
+  const sw = Math.min(W - sx, side); const sh = Math.min(H - sy, side);
   const c = document.createElement('canvas');
   const k = size / Math.max(sw, sh);
   c.width = Math.round(sw * k); c.height = Math.round(sh * k);
@@ -133,6 +133,36 @@ function addFace(scan, human, emb, shot) {
   return true;
 }
 
+const isImage = (f) => /^image\//.test(f.type) || /\.(jpe?g|png|webp|heic|heif|bmp|gif)$/i.test(f.name);
+/** די פנים פון איין בילד (א פריים פונעם ווידעא אדער א פאטא) → צוגעלייגט צו די מענטשן. מחזיר וויפל נייע */
+async function facesFrom(human, scan, src, opts, where) {
+  const r = await human.detect(src);
+  let added = 0;
+  for (const f of r.face || []) {
+    if (!f.embedding || !f.embedding.length) continue;
+    const [, , w, hh] = f.box;
+    if (Math.min(w, hh) < opts.minPx) continue;
+    const yaw = Math.abs(f.rotation?.angle?.yaw || 0); const pitch = Math.abs(f.rotation?.angle?.pitch || 0);
+    if (yaw > 0.9) continue; // גאר פון דער זייט — נישט צו דערקענען
+    const { c, g } = cropFace(src, f.box);
+    const sharp = sharpness(g, c.width, c.height);
+    const q = Math.sqrt(w * hh) * (f.score || 0.5) * Math.max(0.2, 1 - yaw) * Math.max(0.3, 1 - pitch) * Math.min(2, 0.5 + Math.log10(1 + sharp) / 2);
+    const shot = { q, img: c.toDataURL('image/jpeg', 0.85), w: Math.round(w), ...where };
+    if (addFace(scan, human, Float32Array.from(f.embedding), shot)) added += 1;
+  }
+  return added;
+}
+/** א פאטא → א canvas (מיט דער ריכטיגער ריכטונג; גאר גרויסע ווערן קלענער) */
+async function imageCanvas(file) {
+  const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  const k = Math.min(1, 1920 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close?.();
+  return c;
+}
+
 async function runScan(ev, files, opts) {
   if (SCAN.running) return;
   const box = $('#fc-scanbox');
@@ -144,7 +174,34 @@ async function runScan(ev, files, opts) {
     say(t('fcLoadingEngine'));
     const human = await loadHuman();
     say(t('fcScanning'));
-    for (const file of files) {
+    // קודם די פאטאס (שנעלער), דערנאך די ווידעאס
+    const imgs = files.filter(isImage);
+    const vids = files.filter((f) => !isImage(f));
+    if (imgs.length) {
+      const t0 = performance.now(); let n = 0; let bad = 0;
+      const todo = imgs.filter((f) => !(scan.files[fileKey(f)]?.done >= 1));
+      for (const file of todo) {
+        if (SCAN.stop) break;
+        const key = fileKey(file);
+        scan.files[key] = { name: file.name, size: file.size, done: 0, dur: 1, img: true };
+        let cv = null;
+        // eslint-disable-next-line no-await-in-loop
+        try { cv = await imageCanvas(file); } catch { cv = null; }
+        if (!cv) { bad += 1; scan.files[key].bad = true; scan.files[key].done = 1; continue; }
+        // eslint-disable-next-line no-await-in-loop
+        const added = await facesFrom(human, scan, cv, opts, { file: file.name, t: -1 });
+        scan.files[key].done = 1;
+        n += 1;
+        const per = (performance.now() - t0) / 1000 / n;
+        progressImgs(scan, imgs.length - todo.length + n, imgs.length, per * (todo.length - n));
+        if (added) liveGrid(scan);
+        // eslint-disable-next-line no-await-in-loop
+        if (n % 10 === 0) await saveScan(ev.event_id, scan);
+      }
+      if (bad) say(t('fcBadImgs', { n: bad }), 'err');
+      await saveScan(ev.event_id, scan);
+    }
+    for (const file of vids) {
       if (SCAN.stop) break;
       const key = fileKey(file);
       const rec = scan.files[key] || { name: file.name, size: file.size, done: 0, dur: 0 };
@@ -169,20 +226,7 @@ async function runScan(ev, files, opts) {
         // eslint-disable-next-line no-await-in-loop
         await new Promise((res) => { const done = () => { video.removeEventListener('seeked', done); res(); }; video.addEventListener('seeked', done); setTimeout(done, 4000); });
         // eslint-disable-next-line no-await-in-loop
-        const r = await human.detect(video);
-        let added = 0;
-        for (const f of r.face || []) {
-          if (!f.embedding || !f.embedding.length) continue;
-          const [, , w, hh] = f.box;
-          if (Math.min(w, hh) < opts.minPx) continue;
-          const yaw = Math.abs(f.rotation?.angle?.yaw || 0); const pitch = Math.abs(f.rotation?.angle?.pitch || 0);
-          if (yaw > 0.9) continue; // גאר פון דער זייט — נישט צו דערקענען
-          const { c, g } = cropFace(video, f.box);
-          const sharp = sharpness(g, c.width, c.height);
-          const q = Math.sqrt(w * hh) * (f.score || 0.5) * Math.max(0.2, 1 - yaw) * Math.max(0.3, 1 - pitch) * Math.min(2, 0.5 + Math.log10(1 + sharp) / 2);
-          const shot = { q, img: c.toDataURL('image/jpeg', 0.85), t: tt, file: file.name, w: Math.round(w) };
-          if (addFace(scan, human, Float32Array.from(f.embedding), shot)) added += 1;
-        }
+        const added = await facesFrom(human, scan, video, opts, { file: file.name, t: tt });
         rec.done = Math.min(rec.dur, tt + step);
         n += 1;
         const elapsed = (performance.now() - t0) / 1000;
@@ -208,6 +252,14 @@ async function runScan(ev, files, opts) {
   }
 }
 
+function progressImgs(scan, done, total, left) {
+  const box = $('#fc-scanbox');
+  if (!box) return;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  $('#fc-bar > i', box).style.width = `${pct}%`;
+  $('#fc-prog', box).textContent = `📷 ${t('fcImgsN', { n: done, total })} (${pct}%)${left > 1 ? ` · ${t('fcLeft', { t: fmtT(left) })}` : ''}`;
+  $('#fc-count', box).textContent = t('fcPeopleN', { n: scan.clusters.length });
+}
 function progress(scan, rec, left) {
   const box = $('#fc-scanbox');
   if (!box) return;
@@ -227,11 +279,14 @@ function liveGrid(scan) {
 function filesList(scan) {
   const box = $('#fc-files');
   if (!box) return;
-  const fs = Object.values(scan.files);
-  box.innerHTML = fs.length ? fs.map((f) => {
+  const all = Object.values(scan.files);
+  const im = all.filter((f) => f.img);
+  const fs = all.filter((f) => !f.img);
+  const imLine = im.length ? `<div class="fc-file"><span>📷 ${h(t('fcImgsN', { n: im.filter((f) => f.done >= 1).length, total: im.length }))}</span>${im.some((f) => f.bad) ? `<span class="muted small">⚠ ${h(t('fcBadImgs', { n: im.filter((f) => f.bad).length }))}</span>` : ''}</div>` : '';
+  box.innerHTML = imLine + (fs.length ? fs.map((f) => {
     const pct = f.dur ? Math.round((f.done / f.dur) * 100) : 0;
     return `<div class="fc-file"><span>🎬 ${h(f.name)}</span><span class="muted small" dir="ltr">${(f.size / 1048576).toFixed(0)} MB · ${fmtT(f.dur)}</span><span class="fc-fpct ${pct >= 100 ? 'ok' : ''}">${pct >= 100 ? '✓' : `${pct}%`}</span></div>`;
-  }).join('') : '';
+  }).join('') : '');
 }
 function renderScanButtons() {
   const go = $('#fc-go'); const stop = $('#fc-stop');
@@ -329,9 +384,9 @@ function renderEventPage(main, ev) {
 
 async function scanPane(pane, ev) {
   pane.innerHTML = `<div id="fc-scanbox" class="fc-scan">
-      <p class="muted small">${h(t('fcScanHint'))}</p>
+      <p class="muted small">${h(t('fcScanHint2'))}</p>
       <div class="fc-row">
-        <label class="btn primary" id="fc-pickl">🎬 ${h(t('fcPick'))}<input type="file" id="fc-pick" accept="video/*,.mp4,.mov,.webm,.m4v" multiple hidden></label>
+        <label class="btn primary" id="fc-pickl">🎬📷 ${h(t('fcPick2'))}<input type="file" id="fc-pick" accept="video/*,image/*,.mp4,.mov,.webm,.m4v,.jpg,.jpeg,.png,.heic" multiple hidden></label>
         <label>${h(t('fcStep'))} <select id="fc-step"><option value="1">${h(t('fcStep1'))}</option><option value="0.5">${h(t('fcStep05'))}</option><option value="2">${h(t('fcStep2'))}</option></select></label>
         <label>${h(t('fcMin'))} <select id="fc-min"><option value="40">${h(t('fcMinN'))}</option><option value="28">${h(t('fcMinS'))}</option><option value="64">${h(t('fcMinL'))}</option></select></label>
       </div>
@@ -355,7 +410,8 @@ async function scanPane(pane, ev) {
   renderScanButtons();
   $('#fc-pick').onchange = (e) => {
     chosen = [...e.target.files];
-    $('#fc-chosen').textContent = chosen.map((f) => `${f.name} (${(f.size / 1048576).toFixed(0)} MB)`).join(' · ');
+    const ni = chosen.filter(isImage).length; const vs = chosen.filter((f) => !isImage(f));
+    $('#fc-chosen').textContent = [ni ? `📷 ${t('fcImgsChosen', { n: ni })}` : '', ...vs.map((f) => `🎬 ${f.name} (${(f.size / 1048576).toFixed(0)} MB)`)].filter(Boolean).join(' · ');
     $('#fc-go').disabled = !chosen.length;
   };
   $('#fc-go').onclick = () => {
@@ -383,7 +439,7 @@ function clusterDialog(cl) {
   dlg.addEventListener('close', () => dlg.remove());
   dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button>
     <h2>${h(t('fcSeenN', { n: cl.count }))}</h2>
-    <div class="fc-shots">${cl.shots.map((s) => `<figure><img src="${s.img}" alt=""><figcaption class="muted small" dir="ltr">${h(s.file)} · ${fmtT(s.t)}</figcaption></figure>`).join('')}</div>
+    <div class="fc-shots">${cl.shots.map((s) => `<figure><img src="${s.img}" alt=""><figcaption class="muted small" dir="ltr">${s.t >= 0 ? '🎬' : '📷'} ${h(s.file)}${s.t >= 0 ? ` · ${fmtT(s.t)}` : ''}</figcaption></figure>`).join('')}</div>
     <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>${h(t('close'))}</button></div>`;
   $$('[data-x]', dlg).forEach((x) => { x.onclick = () => dlg.close(); });
   dlg.showModal();
