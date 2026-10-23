@@ -228,6 +228,7 @@ async function runScan(ev, files, opts) {
   PILL.ev = ev;
   renderScanButtons();
   let scan = (await loadScan(ev.event_id)) || emptyScan();
+  scan.evId = String(ev.event_id);
   if (!scan.sid) scan.sid = Date.now().toString(36);
   LIVE.eventId = String(ev.event_id); LIVE.scan = scan;
   // בשעת'ן סקענען: די נייע פנים גייען שוין ארויף (מ'קען אנהייבן דערקענען פאר'ן ענדע)
@@ -348,10 +349,12 @@ function pillUpdate(pct, text) {
 }
 window.addEventListener('beforeunload', (e) => { if (SCAN.running) { e.preventDefault(); e.returnValue = ''; } });
 
+/** איז דער סקען-בלאט וואס מ'זעט יעצט פון דעם זעלבן אירוע? (א סריקה לויפט ווייטער ווען מ'עפנט אן אנדער אירוע) */
+const onPage = (scan) => { const b = $('#fc-scanbox'); return Boolean(b) && (!scan?.evId || b.dataset.ev === String(scan.evId)); };
 function progressImgs(scan, done, total, left) {
   pillUpdate(total ? Math.round((done / total) * 100) : 0, t('fcImgsN', { n: done, total }));
   const box = $('#fc-scanbox');
-  if (!box) return;
+  if (!box || !onPage(scan)) return;
   const pct = total ? Math.round((done / total) * 100) : 0;
   $('#fc-bar > i', box).style.width = `${pct}%`;
   $('#fc-prog', box).textContent = `📷 ${t('fcImgsN', { n: done, total })} (${pct}%)${left > 1 ? ` · ${t('fcLeft', { t: fmtT(left) })}` : ''}`;
@@ -360,7 +363,7 @@ function progressImgs(scan, done, total, left) {
 function progress(scan, rec, left) {
   pillUpdate(rec.dur ? Math.round((rec.done / rec.dur) * 100) : 0, `${fmtT(rec.done)} / ${fmtT(rec.dur)}`);
   const box = $('#fc-scanbox');
-  if (!box) return;
+  if (!box || !onPage(scan)) return;
   const pct = rec.dur ? Math.round((rec.done / rec.dur) * 100) : 0;
   $('#fc-bar > i', box).style.width = `${pct}%`;
   $('#fc-prog', box).textContent = `${rec.name} · ${fmtT(rec.done)} / ${fmtT(rec.dur)} (${pct}%)${left > 1 ? ` · ${t('fcLeft', { t: fmtT(left) })}` : ''}`;
@@ -368,7 +371,7 @@ function progress(scan, rec, left) {
 }
 function liveGrid(scan) {
   const g = $('#fc-live');
-  if (!g) return;
+  if (!g || !onPage(scan)) return;
   const list = [...scan.clusters].sort((a, b) => a.id - b.id);
   $('#fc-count') && ($('#fc-count').textContent = t('fcPeopleN', { n: list.length }));
   g.innerHTML = list.map((cl) => `<button type="button" class="fc-face" data-cl="${cl.id}" title="${h(t('fcSeenN', { n: cl.count }))}">
@@ -376,7 +379,7 @@ function liveGrid(scan) {
 }
 function filesList(scan) {
   const box = $('#fc-files');
-  if (!box) return;
+  if (!box || !onPage(scan)) return;
   const all = Object.values(scan.files);
   const im = all.filter((f) => f.img);
   const fs = all.filter((f) => !f.img);
@@ -487,7 +490,8 @@ function eventDialog(e0) {
   });
   form.onsubmit = async (e) => {
     e.preventDefault();
-    const rec = { ...e0, name: form.elements.name.value.trim(), date: form.elements.date.value, mode: form.elements.mode.value };
+    const base = e0.event_id ? (eventById(e0.event_id) || e0) : e0; // דער לעצטער מצב (משתתפים / גאסט)
+    const rec = { ...base, name: form.elements.name.value.trim(), date: form.elements.date.value, mode: form.elements.mode.value };
     if (!rec.name) return;
     const btn = $('button[type=submit]', form); btn.disabled = true;
     try {
@@ -520,7 +524,7 @@ function renderEventPage(main, ev) {
 }
 
 async function scanPane(pane, ev) {
-  pane.innerHTML = `<div id="fc-scanbox" class="fc-scan">
+  pane.innerHTML = `<div id="fc-scanbox" class="fc-scan" data-ev="${h(ev.event_id)}">
       <p class="muted small">${h(t('fcScanHint2'))}</p>
       <div class="fc-row">
         <label class="btn primary" id="fc-pickl">🎬📷 ${h(t('fcPick2'))}<input type="file" id="fc-pick" accept="video/*,image/*,.mp4,.mov,.webm,.m4v,.jpg,.jpeg,.png,.heic" multiple hidden></label>
@@ -544,6 +548,7 @@ async function scanPane(pane, ev) {
     </div>`;
   let chosen = [];
   const scan = (await loadScan(ev.event_id)) || emptyScan();
+  scan.evId = String(ev.event_id);
   filesList(scan); liveGrid(scan);
   $('#fc-count').textContent = t('fcPeopleN', { n: scan.clusters.length });
   renderScanButtons();
@@ -591,7 +596,7 @@ async function scanPane(pane, ev) {
     const b = e.target.closest('[data-cl]');
     if (!b) return;
     const live = LIVE.eventId === String(ev.event_id) && LIVE.scan;
-    (live ? Promise.resolve(LIVE.scan) : loadScan(ev.event_id)).then((s) => { const sc = s || scan; const cl = sc.clusters.find((x) => String(x.id) === b.dataset.cl); if (cl) clusterDialog(ev, sc, cl); });
+    (live ? Promise.resolve(LIVE.scan) : loadScan(ev.event_id)).then((s) => { const sc = s || scan; sc.evId = String(ev.event_id); const cl = sc.clusters.find((x) => String(x.id) === b.dataset.cl); if (cl) clusterDialog(ev, sc, cl); });
   };
 }
 
@@ -751,17 +756,20 @@ async function uploadScan(ev, say, { bg = false, final = false } = {}) {
     for (let i = 0; i < todo.length; i += 8) {
       const part = todo.slice(i, i + 8);
       // eslint-disable-next-line no-await-in-loop
+      const snap = new Map(); // וואס איז טאקע ארויף (די סריקה לייגט צו בשעת'ן ארויפשיקן)
       const rows = await Promise.all(part.map(async (cl) => {
+        const n0 = cl.count;
         const { list, a: items } = await moreFor(cl);
         const a = list[0] || cl.shots[0];
+        snap.set(cl, { q: a.q, n: n0 });
         return {
           face_id: faceIdOf(ev, scan, cl), event_id: ev.event_id, img: items[0]?.i || '', img2: items[1]?.i || '', emb: q8Encode(embsFor(cl, list)),
-          status: '', contact_id: '', src: `${a.file}|${a.t}`, count: cl.count, quality: Math.round(a.q), more: moreStr(items, []),
+          status: '', contact_id: '', src: `${a.file}|${a.t}`, count: n0, quality: Math.round(a.q), more: moreStr(items, []),
         };
       }));
       // eslint-disable-next-line no-await-in-loop
       await appendFaceShots(rows);
-      part.forEach((cl) => { cl.up = true; cl.upQ = cl.shots[0].q; cl.upN = cl.count; });
+      part.forEach((cl) => { cl.up = true; cl.upQ = snap.get(cl)?.q ?? cl.shots[0].q; cl.upN = snap.get(cl)?.n ?? cl.count; });
       done += part.length;
       if (!bg) say(t('fcUploading', { n: done, total: todo.length }));
       // eslint-disable-next-line no-await-in-loop
@@ -778,6 +786,8 @@ async function uploadScan(ev, say, { bg = false, final = false } = {}) {
           if (!row || row.status) { cl.upQ = cl.shots[0].q; cl.upN = cl.count; continue; }
           // די בילדער (ביז 12) — אחוץ די וואס מ'האט שוין אפגעטיילט ביים דערקענען ("נישט ער")
           const prev = moreOf(row);
+          // אפגעטיילט ביים דערקענען פון א שורה אן שליסלען — נישט צוריקברענגען די בילדער
+          if (prev.x.some((k) => /^i\d+$/.test(k))) { cl.upQ = cl.shots[0].q; cl.upN = cl.count; continue; }
           // eslint-disable-next-line no-await-in-loop
           const { list, a: items } = await moreFor(cl, prev);
           const a = list[0] || cl.shots[0];
@@ -832,12 +842,24 @@ async function syncEvent(ev) {
     const k = String(s.contact_id);
     per.set(k, (per.get(k) ?? true) && s.status === 'auto');
   });
-  const rec = { ...eventById(ev.event_id), participants: [...per].map(([k, a]) => `${k}${a ? 'a' : ''}`).join(','),
-    n_faces: shots.length, n_ok: shots.filter(isOk).length, n_skip: shots.filter((s) => s.status === 'skip').length };
-  await saveRecord('FaceEvents', 'event_id', rec);
-  const i = state.faceEvents.findIndex((x) => String(x.event_id) === String(ev.event_id));
-  if (i >= 0) state.faceEvents[i] = rec;
-  Object.assign(ev, rec);
+  await evWrite(ev, { participants: [...per].map(([k, a]) => `${k}${a ? 'a' : ''}`).join(','),
+    n_faces: shots.length, n_ok: shots.filter(isOk).length, n_skip: shots.filter((s) => s.status === 'skip').length });
+}
+/** שרייבן אין FaceEvents — איינס נאך דאס אנדערע, יעדעס מאל פון דעם לעצטן מצב (נישט איבערשרייבן "גאסט" / משתתפים);
+ *  א אויסגעמעקטער אירוע ווערט נישט צוריקגעשריבן */
+let evQ = Promise.resolve();
+function evWrite(ev, patch) {
+  const p = evQ.then(async () => {
+    const cur = eventById(ev.event_id);
+    if (!cur) return;
+    const rec = { ...cur, ...(typeof patch === 'function' ? patch(cur) : patch) };
+    await saveRecord('FaceEvents', 'event_id', rec);
+    const i = state.faceEvents.findIndex((x) => String(x.event_id) === String(ev.event_id));
+    if (i >= 0) state.faceEvents[i] = rec;
+    Object.assign(ev, rec);
+  });
+  evQ = p.catch(() => {});
+  return p;
 }
 let syncTimer = null;
 function scheduleSync(ev) {
@@ -846,7 +868,8 @@ function scheduleSync(ev) {
 }
 /** די משתתפים פון אן אירוע → [{ id, auto }] (פון FaceEvents.participants) */
 export function eventParticipants(ev) {
-  return String(ev?.participants || '').split(',').filter(Boolean).map((x) => ({ id: x.replace(/a$/, ''), auto: x.endsWith('a') }));
+  // "1234a" = אויטאמאטיש באשטעטיגט; "g:…" = נאר פאר'ן אירוע (קיינמאל נישט אויטאמאטיש — זיין שליסל קען זיך ענדיגן מיט a)
+  return String(ev?.participants || '').split(',').filter(Boolean).map((x) => (isGuestId(x) ? { id: x, auto: false } : { id: x.replace(/a$/, ''), auto: x.endsWith('a') }));
 }
 // ---------- "נאר פאר דעם אירוע": מענטשן וואס גייען נישט אריין אין דעם אלגעמיינעם מאגר ----------
 /** FaceEvents.guests = [{ k, fh, lh, fe, le, ph }] ; אין FaceShots: contact_id = "g:k" */
@@ -860,16 +883,10 @@ export function guestContact(g) {
     is_alive: true, is_active: true, _ext: true, _guest: true, _phones: { mobile: g.ph || '' } };
 }
 const guestName = (g) => [g.fh, g.lh].filter(Boolean).join(' ') || [g.fe, g.le].filter(Boolean).join(' ');
-async function saveGuests(ev, list) {
-  const rec = { ...eventById(ev.event_id), guests: list.length ? JSON.stringify(list) : '' };
-  await saveRecord('FaceEvents', 'event_id', rec);
-  const i = state.faceEvents.findIndex((x) => String(x.event_id) === String(ev.event_id));
-  if (i >= 0) state.faceEvents[i] = rec;
-  Object.assign(ev, rec);
-}
+const saveGuests = (ev, fn) => evWrite(ev, (cur) => { const list = fn(eventGuests(cur)); return { guests: list.length ? JSON.stringify(list) : '' }; });
 async function addGuest(ev, g) {
   const k = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-  await saveGuests(ev, [...eventGuests(ev), { k, ...g }]);
+  await saveGuests(ev, (list) => [...list, { k, ...g }]);
   return `g:${k}`;
 }
 /** אין וועלכע אירועים איז א מענטש געווען */
@@ -1064,7 +1081,12 @@ async function decide(ev, face, status, cid = '') {
 const LEARN_MAX = 10;
 const LEARN_SAME = 0.88; // אזוי ענלעך = גארנישט נייס, מ'האלט עס נישט
 const learnOf = (cid) => (state.faceLearn || []).find((r) => String(r.contact_id) === String(cid));
-async function learn(cid, embs, fid) {
+// "לערנען" / "אפלערנען" — איינס נאך דאס אנדערע (צוויי שנעלע ✓ פאר דעם זעלבן מענטש זאלן זיך נישט איבערשרייבן)
+let learnQ = Promise.resolve();
+const queued = (fn) => (...args) => { const p = learnQ.then(() => fn(...args)); learnQ = p.catch(() => {}); return p; };
+const learn = queued(learnNow);
+const unlearn = queued(unlearnNow);
+async function learnNow(cid, embs, fid) {
   if (!embs.length || !T.human) return;
   const r = learnOf(cid) || { contact_id: cid, embs: '', ids: '' };
   let list = decodeEmbs(r.embs) || [];
@@ -1092,7 +1114,7 @@ async function learn(cid, embs, fid) {
 function relearnIdx(cid, rec) {
   T.idx = T.idx.filter((x) => !(x.src === 'ev' && x.cid === cid)).concat((decodeEmbs(rec.embs) || []).map((emb) => ({ cid, emb, src: 'ev' })));
 }
-async function unlearn(cid, fid) {
+async function unlearnNow(cid, fid) {
   const r = learnOf(cid);
   if (!r) return;
   const list = decodeEmbs(r.embs) || [];
@@ -1363,7 +1385,7 @@ function guestToContact(ev, gid, after) {
         // eslint-disable-next-line no-await-in-loop
         await decide(ev, s, s.status || 'ok', String(id));
       }
-      await saveGuests(ev, eventGuests(ev).filter((x) => `g:${x.k}` !== gid));
+      await saveGuests(ev, (list) => list.filter((x) => `g:${x.k}` !== gid));
       await syncEvent(ev);
       after();
     },

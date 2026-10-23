@@ -38,7 +38,7 @@ const COLS = {
   last: /^l(ast)?_?name$|lname|surname|משפחה|פאמיליע/i,
   first: /m_friend|husband|^f(irst)?_?name$|^first|פרטי/i,
   wife: /f_fname|wife|אשה|ווייב/i,
-  address: /addr|כתובת|אדרעס/i,
+  address: /^(?!.*e-?mail).*addr|כתובת|אדרעס/i, // נישט "Email Address"
   city: /city|עיר|שטאט/i,
   state: /^st(ate)?$|מדינה/i,
   zip: /zip|מיקוד/i,

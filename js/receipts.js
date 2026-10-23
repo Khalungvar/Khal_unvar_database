@@ -1269,6 +1269,8 @@ export function receiptFullPages(c, opts = {}) {
   while (rest.length && chunks.length < 100) {
     const i = chunks.length;
     if (rxFits(mk(rest, i, 9, true))) { chunks.push(rest); break; }
+    // א לעצטע שורה וואס פאסט נישט מיט'ן סך הכל — זי אליין, און דער סך הכל אויף א נייעם בלאט
+    if (rest.length === 1) { chunks.push(rest); chunks.push([]); break; }
     let lo = 1; let hi = rest.length - 1; // די מערסטע שורות וואס פאסן (לכל הפחות איינע בלייבט פארן לעצטן בלאט)
     while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); if (rxFits(mk(rest.slice(0, mid), i, 9, false))) lo = mid; else hi = mid - 1; }
     if (rest.length - lo < 3 && lo > 3) lo = Math.max(3, rest.length - 3); // נישט לאזן איין איינזאמע שורה אויפן לעצטן בלאט

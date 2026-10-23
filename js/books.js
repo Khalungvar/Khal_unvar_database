@@ -454,6 +454,9 @@ export function renderBooks() {
     const sb = e.target.closest('[data-sale]');
     if (sb) { const b = bookById(sb.dataset.sale); if (b) saleDialog(b); }
   };
+  main.onfocusout = (e) => {
+    if (pendingRender && !e.relatedTarget?.matches?.('#books-main [data-f]')) { pendingRender = false; setTimeout(renderBooks, 0); }
+  };
   main.onchange = (e) => {
     const inp = e.target.closest('[data-f]');
     if (!inp) return;
@@ -461,12 +464,11 @@ export function renderBooks() {
     if (!b) return;
     const f = inp.dataset.f;
     const v = inp.value.trim();
-    if (f === 'stock') {
-      // דער גבאי שרייבט וויפל עס איז דא איצט → stock_base = דאס + וויפל מ'האט שוין פארקויפט
-      saveBook({ ...b, stock_base: v === '' ? '' : Math.round(Number(v)) + (outMap().get(String(b.book_id)) || 0) });
-      return;
-    }
-    saveBook({ ...b, [f]: v === '' ? '' : Number(v) });
+    // דער גבאי שרייבט וויפל עס איז דא איצט → stock_base = דאס + וויפל מ'האט שוין פארקויפט
+    const patch = f === 'stock' ? { stock_base: v === '' ? '' : Math.round(Number(v)) + (outMap().get(String(b.book_id)) || 0) } : { [f]: v === '' ? '' : Number(v) };
+    // גלייך אין state (אז א צווייטע ענדערונג אינעם זעלבן ספר זאל נישט צוריקשרייבן די ערשטע); דאס שפייכלערן — איינס נאך דאס אנדערע
+    Object.assign(b, patch);
+    saveBook(b, { inline: true });
   };
 }
 
@@ -566,9 +568,11 @@ function histDialog(b) {
 }
 
 let saving = Promise.resolve();
-function saveBook(rec) {
+let pendingRender = false;
+function saveBook(rec, { inline = false } = {}) {
   // איינס נאך דאס אנדערע (א שנעלער טאב פון פעלד צו פעלד)
   saving = saving.then(async () => {
+    if (inline) rec = bookById(rec.book_id) || rec; // די לעצטע ווערטן (אויך פון א צווייטער ענדערונג)
     try {
       if (/^img\/books\/\d+\.jpg$/.test(String(rec.image || ''))) rec = { ...rec, image: rec.image.replace(/\.jpg$/, '.webp') };
       const id = await saveRecord('Books', 'book_id', { ...rec });
@@ -577,7 +581,9 @@ function saveBook(rec) {
       if (i >= 0) state.books[i] = { ...state.books[i], ...fresh }; else state.books.push(fresh);
       ui.toast(t('bkSaved'));
     } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
-    renderBooks();
+    // מ'שרייבט שוין אינעם קומענדיגן פעלד — נישט איבערבויען (עס וואלט אויסגעמעקט וואס מ'שרייבט)
+    const busy = inline && document.activeElement?.matches?.('#books-main [data-f]');
+    if (!busy) renderBooks(); else pendingRender = true;
   });
   return saving;
 }
