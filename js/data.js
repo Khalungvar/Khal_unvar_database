@@ -1163,3 +1163,43 @@ export async function migrateImagesToDrive(onProgress = () => {}) {
   if (moved) await logChanges('images', 'drive', '', null, null, `moved ${moved} images to Drive`);
   return moved;
 }
+
+// ---------- 📸 רשימות משתתפים: די פנים (לשונית FaceShots) — ווערט געלאדן נאר ווען מ'דארף ----------
+export async function loadFaceShots() {
+  const tabs = await readTabs(['FaceShots']);
+  const fs = rowsToObjects(tabs.FaceShots || [['face_id']]);
+  state.headers.FaceShots = fs.header;
+  state.faceShots = fs.objects.filter((x) => String(x.face_id || '').trim());
+  return state.faceShots;
+}
+export async function appendFaceShots(list) {
+  if (!list.length) return;
+  if (!state.headers.FaceShots?.length) await loadFaceShots();
+  const stamp = nowStamp();
+  await appendRows('FaceShots', list.map((o) => objectToRow(state.headers.FaceShots, { ...o, created_at: stamp, created_by: state.email })));
+}
+/** טוישט א פנים (באשטעטיגט / איבערגעשפרונגען...). די שורה ווערט געפונען לויט face_id */
+export async function updateFaceShot(o) {
+  const row = await findRow('FaceShots', o.face_id);
+  if (!row) throw new Error(t('notFound'));
+  const rec = { ...o };
+  delete rec._row;
+  await updateRow('FaceShots', row, objectToRow(state.headers.FaceShots, rec));
+}
+export async function clearFaceShots(list) {
+  const ids = await readColumn('FaceShots', 'A');
+  const data = [];
+  list.forEach((o) => {
+    const idx = ids.findIndex((v, i) => i > 0 && String(v) === String(o.face_id));
+    if (idx > 0) data.push({ range: `FaceShots!A${idx + 1}`, values: [state.headers.FaceShots.map(() => '')] });
+  });
+  if (data.length) await batchUpdate(data);
+}
+/** אלע בילדער פון די כרטיסן (פאר פארשלאגן א נאמען) → Map(contact_id → data) */
+export async function loadAllPhotos() {
+  const tabs = await readTabs(['Photos']);
+  const rows = tabs.Photos || [];
+  const m = new Map();
+  rows.slice(1).forEach((r) => { if (r[0] && String(r[1] || '').startsWith('data:')) m.set(String(r[0]), String(r[1])); });
+  return m;
+}

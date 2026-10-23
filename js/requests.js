@@ -80,6 +80,11 @@ const TYPES = {
       }
     },
   },
+  delete_face_event: {
+    icon: '📸',
+    label: 'rqTypeDelFaceEvent',
+    apply: async (p) => { const { deleteFaceEvent } = await import('./faces.js'); await deleteFaceEvent(p.event_id); },
+  },
   void_receipt: {
     icon: '🧾',
     label: 'rqTypeVoid',

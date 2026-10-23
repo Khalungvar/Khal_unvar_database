@@ -13,6 +13,7 @@ import { effectiveOrg, getScope, NO_AREA, ORG_TYPES, isEntityOrg } from './scope
 import { allCampaigns } from './campaigns.js';
 import { downloadXlsx } from './excel.js';
 import { openCompose } from './mail.js';
+import { faceEvents, eventParticipants, eventsOfContact } from './faces.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -248,6 +249,14 @@ export function evaluate(raw, seen = new Set()) {
       put(r.key, { ...r, from: lid });
     });
   });
+  // 📸 די משתתפים פון אירועים (רשימות משתתפים)
+  (cr.events || []).forEach((eid) => {
+    const ev = (state.faceEvents || []).find((e) => String(e.event_id) === String(eid));
+    eventParticipants(ev).forEach((p) => {
+      const c = contactOf(p.id);
+      if (c && !ex.has(p.id) && general(c)) put(p.id, { c, ev: String(eid) });
+    });
+  });
   cr.remove.filter(live).forEach((x) => out.delete(String(x.id)));
   cr.add.filter(live).forEach((x) => {
     const c = contactOf(x.id);
@@ -479,7 +488,7 @@ export function renderBuilder() {
       ${edit ? `<button type="button" class="btn" id="l2-settings">⚙ ${h(t('L2settings'))}</button>`
         : `<button type="button" class="btn" id="l2-askedit">✋ ${h(t('L2askEdit'))}</button>`}
       ${edit ? `<div class="l2-addwrap"><button type="button" class="btn" id="l2-add">＋ ${h(t('L2addPeople'))} ▾</button>
-        <div class="l2-addmenu" hidden><button type="button" data-add="one">👤 ${h(t('L2addOne'))}</button><button type="button" data-add="paste">📋 ${h(t('L2addPaste'))}</button><button type="button" data-add="excel">📄 ${h(t('L2addExcel'))}</button><button type="button" data-add="list">📋 ${h(t('L2addList'))}</button></div></div>` : ''}
+        <div class="l2-addmenu" hidden><button type="button" data-add="one">👤 ${h(t('L2addOne'))}</button><button type="button" data-add="paste">📋 ${h(t('L2addPaste'))}</button><button type="button" data-add="excel">📄 ${h(t('L2addExcel'))}</button><button type="button" data-add="list">📋 ${h(t('L2addList'))}</button><button type="button" data-add="event">📸 ${h(t('L2addEvent'))}</button></div></div>` : ''}
       <button type="button" class="btn" id="lb-back">← ${h(t('allLists'))}</button>
     </div>
     <nav class="adm-tabs l2-tabs">${tabBtn('names', `👥 ${t('L2tabNames')}`, rows.length)}${tabBtn('phones', `📞 ${t('L2tabPhones')}`, ch.phones.rows.length)}${tabBtn('mail', `📬 ${t('L2tabMail')}`, ch.mail.groups.length)}${tabBtn('email', `✉ ${t('L2tabEmail')}`, ch.email.rows.length)}${tabBtn('details', `📊 ${t('L2tabDetails')}`)}</nav>
@@ -796,6 +805,19 @@ function openAdd(kind) {
       if (!m || !contactOf(m[1])) { ui.toast(t('pickValid'), 'error'); return; }
       const until = readDuration(dlg);
       addIds([m[1]], until);
+      dlg.close();
+      await saveAndRender();
+    };
+    return;
+  }
+  if (kind === 'event') {
+    const evs = faceEvents();
+    const on = new Set((current.cr.events || []).map(String));
+    const dlg = dialog(`<h2>📸 ${h(t('L2addEvent'))}</h2><p class="hint-line">${h(t('L2addEventHint'))}</p>
+      ${evs.length ? `<div class="l2-lists">${evs.map((e) => `<div><label class="check"><input type="checkbox" data-ie="${h(e.event_id)}"${on.has(String(e.event_id)) ? ' checked' : ''}> 📸 ${h(e.name)} <span class="muted small">(${eventParticipants(e).length})</span></label></div>`).join('')}</div>` : `<p class="muted small">${h(t('fcNoEvents'))}</p>`}
+      <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-close>${h(t('cancel'))}</button><button type="button" class="btn primary" id="l2-ae-ok">${h(t('L2addAll'))}</button></div>`);
+    $('#l2-ae-ok', dlg).onclick = async () => {
+      current.cr.events = $$('[data-ie]:checked', dlg).map((x) => x.dataset.ie);
       dlg.close();
       await saveAndRender();
     };
@@ -1263,23 +1285,28 @@ function cardMemberships(c) {
     return row ? { l, cr, row } : null;
   }).filter(Boolean).sort((a, b) => String(a.l.name).localeCompare(String(b.l.name), 'he'));
 }
-export const cardListsCount = (c) => cardMemberships(c).length;
+export const cardListsCount = (c) => cardMemberships(c).length + eventsOfContact(c.contact_id).length;
 export function cardListsHtml(c) {
   const mem = cardMemberships(c);
   const why = (m) => {
     if (m.row.manual) return `✋ ${t('clManual')}${m.row.until ? ` · ⏳ ${t('clUntil')} ${m.row.until}` : ''}`;
     if (m.row.from) return `↪ ${t('clVia', { name: listById(m.row.from)?.name || '' })}`;
+    if (m.row.ev) return `📸 ${t('clViaEvent', { name: (state.faceEvents || []).find((e) => String(e.event_id) === m.row.ev)?.name || '' })}`;
     return BASE_LBL[m.cr.base] ? t(BASE_LBL[m.cr.base]) : '';
   };
   return `<section class="card-lists">
     <div class="cl-top"><button type="button" class="btn primary small-btn" id="cl-add">➕ ${h(t('clAdd'))}</button></div>
-    <h3>${h(t('clIn'))} <span class="muted small">(${mem.length})</span></h3>
+    <h3>📋 ${h(t('clIn'))} <span class="muted small">(${mem.length})</span></h3>
     ${mem.length ? `<div class="cl-list">${mem.map((m) => `<div class="cl-row" data-lid="${h(m.l.list_id)}">
         <span class="cl-name">${m.l.visibility === 'private' ? '🔒 ' : ''}<b>${h(m.l.name)}</b><span class="muted small"> · ${h(why(m))}</span></span>
         <span class="spacer"></span>
         <button type="button" class="linkish" data-cl-open="${h(m.l.list_id)}">${h(t('clOpen'))}</button>
         ${canEdit(m.l) ? `<button type="button" class="linkish cl-rm" data-cl-rm="${h(m.l.list_id)}">✕ ${h(t('clRemove'))}</button>` : ''}
       </div>`).join('')}</div>` : `<p class="muted">${h(t('clNone'))}</p>`}
+    <h3 class="cl-evh">📸 ${h(t('clEvents'))} <span class="muted small">(${eventsOfContact(c.contact_id).length})</span></h3>
+    ${eventsOfContact(c.contact_id).length ? `<div class="cl-list">${eventsOfContact(c.contact_id).map(({ e, p }) => `<div class="cl-row">
+        <span class="cl-name"><b>${h(e.name)}</b>${p.auto ? ' 🤖' : ''}<span class="muted small" dir="ltr"> · ${h(e.date || '')}</span></span></div>`).join('')}</div>`
+    : `<p class="muted">${h(t('clNoEvents'))}</p>`}
   </section>`;
 }
 async function saveCr(l, cr) {
