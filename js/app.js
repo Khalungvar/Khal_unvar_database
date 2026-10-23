@@ -3,7 +3,7 @@ import {
   initAuth, requestToken, signOut, getUserEmail, hasSavedSession, setSilent, setOnExpire, rememberEmail, hasSheetsScope,
 } from './google.js';
 import {
-  state, loadAll, displayName, trashContact, orgLogo, NESHEI_ORG, getHistory, getPhoto, savePhoto, saveOriginalToDrive, saveContact, saveKvitel, saveOrgNote, deleteOrgNote, MAX_ORG_NOTES, addListValue, addRelation, removeRelation,
+  state, loadAll, displayName, trashContact, orgLogo, NESHEI_ORG, getHistory, getPhoto, savePhoto, saveOriginalToDrive, saveContact, saveKvitel, addListValue, addRelation, removeRelation,
 } from './data.js';
 import { suggest, details, placesEnabled, placesError } from './places.js';
 import {
@@ -22,7 +22,7 @@ import {
 } from './campaigns.js';
 import { initReceipts, renderReceipts, openReceipts, printForDonation, openOrgDetails, openQuickReceipt, cancelDoc } from './receipts.js';
 import { initSortTables } from './sorttables.js';
-import { initLists, renderListsSide, renderBuilder, openOverview, exportContacts, linkPendingExt } from './lists.js';
+import { initLists, renderListsSide, renderBuilder, openOverview, exportContacts, linkPendingExt, cardListsHtml, wireCardLists, cardListsCount } from './lists.js';
 import { initAdmin, renderAdmin, adminDirty, setAdminTab } from './admin.js';
 import { initMailMerge, renderMailMerge, openMailMerge, mailMergeCanLeave } from './mailmerge.js';
 import { initMail, openCompose, emailOf } from './mail.js';
@@ -817,7 +817,7 @@ function openCard(id, tab = null) {
       <button type="button" data-tab="details">${t('cardTabDetails')}</button>
       <button type="button" data-tab="family">${t('cardTabFamily')}${familyCount(c) + occasionCount(c) ? ` <span class="count-pill">${familyCount(c) + occasionCount(c)}</span>` : ''}</button>
       <button type="button" data-tab="money">${t('cardTabMoney')}${donationCount(c) ? ` <span class="count-pill">${donationCount(c)}</span>` : ''}</button>
-      <button type="button" data-tab="org">${t('cardTabOrg')}${orgNotesOf(c).length ? ` <span class="count-pill">${orgNotesOf(c).length}</span>` : ''}</button>
+      <button type="button" data-tab="org">📋 ${t('clTab')}${cardListsCount(c) ? ` <span class="count-pill">${cardListsCount(c)}</span>` : ''}</button>
       <button type="button" data-tab="otags"${hasRealTags(c) ? ' hidden' : ''}>🏷 ${t('otTitle')}${orgTagsCount(c) ? ` <span class="count-pill">${orgTagsCount(c)}</span>` : ''}</button>
       ${schoolCount(c) ? `<button type="button" data-tab="school">🎓 ${t('cardTabSchool')} <span class="count-pill">${schoolCount(c)}</span></button>` : ''}
     </nav>
@@ -846,7 +846,7 @@ function openCard(id, tab = null) {
       ${donationsSection(c)}
     </div>
     <div class="card-pane" data-tab="org">
-      ${orgSection(c)}
+      ${cardListsHtml(c)}
     </div>
     <div class="card-pane" data-tab="otags">
       ${orgTagsPaneHtml(c)}
@@ -864,7 +864,7 @@ function openCard(id, tab = null) {
   wireDonationsSection(c);
   wireOccasionsSection(c);
   wireKvitel(c);
-  wireOrg(c);
+  wireCardLists(c);
   wirePhoto(c);
   wireHistory(c);
   const scPane = $('#card-body .card-pane[data-tab="school"]');
@@ -919,79 +919,6 @@ function openCard(id, tab = null) {
 /** האם יש בכרטיס טקסט שלא נשמר (קוויטל / ארגון). */
 function cardDirty() {
   return ['.card-kvitel', '.card-org'].some((sel) => $(`#card-body ${sel}`)?._dirty?.());
-}
-
-function orgNotesOf(c) {
-  return state.orgNotes.filter((n) => String(n.contact_id) === String(c.contact_id))
-    .sort((a, b) => Number(a.note_id) - Number(b.note_id));
-}
-
-function orgBox(n) {
-  return `<div class="org-box" data-id="${h(n.note_id || '')}">
-    <textarea rows="4" dir="rtl" placeholder="${h(t('orgPh'))}">${h(n.text || '')}</textarea>
-    <div class="org-actions">
-      ${n.created_by ? `<span class="muted small"><bdi dir="ltr">${h(n.updated_at || n.created_at)}</bdi> · ${h(displayName(n.updated_by || n.created_by))}</span>` : ''}
-      <span class="spacer"></span>
-      <button type="button" class="btn small-btn danger org-del">${t('deleteBtn')}</button>
-      <button type="button" class="btn small-btn primary org-save" hidden>${t('saveBtn')}</button>
-    </div>
-  </div>`;
-}
-
-function orgSection(c) {
-  const notes = orgNotesOf(c);
-  return `<section class="card-org">
-    <h3>${t('cardTabOrg')}</h3>
-    <div class="org-list">${notes.map(orgBox).join('')}</div>
-    <button type="button" class="btn small-btn" id="org-add"${notes.length >= MAX_ORG_NOTES ? ' disabled' : ''}>${t('orgAdd')}</button>
-  </section>`;
-}
-
-function wireOrg(c) {
-  const box = $('#card-body .card-org');
-  if (!box) return;
-  const original = (el) => state.orgNotes.find((n) => String(n.note_id) === el.dataset.id);
-  const isDirty = (el) => el.querySelector('textarea').value !== String(original(el)?.text ?? '');
-  const wireBox = (el) => {
-    const ta = el.querySelector('textarea');
-    const grow = () => { ta.style.height = 'auto'; ta.style.height = `${Math.max(ta.scrollHeight, 90)}px`; };
-    grow();
-    ta.addEventListener('input', () => { grow(); el.querySelector('.org-save').hidden = !isDirty(el); });
-    el.querySelector('.org-save').onclick = async (e) => {
-      const btn = e.currentTarget;
-      btn.disabled = true;
-      btn.textContent = t('saving');
-      try {
-        await saveOrgNote({ ...(original(el) || {}), contact_id: c.contact_id, text: ta.value.replace(/\s+$/, '') });
-        await loadAll();
-        refreshAll();
-        toast(t('orgSaved'));
-      } catch (err) {
-        toast(friendlyError(err), 'error');
-        btn.disabled = false;
-        btn.textContent = t('saveBtn');
-      }
-    };
-    el.querySelector('.org-del').onclick = async () => {
-      const o = original(el);
-      if (!o) { el.remove(); return; } // תיבה חדשה שלא נשמרה
-      if (!confirm(t('orgConfirmDelete'))) return;
-      try {
-        await deleteOrgNote(o);
-        await loadAll();
-        refreshAll();
-      } catch (err) { toast(friendlyError(err), 'error'); }
-    };
-  };
-  $$('.org-box', box).forEach(wireBox);
-  $('#org-add', box).onclick = () => {
-    if ($$('.org-box', box).length >= MAX_ORG_NOTES) { toast(t('orgNotesMax', { n: MAX_ORG_NOTES }), 'error'); return; }
-    $('.org-list', box).insertAdjacentHTML('beforeend', orgBox({}));
-    const el = $$('.org-box', box).at(-1);
-    wireBox(el);
-    el.querySelector('textarea').focus();
-  };
-  box._dirty = () => $$('.org-box', box).some((el) => isDirty(el));
 }
 
 // ---------- היסטאריע פון ענדערונגען (אינעם כרטיס) ----------

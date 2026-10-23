@@ -1250,3 +1250,102 @@ export function exportContacts(name, contacts) {
   downloadXlsx(name, cols.map(([, l]) => l), contacts.map((c) => cols.map(([, , fn]) => fn({ c, key: String(c.contact_id) }))), { sheet: name });
 }
 void nowStamp; void saveRecord;
+
+// ---------- לשונית "רשימות" אין כרטיס: אין וועלכע רשימות איז ער, און צולייגן / ארויסנעמען ----------
+// די זעלבע רעכטן ווי אויף דער רשימה אליין (canSee / canEdit)
+const BASE_LBL = { tags: 'clBaseTags', area: 'clBaseArea', family: 'clBaseFamily', donation: 'clBaseDonation' };
+function cardMemberships(c) {
+  const id = String(c.contact_id);
+  return state.savedLists.filter((l) => String(l.list_id || '').trim() && canSee(l)).map((l) => {
+    const { cr } = parseSaved(l);
+    let row = null;
+    try { row = evaluate(cr).find((r) => r.key === id) || null; } catch { row = null; }
+    return row ? { l, cr, row } : null;
+  }).filter(Boolean).sort((a, b) => String(a.l.name).localeCompare(String(b.l.name), 'he'));
+}
+export const cardListsCount = (c) => cardMemberships(c).length;
+export function cardListsHtml(c) {
+  const mem = cardMemberships(c);
+  const why = (m) => {
+    if (m.row.manual) return `✋ ${t('clManual')}${m.row.until ? ` · ⏳ ${t('clUntil')} ${m.row.until}` : ''}`;
+    if (m.row.from) return `↪ ${t('clVia', { name: listById(m.row.from)?.name || '' })}`;
+    return BASE_LBL[m.cr.base] ? t(BASE_LBL[m.cr.base]) : '';
+  };
+  return `<section class="card-lists">
+    <div class="cl-top"><button type="button" class="btn primary small-btn" id="cl-add">➕ ${h(t('clAdd'))}</button></div>
+    <h3>${h(t('clIn'))} <span class="muted small">(${mem.length})</span></h3>
+    ${mem.length ? `<div class="cl-list">${mem.map((m) => `<div class="cl-row" data-lid="${h(m.l.list_id)}">
+        <span class="cl-name">${m.l.visibility === 'private' ? '🔒 ' : ''}<b>${h(m.l.name)}</b><span class="muted small"> · ${h(why(m))}</span></span>
+        <span class="spacer"></span>
+        <button type="button" class="linkish" data-cl-open="${h(m.l.list_id)}">${h(t('clOpen'))}</button>
+        ${canEdit(m.l) ? `<button type="button" class="linkish cl-rm" data-cl-rm="${h(m.l.list_id)}">✕ ${h(t('clRemove'))}</button>` : ''}
+      </div>`).join('')}</div>` : `<p class="muted">${h(t('clNone'))}</p>`}
+  </section>`;
+}
+async function saveCr(l, cr) {
+  await saveSavedList({ ...l, criteria: JSON.stringify(cr) });
+  await loadAll();
+  ui.refreshAll();
+}
+export function wireCardLists(c) {
+  const box = document.querySelector('#card-body .card-lists');
+  if (!box) return;
+  const id = String(c.contact_id);
+  box.onclick = async (e) => {
+    const op = e.target.closest('[data-cl-open]');
+    if (op) { const l = listById(op.dataset.clOpen); document.querySelector('#card-dialog')?.close(); if (l) openBuilder(l); return; }
+    const rm = e.target.closest('[data-cl-rm]');
+    if (rm) {
+      const l = listById(rm.dataset.clRm);
+      if (!l || !canEdit(l)) return;
+      if (!confirm(t('clRemoveAsk', { name: ui.fullNameHe(c), list: l.name }))) return;
+      const { cr } = parseSaved(l);
+      // צוגעלייגט מיט דער האנט → אראפנעמען; אנדערש (לויט תגית / געגנט...) → "חוץ פון אים" אין דער רשימה
+      const wasManual = cr.add.some((x) => String(x.id) === id);
+      cr.add = cr.add.filter((x) => String(x.id) !== id);
+      if (!wasManual || evaluate(cr).some((r) => r.key === id)) { cr.remove = cr.remove.filter((x) => String(x.id) !== id); cr.remove.push({ id }); }
+      try { await saveCr(l, cr); ui.toast(t('clRemoved')); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+      return;
+    }
+    if (e.target.closest('#cl-add')) openCardListAdd(c);
+  };
+}
+function openCardListAdd(c) {
+  const id = String(c.contact_id);
+  const inIds = new Set(cardMemberships(c).map((m) => String(m.l.list_id)));
+  const cand = state.savedLists.filter((l) => String(l.list_id || '').trim() && canEdit(l) && !inIds.has(String(l.list_id)))
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), 'he'));
+  const dlg = document.createElement('dialog');
+  dlg.className = 'sheet cl-dlg';
+  document.body.append(dlg);
+  dlg.addEventListener('close', () => dlg.remove());
+  dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button>
+    <h2>➕ ${h(t('clAddTitle', { name: ui.fullNameHe(c) }))}</h2>
+    ${cand.length ? `<input type="search" class="cl-q" placeholder="🔍 ${h(t('clSearch'))}">
+    <div class="cl-pick">${cand.map((l) => `<label class="check cl-opt" data-n="${h(String(l.name).toLowerCase())}"><input type="radio" name="cl" value="${h(l.list_id)}"> ${l.visibility === 'private' ? '🔒 ' : ''}${h(l.name)}</label>`).join('')}</div>
+    <label>⏳ ${h(t('clUntilOpt'))}<input type="date" class="cl-until"></label>` : `<p class="muted">${h(t('clNoCand'))}</p>`}
+    <div class="actions"><span class="spacer"></span>
+      <button type="button" class="btn" data-x>${h(t('cancelBtn'))}</button>
+      ${cand.length ? `<button type="button" class="btn primary" id="cl-go">${h(t('clAddBtn'))}</button>` : ''}</div>`;
+  dlg.querySelectorAll('[data-x]').forEach((b) => { b.onclick = () => dlg.close(); });
+  const q = dlg.querySelector('.cl-q');
+  if (q) q.oninput = () => { const v = q.value.trim().toLowerCase(); dlg.querySelectorAll('.cl-opt').forEach((o) => { o.hidden = Boolean(v) && !o.dataset.n.includes(v); }); };
+  const go = dlg.querySelector('#cl-go');
+  if (go) {
+    go.onclick = async () => {
+      const sel = dlg.querySelector('input[name=cl]:checked');
+      if (!sel) { ui.toast(t('clPickOne'), 'error'); return; }
+      const l = listById(sel.value);
+      if (!l || !canEdit(l)) return;
+      const { cr } = parseSaved(l);
+      const until = dlg.querySelector('.cl-until').value;
+      cr.remove = cr.remove.filter((x) => String(x.id) !== id);
+      cr.add = cr.add.filter((x) => String(x.id) !== id);
+      if (!evaluate(cr).some((r) => r.key === id) || until) cr.add.push({ id, ...(until ? { until } : {}) });
+      go.disabled = true;
+      try { await saveCr(l, cr); dlg.close(); ui.toast(t('clAdded', { list: l.name })); } catch (err) { go.disabled = false; ui.toast(ui.friendlyError(err), 'error'); }
+    };
+  }
+  dlg.showModal();
+  q?.focus();
+}
