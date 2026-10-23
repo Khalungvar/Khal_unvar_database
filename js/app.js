@@ -313,10 +313,9 @@ function showSoon(key) {
 function refreshAll() {
   fillFilters();
   renderList();
-  fillDonationFilters();
-  renderDonations();
-  fillOccasionFilters();
-  renderOccasions();
+  // נדבות / מאורעות: נאר ווען מ'זעט זיי (ביים עפענען ווערן זיי סיי ווי געמאכט אין showView) — אזוי איז יעדע בלעטערן גיכער
+  if (!$('.view[data-view="donations"]').hidden) { fillDonationFilters(); renderDonations(); }
+  if (!$('.view[data-view="occasions"]').hidden) { fillOccasionFilters(); renderOccasions(); }
   renderOrgs();
   renderCampaignSide();
   $('#btn-admin').hidden = !state.isAdmin;
@@ -1106,8 +1105,15 @@ function wireKvitel(c) {
 }
 
 // ---------- קשרים משפחתיים (בכרטיס האישי) ----------
+// א פארצייכעניש לויט ID (פריער: א זוך איבער אלע קאנטאקטן ביי יעדע נדבה — פאמעלעך ביי טויזנטער)
+let cIdx = null; let cIdxSrc = null; let cIdxLen = -1;
 function contactById(id) {
-  return state.contacts.find((x) => String(x.contact_id) === String(id));
+  const list = state.contacts || [];
+  if (cIdxSrc !== list || cIdxLen !== list.length) {
+    cIdx = new Map(); list.forEach((x) => { const k = String(x.contact_id); if (!cIdx.has(k)) cIdx.set(k, x); });
+    cIdxSrc = list; cIdxLen = list.length;
+  }
+  return cIdx.get(String(id));
 }
 
 function pickerLabel(c) {

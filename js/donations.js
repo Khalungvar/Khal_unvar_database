@@ -40,7 +40,8 @@ export function initDonations(helpers) {
   });
 }
 
-export const money = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+const MONEY_FMT = new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+export const money = (n) => `$${MONEY_FMT.format(Number(n || 0))}`;
 
 function contactName(id) {
   const c = ui.contactById(id);

@@ -31,12 +31,16 @@ const ROLE_MARKS = [[(p) => p.includes('13'), 'גבאי'], [(p) => p.includes('4
 
 // ---------- דער בוים ----------
 const DEF_GROUP = { 1: '1', 2: '1', 3: '1', 4: '3', 5: '2', 6: '2', 7: '3', 8: 'old', 9: '3', 14: '3' };
-const nodes = () => (state.tagTree || []).map((r) => ({
+// דער בוים ווערט גערעכנט איינמאל פער "טיק" (א רענדער רופט עס טויזנטער מאל) — נאך דעם ווערט עס ווידער פריש
+let nodesTick = null; let byIdTick = null;
+const tickClear = () => { if (nodesTick || byIdTick) return; setTimeout(() => { nodesTick = null; byIdTick = null; }, 0); };
+const nodes = () => { if (!nodesTick) { tickClear(); nodesTick = nodesCalc(); } return nodesTick; };
+const nodesCalc = () => (state.tagTree || []).map((r) => ({
   id: String(r.node_id), parent: String(r.parent_id ?? '').trim(), name: String(r.name || '').trim(), sort: Number(r.sort) || 0,
   kind: String(r.kind || ''), applies: String(r.applies || '').split('|').map((x) => x.trim()).filter(Boolean), mirror: String(r.mirror ?? '').trim(),
   group: String(r.group ?? '').trim() || DEF_GROUP[r.node_id] || '3', raw: r,
 })).filter((n) => n.id && n.name);
-const byId = () => new Map(nodes().map((n) => [n.id, n]));
+const byId = () => { if (!byIdTick) { tickClear(); byIdTick = new Map(nodes().map((n) => [n.id, n])); } return byIdTick; };
 const sorted = (xs) => xs.sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name, 'he'));
 const gRank = (g) => (g === 'old' ? 9 : Number(g) || 5);
 export const roots = () => sorted(nodes().filter((n) => !n.parent)).sort((a, b) => gRank(a.group) - gRank(b.group));
