@@ -3,7 +3,7 @@
 // און ביים נאכאמאל דרוקן — דער זעלבער נומער.
 import { customFontNames } from './fonts.js';
 import {
-  state, loadAll, orgDetailsOf, issueDocs, saveDonation, findIssued, voidReceipt, metaOfReceipt, orgLogo, saveOrgDetails, saveYearly, saveOrgLogo,
+  state, loadAll, orgDetailsOf, issueDocs, saveDonation, findIssued, voidReceipt, metaOfReceipt, orgLogo, saveOrgDetails, saveYearly, saveOrgLogo, deleteDonation,
 } from './data.js';
 import { t } from './i18n.js';
 import { isTrue, escapeHtml as h, mailingName, splitTags, shrinkImage } from './util.js';
@@ -936,7 +936,7 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
           <label>📄 ${h(t('rcWithLetterTip'))} <select id="rxf-letter"><option value="">${h(t('rcNoLetter'))}</option>${letterTemplates().map((x) => `<option value="${h(x.id)}"${String(x.id) === String(F.letter || '') ? ' selected' : ''}>${h(x.name)}${letterHasReceipt(x.id) ? ' 🧾' : ''}</option>`).join('')}</select></label>
         </div>
       </div>
-      <div class="actions"><span class="spacer"></span>
+      <div class="actions">${sale || isSaleDoc(c0) ? `<button type="button" class="btn danger" id="rxf-cancel-sale">🗑 ${h(t('bkCancelSale'))}</button>` : ''}<span class="spacer"></span>
         <button type="button" class="btn" data-x>${h(t('cancelBtn'))}</button>
         <button type="button" class="btn" id="rxf-mail">✉ ${h(t('rcMailBtn'))}</button>
         <button type="button" class="btn" id="rxf-pdf">⬇ PDF</button>
@@ -992,6 +992,29 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
       };
       if (mode === 'mail') withGmail(run); else run();
     };
+    // א מכירה וואס איז נישט געשען: אויסמעקן (די ספרים קומען צוריק אין מלאי; א קבלה וואס איז שוין ארויס — "בטל")
+    $('#rxf-cancel-sale', dlg)?.addEventListener('click', async () => {
+      const list = locked ? c0.list : F.list;
+      const what = list.map((d) => d.goods_desc || descText(d)).filter(Boolean).join(' | ');
+      const amt = money(list.reduce((s2, d) => s2 + (Number(d.amount_usd) || 0), 0));
+      if (!state.isAdmin) {
+        try {
+          for (const d of list) await submitRequest('delete_donation', { donation_id: String(d.donation_id) }, `${t('bkCancelSale')}: ${d.goods_desc || descText(d)} — ${donorLabel(c0)}`);
+          ui.toast(t('bkCancelReq')); dlg.close();
+        } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+        return;
+      }
+      if (!confirm(t('bkCancelAsk', { what, who: donorLabel(c0), amt }) + (locked ? `\n\n${t('bkCancelRc', { no: c0.receipt_no })}` : ''))) return;
+      try {
+        if (locked) await voidReceipt(c0.receipt_no);
+        for (const d of list) await deleteDonation(d);
+        await loadAll();
+        dlg.close();
+        ui.toast(t('bkCanceled'));
+        ui.refreshAll?.();
+        if (done) done();
+      } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+    });
     $('#rxf-print', dlg).onclick = () => go('print');
     $('#rxf-pdf', dlg).onclick = () => go('pdf');
     $('#rxf-mail', dlg).onclick = () => go('mail');

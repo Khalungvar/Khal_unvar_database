@@ -1970,7 +1970,7 @@ function start() {
   });
   initCampaigns({ showView, tagPicker, wireTagPicker, readTags, toast, friendlyError, refreshAll, openCard });
   initAdmin({ toast, friendlyError, refreshAll, openOrgDetails });
-  initReceipts({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, refreshAdmin: () => renderAdmin() });
+  initReceipts({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, refreshAdmin: () => renderAdmin(), refreshAll: () => refreshAll() });
   initMailMerge({ showView, fullNameHe, toast, friendlyError, openCard, pickerLabel, contactById });
   initMail({ toast, friendlyError });
   initSms({ showView, fullNameHe, toast, friendlyError, openCard, pickerLabel });
