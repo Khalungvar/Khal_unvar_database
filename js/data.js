@@ -1203,3 +1203,19 @@ export async function loadAllPhotos() {
   rows.slice(1).forEach((r) => { if (r[0] && String(r[1] || '').startsWith('data:')) m.set(String(r[0]), String(r[1])); });
   return m;
 }
+/** 📸 דער "לערנען": פאר יעדן מענטש ביז 10 פארשידענע טביעות פנים (לשונית FaceLearn) */
+export async function loadFaceLearn() {
+  const tabs = await readTabs(['FaceLearn']);
+  const fl = rowsToObjects(tabs.FaceLearn || [['contact_id']]);
+  state.headers.FaceLearn = fl.header;
+  state.faceLearn = fl.objects.filter((x) => String(x.contact_id || '').trim());
+  return state.faceLearn;
+}
+export async function saveFaceLearn(rec) {
+  if (!state.headers.FaceLearn?.length) await loadFaceLearn();
+  const r = { ...rec, updated_at: nowStamp(), updated_by: state.email };
+  delete r._row;
+  const row = await findRow('FaceLearn', r.contact_id);
+  if (row) await updateRow('FaceLearn', row, objectToRow(state.headers.FaceLearn, r));
+  else await appendRow('FaceLearn', objectToRow(state.headers.FaceLearn, r));
+}

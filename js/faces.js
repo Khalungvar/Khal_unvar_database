@@ -2,7 +2,7 @@
 // אלעס לויפט אינעם בלעטערער (דער ווידעא בלייבט אויפן קאמפיוטער) — מיט דער פרייער ביבליאטעק Human (vladmandic).
 // שלב 1: אירועים + סריקה. די געפינענע פנים ווערן געהאלטן אויפן קאמפיוטער (IndexedDB) ביז מען זיי לייגט ארויף (שלב 2).
 // לשונית FaceEvents: event_id, name, date, mode ('normal' | 'fast'), note
-import { state, saveRecord, deleteRecord, loadAll, loadFaceShots, appendFaceShots, updateFaceShot, clearFaceShots, loadAllPhotos, savePhoto, saveContact } from './data.js';
+import { state, saveRecord, deleteRecord, loadAll, loadFaceShots, appendFaceShots, updateFaceShot, clearFaceShots, loadAllPhotos, savePhoto, saveContact, loadFaceLearn, saveFaceLearn } from './data.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, nowStamp } from './util.js';
 import { storeImage, fetchImages, imageOf, isDrv } from './images.js';
@@ -495,17 +495,50 @@ function clusterDialog(cl) {
 // שלב 2: ארויפלייגן → דערקענען → משתתפים
 // =====================================================================================
 const DIM = 1024;
-function embToB64(arrs) {
-  const n = arrs.reduce((s2, a) => s2 + a.length, 0);
-  const all = new Float32Array(n); let o = 0;
-  arrs.forEach((a) => { all.set(a, o); o += a.length; });
-  const b = new Uint8Array(all.buffer); let str = '';
+/** קלענער: יעדע טביעה = 4 בייט (scale) + 1024 בייט (int8) — אזוי פאסן 10 טביעות אין איין צעל */
+function q8Encode(arrs) {
+  const dim = arrs[0]?.length || DIM;
+  const buf = new ArrayBuffer(arrs.length * (4 + dim));
+  const dv = new DataView(buf);
+  arrs.forEach((a, k) => {
+    const off = k * (4 + dim);
+    let mx = 0; for (let i = 0; i < a.length; i += 1) mx = Math.max(mx, Math.abs(a[i]));
+    const sc = mx / 127 || 1;
+    dv.setFloat32(off, sc, true);
+    for (let i = 0; i < dim; i += 1) dv.setInt8(off + 4 + i, Math.round((a[i] || 0) / sc));
+  });
+  const b = new Uint8Array(buf); let str = '';
   for (let i = 0; i < b.length; i += 0x8000) str += String.fromCharCode(...b.subarray(i, i + 0x8000));
-  return `${arrs[0]?.length || DIM}:${btoa(str)}`;
+  return `q8:${dim}:${btoa(str)}`;
+}
+function decodeEmbs(v) {
+  const sv = String(v || '');
+  if (!sv) return [];
+  try {
+    if (sv.startsWith('q8:')) {
+      const [, d, b64] = sv.split(':');
+      const dim = Number(d) || DIM;
+      const bin = atob(b64 || '');
+      const u = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i += 1) u[i] = bin.charCodeAt(i);
+      const dv = new DataView(u.buffer);
+      const out = [];
+      for (let off = 0; off + 4 + dim <= u.length; off += 4 + dim) {
+        const sc = dv.getFloat32(off, true);
+        const f = new Float32Array(dim);
+        for (let i = 0; i < dim; i += 1) f[i] = dv.getInt8(off + 4 + i) * sc;
+        out.push(f);
+      }
+      return out;
+    }
+  } catch { return []; }
+  return null;
 }
 const embCache = new WeakMap();
 function embsOf(face) {
   if (embCache.has(face)) return embCache.get(face);
+  const q = decodeEmbs(face.emb);
+  if (q) { embCache.set(face, q); return q; }
   let out = [];
   try {
     const [d, b64] = String(face.emb || '').split(':');
@@ -558,7 +591,7 @@ async function uploadScan(ev, say) {
         const img = await storeImage(await smallJpeg(a.img), 'face');
         const img2 = b ? await storeImage(await smallJpeg(b.img), 'face') : '';
         return {
-          face_id: `${ev.event_id}-${cl.id}`, event_id: ev.event_id, img, img2, emb: embToB64(cl.embs.slice(0, 3)),
+          face_id: `${ev.event_id}-${cl.id}`, event_id: ev.event_id, img, img2, emb: q8Encode(cl.embs.slice(0, 3)),
           status: '', contact_id: '', src: `${a.file}|${a.t}`, count: cl.count, quality: Math.round(a.q),
         };
       }));
@@ -663,10 +696,11 @@ async function prepareTagging(ev, say) {
   say(t('fcLearning'));
   T.photos = await loadAllPhotos();
   const card = await cardEmbeddings(human, T.photos, (i, n) => say(t('fcLearningN', { i, n })));
-  const learned = (state.faceShots || []).filter((s) => s.status === 'ok' && s.contact_id)
-    .flatMap((s) => embsOf(s).map((emb) => ({ cid: String(s.contact_id), emb, src: 'ev' })));
-  T.idx = [...card, ...learned];
   T.human = human;
+  await loadFaceLearn();
+  await migrateLearn();
+  const learned = (state.faceLearn || []).flatMap((r) => decodeEmbs(r.embs).map((emb) => ({ cid: String(r.contact_id), emb, src: 'ev' })));
+  T.idx = [...card, ...learned];
   const pending = mine.filter((s) => !s.status);
   for (let k = 0; k < pending.length; k += 1) {
     T.sugg.set(pending[k].face_id, suggest(pending[k]));
@@ -708,8 +742,17 @@ const faceImg = (s, k = 'img') => imageOf(s[k]) || (String(s[k] || '').startsWit
 const nameOf = (cid) => { const c = ui.contactById(cid); return c ? ui.fullNameHe(c) : `#${cid}`; };
 
 async function decide(ev, face, status, cid = '') {
+  const was = { status: face.status, cid: String(face.contact_id || '') };
+  const embs = embsOf(face);
+  // באשטעטיגט דורך א גבאי → צום "לערנען" (ביז 10 פארשידענע פאר א מענטש)
+  if (status === 'ok' && cid) await learn(String(cid), embs, String(face.face_id));
+  // צוריק פון א באשטעטיגונג → ארויס פונעם "לערנען"
+  if (was.status === 'ok' && status !== 'ok' && was.cid) await unlearn(was.cid, String(face.face_id));
   const rec = { ...face, status, contact_id: cid, decided_by: status ? state.email : '', decided_at: status ? nowStamp() : '' };
+  // נאך א באשטעטיגונג פון א גבאי איז די טביעה שוין אינעם "לערנען" — די שורה ווערט לייכט (אזוי בלייבט דער גיליון שנעל)
+  if (status === 'ok') rec.emb = '';
   await updateFaceShot(rec);
+  embCache.delete(face);
   Object.assign(face, rec);
   if (isOk(rec) && cid) {
     // דער כרטיס האט נאך נישט קיין בילד → דאס בילד פון דער שמחה
@@ -717,9 +760,62 @@ async function decide(ev, face, status, cid = '') {
       const data = faceImg(face);
       if (data) { try { await savePhoto(cid, data); T.photos.set(String(cid), data); } catch { /* נישט קריטיש */ } }
     }
-    if (status === 'ok') embsOf(face).forEach((emb) => T.idx.push({ cid: String(cid), emb, src: 'ev' }));
   }
   scheduleSync(ev);
+}
+
+// ---------- דער "לערנען": ביז 10 פארשידענע טביעות פאר א מענטש ----------
+const LEARN_MAX = 10;
+const LEARN_SAME = 0.88; // אזוי ענלעך = גארנישט נייס, מ'האלט עס נישט
+const learnOf = (cid) => (state.faceLearn || []).find((r) => String(r.contact_id) === String(cid));
+async function learn(cid, embs, fid) {
+  if (!embs.length || !T.human) return;
+  const r = learnOf(cid) || { contact_id: cid, embs: '', ids: '' };
+  let list = decodeEmbs(r.embs) || [];
+  let ids = String(r.ids || '').split(',').filter(Boolean);
+  while (ids.length < list.length) ids.push('');
+  let changed = false;
+  for (const e of embs) {
+    const mx = list.reduce((m, x) => Math.max(m, sim(T.human, e, x)), 0);
+    if (mx >= LEARN_SAME) continue;
+    list.push(e); ids.push(fid); changed = true;
+  }
+  // מער ווי 10: ארויס דער וואס איז די מערסטע ענלעך צו די אנדערע
+  while (list.length > LEARN_MAX) {
+    let worst = 0; let wv = -1;
+    list.forEach((x, i) => { const v = list.reduce((m, y, j) => (i === j ? m : Math.max(m, sim(T.human, x, y))), 0); if (v > wv) { wv = v; worst = i; } });
+    list = list.filter((_, i) => i !== worst); ids = ids.filter((_, i) => i !== worst);
+  }
+  if (!changed) return;
+  const rec = { ...r, embs: q8Encode(list), ids: ids.join(',') };
+  await saveFaceLearn(rec);
+  const i = (state.faceLearn ||= []).findIndex((x) => String(x.contact_id) === cid);
+  if (i >= 0) state.faceLearn[i] = rec; else state.faceLearn.push(rec);
+  relearnIdx(cid, rec);
+}
+function relearnIdx(cid, rec) {
+  T.idx = T.idx.filter((x) => !(x.src === 'ev' && x.cid === cid)).concat((decodeEmbs(rec.embs) || []).map((emb) => ({ cid, emb, src: 'ev' })));
+}
+async function unlearn(cid, fid) {
+  const r = learnOf(cid);
+  if (!r) return;
+  const list = decodeEmbs(r.embs) || [];
+  const ids = String(r.ids || '').split(',');
+  const keep = list.map((e, i) => [e, ids[i] || '']).filter(([, id]) => id !== fid);
+  if (keep.length === list.length) return;
+  const rec = { ...r, embs: keep.length ? q8Encode(keep.map(([e]) => e)) : '', ids: keep.map(([, id]) => id).join(',') };
+  await saveFaceLearn(rec);
+  Object.assign(r, rec);
+  relearnIdx(cid, rec);
+}
+/** איינמאל: וואס גבאים האבן שוין באשטעטיגט פאר'ן נייעם לערנען → אריין אין FaceLearn */
+async function migrateLearn() {
+  if ((state.faceLearn || []).length) return;
+  const ok = (state.faceShots || []).filter((s) => s.status === 'ok' && s.contact_id && s.emb);
+  for (const s of ok) {
+    // eslint-disable-next-line no-await-in-loop
+    await learn(String(s.contact_id), embsOf(s), String(s.face_id));
+  }
 }
 
 // ---------- ② דערקענען ----------
@@ -968,18 +1064,13 @@ function renderPeople(ev) {
 }
 
 // ---------- אויסמעקן אן אירוע ----------
-/** די פנים ווערן אויסגעמעקט; וואס א גבאי האט באשטעטיגט בלייבט (פאר'ן לערנען), נאר אן די בילדער */
+/** די פנים ווערן אויסגעמעקט; דאס לערנען (FaceLearn) בלייבט */
 export async function deleteFaceEvent(eventId) {
   const ev = eventById(eventId);
   if (!ev) return;
   await loadFaceShots();
-  const shots = shotsOf(ev);
-  const keep = shots.filter((s) => s.status === 'ok');
-  await clearFaceShots(shots.filter((s) => s.status !== 'ok'));
-  for (const s of keep) {
-    // eslint-disable-next-line no-await-in-loop
-    await updateFaceShot({ ...s, img: '', img2: '', event_id: `x${eventId}` });
-  }
+  // דאס "לערנען" ליגט באזונדער (FaceLearn) און בלייבט; די פנים פונעם אירוע ווערן אויסגעמעקט
+  await clearFaceShots(shotsOf(ev));
   await deleteRecord('FaceEvents', 'event_id', ev);
   state.faceEvents = state.faceEvents.filter((x) => x !== ev);
 }
