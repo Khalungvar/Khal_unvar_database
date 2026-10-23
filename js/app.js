@@ -1976,7 +1976,7 @@ function start() {
   initSms({ showView, fullNameHe, toast, friendlyError, openCard, pickerLabel });
   initRequests({ toast, friendlyError, refreshAll, updateBadges, showView, openCard });
   initMerge({ contactById, fullNameHe, pickerLabel, fieldLabel, toast, friendlyError, refreshAll, openCard });
-  initBooks({ showView, toast, friendlyError, quickSale: (org, done) => openQuickReceipt(org, done, { sale: true }) });
+  initBooks({ showView, toast, friendlyError, contactById, fullNameHe, receiptFor: (d) => printForDonation(d), quickSale: (org, done) => openQuickReceipt(org, done, { sale: true }) });
   initSimchos({ showView, contactById, fullNameHe, pickerLabel, toast, friendlyError, refreshAll, openCard, openForm });
   initSchool({
     showView, contactById, fullNameHe, pickerLabel, openCard, toast, friendlyError, refreshAll,

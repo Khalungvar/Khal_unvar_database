@@ -84,7 +84,7 @@ function parseLists(rows) {
 }
 
 export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts', 'Requests', 'Enrollments', 'Tuition', 'Simchos', 'SimchaIssues', 'TagTree', 'Books']);
+  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts', 'Requests', 'Enrollments', 'Tuition', 'Simchos', 'SimchaIssues', 'TagTree', 'Books', 'BookMoves']);
 
   const contacts = rowsToObjects(tabs.Contacts);
   state.headers.Contacts = contacts.header;
@@ -166,6 +166,9 @@ export async function loadAll() {
   const bk = rowsToObjects(tabs.Books || [['book_id']]);
   state.headers.Books = bk.header;
   state.books = bk.objects.filter((x) => String(x.book_id || '').trim()).map((x) => ({ ...x, sale_from: x.sale_from ? isoDay(x.sale_from) : '', sale_to: x.sale_to ? isoDay(x.sale_to) : '' }));
+  const bm = rowsToObjects(tabs.BookMoves || [['move_id']]);
+  state.headers.BookMoves = bm.header;
+  state.bookMoves = bm.objects.filter((x) => String(x.move_id || '').trim()).map((x) => ({ ...x, date: x.date ? isoDay(x.date) : '' }));
 
   const yearly = rowsToObjects(tabs.YearlyCampaigns || [['series']]);
   state.headers.YearlyCampaigns = yearly.header;

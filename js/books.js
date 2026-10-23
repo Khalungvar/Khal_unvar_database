@@ -4,7 +4,7 @@
 // v: '' = דער ספר (סט) · 'vol' = כרך בודד · 'old' = מהדורה קודמת (די צוויי — אן מלאי).
 import { state, saveRecord, deleteRecord } from './data.js';
 import { t } from './i18n.js';
-import { escapeHtml as h } from './util.js';
+import { escapeHtml as h, isTrue } from './util.js';
 import { imageOf } from './images.js';
 
 export const BOOKS_ORG = 'מכון משנה הלכות';
@@ -49,10 +49,22 @@ export function soldMap() {
   }));
   return m;
 }
+/** וויפל מ'האט אראפגענומען פון מלאי אן א קבלה (א מתנה פונעם רבי'ן, געגעבן אן קבלה...) — לשונית BookMoves */
+export function givenMap() {
+  const m = new Map();
+  (state.bookMoves || []).forEach((x) => m.set(String(x.book_id), (m.get(String(x.book_id)) || 0) + (Number(x.qty) || 0)));
+  return m;
+}
+/** פארקויפט + אראפגענומען — וואס איז ארויס פון מלאי */
+export function outMap() {
+  const m = soldMap();
+  givenMap().forEach((v, k) => m.set(k, (m.get(k) || 0) + v));
+  return m;
+}
 /** דער מלאי איצט (null = נאך נישט באשטימט) */
-export function stockOf(b, sold = soldMap()) {
+export function stockOf(b, out = outMap()) {
   const base = num(b.stock_base);
-  return base == null ? null : base - (sold.get(String(b.book_id)) || 0);
+  return base == null ? null : base - (out.get(String(b.book_id)) || 0);
 }
 const varLabel = (v) => (v === 'vol' ? t('bkVol') : v === 'old' ? t('bkOld') : '');
 /** "שו"ת משנה הלכות ×2, הגדה של פסח (מהדורה קודמת)" — פאר דער קבלה */
@@ -66,7 +78,7 @@ export function booksDesc(lines) {
 
 // ---------- אויסקלייבן ספרים אין א מכירה (טופס נדבה / קבלה בודדת) ----------
 function optionsHtml(sel) {
-  const sold = soldMap();
+  const sold = outMap();
   const opt = (val, label) => `<option value="${h(val)}"${val === sel ? ' selected' : ''}>${h(label)}</option>`;
   return `<option value="">— ${h(t('bkPick'))} —</option>${allBooks().map((b) => {
     const st = stockOf(b, sold);
@@ -100,7 +112,7 @@ export function readBookPicker(root) {
 export function wireBookPicker(root, onChange) {
   const box = $('.bk-pick', root);
   if (!box) return;
-  const sold = soldMap();
+  const sold = outMap();
   const refresh = () => {
     $$('.bk-line', box).forEach((r) => {
       const [id, v = ''] = $('.bk-sel', r).value.split(':');
@@ -137,10 +149,11 @@ export function openBooks() { ui.showView('books'); }
 
 const SALE_TXT = { on: 'bkSaleOn', soon: 'bkSaleSoon', over: 'bkSaleOver' };
 const shortDate = (iso) => { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${Number(m[2])}/${Number(m[3])}` : ''; };
-function bookCard(b, sold) {
-  const st = stockOf(b, sold);
+function bookCard(b, sold, out, given) {
+  const st = stockOf(b, out);
   const s = saleState(b);
   const n = sold.get(String(b.book_id)) || 0;
+  const g = given.get(String(b.book_id)) || 0;
   const img = imgOf(b);
   const id = h(b.book_id);
   const extras = [num(b.vol_price) != null ? `${t('bkVol')} ${money(b.vol_price)}` : '', num(b.old_price) != null ? `${t('bkOld')} ${money(b.old_price)}` : ''].filter(Boolean);
@@ -154,10 +167,14 @@ function bookCard(b, sold) {
       <div class="bk-nums">
         <label>${h(t('bkPrice'))}<span class="bk-money">$<input type="number" min="0" step="0.01" dir="ltr" data-f="price" value="${h(b.price ?? '')}"></span></label>
         <label>${h(t('bkStock'))}<input type="number" step="1" dir="ltr" data-f="stock" value="${st == null ? '' : st}" placeholder="—" class="bk-stockin${st != null && st <= 0 ? ' bk-zero' : ''}"></label>
+        <div class="bk-out">
+          <button type="button" class="bk-soldbtn" data-hist="${id}" title="${h(t('bkHist'))}">${h(t('bkSoldBtn', { n }))}${g ? ` · 🎁${g}` : ''}</button>
+          <span class="bk-outrow"><button type="button" class="bk-minus" data-give="${id}" title="${h(t('bkGiveTitle'))}">➖ ${h(t('bkGiveShort'))}</button>
+            <button type="button" class="bk-listbtn" data-hist="${id}" title="${h(t('bkHist'))}">📋</button></span>
+        </div>
       </div>
       <div class="bk-foot">
         <button type="button" class="bk-salebtn${s ? ` bk-s-${s}` : ''}" data-sale="${id}" title="${h(s ? t(SALE_TXT[s]) : t('bkSaleAdd'))}">🏷 ${s ? `${money(b.sale_price)}${range ? ` <span dir="ltr">${h(range)}</span>` : ''}` : h(t('bkSaleAdd'))}</button>
-        ${n ? `<span class="muted small">${h(t('bkSoldN', { n }))}</span>` : ''}
       </div>
       ${extras.length ? `<div class="muted small bk-extras">${h(extras.join(' · '))}</div>` : ''}
     </div></div>`;
@@ -204,6 +221,8 @@ export function renderBooks() {
   const main = $('#books-main');
   if (!main) return;
   const sold = soldMap();
+  const given = givenMap();
+  const out = outMap();
   const q = cur.q.trim();
   const list = allBooks().filter((b) => !q || `${b.name} ${b.subtitle} ${b.notes}`.includes(q));
   const groups = CATS.map((c) => [c, list.filter((b) => (CATS.includes(b.category) ? b.category : 'other') === c)]).filter(([, l]) => l.length);
@@ -224,7 +243,7 @@ export function renderBooks() {
     </div>
     <p class="muted small bk-hint">${h(t('bkHint'))}</p>
     ${groups.map(([c, l]) => `<h3 class="bk-group">${h(t(`bkCat_${c}`))}</h3>
-      <div class="bk-grid">${l.map((b) => bookCard(b, sold)).join('')}</div>`).join('') || `<p class="muted">${h(t('noResults'))}</p>`}`;
+      <div class="bk-grid">${l.map((b) => bookCard(b, sold, out, given)).join('')}</div>`).join('') || `<p class="muted">${h(t('noResults'))}</p>`}`;
   $('#bk-back').onclick = () => ui.showView('lobby');
   $('#bk-new').onclick = () => editBook({});
   $('#bk-sell').onclick = () => {
@@ -241,6 +260,10 @@ export function renderBooks() {
   main.onclick = (e) => {
     const ed = e.target.closest('[data-edit]');
     if (ed) { editBook(bookById(ed.dataset.edit) || {}); return; }
+    const gv = e.target.closest('[data-give]');
+    if (gv) { const b = bookById(gv.dataset.give); if (b) giveDialog(b); return; }
+    const hs = e.target.closest('[data-hist]');
+    if (hs) { const b = bookById(hs.dataset.hist); if (b) histDialog(b); return; }
     const sb = e.target.closest('[data-sale]');
     if (sb) { const b = bookById(sb.dataset.sale); if (b) saleDialog(b); }
   };
@@ -253,11 +276,96 @@ export function renderBooks() {
     const v = inp.value.trim();
     if (f === 'stock') {
       // דער גבאי שרייבט וויפל עס איז דא איצט → stock_base = דאס + וויפל מ'האט שוין פארקויפט
-      saveBook({ ...b, stock_base: v === '' ? '' : Math.round(Number(v)) + (soldMap().get(String(b.book_id)) || 0) });
+      saveBook({ ...b, stock_base: v === '' ? '' : Math.round(Number(v)) + (outMap().get(String(b.book_id)) || 0) });
       return;
     }
     saveBook({ ...b, [f]: v === '' ? '' : Number(v) });
   };
+}
+
+const REASONS = ['bkWhyGift', 'bkWhyNoRc', 'bkWhyOther'];
+function newDlg(cls, html) {
+  const dlg = document.createElement('dialog');
+  dlg.className = `sheet ${cls}`;
+  document.body.append(dlg);
+  dlg.addEventListener('close', () => dlg.remove());
+  dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button>${html}`;
+  $$('[data-x]', dlg).forEach((x) => { x.onclick = () => dlg.close(); });
+  return dlg;
+}
+/** ➖ אראפנעמען פון מלאי אן א קבלה */
+function giveDialog(b) {
+  const st = stockOf(b);
+  const dlg = newDlg('bk-givedlg', `<h2>➖ ${h(t('bkGiveTitle'))} · ${h(b.name)}</h2>
+    ${st != null ? `<p class="muted small">${h(t('bkStock'))}: ${st}</p>` : ''}
+    <form class="bk-giveform" autocomplete="off">
+      <div class="grid">
+        <label>${h(t('bkQty'))} *<input name="qty" type="number" min="1" step="1" dir="ltr" value="1" required></label>
+        <label>${h(t('dateLegend'))}<input name="date" type="date" value="${today()}"></label>
+      </div>
+      <label class="wide">${h(t('bkWhy'))}<select name="reason">${REASONS.map((r) => `<option value="${h(t(r))}">${h(t(r))}</option>`).join('')}</select></label>
+      <label class="wide">${h(t('bkToWhom'))}<input name="to" dir="auto"></label>
+      <label class="wide">${h(t('bkNotes'))}<input name="note" dir="auto"></label>
+      <div class="actions"><span class="spacer"></span>
+        <button type="button" class="btn" data-x>${h(t('cancelBtn'))}</button>
+        <button type="submit" class="btn primary">${h(t('saveBtn'))}</button></div>
+    </form>`);
+  const form = $('form', dlg);
+  const el = (n) => form.elements[n];
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const qty = Math.round(Number(el('qty').value) || 0);
+    if (qty < 1) { el('qty').focus(); return; }
+    const btn = $('button[type=submit]', form); btn.disabled = true;
+    const rec = { book_id: b.book_id, date: el('date').value || today(), qty, reason: el('reason').value, to_name: el('to').value.trim(), note: el('note').value.trim() };
+    try {
+      const id = await saveRecord('BookMoves', 'move_id', rec);
+      (state.bookMoves ||= []).push({ ...rec, move_id: id });
+      dlg.close(); ui.toast(t('bkSaved')); renderBooks();
+    } catch (err) { btn.disabled = false; ui.toast(ui.friendlyError(err), 'error'); }
+  };
+  dlg.showModal();
+  el('qty').select();
+}
+
+/** 📋 די רשימה: ווען, וויפל, צו וועמען — א מכירה מיט א לינק צו דער קבלה */
+function histDialog(b) {
+  const bid = String(b.book_id);
+  const rcOf = (d) => (state.receipts || []).find((r) => !isTrue(r.void) && String(r.donation_ids || '').split(',').includes(String(d.donation_id)));
+  const rows = [];
+  (state.donations || []).forEach((d) => booksOf(d).forEach((l) => {
+    if (String(l.id) !== bid) return;
+    const ct = d.contact_id ? ui.contactById(d.contact_id) : null;
+    rows.push({ date: String(d.paid_date || d.date || '').slice(0, 10), qty: Number(l.q) || 0, what: `${t('bkSold')}${l.v ? ` · ${varLabel(l.v)}` : ''}`, who: ct ? ui.fullNameHe(ct) : (d.donor_name || ''), d, rc: rcOf(d), price: Number(l.p) || 0 });
+  }));
+  (state.bookMoves || []).filter((x) => String(x.book_id) === bid).forEach((x) => rows.push({ date: x.date, qty: Number(x.qty) || 0, what: x.reason || t('bkGive'), who: x.to_name || '', note: x.note, move: x }));
+  rows.sort((a, c) => String(c.date).localeCompare(String(a.date)));
+  const tot = (f) => rows.filter(f).reduce((s, r) => s + r.qty, 0);
+  const fmtDate = (iso) => { const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${Number(m[3])}/${Number(m[2])}/${m[1]}` : iso; };
+  const dlg = newDlg('bk-histdlg', `<h2>📋 ${h(b.name)}</h2>
+    <p class="muted small">${h(t('bkSoldN', { n: tot((r) => r.d) }))} · ${h(t('bkGivenN', { n: tot((r) => r.move) }))}${stockOf(b) != null ? ` · ${h(t('bkStock'))}: ${stockOf(b)}` : ''}</p>
+    ${rows.length ? `<table class="bk-hist no-sort"><thead><tr><th>${h(t('dateLegend'))}</th><th>${h(t('bkQty'))}</th><th></th><th>${h(t('bkToWhom'))}</th><th></th></tr></thead><tbody>
+      ${rows.map((r, i) => `<tr class="${r.move ? 'bk-h-give' : 'bk-h-sale'}"><td dir="ltr">${h(fmtDate(r.date))}</td><td class="bk-h-q">${r.qty}</td>
+        <td>${h(r.what)}${r.d ? ` <span class="muted small" dir="ltr">${h(money(r.price))}</span>` : ''}</td>
+        <td>${h(r.who)}${r.note ? ` <span class="muted small">· ${h(r.note)}</span>` : ''}</td>
+        <td>${r.d ? `<button type="button" class="linkish" data-rc="${i}">🧾 ${r.rc ? `#${h(r.rc.receipt_no)}` : h(t('bkMakeRc'))}</button>` : `<button type="button" class="linkish" data-undo="${i}" title="${h(t('deleteBtn'))}">✕</button>`}</td></tr>`).join('')}
+      </tbody></table>` : `<p class="muted">${h(t('bkHistNone'))}</p>`}
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>${h(t('close'))}</button></div>`);
+  dlg.onclick = async (e) => {
+    const rc = e.target.closest('[data-rc]');
+    if (rc) { const r = rows[Number(rc.dataset.rc)]; dlg.close(); ui.receiptFor(r.d); return; }
+    const un = e.target.closest('[data-undo]');
+    if (un) {
+      const r = rows[Number(un.dataset.undo)];
+      if (!confirm(t('bkUndoAsk', { n: r.qty }))) return;
+      try {
+        await deleteRecord('BookMoves', 'move_id', r.move);
+        state.bookMoves = state.bookMoves.filter((x) => x !== r.move);
+        dlg.close(); renderBooks(); histDialog(b);
+      } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+    }
+  };
+  dlg.showModal();
 }
 
 let saving = Promise.resolve();
