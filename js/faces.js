@@ -10,6 +10,7 @@ import { downloadXlsx } from './excel.js';
 import { toHebrew, hebrewNumber, isoToHebrewText } from './hebdate.js';
 import { submitRequest } from './requests.js';
 import { hasSavedSession } from './google.js';
+import { whoHint } from './simchos.js';
 
 const HUMAN_VER = '3.3.6';
 const CDN = `https://cdn.jsdelivr.net/npm/@vladmandic/human@${HUMAN_VER}`;
@@ -959,7 +960,7 @@ function renderTag(ev) {
         ${ev.mode !== 'fast' && greens ? `<button type="button" class="btn small-btn" id="fc-allg">✓ ${h(t('fcApproveGreens', { n: greens }))}</button>` : ''}
         ${c.skip ? `<button type="button" class="btn small-btn danger" id="fc-delskip">🗑 ${h(t('fcDelSkipped', { n: c.skip }))}</button>` : ''}
       </div></div>
-    <datalist id="fc-dl">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>
+    <datalist id="fc-dl">${dlOptions()}</datalist>
     <div id="fc-tlist"></div>`;
   $$('[data-tf]', box).forEach((b) => { b.onclick = () => { T.filter = b.dataset.tf; T.pos = 0; renderTag(ev); }; });
   $$('[data-tv]', box).forEach((b) => { b.onclick = () => { T.view = b.dataset.tv; renderTag(ev); }; });
@@ -972,16 +973,31 @@ function renderTag(ev) {
   });
   if (T.view === 'grid') gridView(ev, list); else oneView(ev, list);
 }
+/** די רשימה פון מענטשן: ביי די וואס האבן דעם זעלבן נאמען — דער טאטע / שווער / געגנט, כדי צו וויסן ווער */
+function dlOptions() {
+  const cnt = new Map();
+  state.contacts.forEach((x) => { const k = ui.fullNameHe(x); cnt.set(k, (cnt.get(k) || 0) + 1); });
+  return state.contacts.map((x) => {
+    const dup = cnt.get(ui.fullNameHe(x)) > 1;
+    // whoHint איז שוין אויסגעלאזט (escaped)
+    const lbl = dup ? whoHint(x).replace(/^🔎\s*/, '') : h([x.first_name_en, x.last_name_en].filter(Boolean).join(' '));
+    return `<option value="${h(ui.pickerLabel(x))}"${lbl ? ` label="${lbl}"` : ''}>`;
+  }).join('');
+}
+const dupName = (cid) => { const c = ui.contactById(cid); if (!c) return false; const n = ui.fullNameHe(c); return state.contacts.filter((x) => ui.fullNameHe(x) === n).length > 1; };
+const hintFor = (cid) => { const c = ui.contactById(cid); return c ? whoHint(c) : ''; };
 function controlsHtml(s, big = false) {
   if (isOk(s)) {
-    return `<div class="fc-who"><b>✓ ${h(nameOf(s.contact_id))}</b>${s.status === 'auto' ? ' <span title="🤖">🤖</span>' : ''}
+    return `<div class="fc-who"><b>✓ ${h(nameOf(s.contact_id))}</b>${s.status === 'auto' ? ' <span title="🤖">🤖</span>' : ''}${dupName(s.contact_id) || big ? `<div class="fc-hint small">${hintFor(s.contact_id)}</div>` : ''}
       <span><button type="button" class="linkish" data-fix="${h(s.face_id)}" title="${h(t('fcFix'))}">✏️</button> <button type="button" class="linkish" data-undo="${h(s.face_id)}" title="${h(t('fcUndo'))}">↩</button></span></div>
-      <div class="fc-inrow fc-fixrow" data-fixrow="${h(s.face_id)}" hidden><input class="fc-in" list="fc-dl" data-in="${h(s.face_id)}" placeholder="${h(t('fcFixPh'))}" autocomplete="off"><button type="button" class="btn small-btn primary" data-ok="${h(s.face_id)}">✓</button></div>`;
+      <div class="fc-inrow fc-fixrow" data-fixrow="${h(s.face_id)}" hidden><input class="fc-in" list="fc-dl" data-in="${h(s.face_id)}" placeholder="${h(t('fcFixPh'))}" autocomplete="off"><button type="button" class="btn small-btn primary" data-ok="${h(s.face_id)}">✓</button></div>
+      <div class="fc-hint small" data-hint="${h(s.face_id)}"></div>`;
   }
   if (s.status === 'skip') return `<div class="fc-who muted">⤼ ${h(t('fcSkipped'))} <span><button type="button" class="linkish" data-undo="${h(s.face_id)}">↩</button> <button type="button" class="linkish fc-del" data-delf="${h(s.face_id)}" title="${h(t('fcDelFace'))}">🗑</button></span></div>`;
   const sg = T.sugg.get(s.face_id) || { lv: '', top: [] };
-  return `${sg.top.map((x) => `<button type="button" class="fc-sug lv-${sg.lv}" data-acc="${h(s.face_id)}|${h(x.cid)}" title="${Math.round(x.v * 100)}%">${sg.lv === 'g' ? '🟢' : '🟡'} ${h(nameOf(x.cid))} ✓</button>`).join('')}
+  return `${sg.top.map((x) => `<button type="button" class="fc-sug lv-${sg.lv}" data-acc="${h(s.face_id)}|${h(x.cid)}" title="${Math.round(x.v * 100)}%">${sg.lv === 'g' ? '🟢' : '🟡'} ${h(nameOf(x.cid))} ✓${dupName(x.cid) || big ? `<div class="fc-hint small">${hintFor(x.cid)}</div>` : ''}</button>`).join('')}
     <div class="fc-inrow"><input class="fc-in" list="fc-dl" data-in="${h(s.face_id)}" placeholder="${h(t('fcWhoPh'))}" autocomplete="off"><button type="button" class="btn small-btn primary" data-ok="${h(s.face_id)}">✓</button></div>
+    <div class="fc-hint small" data-hint="${h(s.face_id)}"></div>
     <div class="fc-acts"><button type="button" class="linkish" data-newp="${h(s.face_id)}">➕ ${h(t('fcNewPerson'))}</button><button type="button" class="linkish" data-skip="${h(s.face_id)}">⤼ ${h(t('fcSkip'))}</button><button type="button" class="linkish fc-del" data-delf="${h(s.face_id)}" title="${h(t('fcDelFace'))}">🗑${big ? ` ${h(t('fcDelFace'))}` : ''}</button></div>`;
 }
 function gridView(ev, list) {
@@ -1057,6 +1073,10 @@ function wireActions(ev, box, after) {
   };
   box.onkeydown = box.onkeydown || null;
   $$('.fc-in', box).forEach((inp) => {
+    // ווען מ'קלייבט א מענטש: ווער איז עס (טאטע, שווער, געגנט, תגיות) — פאר'ן באשטעטיגן
+    const showHint = () => { const el = $(`[data-hint="${CSS.escape(inp.dataset.in)}"]`, box); if (!el) return; const cid = pick(inp.dataset.in); el.innerHTML = cid ? hintFor(cid) : ''; };
+    inp.addEventListener('input', showHint);
+    inp.addEventListener('change', showHint);
     inp.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
       e.preventDefault();

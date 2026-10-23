@@ -2088,3 +2088,6 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .fc-donesec { grid-column: 1 / -1; margin: 18px 0 2px; color: #2e8b47; border-bottom: 2px solid #b9dfc2; padding-bottom: 4px; }
 .fc-allgrid { grid-column: 1 / -1; }
 .fc-who > span { white-space: nowrap; }
+.fc-hint { color: #6b5a3a; font-weight: normal; line-height: 1.3; }
+.fc-hint:empty { display: none; }
+.fc-sug .fc-hint { font-size: 0.8em; }

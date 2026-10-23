@@ -552,11 +552,14 @@ async function deleteSimcha(s) {
 }
 
 // ---------- ווער איז עס: א קליינע שורה אונטערן נאמען (כדי צו זען אז מ'האט אויסגעקליבן דעם ריכטיגן) ----------
-function whoHint(c) {
+export function whoHint(c) {
   const rel = state.relations || [];
   const fatherId = rel.find((r) => String(r.contact_id_a) === String(c.contact_id) && r.relation_type === 'זון פון')?.contact_id_b
     || rel.find((r) => String(r.contact_id_b) === String(c.contact_id) && r.relation_type === 'טאטע פון')?.contact_id_a;
   const father = fatherId ? contactOf(fatherId) : null;
+  const filId = rel.find((r) => String(r.contact_id_a) === String(c.contact_id) && r.relation_type === 'איידעם פון')?.contact_id_b
+    || rel.find((r) => String(r.contact_id_b) === String(c.contact_id) && r.relation_type === 'שווער פון')?.contact_id_a;
+  const fil = filId ? contactOf(filId) : null;
   const orgGroups = new Set(tagRoots().filter((r) => r.kind.startsWith('orgs:')).map((r) => r.id));
   const seen = new Set(); const tags = [];
   tagEntries(c).forEach((x) => {
@@ -568,6 +571,7 @@ function whoHint(c) {
     `#${c.contact_id}`,
     c.area || c.city || '',
     father ? `${t('sonOf')} ${ui.fullNameHe(father)}` : '',
+    fil ? `${t('silOf')} ${ui.fullNameHe(fil)}` : '',
     ...tags,
   ].filter(Boolean);
   return `🔎 ${bits.map(h).join(' · ')}`;

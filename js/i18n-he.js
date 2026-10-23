@@ -875,6 +875,7 @@ export const HE = {
   "bkPickTitle": "ספרים (מכון משנה הלכות)",
   "bkAddLine": "עוד ספר",
   "bkQty": "כמות",
+  "silOf": "חתן של",
   "fcFix": "תקן — אדם אחר",
   "fcFixPh": "מי זה באמת?",
   "fcDoneSec": "זוהו ({n}) — אפשר לתקן",
