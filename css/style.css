@@ -1982,3 +1982,5 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .btn.bk-allsale.bk-s-over { background: #eee; border-color: #ccc; color: #888; }
 .bk-nums .bk-now { display: block; color: #2e8b47; font-size: 1.05em; margin-top: 1px; white-space: nowrap; }
 .bk-allprev { margin: 6px 0; }
+.bk-h-act { white-space: nowrap; }
+.bk-h-cancel { color: #b3261e; margin-inline-start: 8px; font-size: 0.85em; }

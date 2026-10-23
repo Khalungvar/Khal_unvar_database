@@ -2,7 +2,8 @@
 // לשונית Books. דער מלאי = stock_base − וויפל מ'האט פארקויפט (פון די "מכירה" נדבות, קאלום books = JSON [{id, v, q, p}]).
 // אזוי ווען מ'מעקט אויס א מכירה קומט דער ספר צוריק אין מלאי, אן קיין באזונדער חשבון.
 // v: '' = דער ספר (סט) · 'vol' = כרך בודד · 'old' = מהדורה קודמת (די צוויי — אן מלאי).
-import { state, saveRecord, deleteRecord } from './data.js';
+import { state, saveRecord, deleteRecord, deleteDonation, voidReceipt, loadAll } from './data.js';
+import { submitRequest } from './requests.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, isTrue } from './util.js';
 import { imageOf } from './images.js';
@@ -532,12 +533,30 @@ function histDialog(b) {
       ${rows.map((r, i) => `<tr class="${r.move ? 'bk-h-give' : 'bk-h-sale'}"><td dir="ltr">${h(fmtDate(r.date))}</td><td class="bk-h-q">${r.qty}</td>
         <td>${h(r.what)}${r.d ? ` <span class="muted small" dir="ltr">${h(money(r.price))}</span>` : ''}</td>
         <td>${h(r.who)}${r.note ? ` <span class="muted small">· ${h(r.note)}</span>` : ''}</td>
-        <td>${r.d ? `<button type="button" class="linkish" data-rc="${i}">🧾 ${r.rc ? `#${h(r.rc.receipt_no)}` : h(t('bkMakeRc'))}</button>` : `<button type="button" class="linkish" data-undo="${i}" title="${h(t('deleteBtn'))}">✕</button>`}</td></tr>`).join('')}
+        <td class="bk-h-act">${r.d ? `<button type="button" class="linkish" data-rc="${i}">🧾 ${r.rc ? `#${h(r.rc.receipt_no)}` : h(t('bkMakeRc'))}</button>
+          <button type="button" class="linkish bk-h-cancel" data-cancel="${i}" title="${h(t('bkCancelSale'))}">✕ ${h(t('bkCancelSale'))}</button>` : `<button type="button" class="linkish" data-undo="${i}" title="${h(t('deleteBtn'))}">✕</button>`}</td></tr>`).join('')}
       </tbody></table>` : `<p class="muted">${h(t('bkHistNone'))}</p>`}
     <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>${h(t('close'))}</button></div>`);
   dlg.onclick = async (e) => {
     const rc = e.target.closest('[data-rc]');
     if (rc) { const r = rows[Number(rc.dataset.rc)]; dlg.close(); ui.receiptFor(r.d); return; }
+    const cn = e.target.closest('[data-cancel]');
+    if (cn) {
+      const r = rows[Number(cn.dataset.cancel)];
+      const all = booksDesc(booksOf(r.d));
+      if (!state.isAdmin) {
+        try { await submitRequest('delete_donation', { donation_id: String(r.d.donation_id) }, `${t('bkCancelSale')}: ${all} — ${r.who}`); ui.toast(t('bkCancelReq')); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+        return;
+      }
+      if (!confirm(t('bkCancelAsk', { what: all, who: r.who || '—', amt: money(r.d.amount_usd) }) + (r.rc ? `\n\n${t('bkCancelRc', { no: r.rc.receipt_no })}` : ''))) return;
+      try {
+        if (r.rc) await voidReceipt(r.rc.receipt_no);
+        await deleteDonation(r.d);
+        await loadAll();
+        dlg.close(); renderBooks(); ui.toast(t('bkCanceled')); histDialog(bookById(bid) || b);
+      } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+      return;
+    }
     const un = e.target.closest('[data-undo]');
     if (un) {
       const r = rows[Number(un.dataset.undo)];
