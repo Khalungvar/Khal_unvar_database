@@ -5,7 +5,7 @@ import { batchUpdate } from './google.js';
 import {
   tagsOf, storedTags, linesOf, serialize, hasUnchecked, nameOf as tagName, roots as tagRoots, childrenOf as tagChildren, pathKey, GROUPS,
 } from './tags.js';
-import { state, loadAll, saveSavedList, deleteSavedList, displayName, saveRecord, saveContact, importContacts, careOf } from './data.js';
+import { state, loadAll, saveSavedList, deleteSavedList, displayName, saveRecord, saveContact, importContacts, careOf, contactRows } from './data.js';
 import { t } from './i18n.js';
 import { isTrue, isAlive, escapeHtml as h, mailingName, digits, nowStamp } from './util.js';
 import { todayIso } from './hebdate.js';
@@ -94,13 +94,14 @@ export const separated = (a, b) => [[a, b], [b, a]].some(([x, y]) => storedTags(
 async function markSeparate(a, b) {
   const col = colLetter(state.headers.Contacts.indexOf('tags'));
   const data = [];
+  const rowOf = await contactRows();
   [[a, b], [b, a]].forEach(([x, y]) => {
     const c = contactOf(x);
-    if (!c) return;
+    if (!c || !rowOf.get(String(c.contact_id))) return;
     const list = storedTags(c);
     if (!list.some((e) => e.p[0] === '_sep' && String(e.p[1]) === String(y))) list.push({ p: ['_sep', String(y)], s: 'ok' });
     c.tags = serialize(list);
-    data.push({ range: `Contacts!${col}${c._row}`, values: [[c.tags]] });
+    data.push({ range: `Contacts!${col}${rowOf.get(String(c.contact_id))}`, values: [[c.tags]] });
   });
   if (data.length) await batchUpdate(data);
 }

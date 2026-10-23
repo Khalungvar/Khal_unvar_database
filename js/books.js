@@ -7,7 +7,7 @@ import { t } from './i18n.js';
 import { escapeHtml as h, isTrue } from './util.js';
 import { imageOf } from './images.js';
 import { htmlToJpeg, jpegsToPdf } from './pdf.js';
-import { isoToHebrewText } from './hebdate.js';
+import { isoToHebrewText, todayIso } from './hebdate.js';
 
 export const BOOKS_ORG = 'מכון משנה הלכות';
 const CATS = ['mechon', 'kovetz', 'rabbis', 'other'];
@@ -17,7 +17,7 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const cur = { q: '' };
 export function initBooks(helpers) { ui = helpers; }
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todayIso();
 const num = (v) => (v === '' || v == null ? null : Number(v));
 const money = (v) => `$${(Number(v) || 0).toLocaleString('en-US', { minimumFractionDigits: Number(v) % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
 // א מבצע אויף דעם גאנצן מכון ווערט געהאלטן אין א שורה פון Books מיט category = '__all__':

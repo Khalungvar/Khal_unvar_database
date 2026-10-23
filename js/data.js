@@ -214,7 +214,21 @@ export async function loadAll() {
 /** המספר הבא, לפי מה שכתוב בגליון ממש עכשיו (למקרה שגבאי אחר הוסיף בינתיים). */
 async function nextContactId() {
   const ids = (await readColumn('Contacts', 'A')).slice(1).map(Number).filter(Number.isFinite);
-  return Math.max(CONFIG.FIRST_CONTACT_ID - 1, ...ids) + 1;
+  return Math.max(CONFIG.FIRST_CONTACT_ID - 1, ...ids, refMaxContact()) + 1;
+}
+/* א נומער וואס איז אויסגעמעקט געווארן (די שורה איז ליידיג) זאל נישט צוריקקומען צו א נייעם —
+   נדבות / קבלות / קשרים / תלמידים וואס ווייזן נאך אויף אים וואלטן געווארן "זיינע" */
+const numMax = (vals) => vals.reduce((m, v) => { const n = Number(v); return Number.isFinite(n) && n > m ? n : m; }, 0);
+function refMaxContact() {
+  return numMax([
+    ...(state.donations || []).map((d) => d.contact_id), ...(state.receipts || []).map((r) => r.contact_id),
+    ...(state.relations || []).flatMap((r) => [r.contact_id_a, r.contact_id_b]), ...(state.occasions || []).map((o) => o.contact_id),
+    ...(state.enrollments || []).flatMap((e) => [e.contact_id, e.parent_id]), ...(state.tuition || []).flatMap((x) => [x.contact_id, x.payer_id]),
+    ...(state.trash || []).map((c) => c.contact_id),
+  ]);
+}
+function refMaxDonation() {
+  return numMax((state.receipts || []).flatMap((r) => String(r.donation_ids || '').split(',')));
 }
 
 /** מוצא את מספר השורה של איש קשר לפי ה-ID שלו, לפי הגליון העדכני. */
@@ -430,7 +444,7 @@ export async function importDonations(list, onProgress = () => {}) {
   if (!state.isOwner) throw new Error(t('adminOnly'));
   const stamp = nowStamp();
   const ids = (await readColumn('Donations', 'A')).slice(1).map(Number).filter(Number.isFinite);
-  let id = Math.max(0, ...ids) + 1;
+  let id = Math.max(0, ...ids, refMaxDonation()) + 1;
   const rowsOut = list.map((d) => objectToRow(state.headers.Donations, { ...d, donation_id: id++, created_at: stamp, created_by: state.email, updated_at: stamp, updated_by: state.email }));
   for (let i = 0; i < rowsOut.length; i += 250) {
     await appendRows('Donations', rowsOut.slice(i, i + 250));
@@ -532,7 +546,7 @@ export async function saveDonation(donation) {
   delete d._row;
   if (!d.donation_id) {
     const ids = (await readColumn('Donations', 'A')).slice(1).map(Number).filter(Number.isFinite);
-    d.donation_id = Math.max(0, ...ids) + 1;
+    d.donation_id = Math.max(0, ...ids, refMaxDonation()) + 1;
     d.created_at = stamp;
     d.created_by = state.email;
     await appendRow('Donations', objectToRow(state.headers.Donations, d));
@@ -552,7 +566,7 @@ export async function saveDonations(list) {
   if (!list.length) return 0;
   const stamp = nowStamp();
   const ids = (await readColumn('Donations', 'A')).slice(1).map(Number).filter(Number.isFinite);
-  let next = Math.max(0, ...ids) + 1;
+  let next = Math.max(0, ...ids, refMaxDonation()) + 1;
   const rows = list.map((d) => objectToRow(state.headers.Donations, {
     ...d, donation_id: next++, created_at: stamp, created_by: state.email, updated_at: stamp, updated_by: state.email,
   }));
@@ -787,6 +801,23 @@ export async function mergeContactPair(keepId, dropId, contact, phones) {
     });
   });
   for (let i = 0; i < data.length; i += 400) await batchUpdate(data.slice(i, i + 400));
+  // רשימות: וואו ער איז צוגעלייגט / ארויסגענומען מיט דער האנט — יעצט דער וואס בלייבט
+  for (const l of state.savedLists || []) {
+    let cr; try { cr = JSON.parse(l.criteria || '{}'); } catch { continue; }
+    if (!cr || typeof cr !== 'object') continue;
+    let changed = false;
+    ['add', 'remove'].forEach((k) => {
+      if (!Array.isArray(cr[k])) return;
+      const seen = new Set();
+      const idOf = (e) => String(e && typeof e === 'object' ? e.id : e);
+      cr[k] = cr[k].map((e) => { if (idOf(e) !== drop) return e; changed = true; return e && typeof e === 'object' ? { ...e, id: keep } : keep; })
+        .filter((e) => { const id = idOf(e); if (seen.has(id)) { changed = true; return false; } seen.add(id); return true; });
+    });
+    if (Array.isArray(cr.manual) && cr.manual.some((x) => String(x) === drop)) {
+      cr.manual = [...new Set(cr.manual.map((x) => (String(x) === drop ? (Number(keep) || keep) : x)))]; changed = true;
+    }
+    if (changed) { try { await saveSavedList({ ...l, criteria: JSON.stringify(cr) }); } catch { /* נישט קריטיש */ } }
+  }
   const dropC = state.contacts.find((c) => String(c.contact_id) === drop);
   if (dropC) await setDeleted(dropC, nowStamp(), state.email);
   await logChanges('contact', keep, keep, null, null, `merged #${drop} into #${keep}`);
@@ -932,7 +963,11 @@ export async function issueDocs(docs) {
   };
   const stamp = nowStamp();
   const rows = [];
-  const out = docs.map((d) => {
+  const added = []; // ווען דאס שרייבן פאלט — ארויס פון זכרון (נישט קיין "קבלה" וואס איז נישטא אין גיליון)
+  const undo = () => { state.receipts = state.receipts.filter((r) => !added.includes(r)); };
+  let out;
+  try {
+  out = docs.map((d) => {
     const who = d.contact_id || d.donor_name;
     const old = findIssued(d.kind, d.org, d.ids, d.period, who);
     if (old) { const sm = metaOfReceipt(old); return { ...d, receipt_no: old.receipt_no, issued_at: old.issued_at, reprint: true, meta: Object.keys(sm).length ? sm : d.meta }; }
@@ -949,10 +984,11 @@ export async function issueDocs(docs) {
       meta: d.meta ? JSON.stringify(d.meta) : '',
     };
     rows.push(objectToRow(state.headers.Receipts, rec));
-    state.receipts.push(rec);
+    state.receipts.push(rec); added.push(rec);
     return { ...d, receipt_no: no, issued_at: stamp, reprint: false };
   });
   if (rows.length) await appendRows('Receipts', rows);
+  } catch (err) { undo(); throw err; }
   return out;
 }
 
@@ -1267,15 +1303,26 @@ export async function saveFaceLearn(rec) {
   else await appendRow('FaceLearn', objectToRow(state.headers.FaceLearn, r));
 }
 /** א סך קאנטאקטן מיט אמאל: changes = [{ c, set: { field: value } }] — נאר די פעלדער, אין איין שיקונג (מיט היסטאריע) */
+/** ID → שורה אין Contacts, לויט דעם גיליון יעצט (נישט פון דעם לעצטן לאדן) */
+export async function contactRows() {
+  const ids = await readColumn('Contacts', 'A');
+  const m = new Map();
+  ids.forEach((v, i) => { if (i > 0 && String(v).trim() && !m.has(String(v))) m.set(String(v), i + 1); });
+  return m;
+}
 export async function bulkSetContactFields(changes, note = '') {
   const hdr = state.headers.Contacts || [];
   const data = []; const hist = []; const at = nowStamp();
+  // די שורה לויט דעם ID אין גיליון יעצט (נישט פון דעם לעצטן לאדן — שורות קענען זיך אריבערגערוקט האבן)
+  const cIds = (await readColumn('Contacts', 'A')).map(String);
   changes.forEach(({ c, set }) => {
-    if (!c?._row) return;
+    const idx = c ? cIds.indexOf(String(c.contact_id)) : -1;
+    if (idx < 1) return;
+    const row = idx + 1;
     Object.entries(set).forEach(([k, v]) => {
       const i = hdr.indexOf(k);
       if (i < 0) return;
-      data.push({ range: `Contacts!${colLetter(i)}${c._row}`, values: [[v]] });
+      data.push({ range: `Contacts!${colLetter(i)}${row}`, values: [[v]] });
       if (k !== 'tags') hist.push([at, state.email, 'contact', String(c.contact_id), String(c.contact_id), k, String(c[k] ?? ''), String(v)]);
     });
     if (note) hist.push([at, state.email, 'contact', String(c.contact_id), String(c.contact_id), '*', '', note]);

@@ -1,6 +1,6 @@
 // איינמאליגער מעבר: די אלטע פעלדער (מוסדות, "יוצא", תגיות כלליות, תגיות נוספות, נשי) → עץ התגיות (c.tags).
 // אלעס קומט אריין אלס "לא נבדק". מ'רירט נישט קיין קאנטאקט וואס האט שוין תגיות. גארנישט ווערט אויסגעמעקט.
-import { state, loadAll } from './data.js';
+import { state, loadAll, contactRows } from './data.js';
 import { batchUpdate } from './google.js';
 import { tagsOf, serialize, UNCHECKED } from './tags.js';
 import { splitTags } from './util.js';
@@ -115,7 +115,8 @@ export async function runMigration(onProgress) {
   const { plan } = planMigration();
   const col = colLetter(state.headers.Contacts.indexOf('tags'));
   if (!col || state.headers.Contacts.indexOf('tags') < 0) throw new Error('no tags column');
-  const data = plan.map(({ c, tags }) => ({ range: `Contacts!${col}${c._row}`, values: [[serialize(tags)]] }));
+  const rowOf = await contactRows();
+  const data = plan.filter(({ c }) => rowOf.get(String(c.contact_id))).map(({ c, tags }) => ({ range: `Contacts!${col}${rowOf.get(String(c.contact_id))}`, values: [[serialize(tags)]] }));
   for (let i = 0; i < data.length; i += 400) {
     await batchUpdate(data.slice(i, i + 400));
     onProgress?.(Math.min(i + 400, data.length), data.length);

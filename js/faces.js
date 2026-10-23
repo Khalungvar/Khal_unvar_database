@@ -7,7 +7,7 @@ import { t } from './i18n.js';
 import { escapeHtml as h, nowStamp } from './util.js';
 import { storeImage, fetchImages, imageOf, isDrv } from './images.js';
 import { downloadXlsx } from './excel.js';
-import { toHebrew, hebrewNumber, isoToHebrewText } from './hebdate.js';
+import { toHebrew, hebrewNumber, isoToHebrewText, todayIso } from './hebdate.js';
 import { submitRequest } from './requests.js';
 import { hasSavedSession } from './google.js';
 import { whoHint } from './simchos.js';
@@ -20,7 +20,7 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 export function initFaces(helpers) { ui = helpers; }
 
 const cur = { eventId: '', tab: 'scan' };
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todayIso();
 export const faceEvents = () => [...(state.faceEvents || [])].sort((a, b) => String(b.date).localeCompare(String(a.date)) || Number(b.event_id) - Number(a.event_id));
 const eventById = (id) => (state.faceEvents || []).find((e) => String(e.event_id) === String(id));
 

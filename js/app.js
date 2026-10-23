@@ -1847,6 +1847,8 @@ async function submit(form, original) {
   btn.textContent = t('saving');
   try {
     const id = await saveContact(contact, phones);
+    // שוין געשפייכלערט: ווען עפעס נאכדעם פאלט (קשרים), זאל א צווייטער "שפייכלערן" נישט מאכן א טאפלטן מענטש
+    if (!original.contact_id) { original.contact_id = id; original._createdNow = true; }
     for (const rel of form._relRemoves || []) await removeRelation(rel);
     for (const add of form._relAdds || []) { await addRelation(id, add.type, add.b); await afterRelation(id, add.type, add.b); }
     // "פעלן פרטים" → To Do כללי (אלע זעען)
@@ -1854,13 +1856,13 @@ async function submit(form, original) {
       try { await addGeneralTask(form.elements.gtd_missing_text.value.trim() || t('cfMissingDefault'), id); } catch { /* */ }
     }
     await loadAll();
-    if (!original.contact_id) { try { if (await linkPendingExt(id)) renderBuilder(); } catch { /* */ } }
+    if (original._createdNow) { try { if (await linkPendingExt(id)) renderBuilder(); } catch { /* */ } }
     const onSaved = form._onSaved; form._onSaved = null;
     if (onSaved) { try { await onSaved(id); } catch (e2) { toast(friendlyError(e2), 'error'); } }
     renderList();
     $('#contact-form').dataset.dirty = '';
     $('#form-dialog').close();
-    toast(original.contact_id ? t('saved') : t('added', { id }));
+    toast(original._createdNow ? t('added', { id }) : t('saved'));
     offerYahrzeit(id, original, contact);
   } catch (err) {
     toast(friendlyError(err), 'error');
@@ -1874,7 +1876,7 @@ async function submit(form, original) {
 function offerYahrzeit(id, original, contact) {
   const has = (rel) => state.occasions.some((o) => String(o.contact_id) === String(id)
     && o.occasion_type === YAHRZEIT && o.relation === rel);
-  const wasAlive = (v) => original.contact_id === undefined || isAlive(v);
+  const wasAlive = (v) => original._createdNow || original.contact_id === undefined || isAlive(v);
   if (!contact.is_alive && wasAlive(original.is_alive) && !has('ער אליין')
     && confirm(t('offerYahrzeit', { name: fullNameHe(contact) }))) {
     openOccasionForm({ contact_id: id, occasion_type: YAHRZEIT, relation: 'ער אליין', person_name: contact.first_name_he });

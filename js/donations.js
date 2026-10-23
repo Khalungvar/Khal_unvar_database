@@ -243,7 +243,8 @@ export function openDonationForm(donation = {}, presetContactId = null) {
     d.is_paid = true; // ברירת מחדל: שולם
     d.paid_date = todayIso();
   }
-  const contact = d.contact_id ? ui.contactById(d.contact_id) : null;
+  // אויך א נדבה פון איינעם וואס איז אין "מיסט" (אויסגעמעקט) — מ'זאל זי קענען רעדאגירן אן טוישן דעם נדבן
+  const contact = d.contact_id ? (ui.contactById(d.contact_id) || (state.trash || []).find((x) => String(x.contact_id) === String(d.contact_id))) : null;
   const hDate = toHebrew(d.date || todayIso());
   const methods = state.lists.payment_method || [];
   const form = $('#donation-form');
@@ -519,7 +520,8 @@ function wireDonationForm(form, original) {
     e.preventDefault();
     const m = f('contact').value.match(/\(#(\d+)\)/);
     const oneTime = !m && original.donor_name && f('contact').value.trim() === original.donor_name;
-    if (!oneTime && (!m || !ui.contactById(m[1]))) { ui.toast(t('pickValid'), 'error'); return; }
+    const keptTrashed = m && String(m[1]) === String(original.contact_id || '') && (state.trash || []).some((x) => String(x.contact_id) === String(m[1]));
+    if (!oneTime && (!m || !(ui.contactById(m[1]) || keptTrashed))) { ui.toast(t('pickValid'), 'error'); return; }
     const amount = f('amount_usd').value;
     if (amount === '' || Number(amount) < 0) { ui.toast(t('amountRequired'), 'error'); return; }
     const orgValue = campaignOrg(f('campaign').value.trim()) || f('org').value;

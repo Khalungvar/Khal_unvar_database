@@ -4,7 +4,7 @@
 //   applies = "מוסד|מוסד" — דער ענף ווייזט זיך נאר אונטער די מוסדות (ליידיג = אלע).
 //   mirror = node_id — די קינדער זענען די פון יענעם ענף (למשל רבני הביהמ"ד → די בתי מדרש).
 // ביי א קאנטאקט: c.tags = JSON [{ p: [ids פון שלב 1 ביזן לעצטן], s: status, d: date, o?: 'f' (במקור לשעבר) }].
-import { state, saveRecord, deleteRecord, loadAll, NESHEI_ORG } from './data.js';
+import { state, saveRecord, deleteRecord, loadAll, NESHEI_ORG, contactRows } from './data.js';
 import { batchUpdate } from './google.js';
 import { effectiveOrg } from './scope.js';
 import { t } from './i18n.js';
@@ -258,7 +258,9 @@ export function wireCardTags(box, c, onSaved) {
     try {
       const col = colLetter(state.headers.Contacts.indexOf('tags'));
       const val = serialize(out);
-      await batchUpdate([{ range: `Contacts!${col}${c._row}`, values: [[val]] }]);
+      const row = (await contactRows()).get(String(c.contact_id));
+      if (!row) throw new Error(t('notFound'));
+      await batchUpdate([{ range: `Contacts!${col}${row}`, values: [[val]] }]);
       c.tags = val;
       onSaved?.();
     } catch (err) { ui?.toast(ui.friendlyError(err), 'error'); b.disabled = false; }
@@ -505,7 +507,8 @@ export function wireTreeAdmin(main, rerender) {
         if (!confirm(t('tgDelConfirm', { name: n.name, n: affected.length }))) return;
         // אראפנעמען פון די קאנטאקטן
         const col = colLetter(state.headers.Contacts.indexOf('tags'));
-        const data = affected.map((c) => ({ range: `Contacts!${col}${c._row}`, values: [[serialize(storedTags(c).filter((x) => !x.p.map(String).some((q) => ids.includes(q))))]] }));
+        const rowOf = await contactRows();
+        const data = affected.filter((c) => rowOf.get(String(c.contact_id))).map((c) => ({ range: `Contacts!${col}${rowOf.get(String(c.contact_id))}`, values: [[serialize(storedTags(c).filter((x) => !x.p.map(String).some((q) => ids.includes(q))))]] }));
         for (let i = 0; i < data.length; i += 300) await batchUpdate(data.slice(i, i + 300));
         for (const d of ids) { const nn = byId().get(d); if (nn) await deleteRecord('TagTree', 'node_id', nn.raw); }
       } else return;

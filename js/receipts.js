@@ -8,7 +8,7 @@ import {
 import { t } from './i18n.js';
 import { careOf } from './data.js';
 import { isTrue, escapeHtml as h, mailingName, splitTags, shrinkImage } from './util.js';
-import { isoToHebrewText } from './hebdate.js';
+import { isoToHebrewText, todayIso } from './hebdate.js';
 import { effectiveOrg, umbrellaName, entityOrgs, isEntityOrg, campaignOrg } from './scope.js';
 import { money, orgSelect } from './donations.js';
 import { campaignOptions } from './campaigns.js';
@@ -190,7 +190,7 @@ export function renderReceipts() {
   $('#rc-sample', main).onclick = () => {
     const d = picked()[0] || shown[0];
     if (!d) return;
-    printDocs([{ ...d, receipt_no: d.issued?.receipt_no || '—', issued_at: new Date().toISOString().slice(0, 10), forText: f.kind !== 'year' ? String(f.forText || '').trim() : '' }], { letter: f.letter });
+    printDocs([{ ...d, receipt_no: d.issued?.receipt_no || '—', issued_at: todayIso(), forText: f.kind !== 'year' ? String(f.forText || '').trim() : '' }], { letter: f.letter });
   };
   $('#rc-edit-org', main).onclick = () => openOrgDetails(f.org);
   $('#rc-letter', main)?.addEventListener('change', (e) => { f.letter = e.target.value; });
@@ -443,7 +443,9 @@ function fromLog(no) {
     return { ...tuitionDoc(p), receipt_no: r.receipt_no, issued_at: r.issued_at, reprint: true };
   }
   const list = ids.map((id) => state.donations.find((d) => String(d.donation_id) === id)).filter(Boolean);
-  if (!list.length) { ui.toast(t('rcGone'), 'error'); return null; }
+  // א חשבון מיט נאר האנט-געשריבענע שורות (אן נדבות) — אויך צו דרוקן / שיקן
+  const manualOnly = r.kind === 'invoice' && (metaOfReceipt(r).manual || []).length;
+  if (!list.length && !manualOnly) { ui.toast(t('rcGone'), 'error'); return null; }
   return { kind: r.kind, org: r.org, contact_id: r.contact_id, donor_name: r.donor_name, ids, amount: Number(r.amount), period: r.period, list, receipt_no: r.receipt_no, issued_at: r.issued_at, reprint: true, meta: metaOfReceipt(r) };
 }
 
@@ -764,7 +766,7 @@ function defaultMeta(d) {
 
 // ---------- "קבלה בודדת": ערשט די פרטים → א נדבה (באצאלט) → דער טופס פון דער קבלה ----------
 export function openQuickReceipt(org0 = '', done = null, opts = {}) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIso();
   const dlg = document.createElement('dialog');
   dlg.className = 'sheet rq-dlg';
   document.body.append(dlg);
@@ -961,7 +963,7 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
       <h2>🧾 ${h(t('rcFormTitle'))} — ${h(donorLabel(c0))}</h2>
       ${locked ? `<p class="mx-pending">🔒 ${h(t('rcLockedNote', { no: c0.receipt_no }))}</p>` : ''}
       <div class="rx-form${locked ? ' rx-locked' : ''}">
-        <div class="rx-form-prev"><div class="rx-prev-scale">${receiptHtml(locked ? c : { ...c, receipt_no: '—', issued_at: new Date().toISOString().slice(0, 10) })}</div></div>
+        <div class="rx-form-prev"><div class="rx-prev-scale">${receiptHtml(locked ? c : { ...c, receipt_no: '—', issued_at: todayIso() })}</div></div>
         <div class="rx-form-side"${locked ? ' inert' : ''}>
           <div class="seg">${[['donation', 'donKindDonation'], ['sale', 'donKindSale']].map(([k, l]) => `<button type="button" data-ft="${k}" class="${F.type === k ? 'on' : ''}">${h(t(l))}</button>`).join('')}</div>
           ${sale ? `<label class="check"><input type="checkbox" id="rxf-tax"${F.tax ? ' checked' : ''}> Sales Tax</label>
@@ -1185,7 +1187,7 @@ export function receiptHtml(c, opts = {}) {
   const allDisp = rxDisp(lines);
   const hasQty = allDisp.some((r) => r.item != null);
   const full = opts.full ?? allDisp.length > RX_MAX_LINES;
-  const issued = String(c.issued_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+  const issued = String(c.issued_at || '').slice(0, 10) || todayIso();
   const total = lines.reduce((s, l) => s + (Number(l.d.amount_usd) || 0), 0) || Number(c.amount) || 0;
   const M = rxMeta(c);
   const taxRate = sale && M.tax ? Number(M.taxRate) || 0 : 0;
@@ -1304,8 +1306,8 @@ export const needsFullPage = (c) => rxCount(c) > RX_MAX_LINES;
 export function sampleReceiptHtml(org = '') {
   const o = org || umbrellaName();
   return receiptHtml({
-    kind: 'receipt', org: o, contact_id: '', donor_name: 'Sample Donor', amount: 180, receipt_no: '1001', issued_at: new Date().toISOString().slice(0, 10),
-    list: [{ donation_id: 'x', paid_date: new Date().toISOString().slice(0, 10), amount_usd: 180, campaign: 'דוגמא', payment_method: "צ'ק", check_number: '123' }],
+    kind: 'receipt', org: o, contact_id: '', donor_name: 'Sample Donor', amount: 180, receipt_no: '1001', issued_at: todayIso(),
+    list: [{ donation_id: 'x', paid_date: todayIso(), amount_usd: 180, campaign: 'דוגמא', payment_method: "צ'ק", check_number: '123' }],
   });
 }
 
@@ -1323,7 +1325,7 @@ export function invoiceHtml(c) {
   const M = rxMeta(c);
   const lines = invLines(c);
   const total = lines.reduce((s, l) => s + l.amount, 0);
-  const issued = String(c.issued_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+  const issued = String(c.issued_at || '').slice(0, 10) || todayIso();
   const fill = Math.max(0, 3 - lines.length);
   const pay = String(det.pay_text || 'Please make checks payable to {NAME}.').replace(/\{NAME\}/g, legal).replace(/\.\.+/g, '.');
   const addrLine = [det.address, det.city_state_zip].filter(Boolean).join(' • ');
@@ -1395,7 +1397,7 @@ export function openInvoiceForm(c0, { done = null } = {}) {
       <h2>📄 Invoice${ct ? ` — ${h(ui.fullNameHe(ct))}` : ''}</h2>
       ${locked ? `<p class="mx-pending">🔒 ${h(t('ivLockedNote', { no: c0.receipt_no }))}</p>` : ''}
       <div class="rx-form">
-        <div class="rx-form-prev"><div class="rx-prev-scale iv-prev">${invoiceHtml(locked ? c : { ...c, receipt_no: '—', issued_at: new Date().toISOString().slice(0, 10) })}</div></div>
+        <div class="rx-form-prev"><div class="rx-prev-scale iv-prev">${invoiceHtml(locked ? c : { ...c, receipt_no: '—', issued_at: todayIso() })}</div></div>
         <div class="rx-form-side"${locked ? ' inert' : ''}>
           ${!c0.contact_id ? `<label class="rxf-who">${h(t('rcWho'))} <input id="ivf-who" list="dl-ivf" autocomplete="off" value="${ct ? h(ui.pickerLabel(ct)) : ''}">
             <datalist id="dl-ivf">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist></label>` : ''}
@@ -1552,7 +1554,7 @@ function letterPanelHtml(org) {
   const hist = historyOf(orgDetailsOf(org) || {});
   return `<details class="rc-letter-box" open><summary>✉ ${h(t('rcLetterPanel'))}</summary>
     <div class="od-letter" dir="rtl">
-      <div class="od-date">📅 ${h(isoToHebrewText(new Date().toISOString().slice(0, 10)))} לפ"ק <span class="muted small">(${h(t('rcAuto'))})</span></div>
+      <div class="od-date">📅 ${h(isoToHebrewText(todayIso()))} לפ"ק <span class="muted small">(${h(t('rcAuto'))})</span></div>
       <div class="od-sal">
         <input data-l="letter_salutation" value="${h(L.letter_salutation)}">
         <span class="od-auto">${h(t('rcSalName'))}</span>
@@ -1676,9 +1678,9 @@ export function openOrgDetails(org) {
     const y = state.yearly.find((x) => x.org === o.org && yimg[x.series]);
     const savedY = y ? { ...y } : null;
     if (y) Object.assign(y, splitImg(yimg[y.series], 'header_img'));
-    const fake = { donation_id: 0, amount_usd: 180, is_paid: true, paid_date: new Date().toISOString().slice(0, 10), payment_method: "צ'ק", check_number: '1001', campaign: y ? `${y.series} תשפ"ז` : '', event_tags: 'נדבה' };
+    const fake = { donation_id: 0, amount_usd: 180, is_paid: true, paid_date: todayIso(), payment_method: "צ'ק", check_number: '1001', campaign: y ? `${y.series} תשפ"ז` : '', event_tags: 'נדבה' };
     try {
-      return fn({ kind: 'receipt', org: o.org, contact_id: '', donor_name: 'Mr. & Mrs. Sample Donor', ids: [], amount: 180, period: '', list: [fake], receipt_no: '1001', issued_at: new Date().toISOString().slice(0, 10), reprint: false });
+      return fn({ kind: 'receipt', org: o.org, contact_id: '', donor_name: 'Mr. & Mrs. Sample Donor', ids: [], amount: 180, period: '', list: [fake], receipt_no: '1001', issued_at: todayIso(), reprint: false });
     } finally {
       state.orgDetails = keep;
       if (logoChanged && state.orgLogos) state.orgLogos[o.org] = keepLogo;
