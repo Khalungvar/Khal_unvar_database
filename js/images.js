@@ -18,11 +18,64 @@ export const isDrv = (v) => /^drv:[\w-]+$/.test(String(v || ''));
 const isData = (v) => String(v || '').startsWith('data:');
 const LS = 'khal-img-';
 
-function cacheGet(id) {
+// דער קעש פון בילדער: אין IndexedDB (גרויס). פריער איז עס געווען אין localStorage (ביז 5MB) — מיט די פנים
+// פון "רשימות משתתפים" איז עס געווארן פול, און דאן האט מען יעדעס מאל ווידער געלאדן לאגאס/בריוו-בילדער (פאמעלעך).
+let dbP = null;
+function idb() {
+  if (!dbP) {
+    dbP = new Promise((res) => {
+      try {
+        const r = indexedDB.open('khal-img', 1);
+        r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('img')) r.result.createObjectStore('img'); };
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => res(null);
+        r.onblocked = () => res(null);
+      } catch { res(null); }
+    });
+  }
+  return dbP;
+}
+async function idbGetMany(ids) {
+  const out = {};
+  if (!ids.length) return out;
+  const db = await idb();
+  if (!db) return out;
+  return new Promise((res) => {
+    try {
+      const tx = db.transaction('img');
+      const st = tx.objectStore('img');
+      ids.forEach((id) => { const q = st.get(id); q.onsuccess = () => { if (q.result) out[id] = q.result; }; });
+      tx.oncomplete = () => res(out);
+      tx.onerror = () => res(out);
+      tx.onabort = () => res(out);
+    } catch { res(out); }
+  });
+}
+function cacheGet(id) { // אלטער קעש (localStorage) — ווערט אריבערגעטראגן אין IndexedDB
   try { return localStorage.getItem(LS + id) || ''; } catch { return ''; }
 }
 function cachePut(id, data) {
-  try { localStorage.setItem(LS + id, data); } catch { /* פול — נישט קיין פראבלעם */ }
+  idb().then((db) => { if (!db) return; try { db.transaction('img', 'readwrite').objectStore('img').put(data, id); } catch { /* */ } });
+}
+/** איינמאל: די בילדער פון localStorage → IndexedDB, און localStorage ווערט באפרייט */
+let migrated = false;
+export function migrateImageCache() {
+  if (migrated) return;
+  migrated = true;
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i += 1) { const k = localStorage.key(i); if (k && k.startsWith(LS)) keys.push(k); }
+    if (!keys.length) return;
+    idb().then((db) => {
+      if (!db) return;
+      try {
+        const tx = db.transaction('img', 'readwrite');
+        const st = tx.objectStore('img');
+        keys.forEach((k) => { const v = localStorage.getItem(k); if (v) st.put(v, k.slice(LS.length)); });
+        tx.oncomplete = () => { keys.forEach((k) => { try { localStorage.removeItem(k); } catch { /* */ } }); };
+      } catch { /* */ }
+    });
+  } catch { /* */ }
 }
 function remember(id, data) {
   byId.set(id, data);
@@ -78,12 +131,17 @@ export async function listImages() {
 
 /** לייגט אריין אין זכרון די בילדער פון די ids (פון קעש אדער פונעם הילף) */
 export async function fetchImages(ids) {
-  const need = [];
+  let need = [];
   [...new Set(ids)].forEach((id) => {
     if (byId.has(id)) return;
     const c = cacheGet(id);
     if (c) remember(id, c); else need.push(id);
   });
+  if (need.length) {
+    const got = await idbGetMany(need);
+    Object.entries(got).forEach(([id, d]) => remember(id, d));
+    need = need.filter((id) => !got[id]);
+  }
   for (let i = 0; i < need.length; i += 10) {
     try {
       const r = await call({ action: 'img_get', ids: need.slice(i, i + 10) }, 8000);
@@ -120,6 +178,7 @@ export async function resolveState(state) {
   // בילדער אינעם טעקסט פון א בריוו און א סימן מים (settings)
   (state.mailTemplates || []).forEach((x) => { for (const m of String(x.settings || '').matchAll(/drv:([\w-]+)/g)) ids.push(m[1]); });
   Object.values(state.orgLogos || {}).forEach(scan);
+  setTimeout(migrateImageCache, 3000);
   if (!ids.length) return;
   await fetchImages(ids);
   // נאר ווען דאס בילד איז געקומען — אנדערש בלייבט "drv:" (אזוי ווערט עס נישט אויסגעמעקט ביים קומענדיגן שפייכלערן)
