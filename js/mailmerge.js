@@ -963,6 +963,7 @@ function ribbonInsert() {
         ${mi('data-date="greg"', `${h(t('wrDateTodayGreg'))} <span class="muted small">«${D.ltr.dir === 'ltr' ? 'Date' : 'תאריך_לועזי'}»</span>`)}
         ${mi('id="wr-date-other"', `🗓 ${h(t('wrDateOther'))}`)}`)}
       ${bigdd('✍', t('wrSignature'), `${mi('id="wr-sig-mine"', `✍ ${h(t('wrMySig'))}${mySig() ? '' : ` <span class="muted small">(${h(t('wrSigNone'))})</span>`}`)}
+        ${mi('id="wr-sig-temp"', `✍ ${h(t('wrSigTemp'))}...`)}
         ${mi('id="wr-sig-setup"', h(t('wrSigSetup')))}
         ${L.design === 'org' ? mi('id="wr-sig"', `${L.sig ? '✓ ' : ''}${h(t('wrOrgSig'))}`, L.sig) : ''}`)}`);
 }
@@ -1970,14 +1971,16 @@ async function imageFromDrive() {
   });
 }
 /** א פעלד «...» אויפן קורסאר (execCommand מאכט א נייע פסקה ביים סוף פון א שורה) */
-function insertChip(body, k) {
+function insertChip(body, k) { insertHtmlAt(body, `${tokensToChips(`{${k}}`)}\u00a0`); }
+/** HTML אויפן קורסאר, אזוי ווי עס איז (אן די טויש פון execCommand) */
+function insertHtmlAt(body, html) {
   restoreSel(body);
   const s = window.getSelection();
   if (!s.rangeCount || !body.contains(s.anchorNode)) return;
   const r = s.getRangeAt(0);
   r.deleteContents();
   const tpl = document.createElement('template');
-  tpl.innerHTML = `${tokensToChips(`{${k}}`)}\u00a0`;
+  tpl.innerHTML = html;
   const last = tpl.content.lastChild;
   r.insertNode(tpl.content);
   const c = document.createRange();
@@ -2036,26 +2039,36 @@ function sigHtmlOf(sig) {
   if (!sig) return '';
   if (sig.type === 'img') {
     const d = imageOf(sig.img);
-    return d ? `<img src="${h(d)}" data-drv="${h(String(sig.img).slice(4))}" style="height:${Number(sig.h) || 0.8}in;width:auto" alt="">` : '';
+    return d ? `<span data-sig="1"><img src="${h(d)}" data-drv="${h(String(sig.img).slice(4))}" style="height:${Number(sig.h) || 0.8}in;width:auto" alt=""></span>` : '';
   }
-  return `<span style="font-family:'${h(sig.font || SIG_FONTS[0])}';font-size:${Number(sig.size) || 22}pt">${h(sig.text || '')}</span>`;
+  return `<span data-sig="1" style="font-family:'${h(sig.font || SIG_FONTS[0])}';font-size:${Number(sig.size) || 22}pt">${h(sig.text || '')}</span>`;
 }
 async function insertMySig(body) {
   const sig = mySig();
-  if (!sig) { sigDialog(() => insertMySig(body)); return; }
+  if (!sig) { sigDialog('mine', () => insertMySig(body)); return; }
+  await placeSig(body, sig);
+}
+/** א חתימה אינעם בריוו: ווען ס'איז שוין דא א חתימה — זי פארביטן (נאך א פראגע) */
+async function placeSig(body, sig) {
   if (sig.type === 'img' && !imageOf(sig.img) && isDrv(sig.img)) await fetchImages([String(sig.img).slice(4)]);
   const html = sigHtmlOf(sig);
   if (!html) { ui.toast(t('wrImgNoHelper'), 'error'); return; }
-  restoreSel(body);
-  document.execCommand('insertHTML', false, html);
+  const old = $('[data-sig]', body);
+  if (old && confirm(t('wrSigReplace'))) {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = html;
+    old.replaceWith(tpl.content);
+  } else insertHtmlAt(body, html);
   body._save?.();
 }
-function sigDialog(after = null) {
-  const cur = mySig() || { type: 'text', text: '', font: SIG_FONTS[0], size: 22 };
+/** mode: 'mine' = מיין חתימה (ווערט אפגעהיט); 'temp' = נאר פאר דעם בריוו (למשל אין נאמען פון אן אנדערן, אדער ענגליש) */
+function sigDialog(mode = 'mine', after = null) {
+  const temp = mode === 'temp';
+  const cur = (temp ? null : mySig()) || { type: 'text', text: '', font: SIG_FONTS[0], size: 22 };
   let img = cur.type === 'img' ? cur.img : '';
   const fonts = [...new Set([...SIG_FONTS, ...customFontNames()])];
-  const dlg = dialog(`<h3>✍ ${h(t('wrSigSetup'))}</h3>
-    <p class="muted small">${h(t('wrSigPrivate'))}</p>
+  const dlg = dialog(`<h3>✍ ${h(t(temp ? 'wrSigTemp' : 'wrSigSetup'))}</h3>
+    <p class="muted small">${h(t(temp ? 'wrSigTempHint' : 'wrSigPrivate'))}</p>
     <div class="seg"><button type="button" data-st="text" class="${cur.type !== 'img' ? 'on' : ''}">${h(t('wrSigTyped'))}</button><button type="button" data-st="img" class="${cur.type === 'img' ? 'on' : ''}">${h(t('wrSigImage'))}</button></div>
     <div id="wrs-text"${cur.type === 'img' ? ' hidden' : ''}>
       <label class="mm-l">${h(t('wrSigText'))}<input id="wrs-t" dir="auto" value="${h(cur.text || '')}"></label>
@@ -2067,6 +2080,7 @@ function sigDialog(after = null) {
       <label class="mm-l">${h(t('mxHeight'))} (in)<input type="number" id="wrs-h" min="0.3" max="3" step="0.1" value="${Number(cur.h) || 0.8}"></label>
     </div>
     <div class="wr-sigprev" id="wrs-prev"></div>
+    ${temp ? `<label class="check"><input type="checkbox" id="wrs-keep"> ${h(t('wrSigKeepMine'))}</label>` : ''}
     <div class="dialog-actions"><button type="button" class="btn primary" id="wrs-ok">${h(t('saveBtn'))}</button><button type="button" class="btn" data-x>${h(t('cancel'))}</button></div>`);
   let type = cur.type === 'img' ? 'img' : 'text';
   const val = () => (type === 'img' ? { type, img, h: Number($('#wrs-h', dlg).value) || 0.8 }
@@ -2098,8 +2112,13 @@ function sigDialog(after = null) {
   $('#wrs-ok', dlg).onclick = async () => {
     const v = val();
     if ((v.type === 'text' && !v.text) || (v.type === 'img' && !v.img)) return;
+    const keep = !temp || $('#wrs-keep', dlg)?.checked;
     dlg.close();
-    try { await saveMySig(v); ui.toast(t('mxSavedAuto')); if (after) after(); else setTab(wrTab); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+    try {
+      if (keep) { await saveMySig(v); ui.toast(t('mxSavedAuto')); }
+      if (temp) { const body = wbody(); if (body) await placeSig(body, v); }
+      if (after) after(); else setTab(wrTab);
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
   };
 }
 // ---------- קישור ----------
@@ -2307,7 +2326,8 @@ function wireRibbon(main) {
   });
   $('#wr-date-other', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); if (body) dateDialog(body); });
   $('#wr-sig-mine', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); if (body) insertMySig(body); });
-  $('#wr-sig-setup', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); sigDialog(); });
+  $('#wr-sig-setup', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); sigDialog('mine'); });
+  $('#wr-sig-temp', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); sigDialog('temp'); });
   $$('[data-field]', rb).forEach((b) => {
     b.onclick = () => {
       closeDd(b);

@@ -80,13 +80,14 @@ export function resolveLogo(key, custom) {
 // ---------- רייניקן HTML (רייכער טעקסט פונעם עדיטאר) ----------
 const OK_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'SPAN', 'FONT', 'DIV', 'P', 'BR', 'UL', 'OL', 'LI', 'SUB', 'SUP', 'BLOCKQUOTE',
   'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TD', 'TH', 'A', 'IMG', 'H1', 'H2', 'H3', 'H4']);
-const OK_ATTR = new Set(['style', 'face', 'color', 'size', 'align', 'dir', 'colspan', 'rowspan', 'href', 'src', 'data-rep', 'alt']);
+const OK_ATTR = new Set(['style', 'face', 'color', 'size', 'align', 'dir', 'colspan', 'rowspan', 'href', 'src', 'data-rep', 'alt', 'data-sig']);
 export const REP_TYPES = ['don'];
 // א זיכערער ווערט פאר א געוויסן attribute
 function attrOk(name, v) {
   if (name === 'href') return /^(https?:\/\/|mailto:|tel:)/i.test(v);
   if (name === 'src') return /^(drv:[\w-]+|data:image\/(png|jpe?g|gif|webp);base64,[\w+/=]+)$/i.test(v);
   if (name === 'data-rep') return REP_TYPES.includes(v);
+  if (name === 'data-sig') return v === '1';
   if (name === 'colspan' || name === 'rowspan') return /^\d{1,2}$/.test(v);
   if (name === 'style') return !/url\s*\(|expression|javascript:|\\|image-set|@import|position\s*:\s*(fixed|sticky)|behavior\s*:|-moz-binding/i.test(v);
   return !/url\s*\(|expression|javascript:/i.test(v);
