@@ -1876,3 +1876,7 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .iv-pay { position: absolute; left: 0.5in; right: 0.5in; bottom: 0.45in; font-size: 9pt; color: #333; border-top: 1px solid #ccc; padding-top: 5px; font-family: Arial, sans-serif; }
 .rc-paid { color: #2f7a3e; }
 .iv-prev .iv { box-shadow: none; }
+.rx-heline { font-family: 'Frank Ruhl Libre', serif; font-size: 7.5pt; line-height: 1.25; color: #333; }
+.iv-heline { font-family: 'Frank Ruhl Libre', serif; font-size: 10pt; line-height: 1.3; }
+.od-ein { display: flex; flex-direction: column; gap: 4px; }
+.od-ein input[name=ein] { max-width: 220px; }

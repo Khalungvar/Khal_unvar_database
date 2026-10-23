@@ -916,6 +916,7 @@ export function receiptHtml(c, opts = {}) {
   const side = `<div class="rx-side">
       ${logo ? `<div class="rx-logo"><img src="${h(logo)}" alt=""></div>` : ''}
       ${he ? `<div class="rx-he" dir="rtl">${h(he)}</div>` : ''}
+      ${[det.sub_line, det.thanks_yi].filter((x) => String(x || '').trim()).map((x) => `<div class="rx-heline" dir="rtl">${h(x)}</div>`).join('')}
       <div class="rx-en">${h(legal)}</div>
       <div class="rx-det">${[det.address, det.city_state_zip, det.phone ? `Tel ${det.phone}` : '', det.email, det.website, ein ? `EIN ${ein}` : ''].filter(Boolean).map(h).join('<br>')}</div>
     </div>`;
@@ -993,6 +994,7 @@ export function invoiceHtml(c) {
     <div class="iv-top">
       ${logo ? `<img class="iv-logo" src="${h(logo)}" alt="">` : ''}
       ${he ? `<div class="iv-he" dir="rtl">${h(he)}</div>` : ''}
+      ${[det.sub_line, det.thanks_yi].filter((x) => String(x || '').trim()).map((x) => `<div class="iv-heline" dir="rtl">${h(x)}</div>`).join('')}
       <div class="iv-en">${h(legal)}</div>
       ${det.tagline_en ? `<div class="iv-tag">${h(det.tagline_en)}</div>` : ''}
       ${det.established ? `<div class="iv-est">${h(det.established)}</div>` : ''}
@@ -1133,7 +1135,7 @@ export function openInvoiceForm(c0, { done = null } = {}) {
 const TAX_DEFAULT = '{NAME} is a 501(c)(3) tax-exempt organization (EIN {EIN}). All contributions are tax deductible. No goods or services were provided by the above donee organization in consideration in whole or in part for this contribution.';
 const SECTIONS = [
   ['rcS3', [
-    ['coupon_title', 'rcfCouponTitle', 'OFFICIAL RECEIPT', '', 'ltr'],
+    ['coupon_title', 'rcfCouponTitle', 'DONATION RECEIPT', '', 'ltr'],
     ['legal_name', 'rcfLegal', '', 'req', 'ltr'],
     ['address', 'rcfAddress', '', 'req', 'ltr'],
     ['city_state_zip', 'rcfCity', '', 'req', 'ltr'],
@@ -1271,6 +1273,13 @@ export function openOrgDetails(org) {
   const yimg = Object.fromEntries(yearly.map((y) => [y.series, joinImg(y, 'header_img')]));
   const val = (k, def) => (det[k] != null && det[k] !== '' ? det[k] : def);
   const field = ([k, l, def, kind, dir]) => {
+    // EIN: א לחצן — דער פון כלל (ברירת מחדל), אדער אן אייגענער / אן
+    if (k === 'ein') {
+      const own = det.ein && det.ein !== '-' ? det.ein : '';
+      return `<div class="wide od-ein"><b>${h(t(l))}</b>
+        <label class="check"><input type="checkbox" id="od-ein-um"${det.ein ? '' : ' checked'}> ${h(t('rcfEinUm', { ein: um.ein || '—' }))}</label>
+        <input name="ein" dir="ltr" value="${h(own)}" placeholder="${h(t('rcfEinOwnPh'))}"${det.ein ? '' : ' hidden'}></div>`;
+    }
     const hint = k === 'ein' ? t('rcfEinHint', { ein: um.ein || '—' }) : k === 'org_name_he' ? t('rcfNameHeHint', { org }) : k === 'tax_text' ? t('rcfTaxHint', { NAME: '{NAME}', EIN: '{EIN}' }) : '';
     return `<label class="${kind === 'area' || kind === 'wide' || k === 'legal_name' ? 'wide' : ''}">${h(t(l))}${kind === 'req' ? ' *' : ''}
       ${kind === 'area' ? `<textarea name="${k}" rows="4" dir="${dir}">${h(val(k, def))}</textarea>`
@@ -1300,12 +1309,14 @@ export function openOrgDetails(org) {
       <button type="button" class="btn" data-close>${h(t('cancelBtn'))}</button>
       <button type="submit" class="btn primary">${h(t('saveBtn'))}</button></div>`;
   $$('[data-close]', form).forEach((b) => { b.onclick = () => dlg.close(); });
+  $('#od-ein-um', form)?.addEventListener('change', (e) => { form.elements.ein.hidden = e.target.checked; if (!e.target.checked) form.elements.ein.focus(); });
   $('#od-org', form).onchange = (e) => { dlg.close(); openOrgDetails(e.target.value); };
   const changedY = new Set();
   let logoChanged = false;
   const collect = () => {
     const o = { org: $('#od-org', form).value };
     ALL_FIELDS.forEach((k) => { o[k] = form.elements[k].value.trim(); });
+    o.ein = $('#od-ein-um', form)?.checked ? '' : (o.ein || '-');
     ['sales_tax_rate', 'addr_dx', 'addr_dy'].forEach((k) => { o[k] = o[k] === '' ? '' : String(Number(o[k]) || 0); });
     Object.assign(o, splitImg(img.header_img || '', 'header_img'));
     return o;
