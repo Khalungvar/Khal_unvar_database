@@ -2107,3 +2107,9 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .ls-table th { position: sticky; top: 0; background: #faf5e8; text-align: start; padding: 5px 8px; font-size: .9em; }
 .ls-table td { padding: 4px 8px; border-top: 1px dotted #e3d3ad; vertical-align: top; }
 .ls-dlg:has(.ls-table) { max-width: 920px; }
+.fc-shots figure { position: relative; }
+.fc-split { position: absolute; top: 6px; inset-inline-end: 6px; background: rgba(160,20,20,.88); color: #fff; border: 0; border-radius: 6px; padding: 3px 8px; font-size: .85em; cursor: pointer; }
+.fc-split:hover { background: #a01414; }
+.fc-cldlg .fc-shots { max-height: 65vh; overflow: auto; }
+.fc-cldlg .fc-shots img { width: 150px; height: 150px; }
+.fc-cldlg .fc-shots figcaption { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

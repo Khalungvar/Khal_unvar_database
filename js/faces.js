@@ -115,30 +115,74 @@ function sharpness(g, w, hh) {
 
 // ---------- סריקה ----------
 const SCAN = { running: false, stop: false };
-const SIM_SAME = 0.6; // מער ווי דאס = דער זעלבער מענטש
-const KEEP = 3; // וויפל בילדער פון יעדן מענטש
+// געמאסטן: צוויי פארשידענע מענטשן אין איין בילד קענען דערגרייכן ~0.59, דער זעלבער מענטש אפט 0.45–0.7.
+// בעסער צוויי כרטיסן פאר איין מענטש (ווערט פאראייניגט ביים דערקענען) ווי פרעמדע אין איין כרטיס.
+const SIM_SAME = 0.66; // מער ווי דאס = דער זעלבער מענטש (ביי א שארפן, גרויסן פנים)
+const SIM_WEAK = 0.05; // א טונקל / קליין פנים — מ'פארלאנגט מער ענלעכקייט
+const SIM_MIN_GAP = 0.08; // צו יעדן בילד פון דעם מענטש: נישט ווייניגער ווי SIM - דאס (נישט קיין "קייט")
+const KEEP = 3; // וויפל בילדער גייען ארויף
+const KEEP_ALL = 24; // וויפל בילדער פון יעדן מענטש ווערן געהאלטן (צו זען / אפטיילן)
+const EMBS = 8; // מיט וויפל בילדער פון יעדן מענטש מ'פארגלייכט
 const fmtT = (s) => { const x = Math.max(0, Math.floor(s)); return `${Math.floor(x / 3600) ? `${Math.floor(x / 3600)}:` : ''}${String(Math.floor((x % 3600) / 60)).padStart(Math.floor(x / 3600) ? 2 : 1, '0')}:${String(x % 60).padStart(2, '0')}`; };
 const fileKey = (f) => `${f.name}|${f.size}`;
 
+/** די טביעות פון א מענטש: פון די בעסטע בילדער (נאר שארפע, אויב עס זענען דא) */
+function clusterEmbs(cl) {
+  const withE = cl.shots.filter((x) => x.emb);
+  if (!withE.length) return cl.embs || [];
+  const strong = withE.filter((x) => !x.weak);
+  return (strong.length ? strong : withE).slice(0, EMBS).map((x) => x.emb);
+}
+/** ווי ענלעך צו דעם מענטש: די דורכשניטליכע און די נידעריגסטע ענלעכקייט צו זיינע בילדער */
+function simTo(human, emb, cl) {
+  let sum = 0; let mn = 1; let n = 0;
+  for (const e of cl.embs) { const x = human.match.similarity(emb, e); sum += x; mn = Math.min(mn, x); n += 1; }
+  return n ? { avg: sum / n, min: mn } : { avg: 0, min: 0 };
+}
+/** א בילד צולייגן צו די בילדער פון א מענטש (די בעסטע 3 שטענדיג; פון א ווידעא — נישט צו נאענט אין צייט) */
+function keepShot(cl, shot) {
+  const top = cl.shots.slice(0, KEEP);
+  const near = shot.t >= 0 && cl.shots.some((x) => x.file === shot.file && x.t >= 0 && Math.abs(x.t - shot.t) < 15);
+  const better = top.length < KEEP || shot.q > top[top.length - 1].q;
+  if (near && !better) return;
+  cl.shots.push(shot);
+  cl.shots.sort((a, b) => b.q - a.q);
+  while (cl.shots.length > KEEP_ALL) cl.shots.splice(cl.shots.length - 1, 1);
+}
 function addFace(scan, human, emb, shot) {
-  // צו וועלכן מענטש? (דער בעסטער ענלעכקייט צו איינע פון זיינע בילדער)
-  let best = null; let bestSim = 0;
+  // צו וועלכן מענטש? ער מוז זיין ענלעך צו אלע זיינע בילדער — נישט נאר צו איינעם (סיי נישט צו פארמישן פרעמדע)
+  const need = SIM_SAME + (shot.weak ? SIM_WEAK : 0);
+  let best = null; let bestAvg = 0;
+  const src = `${shot.file}|${shot.t}`;
   for (const cl of scan.clusters) {
-    for (const e of cl.embs) {
-      const s = human.match.similarity(emb, e);
-      if (s > bestSim) { bestSim = s; best = cl; }
-    }
+    if (!cl.embs?.length) continue;
+    if (cl.last === src) continue; // צוויי פנים אין דעם זעלבן בילד/פריים זענען קיינמאל נישט דער זעלבער מענטש
+    const { avg, min } = simTo(human, emb, cl);
+    if (avg >= need && min >= need - SIM_MIN_GAP && avg > bestAvg) { bestAvg = avg; best = cl; }
   }
-  if (best && bestSim >= SIM_SAME) {
+  shot.emb = emb;
+  shot.k = `${scan.nextShot = (scan.nextShot || 0) + 1}`;
+  if (best) {
     best.count += 1;
-    if (best.embs.length < 6) best.embs.push(emb);
-    best.shots.push(shot);
-    best.shots.sort((a, b) => b.q - a.q);
-    best.shots = best.shots.slice(0, KEEP);
+    best.last = src;
+    keepShot(best, shot);
+    best.embs = clusterEmbs(best);
     return false;
   }
-  scan.clusters.push({ id: scan.nextId++, embs: [emb], shots: [shot], count: 1, first: shot.t, file: shot.file });
+  scan.clusters.push({ id: scan.nextId++, embs: [emb], shots: [shot], count: 1, first: shot.t, file: shot.file, last: src });
   return true;
+}
+/** "נישט ער": א בילד ארויסנעמען פון א מענטש → א באזונדערער מענטש */
+function splitShot(scan, cl, key) {
+  const i = cl.shots.findIndex((x) => x.k === key);
+  if (i < 0 || cl.shots.length < 2) return null;
+  const [shot] = cl.shots.splice(i, 1);
+  cl.count = Math.max(1, cl.count - 1);
+  cl.embs = clusterEmbs(cl);
+  if (i === 0) cl.upQ = 0; // דאס הויפט-בילד האט זיך געטוישט → ווערט דערהיינטיגט
+  const nc = { id: scan.nextId++, embs: shot.emb ? [shot.emb] : [], shots: [shot], count: 1, first: shot.t, file: shot.file };
+  scan.clusters.push(nc);
+  return nc;
 }
 
 const isImage = (f) => /^image\//.test(f.type) || /\.(jpe?g|png|webp|heic|heif|bmp|gif)$/i.test(f.name);
@@ -152,10 +196,12 @@ async function facesFrom(human, scan, src, opts, where) {
     if (Math.min(w, hh) < opts.minPx) continue;
     const yaw = Math.abs(f.rotation?.angle?.yaw || 0); const pitch = Math.abs(f.rotation?.angle?.pitch || 0);
     if (yaw > 0.9) continue; // גאר פון דער זייט — נישט צו דערקענען
-    const { c, g } = cropFace(src, f.box);
+    const { c, g } = cropFace(src, f.box, 200);
     const sharp = sharpness(g, c.width, c.height);
     const q = Math.sqrt(w * hh) * (f.score || 0.5) * Math.max(0.2, 1 - yaw) * Math.max(0.3, 1 - pitch) * Math.min(2, 0.5 + Math.log10(1 + sharp) / 2);
-    const shot = { q, img: c.toDataURL('image/jpeg', 0.85), w: Math.round(w), ...where };
+    // א "שוואכער" פנים: קליין אדער טונקל — זיין טביעה איז ווייניגער פארלעסליך
+    const weak = Math.min(w, hh) < 70 || sharp < 60;
+    const shot = { q, img: c.toDataURL('image/jpeg', 0.82), w: Math.round(w), weak, ...where };
     if (addFace(scan, human, Float32Array.from(f.embedding), shot)) added += 1;
   }
   return added;
@@ -522,26 +568,57 @@ async function scanPane(pane, ev) {
   $('#fc-reset').onclick = async () => {
     if (SCAN.running) return;
     if (!confirm(t('fcResetAsk'))) return;
+    // די פנים וואס זענען נאך נישט דערקענט ווערן אויסגעמעקט; וואס איז שוין דערקענט/אויסגעלאזט — בלייבט
+    try {
+      await loadFaceShots();
+      const open = shotsOf(ev).filter((x) => !String(x.status || '').trim());
+      if (open.length) await clearFaceShots(open);
+      await loadFaceShots();
+      await syncEvent(ev);
+      T.ready = false;
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); return; }
     await saveScan(ev.event_id, emptyScan());
+    if (LIVE.eventId === String(ev.event_id)) LIVE.scan = null;
     scanPane(pane, ev);
   };
   $('#fc-live').onclick = (e) => {
     const b = e.target.closest('[data-cl]');
     if (!b) return;
-    loadScan(ev.event_id).then((s) => { const cl = (s || scan).clusters.find((x) => String(x.id) === b.dataset.cl); if (cl) clusterDialog(cl); });
+    const live = LIVE.eventId === String(ev.event_id) && LIVE.scan;
+    (live ? Promise.resolve(LIVE.scan) : loadScan(ev.event_id)).then((s) => { const sc = s || scan; const cl = sc.clusters.find((x) => String(x.id) === b.dataset.cl); if (cl) clusterDialog(ev, sc, cl); });
   };
 }
 
-function clusterDialog(cl) {
+function clusterDialog(ev, scan, cl) {
   const dlg = document.createElement('dialog');
   dlg.className = 'sheet fc-cldlg';
   document.body.append(dlg);
   dlg.addEventListener('close', () => dlg.remove());
-  dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button>
-    <h2>${h(t('fcSeenN', { n: cl.count }))}</h2>
-    <div class="fc-shots">${cl.shots.map((s) => `<figure><img src="${s.img}" alt=""><figcaption class="muted small" dir="ltr">${s.t >= 0 ? '🎬' : '📷'} ${h(s.file)}${s.t >= 0 ? ` · ${fmtT(s.t)}` : ''}</figcaption></figure>`).join('')}</div>
-    <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>${h(t('close'))}</button></div>`;
-  $$('[data-x]', dlg).forEach((x) => { x.onclick = () => dlg.close(); });
+  let split = 0;
+  const draw = () => {
+    const more = cl.count - cl.shots.length;
+    dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button>
+      <h2>${h(t('fcSeenN', { n: cl.count }))}</h2>
+      ${cl.shots.length > 1 ? `<p class="muted small">${h(t('fcSplitHint'))}</p>` : ''}
+      <div class="fc-shots">${cl.shots.map((s) => `<figure><img src="${s.img}" alt="">
+        ${cl.shots.length > 1 && s.k ? `<button type="button" class="fc-split" data-k="${h(s.k)}" title="${h(t('fcSplitTip'))}">✕ ${h(t('fcSplit'))}</button>` : ''}
+        <figcaption class="muted small" dir="ltr">${s.t >= 0 ? '🎬' : '📷'} ${h(s.file)}${s.t >= 0 ? ` · ${fmtT(s.t)}` : ''}</figcaption></figure>`).join('')}</div>
+      ${more > 0 ? `<p class="muted small">${h(t('fcMoreSame', { n: more }))}</p>` : ''}
+      <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>${h(t('close'))}</button></div>`;
+    $$('[data-x]', dlg).forEach((x) => { x.onclick = () => dlg.close(); });
+  };
+  dlg.addEventListener('click', async (e) => {
+    const b = e.target.closest('.fc-split');
+    if (!b) return;
+    if (!splitShot(scan, cl, b.dataset.k)) return;
+    split += 1;
+    await saveScan(ev.event_id, scan);
+    liveGrid(scan);
+    draw();
+  });
+  // נאכ'ן אפטיילן: ארויפשיקן (דער נייער מענטש + דער טויש אינעם אלטן)
+  dlg.addEventListener('close', () => { if (split && !SCAN.running) uploadScan(ev, () => {}, { final: true }); });
+  draw();
   dlg.showModal();
 }
 
