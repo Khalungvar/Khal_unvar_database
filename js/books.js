@@ -20,7 +20,9 @@ const num = (v) => (v === '' || v == null ? null : Number(v));
 const money = (v) => `$${(Number(v) || 0).toLocaleString('en-US', { minimumFractionDigits: Number(v) % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
 export const allBooks = () => [...(state.books || [])].sort((a, b) => (Number(a.sort) || 0) - (Number(b.sort) || 0) || Number(a.book_id) - Number(b.book_id));
 export const bookById = (id) => (state.books || []).find((b) => String(b.book_id) === String(id));
-const imgOf = (b) => imageOf(b.image) || '';
+// (די ערשטע בילדער זענען געווען jpg מיט א ווייסן הינטערגרונט — יעצט webp אן הינטערגרונט)
+const imgOf = (b) => (imageOf(b.image) || '').replace(/^(img\/books\/\d+)\.jpg$/, '$1.webp');
+export const BOOKS_LOGO = 'img/mishne-halachos-logo.png';
 
 /** איז דער מבצע אקטיוו (היינט צווישן פון און ביז; א ליידיגער טאג = אן גרענעץ)? 'on' / 'soon' / 'over' / '' */
 export function saleState(b, day = today()) {
@@ -229,7 +231,7 @@ export function renderBooks() {
   const onSale = list.filter((b) => saleState(b) === 'on').length;
   const sales = (state.donations || []).filter((d) => booksOf(d).length);
   main.innerHTML = `<div class="sc-head bk-head">
-      <span class="sc-logo-ph">📚</span>
+      <img class="bk-logo" src="${BOOKS_LOGO}" alt="">
       <div><h1>${h(BOOKS_ORG)}</h1><p class="muted small">${h(t('bkSub', { n: (state.books || []).length }))}${onSale ? ` · 🏷 ${h(t('bkOnSaleN', { n: onSale }))}` : ''}</p></div>
       <span class="spacer"></span>
       <button type="button" class="btn" id="bk-back">← ${h(t('lobbyBack'))}</button>
@@ -373,6 +375,7 @@ function saveBook(rec) {
   // איינס נאך דאס אנדערע (א שנעלער טאב פון פעלד צו פעלד)
   saving = saving.then(async () => {
     try {
+      if (/^img\/books\/\d+\.jpg$/.test(String(rec.image || ''))) rec = { ...rec, image: rec.image.replace(/\.jpg$/, '.webp') };
       const id = await saveRecord('Books', 'book_id', { ...rec });
       const i = state.books.findIndex((x) => String(x.book_id) === String(id));
       const fresh = { ...rec, book_id: id };
@@ -393,9 +396,10 @@ async function shrinkImage(file) {
     const c = document.createElement('canvas');
     c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
     const g = c.getContext('2d');
-    g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
     g.drawImage(img, 0, 0, c.width, c.height);
-    return c.toDataURL('image/jpeg', 0.82);
+    // אן הינטערגרונט (א PNG מיט א דורכזיכטיגן הינטערגרונט בלייבט אזוי)
+    const webp = c.toDataURL('image/webp', 0.85);
+    return webp.startsWith('data:image/webp') ? webp : c.toDataURL('image/png');
   } finally { URL.revokeObjectURL(url); }
 }
 
@@ -412,7 +416,7 @@ function editBook(b0) {
     <h2>📚 ${h(isNew ? t('bkNew') : t('bkEdit'))}</h2>
     <form class="bk-form" autocomplete="off">
       <div class="bk-form-top">
-        <div class="bk-imgbox"><div class="bk-imgprev">${imageOf(image) ? `<img src="${h(imageOf(image))}" alt="">` : '📖'}</div>
+        <div class="bk-imgbox"><div class="bk-imgprev">${imgOf({ image }) ? `<img src="${h(imgOf({ image }))}" alt="">` : '📖'}</div>
           <label class="btn small-btn">🖼 ${h(t('bkImg'))}<input type="file" accept="image/*" hidden name="img"></label>
           <button type="button" class="linkish bk-imgdel"${image ? '' : ' hidden'}>✕ ${h(t('bkImgDel'))}</button></div>
         <div class="bk-form-fields">

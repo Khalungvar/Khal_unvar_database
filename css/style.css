@@ -1918,8 +1918,8 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 @media (max-width: 640px) { .bk-grid { grid-template-columns: 1fr; } }
 .bk-card { display: flex; gap: 10px; background: var(--card, #fff); border: 1px solid #e8dcc4; border-radius: 10px; padding: 8px 10px; min-width: 0; }
 .bk-card.bk-onsale { border-color: #7cc08a; box-shadow: 0 0 0 1px #7cc08a inset; }
-.bk-img { width: 52px; flex: none; display: flex; align-items: center; justify-content: center; }
-.bk-img img { max-width: 52px; max-height: 78px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.25)); }
+.bk-img { width: 58px; flex: none; display: flex; align-items: center; justify-content: center; }
+.bk-img img { max-width: 58px; max-height: 86px; }
 .bk-noimg { font-size: 28px; opacity: .5; }
 .bk-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .bk-title { display: flex; align-items: baseline; gap: 4px; }
@@ -1974,3 +1974,6 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .bk-hist td { padding: 4px 6px; border-bottom: 1px dotted #e3d3ad; }
 .bk-h-q { font-weight: bold; text-align: center; }
 .bk-h-give { background: #fbf7ee; }
+
+.bk-logo { height: 52px; width: auto; }
+.lobby-tile .bk-tile-logo { height: 46px; width: auto; max-width: 120px; background: transparent; padding: 0; }

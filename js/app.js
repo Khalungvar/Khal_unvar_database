@@ -36,7 +36,7 @@ import { initSms, openCalls, renderCalls, smsCardHtml, wireSmsCard } from './sms
 import { workCardHtml, workFormHtml, wireWorkForm, readWorkForm, workSearchText } from './work.js';
 import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, markChecked, hasRealTags, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
 import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
-import { initBooks, openBooks, renderBooks, BOOKS_ORG } from './books.js';
+import { initBooks, openBooks, renderBooks, BOOKS_ORG, BOOKS_LOGO } from './books.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount, parseOrgTags, splitEntry, entry } from './orgtags.js';
 import {
@@ -209,7 +209,7 @@ function renderLobby() {
       ${tile('receipts', '🧾', 'Invoice & Receipt', t('lobbyReceiptsSub'))}
     </div>
     <div class="lobby-row lobby-assoc">
-      ${tile('books', '📚', BOOKS_ORG, t('bkTileSub', { n: (state.books || []).length }))}
+      ${tile('books', `<img class="tile-logo bk-tile-logo" src="${BOOKS_LOGO}" alt="">`, BOOKS_ORG, t('bkTileSub', { n: (state.books || []).length }))}
     </div>`;
 }
 
