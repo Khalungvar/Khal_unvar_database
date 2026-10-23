@@ -1756,3 +1756,85 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .wr-dprev { font-size: 18px; min-height: 1.4em; color: var(--accent); }
 .wr-sigprev { min-height: 60px; border: 1px dashed var(--line); border-radius: 8px; padding: 8px; margin-top: 8px; display: flex; align-items: center; justify-content: center; background: #fff; color: #1f1a17; }
 .wr-sigprev img { max-height: 1.2in; }
+/* ===== הקבלה החדשה: שליש עמוד (כמו צ'ק) ===== */
+.rx { position: relative; box-sizing: border-box; background: #fff; color: #1f1a17; font-family: Georgia, 'Frank Ruhl Libre', serif; display: flex; overflow: hidden; }
+.rx-main { flex: 1; position: relative; padding: 0.22in 0.3in 0.18in 0.35in; display: flex; flex-direction: column; min-width: 0; }
+.rx-side { width: 1.7in; flex: none; border-left: 2px solid #c9a23f; padding: 0.2in 0.16in; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 3px; background: #fdfaf2; }
+.rx-logo img { max-width: 1.1in; max-height: 0.7in; }
+.rx-he { font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 10.5pt; color: #7a1219; line-height: 1.2; }
+.rx-en { font-weight: 700; font-size: 8.5pt; line-height: 1.2; }
+.rx-det { font-size: 7pt; line-height: 1.35; color: #444; font-family: Arial, sans-serif; }
+.rx-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1.5px solid #7a1219; padding-bottom: 3px; }
+.rx-title { font-size: 13pt; font-weight: 700; letter-spacing: .08em; color: #7a1219; }
+.rx-no { font-size: 9.5pt; font-family: Arial, sans-serif; }
+.rx-no b { font-size: 12pt; color: #7a1219; }
+.rx-copy { color: #888; font-size: 8pt; }
+.rx-body { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.rx-info { display: flex; justify-content: space-between; gap: 10px; font-size: 9pt; margin: 5px 0 4px; font-family: Arial, sans-serif; }
+.rx-l { color: #7a6a5c; font-size: 7.5pt; text-transform: uppercase; letter-spacing: .05em; margin-inline-end: 3px; }
+.rx-hed { color: #7a6a5c; font-family: 'Frank Ruhl Libre', serif; font-size: 8.5pt; }
+.rx-lines { width: 100%; border-collapse: collapse; font-size: 8.5pt; font-family: Arial, sans-serif; }
+.rx-lines th { text-align: left; font-size: 7pt; color: #7a6a5c; text-transform: uppercase; border-bottom: 1px solid #e3d3ad; padding: 1px 4px; font-weight: 600; }
+.rx-lines td { padding: 1.5px 4px; border-bottom: 1px dotted #e3d3ad; vertical-align: top; }
+.rx-lines .amt { text-align: right; white-space: nowrap; }
+.rx-lines td:nth-child(2) bdi { font-family: 'Frank Ruhl Libre', Arial, sans-serif; }
+.rx-sub { display: flex; justify-content: flex-end; gap: 14px; font-size: 8pt; font-family: Arial, sans-serif; margin-top: 2px; }
+.rx-total { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; font-family: Arial, sans-serif; border-top: 1px solid #c9a23f; padding-top: 3px; }
+.rx-total b { font-size: 13pt; color: #7a1219; }
+.rx-words { font-size: 8pt; font-style: italic; color: #444; font-family: Georgia, serif; }
+.rx-foot { display: flex; gap: 12px; align-items: flex-end; margin-top: auto; }
+.rx-tax { flex: 1; font-size: 6.6pt; line-height: 1.3; color: #444; font-family: Arial, sans-serif; }
+.rx-sig { width: 1.7in; text-align: center; flex: none; }
+.rx-sig img { max-height: 0.42in; max-width: 1.6in; }
+.rx-sigtext { font-size: 17pt; line-height: 1.1; color: #1f2a5a; }
+.rx-sigline { border-top: 1px solid #888; font-size: 6.5pt; color: #7a6a5c; font-family: Arial, sans-serif; padding-top: 1px; }
+.rx-full .rx-main { padding: 0.5in 0.45in 0.45in 0.6in; }
+.rx-full .rx-title { font-size: 16pt; }
+.rx-full .rx-body { margin-top: 2.6in; }
+.rx-full .rx-lines { font-size: 9.5pt; }
+.rx-full .rx-tax { font-size: 8pt; }
+.rx-full .rx-side { width: 1.9in; padding-top: 0.5in; }
+.rx-winaddr { position: absolute; width: 3.6in; font-family: Arial, sans-serif; font-size: 10.5pt; line-height: 1.3; }
+.rx-sheet { position: relative; width: 8.5in; height: 11in; background: #fff; overflow: hidden; box-sizing: border-box; }
+.rx-cut { position: absolute; left: 0; right: 0; border-top: 1.5px dashed #999; }
+.rx-cut span { position: absolute; left: 0.15in; top: -0.11in; font-size: 11pt; color: #999; background: #fff; }
+.rx-addr { position: absolute; width: 3.7in; font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.35; color: #000; }
+@media print {
+  body.printing-rc #rc-print-area.rx-area .rx-sheet { break-after: page; page-break-after: always; }
+  body.printing-rc #rc-print-area.rx-area .rx-sheet:last-child { break-after: auto; page-break-after: auto; }
+}
+/* במכתב: "ייבוא קבלה" */
+.mx-rcslot { position: absolute; left: 0; width: 8.5in; height: 3.667in; }
+.mx-rccut { position: absolute; left: 0; right: 0; top: -1px; border-top: 1.5px dashed #999; font-size: 0; height: 0; }
+.mx-rcslot .rx { width: 8.5in !important; }
+.mx-rcsample { opacity: .55; }
+.mx-rcsample::after { content: 'דוגמה · SAMPLE'; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-12deg); font: 700 28pt Arial, sans-serif; color: rgba(122,18,25,.35); pointer-events: none; }
+.wr-sheets .mx-rcslot { pointer-events: none; }
+/* דער טופס פון א קבלה */
+.rx-form-dlg { max-width: min(1250px, 96vw); }
+.rx-form { display: grid; grid-template-columns: minmax(330px, 440px) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 950px) { .rx-form { grid-template-columns: 1fr; } }
+.rx-form-side { display: flex; flex-direction: column; gap: 8px; }
+.rx-form-side label { display: flex; flex-direction: column; gap: 3px; font-size: 14px; }
+.rx-form-side label.check { flex-direction: row; align-items: center; }
+.rxf-lines { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rxf-lines th, .rxf-lines td { border-bottom: 1px solid var(--line); padding: 3px 4px; text-align: start; }
+.rxf-lines input { width: 100%; min-width: 60px; font-size: 13px; padding: 2px 4px; }
+.rxf-total { margin: 4px 0; }
+.rxf-temp { display: flex; gap: 6px; }
+.rx-form-prev { background: #e2dccf; border-radius: 10px; padding: 10px; overflow: auto; }
+.rx-prev-scale { zoom: .78; box-shadow: 0 1px 6px rgba(0,0,0,.25); width: 8.5in; }
+.rc-formbtn { margin-inline-start: 6px; }
+.don-kind-line { display: flex; justify-content: flex-start; margin: 4px 0; }
+.goods-line .goods-val input { width: 110px; }
+.adm-goods input[data-col=gdesc] { width: 120px; }
+.adm-goods input[data-col=gval] { width: 70px; }
+.od-live-scale .rx-sheet { box-shadow: 0 1px 6px rgba(0,0,0,.2); }
+.rx-form { grid-template-columns: 1fr !important; }
+.rx-form-prev { direction: ltr; }
+.rx-form-side { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px 18px; align-items: start; }
+.rx-form-side .rxf-lines, .rx-form-side .rxf-total, .rx-form-side .rxf-add, .rx-form-side > .seg { grid-column: 1 / -1; }
+.rx-form-side > .seg { justify-self: start; }
+.rx-prev-scale { zoom: 1; }
+.rx thead th::after { content: none !important; }
+.rxf-temp input, .rxf-temp select { min-width: 0; flex: 1; }

@@ -3,7 +3,7 @@
 // און ביים נאכאמאל דרוקן — דער זעלבער נומער.
 import { customFontNames } from './fonts.js';
 import {
-  state, loadAll, orgDetailsOf, issueDocs, findIssued, voidReceipt, orgLogo, saveOrgDetails, saveYearly, saveOrgLogo,
+  state, loadAll, orgDetailsOf, issueDocs, findIssued, voidReceipt, metaOfReceipt, orgLogo, saveOrgDetails, saveYearly, saveOrgLogo,
 } from './data.js';
 import { t } from './i18n.js';
 import { isTrue, escapeHtml as h, mailingName, splitTags, shrinkImage } from './util.js';
@@ -17,13 +17,17 @@ import { ensureGmailScope, hasGmailScope } from './google.js';
 import { htmlToJpeg, jpegsToPdf } from './pdf.js';
 import { savedInScope, parseSaved, evaluate } from './lists.js';
 import { submitRequest } from './requests.js';
-import { letterSizeFor, letterTemplates, letterPage, letterPagesFor, openMailMergeFor } from './mailmerge.js';
+import { letterSizeFor, letterTemplates, letterPagesFor, letterHasReceipt, openMailMergeFor, mySigObj } from './mailmerge.js';
+import { imageOf } from './images.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 const KINDS = [['receipt', 'rcKindReceipt'], ['invoice', 'rcKindInvoice'], ['year', 'rcKindYear'], ['campaign', 'rcKindCampaign']];
+/** א קבלה (נישט בטל) וואס האט אין זיך די נדבה (אויך מיט נאך נדבות) */
+const receiptWith = (id) => state.receipts.find((r) => !isTrue(r.void) && !['invoice', 'year', 'campaign'].includes(r.kind) && String(r.donation_ids || '').split(',').includes(String(id))) || null;
+const DEFAULT_ORG = 'ביהמ"ד בארא פארק';
 let f = null; // די פילטערס: { kind, org, from, to, year, campaign, onlyNew }
 
 function defaults() {
@@ -86,7 +90,8 @@ export function renderReceipts() {
   if (!main) return;
   if (!f) f = defaults();
   const orgs = allOrgs();
-  if (!f.org || !orgs.includes(f.org)) f.org = orgs[0] || '';
+  // ברירת מחדל: ביהמ"ד בארא פארק (דער "כלל" איז נישט קיין באזונדער מוסד)
+  if (!f.org || !orgs.includes(f.org)) f.org = orgs.find((o) => o === DEFAULT_ORG) || orgs.find((o) => o !== umbrellaName()) || orgs[0] || '';
   if (f.kind === 'campaign') {
     const c = allCampaigns().find((x) => x.name === f.campaign);
     if (c?.org) f.org = c.org;
@@ -95,7 +100,7 @@ export function renderReceipts() {
   const missing = !det || !det.legal_name || !det.address;
   const whoSet = whoFilter();
   const list = candidates().filter((c) => !whoSet || whoSet.has(String(c.contact_id)))
-    .map((c) => ({ ...c, issued: findIssued(c.kind, c.org, c.ids, c.period, c.contact_id || c.donor_name) }));
+    .map((c) => ({ ...c, issued: findIssued(c.kind, c.org, c.ids, c.period, c.contact_id || c.donor_name) || (c.kind === 'receipt' ? receiptWith(c.ids[0]) : null) }));
   const whoC = f.whoC ? ui.contactById(f.whoC) : null;
   const lists = savedInScope();
   const shown = f.onlyNew && f.kind !== 'invoice' ? list.filter((c) => !c.issued) : list;
@@ -121,13 +126,13 @@ export function renderReceipts() {
     </div>
     ${missing ? `<p class="drive-warn">⚠ ${h(t('rcMissingDetails', { org: f.org }))} <button type="button" class="btn small-btn primary" id="rc-edit-org">${h(t('rcEditDetails'))}</button></p>`
       : `<p class="muted small">${h(det.legal_name)} · EIN ${h(det.ein || '—')} <button type="button" class="linkish" id="rc-edit-org">${h(t('rcEditDetails'))}</button></p>`}
-    ${!missing && f.kind !== 'invoice' && f.org ? letterPanelHtml(f.org) : ''}
+
     <div class="rc-actions">
       <label class="check"><input type="checkbox" id="rc-all"> ${h(t('rcSelectAll'))}</label>
       <span class="muted" id="rc-count"></span>
       <span class="spacer"></span>
       ${f.kind !== 'invoice' ? `<select id="rc-letter" title="${h(t('rcWithLetterTip'))}"><option value="">📄 ${h(t('rcNoLetter'))}</option>${letterTemplates().map((x) => `<option value="${h(x.id)}"${String(x.id) === String(f.letter || '') ? ' selected' : ''}>📄 ${h(x.name)}</option>`).join('')}</select>` : ''}
-      <label class="check" title="${h(t('rcWindowTip'))}"><input type="checkbox" id="rc-window"${f.window ? ' checked' : ''}> ${h(t('rcWindow'))}</label>
+
       <button type="button" class="btn" id="rc-env">✉ ${h(t('rcEnvelopes'))}</button>
       <button type="button" class="btn" id="rc-sample">👁 ${h(t('rcPreview'))}</button>
       <button type="button" class="btn" id="rc-xl">Excel</button>
@@ -136,7 +141,8 @@ export function renderReceipts() {
     </div>
     ${shown.length ? `<table class="lapsed-table rc-table"><thead><tr><th></th><th>${h(t('xlDonor'))}</th><th>${h(t('rcWhat'))}</th><th>${h(t('xlAmount'))}</th><th>${h(t('rcNumber'))}</th></tr></thead>
       <tbody>${shown.map((c, i) => `<tr><td><input type="checkbox" class="rc-pick" data-i="${i}"></td>
-        <td>${h(donorLabel(c))}${addrOf(c) ? '' : ` <span class="badge muted" title="${h(t('rcNoAddress'))}">✉?</span>`}</td>
+        <td>${h(donorLabel(c))}${addrOf(c) ? '' : ` <span class="badge muted" title="${h(t('rcNoAddress'))}">✉?</span>`}
+          ${c.kind !== 'invoice' ? `<button type="button" class="linkish small rc-formbtn" data-form="${i}" title="${h(t('rcFormTip'))}">🧾 ${h(t('rcForm'))}</button>` : ''}</td>
         <td class="muted small">${h(whatText(c))}</td>
         <td class="num" dir="ltr">${money(c.amount)}</td>
         <td class="small" dir="ltr">${c.issued ? h(c.issued.receipt_no) : '—'}</td></tr>`).join('')}</tbody></table>`
@@ -161,15 +167,15 @@ export function renderReceipts() {
   $('#rc-who-x', main)?.addEventListener('click', () => { f.whoC = ''; f.whoL = ''; rerender(); });
   $('#rc-for', main)?.addEventListener('input', (e) => { f.forText = e.target.value; });
   $('#rc-onlynew', main)?.addEventListener('change', (e) => { f.onlyNew = e.target.checked; rerender(); });
-  if (!missing && f.kind !== 'invoice' && f.org) wireLetterPanel(main, f.org, rerender);
+
   $('#rc-sample', main).onclick = () => {
     const d = picked()[0] || shown[0];
     if (!d) return;
-    printDocs([{ ...d, receipt_no: d.issued?.receipt_no || '—', issued_at: new Date().toISOString().slice(0, 10), forText: f.kind !== 'year' ? String(f.forText || '').trim() : '' }], { letter: f.letter, window: f.window });
+    printDocs([{ ...d, receipt_no: d.issued?.receipt_no || '—', issued_at: new Date().toISOString().slice(0, 10), forText: f.kind !== 'year' ? String(f.forText || '').trim() : '' }], { letter: f.letter });
   };
   $('#rc-edit-org', main).onclick = () => openOrgDetails(f.org);
   $('#rc-letter', main)?.addEventListener('change', (e) => { f.letter = e.target.value; });
-  $('#rc-window', main)?.addEventListener('change', (e) => { f.window = e.target.checked; });
+  $$('[data-form]', main).forEach((b) => { b.onclick = () => { if (missing) { openOrgDetails(f.org); return; } openReceiptForm(shown[Number(b.dataset.form)], { letter: f.letter, forText: f.kind !== 'year' ? String(f.forText || '').trim() : '', done: rerender }); }; });
   $('#rc-env', main).onclick = () => {
     const docs = picked().length ? picked() : shown;
     const ids = [...new Set(docs.map((d) => String(d.contact_id || '')).filter(Boolean))];
@@ -194,12 +200,12 @@ export function renderReceipts() {
     btn.disabled = true;
     try {
       if (f.kind !== 'invoice') await rememberLetter(f.org);
-      const issued = await issueDocs(docs.map((d) => ({ kind: d.kind, org: d.org, contact_id: d.contact_id, donor_name: d.donor_name, ids: d.ids, amount: d.amount, period: d.period })));
+      const issued = await issueDocs(docs.map((d) => issueOf(d)));
       const forText = f.kind !== 'year' ? String(f.forText || '').trim() : '';
       printDocs(issued.map((x, i) => ({
-        ...docs[i], receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint,
+        ...docs[i], receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint, meta: x.meta,
         forText,
-      })), { letter: f.letter, window: f.window });
+      })), { letter: f.letter });
       await loadAll();
       rerender();
     } catch (err) {
@@ -219,8 +225,8 @@ export function renderReceipts() {
       btn.disabled = true;
       try {
         if (f.kind !== 'invoice') await rememberLetter(f.org);
-        const issued = await issueDocs(withMail.map((d) => ({ kind: d.kind, org: d.org, contact_id: d.contact_id, donor_name: d.donor_name, ids: d.ids, amount: d.amount, period: d.period })));
-        const full = issued.map((x, i) => ({ ...withMail[i], receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint, forText }));
+        const issued = await issueDocs(withMail.map((d) => issueOf(d)));
+        const full = issued.map((x, i) => ({ ...withMail[i], receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint, meta: x.meta, forText }));
         const r = await mailDocs(full.map((c) => ({ c, to: emailOf(ui.contactById(c.contact_id)) })), (done, total) => { btn.textContent = `✉ ${done}/${total}`; }, f.letter);
         ui.toast(t('mailDone', { n: r.done - r.errors, errors: r.errors }), r.errors ? 'error' : '');
         await loadAll();
@@ -253,20 +259,21 @@ function askAddress(contactId) {
 }
 
 export async function receiptPdf(c, letter = '') {
+  const pages = [];
+  const page = async (html, W, H, scale = 1.8) => {
+    const j = await htmlToJpeg(`<div class="mx-out" dir="ltr" style="width:${W}in;height:${H}in">${html}</div>`, { widthIn: W, heightIn: H, scale });
+    pages.push(Object.assign(j, { pageW: W * 72, pageH: H * 72 }));
+  };
   const ct = letter && c.contact_id ? ui.contactById(c.contact_id) : null;
-  const lps = ct ? letterPagesFor(letter, ct, letterCtx(c)) : [];
-  let bytes;
-  if (lps.length) {
-    // בריוו (איין אדער מער בלעטער) + קבלה: יעדעס א פולער Letter בלאט
-    const pages = [];
+  if (ct) {
+    // דער בריוו (מיט דער קבלה אונטן, ווען ער האט "ייבוא קבלה"); אנדערש — דער בריוו און נאכדעם די קבלה
+    const slot = letterHasReceipt(letter);
     const [W, H] = letterSizeFor(letter);
-    for (const lp of lps) {
-      const j = await htmlToJpeg(`<div class="mx-out" dir="ltr" style="width:${W}in;height:${H}in">${lp}</div>`, { widthIn: W, heightIn: H, scale: 1.8 });
-      pages.push(Object.assign(j, { pageW: W * 72, pageH: H * 72 }));
-    }
-    pages.push(await htmlToJpeg(`<div class="rc-page">${docHtml(c)}</div>`, { widthIn: 8.5, heightIn: 11 }));
-    bytes = jpegsToPdf(pages, { margin: 0 });
-  } else bytes = jpegsToPdf([await htmlToJpeg(docHtml(c))]);
+    for (const lp of letterPagesFor(letter, ct, { ...letterCtx(c), receipt: slot ? receiptSlotHtml(c) : '' })) await page(lp, W, H);
+    if (!slot || needsFullPage(c)) await page(receiptHtml(c, { full: needsFullPage(c) }), 8.5, needsFullPage(c) ? 11 : RX_H);
+  } else if (needsFullPage(c)) await page(receiptHtml(c, { full: true }), 8.5, 11);
+  else await page(receiptHtml(c), 8.5, RX_H, 2.2); // א PDF אין דער גרייס פון א דריטל בלאט
+  const bytes = jpegsToPdf(pages, { margin: 0 });
   let bin = '';
   for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(bin);
@@ -360,12 +367,12 @@ function fromLog(no) {
   }
   const list = ids.map((id) => state.donations.find((d) => String(d.donation_id) === id)).filter(Boolean);
   if (!list.length) { ui.toast(t('rcGone'), 'error'); return null; }
-  return { kind: r.kind, org: r.org, contact_id: r.contact_id, donor_name: r.donor_name, ids, amount: Number(r.amount), period: r.period, list, receipt_no: r.receipt_no, issued_at: r.issued_at, reprint: true };
+  return { kind: r.kind, org: r.org, contact_id: r.contact_id, donor_name: r.donor_name, ids, amount: Number(r.amount), period: r.period, list, receipt_no: r.receipt_no, issued_at: r.issued_at, reprint: true, meta: metaOfReceipt(r) };
 }
 
 function wireLog(main) {
   main.querySelectorAll('[data-reprint]').forEach((b) => {
-    b.onclick = () => { const c = fromLog(b.dataset.reprint); if (c) printDocs([c], { window: f?.window }); };
+    b.onclick = () => { const c = fromLog(b.dataset.reprint); if (c) printDocs([c]); };
   });
   main.querySelectorAll('[data-remail]').forEach((b) => {
     b.onclick = () => {
@@ -404,7 +411,7 @@ const longDate = (iso) => {
 
 function payText(d) {
   const m = String(d.payment_method || '');
-  const map = { "צ'ק": 'Check', 'כרטיס אשראי': 'Credit card', 'קאש': 'Cash', 'אחר': 'Other' };
+  const map = { "צ'ק": 'Check', 'כרטיס אשראי': 'Credit card', 'קאש': 'Cash', 'מזומן': 'Cash', 'אחר': 'Other' };
   const base = map[m] || m;
   if (d.check_number) return `${base || 'Check'} #${d.check_number}`;
   if (d.card_last4) return `${base || 'Card'} ****${d.card_last4}`;
@@ -488,8 +495,10 @@ function letterParts(c) {
   const det = { ...(orgDetailsOf(c.org) || {}), ...(letterState[c.org] || {}) };
   // אלע ארגונים אין אמעריקע זענען אונטער דעם EIN פון קהל אונגוואר (דער כלל-ארגון) — ווען א ארגון האט נישט קיין אייגענעם
   const um = orgDetailsOf(umbrellaName()) || {};
-  const ein = det.ein || um.ein || '';
-  const taxEntity = det.ein ? (det.legal_name || c.org) : (um.legal_name || det.legal_name || c.org);
+  // "-" = דער ארגון האט נישט קיין EIN (נישט אונטער דעם כלל)
+  const noEin = String(det.ein || '').trim() === '-';
+  const ein = noEin ? '' : (det.ein || um.ein || '');
+  const taxEntity = det.ein && !noEin ? (det.legal_name || c.org) : noEin ? (det.legal_name || c.org) : (um.legal_name || det.legal_name || c.org);
   const yc = yearlyFor(c);
   const ct = c.contact_id ? ui.contactById(c.contact_id) : null;
   const name = ct ? (mailingName(ct) || [ct.legal_first_name || ct.first_name_en, ct.last_name_en].filter(Boolean).join(' ') || ui.fullNameHe(ct)) : c.donor_name;
@@ -583,76 +592,183 @@ function windowBlock(c) {
 }
 const WIN_BOTTOM = 3.35; // אינטשעס פונעם אויבן פונעם בלאט: אונטער דעם — דער טעקסט פונעם בריוו
 
-/** דרוקט (אדער PDF): יעדער דאקומענט אויף א באזונדערן בלאט. opts.letter = א בריוו פון Mail Merge פאר יעדן, opts.window = קאנווערט מיט א פענצטער */
+/** דרוקט: יעדע קבלה אויף איר בלאט (אויבן די קבלה, אונטן דער אדרעס פאר'ן פענצטער). opts.letter = א בריוו פון Mail Merge פאר יעדן */
 export function printDocs(docs, opts = {}) {
   const letter = opts.letter || '';
-  const win = Boolean(opts.window);
   let area = $('#rc-print-area');
   if (!area) { area = document.createElement('div'); area.id = 'rc-print-area'; document.body.append(area); }
-  const one = (c) => {
-    const doc = docHtml(c).replace('<section class="rc-doc">', `<section class="rc-doc${win ? ' rc-win' : ''}">${win ? windowBlock(c) : ''}`);
-    if (!letter) return doc;
-    const ct = c.contact_id ? ui.contactById(c.contact_id) : null;
-    const lp = ct ? letterPage(letter, ct, letterCtx(c)) : '';
-    return `${lp ? `<div class="rc-mxwrap" dir="ltr">${lp}</div>` : ''}<div class="rc-page">${doc}</div>`;
-  };
-  area.innerHTML = docs.map(one).join('');
-  area.classList.toggle('rc-with-letter', Boolean(letter));
+  const slot = letter ? letterHasReceipt(letter) : false;
+  const pages = [];
+  docs.forEach((c) => {
+    const ct = letter && c.contact_id ? ui.contactById(c.contact_id) : null;
+    const lps = ct ? letterPagesFor(letter, ct, { ...letterCtx(c), receipt: slot ? receiptSlotHtml(c) : '' }) : [];
+    lps.forEach((p) => pages.push(`<div class="rx-sheet rx-ltr">${p}</div>`));
+    if (!lps.length || !slot || needsFullPage(c)) pages.push(receiptSheetHtml(c));
+  });
+  area.innerHTML = pages.join('');
+  area.classList.add('rx-area');
   let st = $('#rc-page-style');
   if (!st) { st = document.createElement('style'); st.id = 'rc-page-style'; document.head.append(st); }
-  st.textContent = letter ? '@page { size: letter; margin: 0; }' : '';
+  st.textContent = '@page { size: letter; margin: 0; }';
   document.body.classList.add('printing-rc');
   const done = () => { document.body.classList.remove('printing-rc'); area.innerHTML = ''; st.textContent = ''; window.removeEventListener('afterprint', done); };
   window.addEventListener('afterprint', done);
-  // פענצטער: דער בריוו הייבט זיך אן אונטער דעם פענצטער (געמאסטן נאכדעם וואס די בילדער זענען געלאדן)
-  const placeWindow = () => {
-    if (!win) return;
-    $$('.rc-win', area).forEach((doc) => {
-      const L = $('.rd-letter', doc);
-      if (!L) return;
-      L.style.paddingTop = '';
-      const top = L.getBoundingClientRect().top - doc.getBoundingClientRect().top;
-      const need = (WIN_BOTTOM - 0.5) * 96 - top;
-      if (need > 0) L.style.paddingTop = `${need}px`;
-    });
-  };
   // די בילדער און די שריפטן (כתב-יד) מוזן זיך אויסלאדן פארן דרוקן
   const fonts = ["24px 'Playpen Sans Hebrew'", "24px 'Amatic SC'", "24px 'Noto Rashi Hebrew'", "16px 'Frank Ruhl Libre'", "bold 16px 'Frank Ruhl Libre'"]
     .map((f2) => (document.fonts?.load ? document.fonts.load(f2, 'אבג').catch(() => null) : null));
   Promise.all([...fonts, ...$$('img', area).map((img) => (img.complete ? null : new Promise((r) => { img.onload = r; img.onerror = r; })))])
     .then(() => (document.fonts?.ready || null))
-    .then(() => { placeWindow(); window.print(); });
+    .then(() => window.print());
 }
 
-export async function printForDonation(d, mode = 'print') {
+/** וואס מ'שרייבט אריין אין לשונית Receipts */
+function issueOf(d) {
+  return { kind: d.kind, org: d.org, contact_id: d.contact_id, donor_name: d.donor_name, ids: d.ids, amount: d.amount, period: d.period, note: d.note || '', meta: d.meta || defaultMeta(d) };
+}
+function defaultMeta(d) {
+  return { type: d.list?.[0]?.kind === 'sale' ? 'sale' : 'donation', sig: { mode: 'org' } };
+}
+
+// ---------- דער טופס פון א קבלה: סארט, שורות, תמורה, חתימה ----------
+export function openReceiptForm(c0, { letter = '', forText = '', done = null } = {}) {
+  const det = orgDetailsOf(c0.org) || {};
+  const um = orgDetailsOf(umbrellaName()) || {};
+  const rate0 = Number(det.sales_tax_rate || um.sales_tax_rate) || 8.875;
+  const st0 = c0.meta || defaultMeta(c0);
+  const F = {
+    type: st0.type || 'donation', tax: Boolean(st0.tax), taxRate: Number(st0.taxRate) || rate0, sig: st0.sig || { mode: 'org' },
+    list: [...c0.list], lines: { ...(st0.lines || {}) }, letter,
+  };
+  const mine = mySigObj();
+  const sameWho = (d) => (c0.contact_id ? String(d.contact_id) === String(c0.contact_id) : !d.contact_id && String(d.donor_name || '').trim() === String(c0.donor_name || '').trim());
+  // נדבות פון דעם זעלבן מענטש (זעלבער ארגון) וואס האבן נאך נישט קיין קבלה
+  const inReceipt = new Set(state.receipts.filter((r) => !isTrue(r.void) && r.kind !== 'invoice').flatMap((r) => String(r.donation_ids || '').split(',')));
+  const others = () => state.donations.filter((d) => sameWho(d) && effectiveOrg(d) === c0.org && isTrue(d.is_paid) && ((d.kind === 'sale') === (F.type === 'sale'))
+    && !F.list.some((x) => String(x.donation_id) === String(d.donation_id)) && !inReceipt.has(String(d.donation_id)))
+    .sort((a, b) => paidDate(b).localeCompare(paidDate(a)));
+  const docOf = () => {
+    const amount = F.list.reduce((s, d) => s + (Number(d.amount_usd) || 0), 0);
+    return {
+      ...c0, list: F.list, ids: F.list.map((d) => String(d.donation_id)), amount, forText: F.list.length === 1 ? forText : '',
+      meta: { type: F.type, tax: F.type === 'sale' && F.tax, taxRate: F.taxRate, sig: F.sig, lines: F.lines },
+    };
+  };
+  const sigSel = (m) => (F.sig.mode === m ? ' selected' : '');
+  const dlg = document.createElement('dialog');
+  dlg.className = 'sheet wide rx-form-dlg';
+  document.body.append(dlg);
+  dlg.addEventListener('close', () => dlg.remove());
+  const render = () => {
+    const sale = F.type === 'sale';
+    const c = docOf();
+    const tot = c.amount;
+    dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button>
+      <h2>🧾 ${h(t('rcFormTitle'))} — ${h(donorLabel(c0))}</h2>
+      <div class="rx-form">
+        <div class="rx-form-prev"><div class="rx-prev-scale">${receiptHtml({ ...c, receipt_no: c0.issued?.receipt_no || '—', issued_at: new Date().toISOString().slice(0, 10) })}</div></div>
+        <div class="rx-form-side">
+          <div class="seg">${[['donation', 'donKindDonation'], ['sale', 'donKindSale']].map(([k, l]) => `<button type="button" data-ft="${k}" class="${F.type === k ? 'on' : ''}">${h(t(l))}</button>`).join('')}</div>
+          ${sale ? `<label class="check"><input type="checkbox" id="rxf-tax"${F.tax ? ' checked' : ''}> Sales Tax</label>
+            <label class="rxf-rate"${F.tax ? '' : ' hidden'}>% <input type="number" id="rxf-rate" step="0.001" min="0" max="30" value="${F.taxRate}" dir="ltr"></label>` : ''}
+          <table class="rxf-lines no-sort"><thead><tr><th>${h(t('dateLegend'))}</th><th>${h(t(sale ? 'saleWhat' : 'rcWhat'))}</th><th>${h(t('amount'))}</th>${sale ? '' : `<th>${h(t('goodsDesc'))}</th><th>${h(t('goodsValue'))}</th>`}<th></th></tr></thead>
+          <tbody>${F.list.map((d, i) => {
+            const o = F.lines[String(d.donation_id)] || {};
+            return `<tr><td dir="ltr">${h(paidDate(d))}</td><td>${h(sale ? (o.goods_desc ?? d.goods_desc ?? '') || descText(d) : descText(d))}</td><td dir="ltr">${money(d.amount_usd)}</td>
+              ${sale ? '' : `<td><input data-gd="${i}" value="${h(o.goods_desc ?? d.goods_desc ?? '')}" placeholder="${h(t('goodsDescPh'))}"></td>
+                <td><input data-gv="${i}" type="number" min="0" step="0.01" dir="ltr" value="${h(o.goods_value ?? d.goods_value ?? '')}" placeholder="$"></td>`}
+              <td>${F.list.length > 1 ? `<button type="button" class="linkish" data-rm="${i}" title="${h(t('deleteBtn'))}">✕</button>` : ''}</td></tr>`;
+          }).join('')}</tbody></table>
+          ${others().length ? `<label class="rxf-add">+ ${h(t('rcAddDonation'))} <select id="rxf-add"><option value=""></option>${others().map((d) => `<option value="${h(d.donation_id)}">${h(paidDate(d))} · ${money(d.amount_usd)} · ${h(descText(d))}</option>`).join('')}</select></label>`
+            : `<p class="muted small">${h(t('rcNoMore'))}</p>`}
+          <p class="rxf-total"><b>${h(t('rcTotal'))}: ${money(tot)}</b> <span class="muted small" dir="ltr">${h(amountWords(tot))}</span></p>
+          <label>${h(t('wrSignature'))} <select id="rxf-sig">
+            <option value="org"${sigSel('org')}>${h(t('rcSigOrg'))}</option>
+            <option value="mine"${sigSel('mine')}${mine ? '' : ' disabled'}>${h(t('wrMySig'))}${mine ? '' : ` (${h(t('wrSigNone'))})`}</option>
+            <option value="temp"${sigSel('temp')}>${h(t('wrSigTemp'))}</option>
+            <option value="none"${sigSel('none')}>${h(t('rcSigNone'))}</option></select></label>
+          ${F.sig.mode === 'temp' ? `<div class="rxf-temp"><input id="rxf-tt" dir="auto" placeholder="${h(t('wrSigText'))}" value="${h(F.sig.sig?.text || '')}">
+            <select id="rxf-tf">${['Playpen Sans Hebrew', 'Amatic SC', 'Noto Rashi Hebrew', 'Frank Ruhl Libre', ...customFontNames()].map((x) => `<option${x === F.sig.sig?.font ? ' selected' : ''}>${h(x)}</option>`).join('')}</select></div>` : ''}
+          <label>📄 ${h(t('rcWithLetterTip'))} <select id="rxf-letter"><option value="">${h(t('rcNoLetter'))}</option>${letterTemplates().map((x) => `<option value="${h(x.id)}"${String(x.id) === String(F.letter || '') ? ' selected' : ''}>${h(x.name)}${letterHasReceipt(x.id) ? ' 🧾' : ''}</option>`).join('')}</select></label>
+        </div>
+      </div>
+      <div class="actions"><span class="spacer"></span>
+        <button type="button" class="btn" data-x>${h(t('cancelBtn'))}</button>
+        <button type="button" class="btn" id="rxf-mail">✉ ${h(t('rcMailBtn'))}</button>
+        <button type="button" class="btn" id="rxf-pdf">⬇ PDF</button>
+        <button type="button" class="btn primary" id="rxf-print">🖨 ${h(t('rcPrint'))}</button></div>`;
+    wire();
+    // די קבלה — אזוי ברייט ווי דער פלאץ
+    requestAnimationFrame(() => { const box = $('.rx-form-prev', dlg); const sc = $('.rx-prev-scale', dlg); if (box && sc) sc.style.zoom = String(Math.min(1, (box.clientWidth - 24) / 816)); });
+  };
+  const keepLine = (i, k, v) => { const id = String(F.list[i].donation_id); F.lines[id] = { ...(F.lines[id] || {}), [k]: v }; };
+  const wire = () => {
+    $$('[data-x]', dlg).forEach((b) => { b.onclick = () => dlg.close(); });
+    $$('[data-ft]', dlg).forEach((b) => { b.onclick = () => { F.type = b.dataset.ft; render(); }; });
+    $('#rxf-tax', dlg)?.addEventListener('change', (e) => { F.tax = e.target.checked; render(); });
+    $('#rxf-rate', dlg)?.addEventListener('change', (e) => { F.taxRate = Number(e.target.value) || 0; render(); });
+    $$('[data-gd]', dlg).forEach((el) => { el.onchange = () => { keepLine(Number(el.dataset.gd), 'goods_desc', el.value.trim()); render(); }; });
+    $$('[data-gv]', dlg).forEach((el) => { el.onchange = () => { keepLine(Number(el.dataset.gv), 'goods_value', el.value === '' ? '' : Number(el.value)); render(); }; });
+    $$('[data-rm]', dlg).forEach((b) => { b.onclick = () => { F.list.splice(Number(b.dataset.rm), 1); render(); }; });
+    $('#rxf-add', dlg)?.addEventListener('change', (e) => { const d = state.donations.find((x) => String(x.donation_id) === e.target.value); if (d) { F.list.push(d); F.list.sort((a, b) => paidDate(a).localeCompare(paidDate(b))); } render(); });
+    $('#rxf-sig', dlg).onchange = (e) => {
+      const m = e.target.value;
+      F.sig = m === 'mine' ? { mode: 'mine', sig: mine } : m === 'temp' ? { mode: 'temp', sig: { type: 'text', text: '', font: 'Playpen Sans Hebrew' } } : { mode: m };
+      render();
+    };
+    const tt = () => { F.sig = { mode: 'temp', sig: { type: 'text', text: $('#rxf-tt', dlg).value.trim(), font: $('#rxf-tf', dlg).value } }; };
+    $('#rxf-tt', dlg)?.addEventListener('change', () => { tt(); render(); });
+    $('#rxf-tf', dlg)?.addEventListener('change', () => { tt(); render(); });
+    $('#rxf-letter', dlg).onchange = (e) => { F.letter = e.target.value; };
+    const go = async (mode) => {
+      const c = docOf();
+      if (!c.list.length) return;
+      let to = '';
+      if (mode === 'mail') { to = askAddress(c.contact_id); if (!to) return; }
+      const run = async () => {
+        try {
+          const [x] = await issueDocs([issueOf(c)]);
+          const full = { ...c, receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint, meta: c.meta };
+          dlg.close();
+          if (mode === 'print') printDocs([full], { letter: F.letter });
+          else if (mode === 'pdf') {
+            const b64 = await receiptPdf(full, F.letter);
+            const a = document.createElement('a');
+            a.href = `data:application/pdf;base64,${b64}`;
+            a.download = `${x.receipt_no}.pdf`;
+            document.body.append(a); a.click(); a.remove();
+          } else {
+            const r = await mailDocs([{ c: { ...full, reprint: false }, to }], () => {}, F.letter);
+            ui.toast(r.errors ? t('mailFailed') : t('rcMailSent', { to }), r.errors ? 'error' : '');
+          }
+          await loadAll();
+          if (done) done();
+        } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+      };
+      if (mode === 'mail') withGmail(run); else run();
+    };
+    $('#rxf-print', dlg).onclick = () => go('print');
+    $('#rxf-pdf', dlg).onclick = () => go('pdf');
+    $('#rxf-mail', dlg).onclick = () => go('mail');
+  };
+  render();
+  dlg.showModal();
+}
+
+export async function printForDonation(d) {
   const org = effectiveOrg(d);
   if (!org) { ui.toast(t('rcNoOrg'), 'error'); return; }
   const det = orgDetailsOf(org);
   if (!det || !det.legal_name) { ui.toast(t('rcMissingDetails', { org }), 'error'); openOrgDetails(org); return; }
   const kind = isTrue(d.is_paid) ? 'receipt' : 'invoice';
-  // וואס שטייט נאך "בסך של $..." (דער קאמפיין, אדער וואס מ'שרייבט אליין)
-  const def = `ב${d.campaign || [splitTags(d.event_tags).join(', '), d.event_note].filter(Boolean).join(' – ') || 'נדבה'}`;
-  const ans = window.prompt(t('rcForPrompt'), def);
-  if (ans === null) return;
-  const forText = ans.trim() === def ? '' : ans.trim();
-  const base = { kind, org, contact_id: d.contact_id || '', donor_name: d.contact_id ? '' : String(d.donor_name || ''), ids: [String(d.donation_id)], amount: Number(d.amount_usd || 0), period: '' };
-  if (mode === 'mail') {
-    const to = askAddress(d.contact_id);
-    if (!to) return;
-    withGmail(async () => {
-      try {
-        const [x] = await issueDocs([base]);
-        const r = await mailDocs([{ c: { ...base, list: [d], receipt_no: x.receipt_no, issued_at: x.issued_at, forText }, to }]);
-        ui.toast(r.errors ? t('mailFailed') : t('rcMailSent', { to }), r.errors ? 'error' : '');
-        await loadAll();
-      } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
-    });
+  const base = { kind, org, contact_id: d.contact_id || '', donor_name: d.contact_id ? '' : String(d.donor_name || ''), ids: [String(d.donation_id)], amount: Number(d.amount_usd || 0), period: '', list: [d] };
+  if (kind === 'invoice') {
+    try {
+      const [x] = await issueDocs([issueOf(base)]);
+      printDocs([{ ...base, receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint, meta: x.meta }]);
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
     return;
   }
-  try {
-    const [x] = await issueDocs([base]);
-    printDocs([{ ...base, list: [d], receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint, forText }]);
-  } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  openReceiptForm({ ...base, issued: findIssued('receipt', org, base.ids, '', base.contact_id || base.donor_name) });
 }
 
 /** א תשלום פון שכר לימוד → א דאקומענט (קבלה) */
@@ -691,6 +807,143 @@ export async function tuitionReceipt(p, mode = 'print') {
   } catch (err) { ui.toast(ui.friendlyError(err), 'error'); return ''; }
 }
 
+// ================= די נייע קבלה: א דריטל בלאט (ווי א טשעק), אדער א גאנצער בלאט ווען ס'זענען מער ווי 5 שורות =================
+export const RX_H = 3.667;
+/** $1,234.50 — אויף א קבלה אלעמאל מיט סענט */
+const usd = (v) => `$${(Number(v) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;   // א דריטל פון 11 אינטש
+const RX_MAX_LINES = 5;
+const ONES = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+const TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+function words999(n) {
+  const hnd = Math.floor(n / 100);
+  const r = n % 100;
+  const rest = r < 20 ? ONES[r] : `${TENS[Math.floor(r / 10)]}${r % 10 ? `-${ONES[r % 10]}` : ''}`;
+  return [hnd ? `${ONES[hnd]} Hundred` : '', rest].filter(Boolean).join(' ');
+}
+/** 1234.5 → "One Thousand Two Hundred Thirty-Four Dollars and 50/100" (ווי אויף א טשעק) */
+export function amountWords(v) {
+  const x = Math.round((Number(v) || 0) * 100);
+  const dollars = Math.floor(x / 100);
+  const cents = String(x % 100).padStart(2, '0');
+  if (!dollars) return `Zero Dollars and ${cents}/100`;
+  const parts = [];
+  [[1e9, 'Billion'], [1e6, 'Million'], [1e3, 'Thousand'], [1, '']].reduce((left, [unit, name]) => {
+    const q = Math.floor(left / unit);
+    if (q) parts.push(`${words999(q)}${name ? ` ${name}` : ''}`);
+    return left % unit;
+  }, dollars);
+  return `${parts.join(' ')} Dollar${dollars === 1 ? '' : 's'} and ${cents}/100`;
+}
+const rxMeta = (c) => c.meta || {};
+/** די שורות פון דער קבלה — מיט דער "תמורה" פון יעדער נדבה (אדער ווי מ'האט עס געטוישט אין טופס) */
+function rxLines(c) {
+  const ov = rxMeta(c).lines || {};
+  return c.list.map((d) => {
+    const o = ov[String(d.donation_id)] || {};
+    const gv = o.goods_value ?? d.goods_value;
+    return { d, goods_desc: String(o.goods_desc ?? d.goods_desc ?? '').trim(), goods_value: gv === '' || gv == null ? 0 : Number(gv) || 0 };
+  });
+}
+export const isSaleDoc = (c) => (rxMeta(c).type || (c.list?.[0]?.kind === 'sale' ? 'sale' : '')) === 'sale';
+/** די חתימה אויף דער קבלה: org / mine / temp / none */
+function rxSig(c, det) {
+  const s = rxMeta(c).sig || { mode: 'org' };
+  if (s.mode === 'none') return '';
+  if ((s.mode === 'mine' || s.mode === 'temp') && s.sig) {
+    const g = s.sig;
+    if (g.type === 'img') { const src = imageOf(g.img); return src ? `<img src="${h(src)}" alt="">` : ''; }
+    return `<div class="rx-sigtext" style="font-family:'${h(String(g.font || 'Playpen Sans Hebrew').replace(/['"<>;]/g, ''))}'">${h(g.text || '')}</div>`;
+  }
+  if (det.signature_text) return `<div class="rx-sigtext" style="font-family:${sigFont(det.signature_font)}">${h(det.signature_text)}</div>`;
+  return det.signature_img ? `<img src="${h(imageOf(det.signature_img) || det.signature_img)}" alt="">` : '';
+}
+const shortDateEn = (iso) => { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${Number(m[2])}/${Number(m[3])}/${m[1]}` : String(iso || ''); };
+/** די קבלה אליין (HTML). opts.full = גאנצער בלאט; opts.window = מיט'ן אדרעס אויפן פלאץ פונעם פענצטער (נאר אויפן גאנצן בלאט) */
+export function receiptHtml(c, opts = {}) {
+  const P = letterParts(c);
+  const { det, ein, taxEntity, name, logo, legal, he } = P;
+  const lines = rxLines(c);
+  const sale = isSaleDoc(c);
+  const isInv = c.kind === 'invoice';
+  const isTu = c.kind === 'tuition';
+  const full = opts.full ?? lines.length > RX_MAX_LINES;
+  const issued = String(c.issued_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+  const total = Number(c.amount) || lines.reduce((s, l) => s + (Number(l.d.amount_usd) || 0), 0);
+  const M = rxMeta(c);
+  const taxRate = sale && M.tax ? Number(M.taxRate) || 0 : 0;
+  const taxAmt = Math.round(total * taxRate) / 100;
+  const grand = total + taxAmt;
+  const goods = sale ? [] : lines.filter((l) => l.goods_desc || l.goods_value);
+  const gVal = goods.reduce((s, l) => s + l.goods_value, 0);
+  const title = isInv ? 'INVOICE' : isTu ? 'TUITION RECEIPT' : sale ? 'SALES RECEIPT'
+    : c.kind === 'year' ? `YEAR-END STATEMENT ${c.period}` : (det.coupon_title || 'DONATION RECEIPT');
+  const forOf = (l) => (sale ? (l.goods_desc || descText(l.d)) : lines.length === 1 && c.forText ? c.forText : descText(l.d));
+  const exempt = `${taxEntity} is a 501(c)(3) tax-exempt organization${ein ? ` (EIN ${ein})` : ''}.`;
+  let stmt;
+  if (isInv) stmt = `Please make checks payable to ${legal}.`;
+  else if (isTu) stmt = 'Tuition payment. This is not a tax-deductible charitable contribution.';
+  else if (sale) stmt = 'Sale of goods — this payment is not a tax-deductible charitable contribution.';
+  else if (goods.length) {
+    stmt = `${exempt} In exchange for ${lines.length > 1 ? 'these contributions' : 'this contribution'} the donor received: ${goods.map((l) => l.goods_desc || 'goods/services').join(', ')}, with an estimated fair market value of ${usd(gVal)}. The tax-deductible amount is ${usd(Math.max(0, total - gVal))}.`;
+  } else {
+    stmt = String(det.tax_text || TAX_DEFAULT).replace(/\{NAME\}/g, taxEntity).replace(/\{EIN\}/g, ein || '—')
+      .replace('this contribution', lines.length > 1 ? 'these contributions' : 'this contribution');
+  }
+  const addr = P.addr;
+  const side = `<div class="rx-side">
+      ${logo ? `<div class="rx-logo"><img src="${h(logo)}" alt=""></div>` : ''}
+      ${he ? `<div class="rx-he" dir="rtl">${h(he)}</div>` : ''}
+      <div class="rx-en">${h(legal)}</div>
+      <div class="rx-det">${[det.address, det.city_state_zip, det.phone ? `Tel ${det.phone}` : '', det.email, det.website, ein ? `EIN ${ein}` : ''].filter(Boolean).map(h).join('<br>')}</div>
+    </div>`;
+  const rows = lines.map((l) => `<tr><td>${h(shortDateEn(isInv ? l.d.date : paidDate(l.d)))}</td><td><bdi dir="auto">${h(forOf(l))}</bdi></td>
+      <td>${h(isInv ? '' : payText(l.d))}</td><td class="amt">${usd(l.d.amount_usd)}</td></tr>`).join('');
+  return `<div class="rx${full ? ' rx-full' : ''}" dir="ltr" style="width:8.5in;height:${full ? 11 : RX_H}in">
+    <div class="rx-main">
+      <div class="rx-head"><div class="rx-title">${h(title)}</div>
+        <div class="rx-no">${isInv ? 'Invoice' : 'Receipt'} No. <b>${h(c.receipt_no || '—')}</b>${c.reprint ? ' <span class="rx-copy">(copy)</span>' : ''}</div></div>
+      ${full && opts.window ? `<div class="rx-winaddr" style="left:${0.875 + (Number(det.addr_dx) || 0)}in;top:${2.1 + (Number(det.addr_dy) || 0)}in"><b>${h(name)}</b>${addr.map((x) => `<br>${h(x)}`).join('')}</div>` : ''}
+      <div class="rx-body">
+        <div class="rx-info"><span><span class="rx-l">Date</span> ${h(longDate(issued))} <span class="rx-hed" dir="rtl">${h(P.heDate)}</span></span>
+          <span><span class="rx-l">${isInv ? 'Bill to' : h(det.received_label || 'Received from')}</span> <b><bdi dir="auto">${h(name)}</bdi></b></span></div>
+        <table class="rx-lines no-sort"><thead><tr><th>Date</th><th>${sale ? 'Item' : 'For'}</th><th>${isInv ? '' : 'Payment'}</th><th class="amt">Amount</th></tr></thead><tbody>${rows}</tbody></table>
+        ${taxRate ? `<div class="rx-sub"><span>Subtotal ${usd(total)}</span><span>Sales tax ${taxRate}% ${usd(taxAmt)}</span></div>` : ''}
+        <div class="rx-total"><span class="rx-l">${isInv ? 'Amount due' : 'Total'}</span><b>${usd(grand)}</b><span class="rx-words">${h(amountWords(grand))}</span></div>
+        <div class="rx-foot"><div class="rx-tax">${h(stmt)}${det.receipt_note ? ` ${h(det.receipt_note)}` : ''}</div>
+          <div class="rx-sig">${rxSig(c, det)}<div class="rx-sigline">Authorized signature</div></div></div>
+      </div>
+    </div>
+    ${side}
+  </div>`;
+}
+/** א קבלה לבד אויף א בלאט: אויבן די קבלה, אין מיטן ליידיג, אונטן דער אדרעס פאר א #10 קאנווערט מיט א פענצטער */
+export function receiptSheetHtml(c) {
+  const lines = rxLines(c);
+  if (lines.length > RX_MAX_LINES) return `<div class="rx-sheet">${receiptHtml(c, { full: true, window: true })}</div>`;
+  const P = letterParts(c);
+  const det = P.det;
+  return `<div class="rx-sheet">${receiptHtml(c)}
+    <div class="rx-cut" style="top:${RX_H}in"><span>✂</span></div>
+    <div class="rx-addr" style="left:${0.875 + (Number(det.addr_dx) || 0)}in;top:${2 * RX_H + 1 + (Number(det.addr_dy) || 0)}in"><b>${h(P.name)}</b>${P.addr.map((x) => `<br>${h(x)}`).join('')}</div>
+  </div>`;
+}
+/** פאר א בריוו מיט "ייבוא קבלה": די קבלה אינעם אונטערשטן דריטל (ביז 5 שורות; מער — א סיכום, און דער גאנצער בלאט קומט נאכן בריוו) */
+export function receiptSlotHtml(c) {
+  const lines = rxLines(c);
+  if (lines.length <= RX_MAX_LINES) return receiptHtml(c, { full: false });
+  const short = { ...c, list: [{ ...lines[0].d, amount_usd: Number(c.amount) || 0, campaign: '', event_tags: '', dedication_text: `${lines.length} contributions — see attached statement`, date: lines[0].d.date, paid_date: paidDate(lines.at(-1).d), payment_method: '', check_number: '', card_last4: '', goods_desc: '', goods_value: '' }] };
+  return receiptHtml(short, { full: false });
+}
+export const needsFullPage = (c) => rxLines(c).length > RX_MAX_LINES;
+/** א קבלה לדוגמא (פאר די תצוגה מקדימה פון א בריוו) */
+export function sampleReceiptHtml(org = '') {
+  const o = org || umbrellaName();
+  return receiptHtml({
+    kind: 'receipt', org: o, contact_id: '', donor_name: 'Sample Donor', amount: 180, receipt_no: '1001', issued_at: new Date().toISOString().slice(0, 10),
+    list: [{ donation_id: 'x', paid_date: new Date().toISOString().slice(0, 10), amount_usd: 180, campaign: 'דוגמא', payment_method: "צ'ק", check_number: '123' }],
+  });
+}
+
 // ---------- די פרטים פון א ארגון (וואס שטייט אויף דער קבלה) ----------
 // אלע פעלדער, אין דער סדר ווי זיי שטייען אויף דער קבלה (פון אויבן ביז אונטן).
 // [שליסל, באשרייבונג, דיפאלט (ווערט אריינגעשטעלט אין פעלד), סארט, ריכטונג]
@@ -721,7 +974,9 @@ const SECTIONS = [
     ['footer_line', 'rcfFooter', DEFAULTS.footer_line, 'wide', 'rtl'],
   ]],
   ['rcS7', [
-    ['receipt_prefix', 'rcfPrefix', '', '', 'ltr'],
+    ['sales_tax_rate', 'rcfTaxRate', '8.875', '', 'ltr'],
+    ['addr_dx', 'rcfAddrDx', '0', '', 'ltr'],
+    ['addr_dy', 'rcfAddrDy', '0', '', 'ltr'],
   ]],
 ];
 const ALL_FIELDS = SECTIONS.flatMap(([, f]) => f.map((x) => x[0]));
@@ -863,7 +1118,7 @@ export function openOrgDetails(org) {
   const collect = () => {
     const o = { org: $('#od-org', form).value };
     ALL_FIELDS.forEach((k) => { o[k] = form.elements[k].value.trim(); });
-    o.receipt_prefix = o.receipt_prefix.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    ['sales_tax_rate', 'addr_dx', 'addr_dy'].forEach((k) => { o[k] = o[k] === '' ? '' : String(Number(o[k]) || 0); });
     Object.assign(o, splitImg(img.header_img || '', 'header_img'));
     return o;
   };
@@ -879,7 +1134,7 @@ export function openOrgDetails(org) {
     if (y) Object.assign(y, splitImg(yimg[y.series], 'header_img'));
     const fake = { donation_id: 0, amount_usd: 180, is_paid: true, paid_date: new Date().toISOString().slice(0, 10), payment_method: "צ'ק", check_number: '1001', campaign: y ? `${y.series} תשפ"ז` : '', event_tags: 'נדבה' };
     try {
-      return fn({ kind: 'receipt', org: o.org, contact_id: '', donor_name: 'Mr. & Mrs. Sample Donor', ids: [], amount: 180, period: '', list: [fake], receipt_no: `${o.receipt_prefix || 'R'}-0000`, issued_at: new Date().toISOString().slice(0, 10), reprint: false });
+      return fn({ kind: 'receipt', org: o.org, contact_id: '', donor_name: 'Mr. & Mrs. Sample Donor', ids: [], amount: 180, period: '', list: [fake], receipt_no: '1001', issued_at: new Date().toISOString().slice(0, 10), reprint: false });
     } finally {
       state.orgDetails = keep;
       if (logoChanged && state.orgLogos) state.orgLogos[o.org] = keepLogo;
@@ -889,7 +1144,7 @@ export function openOrgDetails(org) {
   let timer = null;
   const live = () => {
     clearTimeout(timer);
-    timer = setTimeout(() => { $('.od-live-scale', form).innerHTML = sample((d) => docHtml(d)); }, 150);
+    timer = setTimeout(() => { $('.od-live-scale', form).innerHTML = sample((d) => receiptSheetHtml(d)); }, 150);
   };
   form.oninput = live;
   $$('.od-img[data-img]', form).forEach((box) => {

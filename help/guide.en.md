@@ -109,6 +109,9 @@ Keywords: campaign, yearly, dinner, kave, kimcha depischa, goal, year, compare, 
 ## Receipts and invoices
 Keywords: receipt, invoice, tax, year end, print, PDF, void
 
+- **The receipt**: a third of a page (like a check) — institution details on the right, English text, the amount also in words. Printed alone: receipt on top, the address at the bottom for a #10 window envelope. More than 5 donations — a full page. **One number sequence** for all institutions from 1001 (invoices: INV-1001).
+- **🧾 Form** on each row: **Donation / Sale** (sale — Sales Tax yes/no), **"+ Add a donation"**, **goods/services** received (e.g. a dinner) and their value — the receipt states the deductible amount, and the **signature** (institution / mine / temporary / none).
+- **Letter with a receipt**: in Mail Merge → Insert → **"Import receipt"**; print from the receipts page with that letter — each person's receipt sits in the bottom third of his letter.
 - **Invoice & Receipt** (lobby). Choose: **Receipt** (paid), **Invoice** (not yet paid), **Year-end** (all donations of a year — for taxes), **Campaign**.
 - Pick the organization and dates. **"For"**: one contact, or a list.
 - **"What for"**: not from a campaign? Write what it is (e.g. "in honor of the yahrzeit").

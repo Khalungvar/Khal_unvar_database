@@ -6,6 +6,7 @@ import { state, saveRecord, deleteRecord, allUsers, orgDetailsOf } from './data.
 import { t } from './i18n.js';
 import { escapeHtml as h, shrinkImage, nowStamp, detectArea } from './util.js';
 import { isoToHebrewText, todayIso } from './hebdate.js';
+import { openReceipts } from './receipts.js';
 import { evaluate, parseSaved, savedInScope, channel, mailRecipients } from './lists.js';
 import { umbrellaName, getScope } from './scope.js';
 import { allCampaigns } from './campaigns.js';
@@ -959,6 +960,7 @@ function ribbonInsert() {
     + group(t('wrIllus'), bigdd('🖼', t('wrPicture'), `${mi('id="wr-img-pc"', `💻 ${h(t('wrPicPc'))}`)}${mi('id="wr-img-drive"', `📁 ${h(t('wrPicDrive'))}`)}
       <input type="file" accept="image/*" id="wr-img-file" hidden>`))
     + group(t('wrLinks'), big('wr-link', '🔗', t('wrLink'), ' title="Ctrl+K"'))
+    + group(t('rcReceipt'), big('wr-rcslot', '🧾', t('wrRcSlot'), `${D.ltr.rcSlot ? ' aria-pressed="true"' : ''} title="${h(t('wrRcSlotTip'))}"`))
     + group(t('wrTextGroup'), `${bigdd('📅', t('wrDate'), `${mi('data-date="he"', `${h(t('wrDateTodayHe'))} <span class="muted small">«תאריך»</span>`)}
         ${mi('data-date="greg"', `${h(t('wrDateTodayGreg'))} <span class="muted small">«${D.ltr.dir === 'ltr' ? 'Date' : 'תאריך_לועזי'}»</span>`)}
         ${mi('id="wr-date-other"', `🗓 ${h(t('wrDateOther'))}`)}`)}
@@ -1171,7 +1173,7 @@ function layoutPages() {
     el.querySelectorAll?.('img').forEach((im) => { b = Math.max(b, im.getBoundingClientRect().bottom); });
     return (b - fr()) / scale + G.top1 * PX;
   };
-  const limit = (p) => (p * (G.H + GAP) + G.H - G.bottom) * PX;
+  const limit = (p) => (p * (G.H + GAP) + G.H - (p === 0 ? G.bottom1 : G.bottom)) * PX;
   const pageTop = (p) => (p * (G.H + GAP) + G.topN) * PX;
   let page = 0;
   let onPage = 0;
@@ -1506,6 +1508,7 @@ function printDialog(which = 'draft') {
       <label class="check"><input type="radio" name="wrpd" value="all"${which === 'all' ? ' checked' : ''}${rows.length ? '' : ' disabled'}> ${h(t('wrPdAll', { n: rows.length }))}</label>
       <div class="mx-range wr-pd-range">${h(t('mxRange'))} <input type="number" id="mx-from" min="1" value="1"> – <input type="number" id="mx-to" min="1" value="${rows.length || 1}"></div>
       ${red ? `<div class="mx-redwarn">⚠ ${h(t('mxRedWarn'))}</div>` : ''}
+      ${D.ltr.rcSlot ? `<p class="mx-pending small">🧾 ${h(t('wrRcFromReceipts'))} <button type="button" class="btn small-btn" id="wrpd-rc">${h(t('wrOpenReceipts'))}</button></p>` : ''}
       ${D.ltr.page && D.ltr.page !== 'letter' ? `<p class="muted small">📄 ${h(t('wrPdPaper', { size: letterDims(D).join('" × ') }))}"</p>` : ''}
     </div>
     <div class="dialog-actions">
@@ -1526,6 +1529,8 @@ function printDialog(which = 'draft') {
       dlg.close();
       return;
     }
+    // א בריוו מיט א קבלה: די קבלות קומען נאר פונעם בלאט פון די קבלות (נומערן, יומן)
+    if (D.ltr.rcSlot && w !== 'draft') { ui.toast(t('wrRcFromReceipts'), 'error'); return; }
     let pages;
     if (w === 'draft') pages = letterPages(D, null, { draft: true });
     else if (w === 'one') pages = letterPages(D, c);
@@ -1538,6 +1543,7 @@ function printDialog(which = 'draft') {
     if (how === 'print') printPages(pages, size);
     else await downloadPdf(pages, size, w === 'draft' ? `${D.name || 'letter'} – draft` : D.name);
   };
+  $('#wrpd-rc', dlg)?.addEventListener('click', () => { dlg.close(); openReceipts({ letter: D.template_id }); });
   $('#wrpd-print', dlg).onclick = () => run('print');
   $('#wrpd-pdf', dlg).onclick = () => run('pdf');
   $('#wrpd-mail', dlg)?.addEventListener('click', () => run('mail'));
@@ -2357,6 +2363,7 @@ function wireRibbon(main) {
   if (imgFile) imgFile.onchange = () => { if (imgFile.files[0]) imageFromPc(imgFile.files[0]); };
   $('#wr-img-drive', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); imageFromDrive(); });
   $('#wr-link', rb)?.addEventListener('click', () => linkDialog());
+  $('#wr-rcslot', rb)?.addEventListener('click', () => { D.ltr.rcSlot = !D.ltr.rcSlot; scheduleSave(); refreshStage(); });
   $('#wr-sig', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); D.ltr.sig = !D.ltr.sig; scheduleSave(); refreshStage(); });
   // עיצוב: סימן מים
   $$('[data-wm]', rb).forEach((b) => {
@@ -2985,6 +2992,13 @@ export function letterPage(templateId, c, ctx = null) {
   return letterPagesFor(templateId, c, ctx).join('');
 }
 /** די בלעטער פון א מכתב (איינס אדער מער) */
+/** האט דער בריוו "ייבוא קבלה" (די קבלה אינעם אונטערשטן דריטל)? */
+export function letterHasReceipt(templateId) {
+  const x = state.mailTemplates.find((r) => String(r.template_id) === String(templateId));
+  return Boolean(x && fromRow(x).ltr.rcSlot);
+}
+/** מיין חתימה (פאר די קבלות) */
+export const mySigObj = () => mySig();
 /** די גרייס פונעם בלאט פון א בריוו (אינטשעס) */
 export function letterSizeFor(templateId) {
   const x = state.mailTemplates.find((r) => String(r.template_id) === String(templateId));

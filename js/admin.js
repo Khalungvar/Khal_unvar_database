@@ -442,6 +442,8 @@ function campRowHtml(kind, c = {}) {
     <td><input data-col="name" value="${h(c.name || '')}" ${isNew ? `placeholder="${h(t(kind === 'yearly' ? 'yearlyNamePh' : 'seriesPh'))}"` : `readonly title="${h(t('admCampRenameSoon'))}"`}></td>
     <td>${orgSelect('org', c.org || '', 'data-col="org"')}</td>
     <td><input data-col="goal" type="number" min="0" step="1" dir="ltr" value="${h(c.goal || '')}" placeholder="$"></td>
+    <td class="adm-goods"><input data-col="gdesc" value="${h(c.goods_desc || '')}" placeholder="${h(t('goodsDescPh'))}" title="${h(t('goodsHint'))}">
+      <input data-col="gval" type="number" min="0" step="0.01" dir="ltr" value="${h(c.goods_value || '')}" placeholder="$" title="${h(t('goodsValue'))}"></td>
     ${kind === 'yearly'
       ? `<td class="adm-check"><label class="check"><input type="checkbox" data-col="active"${c.active === false ? '' : ' checked'}> ${h(t('admCampActive'))}</label></td>`
       : ''}
@@ -453,16 +455,22 @@ function campRowHtml(kind, c = {}) {
   </tr>`;
 }
 
+/** די "תמורה" פון א קאמפיין (למשל א סעודה ביים דינער) — פאר די קבלות */
+function goodsOfCamp(name) {
+  const r = state.campaigns.find((c) => c.campaign === name);
+  return { goods_desc: r?.goods_desc || '', goods_value: r?.goods_value || '' };
+}
 function campaignsAdminHtml() {
   const now = curYear();
   const camps = allCampaigns();
   const yearly = yearlySeries().map((s) => ({
     name: s.series, org: s.org, active: s.active,
     goal: camps.find((c) => c.name === `${s.series} ${now}`)?.goal || '',
+    ...goodsOfCamp(`${s.series} ${now}`),
   }));
-  const once = camps.filter((c) => c.kind === 'once');
+  const once = camps.filter((c) => c.kind === 'once').map((c) => ({ ...c, ...goodsOfCamp(c.name) }));
   const head = (kind) => `<thead><tr><th>${h(t('seriesName'))}</th><th>${h(t('forOrg'))}</th>
-    <th>${h(kind === 'yearly' ? t('admCampGoalYear', { year: now }) : t('goal'))}</th>${kind === 'yearly' ? '<th></th>' : ''}<th></th><th></th></tr></thead>`;
+    <th>${h(kind === 'yearly' ? t('admCampGoalYear', { year: now }) : t('goal'))}</th><th title="${h(t('goodsHint'))}">${h(t('goodsCol'))}</th>${kind === 'yearly' ? '<th></th>' : ''}<th></th><th></th></tr></thead>`;
   const card = (kind, rows) => `<section class="adm-card adm-wide adm-camps" data-kind="${kind}">
       <h3>${h(t(kind === 'yearly' ? 'yearlyCamps' : 'onceCamps'))} <span class="muted small">(${rows.length})</span></h3>
       <p class="hint-line">${h(t(kind === 'yearly' ? 'admCampYearlyHint' : 'admCampOnceHint'))}</p>
@@ -507,6 +515,7 @@ function wireCampaignsAdmin(main) {
       const rows = $$('tr', body).map((tr, i) => ({
         tr, i, orig: tr.dataset.orig, name: $('[data-col=name]', tr).value.trim(), org: $('[data-col=org]', tr).value,
         goal: $('[data-col=goal]', tr).value ? Number($('[data-col=goal]', tr).value) : '',
+        goods_desc: $('[data-col=gdesc]', tr).value.trim(), goods_value: $('[data-col=gval]', tr).value ? Number($('[data-col=gval]', tr).value) : '',
         active: kind === 'yearly' ? $('[data-col=active]', tr).checked : null,
       })).filter((r) => r.name);
       const names = rows.map((r) => r.name);
@@ -531,12 +540,13 @@ function wireCampaignsAdmin(main) {
             await saveYearly({ series: r.name, org: r.org, active: r.active, order: r.i + 1 });
             const yname = `${r.name} ${now}`;
             const had = existing.get(yname);
-            if (r.tr.dataset.dirty && String(r.goal || '') !== String(had?.goal || '')) {
-              await saveCampaign({ campaign: yname, series: r.name, year: now, kind: 'yearly', goal: r.goal });
+            const g0 = goodsOfCamp(yname);
+            if (r.tr.dataset.dirty && (String(r.goal || '') !== String(had?.goal || '') || r.goods_desc !== g0.goods_desc || String(r.goods_value) !== String(g0.goods_value))) {
+              await saveCampaign({ campaign: yname, series: r.name, year: now, kind: 'yearly', goal: r.goal, goods_desc: r.goods_desc, goods_value: r.goods_value });
             }
           } else if (r.tr.dataset.dirty) {
             const had = existing.get(r.name);
-            await saveCampaign({ campaign: r.name, series: had?.series || r.name, year: had?.year || '', kind: 'once', org: r.org, goal: r.goal });
+            await saveCampaign({ campaign: r.name, series: had?.series || r.name, year: had?.year || '', kind: 'once', org: r.org, goal: r.goal, goods_desc: r.goods_desc, goods_value: r.goods_value });
           }
         }
         await loadAll();

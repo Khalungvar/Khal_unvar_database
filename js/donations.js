@@ -266,9 +266,20 @@ export function openDonationForm(donation = {}, presetContactId = null) {
         <label class="check paid-toggle"><input type="checkbox" name="is_paid" ${isTrue(d.is_paid) ? 'checked' : ''}> ${t('paid')}</label>
       </div>
 
+      <div class="don-kind-line">
+        <div class="seg don-kind">${[['', 'donKindDonation'], ['sale', 'donKindSale']].map(([k, l]) => `<button type="button" data-dk="${k}" class="${(d.kind || '') === k ? 'on' : ''}">${h(t(l))}</button>`).join('')}</div>
+        <input type="hidden" name="kind" value="${h(d.kind || '')}">
+      </div>
+
       <label class="wide org-pick">${t('campaignOptional')}
         <select name="campaign">${campaignOptions(d.campaign)}</select>
       </label>
+
+      <div class="grid goods-line">
+        <label class="wide"><span class="goods-lbl-don"${d.kind === 'sale' ? ' hidden' : ''}>${h(t('goodsDesc'))}</span><span class="goods-lbl-sale"${d.kind === 'sale' ? '' : ' hidden'}>${h(t('saleWhat'))}</span>
+          <input name="goods_desc" value="${h(d.goods_desc || '')}" placeholder="${h(t('goodsDescPh'))}"></label>
+        <label class="goods-val"${d.kind === 'sale' ? ' hidden' : ''}>${h(t('goodsValue'))}<input name="goods_value" type="number" min="0" step="0.01" dir="ltr" value="${h(d.goods_value ?? '')}" placeholder="$"></label>
+      </div>
       <label class="wide org-pick">${t('forOrg')} *
         ${orgSelect('org', campaignOrg(d.campaign) || d.org || '')}
         <span class="hint-line camp-org-note" hidden>${t('orgFromCampaign')}</span>
@@ -415,7 +426,25 @@ function wireDonationForm(form, original) {
       f('org').value = co;
     }
   };
+  // נדבה / מכירה
+  $$('[data-dk]', form).forEach((b) => {
+    b.onclick = () => {
+      f('kind').value = b.dataset.dk;
+      $$('[data-dk]', form).forEach((x) => x.classList.toggle('on', x === b));
+      const sale = b.dataset.dk === 'sale';
+      $('.goods-lbl-don', form).hidden = sale;
+      $('.goods-lbl-sale', form).hidden = !sale;
+      $('.goods-val', form).hidden = sale;
+      form.dataset.dirty = '1';
+    };
+  });
   f('campaign').addEventListener('change', () => {
+    // די "תמורה" פונעם קאמפיין (למשל א סעודה ביים דינער) — ווען נאך נישט אויסגעפילט
+    const cr = state.campaigns.find((x) => x.campaign === f('campaign').value);
+    if (cr?.goods_desc && !f('goods_desc').value.trim() && f('kind').value !== 'sale') {
+      f('goods_desc').value = cr.goods_desc;
+      if (cr.goods_value !== '' && cr.goods_value != null) f('goods_value').value = cr.goods_value;
+    }
     syncOrg();
     // קאמפיין → הטעג און יאר פונעם קאמפיין
     const c = campaignByName(f('campaign').value);
@@ -506,6 +535,9 @@ function wireDonationForm(form, original) {
       payment_note: method === OTHER ? f('payment_note').value.trim() : '',
       dedication_type: f('dedication_type').value,
       dedication_text: f('dedication_text').value.trim(),
+      kind: f('kind').value,
+      goods_desc: f('goods_desc').value.trim(),
+      goods_value: f('kind').value === 'sale' || f('goods_value').value === '' ? '' : Number(f('goods_value').value),
     };
     const btn = $('#don-save', form);
     btn.disabled = true;

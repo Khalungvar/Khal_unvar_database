@@ -5,7 +5,7 @@ import { escapeHtml as h, mailingName, isTrue, isAlive, splitTags } from './util
 import { imageOf } from './images.js';
 import { isoToHebrewText, todayIso } from './hebdate.js';
 import { money } from './donations.js';
-import { joinImg } from './receipts.js';
+import { joinImg, sampleReceiptHtml, RX_H } from './receipts.js';
 
 // ---------- גרייסן ----------
 export const ENVELOPES = [
@@ -394,6 +394,8 @@ export function letterGeo(D) {
     top1: Math.max(m.top, headBottom, winBottom), // ערשטער בלאט
     topN: m.top + 0.4,                            // המשך בלעטער
     bottom: m.bottom + (foot ? 0.55 : 0),         // פון אונטן
+    // "ייבוא קבלה": דאס אונטערשטע דריטל פונעם ערשטן בלאט איז פאר דער קבלה
+    bottom1: L.rcSlot ? Math.max(m.bottom, RX_H + 0.2) : m.bottom + (foot ? 0.55 : 0),
   };
 }
 /** די חתימה */
@@ -443,9 +445,10 @@ export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties =
     ${logo && first ? `<div class="mx-band" style="top:0.3in;left:${m.side}in;right:${m.side}in"><img src="${imgSrc(logo)}" alt=""><div dir="rtl">${h(det.org_name_he || L.org)}</div></div>` : ''}
     ${winBlock}
     ${cont ? `<div class="mx-cont" dir="${dirv(L.dir)}" style="left:${m.side}in;right:${m.side}in;top:${m.top}in">${h(L.dir === 'ltr' ? 'continued' : 'המשך')} · ${h(vals.שם_מלא || vals.Name || '')} · ${cont + 1}</div>` : ''}
-    <div class="mx-body" dir="${dirv(L.dir)}" style="left:${m.side}in;right:${m.side}in;top:${first ? G.top1 : G.topN}in;bottom:${G.bottom}in;${bodyStyle(L)}">
+    <div class="mx-body" dir="${dirv(L.dir)}" style="left:${m.side}in;right:${m.side}in;top:${first ? G.top1 : G.topN}in;bottom:${first ? G.bottom1 : G.bottom}in;${bodyStyle(L)}">
       ${body}${sig}</div>
-    ${foot ? `<div class="mx-foot" style="left:${m.side}in;right:${m.side}in;bottom:${Math.max(0.3, m.bottom - 0.3)}in">${foot}</div>` : ''}
+    ${foot && !(L.rcSlot && first) ? `<div class="mx-foot" style="left:${m.side}in;right:${m.side}in;bottom:${Math.max(0.3, m.bottom - 0.3)}in">${foot}</div>` : ''}
+    ${L.rcSlot && first ? `<div class="mx-rcslot" style="top:${G.H - RX_H}in"><div class="mx-rccut">✂</div>${ctx?.receipt || `<div class="mx-rcsample">${sampleReceiptHtml(L.org)}</div>`}</div>` : ''}
     ${first ? boxesHtml(D, vals, empties, edit) : ''}
     ${num ? `<div class="mx-num">${h(num)}</div>` : ''}
   </div>`;

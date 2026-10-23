@@ -845,6 +845,8 @@ export async function saveOrgDetails(d) {
 const docKey = (kind, org, ids, period, who) => [kind, org, [...ids].map(String).sort().join(','), period || '', who || ''].join('|');
 
 /** געפינט א קבלה וואס איז שוין ארויסגעגעבן פאר די זעלבע נדבות. */
+/** די פרטים פון א קבלה (סארט, טעקס, חתימה, תמורה) */
+export function metaOfReceipt(r) { try { return JSON.parse(r?.meta || '{}'); } catch { return {}; } }
 export function findIssued(kind, org, ids, period, who) {
   const k = docKey(kind, org, ids, period, who);
   return state.receipts.find((r) => !isTrueVal(r.void)
@@ -855,15 +857,19 @@ const isTrueVal = (v) => v === true || String(v).toUpperCase() === 'TRUE';
 /**
  * גיט ארויס דאקומענטן (אדער גיט צוריק דעם אלטן נומער ווען ס'איז שוין דא).
  * docs = [{ kind, org, contact_id, donor_name, ids, amount, period }] → די זעלבע מיט receipt_no
- * נומערן: <prefix>-0001 (קבלות), <prefix>-INV-0001 (Invoices), <prefix>-YE2026-001 (יערליכע סיכומים) — באזונדער פאר יעדן ארגון.
+ * נומערן: איין רצף פאר אלע קבלות פון 1001; Invoices: INV-1001 — באזונדער.
  */
 export async function issueDocs(docs) {
   const fresh = (await readColumn('Receipts', 'A')).slice(1).map(String);
   const used = new Set([...fresh, ...state.receipts.map((r) => String(r.receipt_no))]);
-  const next = (base, pad) => {
-    let n = 0;
-    used.forEach((no) => { if (no.startsWith(`${base}-`)) { const m = Number(no.slice(base.length + 1)); if (m > n) n = m; } });
-    const no = `${base}-${String(n + 1).padStart(pad, '0')}`;
+  // איין רצף פאר אלע קבלות (אלע מוסדות, אלע סארטן) פון 1001; Invoices: INV-1001...
+  const next = (inv) => {
+    let n = 1000;
+    used.forEach((no) => {
+      const m = inv ? String(no).match(/^INV-(\d+)$/) : String(no).match(/^(\d+)$/);
+      if (m && Number(m[1]) > n) n = Number(m[1]);
+    });
+    const no = inv ? `INV-${n + 1}` : String(n + 1);
     used.add(no);
     return no;
   };
@@ -872,14 +878,12 @@ export async function issueDocs(docs) {
   const out = docs.map((d) => {
     const who = d.contact_id || d.donor_name;
     const old = findIssued(d.kind, d.org, d.ids, d.period, who);
-    if (old) return { ...d, receipt_no: old.receipt_no, issued_at: old.issued_at, reprint: true };
-    const det = orgDetailsOf(d.org) || {};
-    const prefix = String(det.receipt_prefix || '').trim() || 'R';
-    const base = d.kind === 'invoice' ? `${prefix}-INV` : d.kind === 'year' ? `${prefix}-YE${d.period}` : d.kind === 'tuition' ? `${prefix}-T` : prefix;
-    const no = next(base, d.kind === 'year' ? 3 : 4);
+    if (old) return { ...d, receipt_no: old.receipt_no, issued_at: old.issued_at, reprint: true, meta: d.meta || metaOfReceipt(old) };
+    const no = next(d.kind === 'invoice');
     const rec = {
       receipt_no: no, kind: d.kind, org: d.org, contact_id: d.contact_id || '', donor_name: d.contact_id ? '' : (d.donor_name || ''),
       donation_ids: d.ids.join(','), amount: d.amount, period: d.period || '', issued_at: stamp, issued_by: state.email, void: '', note: d.note || '',
+      meta: d.meta ? JSON.stringify(d.meta) : '',
     };
     rows.push(objectToRow(state.headers.Receipts, rec));
     state.receipts.push(rec);
