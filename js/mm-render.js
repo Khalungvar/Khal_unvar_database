@@ -1,6 +1,6 @@
 // Mail Merge — דאס צייכענען: קאנווערטן, לעיבלס, בריוו. אלע מאסן אין אינטשעס (96px = 1in).
 // יעדע פונקציע באקומט דעם עיצוב (D) — אזוי קען מען צייכענען אויך אן אנדערן עיצוב (למשל די קאנווערטן פאר "א פּאָר").
-import { state, orgLogo, NESHEI_ORG, orgDetailsOf } from './data.js';
+import { state, orgLogo, NESHEI_ORG, orgDetailsOf, careOf } from './data.js';
 import { escapeHtml as h, mailingName, isTrue, isAlive, splitTags } from './util.js';
 import { imageOf } from './images.js';
 import { isoToHebrewText, todayIso } from './hebdate.js';
@@ -242,7 +242,7 @@ export function valuesFor(D, c, ctx = null) {
     First: nz(c.first_name_en),
     Last: nz(c.last_name_en),
     Wife: nz(c.wife_name_en) ? wifeEn(c) : '',
-    Address: nz(c.address),
+    Address: [careOf(c), nz(c.address)].filter(Boolean).join('\n'),
     City: cityLine(c),
     Country: countryOf(c),
     תאריך: he ? `${he} לפ"ק` : '',

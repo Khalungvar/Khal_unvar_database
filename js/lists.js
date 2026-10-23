@@ -5,7 +5,7 @@ import { batchUpdate } from './google.js';
 import {
   tagsOf, storedTags, linesOf, serialize, hasUnchecked, nameOf as tagName, roots as tagRoots, childrenOf as tagChildren, pathKey, GROUPS,
 } from './tags.js';
-import { state, loadAll, saveSavedList, deleteSavedList, displayName, saveRecord, saveContact, importContacts } from './data.js';
+import { state, loadAll, saveSavedList, deleteSavedList, displayName, saveRecord, saveContact, importContacts, careOf } from './data.js';
 import { t } from './i18n.js';
 import { isTrue, isAlive, escapeHtml as h, mailingName, digits, nowStamp } from './util.js';
 import { todayIso } from './hebdate.js';
@@ -372,6 +372,11 @@ function parentLine(key) {
   const fil = [...(R.fil.get(String(key)) || [])].map(contactOf).find(Boolean);
   return fil ? `${t('L2silOf')} ${nm(fil)}` : '';
 }
+/** איינער וואוינט ביים אנדערן ("גר אצל"), אדער ביידע ביי דעם זעלבן */
+const lwPair = (x, y) => {
+  const a = String(x?.lives_with || '').trim(); const b = String(y?.lives_with || '').trim();
+  return Boolean((a && a === String(y?.contact_id)) || (b && b === String(x?.contact_id)) || (a && a === b));
+};
 export function problems(rows, cr) {
   const P = [];
   const add = (type, sev, items) => { if (items.length) P.push({ type, sev, items }); };
@@ -386,7 +391,7 @@ export function problems(rows, cr) {
     m.forEach((g, v) => {
       for (let i = 0; i < g.length; i += 1) for (let j = i + 1; j < g.length; j += 1) {
         const a = g[i].key; const b = g[j].key; const pk = pairKey(a, b);
-        if (!related(a, b) && !sep.has(pk) && !separated(a, b) && !shared.some((s) => s.pk === pk)) shared.push({ pk, a: g[i], b: g[j], what: label, v });
+        if (!related(a, b) && !lwPair(g[i].c, g[j].c) && !sep.has(pk) && !separated(a, b) && !shared.some((s) => s.pk === pk)) shared.push({ pk, a: g[i], b: g[j], what: label, v });
       }
     });
   };
@@ -571,7 +576,7 @@ function exportTab(kind, rows, ch) {
   if (kind === 'names') downloadXlsx(name, [t('colNameHe'), t('L2parent'), t('enName'), t('area')], rows.map((r) => [nm(r.c), parentLine(r.key), [r.c.first_name_en, r.c.last_name_en].filter(Boolean).join(' '), r.c.area || '']), { sheet: name });
   if (kind === 'phones') downloadXlsx(name, [t('colNameHe'), ...PHONE_KEYS.map(([, l]) => t(l))], ch.phones.rows.map((r) => [nm(r.c), ...PHONE_KEYS.map(([k]) => phonesOfRow(r)[k] || '')]), { sheet: name });
   if (kind === 'email') downloadXlsx(name, [t('colNameHe'), 'Email 1', 'Email 2'], ch.email.rows.map((r) => [nm(r.c), phonesOfRow(r).email_1 || '', phonesOfRow(r).email_2 || '']), { sheet: name });
-  if (kind === 'mail') downloadXlsx(name, [t('mailingName'), t('address'), 'City', 'State', 'ZIP'], mailRecipients(ch.mail, mem.mailMode || 'one').map((x) => [mailingName(x) || nm(x), x.address || '', x.city || '', x.state || '', x.zip || '']), { sheet: name });
+  if (kind === 'mail') downloadXlsx(name, [t('mailingName'), 'c/o', t('address'), 'City', 'State', 'ZIP'], mailRecipients(ch.mail, mem.mailMode || 'one').map((x) => [mailingName(x) || nm(x), careOf(x), x.address || '', x.city || '', x.state || '', x.zip || '']), { sheet: name });
   if (kind === 'details') {
     const cols = detailCols(); const sel = (mem.cols || ['name_he', 'mailing', 'address', 'city', 'zip', 'mobile']).map((k) => cols.find(([x]) => x === k)).filter(Boolean);
     downloadXlsx(name, sel.map(([, l]) => l), rows.map((r) => sel.map(([, , fn]) => fn(r))), { sheet: name });

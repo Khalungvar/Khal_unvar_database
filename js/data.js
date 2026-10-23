@@ -99,6 +99,8 @@ export async function loadAll() {
     else if (en === 'rebbetzin') c.title_he = 'הרבנית';
   });
 
+  applyLivesWith();
+
   const phones = rowsToObjects(tabs.Phones);
   state.headers.Phones = phones.header;
   state.phones = new Map(phones.objects.map((p) => [String(p.contact_id), p]));
@@ -274,11 +276,46 @@ export async function getHistory(contactId) {
   return historyCache.filter((x) => String(x.contact_id) === String(contactId)).reverse();
 }
 
+/* ---- "גר אצל" — א מענטש וואס וואוינט ביי אן אנדערן (למשל א בחור ביי די עלטערן). ----
+   lives_with = דער ID פונעם בעל-הבית. די אדרעס ווערט קאפירט פון אים (אויך ווען ער טוישט זיך). */
+export const ADDR_FIELDS = ['address', 'city', 'state', 'zip', 'country', 'area'];
+const cById = (id) => state.contacts.find((x) => String(x.contact_id) === String(id));
+/** דער בעל-הבית ביי וועמען ער וואוינט (אויך ווען דער בעל-הבית אליין וואוינט ביי אן אנדערן) */
+export function hostOf(c) {
+  const id = String(c?.lives_with || '').trim();
+  if (!id || id === String(c.contact_id)) return null;
+  let host = cById(id); let n = 0;
+  while (host && String(host.lives_with || '').trim() && n++ < 3) {
+    const nx = cById(host.lives_with);
+    if (!nx || String(nx.contact_id) === String(c.contact_id)) break;
+    host = nx;
+  }
+  return host || null;
+}
+/** ווער וואוינט ביי אים */
+export const guestsOf = (c) => state.contacts.filter((x) => c?.contact_id && String(x.lives_with || '').trim() === String(c.contact_id));
+const relatedTo = (a, b) => (state.relations || []).some((r) => (String(r.contact_id_a) === String(a.contact_id) && String(r.contact_id_b) === String(b.contact_id))
+  || (String(r.contact_id_b) === String(a.contact_id) && String(r.contact_id_a) === String(b.contact_id)));
+/** "c/o ..." אויף א קאנווערט — ווען זיי זענען נישט קרובים, אדער מיט אן אנדער פאמיליע-נאמען */
+export function careOf(c) {
+  const host = hostOf(c);
+  if (!host) return '';
+  const ln = (x) => String(x.last_name_en || '').trim().toLowerCase();
+  if (relatedTo(c, host) && ln(c) && ln(c) === ln(host)) return '';
+  const nm = [host.first_name_en, host.last_name_en].map((x) => String(x || '').trim()).filter(Boolean).join(' ');
+  return nm ? `c/o ${nm}` : '';
+}
+function applyLivesWith() {
+  state.contacts.forEach((c) => { const host = hostOf(c); if (host) ADDR_FIELDS.forEach((k) => { c[k] = host[k] ?? ''; }); });
+}
+
 /** שומר איש קשר (חדש או קיים) ואת הטלפונים שלו. מחזיר את ה-ID. */
 export async function saveContact(contact, phones) {
   const stamp = nowStamp();
   const c = { ...contact, updated_at: stamp, updated_by: state.email };
   const isNew = !c.contact_id;
+  const host = hostOf(c);
+  if (host) ADDR_FIELDS.forEach((k) => { c[k] = host[k] ?? ''; });
 
   if (isNew) {
     c.contact_id = await nextContactId();
@@ -304,6 +341,16 @@ export async function saveContact(contact, phones) {
     await logChanges('contact', c.contact_id, c.contact_id, before, c);
   }
   await logChanges('phones', c.contact_id, c.contact_id, state.phones.get(String(c.contact_id)) || {}, p);
+  // די וואס וואוינען ביי אים — באקומען די נייע אדרעס
+  if (!isNew) {
+    const moved = guestsOf(c).filter((g) => ADDR_FIELDS.some((k) => String(g[k] ?? '') !== String(c[k] ?? '')));
+    if (moved.length) {
+      try {
+        await bulkSetContactFields(moved.map((g) => ({ c: g, set: Object.fromEntries(ADDR_FIELDS.map((k) => [k, c[k] ?? ''])) })), `address from #${c.contact_id}`);
+        moved.forEach((g) => ADDR_FIELDS.forEach((k) => { g[k] = c[k] ?? ''; }));
+      } catch { /* ביים לאדן ווייזט מען סיי ווי די ריכטיגע אדרעס */ }
+    }
+  }
   return c.contact_id;
 }
 

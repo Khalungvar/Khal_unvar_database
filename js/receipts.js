@@ -6,6 +6,7 @@ import {
   state, loadAll, orgDetailsOf, issueDocs, saveDonation, findIssued, voidReceipt, metaOfReceipt, orgLogo, saveOrgDetails, saveYearly, saveOrgLogo, deleteDonation,
 } from './data.js';
 import { t } from './i18n.js';
+import { careOf } from './data.js';
 import { isTrue, escapeHtml as h, mailingName, splitTags, shrinkImage } from './util.js';
 import { isoToHebrewText } from './hebdate.js';
 import { effectiveOrg, umbrellaName, entityOrgs, isEntityOrg, campaignOrg } from './scope.js';
@@ -577,7 +578,7 @@ function letterParts(c) {
   const yc = yearlyFor(c);
   const ct = c.contact_id ? ui.contactById(c.contact_id) : null;
   const name = ct ? (mailingName(ct) || [ct.legal_first_name || ct.first_name_en, ct.last_name_en].filter(Boolean).join(' ') || ui.fullNameHe(ct)) : c.donor_name;
-  let addr = ct ? [ct.address, [ct.city, ct.state].filter(Boolean).join(', ') + (ct.zip ? ` ${ct.zip}` : '')].filter((x) => String(x || '').trim()) : [];
+  let addr = ct ? [careOf(ct), ct.address, [ct.city, ct.state].filter(Boolean).join(', ') + (ct.zip ? ` ${ct.zip}` : '')].filter((x) => String(x || '').trim()) : [];
   // א קבלה מיט אן אנדער אדרעס: פון דער ארבעט, אדער א פרייער טעקסט
   const AD = c.meta?.addr;
   if (AD?.mode === 'free') addr = String(AD.text || '').split('\n').map((x) => x.trim()).filter(Boolean);

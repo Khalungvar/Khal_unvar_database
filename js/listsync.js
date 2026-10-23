@@ -1,7 +1,7 @@
 // 🔄 עדכון "נשי אונגוואר" לויט א רשימת דיוור (אקסל): ווער עס איז אויף דער רשימה — נשי; ווער נישט — נישט.
 // מ'פארגלייכט יעדע שורה מיט די קאנטאקטן (נאמען, אדרעס, טעלעפאן). נאר זיכערע התאמות ווערן געטוישט;
 // א דוח (אקסל): פרטים וואס זענען אנדערש, וואס איז נישט געפונען, און וואס איז נישט זיכער.
-import { state, loadAll, NESHEI_ORG, bulkSetContactFields } from './data.js';
+import { state, loadAll, NESHEI_ORG, bulkSetContactFields, ADDR_FIELDS } from './data.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, isTrue, nowStamp } from './util.js';
 import { readXlsx } from './import.js';
@@ -226,4 +226,69 @@ export function openListSync() {
     };
   };
   dlg.showModal();
+}
+
+// ---------- "גר אצל": בחורים וואס וואוינען ביי דעם טאטן — אויף איינמאל ----------
+const isAliveC = (c) => !['false', 'FALSE', false].includes(c.is_alive);
+function fatherOf(c) {
+  const id = String(c.contact_id);
+  const r = state.relations.find((x) => String(x.contact_id_a) === id && x.relation_type === 'זון פון')
+    || state.relations.find((x) => String(x.contact_id_b) === id && x.relation_type === 'טאטע פון');
+  if (!r) return null;
+  const fid = String(r.contact_id_a) === id ? r.contact_id_b : r.contact_id_a;
+  return state.contacts.find((x) => String(x.contact_id) === String(fid)) || null;
+}
+/** די קאנדידאטן: א בחור מיט א טאטן אין מאגר, וואס איז נאך נישט "גר אצל" */
+export function livesWithCandidates() {
+  return state.contacts.filter((c) => c.marital_status === 'בחור' && isAliveC(c) && !String(c.lives_with || '').trim())
+    .map((c) => {
+      const f = fatherOf(c);
+      if (!f || !isAliveC(f) || String(f.lives_with || '').trim() === String(c.contact_id)) return null;
+      const mine = addr(c.address).full; const his = addr(f.address).full;
+      const kind = !String(c.address || '').trim() ? 'empty'
+        : (mine && mine === his && (!zip5(c.zip) || !zip5(f.zip) || zip5(c.zip) === zip5(f.zip))) ? 'same' : 'diff';
+      return { c, f, kind };
+    }).filter(Boolean)
+    .sort((a, b) => ({ same: 0, empty: 1, diff: 2 }[a.kind] - { same: 0, empty: 1, diff: 2 }[b.kind]));
+}
+export function openLivesWithTool() {
+  const list = livesWithCandidates();
+  const dlg = document.createElement('dialog');
+  dlg.className = 'sheet wide ls-dlg';
+  document.body.append(dlg);
+  dlg.addEventListener('close', () => dlg.remove());
+  const adr = (x) => [x.address, x.city, x.zip].filter(Boolean).join(', ');
+  const KL = { same: t('lwtSame'), empty: t('lwtEmpty'), diff: t('lwtDiff') };
+  dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button>
+    <h2>🏠 ${h(t('lwtTitle'))}</h2>
+    <p class="muted small">${h(t('lwtHint'))}</p>
+    ${list.length ? `<p><label class="check"><input type="checkbox" id="lwt-all"> ${h(t('lwtAll'))}</label> · <b id="lwt-n"></b></p>
+    <div class="ls-table-wrap"><table class="ls-table"><thead><tr><th></th><th>${h(t('lwtBochur'))}</th><th>${h(t('lwtFather'))}</th><th>${h(t('lwtNow'))}</th><th>${h(t('lwtFatherAddr'))}</th></tr></thead>
+    <tbody>${list.map((r, i) => `<tr class="lwt-${r.kind}"><td><input type="checkbox" data-i="${i}" ${r.kind !== 'diff' ? 'checked' : ''}></td>
+      <td>${h(ui.fullNameHe(r.c))} <span class="muted small">#${h(r.c.contact_id)}</span></td><td>${h(ui.fullNameHe(r.f))}</td>
+      <td dir="ltr" class="small">${r.kind === 'empty' ? `<span class="muted">${h(KL.empty)}</span>` : h(adr(r.c))}${r.kind === 'diff' ? ` <b class="lwt-tag">${h(KL.diff)}</b>` : ''}</td>
+      <td dir="ltr" class="small">${h(adr(r.f)) || '—'}</td></tr>`).join('')}</tbody></table></div>`
+    : `<p class="fc-msg">${h(t('lwtNone'))}</p>`}
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>${h(t('close'))}</button>
+    ${list.length ? `<button type="button" class="btn primary" id="lwt-go">${h(t('lwtGo'))}</button>` : ''}</div>`;
+  dlg.querySelectorAll('[data-x]').forEach((b) => { b.onclick = () => dlg.close(); });
+  dlg.showModal();
+  if (!list.length) return;
+  const boxes = [...dlg.querySelectorAll('input[data-i]')];
+  const count = () => { $('#lwt-n', dlg).textContent = t('lwtN', { n: boxes.filter((b) => b.checked).length }); };
+  dlg.addEventListener('change', count);
+  $('#lwt-all', dlg).onchange = (e) => { boxes.forEach((b) => { b.checked = e.target.checked; }); count(); };
+  count();
+  $('#lwt-go', dlg).onclick = async (e) => {
+    const pick = boxes.filter((b) => b.checked).map((b) => list[Number(b.dataset.i)]);
+    if (!pick.length) return;
+    e.target.disabled = true; e.target.textContent = t('saving');
+    try {
+      await bulkSetContactFields(pick.map(({ c, f }) => ({ c, set: { lives_with: String(f.contact_id), ...Object.fromEntries(ADDR_FIELDS.map((k) => [k, f[k] ?? ''])) } })), 'lives with father');
+      ui.toast(t('lwtDone', { n: pick.length }));
+      dlg.close();
+      await loadAll();
+      ui.refreshAll?.();
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); e.target.disabled = false; e.target.textContent = t('lwtGo'); }
+  };
 }

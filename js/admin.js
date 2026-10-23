@@ -13,7 +13,7 @@ import {
 import { yearlySeries, allCampaigns, curYear } from './campaigns.js';
 import { orgSelect } from './donations.js';
 import { orgDetailsAdminHtml } from './receipts.js';
-import { openListSync } from './listsync.js';
+import { openListSync, openLivesWithTool, livesWithCandidates } from './listsync.js';
 import { requestsAdminHtml, wireRequestsAdmin, pendingRequests } from './requests.js';
 import { feedbackAdminHtml, wireFeedbackAdmin, openFeedbackCount } from './feedback.js';
 import { treeAdminHtml, wireTreeAdmin } from './tags.js';
@@ -157,6 +157,7 @@ export function renderAdmin() {
     + `<div class="adm-group" id="adm-code" data-tab="people"></div>`
     + (state.isOwner ? `<div class="adm-group" id="adm-import" data-tab="people">${importBoxHtml()}</div>` : '')
     + `<div class="adm-group" data-tab="people"><h3 class="adm-group-title">🔄 ${h(t('lsTitle'))}</h3><p class="muted small">${h(t('lsHint'))}</p><button type="button" class="btn" id="adm-lsync">📄 ${h(t('lsOpen'))}</button></div>`
+    + `<div class="adm-group" data-tab="people"><h3 class="adm-group-title">🏠 ${h(t('lwtTitle'))}</h3><p class="muted small">${h(t('lwtHint'))}</p><button type="button" class="btn" id="adm-lwt">🏠 ${h(t('lwtOpen', { n: livesWithCandidates().length }))}</button></div>`
     + campaignsAdminHtml()
     + orgDetailsAdminHtml()
     + trashHtml()
@@ -194,6 +195,7 @@ export function renderAdmin() {
   if (state.isOwner) renderSharing();
   wireImport($('#adm-import', main), ui);
   $('#adm-lsync', main)?.addEventListener('click', () => openListSync());
+  $('#adm-lwt', main)?.addEventListener('click', () => openLivesWithTool());
 
   $$('.adm-card[data-key]', main).forEach((card) => wireCard(card, defs[Number(card.dataset.key)]));
 }

@@ -4,6 +4,7 @@ import {
 } from './google.js';
 import {
   state, loadAll, displayName, trashContact, orgLogo, NESHEI_ORG, getHistory, getPhoto, savePhoto, saveOriginalToDrive, saveContact, saveKvitel, addListValue, addRelation, removeRelation,
+  hostOf, guestsOf, ADDR_FIELDS,
 } from './data.js';
 import { suggest, details, placesEnabled, placesError } from './places.js';
 import {
@@ -799,6 +800,10 @@ function openCard(id, tab = null) {
 
   const address = [c.address, [c.city, c.state, c.zip].filter(Boolean).join(', '),
     c.country && c.country !== 'USA' ? c.country : ''].filter(Boolean).map(h).join('<br>');
+  const lwHost = hostOf(c);
+  const lwGuests = guestsOf(c);
+  const lwHtml = (lwHost ? `<p class="lw-line">🏠 ${h(t('lwAt'))} <a href="#" data-lw="${h(lwHost.contact_id)}">${h(fullNameHe(lwHost))}</a></p>` : '')
+    + (lwGuests.length ? `<p class="lw-line">👥 ${h(t('lwHere'))} ${lwGuests.map((g) => `<a href="#" data-lw="${h(g.contact_id)}">${h(fullNameHe(g))}</a>`).join(', ')}</p>` : '');
 
   const wife = [c.wife_name_he, c.wife_name_en].some((v) => String(v).trim())
     ? `${h(c.wife_name_he)}${c.wife_name_en ? ` · <span dir="ltr">${unverifiedWrap(c, ['wife_name_en'], h(c.wife_name_en))}</span>` : ''}`
@@ -839,7 +844,7 @@ function openCard(id, tab = null) {
       ${hasRealTags(c) ? '' : field(t('community'), tagChips(c.community_tags))}
     </section>
     ${cardTagsHtml(c)}
-    ${address || c.area ? `<section><h3>${t('address')}${c.area ? ` · ${unverifiedWrap(c, ['area'], h(c.area))}` : ''}</h3><p dir="ltr" class="addr">${address}</p></section>` : ''}
+    ${address || c.area ? `<section><h3>${t('address')}${c.area ? ` · ${unverifiedWrap(c, ['area'], h(c.area))}` : ''}</h3><p dir="ltr" class="addr">${address}</p>${lwHtml}</section>` : lwHtml ? `<section>${lwHtml}</section>` : ''}
     ${workCardHtml(c)}
     ${phones || emails ? `<section><h3>${t('phonesEmail')}</h3>${phones}${emails}${smsCardHtml(c)}</section>` : ''}
     </div>
@@ -871,6 +876,7 @@ function openCard(id, tab = null) {
   wireOccasionsSection(c);
   wireKvitel(c);
   wireCardLists(c);
+  $$('[data-lw]', $('#card-body')).forEach((a) => { a.onclick = (e) => { e.preventDefault(); openCard(a.dataset.lw); }; });
   wirePhoto(c);
   wireHistory(c);
   const scPane = $('#card-body .card-pane[data-tab="school"]');
@@ -1323,6 +1329,74 @@ function wireTagPicker(box) {
   });
 }
 
+const cById = (id) => state.contacts.find((x) => String(x.contact_id) === String(id));
+/** דער ID פונעם "גר אצל" — נאר א ריכטיגער קאנטאקט פון דער רשימה */
+function lwIdOf(form) {
+  const m = String(form.elements.lw_who?.value || '').match(/\(#(\d+)\)/);
+  return m && cById(m[1]) ? m[1] : '';
+}
+/** "גר אצל מישהו אחר": די אדרעס ווערט גענומען פונעם אנדערן, און מ'פרעגט וואס איז דער קשר */
+function wireLivesWith(form, c) {
+  const f = (n) => form.elements[n];
+  const box = $('.lw-row', form);
+  const relBox = $('.lw-rel', box);
+  const myId = String(c.contact_id ?? '');
+  const lock = (on) => ADDR_FIELDS.forEach((k) => { const el = f(k); if (el) { el.disabled = on; el.classList.toggle('lw-locked', on); } });
+  const relWith = (hid) => {
+    const ex = state.relations.find((r) => myId && String(r.contact_id_a) === myId && String(r.contact_id_b) === String(hid) && !(form._relRemoves || []).includes(r));
+    if (ex) return ex.relation_type;
+    const pend = (form._relAdds || []).find((a) => String(a.b) === String(hid));
+    if (pend) return pend.type;
+    const rev = state.relations.find((r) => myId && String(r.contact_id_b) === myId && String(r.contact_id_a) === String(hid));
+    if (rev && state.relationReverse[rev.relation_type]) return state.relationReverse[rev.relation_type];
+    return null;
+  };
+  const show = () => {
+    const on = f('lw_on').checked;
+    $('.lw-pick', box).hidden = !on;
+    const hid = on ? lwIdOf(form) : '';
+    const host = hid ? cById(hid) : null;
+    lock(Boolean(host));
+    if (!host) { relBox.innerHTML = ''; return; }
+    ADDR_FIELDS.forEach((k) => { if (f(k)) f(k).value = k === 'country' ? (host[k] || 'USA') : (host[k] ?? ''); });
+    f('area')?.classList.remove('suggested');
+    const rel = relWith(hid);
+    if (rel) { relBox.innerHTML = `<span class="muted">${h(t('lwRelIs'))}</span> <b>${h(relationLabel(rel))}</b>`; return; }
+    if (form._lwNoRel === hid) { relBox.innerHTML = `<span class="muted">${h(t('lwNotRelated'))}</span>`; return; }
+    relBox.innerHTML = `<label class="lw-ask">${h(t('lwRelQ'))} <select class="lw-relsel"><option value="">—</option>${(state.lists.relation_type || [])
+      .map((rv) => `<option value="${h(rv)}">${h(relationLabel(rv))}</option>`).join('')}<option value="__none">${h(t('lwNotRelated'))}</option></select></label>`;
+    const sel = $('.lw-relsel', relBox);
+    sel.focus();
+    sel.onchange = () => {
+      if (!sel.value) return;
+      if (sel.value === '__none') { form._lwNoRel = hid; show(); return; }
+      const fam = $('.form-family', form);
+      $('.rel-type', fam).value = sel.value;
+      $('.rel-contact', fam).value = pickerLabel(host);
+      $('.rel-add', fam).click();
+      show();
+    };
+  };
+  f('lw_on').addEventListener('change', () => { show(); if (f('lw_on').checked && !lwIdOf(form)) f('lw_who').focus(); });
+  // ער האט חתונה געהאט → פרעגן צי ער וואוינט נאך דארט
+  f('marital_status').addEventListener('change', async () => {
+    if (f('marital_status').value !== 'נשוי' || !f('lw_on').checked || !lwIdOf(form)) return;
+    const host = cById(lwIdOf(form));
+    const ans = await choose(`🏠 ${t('lwMarriedT')}`, t('lwMarriedQ', { name: host ? fullNameHe(host) : '' }), [['off', t('lwMarriedOff'), true], ['keep', t('lwMarriedKeep')]]);
+    if (ans !== 'off') return;
+    f('lw_on').checked = false;
+    show();
+    f('address').focus(); f('address').select();
+  });
+  f('lw_who').addEventListener('input', () => {
+    const hid = lwIdOf(form);
+    if (hid && hid === myId) { toast(t('relSelf'), 'error'); f('lw_who').value = ''; }
+    else if (hid && myId && String(hostOf(cById(hid))?.contact_id || '') === myId) { toast(t('lwLoop'), 'error'); f('lw_who').value = ''; }
+    show();
+  });
+  show();
+}
+
 /** קשרים משפחתיים בתוך הטופס: נשמרים יחד עם איש הקשר כשלוחצים אפהיטן. */
 function wireFormFamily(form, c) {
   const box = $('.form-family', form);
@@ -1442,7 +1516,14 @@ function openForm(c = {}) {
     ${orgTagsFormHtml(c)}
     </div>
 
-    <fieldset><legend>${t('secAddress')}</legend>
+    <fieldset class="lw-box"><legend>${t('secAddress')}</legend>
+      <div class="lw-row">
+        <label class="check"><input type="checkbox" name="lw_on" ${hostOf(c) ? 'checked' : ''}> 🏠 ${t('lwToggle')}</label>
+        <span class="lw-pick" ${hostOf(c) ? '' : 'hidden'}>
+          <input name="lw_who" list="dl-form-contacts" autocomplete="off" placeholder="${h(t('lwPick'))}" value="${hostOf(c) ? h(pickerLabel(cById(c.lives_with) || hostOf(c))) : ''}">
+          <span class="lw-rel"></span>
+        </span>
+      </div>
       <div class="grid" dir="ltr">
         <label class="wide">Address
           <span class="ac-wrap"><input name="address" autocomplete="off" list="${placesEnabled() ? '' : 'dl-address'}" value="${v('address')}" placeholder="${placesEnabled() ? 'Start typing an address…' : ''}">
@@ -1598,6 +1679,7 @@ function wireForm(form, original) {
   });
 
   wireFormFamily(form, original);
+  wireLivesWith(form, original);
 
   wireAddressAutocomplete(form);
 
@@ -1688,6 +1770,7 @@ function collect(form, original) {
     zip: val('zip'),
     country: val('country') || 'USA',
     area: val('area'),
+    lives_with: form.elements.lw_on.checked ? (lwIdOf(form) || '') : '',
     unverified_fields: joinTags($$('.suggested[name]', form).filter((i) => i.value.trim()).map((i) => i.name)),
   };
   delete contact._row;
@@ -1716,6 +1799,9 @@ async function submit(form, original) {
   nesheiFromTags(contact);
   contact.is_active = !form.elements.inactive.checked;
 
+  if (form.elements.lw_on.checked && !contact.lives_with) {
+    toast(t('lwNeedWho'), 'error'); form.elements.lw_who.focus(); return;
+  }
   if (!contact.last_name_he || (!contact.first_name_he && !original.contact_id)) {
     toast(t('required'), 'error');
     return;
