@@ -37,6 +37,7 @@ import { workCardHtml, workFormHtml, wireWorkForm, readWorkForm, workSearchText 
 import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, markChecked, hasRealTags, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
 import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
 import { initFaces, openFaces, renderFaces } from './faces.js';
+import { initListSync } from './listsync.js';
 import { initBooks, openBooks, renderBooks, allBooks, BOOKS_ORG, BOOKS_LOGO } from './books.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount, parseOrgTags, splitEntry, entry } from './orgtags.js';
@@ -1908,6 +1909,7 @@ function start() {
   initSms({ showView, fullNameHe, toast, friendlyError, openCard, pickerLabel });
   initRequests({ toast, friendlyError, refreshAll, updateBadges, showView, openCard });
   initMerge({ contactById, fullNameHe, pickerLabel, fieldLabel, toast, friendlyError, refreshAll, openCard });
+  initListSync({ toast, friendlyError, fullNameHe, refreshAll });
   initFaces({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard });
   initBooks({ showView, toast, friendlyError, contactById, fullNameHe, receiptFor: (d) => printForDonation(d), cancelDoc: (c) => cancelDoc(c), quickSale: (org, done) => openQuickReceipt(org, done, { sale: true }) });
   initSimchos({ showView, contactById, fullNameHe, pickerLabel, toast, friendlyError, refreshAll, openCard, openForm });

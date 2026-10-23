@@ -2077,3 +2077,8 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .cl-evh { margin-top: 16px; }
 .fc-del { color: #b3261e; }
 .fc-year { margin: 18px 0 8px; color: var(--accent, #7a1219); border-bottom: 2px solid #e3d3ad; padding-bottom: 4px; font-size: 1.3em; }
+.ls-dlg { max-width: 640px; }
+.ls-sum { border-collapse: collapse; margin: 10px 0; width: 100%; }
+.ls-sum td { padding: 4px 8px; border-bottom: 1px dotted #e3d3ad; }
+.ls-sum tr.ls-act td { background: #f3f8f0; }
+.ls-det { margin: 6px 0; }

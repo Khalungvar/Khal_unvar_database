@@ -1219,3 +1219,20 @@ export async function saveFaceLearn(rec) {
   if (row) await updateRow('FaceLearn', row, objectToRow(state.headers.FaceLearn, r));
   else await appendRow('FaceLearn', objectToRow(state.headers.FaceLearn, r));
 }
+/** א סך קאנטאקטן מיט אמאל: changes = [{ c, set: { field: value } }] — נאר די פעלדער, אין איין שיקונג (מיט היסטאריע) */
+export async function bulkSetContactFields(changes, note = '') {
+  const hdr = state.headers.Contacts || [];
+  const data = []; const hist = []; const at = nowStamp();
+  changes.forEach(({ c, set }) => {
+    if (!c?._row) return;
+    Object.entries(set).forEach(([k, v]) => {
+      const i = hdr.indexOf(k);
+      if (i < 0) return;
+      data.push({ range: `Contacts!${colLetter(i)}${c._row}`, values: [[v]] });
+      if (k !== 'tags') hist.push([at, state.email, 'contact', String(c.contact_id), String(c.contact_id), k, String(c[k] ?? ''), String(v)]);
+    });
+    if (note) hist.push([at, state.email, 'contact', String(c.contact_id), String(c.contact_id), '*', '', note]);
+  });
+  for (let i = 0; i < data.length; i += 400) await batchUpdate(data.slice(i, i + 400));
+  if (hist.length) { try { await appendRows('History', hist); historyCache = null; } catch { /* היסטאריע — נישט קריטיש */ } }
+}

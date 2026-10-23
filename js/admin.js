@@ -13,6 +13,7 @@ import {
 import { yearlySeries, allCampaigns, curYear } from './campaigns.js';
 import { orgSelect } from './donations.js';
 import { orgDetailsAdminHtml } from './receipts.js';
+import { openListSync } from './listsync.js';
 import { requestsAdminHtml, wireRequestsAdmin, pendingRequests } from './requests.js';
 import { feedbackAdminHtml, wireFeedbackAdmin, openFeedbackCount } from './feedback.js';
 import { treeAdminHtml, wireTreeAdmin } from './tags.js';
@@ -155,6 +156,7 @@ export function renderAdmin() {
     + `<div class="adm-group" id="adm-lock" data-tab="people-lock"></div>`
     + `<div class="adm-group" id="adm-code" data-tab="people"></div>`
     + (state.isOwner ? `<div class="adm-group" id="adm-import" data-tab="people">${importBoxHtml()}</div>` : '')
+    + `<div class="adm-group" data-tab="people"><h3 class="adm-group-title">🔄 ${h(t('lsTitle'))}</h3><p class="muted small">${h(t('lsHint'))}</p><button type="button" class="btn" id="adm-lsync">📄 ${h(t('lsOpen'))}</button></div>`
     + campaignsAdminHtml()
     + orgDetailsAdminHtml()
     + trashHtml()
@@ -191,6 +193,7 @@ export function renderAdmin() {
   $('[data-g="admPeople"]', main)?.after($('#adm-sharing', main));
   if (state.isOwner) renderSharing();
   wireImport($('#adm-import', main), ui);
+  $('#adm-lsync', main)?.addEventListener('click', () => openListSync());
 
   $$('.adm-card[data-key]', main).forEach((card) => wireCard(card, defs[Number(card.dataset.key)]));
 }
