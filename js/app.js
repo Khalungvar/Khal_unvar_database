@@ -110,7 +110,7 @@ function choose(title, text, options, boldFirst = '') {
 async function enterApp() {
   state.email = await getUserEmail();
   rememberEmail(state.email);
-  await loadAll();
+  await loadAll({ full: true });
   if (!state.isAllowed) {
     const err = new Error('not-registered');
     err.code = 'not-registered';
@@ -429,7 +429,7 @@ function logout() {
 
 async function refresh() {
   try {
-    await loadAll();
+    await loadAll({ full: true });
     refreshAll();
     toast(t('refreshed'));
   } catch (err) {

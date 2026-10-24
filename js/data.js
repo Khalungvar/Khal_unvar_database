@@ -1,7 +1,7 @@
 // שכבת הנתונים: מתרגמת בין שורות בגליון לבין אובייקטים, לפי שמות העמודות בשורה 1.
 // ככה הוספה או הזזה של עמודה בגליון לא שוברת את התוכנה.
 import {
-  readTabs, readColumn, readCell, appendRow, appendRows, updateRow, updateCell, updateRange, batchUpdate,
+  readTabs, readColumn, readCell, appendRow, appendRows, updateRow, updateCell, updateRange, batchUpdate, dirtyTabs,
   ensureDriveScope, hasDriveScope, driveFolder, driveUpload,
   pickSheet, sheetPermissions, shareSheet, unshareSheet,
 } from './google.js';
@@ -83,132 +83,199 @@ function parseLists(rows) {
   };
 }
 
-export async function loadAll() {
-  const tabs = await readTabs(['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts', 'Requests', 'Enrollments', 'Tuition', 'Simchos', 'SimchaIssues', 'TagTree', 'Books', 'BookMoves', 'FaceEvents']);
-
-  const contacts = rowsToObjects(tabs.Contacts);
-  state.headers.Contacts = contacts.header;
-  // אויסגעמעקטע (אין "מיסט") — נישט געוויזן אין ערגעץ, נאר אין אדמין צו צוריקברענגען אדער אויסמעקן אויף אייביג
-  state.trash = contacts.objects.filter((c) => String(c.deleted_at || '').trim());
-  state.contacts = contacts.objects.filter((c) => !String(c.deleted_at || '').trim());
-  // א פרוי (אלמנה): ווען עס פעלט דער אידישער תואר — פון דעם ענגלישן (Mrs. → מרת, Rebbetzin → הרבנית). ווערט געשפייכלערט ביים קומענדיגן שפייכלערן.
-  state.contacts.forEach((c) => {
-    if (String(c.title_he || '').trim()) return;
-    const en = String(c.title_en || '').trim().toLowerCase();
-    if (/^(mrs|ms)\.?$/.test(en)) c.title_he = 'מרת';
-    else if (en === 'rebbetzin') c.title_he = 'הרבנית';
-  });
-
-  applyLivesWith();
-
-  const phones = rowsToObjects(tabs.Phones);
-  state.headers.Phones = phones.header;
-  state.phones = new Map(phones.objects.map((p) => [String(p.contact_id), p]));
-
-  const donations = rowsToObjects(tabs.Donations);
-  state.headers.Donations = donations.header;
-  state.donations = donations.objects;
-
-  const msgs = rowsToObjects(tabs.Messages || []);
-  state.headers.Messages = msgs.header;
-  state.messages = msgs.objects;
-
-  const tasks = rowsToObjects(tabs.Tasks || []);
-  state.headers.Tasks = tasks.header;
-  state.tasks = tasks.objects;
-
-  const logos = rowsToObjects(tabs.OrgLogos || []);
-  state.headers.OrgLogos = logos.header;
-  state.orgLogos = Object.fromEntries(logos.objects.filter((x) => x.org && x.logo_data).map((x) => [x.org, x.logo_data]));
-
-  const mt = rowsToObjects(tabs.MailTemplates || []);
-  state.headers.MailTemplates = mt.header;
-  state.mailTemplates = mt.objects;
-
-  const saved = rowsToObjects(tabs.SavedLists);
-  state.headers.SavedLists = saved.header;
-  state.savedLists = saved.objects;
-
-  const campaigns = rowsToObjects(tabs.Campaigns);
-  state.headers.Campaigns = campaigns.header;
-  state.campaigns = campaigns.objects;
-
-  const od = rowsToObjects(tabs.OrgDetails || [['org']]);
-  state.headers.OrgDetails = od.header;
-  state.orgDetails = od.objects.filter((o) => String(o.org || '').trim());
-  const rc = rowsToObjects(tabs.Receipts || [['receipt_no']]);
-  state.headers.Receipts = rc.header;
-  state.receipts = rc.objects.filter((r) => String(r.receipt_no || '').trim());
-
-  const rq = rowsToObjects(tabs.Requests || [['request_id']]);
-  state.headers.Requests = rq.header;
-  state.requests = rq.objects.filter((r) => String(r.request_id || '').trim());
-
-  // ישיבות: תלמידים (פון-ביז) און שכר לימוד
-  const en = rowsToObjects(tabs.Enrollments || [['enroll_id']]);
-  state.headers.Enrollments = en.header;
-  state.enrollments = en.objects.filter((e) => String(e.enroll_id || '').trim());
-  const tu = rowsToObjects(tabs.Tuition || [['payment_id']]);
-  state.headers.Tuition = tu.header;
-  state.tuition = tu.objects.filter((x) => String(x.payment_id || '').trim());
-
-  const sim = rowsToObjects(tabs.Simchos || [['simcha_id']]);
-  state.headers.Simchos = sim.header;
+const ALL_TABS = ['Contacts', 'Phones', 'Lists', 'Settings', 'Relations', 'Donations', 'Occasions', 'OrgNotes', 'Campaigns', 'SavedLists', 'MailTemplates', 'Messages', 'Tasks', 'OrgLogos', 'YearlyCampaigns', 'OrgDetails', 'Receipts', 'Requests', 'Enrollments', 'Tuition', 'Simchos', 'SimchaIssues', 'TagTree', 'Books', 'BookMoves', 'FaceEvents'];
+const FULL_EVERY = 5 * 60 * 1000; // אלע לשוניות (אויך וואס אנדערע גבאים האבן געטוישט) — לכל הפחות יעדע 5 מינוט
+let lastFull = 0;
+/**
+ * לאדט די לשוניות. נאך א שפייכלערן: נאר די לשוניות וואס מ'האט געשריבן (dirtyTabs) — אסאך גיכער.
+ * full = אלעס (ביים אריינקומען, "ריענון", אדער ווען עס איז שוין 5 מינוט נישט געווען).
+ */
+export async function loadAll({ full = false } = {}) {
+  const all = full || !lastFull || Date.now() - lastFull > FULL_EVERY;
+  const want = all ? ALL_TABS : ALL_TABS.filter((x) => dirtyTabs.has(x));
+  want.forEach((x) => dirtyTabs.delete(x));
+  if (!want.length) return;
+  let tabs;
+  try { tabs = await readTabs(want); } catch (err) { want.forEach((x) => dirtyTabs.add(x)); throw err; }
+  if (all) lastFull = Date.now();
+  const has = (x) => Object.prototype.hasOwnProperty.call(tabs, x);
   // א דאטום וואס גוגל שיטס האט פארוואנדלט אין א נומער (טעג זינט 30.12.1899) → 'YYYY-MM-DD'
   const isoDay = (v) => (typeof v === 'number' || /^\d{5}$/.test(String(v || ''))
     ? new Date(Date.UTC(1899, 11, 30) + Math.floor(Number(v)) * 86400000).toISOString().slice(0, 10) : String(v || '').slice(0, 10));
-  state.simchos = sim.objects.filter((x) => String(x.simcha_id || '').trim()).map((x) => ({ ...x, week: isoDay(x.week) }));
-  const tt = rowsToObjects(tabs.TagTree || [['node_id']]);
-  state.headers.TagTree = tt.header;
-  state.tagTree = tt.objects.filter((x) => String(x.node_id || '').trim());
-  const si = rowsToObjects(tabs.SimchaIssues || [['issue_id']]);
-  state.headers.SimchaIssues = si.header;
-  state.simchaIssues = si.objects.filter((x) => String(x.issue_id || '').trim()).map((x) => ({ ...x, yt_date: isoDay(x.yt_date) }));
+
+  if (has('Contacts')) {
+    const contacts = rowsToObjects(tabs.Contacts);
+    state.headers.Contacts = contacts.header;
+    // אויסגעמעקטע (אין "מיסט") — נישט געוויזן אין ערגעץ, נאר אין אדמין צו צוריקברענגען אדער אויסמעקן אויף אייביג
+    state.trash = contacts.objects.filter((c) => String(c.deleted_at || '').trim());
+    state.contacts = contacts.objects.filter((c) => !String(c.deleted_at || '').trim());
+    // א פרוי (אלמנה): ווען עס פעלט דער אידישער תואר — פון דעם ענגלישן (Mrs. → מרת, Rebbetzin → הרבנית). ווערט געשפייכלערט ביים קומענדיגן שפייכלערן.
+    state.contacts.forEach((c) => {
+      if (String(c.title_he || '').trim()) return;
+      const en = String(c.title_en || '').trim().toLowerCase();
+      if (/^(mrs|ms)\.?$/.test(en)) c.title_he = 'מרת';
+      else if (en === 'rebbetzin') c.title_he = 'הרבנית';
+    });
+
+    applyLivesWith();
+  }
+
+  if (has('Phones')) {
+    const phones = rowsToObjects(tabs.Phones);
+    state.headers.Phones = phones.header;
+    state.phones = new Map(phones.objects.map((p) => [String(p.contact_id), p]));
+  }
+
+  if (has('Donations')) {
+    const donations = rowsToObjects(tabs.Donations);
+    state.headers.Donations = donations.header;
+    state.donations = donations.objects;
+  }
+
+  if (has('Messages')) {
+    const msgs = rowsToObjects(tabs.Messages || []);
+    state.headers.Messages = msgs.header;
+    state.messages = msgs.objects;
+  }
+
+  if (has('Tasks')) {
+    const tasks = rowsToObjects(tabs.Tasks || []);
+    state.headers.Tasks = tasks.header;
+    state.tasks = tasks.objects;
+  }
+
+  if (has('OrgLogos')) {
+    const logos = rowsToObjects(tabs.OrgLogos || []);
+    state.headers.OrgLogos = logos.header;
+    state.orgLogos = Object.fromEntries(logos.objects.filter((x) => x.org && x.logo_data).map((x) => [x.org, x.logo_data]));
+  }
+
+  if (has('MailTemplates')) {
+    const mt = rowsToObjects(tabs.MailTemplates || []);
+    state.headers.MailTemplates = mt.header;
+    state.mailTemplates = mt.objects;
+  }
+
+  if (has('SavedLists')) {
+    const saved = rowsToObjects(tabs.SavedLists);
+    state.headers.SavedLists = saved.header;
+    state.savedLists = saved.objects;
+  }
+
+  if (has('Campaigns')) {
+    const campaigns = rowsToObjects(tabs.Campaigns);
+    state.headers.Campaigns = campaigns.header;
+    state.campaigns = campaigns.objects;
+  }
+
+  if (has('OrgDetails')) {
+    const od = rowsToObjects(tabs.OrgDetails || [['org']]);
+    state.headers.OrgDetails = od.header;
+    state.orgDetails = od.objects.filter((o) => String(o.org || '').trim());
+  }
+  if (has('Receipts')) {
+    const rc = rowsToObjects(tabs.Receipts || [['receipt_no']]);
+    state.headers.Receipts = rc.header;
+    state.receipts = rc.objects.filter((r) => String(r.receipt_no || '').trim());
+  }
+
+  if (has('Requests')) {
+    const rq = rowsToObjects(tabs.Requests || [['request_id']]);
+    state.headers.Requests = rq.header;
+    state.requests = rq.objects.filter((r) => String(r.request_id || '').trim());
+  }
+
+  // ישיבות: תלמידים (פון-ביז) און שכר לימוד
+  if (has('Enrollments')) {
+    const en = rowsToObjects(tabs.Enrollments || [['enroll_id']]);
+    state.headers.Enrollments = en.header;
+    state.enrollments = en.objects.filter((e) => String(e.enroll_id || '').trim());
+  }
+  if (has('Tuition')) {
+    const tu = rowsToObjects(tabs.Tuition || [['payment_id']]);
+    state.headers.Tuition = tu.header;
+    state.tuition = tu.objects.filter((x) => String(x.payment_id || '').trim());
+  }
+
+  if (has('Simchos')) {
+    const sim = rowsToObjects(tabs.Simchos || [['simcha_id']]);
+    state.headers.Simchos = sim.header;
+    state.simchos = sim.objects.filter((x) => String(x.simcha_id || '').trim()).map((x) => ({ ...x, week: isoDay(x.week) }));
+  }
+  if (has('TagTree')) {
+    const tt = rowsToObjects(tabs.TagTree || [['node_id']]);
+    state.headers.TagTree = tt.header;
+    state.tagTree = tt.objects.filter((x) => String(x.node_id || '').trim());
+  }
+  if (has('SimchaIssues')) {
+    const si = rowsToObjects(tabs.SimchaIssues || [['issue_id']]);
+    state.headers.SimchaIssues = si.header;
+    state.simchaIssues = si.objects.filter((x) => String(x.issue_id || '').trim()).map((x) => ({ ...x, yt_date: isoDay(x.yt_date) }));
+  }
   // מכון משנה הלכות: די ספרים (מחיר, מבצע, מלאי)
-  const bk = rowsToObjects(tabs.Books || [['book_id']]);
-  state.headers.Books = bk.header;
-  state.books = bk.objects.filter((x) => String(x.book_id || '').trim()).map((x) => ({ ...x, sale_from: x.sale_from ? isoDay(x.sale_from) : '', sale_to: x.sale_to ? isoDay(x.sale_to) : '' }));
-  const bm = rowsToObjects(tabs.BookMoves || [['move_id']]);
-  state.headers.BookMoves = bm.header;
-  state.bookMoves = bm.objects.filter((x) => String(x.move_id || '').trim()).map((x) => ({ ...x, date: x.date ? isoDay(x.date) : '' }));
-  const fe = rowsToObjects(tabs.FaceEvents || [['event_id']]);
-  state.headers.FaceEvents = fe.header;
-  state.faceEvents = fe.objects.filter((x) => String(x.event_id || '').trim()).map((x) => ({ ...x, date: x.date ? isoDay(x.date) : '' }));
+  if (has('Books')) {
+    const bk = rowsToObjects(tabs.Books || [['book_id']]);
+    state.headers.Books = bk.header;
+    state.books = bk.objects.filter((x) => String(x.book_id || '').trim()).map((x) => ({ ...x, sale_from: x.sale_from ? isoDay(x.sale_from) : '', sale_to: x.sale_to ? isoDay(x.sale_to) : '' }));
+  }
+  if (has('BookMoves')) {
+    const bm = rowsToObjects(tabs.BookMoves || [['move_id']]);
+    state.headers.BookMoves = bm.header;
+    state.bookMoves = bm.objects.filter((x) => String(x.move_id || '').trim()).map((x) => ({ ...x, date: x.date ? isoDay(x.date) : '' }));
+  }
+  if (has('FaceEvents')) {
+    const fe = rowsToObjects(tabs.FaceEvents || [['event_id']]);
+    state.headers.FaceEvents = fe.header;
+    state.faceEvents = fe.objects.filter((x) => String(x.event_id || '').trim()).map((x) => ({ ...x, date: x.date ? isoDay(x.date) : '' }));
+  }
 
-  const yearly = rowsToObjects(tabs.YearlyCampaigns || [['series']]);
-  state.headers.YearlyCampaigns = yearly.header;
-  state.yearly = yearly.objects.filter((y) => String(y.series || '').trim());
+  if (has('YearlyCampaigns')) {
+    const yearly = rowsToObjects(tabs.YearlyCampaigns || [['series']]);
+    state.headers.YearlyCampaigns = yearly.header;
+    state.yearly = yearly.objects.filter((y) => String(y.series || '').trim());
+  }
 
-  const orgNotes = rowsToObjects(tabs.OrgNotes);
-  state.headers.OrgNotes = orgNotes.header;
-  state.orgNotes = orgNotes.objects;
+  if (has('OrgNotes')) {
+    const orgNotes = rowsToObjects(tabs.OrgNotes);
+    state.headers.OrgNotes = orgNotes.header;
+    state.orgNotes = orgNotes.objects;
+  }
 
-  const occasions = rowsToObjects(tabs.Occasions);
-  state.headers.Occasions = occasions.header;
-  state.occasions = occasions.objects;
+  if (has('Occasions')) {
+    const occasions = rowsToObjects(tabs.Occasions);
+    state.headers.Occasions = occasions.header;
+    state.occasions = occasions.objects;
+  }
 
-  const relations = rowsToObjects(tabs.Relations);
-  state.headers.Relations = relations.header;
-  state.relations = relations.objects;
+  if (has('Relations')) {
+    const relations = rowsToObjects(tabs.Relations);
+    state.headers.Relations = relations.header;
+    state.relations = relations.objects;
+  }
 
-  Object.assign(state, parseLists(tabs.Lists));
+  if (has('Lists')) {
+    Object.assign(state, parseLists(tabs.Lists));
+  }
 
-  const settings = rowsToObjects(tabs.Settings).objects;
-  const [sHead = [], ...sBody] = tabs.Settings || [];
-  state.rawSettings = Object.fromEntries(sHead.filter(Boolean).map((hd) => [hd, sBody.map((r) => String(r[sHead.indexOf(hd)] ?? '').trim())]));
-  markLegacy();
-  const admins = settings.map((s) => String(s.admin_email || '').trim().toLowerCase()).filter(Boolean);
-  state.admins = admins;
-  state.isAdmin = admins.includes(state.email);
-  // נאר ווער עס איז רעגיסטרירט אין אדמין (מנהל אדער גבאי) קען אריין
-  const gabbaim = settings.map((s) => String(s.gabbai_email || '').trim().toLowerCase()).filter(Boolean);
-  state.isAllowed = state.isAdmin || gabbaim.includes(state.email);
-  // בעל הבית (Settings → owner_email): נאר ער זעט "מנהלים, גבאים און צוטריט". די לשונית Settings איז
-  // אויך פארשלאסן אין גוגל שיטס (Protected range) — נאר ער קען זי טוישן, אפילו גלייך אין שיט.
-  const owners = settings.map((s) => String(s.owner_email || '').trim().toLowerCase()).filter(Boolean);
-  state.isOwner = owners.length ? owners.includes(state.email) : state.isAdmin;
+  if (has('Settings')) {
+    const settings = rowsToObjects(tabs.Settings).objects;
+    const [sHead = [], ...sBody] = tabs.Settings || [];
+    state.rawSettings = Object.fromEntries(sHead.filter(Boolean).map((hd) => [hd, sBody.map((r) => String(r[sHead.indexOf(hd)] ?? '').trim())]));
+    markLegacy();
+    const admins = settings.map((s) => String(s.admin_email || '').trim().toLowerCase()).filter(Boolean);
+    state.admins = admins;
+    state.isAdmin = admins.includes(state.email);
+    // נאר ווער עס איז רעגיסטרירט אין אדמין (מנהל אדער גבאי) קען אריין
+    const gabbaim = settings.map((s) => String(s.gabbai_email || '').trim().toLowerCase()).filter(Boolean);
+    state.isAllowed = state.isAdmin || gabbaim.includes(state.email);
+    // בעל הבית (Settings → owner_email): נאר ער זעט "מנהלים, גבאים און צוטריט". די לשונית Settings איז
+    // אויך פארשלאסן אין גוגל שיטס (Protected range) — נאר ער קען זי טוישן, אפילו גלייך אין שיט.
+    const owners = settings.map((s) => String(s.owner_email || '').trim().toLowerCase()).filter(Boolean);
+    state.isOwner = owners.length ? owners.includes(state.email) : state.isAdmin;
+  }
   // בילדער וואס ליגן אין דרייב (drv:<id>) → אין זכרון. ווען דער הילף ענטפערט נישט — די בילדער זענען בלויז ליידיג.
-  if (state.isAllowed) { try { await resolveState(state); } catch { /* */ } }
+  const imgTabs = ['MailTemplates', 'OrgDetails', 'YearlyCampaigns', 'Books', 'OrgLogos'];
+  if (state.isAllowed && imgTabs.some(has)) { try { await resolveState(state); } catch { /* */ } }
 }
 
 /** המספר הבא, לפי מה שכתוב בגליון ממש עכשיו (למקרה שגבאי אחר הוסיף בינתיים). */

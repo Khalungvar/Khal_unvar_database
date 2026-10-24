@@ -297,8 +297,13 @@ export async function readColumn(tab, col = 'A') {
   return (data.values || []).map((r) => r[0]);
 }
 
+/** לשוניות וואס מ'האט געשריבן זינט דעם לעצטן לאדן — נאר זיי ווערן ווידער געלאדן (גיכער ווי אלע 26) */
+export const dirtyTabs = new Set();
+const markTab = (r) => { const tab = String(r || '').split('!')[0].replace(/^'|'$/g, ''); if (tab) dirtyTabs.add(tab); };
+
 /** מוסיף שורה בסוף הלשונית. הערכים נשמרים כמו שהם (RAW), בלי פענוח. */
 export function appendRow(tab, row) {
+  markTab(tab);
   return authFetch(
     `${SHEETS}/values/${enc(`${tab}!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values: [row] }) },
@@ -307,6 +312,7 @@ export function appendRow(tab, row) {
 
 /** מוסיף כמה שורות בבת אחת (קריאה אחת לגוגל). */
 export function appendRows(tab, rows) {
+  markTab(tab);
   return authFetch(
     `${SHEETS}/values/${enc(`${tab}!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values: rows }) },
@@ -315,6 +321,7 @@ export function appendRows(tab, rows) {
 
 /** כותב טווח שלם, למשל 'Lists!R2:R40' עם [[v],[v]...]. */
 export function updateRange(range, values) {
+  markTab(range);
   return authFetch(
     `${SHEETS}/values/${enc(range)}?valueInputOption=RAW`,
     { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values }) },
@@ -323,6 +330,7 @@ export function updateRange(range, values) {
 
 /** מעדכן תא אחד, למשל 'Lists!H13'. */
 export function updateCell(a1, value) {
+  markTab(a1);
   return authFetch(
     `${SHEETS}/values/${enc(a1)}?valueInputOption=RAW`,
     { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values: [[value]] }) },
@@ -331,6 +339,7 @@ export function updateCell(a1, value) {
 
 /** א סך שורות אויף איינמאל (קריאה אחת). data = [{ range: 'Contacts!A12', values: [[...]] }] */
 export function batchUpdate(data) {
+  (data || []).forEach((d) => markTab(d.range));
   return authFetch(`${SHEETS}/values:batchUpdate`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ valueInputOption: 'RAW', data }),
@@ -339,6 +348,7 @@ export function batchUpdate(data) {
 
 /** מעדכן שורה שלמה לפי מספר השורה (1 = שורת הכותרות). */
 export function updateRow(tab, rowNumber, row) {
+  markTab(tab);
   return authFetch(
     `${SHEETS}/values/${enc(`${tab}!A${rowNumber}`)}?valueInputOption=RAW`,
     { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values: [row] }) },
