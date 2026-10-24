@@ -1220,7 +1220,7 @@ function gridView(ev, list) {
   box.className = 'fc-grid';
   box.style.setProperty('--fc-size', `${T.size}px`);
   const card = (s) => `<div class="fc-card st-${s.status || 'wait'} lv-${T.sugg.get(s.face_id)?.lv || ''}" data-fid="${h(s.face_id)}">
-      <img src="${h(faceImg(s))}" alt="" loading="lazy" data-zoom="${h(s.face_id)}">${galOf(s).length > 1 ? `<span class="fc-gn" title="${h(t('fcGalTip'))}">🖼 ${galOf(s).length}</span>` : ''}<div class="fc-cbody">${controlsHtml(s)}</div></div>`;
+      <img src="${h(faceImg(s))}" alt="" loading="lazy" data-zoom="${h(s.face_id)}">${(Number(s.count) || 1) > 1 || galOf(s).length > 1 ? `<span class="fc-gn" title="${h(t('fcGalTip'))}">×${Number(s.count) || 1}${galOf(s).length > 1 ? ` · 🖼 ${galOf(s).length}` : ''}</span>` : ''}<div class="fc-cbody">${controlsHtml(s)}</div></div>`;
   // ביי "ווארטן": אונטן — די וואס זענען שוין דערקענט (די לעצטע פריער), אז מ'זאל קענען פאררעכטן
   const done = T.filter === 'wait' || T.filter === 'green'
     ? shotsOf(ev).filter(isOk).sort((a, b) => String(b.decided_at || '').localeCompare(String(a.decided_at || ''))) : [];
@@ -1239,10 +1239,12 @@ function oneView(ev, list) {
   const [file, tt] = String(s.src || '').split('|');
   const gal = galOf(s);
   const gImg = (it) => imageOf(it.i) || (String(it.i).startsWith('data:') ? it.i : '');
-  const galHtml = gal.length > 1 ? `<div class="fc-gal"><div class="muted small">${h(t('fcGalT', { n: gal.length }))}</div>
+  const lost = Math.max(0, (Number(s.count) || 1) - gal.length); // סריקה פון פאר'ן פאררעכטן: נישט אלע בילדער זענען געהאלטן
+  const lostHtml = lost && !moreOf(s).a.length ? `<p class="fc-msg">${h(t('fcLostImgs', { n: lost }))} <button type="button" class="linkish" data-ftab-go="scan">↻ ${h(t('fcReset'))}</button></p>` : '';
+  const galHtml = lostHtml + (gal.length > 1 ? `<div class="fc-gal"><div class="muted small">${h(t('fcGalT', { n: gal.length }))}</div>
       <div class="fc-galrow">${gal.map((it, n) => `<figure><img src="${h(gImg(it))}" alt="" data-gimg="${n}">
         ${s.status !== 'skip' ? `<button type="button" class="fc-split" data-gsplit="${n}" title="${h(t('fcSplitTip'))}">✕ ${h(t('fcSplit'))}</button>` : ''}
-        ${it.s ? `<figcaption class="muted small" dir="ltr">${Number(String(it.s).split('|')[1]) >= 0 ? '🎬' : '📷'} ${h(String(it.s).split('|')[0])}</figcaption>` : ''}</figure>`).join('')}</div></div>` : '';
+        ${it.s ? `<figcaption class="muted small" dir="ltr">${Number(String(it.s).split('|')[1]) >= 0 ? '🎬' : '📷'} ${h(String(it.s).split('|')[0])}</figcaption>` : ''}</figure>`).join('')}</div></div>` : '');
   box.innerHTML = `<div class="fc-onewrap">
       <button type="button" class="btn fc-nav" data-nav="-1" ${T.pos ? '' : 'disabled'}>›</button>
       <div class="fc-onemain">
@@ -1267,6 +1269,7 @@ function oneView(ev, list) {
       try { await splitFace(ev, s, Number(b.dataset.gsplit)); ui.toast(t('fcSplitDone')); renderTag(ev); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); $$('[data-gsplit]', box).forEach((x) => { x.disabled = false; }); }
     };
   });
+  $('[data-ftab-go]', box)?.addEventListener('click', () => $('[data-ftab="scan"]')?.click());
   const needImg = gal.map((it) => it.i).filter((i) => isDrv(i) && !imageOf(i));
   if (needImg.length) {
     fetchImages(needImg.map((x) => String(x).slice(4))).then(() => {
@@ -1338,7 +1341,7 @@ function newPersonDialog(ev, f, after) {
       <label>First name<input name="fe" dir="ltr"></label><label>Last name<input name="le" dir="ltr"></label>
       <label>${h(t('fcPhone'))}<input name="ph" dir="ltr" inputmode="tel"></label></div>
       <p class="muted small">${h(t('fcGuestNote'))}</p>
-      <div class="actions"><button type="button" class="btn" id="fc-togen">➕ ${h(t('fcToGeneral'))}</button><button type="button" class="btn" id="fc-fullform">📋 ${h(t('fcFullForm'))}</button>
+      <div class="actions"><button type="button" class="btn" id="fc-fullform">➕ ${h(t('fcToGeneral'))}</button>
         <span class="spacer"></span><button type="button" class="btn" data-x>${h(t('cancelBtn'))}</button><button type="submit" class="btn primary">💾 ${h(t('fcSaveGuest'))}</button></div>
     </form></div>`;
   $$('[data-x]', dlg).forEach((x) => { x.onclick = () => dlg.close(); });
@@ -1355,20 +1358,9 @@ function newPersonDialog(ev, f, after) {
       dlg.close(); after();
     } catch (err) { busy(false); ui.toast(ui.friendlyError(err), 'error'); }
   };
-  // אין דעם אלגעמיינעם מאגר (א קאנטאקט) — שנעל, נאר מיט די נעמען
-  $('#fc-togen', dlg).onclick = async () => {
-    if (!form.reportValidity()) return;
-    busy(true);
-    try {
-      const id = await saveContact({ first_name_he: el('fh'), last_name_he: el('lh'), first_name_en: el('fe'), last_name_en: el('le'), is_alive: true }, el('ph') ? { mobile: el('ph') } : {});
-      await loadAll();
-      await decide(ev, f, 'ok', String(id));
-      dlg.close(); after();
-    } catch (err) { busy(false); ui.toast(ui.friendlyError(err), 'error'); }
-  };
   // דער פולער טאפס פון א נייעם קאנטאקט (אדרעס, טעלעפאן, תגיות...) — נאכ'ן שפייכלערן ווערט דער פנים גלייך דערקענט
   $('#fc-fullform', dlg).onclick = () => {
-    const pre = { first_name_he: el('fh'), last_name_he: el('lh'), first_name_en: el('fe'), last_name_en: el('le') };
+    const pre = { first_name_he: el('fh'), last_name_he: el('lh'), first_name_en: el('fe'), last_name_en: el('le'), ...(el('ph') ? { _phones: { mobile: el('ph') } } : {}) };
     dlg.close();
     ui.openForm(pre, { onSaved: async (id) => { await decide(ev, f, 'ok', String(id)); after(); } });
   };

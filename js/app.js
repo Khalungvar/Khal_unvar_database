@@ -4,7 +4,7 @@ import {
 } from './google.js';
 import {
   state, loadAll, displayName, trashContact, orgLogo, NESHEI_ORG, getHistory, getPhoto, savePhoto, saveOriginalToDrive, saveContact, saveKvitel, addListValue, addRelation, removeRelation,
-  hostOf, guestsOf, ADDR_FIELDS,
+  hostOf, guestsOf, ADDR_FIELDS, migratePhotosToDrive,
 } from './data.js';
 import { suggest, details, placesEnabled, placesError } from './places.js';
 import {
@@ -111,6 +111,8 @@ async function enterApp() {
   state.email = await getUserEmail();
   rememberEmail(state.email);
   await loadAll({ full: true });
+  // בילדער פון כרטיסן וואס ליגן נאך אינעם גיליון → דרייב, א ביסל יעדעס מאל (נאר א מנהל, שטיל אין הינטערגרונט)
+  if (state.isAdmin) setTimeout(() => { migratePhotosToDrive(40).catch(() => {}); }, 30000);
   if (!state.isAllowed) {
     const err = new Error('not-registered');
     err.code = 'not-registered';
@@ -1459,7 +1461,7 @@ function openForm(c = {}, opts = {}) {
   $('#contact-form')._onSaved = opts.onSaved || null; // למשל: פון "רשימות משתתפים" — דער נייער מענטש ווערט גלייך דערקענט
   const sc = getScope();
   if (!c.contact_id && sc?.value && !c[sc.type]) c = { ...c, [sc.type]: sc.value }; // אויך געגנט (area)
-  const p = c.contact_id ? phonesOf(c) : {};
+  const p = c.contact_id ? phonesOf(c) : (c._phones || {}); // א נייער: טעלעפאן וואס מ'האט שוין געשריבן (למשל פון "רשימות משתתפים")
   const v = (k) => h(c[k] ?? '');
   const isNew = !c.contact_id;
   const form = $('#contact-form');
@@ -1780,7 +1782,7 @@ function collect(form, original) {
     lives_with: form.elements.lw_on.checked ? (lwIdOf(form) || '') : '',
     unverified_fields: joinTags($$('.suggested[name]', form).filter((i) => i.value.trim()).map((i) => i.name)),
   };
-  delete contact._row;
+  delete contact._row; delete contact._phones;
 
   const phones = { comments: val('comments') };
   phoneFields().forEach(([k]) => {

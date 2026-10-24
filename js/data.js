@@ -8,7 +8,7 @@ import {
 import { CONFIG } from './config.js';
 import { nowStamp } from './util.js';
 import { t } from './i18n.js';
-import { resolveState, persistImages } from './images.js';
+import { resolveState, persistImages, storeImage, fetchImages, imageOf, isDrv as isDrvRef } from './images.js';
 
 export const state = {
   email: '',
@@ -700,12 +700,19 @@ export { hasDriveScope };
 // די בילדער ווערן נישט אראפגעלאדן מיט אלעס — נאר ווען מען עפנט א כרטיס (כדי עס זאל זיין שנעל).
 const photoCache = new Map();
 
+// די בילדער ליגן אין דרייב ("drv:<id>" אין דער לשונית; פריער — דאס בילד אליין אינעם תא, ארבעט נאך אלץ)
+async function photoData(v) {
+  const s = String(v || '');
+  if (!isDrvRef(s)) return s;
+  await fetchImages([s.slice(4)]);
+  return imageOf(s);
+}
 export async function getPhoto(contactId) {
   const k = String(contactId);
   if (photoCache.has(k)) return photoCache.get(k);
   const ids = await readColumn('Photos', 'A');
   const idx = ids.findIndex((v, i) => i > 0 && String(v) === k);
-  const data = idx > 0 ? String(await readCell(`Photos!B${idx + 1}`)) : '';
+  const data = idx > 0 ? await photoData(await readCell(`Photos!B${idx + 1}`)) : '';
   photoCache.set(k, data);
   return data;
 }
@@ -713,7 +720,8 @@ export async function getPhoto(contactId) {
 export async function savePhoto(contactId, data, driveId = '') {
   const k = String(contactId);
   const row = await findRow('Photos', k);
-  const values = [Number(k), data, nowStamp(), state.email, driveId];
+  const ref = data ? await storeImage(data, 'photo') : ''; // אין דרייב (ווען דער הילף ארבעט נישט — ווי פריער אינעם תא)
+  const values = [Number(k), ref, nowStamp(), state.email, driveId];
   if (row) await updateRow('Photos', row, data ? values : ['', '', '', '', '']);
   else if (data) await appendRow('Photos', values);
   photoCache.set(k, data);
@@ -1310,6 +1318,7 @@ export async function migrateImagesToDrive(onProgress = () => {}) {
       if (data.length) { await batchUpdate(data); onProgress(moved); }
     }
   }
+  moved += await migratePhotosToDrive(Infinity, (k) => onProgress(moved + k));
   if (moved) await logChanges('images', 'drive', '', null, null, `moved ${moved} images to Drive`);
   return moved;
 }
@@ -1348,10 +1357,36 @@ export async function clearFaceShots(list) {
 /** אלע בילדער פון די כרטיסן (פאר פארשלאגן א נאמען) → Map(contact_id → data) */
 export async function loadAllPhotos() {
   const tabs = await readTabs(['Photos']);
-  const rows = tabs.Photos || [];
+  const rows = (tabs.Photos || []).slice(1).filter((r) => r[0] && r[1]);
+  const drv = rows.map((r) => String(r[1])).filter(isDrvRef).map((x) => x.slice(4));
+  if (drv.length) await fetchImages(drv); // פון דעם קעש אויפן קאמפיוטער; נאר נייע פון דרייב
   const m = new Map();
-  rows.slice(1).forEach((r) => { if (r[0] && String(r[1] || '').startsWith('data:')) m.set(String(r[0]), String(r[1])); });
+  rows.forEach((r) => {
+    const v = String(r[1]);
+    const d = isDrvRef(v) ? imageOf(v) : v;
+    if (d.startsWith('data:')) m.set(String(r[0]), d);
+  });
   return m;
+}
+/** די בילדער פון די כרטיסן (לשונית Photos) → דרייב; אינעם תא בלייבט נאר "drv:<id>". max = וויפל אויף איינמאל */
+export async function migratePhotosToDrive(max = Infinity, onProgress = () => {}) {
+  const tabs = await readTabs(['Photos']);
+  const rows = tabs.Photos || [];
+  let moved = 0;
+  for (let i = 1; i < rows.length && moved < max; i += 1) {
+    const [id, v] = rows[i];
+    if (!id || !String(v || '').startsWith('data:')) continue;
+    // eslint-disable-next-line no-await-in-loop
+    const ref = await storeImage(String(v), 'photo');
+    if (!isDrvRef(ref)) break; // דער הילף ארבעט נישט — שפעטער
+    // eslint-disable-next-line no-await-in-loop
+    const row = await findRow('Photos', id); // די שורה יעצט (נישט פון פריער)
+    if (!row) continue;
+    // eslint-disable-next-line no-await-in-loop
+    await updateCell(`Photos!B${row}`, ref);
+    moved += 1; onProgress(moved);
+  }
+  return moved;
 }
 /** 📸 דער "לערנען": פאר יעדן מענטש ביז 10 פארשידענע טביעות פנים (לשונית FaceLearn) */
 export async function loadFaceLearn() {
