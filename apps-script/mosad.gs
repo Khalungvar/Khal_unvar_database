@@ -1678,7 +1678,7 @@ function perfTest() {
 function perfBatch() {
   const M = mosadOf('yeshiva');
   const me = { email: M.owners[0], role: 'owner', perms: PERMS.slice(), name: '' };
-  CacheService.getScriptCache().removeAll(['ppl:' + M.key, 'names:main']);
+  dropCaches(M, true, true, true);
   const calls = ['me', 'people', 'school', 'gifts', 'fin', 'team', 'tasks', 'ins', 'users', 'staff'].map(function (a) { return { action: a }; });
   MEMO = {};
   const t0 = Date.now();
@@ -1687,5 +1687,8 @@ function perfBatch() {
   Logger.log('TOTAL cold: ' + (Date.now() - t0) + 'ms');
   const t1 = Date.now();
   ACTIONS.batch(M, me, { calls: calls });
-  Logger.log('TOTAL warm: ' + (Date.now() - t1) + 'ms');
+  Logger.log('TOTAL batch (first): ' + (Date.now() - t1) + 'ms');
+  const t2 = Date.now();
+  ACTIONS.batch(M, me, { calls: calls });
+  Logger.log('TOTAL batch (cached): ' + (Date.now() - t2) + 'ms');
 }
