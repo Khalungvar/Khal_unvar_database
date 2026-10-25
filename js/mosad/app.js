@@ -1,12 +1,12 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=325';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=325';
-import { initGifts, renderGifts } from './gifts.js?v=325';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=325';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=325';
-import { initTeam, renderTeam } from './team.js?v=325';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=325';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=326';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=326';
+import { initGifts, renderGifts } from './gifts.js?v=326';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=326';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=326';
+import { initTeam, renderTeam } from './team.js?v=326';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=326';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -50,15 +50,15 @@ const kindName = (k) => (KINDS.find(([x]) => x === k) || ['', k || ''])[1];
 // הכפתורים בדף הפתיחה — כל כפתור הוא גם הרשאה
 const TILES = [
   { k: 'students', ic: '🎓', t: 'תלמידי הישיבה', sub: 'כולל טלפון בארץ' },
-  { k: 'alumni', ic: '🚪', t: 'בוגרי הישיבה', sub: 'וההורים שלהם' },
   { k: 'staff_list', ic: '👔', t: 'אנשי צוות ואברכים', sub: 'כולל אברכים שלומדים עם בחורים' },
   { k: 'tuition', ic: '💲', t: 'שכר לימוד', sub: 'תשלומים וקבלות' },
   { k: 'insurance', ic: '🏥', t: 'ביטוח בריאות', sub: 'קופה, מספר חבר, חובות' },
-  { k: 'parents', ic: '👪', t: 'הורי התלמידים' },
-  { k: 'chavrusas', ic: '🤝', t: 'חברותות', sub: 'לכל סדר, כולל אברכים' },
   { k: 'attendance', ic: '✅', t: 'השתתפות', sub: 'יומנים, כניסה ויציאה של אברכים' },
+  { k: 'chavrusas', ic: '🤝', t: 'חברותות', sub: 'לכל סדר, כולל אברכים' },
   { k: 'donations', ic: '💝', t: 'נדבות וקבלות', sub: 'כולל קבלות אמריקאיות' },
   { k: 'finance', ic: '💰', t: 'משכורות והוצאות', sub: 'הכנסות, חובות, מאזן' },
+  { k: 'alumni', ic: '🚪', t: 'בוגרי הישיבה', sub: 'וההורים שלהם' },
+  { k: 'parents', ic: '👪', t: 'הורי התלמידים' },
 ];
 const PERM_NAMES = { ...Object.fromEntries(TILES.map((x) => [x.k, x.t])), people_edit: 'הוספה ועדכון אנשי קשר' };
 
@@ -165,21 +165,23 @@ function render() {
 
 function renderHome(box) {
   const tiles = TILES.filter((x) => can(x.k));
+  // די קליינע כפתורים — אין צוויי שורות, נאך די גרויסע
+  const small = [
+    can('people_edit') ? '<button type="button" class="btn" data-go="people">👥 כל האנשים</button>' : '',
+    isAdmin() ? '<button type="button" class="btn" data-go="staff">⚙️ צוות והרשאות</button>' : '',
+    isAdmin() ? '<button type="button" class="btn" data-go="log">📜 יומן פעולות</button>' : '',
+    isAdmin() ? '<button type="button" class="btn" id="ms-logo">🖼 לוגו</button>' : '',
+  ].filter(Boolean);
   const myName = (st.team && pById(st.team.contact_id) ? nameOf(pById(st.team.contact_id)) : '') || st.me.name || st.me.email.split('@')[0];
   const initials = myName.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('');
-  box.innerHTML = `<div class="ms-welcome">
+  box.innerHTML = `<div class="ms-home"><div class="ms-welcome">
       <div class="ms-wl-head"><img src="${h(logoSrc())}" alt="" class="ms-wl-logo"><h1>${h(st.mosad?.name || TITLE)}</h1><p class="muted">ברוך הבא · ${h(myName)}</p></div>
       <button type="button" class="ms-tile ms-wl-me" id="ms-tasks"><span class="ms-avatar">${h(initials)}</span><b>${h(myName)}</b>
         <span class="muted small">${st.openTasks ? `📋 ${st.openTasks} משימות פתוחות` : '👤 אזור אישי'}</span></button>
-    </div><div class="ms-tiles">${tiles.map((x, i) => `<button type="button" class="ms-tile${x.soon ? ' soon' : ''}" data-go="${x.k}">
-      <span class="ms-ti">${x.ic}</span><b>${h(x.t)}</b>${x.sub ? `<span class="muted small">${h(x.sub)}</span>` : ''}${x.soon ? '<span class="ms-soon">בקרוב</span>' : ''}</button>`).join('')}</div>
-    ${tiles.length ? '' : '<p class="ms-note">עדיין לא קיבלת הרשאה לאף כפתור. בקש מהמנהל.</p>'}
-    <div class="ms-more">
-      ${can('people_edit') ? '<button type="button" class="btn" data-go="people">👥 כל האנשים (הוספה ועדכון)</button>' : ''}
-      ${isAdmin() ? '<button type="button" class="btn" data-go="staff">⚙️ צוות והרשאות</button>' : ''}
-      ${isAdmin() ? '<button type="button" class="btn" data-go="log">📜 יומן פעולות</button>' : ''}
-      ${isAdmin() ? '<button type="button" class="btn" id="ms-logo">🖼 לוגו</button>' : ''}
-    </div>`;
+    </div><div class="ms-tiles">${tiles.map((x) => `<button type="button" class="ms-tile${x.soon ? ' soon' : ''}" data-go="${x.k}">
+      <span class="ms-ti">${x.ic}</span><b>${h(x.t)}</b>${x.sub ? `<span class="muted small">${h(x.sub)}</span>` : ''}${x.soon ? '<span class="ms-soon">בקרוב</span>' : ''}</button>`).join('')}
+      ${small.length ? `<div class="ms-more">${small.join('')}</div>` : ''}</div>
+    ${tiles.length ? '' : '<p class="ms-note">עדיין לא קיבלת הרשאה לאף כפתור. בקש מהמנהל.</p>'}</div>`;
   $$('[data-go]', box).forEach((b) => { b.onclick = () => { st.tab = b.dataset.go; st.kind = 'all'; render(); }; });
   $('#ms-logo', box)?.addEventListener('click', () => logoDialog());
   $('#ms-tasks', box)?.addEventListener('click', () => { st.tab = 'me'; render(); });
