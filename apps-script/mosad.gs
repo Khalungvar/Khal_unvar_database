@@ -1459,3 +1459,15 @@ function testMosad() {
   const M = mosadOf('yeshiva');
   Logger.log(M ? ('OK: ' + M.name + ' · ' + M.book.getUrl() + ' · owners: ' + M.owners.join(', ') + ' · people: ' + (M.book.getSheetByName('People').getLastRow() - 1)) : 'no row "yeshiva" in Mosdos');
 }
+
+/** פונעם עדיטאר: וויפיל צייט נעמט יעדער טייל (צו געפינען וואס איז פאמעלעך) */
+function perfTest() {
+  const t = function (label, fn) { const a = Date.now(); const r = fn(); Logger.log(label + ': ' + (Date.now() - a) + 'ms'); return r; };
+  const M = t('mosadOf', function () { return mosadOf('yeshiva'); });
+  const me = { email: M.owners[0], role: 'owner', perms: PERMS.slice(), name: '' };
+  CUR = null;
+  t('roleOf', function () { return roleOf(M, me.email); });
+  ['Contacts', 'Phones', 'Relations', 'Donations', 'Receipts', 'History'].forEach(function (n) { t('main ' + n + ' (' + main().getSheetByName(n).getLastRow() + ' rows, ' + main().getSheetByName(n).getLastColumn() + ' cols)', function () { return objs(main().getSheetByName(n)).length; }); });
+  Object.keys(TABS).forEach(function (n) { t('mosad ' + n, function () { return objs(M.book.getSheetByName(n)).length; }); });
+  ['me', 'people', 'school', 'tasks', 'team', 'fin', 'gifts', 'log'].forEach(function (a) { t('ACTION ' + a, function () { return JSON.stringify(ACTIONS[a](M, me, {})).length; }); });
+}
