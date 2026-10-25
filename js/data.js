@@ -348,6 +348,13 @@ async function logChanges(entity, entityId, contactId, before, after, kind = '')
 }
 
 /** די ענדערונגען פון א קאנטאקט (אויך זיינע טעלעפאנען, נדבות, מאורעות...) — די נייסטע פריער. */
+/** ענדערונגען פון די אתרים פון די מוסדות (ישיבה וכו'): History שורות וואס "by" ענדיגט זיך מיט " @<מוסד>" */
+export async function mosadHistory() {
+  const tabs = await readTabs(['History']);
+  const [hd = [], ...body] = tabs.History || [];
+  return body.map((r) => Object.fromEntries(hd.map((k, i) => [k, r[i] ?? ''])))
+    .filter((x) => / @[\w-]+$/.test(String(x.by || ''))).reverse();
+}
 export async function getHistory(contactId) {
   if (!historyCache) {
     const tabs = await readTabs(['History']);

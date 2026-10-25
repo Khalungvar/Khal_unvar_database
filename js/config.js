@@ -7,6 +7,8 @@ export const CONFIG = {
   // SMS און טעלעפאן: דער "מוח" (Apps Script sms.gs) און דער Worker (Cloudflare). ליידיג = נאך נישט פארבונדן.
   SMS_URL: '',
   SMS_WORKER_URL: '',
+  // דער "שומר" פאר די אתרים פון די מוסדות (Apps Script mosad.gs בחשבון הדאטאבייס). ליידיג = נאך נישט פארבונדן.
+  MOSAD_URL: '',
   IMAGES_URL: 'https://script.google.com/macros/s/AKfycbzi44y-tKi2B3wnAvd93WOlxqJPULhWjsgAJqcMr1DAVvyx1HmQPr4o0rKypIxVgnju_Q/exec',
 
   // מזהה הלוגאין (Google Auth Platform → Clients → Khal Ungvar Website)

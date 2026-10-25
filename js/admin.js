@@ -157,6 +157,7 @@ export function renderAdmin() {
     + `<div class="adm-group" id="adm-code" data-tab="people"></div>`
     + (state.isOwner ? `<div class="adm-group" id="adm-import" data-tab="people">${importBoxHtml()}</div>` : '')
     + `<div class="adm-group" data-tab="people"><h3 class="adm-group-title">🔄 ${h(t('lsTitle'))}</h3><p class="muted small">${h(t('lsHint'))}</p><button type="button" class="btn" id="adm-lsync">📄 ${h(t('lsOpen'))}</button></div>`
+    + `<div class="adm-group" data-tab="people"><h3 class="adm-group-title">🎓 ${h(t('msChTitle'))}</h3><p class="muted small">${h(t('msChHint'))}</p><button type="button" class="btn" id="adm-msch">🎓 ${h(t('msChOpen'))}</button></div>`
     + `<div class="adm-group" data-tab="people"><h3 class="adm-group-title">🏠 ${h(t('lwtTitle'))}</h3><p class="muted small">${h(t('lwtHint'))}</p><button type="button" class="btn" id="adm-lwt">🏠 ${h(t('lwtOpen', { n: livesWithCandidates().length }))}</button></div>`
     + campaignsAdminHtml()
     + orgDetailsAdminHtml()
@@ -196,6 +197,7 @@ export function renderAdmin() {
   wireImport($('#adm-import', main), ui);
   $('#adm-lsync', main)?.addEventListener('click', () => openListSync());
   $('#adm-lwt', main)?.addEventListener('click', () => openLivesWithTool());
+  $('#adm-msch', main)?.addEventListener('click', () => mosadChangesDialog());
 
   $$('.adm-card[data-key]', main).forEach((card) => wireCard(card, defs[Number(card.dataset.key)]));
 }
@@ -701,4 +703,29 @@ function wireFonts(main) {
 /** האם יש בעמוד שינויים שלא נשמרו. */
 export function adminDirty() {
   return $$('#admin-main .adm-card.dirty').length > 0;
+}
+
+/** ענדערונגען פון די אתרים פון די מוסדות — צו איבערקוקן (זיי זענען שוין אריין אין מאגר) */
+async function mosadChangesDialog() {
+  const dlg = document.createElement('dialog');
+  dlg.className = 'sheet wide ls-dlg';
+  document.body.append(dlg);
+  dlg.addEventListener('close', () => dlg.remove());
+  dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button><h2>🎓 ${h(t('msChTitle'))}</h2><div id="msch-out"><p class="muted">…</p></div>
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>${h(t('close'))}</button></div>`;
+  $$('[data-x]', dlg).forEach((b) => { b.onclick = () => dlg.close(); });
+  dlg.showModal();
+  const out = $('#msch-out', dlg);
+  try {
+    const { mosadHistory } = await import('./data.js');
+    const list = (await mosadHistory()).slice(0, 400);
+    const nm = (id) => { const c = ui.contactById?.(id) || (state.trash || []).find((x) => String(x.contact_id) === String(id)); return c ? ui.fullNameHe(c) : `#${id}`; };
+    const FIELD = { '*': '', '+': t('msChRel') };
+    out.innerHTML = list.length ? `<div class="ls-table-wrap"><table class="ls-table"><thead><tr><th>${h(t('msChWhen'))}</th><th>${h(t('msChWho'))}</th><th>${h(t('msChContact'))}</th><th>${h(t('msChWhat'))}</th></tr></thead><tbody>
+      ${list.map((x) => `<tr><td class="small" dir="ltr">${h(String(x.at).slice(0, 16))}</td><td class="small" dir="ltr">${h(x.by)}</td>
+        <td><a href="#" data-cid="${h(x.contact_id)}">${h(nm(x.contact_id))}</a></td>
+        <td class="small">${x.field === '*' ? h(x.new) : `${h(FIELD[x.field] ?? x.field)}: <s class="muted">${h(x.old)}</s> → <b>${h(x.new)}</b>`}</td></tr>`).join('')}</tbody></table></div>`
+      : `<p class="muted">${h(t('msChNone'))}</p>`;
+    $$('[data-cid]', out).forEach((a) => { a.onclick = (e) => { e.preventDefault(); if (ui.contactById?.(a.dataset.cid)) { dlg.close(); ui.openCard?.(a.dataset.cid); } }; });
+  } catch (err) { out.innerHTML = `<p class="fc-msg err">${h(ui.friendlyError ? ui.friendlyError(err) : String(err))}</p>`; }
 }
