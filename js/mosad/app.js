@@ -1,12 +1,12 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=326';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=326';
-import { initGifts, renderGifts } from './gifts.js?v=326';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=326';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=326';
-import { initTeam, renderTeam } from './team.js?v=326';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=326';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=327';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=327';
+import { initGifts, renderGifts } from './gifts.js?v=327';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=327';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=327';
+import { initTeam, renderTeam } from './team.js?v=327';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=327';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -58,7 +58,7 @@ const TILES = [
   { k: 'donations', ic: '💝', t: 'נדבות וקבלות', sub: 'כולל קבלות אמריקאיות' },
   { k: 'finance', ic: '💰', t: 'משכורות והוצאות', sub: 'הכנסות, חובות, מאזן' },
   { k: 'alumni', ic: '🚪', t: 'בוגרי הישיבה', sub: 'וההורים שלהם' },
-  { k: 'parents', ic: '👪', t: 'הורי התלמידים' },
+  { k: 'parents', ic: '👪', t: 'הורי התלמידים', sub: 'תלמידי הישיבה ובוגרים' },
 ];
 const PERM_NAMES = { ...Object.fromEntries(TILES.map((x) => [x.k, x.t])), people_edit: 'הוספה ועדכון אנשי קשר' };
 

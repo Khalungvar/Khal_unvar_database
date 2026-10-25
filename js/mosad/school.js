@@ -1,6 +1,6 @@
 // אתר פון א מוסד — די ישיבה: תלמידים, בוגרים, הורים, שכר לימוד און קבלות (אלעס אינעם גיליון פונעם מוסד, דורכן שומר).
-import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=326';
-import { downloadXlsx } from '../excel.js?v=326';
+import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=327';
+import { downloadXlsx } from '../excel.js?v=327';
 
 let X = null; // די כלים פון app.js: { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render }
 export function initSchool(ctx) { X = ctx; }
@@ -211,19 +211,25 @@ export function renderParents(box) {
   guard(box, () => {
     const { h } = X;
     const all0 = parentsOf(enrolls());
-    const list = all0.filter((p) => p.kids.some((e) => statusOn(e) === 'active'));
+    // לומדים = יש לו ילד שלומד עכשיו; בוגרים = כל הילדים שלו יצאו
+    const isAct = (p) => p.kids.some((e) => statusOn(e) === 'active');
+    const pf = sc.pf || 'all';
+    const list = all0.filter((p) => pf === 'all' || (pf === 'active' ? isAct(p) : !isAct(p)));
     const rows = list.filter((p) => match(sc.pq, [nm(p.id), ph(p.id), mail(p.id), ...p.kids.map((e) => nm(e.contact_id))]));
+    const nAct = all0.filter(isAct).length;
     box.innerHTML = `<h2 class="ms-h">👪 הורי התלמידים <span class="count-pill">${list.length}</span></h2>
-      <div class="ms-bar"><input type="search" id="sc-q-pq" placeholder="חיפוש: הורה, תלמיד, טלפון…" value="${h(sc.pq)}"><span class="spacer"></span>
+      <div class="ms-bar"><div class="seg">${[['all', `הכל (${all0.length})`], ['active', `תלמידי הישיבה (${nAct})`], ['left', `בוגרים (${all0.length - nAct})`]]
+        .map(([k, l]) => `<button type="button" data-pf="${k}" class="${pf === k ? 'on' : ''}">${h(l)}</button>`).join('')}</div>
+        <input type="search" id="sc-q-pq" placeholder="חיפוש: הורה, תלמיד, טלפון…" value="${h(sc.pq)}"><span class="spacer"></span>
         <button type="button" class="btn" id="sc-xl">⬇ Excel</button></div>
-      <p class="muted small">הורים של תלמידים שלומדים עכשיו. הורים של בוגרים — בכפתור "בוגרי הישיבה".</p>
-      ${rows.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>הורה</th><th>ילדים בישיבה</th><th>נייד</th><th>מייל</th>${tu() ? '<th>יתרה</th>' : ''}</tr></thead><tbody>
+      ${rows.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>הורה</th><th>ילדים</th><th>נייד</th><th>מייל</th>${tu() ? '<th>יתרה</th>' : ''}</tr></thead><tbody>
         ${rows.map((p) => { const b = tu() ? p.kids.reduce((s, e) => s + balance(e), 0) : 0; return `<tr><td><a href="#" data-open="${h(p.id)}"><b>${h(nm(p.id))}</b></a></td>
           <td>${p.kids.map((e) => `<a href="#" data-open="${h(e.contact_id)}">${h(X.pById(e.contact_id)?.first_name_he || nm(e.contact_id))}</a> <span class="ms-kind${statusOn(e) === 'left' ? '' : ' k-student'}">${h(ST[statusOn(e)])}</span>`).join(' ')}</td>
           <td dir="ltr" class="small">${h(ph(p.id))}</td><td dir="ltr" class="small">${h(mail(p.id))}</td>
           ${tu() ? `<td class="num ${b > 0 ? 'ms-owe' : ''}" dir="ltr">${b ? money(b) : ''}</td>` : ''}</tr>`; }).join('')}</tbody></table></div>`
       : '<p class="muted ms-empty">אין.</p>'}`;
     searchInput(box, 'pq', () => renderParents(box));
+    X.$$('[data-pf]', box).forEach((b) => { b.onclick = () => { sc.pf = b.dataset.pf; renderParents(box); }; });
     X.$('#sc-xl', box).onclick = () => downloadXlsx(`${X.st.mosad?.name || 'ישיבה'} - הורים`, ['הורה', 'ילדים', 'נייד', 'טלפון בית', 'מייל', 'כתובת', 'עיר', ...(tu() ? ['יתרה'] : [])],
       rows.map((p) => { const c = X.pById(p.id) || {}; return [nm(p.id), p.kids.map((e) => `${nm(e.contact_id)} (${ST[statusOn(e)]})`).join(', '), c.mobile || '', c.home_phone || '', c.email_1 || '', c.address || '', [c.city, c.state, c.zip].filter(Boolean).join(' '), ...(tu() ? [p.kids.reduce((s, e) => s + balance(e), 0)] : [])]; }), { rtl: true });
     wireRows(box);
