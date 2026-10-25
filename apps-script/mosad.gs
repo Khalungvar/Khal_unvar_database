@@ -80,6 +80,27 @@ function cacheGet(key) {
     return JSON.parse(t);
   } catch (err) { return null; }
 }
+// וועלכע שרייבונגען טוישן וואס (כדי נישט אויסמעקן אומזיסט)
+const PPL_ACTS = { save: 1, link: 1, unlink: 1, remove: 1, ilPhone: 1, enrollSave: 1, enrollDelete: 1, giftSave: 1, backupRestore: 1 };
+const NAMES_ACTS = { save: 1, giftSave: 1, backupRestore: 1 };
+const DON_ACTS = { giftSave: 1, giftDelete: 1, giftReceipt: 1, receipt: 1, receiptVoid: 1, backupRestore: 1 };
+const LONG = 10800; // 3 שעות — מ'מעקט אויס ביי יעדער ענדערונג (אויך פונעם הויפט-אתר: "touch")
+/** א "דור" פאר דעם מוסד: יעדע שרייבונג → א נייער דור → דער גרויסער cache (batch) גילט מער נישט */
+function genOf(M) {
+  const c = CacheService.getScriptCache();
+  let g = c.get('gen:' + M.key);
+  if (!g) { g = String(Date.now()); c.put('gen:' + M.key, g, 21600); }
+  return g;
+}
+function dropCaches(M, ppl, names, don) {
+  const c = CacheService.getScriptCache();
+  c.put('gen:' + M.key, String(Date.now()), 21600);
+  const ks = [];
+  if (ppl) ks.push('ppl:' + M.key);
+  if (names) ks.push('names:main');
+  if (don) ks.push('don:' + M.key);
+  if (ks.length) c.removeAll(ks);
+}
 // אקציעס וואס לייענען נאר; יעדע אנדערע (א שרייבונג) מעקט אויס דעם cache פון די מענטשן
 const READS = { batch: 1, me: 1, people: 1, find: 1, school: 1, whereIs: 1, gifts: 1, chav: 1, att: 1, hours: 1, ins: 1, team: 1, clock: 0, users: 1, tasks: 1, log: 1, history: 1, fin: 1, fileGet: 1, backups: 1, staff: 1 };
 
@@ -89,6 +110,7 @@ function doPost(e) {
     if (req.action === 'brand') return out(brandOf(req.mosad)); // פארן לאגאין: נאר נאמען + לאגא
     const email = whoIs(req.token);
     if (!email) return out({ error: 'not-signed-in' });
+    if (req.action === 'touch') return out(touchAll()); // דער הויפט-אתר האט געשריבן — פריש לאדן
     const M = mosadOf(req.mosad);
     if (!M) return out({ error: 'no-mosad' });
     const me = roleOf(M, email);
@@ -96,9 +118,9 @@ function doPost(e) {
     CUR = { M: M, me: me };
     const fn = ACTIONS[req.action];
     if (!fn) return out({ error: 'bad-action' });
-    if (req.fresh) CacheService.getScriptCache().removeAll(['ppl:' + M.key, 'names:main']);
+    if (req.fresh) dropCaches(M, true, true, true);
     const res = fn(M, me, req);
-    if (!READS[req.action]) CacheService.getScriptCache().removeAll(['ppl:' + M.key, 'names:main']);
+    if (!READS[req.action]) dropCaches(M, PPL_ACTS[req.action], NAMES_ACTS[req.action], DON_ACTS[req.action]);
     return out(res);
   } catch (err) {
     return out({ error: String((err && err.message) || err) });
@@ -251,6 +273,11 @@ const S = function (v) { return String(v === null || v === undefined ? '' : v).t
 // ---------- דער מוסד ----------
 // גיכקייט: דער מוסד (גיליון, נאמען, בעלים) ווערט געהאלטן אין cache 10 מינוט; די קאלאנעס פון די לשוניות
 // ווערן נאר דעמאלט געקאנטראלירט (און נאך יעדן נייעם TABS — דער סימן איז אינעם שליסל).
+function skelHash(t) {
+  let x = 0;
+  for (let i = 0; i < t.length; i++) x = (x * 31 + t.charCodeAt(i)) | 0;
+  return String(x >>> 0);
+}
 function tabsSig() {
   const t = JSON.stringify(TABS);
   let x = 0;
@@ -414,6 +441,47 @@ function nextContactId(ss) {
 }
 const REVERSE = { 'זון פון': 'טאטע פון', 'טאטע פון': 'זון פון' };
 
+const GIFT_F = ['date', 'currency', 'amount_orig', 'fx_rate', 'amount_usd', 'payment_method', 'check_number', 'card_last4', 'dedication_type', 'dedication_text', 'il_receipt_no'];
+/** די נדבות פונעם מוסד אינעם הויפט-גיליון (מיט קבלה-נומער) — אין cache (לייענען 2,000 שורות איז פאמעלעך) */
+function orgDonations(M) {
+  const ck = 'don:' + M.key;
+  const hit = cacheGet(ck);
+  if (hit) return hit;
+  const ss = main();
+  const rc = {};
+  objs(ss.getSheetByName('Receipts')).forEach(function (r) {
+    if (isVoid(r) || S(r.kind) !== 'receipt') return;
+    S(r.donation_ids).split(',').map(S).forEach(function (x) { if (x) rc[x] = S(r.receipt_no); });
+  });
+  const list = [];
+  objs(ss.getSheetByName('Donations')).forEach(function (d) {
+    if (S(d.org) !== M.org || !S(d.donation_id)) return;
+    const o = { src: 'm', id: S(d.donation_id), contact_id: S(d.contact_id), donor_name: S(d.donor_name), note: S(d.event_note), is_paid: S(d.is_paid), receipt_no: rc[S(d.donation_id)] || '', by: S(d.created_by) };
+    GIFT_F.forEach(function (k) { o[k] = S(d[k]); });
+    list.push(o);
+  });
+  cachePut(ck, list, LONG);
+  return list;
+}
+
+/** דער הויפט-אתר האט עפעס געטוישט (קאנטאקטן / נדבות): אויסמעקן און גלייך ווידער אנגרייטן (ווארעם) פאר יעדן מוסד */
+function touchAll() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) return { ok: true, busy: true };
+  try {
+    CacheService.getScriptCache().remove('names:main');
+    objs(main().getSheetByName('Mosdos')).forEach(function (m) {
+      if (!S(m.key) || !S(m.sheet_id)) return;
+      const M = mosadOf(S(m.key));
+      if (!M) return;
+      dropCaches(M, true, false, true);
+      cachePut('ppl:' + M.key, linkedData(M), LONG);
+      orgDonations(M);
+    });
+    return { ok: true };
+  } finally { lock.releaseLock(); }
+}
+
 /** א בקשה פאר דעם מנהל פונעם הויפט-מאגר: אויסמעקן דעם איש קשר אינגאנצן */
 function deleteRequest(M, me, id, why) {
   const c = objsCols(main().getSheetByName('Contacts'), ['contact_id', 'first_name_he', 'last_name_he']).filter(function (x) { return S(x.contact_id) === id; })[0];
@@ -436,12 +504,26 @@ const ACTIONS = {
   /** אלעס אויף איינמאל ביים אריינקומען: א רשימה פון קריאות (נאר לייענען); יעדע מיט אירע הרשאות */
   batch: function (M, me, req) {
     const OK = { me: 1, people: 1, school: 1, gifts: 1, fin: 1, team: 1, tasks: 1, ins: 1, users: 1, staff: 1, chav: 1, att: 1, hours: 1 };
+    const PERSONAL = { me: 1, tasks: 1 }; // פערזענליך (שעון, משימות) — אלעמאל פריש
+    const calls = [].concat(req.calls || []).slice(0, 30);
+    const run = function (c) {
+      if (!c || !OK[c.action]) return { error: 'bad-action' };
+      try { return ACTIONS[c.action](M, me, c.params || {}); } catch (err) { return { error: String((err && err.message) || err) }; }
+    };
+    // דער גאנצער ענטפער (אן די פערזענליכע) — אין cache ביז דער נעקסטער ענדערונג; לויט די הרשאות
+    const sig = isAdminRole(me) ? 'all' : me.perms.slice().sort().join(',');
+    const shared = calls.filter(function (c) { return c && !PERSONAL[c.action]; });
+    const ck = 'bundle:' + M.key + ':' + genOf(M) + ':' + skelHash(sig + JSON.stringify(shared));
     MEMO = {};
     try {
-      return { results: [].concat(req.calls || []).slice(0, 30).map(function (c) {
-        if (!c || !OK[c.action]) return { error: 'bad-action' };
-        try { return ACTIONS[c.action](M, me, c.params || {}); } catch (err) { return { error: String((err && err.message) || err) }; }
-      }) };
+      let got = cacheGet(ck);
+      if (!got) {
+        got = shared.map(run);
+        // נאר ווען אלעס איז געלונגען (א "קיין הרשאה" איז נישט קיין פעלער)
+        if (got.every(function (r) { return !r || !r.error || r.error === 'no-permission' || r.error === 'bad-action'; })) cachePut(ck, got, LONG);
+      }
+      let j = 0;
+      return { results: calls.map(function (c) { return c && !PERSONAL[c.action] ? got[j++] : run(c); }) };
     } finally { MEMO = null; }
   },
   /** ארויס פון איין רשימה (צוות / אברך / תלמיד…). די אנדערע סוגים בלייבן; קיין סוג נישט געבליבן → ארויס פונעם מוסד.
@@ -477,7 +559,7 @@ const ACTIONS = {
     const hit = cacheGet(ck);
     if (hit) return hit;
     const r = linkedData(M);
-    cachePut(ck, r, 300);
+    cachePut(ck, r, LONG);
     return r;
   },
 
@@ -636,21 +718,10 @@ const ACTIONS = {
   gifts: function (M, me) {
     need(me, 'donations');
     const ss = main();
-    const rc = {};
-    objs(ss.getSheetByName('Receipts')).forEach(function (r) {
-      if (isVoid(r) || S(r.kind) !== 'receipt') return;
-      S(r.donation_ids).split(',').map(S).forEach(function (x) { if (x) rc[x] = S(r.receipt_no); });
-    });
-    const F = ['date', 'currency', 'amount_orig', 'fx_rate', 'amount_usd', 'payment_method', 'check_number', 'card_last4', 'dedication_type', 'dedication_text', 'il_receipt_no'];
-    const list = [];
+    const F = GIFT_F;
+    const list = orgDonations(M);
     const cids = {};
-    objs(ss.getSheetByName('Donations')).forEach(function (d) {
-      if (S(d.org) !== M.org || !S(d.donation_id)) return;
-      const o = { src: 'm', id: S(d.donation_id), contact_id: S(d.contact_id), donor_name: S(d.donor_name), note: S(d.event_note), is_paid: S(d.is_paid), receipt_no: rc[S(d.donation_id)] || '', by: S(d.created_by) };
-      F.forEach(function (k) { o[k] = S(d[k]); });
-      if (o.contact_id) cids[o.contact_id] = true;
-      list.push(o);
-    });
+    list.forEach(function (o) { if (o.contact_id) cids[o.contact_id] = true; });
     objs(M.book.getSheetByName('Gifts')).forEach(function (g) {
       if (!S(g.gift_id)) return;
       const o = { src: 'l', id: S(g.gift_id), contact_id: '', donor_name: S(g.donor_name), note: S(g.note), is_paid: 'TRUE', receipt_no: '', by: S(g.created_by) };
@@ -665,7 +736,7 @@ const ACTIONS = {
         if (!S(c.contact_id)) return;
         all[S(c.contact_id)] = [[S(c.title_he), S(c.first_name_he), S(c.last_name_he)].filter(Boolean).join(' '), [S(c.first_name_en), S(c.last_name_en)].filter(Boolean).join(' '), S(c.city)];
       });
-      cachePut('names:main', all, 600);
+      cachePut('names:main', all, LONG);
     }
     const names = {};
     Object.keys(cids).forEach(function (id) { const c = all[id]; if (c) names[id] = { he: c[0], en: c[1], city: c[2] }; });
@@ -1064,7 +1135,7 @@ const ACTIONS = {
       .map(function (x) { return { date: S(x.date).slice(0, 10), contact_id: S(x.contact_id), time_in: hhmm(x.time_in), time_out: hhmm(x.time_out) }; });
     // הכנסות פון שכר לימוד און נדבות (נאר סכומים לויט טאג)
     const tuition = objs(M.book.getSheetByName('Tuition')).filter(function (x) { return S(x.payment_id); }).map(function (x) { return { date: S(x.date).slice(0, 10), amount: Number(x.amount) || 0 }; });
-    const gifts = objs(main().getSheetByName('Donations')).filter(function (d) { return S(d.org) === M.org; }).map(function (d) { return { date: S(d.date).slice(0, 10), currency: S(d.currency) || 'USD', orig: Number(d.amount_orig) || 0, usd: Number(d.amount_usd) || 0 }; })
+    const gifts = orgDonations(M).map(function (d) { return { date: S(d.date).slice(0, 10), currency: S(d.currency) || 'USD', orig: Number(d.amount_orig) || 0, usd: Number(d.amount_usd) || 0 }; })
       .concat(objs(M.book.getSheetByName('Gifts')).filter(function (g) { return S(g.gift_id); }).map(function (g) { return { date: S(g.date).slice(0, 10), currency: S(g.currency) || 'USD', orig: Number(g.amount_orig) || 0, usd: Number(g.amount_usd) || 0 }; }));
     return { team: team, payInfo: take('PayInfo'), items: take('PayItems'), payments: take('PayPayments'), expenses: take('Expenses'), incomes: take('Incomes'),
       debts: take('Debts'), repayments: take('Repayments'), hours: hours, tuition: tuition, gifts: gifts, settings: settingsOf(M) };

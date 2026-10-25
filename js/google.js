@@ -299,7 +299,17 @@ export async function readColumn(tab, col = 'A') {
 
 /** לשוניות וואס מ'האט געשריבן זינט דעם לעצטן לאדן — נאר זיי ווערן ווידער געלאדן (גיכער ווי אלע 26) */
 export const dirtyTabs = new Set();
-const markTab = (r) => { const tab = String(r || '').split('!')[0].replace(/^'|'$/g, ''); if (tab) dirtyTabs.add(tab); };
+// א טויש אין קאנטאקטן / נדבות → זאגן דעם "שומר" פון די מוסדות (ישיבה) ער זאל זיך פריש אנגרייטן (נאך 4 סעקונדעס, איינמאל)
+const TOUCH_TABS = new Set(['Contacts', 'Phones', 'Relations', 'Donations', 'Receipts', 'Enrollments', 'Mosdos']);
+let touchTimer = null;
+function touchMosdos() {
+  clearTimeout(touchTimer);
+  touchTimer = setTimeout(() => {
+    if (!CONFIG.MOSAD_URL || !accessToken) return;
+    fetch(CONFIG.MOSAD_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'touch', token: accessToken }) }).catch(() => {});
+  }, 4000);
+}
+const markTab = (r) => { const tab = String(r || '').split('!')[0].replace(/^'|'$/g, ''); if (tab) { dirtyTabs.add(tab); if (TOUCH_TABS.has(tab)) touchMosdos(); } };
 
 /** מוסיף שורה בסוף הלשונית. הערכים נשמרים כמו שהם (RAW), בלי פענוח. */
 export function appendRow(tab, row) {
