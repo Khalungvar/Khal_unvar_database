@@ -1,6 +1,6 @@
 // אתר פון א מוסד — די ישיבה: תלמידים, בוגרים, הורים, שכר לימוד און קבלות (אלעס אינעם גיליון פונעם מוסד, דורכן שומר).
-import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=320';
-import { downloadXlsx } from '../excel.js?v=320';
+import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=321';
+import { downloadXlsx } from '../excel.js?v=321';
 
 let X = null; // די כלים פון app.js: { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render }
 export function initSchool(ctx) { X = ctx; }
@@ -16,6 +16,15 @@ export async function loadSchool() {
   return sc.data;
 }
 export const schoolLoaded = () => Boolean(sc.data);
+/** די תלמידים וואס לערנען אויף א טאג (פאר יומנים, חברותות, ביטוח) — לויטן משפחה-נאמען */
+export function activeStudents(day = todayIso()) {
+  return enrolls().filter((e) => statusOn(e, day) === 'active').sort(byName);
+}
+/** דער זמן פון היינט ("זמן חורף פ"ז") */
+export function currentZman() {
+  const t = todayIso();
+  return (zmanim().filter((z) => z.start && z.start <= t).sort((a, b) => b.start.localeCompare(a.start))[0] || {}).label || '';
+}
 
 // ---------- רעכענען ----------
 const today = () => todayIso();
@@ -95,7 +104,7 @@ function sixMonths() {
   const out = []; for (let i = 0; i < 6; i += 1) { out.push(x); x = nextMonth(x); }
   return { now, list: out };
 }
-function zmanim() {
+export function zmanim() {
   const y = toHebrew(today()).y;
   const out = [];
   for (let yy = y + 1; yy >= y - 5; yy -= 1) {
@@ -148,6 +157,7 @@ export function renderStudents(box, which = 'active') {
         <span class="spacer"></span>
         ${X.can('people_edit') ? '<button type="button" class="btn primary" id="sc-new">＋ רישום תלמיד</button>' : ''}
         <button type="button" class="btn" id="sc-xl">⬇ Excel</button>
+        ${act ? '<button type="button" class="btn" id="sc-phones">🖨 יומן טלפונים</button>' : ''}
         <button type="button" class="btn" id="sc-reload" title="רענון">⟳</button>
       </div>
       ${sc.asOf && act ? `<p class="muted small">מי שלמד ב-${h(isoToHebrewText(day))}</p>` : ''}
@@ -166,6 +176,7 @@ export function renderStudents(box, which = 'active') {
     const s = X.$('#sc-shiur', box); if (s) s.onchange = () => { sc.shiur = s.value; renderStudents(box, which); };
     const a = X.$('#sc-asof', box); if (a) a.onchange = () => { sc.asOf = a.value; renderStudents(box, which); };
     X.$('#sc-new', box)?.addEventListener('click', () => enrollDialog({}));
+    X.$('#sc-phones', box)?.addEventListener('click', () => X.printPhones?.());
     X.$('#sc-reload', box).onclick = () => reload().then(() => X.toast('עודכן')).catch((err) => X.toast(X.msg(err), 'err'));
     X.$('#sc-xl', box).onclick = () => {
       const head = ['תלמיד', 'טלפון בארץ', 'טלפון', 'הורה', 'טלפון ההורה', 'מייל ההורה', 'שיעור', 'חדר', 'סטטוס', 'מ-', 'עד', 'זמן', ...(tu() ? ['שכר לימוד', 'חיוב', 'שולם', 'יתרה'] : []), 'הערה'];

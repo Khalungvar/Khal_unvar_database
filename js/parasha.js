@@ -27,33 +27,34 @@ const DAY = 86400000;
 const isoOf = (t) => new Date(t).toISOString().slice(0, 10);
 const utc = (iso) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
 
-/** יום טוב אין חוץ לארץ (נישט קיין פרשה) */
-function isChag(h) {
-  if (h.m === 'Tishri') return [1, 2, 10].includes(h.d) || (h.d >= 15 && h.d <= 23);
-  if (h.m === 'Nisan') return h.d >= 15 && h.d <= 22;
-  if (h.m === 'Sivan') return h.d === 6 || h.d === 7;
+/** יום טוב / חול המועד (נישט קיין פרשה). il = ארץ ישראל (איין טאג יום טוב) */
+function isChag(h, il = false) {
+  if (h.m === 'Tishri') return [1, 2, 10].includes(h.d) || (h.d >= 15 && h.d <= (il ? 22 : 23));
+  if (h.m === 'Nisan') return h.d >= 15 && h.d <= (il ? 21 : 22);
+  if (h.m === 'Sivan') return h.d === 6 || (!il && h.d === 7);
   return false;
 }
 
 /** אלע שבתים פון א העברעאישן יאר: [{ iso, h, chag }] */
-function shabbatot(y) {
+function shabbatot(y, il = false) {
   const a = utc(fromHebrew(1, 'Tishri', y));
   const b = utc(fromHebrew(1, 'Tishri', y + 1));
   let t = a + ((6 - new Date(a).getUTCDay() + 7) % 7) * DAY;
   const out = [];
-  for (; t < b; t += 7 * DAY) { const h = toHebrew(new Date(t)); out.push({ iso: isoOf(t), h, chag: isChag(h) }); }
+  for (; t < b; t += 7 * DAY) { const h = toHebrew(new Date(t)); out.push({ iso: isoOf(t), h, chag: isChag(h, il) }); }
   return out;
 }
 
 /** וויפיל שבתים (נישט יום טוב) צווישן ראש השנה און שמחת תורה */
-const tishreiCount = (y) => shabbatot(y).filter((s) => s.h.m === 'Tishri' && s.h.d < 23 && !s.chag).length;
+const tishreiCount = (y, il = false) => shabbatot(y, il).filter((s) => s.h.m === 'Tishri' && s.h.d < 23 && !s.chag).length;
 
 const cache = new Map();
 /** פרשיות פון א יאר: Map(iso → { en, he, ix: [נומערן] }) */
-export function yearParshiyot(y) {
-  if (cache.has(y)) return cache.get(y);
+export function yearParshiyot(y, il = false) {
+  const ck = `${y}${il ? 'il' : ''}`;
+  if (cache.has(ck)) return cache.get(ck);
   const map = new Map();
-  const all = shabbatot(y);
+  const all = shabbatot(y, il);
   const leap = isLeapYear(y);
   const put = (s, ixs) => {
     const en = ixs.map((i) => P[i][0]).join(' ');
@@ -64,7 +65,7 @@ export function yearParshiyot(y) {
   if (tish.length === 2) { put(tish[0], [IX.Vayeilech]); put(tish[1], [IX["Ha'azinu"]]); } else if (tish.length) put(tish[0], [IX["Ha'azinu"]]);
   const main = all.filter((s) => !s.chag && !(s.h.m === 'Tishri' && s.h.d < 23));
   // וילך: אויב איבער א יאר איז נאר איין שבת אין תשרי — צוזאמען מיט נצבים היי-יאר
-  const nitzVay = tishreiCount(y + 1) < 2;
+  const nitzVay = tishreiCount(y + 1, il) < 2;
   function ord(x) { const ms = ['Tishri', 'Heshvan', 'Kislev', 'Tevet', 'Shevat', 'Adar', 'Adar I', 'Adar II', 'Nisan', 'Iyar', 'Sivan', 'Tamuz', 'Av', 'Elul']; return ms.indexOf(x.m) * 100 + x.d; }
   const idxOf = (pred) => main.findIndex(pred);
   // אנקערס
@@ -89,21 +90,39 @@ export function yearParshiyot(y) {
       if (joined.has(i)) { put(s, [i, i + 1]); i += 2; } else { put(s, [i]); i += 1; }
     });
   });
-  cache.set(y, map);
+  cache.set(ck, map);
   return map;
 }
 
 /** די פרשה פון א שבת (iso), אדער '' (יום טוב) */
-export function parashaOf(iso) {
+// ארץ ישראל: ווען א צווייטער טאג יום טוב (חו"ל) פאלט אויף שבת, לייענט מען אין א"י שוין די קומענדיגע פרשה,
+// און חו"ל כאפט זיך אן דורך צוזאמשטעלן — דער חשבון פון די אנקערס גיט דאס אליין (איין צוזאמשטעלונג ווייניגער).
+export function parashaOf(iso, il = false) {
   const h = toHebrew(iso);
   if (!h) return null;
-  return yearParshiyot(h.y).get(iso) || null;
+  return yearParshiyot(h.y, il).get(iso) || null;
 }
 
 /** א שבת אן א פרשה (יום טוב אין חו"ל): דער נאמען פונעם יום טוב */
-export function holidayOf(iso) {
+export function holidayOf(iso, il = false) {
   const x = toHebrew(iso);
   if (!x) return '';
+  if (il) {
+    if (x.m === 'Tishri') {
+      if (x.d <= 2) return 'ראש השנה';
+      if (x.d === 10) return 'יום כיפור';
+      if (x.d === 15) return 'סוכות';
+      if (x.d >= 16 && x.d <= 21) return 'חול המועד סוכות';
+      if (x.d === 22) return 'שמיני עצרת';
+    }
+    if (x.m === 'Nisan') {
+      if (x.d === 15) return 'פסח';
+      if (x.d >= 16 && x.d <= 20) return 'חול המועד פסח';
+      if (x.d === 21) return 'שביעי של פסח';
+    }
+    if (x.m === 'Sivan' && x.d === 6) return 'שבועות';
+    return '';
+  }
   if (x.m === 'Tishri') {
     if (x.d <= 2) return 'ראש השנה';
     if (x.d === 10) return 'יום כיפור';
@@ -122,25 +141,25 @@ export function holidayOf(iso) {
 }
 
 /** דער נאמען פון א שבת: "פרשת לך לך", "שבת ראש השנה", "שבת חול המועד סוכות" */
-export function shabbatTitle(iso) {
+export function shabbatTitle(iso, il = false) {
   // שבת איז יום טוב: "שבת ראש השנה"
-  const hol = holidayOf(iso);
+  const hol = holidayOf(iso, il);
   if (hol) return `שבת ${hol}`;
   // א יום טוב אין מיטן וואך (זונטאג–פרייטאג): נאר דער נאמען פונעם יום טוב, אן "פרשת".
   // נישט גערעכנט: א המשך פונעם יום טוב פון שבת פריער (למשל ב' ראש השנה / שמחת תורה אויף זונטאג)
   const t0 = Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
   const day = (k) => new Date(t0 - k * 86400000).toISOString().slice(0, 10);
   const grp = (n) => (n === 'שמחת תורה' ? 'שמיני עצרת' : n);
-  let prev = grp(holidayOf(day(7)));
+  let prev = grp(holidayOf(day(7), il));
   const names = [];
   for (let k = 6; k >= 1; k -= 1) {
-    const w = holidayOf(day(k));
+    const w = holidayOf(day(k), il);
     if (w && prev && grp(w) === prev) continue; // נאך דער זעלבער יום טוב פון שבת
     prev = '';
     if (w) names.push(w);
   }
   if (names.length) return `שבוע שחל בו ${names.find((n) => !n.startsWith('חול המועד')) || names[0]}`;
-  const p = parashaOf(iso);
+  const p = parashaOf(iso, il);
   return p ? `פרשת ${p.he}` : 'שבת';
 }
 

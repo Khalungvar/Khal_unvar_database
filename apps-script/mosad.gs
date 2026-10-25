@@ -27,6 +27,11 @@ const TABS = {
   Enrollments: ['enroll_id', 'contact_id', 'parent_id', 'status', 'start_date', 'end_date', 'zman', 'shiur', 'room', 'tuition_amount', 'tuition_period', 'month_amounts', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
   Tuition: ['payment_id', 'enroll_id', 'contact_id', 'payer_id', 'date', 'amount', 'method', 'check_number', 'card_last4', 'for_text', 'receipt_no', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
   Gifts: ['gift_id', 'donor_name', 'date', 'currency', 'amount_orig', 'fx_rate', 'amount_usd', 'payment_method', 'check_number', 'card_last4', 'dedication_type', 'dedication_text', 'note', 'il_receipt_no', 'created_at', 'created_by', 'updated_at', 'updated_by'],
+  Settings: ['key', 'value', 'updated_at', 'updated_by'],
+  Chavrusas: ['zman', 'seder', 'contact_id', 'partner_id', 'partner_text', 'updated_at', 'updated_by'],
+  Attendance: ['week', 'seder', 'contact_id', 'marks', 'note', 'updated_at', 'updated_by'],
+  Hours: ['date', 'contact_id', 'time_in', 'time_out', 'note', 'updated_at', 'updated_by'],
+  Insurance: ['contact_id', 'kupah', 'member_no', 'company', 'policy_no', 'expires', 'passport', 'debt', 'left_date', 'status', 'note', 'updated_at', 'updated_by'],
   Receipts: ['receipt_no', 'payment_id', 'contact_id', 'payer_id', 'amount', 'issued_at', 'issued_by', 'void', 'void_by', 'void_at', 'note'],
 };
 // א דאטום פון גיליון (Date) → 'yyyy-MM-dd' (מיט צייט ווען ס'איז דא)
@@ -269,7 +274,7 @@ const REVERSE = { 'זון פון': 'טאטע פון', 'טאטע פון': 'זון
 
 const ACTIONS = {
   me: function (M, me) {
-    return { me: { email: me.email, name: me.name, role: me.role, perms: me.perms }, mosad: { key: M.key, name: M.name, org: M.org, logo: brandOf(M.key).logo }, permsAll: PERMS };
+    return { me: { email: me.email, name: me.name, role: me.role, perms: me.perms }, mosad: { key: M.key, name: M.name, org: M.org, logo: brandOf(M.key).logo }, permsAll: PERMS, settings: settingsOf(M) };
   },
 
   people: function (M) { return linkedData(M); },
@@ -573,9 +578,152 @@ const ACTIONS = {
     } finally { lock.releaseLock(); }
   },
 
+  // ---------- הגדרות (סדרים, טעג) — נאר בעלים / מנהל ----------
+  settingsSave: function (M, me, req) {
+    if (!isAdminRole(me)) throw new Error('no-permission');
+    const sh = M.book.getSheetByName('Settings');
+    const all = objs(sh);
+    const vals = req.settings || {};
+    Object.keys(vals).forEach(function (k) {
+      if (['sedarim', 'avreich_rate', 'calendar'].indexOf(k) < 0) return;
+      const v = typeof vals[k] === 'string' ? vals[k] : JSON.stringify(vals[k]);
+      const ex = all.filter(function (x) { return S(x.key) === k; })[0];
+      if (ex) setCells(sh, ex._row, { value: v, updated_at: now(), updated_by: me.email });
+      else appendObj(sh, { key: k, value: v, updated_at: now(), updated_by: me.email });
+    });
+    logIt(M, me, 'settings', '', Object.keys(vals).join(','));
+    return { ok: true, settings: settingsOf(M) };
+  },
+
+  // ---------- 🤝 חברותות: א שורה פאר יעדן בחור אין א סדר (אין א זמן) — מיט וועמען ער לערנט (א מענטש, אדער טעקסט: "שיעור ...") ----------
+  chav: function (M, me, req) {
+    need(me, 'chavrusas');
+    const z = S(req.zman);
+    const all = objs(M.book.getSheetByName('Chavrusas')).filter(function (x) { return S(x.contact_id) && (!z || S(x.zman) === z); });
+    const zmanim = {}; objs(M.book.getSheetByName('Chavrusas')).forEach(function (x) { if (S(x.zman)) zmanim[S(x.zman)] = true; });
+    return { rows: all.map(function (x) { return { zman: S(x.zman), seder: S(x.seder), contact_id: S(x.contact_id), partner_id: S(x.partner_id), partner_text: S(x.partner_text) }; }), zmanim: Object.keys(zmanim) };
+  },
+  /** אלע חברותות פון א סדר אין א זמן אויף איינמאל: rows = [{ contact_id, partner_id, partner_text }] */
+  chavSave: function (M, me, req) {
+    need(me, 'chavrusas');
+    const z = S(req.zman); const seder = S(req.seder);
+    if (!z || !seder) throw new Error('bad-week');
+    const mine = {}; peopleRows(M).forEach(function (p) { mine[S(p.contact_id)] = true; });
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const sh = M.book.getSheetByName('Chavrusas');
+      const have = {};
+      objs(sh).forEach(function (x) { if (S(x.zman) === z && S(x.seder) === seder) have[S(x.contact_id)] = x; });
+      const head = headOf(sh);
+      const add = [];
+      [].concat(req.rows || []).forEach(function (r) {
+        const cid = S(r.contact_id);
+        if (!mine[cid]) return;
+        const pid = S(r.partner_id) && mine[S(r.partner_id)] ? S(r.partner_id) : '';
+        const o = { partner_id: pid ? Number(pid) : '', partner_text: pid ? '' : S(r.partner_text), updated_at: now(), updated_by: me.email };
+        if (have[cid]) setCells(sh, have[cid]._row, o);
+        else if (pid || o.partner_text) { o.zman = z; o.seder = seder; o.contact_id = Number(cid); add.push(head.map(function (h) { return o[h] === undefined ? '' : o[h]; })); }
+      });
+      if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, head.length).setValues(add);
+      logIt(M, me, 'chavrusas', '', z + ' ' + seder);
+      return { ok: true };
+    } finally { lock.releaseLock(); }
+  },
+
+  // ---------- ✅ השתתפות: א שורה פאר וואך + סדר + בחור; marks = { "0": "v", "0b": "x" } (טאג 0=זונטאג; b = די צווייטע משבצת) ----------
+  att: function (M, me, req) {
+    need(me, 'attendance');
+    const from = S(req.from); const to = S(req.to) || from;
+    return { rows: objs(M.book.getSheetByName('Attendance')).filter(function (x) { const w = S(x.week).slice(0, 10); return w >= from && w <= to; })
+      .map(function (x) { return { week: S(x.week).slice(0, 10), seder: S(x.seder), contact_id: S(x.contact_id), marks: S(x.marks), note: S(x.note) }; }) };
+  },
+  attSave: function (M, me, req) {
+    need(me, 'attendance');
+    const week = S(req.week).slice(0, 10); const seder = S(req.seder);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(week) || !seder) throw new Error('bad-week');
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const sh = M.book.getSheetByName('Attendance');
+      const all = objs(sh);
+      const have = {};
+      all.forEach(function (x) { if (S(x.week).slice(0, 10) === week && S(x.seder) === seder) have[S(x.contact_id)] = x; });
+      const head = headOf(sh);
+      const add = [];
+      [].concat(req.rows || []).forEach(function (r) {
+        const cid = S(r.contact_id); if (!cid) return;
+        const o = { marks: typeof r.marks === 'string' ? r.marks : JSON.stringify(r.marks || {}), note: S(r.note), updated_at: now(), updated_by: me.email };
+        if (have[cid]) setCells(sh, have[cid]._row, o);
+        else { o.week = week; o.seder = seder; o.contact_id = Number(cid) || cid; add.push(head.map(function (h) { return o[h] === undefined ? '' : o[h]; })); }
+      });
+      if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, head.length).setValues(add);
+      logIt(M, me, 'attendance', '', week + ' ' + seder);
+      return { ok: true };
+    } finally { lock.releaseLock(); }
+  },
+
+  // ---------- ⏱ שעות פון אברכים (כניסה / יציאה) — א שורה פאר א טאג ----------
+  hours: function (M, me, req) {
+    need(me, 'attendance');
+    const from = S(req.from); const to = S(req.to) || from;
+    return { hours: objs(M.book.getSheetByName('Hours')).filter(function (x) { const d = S(x.date).slice(0, 10); return S(x.contact_id) && d >= from && d <= to; })
+      .map(function (x) { return { date: S(x.date).slice(0, 10), contact_id: S(x.contact_id), time_in: hhmm(x.time_in), time_out: hhmm(x.time_out), note: S(x.note) }; }) };
+  },
+  /** rows = [{ date, contact_id, time_in, time_out }] — ליידיג = אויסמעקן */
+  hoursSave: function (M, me, req) {
+    need(me, 'attendance');
+    const mine = {}; peopleRows(M).forEach(function (p) { mine[S(p.contact_id)] = true; });
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const sh = M.book.getSheetByName('Hours');
+      const all = objs(sh);
+      const have = {}; all.forEach(function (x) { have[S(x.date).slice(0, 10) + '|' + S(x.contact_id)] = x; });
+      const head = headOf(sh);
+      const add = []; const del = [];
+      const tm = function (v) { const m = S(v).match(/^(\d{1,2}):(\d{2})$/); return m ? ('0' + m[1]).slice(-2) + ':' + m[2] : ''; };
+      [].concat(req.rows || []).forEach(function (r) {
+        const cid = S(r.contact_id); const d = S(r.date).slice(0, 10);
+        if (!mine[cid] || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+        const tin = tm(r.time_in); const tout = tm(r.time_out);
+        const ex = have[d + '|' + cid];
+        if (!tin && !tout) { if (ex) del.push(ex._row); return; }
+        const o = { time_in: tin ? "'" + tin : '', time_out: tout ? "'" + tout : '', note: S(r.note), updated_at: now(), updated_by: me.email };
+        if (ex) setCells(sh, ex._row, o);
+        else { o.date = d; o.contact_id = Number(cid); add.push(head.map(function (h) { return o[h] === undefined ? '' : o[h]; })); }
+      });
+      del.sort(function (a, b) { return b - a; }).forEach(function (r) { sh.deleteRow(r); });
+      if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, head.length).setValues(add);
+      logIt(M, me, 'hours', '', String((req.rows || []).length));
+      return { ok: true };
+    } finally { lock.releaseLock(); }
+  },
+
+  // ---------- 🏥 ביטוח בריאות ----------
+  ins: function (M, me) {
+    need(me, 'insurance');
+    return { insurance: objs(M.book.getSheetByName('Insurance')).filter(function (x) { return S(x.contact_id); }).map(function (x) {
+      const o = {}; TABS.Insurance.forEach(function (k) { o[k] = S(x[k]); }); o.expires = o.expires.slice(0, 10); o.left_date = o.left_date.slice(0, 10); return o; }) };
+  },
+  insSave: function (M, me, req) {
+    need(me, 'insurance');
+    const r = req.ins || {};
+    const mine = {}; peopleRows(M).forEach(function (p) { mine[S(p.contact_id)] = true; });
+    if (!mine[S(r.contact_id)]) throw new Error('not-yours');
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const sh = M.book.getSheetByName('Insurance');
+      const o = { updated_at: now(), updated_by: me.email };
+      ['kupah', 'member_no', 'company', 'policy_no', 'expires', 'passport', 'debt', 'left_date', 'status', 'note'].forEach(function (k) { o[k] = S(r[k]); });
+      ['member_no', 'policy_no', 'passport'].forEach(function (k) { if (o[k]) o[k] = "'" + o[k]; }); // טעקסט (נולן פארנט)
+      const ex = objs(sh).filter(function (x) { return S(x.contact_id) === S(r.contact_id); })[0];
+      if (ex) setCells(sh, ex._row, o); else { o.contact_id = Number(r.contact_id) || r.contact_id; appendObj(sh, o); }
+      logIt(M, me, 'insurance', S(r.contact_id), '');
+      return { ok: true };
+    } finally { lock.releaseLock(); }
+  },
+
   // ---------- ישיבה: רישום, שכר לימוד, קבלות ----------
   school: function (M, me) {
-    if (!isAdminRole(me) && !['students', 'alumni', 'parents', 'tuition'].some(function (p) { return me.perms.indexOf(p) >= 0; })) throw new Error('no-permission');
+    if (!isAdminRole(me) && !['students', 'alumni', 'parents', 'tuition', 'chavrusas', 'attendance', 'insurance'].some(function (p) { return me.perms.indexOf(p) >= 0; })) throw new Error('no-permission');
     const tu = isAdminRole(me) || me.perms.indexOf('tuition') >= 0;
     const en = objs(M.book.getSheetByName('Enrollments')).filter(function (e) { return S(e.enroll_id); }).map(function (e) {
       const o = {};
@@ -825,6 +973,29 @@ function orgDetByName(org) {
   const keep = ['legal_name', 'address', 'city_state_zip', 'phone', 'email', 'website', 'ein', 'is_501c3', 'signer_name', 'signer_title', 'receipt_note', 'org_name_he', 'tax_text'];
   const o = { org: org }; keep.forEach(function (k) { o[k] = S(row[k]); });
   return o;
+}
+/** הגדרות פונעם מוסד (מיט ברירות מחדל) */
+// att = יש השתתפות (slots = משבצות ליום), chav = יש חברותות
+const DEFAULT_SEDARIM = [
+  { key: 'shacharis', name: 'שחרית', att: true, chav: false, slots: 1, days: [0, 1, 2, 3, 4] },
+  { key: 'lifnei', name: 'לפנה"צ (סדר עיון)', att: false, chav: true, slots: 1, days: [0, 1, 2, 3, 4] },
+  { key: 'achar', name: 'אחה"צ', att: true, chav: true, slots: 2, days: [0, 1, 2, 3, 4] },
+  { key: 'shlishi', name: 'סדר שלישי', att: true, chav: true, slots: 2, days: [0, 1, 2, 3, 4] },
+];
+function settingsOf(M) {
+  // calendar: 'il' = לוח ארץ ישראל (פרשיות), 'chul' = חוץ לארץ
+  const o = { sedarim: DEFAULT_SEDARIM, avreich_rate: '', calendar: 'il' };
+  objs(M.book.getSheetByName('Settings')).forEach(function (x) {
+    const k = S(x.key);
+    if (k === 'sedarim') { try { const v = JSON.parse(S(x.value)); if (v && v.length) o.sedarim = v; } catch (err) { /* */ } }
+    else if (k) o[k] = S(x.value);
+  });
+  return o;
+}
+/** א צייט פון גיליון → 'HH:mm' */
+function hhmm(v) {
+  if (Object.prototype.toString.call(v) === '[object Date]') return Utilities.formatDate(v, TZ || main().getSpreadsheetTimeZone(), 'HH:mm');
+  return S(v).replace(/^'/, '').slice(0, 5);
 }
 function isVoid(r) { const v = S(r.void).toLowerCase(); return v === 'true' || v === '1' || v === 'yes'; }
 /** די פרטים פונעם מוסד פאר א קבלה (פון OrgDetails אינעם הויפט-גיליון) */

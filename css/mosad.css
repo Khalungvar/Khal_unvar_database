@@ -91,3 +91,27 @@ fieldset { border: 1px solid #e8dcc4; border-radius: 10px; margin: 8px 0; }
   .ms-soon { background: #3a3020; color: #e6c98a; }
 }
 @media (max-width: 640px) { .ms-tiles { grid-template-columns: repeat(2, 1fr); gap: 10px; } .ms-tile { padding: 16px 8px 12px; } }
+/* יומנים */
+.ms-subtabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.ms-subtabs button { border: 1px solid #e3d3ad; background: var(--card, #fff); border-radius: 18px; padding: 5px 12px; cursor: pointer; font: inherit; }
+.ms-subtabs button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.ja-table td.c, .ja-table th.c, .jh-table td.c, .jh-table th.c { text-align: center; padding: 2px; }
+.ja-cell { width: 30px; height: 26px; border: 1px solid #ccc; border-radius: 6px; background: #fff; cursor: pointer; font-size: 15px; padding: 0; }
+.ja-cell.m-v { background: #e3f4e1; color: #1f6b1c; border-color: #9cd09a; }
+.ja-cell.m-x { background: #fde8e8; color: #a11; border-color: #e7a3a3; }
+.ja-cell.m-l { background: #fff4d6; color: #8a5a00; border-color: #e6c77a; }
+.jc-table input.jc-in { width: 100%; min-width: 220px; }
+.jh-table input[type=time] { width: 92px; padding: 2px; }
+.ji-need td { background: #fff7e6; }
+.ms-set { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+.ms-set > label { display: flex; gap: 8px; align-items: center; }
+.ms-days { display: flex; gap: 6px; flex-wrap: wrap; }
+.ms-days label.check { display: inline-flex; gap: 2px; align-items: center; margin: 0; width: auto; }
+.ms-sedarim input[name=name] { min-width: 150px; }
+@media (prefers-color-scheme: dark) {
+  .ja-cell { background: #2a2420; border-color: #4a3c34; color: inherit; }
+  .ja-cell.m-v { background: #1f3a1d; color: #9fdc9b; }
+  .ja-cell.m-x { background: #3a1d1d; color: #f0a0a0; }
+  .ja-cell.m-l { background: #3a3020; color: #f0d080; }
+  .ji-need td { background: #33291b; }
+}

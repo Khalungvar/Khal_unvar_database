@@ -1,8 +1,9 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=320';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=320';
-import { initGifts, renderGifts } from './gifts.js?v=320';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=321';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=321';
+import { initGifts, renderGifts } from './gifts.js?v=321';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings } from './journal.js?v=321';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -28,6 +29,8 @@ const ERR = {
   'bad-amount': 'סכום לא תקין.',
   'bad-last4': 'רק 4 ספרות אחרונות של הכרטיס.',
   'bad-logo': 'הלוגו גדול מדי.',
+  'bad-week': 'חסר שבוע / סדר.',
+  'bad-date': 'תאריך לא תקין.',
   'need-contact': 'נדבה שכבר באתר הכללי צריכה איש קשר. (קבלה אמריקאית — רק עם איש קשר.)',
 };
 const msg = (err) => ERR[err?.code] || ERR[err?.message] || String(err?.message || err || 'שגיאה');
@@ -40,10 +43,10 @@ const TILES = [
   { k: 'alumni', ic: '🚪', t: 'בוגרי הישיבה', sub: 'וההורים שלהם' },
   { k: 'staff_list', ic: '👔', t: 'אנשי צוות ואברכים', sub: 'כולל אברכים שלומדים עם בחורים' },
   { k: 'tuition', ic: '💲', t: 'שכר לימוד', sub: 'תשלומים וקבלות' },
-  { k: 'insurance', ic: '🏥', t: 'ביטוח בריאות', soon: true },
+  { k: 'insurance', ic: '🏥', t: 'ביטוח בריאות', sub: 'קופה, מספר חבר, חובות' },
   { k: 'parents', ic: '👪', t: 'הורי התלמידים' },
-  { k: 'chavrusas', ic: '🤝', t: 'חברותות', soon: true },
-  { k: 'attendance', ic: '✅', t: 'השתתפות', soon: true },
+  { k: 'chavrusas', ic: '🤝', t: 'חברותות', sub: 'לכל סדר, כולל אברכים' },
+  { k: 'attendance', ic: '✅', t: 'השתתפות', sub: 'יומנים, כניסה ויציאה של אברכים' },
   { k: 'donations', ic: '💝', t: 'נדבות וקבלות', sub: 'כולל קבלות אמריקאיות' },
 ];
 const PERM_NAMES = { ...Object.fromEntries(TILES.map((x) => [x.k, x.t])), people_edit: 'הוספה ועדכון אנשי קשר' };
@@ -79,7 +82,7 @@ async function enter(prompt) {
     if (!configured()) throw Object.assign(new Error('not-configured'), { code: 'not-configured' });
     if (prompt !== null) await signIn(prompt);
     const r = await call(KEY, 'me');
-    st.me = r.me; st.mosad = r.mosad;
+    st.me = r.me; st.mosad = r.mosad; st.settings = r.settings || {};
     rememberHint(st.me.email);
     if (st.mosad?.name) document.title = `${st.mosad.name} – ניהול`;
     if (st.mosad?.logo) st.logo = st.mosad.logo;
@@ -137,6 +140,9 @@ function render() {
   else if (st.tab === 'parents') renderParents(box);
   else if (st.tab === 'tuition') renderTuition(box);
   else if (st.tab === 'donations') renderGifts(box);
+  else if (st.tab === 'chavrusas') renderChav(box);
+  else if (st.tab === 'attendance') renderAtt(box);
+  else if (st.tab === 'insurance') renderIns(box);
   else if (st.tab === 'staff_list') { st.kind = 'staffav'; renderPeople(); }
   else renderSoon(box, view);
 }
@@ -383,7 +389,9 @@ async function renderStaff() {
       <div class="ms-perms">${r.permsAll.map((p) => `<label class="check"><input type="checkbox" name="perm" value="${p}"> ${h(PERM_NAMES[p] || p)}</label>`).join('')}</div>
       <button type="submit" class="btn primary">הוסף</button>
     </form>
-    <p class="muted small">איש הצוות נכנס לאתר הזה עם חשבון הגוגל שלו. אין לו גישה לגיליונות עצמם.</p>`;
+    <p class="muted small">איש הצוות נכנס לאתר הזה עם חשבון הגוגל שלו. אין לו גישה לגיליונות עצמם.</p>
+    ${settingsHtml()}`;
+  wireSettings(box);
   const rowData = (row) => {
     const s = r.staff[Number(row.dataset.i)];
     return { email: s.email, name: s.name, role: $('[data-role]', row).value, active: $('[data-active]', row).checked, perms: $$('[data-perm]:checked', row).map((x) => x.dataset.perm) };
@@ -413,6 +421,8 @@ async function renderStaff() {
 const ctx = { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render: () => render(), personDialog: (p) => personDialog(p), addDialog: (k) => addDialog(k) };
 initSchool(ctx);
 initGifts(ctx);
+ctx.printPhones = () => printPhones();
+initJournal(ctx);
 (async () => {
   loginView();
   brand(KEY).then((b) => { if (b?.logo) { st.logo = b.logo; if (!st.me) { const im = $('.ms-logo'); if (im) im.src = b.logo; } } });
