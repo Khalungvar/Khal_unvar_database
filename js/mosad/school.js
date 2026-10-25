@@ -1,6 +1,6 @@
 // אתר פון א מוסד — די ישיבה: תלמידים, בוגרים, הורים, שכר לימוד און קבלות (אלעס אינעם גיליון פונעם מוסד, דורכן שומר).
-import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=330';
-import { downloadXlsx } from '../excel.js?v=330';
+import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=331';
+import { downloadXlsx } from '../excel.js?v=331';
 
 let X = null; // די כלים פון app.js: { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render }
 export function initSchool(ctx) { X = ctx; }
@@ -176,12 +176,14 @@ export function renderStudents(box, which = 'active') {
           <td class="small">${h(e.shiur || '')}</td><td class="small">${h(dateText(e.start_date))}</td><td class="small">${h(dateText(e.end_date))}</td>
           ${tu() ? `<td class="num ${b > 0 ? 'ms-owe' : ''}" dir="ltr">${charged(e) || paid(e) ? money(b) : ''}</td>` : ''}
           <td class="ms-acts">${X.can('people_edit') || tu() ? `<button type="button" class="btn small-btn" data-edit="${h(e.enroll_id)}" title="עריכה">✎</button>` : ''}
-            ${tu() ? `<button type="button" class="btn small-btn" data-pay="${h(e.enroll_id)}" title="תשלום">💲</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`
+            ${tu() ? `<button type="button" class="btn small-btn" data-pay="${h(e.enroll_id)}" title="תשלום">💲</button>` : ''}
+            ${X.can('people_edit') ? `<button type="button" class="btn small-btn" data-out="${h(e.enroll_id)}" title="${act ? 'עזב / מחיקה' : 'מחיקה'}">🗑</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`
       : `<p class="muted ms-empty">${list0.length ? 'אין תוצאות.' : 'אין.'}</p>`}`;
     searchInput(box, key, () => renderStudents(box, which));
     const s = X.$('#sc-shiur', box); if (s) s.onchange = () => { sc.shiur = s.value; renderStudents(box, which); };
     const a = X.$('#sc-asof', box); if (a) a.onchange = () => { sc.asOf = a.value; renderStudents(box, which); };
     X.$('#sc-new', box)?.addEventListener('click', () => enrollDialog({}));
+    X.$$('[data-out]', box).forEach((b) => { b.onclick = () => outDialog(all.find((x) => String(x.enroll_id) === b.dataset.out), act); });
     X.$('#sc-phones', box)?.addEventListener('click', () => X.printPhones?.());
     X.$('#sc-reload', box).onclick = () => reload().then(() => X.toast('עודכן')).catch((err) => X.toast(X.msg(err), 'err'));
     X.$('#sc-xl', box).onclick = () => {
@@ -362,6 +364,37 @@ function monthYearPicker(form, p, iso, isEnd) {
   return set;
 }
 const my = (p, label) => `<label>${X.h(label)}<span class="ms-my"><select name="${p}_m"></select><select name="${p}_y"></select></span><input type="hidden" name="${p}_date"></label>`;
+
+/** 🗑 ביי א תלמיד: 🚪 עזב (→ בוגרים) אדער 🗑 מחיקה (געשריבן בטעות) */
+function outDialog(e, act) {
+  if (!e) return;
+  const { h, S } = X;
+  const p = X.pById(e.contact_id);
+  const pays = paymentsOf(e).length;
+  const d = X.dialog(`<h2>🗑 ${h(nm(e.contact_id))}</h2>
+    ${act ? `<fieldset><legend>🚪 עזב את הישיבה</legend><p class="muted small">עובר ל"בוגרי הישיבה". שכר הלימוד וההיסטוריה נשמרים.</p>
+      <div class="ms-bar"><label>תאריך עזיבה <input type="date" id="out-date" value="${h(today())}"></label><span class="spacer"></span><button type="button" class="btn primary" id="out-left">🚪 עזב</button></div></fieldset>` : ''}
+    <fieldset><legend>🗑 מחיקה (נרשם בטעות)</legend>
+      ${pays ? '<p class="ms-note err">יש תשלומים על הרישום הזה — אי אפשר למחוק. אפשר לסמן "עזב".</p>' : `<p class="muted small">הרישום נמחק, והוא יוצא מרשימת התלמידים.</p>
+      <label class="check"><input type="checkbox" id="out-req"> לבקש מהמנהל למחוק אותו גם מהמאגר הכללי</label>
+      <div class="actions"><span class="spacer"></span><button type="button" class="btn danger" id="out-del">🗑 מחיקה</button></div>`}</fieldset>
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>ביטול</button></div>`);
+  X.$$('[data-x]', d).forEach((b) => { b.onclick = () => d.close(); });
+  X.$('#out-left', d)?.addEventListener('click', async () => {
+    const end = X.$('#out-date', d).value || today();
+    try { await X.call(X.KEY, 'enrollSave', { enroll: { enroll_id: e.enroll_id, status: ST.left, end_date: end } }); d.close(); await reload(); X.toast('עבר לבוגרים.'); } catch (err) { X.toast(X.msg(err), 'err'); }
+  });
+  X.$('#out-del', d)?.addEventListener('click', async () => {
+    try {
+      X.$('#out-del', d).disabled = true;
+      await X.call(X.KEY, 'enrollDelete', { enroll_id: e.enroll_id });
+      // נאך א רישום? — בלייבט ער א תלמיד
+      const more = enrolls().some((x) => String(x.contact_id) === String(e.contact_id) && String(x.enroll_id) !== String(e.enroll_id));
+      if (!more && p && (p.kinds || [p.kind]).includes('student')) await X.call(X.KEY, 'unlink', { contact_id: e.contact_id, kind: 'student', request: Boolean(X.$('#out-req', d)?.checked) });
+      d.close(); await reload(); X.toast('נמחק.');
+    } catch (err) { X.$('#out-del', d).disabled = false; X.toast(X.msg(err), 'err'); }
+  });
+}
 
 function enrollDialog(e0 = {}) {
   const { h, S } = X;

@@ -1,9 +1,9 @@
 // אתר פון א מוסד — 👔 אנשי צוות ואברכים: צוויי באזונדערע רשימות אין איין כפתור.
 // אנשי צוות: תפקיד, טלפון, מייל (לאגאין), פון ווען, פעיל/לשעבר, סארט שכר (אן סכומים); 💰 → משכורות (נאר מיט הרשאה).
 // אברכים: וועמען זיי לערנען מיט (פון די חברותות), און שעות (כניסה/יציאה).
-import { downloadXlsx } from '../excel.js?v=330';
-import { currentZman } from './school.js?v=330';
-import { historyDialog } from './me.js?v=330';
+import { downloadXlsx } from '../excel.js?v=331';
+import { currentZman } from './school.js?v=331';
+import { historyDialog } from './me.js?v=331';
 
 let X = null;
 export function initTeam(ctx) { X = ctx; }
@@ -44,7 +44,8 @@ function staffList(body, box) {
         <td class="small">${h(PAY_TYPES[t.pay_type || ''])}${t.pay_type === 'schedule' ? `<div class="muted">${h(schedText(t.schedule))}</div>` : ''}</td>
         <td class="ms-acts">${X.can('staff_list') ? `<button type="button" class="btn small-btn" data-ed="${h(p.contact_id)}" title="עריכה">✎</button>` : ''}
           ${fin ? `<button type="button" class="btn small-btn" data-pay="${h(p.contact_id)}" title="משכורת">💰</button>` : ''}
-          <button type="button" class="btn small-btn" data-hx="${h(p.contact_id)}" title="היסטוריה">📜</button></td></tr>`; }).join('')}</tbody></table></div>`
+          <button type="button" class="btn small-btn" data-hx="${h(p.contact_id)}" title="היסטוריה">📜</button>
+          ${X.can('people_edit') ? `<button type="button" class="btn small-btn" data-rm="${h(p.contact_id)}" title="הוצאה מהרשימה">🗑</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`
     : '<p class="muted ms-empty">אין.</p>'}
     <p class="muted small">איש צוות = אדם מסוג "צוות" ברשימת האנשים. המייל כאן הוא חשבון הגוגל שאיתו הוא נכנס לאתר — כך עובד אצלו שעון הנוכחות באזור האישי.</p>`;
   X.$$('[data-p]', body).forEach((b) => { b.onclick = () => { T.past = b.dataset.p === '1'; renderTeam(box); }; });
@@ -53,6 +54,7 @@ function staffList(body, box) {
   X.$$('[data-ed]', body).forEach((b) => { b.onclick = () => teamDialog(b.dataset.ed, tOf(b.dataset.ed), box); });
   X.$$('[data-pay]', body).forEach((b) => { b.onclick = () => X.payDialog?.(b.dataset.pay); });
   X.$$('[data-hx]', body).forEach((b) => { b.onclick = () => historyDialog({ contact_id: b.dataset.hx }, X.nameOf(X.pById(b.dataset.hx))); });
+  X.$$('[data-rm]', body).forEach((b) => { b.onclick = () => X.unlinkDialog(X.pById(b.dataset.rm), 'staff', 'הוצאה מרשימת אנשי הצוות', loadTeam); });
   X.$('#tm-xl', body).onclick = () => downloadXlsx('אנשי צוות', ['שם', 'תפקיד', 'טלפון', 'מייל', 'מ-', 'עד', 'פעיל', 'שכר', 'שעות קבועות'],
     list.map((p) => { const t = tOf(p.contact_id); return [X.nameOf(p), t.role || '', p.il_phone || X.phoneOf(p), t.email || p.email_1 || '', t.start_date || '', t.end_date || '', t.active === 'FALSE' ? 'לשעבר' : 'פעיל', PAY_TYPES[t.pay_type || ''], schedText(t.schedule)]; }), { rtl: true });
 }
@@ -102,13 +104,14 @@ async function avList(body) {
       ${X.can('people_edit') ? '<button type="button" class="btn primary" id="av-add">➕ אברך</button>' : ''}
       ${X.can('attendance') ? '<button type="button" class="btn" id="av-hours">⏱ כניסה ויציאה</button>' : ''}
       ${X.can('chavrusas') ? '<button type="button" class="btn" id="av-chav">🤝 חברותות</button>' : ''}<button type="button" class="btn" id="av-xl">⬇ Excel</button></div>
-    ${av.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>#</th><th>האברך</th><th>טלפון</th><th>חברותא</th></tr></thead><tbody>
+    ${av.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>#</th><th>האברך</th><th>טלפון</th><th>חברותא</th>${X.can('people_edit') ? '<th></th>' : ''}</tr></thead><tbody>
       ${av.map((p, i) => `<tr><td class="num">${i + 1}</td><td><a href="#" data-open="${h(p.contact_id)}"><b>${h(X.nameOf(p))}</b></a></td><td dir="ltr" class="small">${h(p.il_phone || X.phoneOf(p))}</td>
-        <td class="small">${h(withOf(p.contact_id).join(', '))}</td></tr>`).join('')}</tbody></table></div>`
+        <td class="small">${h(withOf(p.contact_id).join(', '))}</td>${X.can('people_edit') ? `<td class="ms-acts"><button type="button" class="btn small-btn" data-rm="${h(p.contact_id)}" title="הוצאה מהרשימה">🗑</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`
     : '<p class="muted ms-empty">אין עדיין אברכים. ➕ אברך — מוסיף מהמאגר הכללי (או חדש), מסוג "אברך".</p>'}`;
   X.$('#av-add', body)?.addEventListener('click', () => X.addDialog('avreich'));
   X.$('#av-hours', body)?.addEventListener('click', () => X.go('attendance', '_hours'));
   X.$('#av-chav', body)?.addEventListener('click', () => X.go('chavrusas'));
   X.$$('[data-open]', body).forEach((a) => { a.onclick = (e) => { e.preventDefault(); X.personDialog(X.pById(a.dataset.open)); }; });
+  X.$$('[data-rm]', body).forEach((b) => { b.onclick = () => X.unlinkDialog(X.pById(b.dataset.rm), 'avreich', 'הוצאה מרשימת האברכים', loadTeam); });
   X.$('#av-xl', body).onclick = () => downloadXlsx('אברכים', ['#', 'האברך', 'טלפון', 'חברותא'], av.map((p, i) => [i + 1, X.nameOf(p), p.il_phone || X.phoneOf(p), withOf(p.contact_id).join(', ')]), { rtl: true });
 }

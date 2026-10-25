@@ -408,7 +408,46 @@ function nextContactId(ss) {
 }
 const REVERSE = { 'זון פון': 'טאטע פון', 'טאטע פון': 'זון פון' };
 
+/** א בקשה פאר דעם מנהל פונעם הויפט-מאגר: אויסמעקן דעם איש קשר אינגאנצן */
+function deleteRequest(M, me, id, why) {
+  const c = objsCols(main().getSheetByName('Contacts'), ['contact_id', 'first_name_he', 'last_name_he']).filter(function (x) { return S(x.contact_id) === id; })[0];
+  const name = c ? [c.first_name_he, c.last_name_he].map(S).filter(Boolean).join(' ') : '#' + id;
+  const rq = main().getSheetByName('Requests');
+  if (!rq) return;
+  let rid = 0; objs(rq).forEach(function (r) { const n = Number(r.request_id); if (isFinite(n) && n > rid) rid = n; });
+  appendObj(rq, { request_id: rid + 1, type: 'delete_contact', payload: JSON.stringify({ contact_id: id, mosad: M.key }),
+    summary: '🎓 ' + (M.name || M.key) + ': ' + name + ' (#' + id + ')' + (why ? ' — ' + why : ''),
+    status: 'pending', requested_by: me.email + ' @' + M.key, requested_at: now() });
+}
+/** ער ארבעט מער נישט (נישט צוות און נישט אברך) → Team: לשעבר, מיט א סוף-טאג */
+function teamOff(M, id) {
+  const sh = M.book.getSheetByName('Team');
+  const t = objs(sh).filter(function (x) { return S(x.contact_id) === id; })[0];
+  if (t && S(t.active) !== 'FALSE') setCells(sh, t._row, { active: 'FALSE', end_date: S(t.end_date) || Utilities.formatDate(new Date(), 'Asia/Jerusalem', 'yyyy-MM-dd') });
+}
+
 const ACTIONS = {
+  /** ארויס פון איין רשימה (צוות / אברך / תלמיד…). די אנדערע סוגים בלייבן; קיין סוג נישט געבליבן → ארויס פונעם מוסד.
+   *  req.request = אויך א בקשה צום הויפט-מאגר (נאר ווען ער איז אינגאנצן ארויס) */
+  unlink: function (M, me, req) {
+    need(me, 'people_edit');
+    const id = S(req.contact_id), kind = S(req.kind);
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    let gone = false;
+    try {
+      const sh = M.book.getSheetByName('People');
+      const p = objs(sh).filter(function (x) { return S(x.contact_id) === id && S(x.status) !== 'removed'; })[0];
+      if (!p) throw new Error('not-yours');
+      const kinds = S(p.kind).split(',').map(S).filter(function (k) { return k && k !== kind; });
+      if (kinds.length) setCells(sh, p._row, { kind: kinds.join(',') });
+      else { setCells(sh, p._row, { status: 'removed', removed_by: me.email, removed_at: now() }); gone = true; }
+      if (kinds.indexOf('staff') < 0 && kinds.indexOf('avreich') < 0) teamOff(M, id);
+      if (gone && req.request) deleteRequest(M, me, id, S(req.why));
+      logIt(M, me, 'unlink', id, kind + (gone ? ' → removed' : '') + (S(req.why) ? ' — ' + S(req.why) : ''));
+    } finally { lock.releaseLock(); }
+    return { ok: true, removed: gone };
+  },
+
   me: function (M, me) {
     const team = teamOf(M, me.email);
     const tasks = objs(M.book.getSheetByName('Tasks')).filter(function (t) { return S(t.task_id) && S(t.status) !== 'done' && S(t.assigned_to).toLowerCase() === me.email; });
@@ -540,16 +579,9 @@ const ACTIONS = {
       const p = objs(sh).filter(function (x) { return S(x.contact_id) === id && S(x.status) !== 'removed'; })[0];
       if (!p) throw new Error('not-yours');
       setCells(sh, p._row, { status: 'removed', removed_by: me.email, removed_at: now() });
-      const c = objs(main().getSheetByName('Contacts')).filter(function (x) { return S(x.contact_id) === id; })[0];
-      const name = c ? [c.first_name_he, c.last_name_he].map(S).filter(Boolean).join(' ') : '#' + id;
-      const rq = main().getSheetByName('Requests');
-      if (rq) {
-        let rid = 0; objs(rq).forEach(function (r) { const n = Number(r.request_id); if (isFinite(n) && n > rid) rid = n; });
-        appendObj(rq, { request_id: rid + 1, type: 'delete_contact', payload: JSON.stringify({ contact_id: id, mosad: M.key }),
-          summary: '🎓 ' + (M.name || M.key) + ': ' + name + ' (#' + id + ')' + (S(req.why) ? ' — ' + S(req.why) : ''),
-          status: 'pending', requested_by: me.email + ' @' + M.key, requested_at: now() });
-      }
-      histRows(me, M, id, [['contact', '*', '', 'removed from ' + M.key + ' (delete requested)']]);
+      teamOff(M, id);
+      if (req.request) deleteRequest(M, me, id, S(req.why));
+      histRows(me, M, id, [['contact', '*', '', 'removed from ' + M.key + (req.request ? ' (delete requested)' : '')]]);
       logIt(M, me, 'remove', id, S(req.why));
     } finally { lock.releaseLock(); }
     return { ok: true };

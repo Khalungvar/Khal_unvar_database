@@ -1,12 +1,12 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=330';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=330';
-import { initGifts, renderGifts } from './gifts.js?v=330';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=330';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=330';
-import { initTeam, renderTeam } from './team.js?v=330';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=330';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=331';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=331';
+import { initGifts, renderGifts } from './gifts.js?v=331';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=331';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=331';
+import { initTeam, renderTeam } from './team.js?v=331';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=331';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -274,6 +274,28 @@ function dialog(html, cls = '') {
   return d;
 }
 
+/** ארויס פון א רשימה (kind) אדער — kind = null — פונעם גאנצן מוסד. after() נאכן שמירה */
+function unlinkDialog(p, kind, title = '', after = null) {
+  const others = kind ? (p.kinds || [p.kind]).filter((k) => k !== kind) : [];
+  const d = dialog(`<h2>🗑 ${h(title || (kind ? `הוצאה מרשימת ${kindName(kind)}` : 'הוצאה מהמוסד'))}</h2>
+    <p><b>${h(nameOf(p))}</b></p>
+    ${others.length ? `<p class="muted small">הוא יישאר במוסד בתור ${h(others.map(kindName).join(', '))}. ההיסטוריה שלו נשמרת.</p>`
+      : `<p class="muted small">הוא ייצא מכל הרשימות של המוסד. ההיסטוריה, התשלומים והמשכורות שלו נשמרים.</p>
+        <label class="check"><input type="checkbox" id="ul-req"> לבקש מהמנהל למחוק אותו גם מהמאגר הכללי</label>`}
+    <label class="wide">סיבה (לא חובה)<input id="ul-why"></label>
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>ביטול</button><button type="button" class="btn danger" id="ul-go">🗑 הוצאה</button></div>`);
+  $$('[data-x]', d).forEach((b) => { b.onclick = () => d.close(); });
+  $('#ul-go', d).onclick = async () => {
+    const req = { contact_id: p.contact_id, why: S($('#ul-why', d).value), request: Boolean($('#ul-req', d)?.checked) };
+    try {
+      $('#ul-go', d).disabled = true;
+      if (kind) await call(KEY, 'unlink', { ...req, kind }); else await call(KEY, 'remove', req);
+      d.close(); await loadPeople(); if (after) await after(); render();
+      toast(req.request ? 'הוצא, ונשלחה בקשה למנהל.' : 'הוצא.');
+    } catch (err) { $('#ul-go', d).disabled = false; toast(msg(err), 'err'); }
+  };
+}
+
 function personDialog(p) {
   if (!p) return;
   const f = fatherOf(p); const kids = childrenOf(p); const e = enrollOf(p);
@@ -316,11 +338,7 @@ function personDialog(p) {
       try { await call(KEY, 'link', { contact_id: p.contact_id, kinds }); k2.close(); d.close(); await loadPeople(); render(); toast('נשמר.'); personDialog(pById(p.contact_id)); } catch (err) { toast(msg(err), 'err'); }
     };
   });
-  $('#ms-rm', d)?.addEventListener('click', async () => {
-    const why = window.prompt(`להוציא את ${nameOf(p)} מהמוסד?\n\nהוא ייצא מיד מהרשימה כאן, ותישלח בקשה למנהל המאגר הכללי למחוק אותו גם משם (המנהל יאשר או ידחה).\n\nסיבה (לא חובה):`, '');
-    if (why === null) return;
-    try { await call(KEY, 'remove', { contact_id: p.contact_id, why }); d.close(); await loadPeople(); render(); toast('הוצא מהמוסד, ונשלחה בקשה למנהל.'); } catch (err) { toast(msg(err), 'err'); }
-  });
+  $('#ms-rm', d)?.addEventListener('click', () => { d.close(); unlinkDialog(p, null); });
 }
 
 /** צולייגן: ערשט זוכן אינעם מאגר (נישט מאכן טאפלט), דערנאך — א נייער */
@@ -485,7 +503,7 @@ async function renderStaff() {
 }
 
 // ---------- אנהייב ----------
-const ctx = { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render: () => render(), personDialog: (p) => personDialog(p), addDialog: (k) => addDialog(k) };
+const ctx = { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render: () => render(), personDialog: (p) => personDialog(p), unlinkDialog, addDialog: (k) => addDialog(k) };
 initSchool(ctx);
 initGifts(ctx);
 Object.assign(ctx, {
