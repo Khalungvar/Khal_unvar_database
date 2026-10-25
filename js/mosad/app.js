@@ -1,12 +1,12 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=324';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=324';
-import { initGifts, renderGifts } from './gifts.js?v=324';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=324';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=324';
-import { initTeam, renderTeam } from './team.js?v=324';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=324';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=325';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=325';
+import { initGifts, renderGifts } from './gifts.js?v=325';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=325';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=325';
+import { initTeam, renderTeam } from './team.js?v=325';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=325';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -40,6 +40,7 @@ const ERR = {
   'bad-file': 'אפשר להעלות רק תמונה או PDF.',
   'file-big': 'הקובץ גדול מדי.',
   'bad-currency': 'מטבע לא תקין.',
+  'bad-action': 'החלק הזה עוד לא הופעל בשרת (ממתין לאישור הגישה לדרייב). נסה שוב אחר כך.',
   'need-contact': 'נדבה שכבר באתר הכללי צריכה איש קשר. (קבלה אמריקאית — רק עם איש קשר.)',
 };
 const msg = (err) => ERR[err?.code] || ERR[err?.message] || String(err?.message || err || 'שגיאה');
