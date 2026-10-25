@@ -220,6 +220,35 @@ async function imageCanvas(file) {
   return c;
 }
 
+// ---------- א טייל פון א ווידעא (פון–ביז): וואס איז שוין געסקענט (segs) ווערט נישט ווידער געסקענט ----------
+function segsOf(rec) {
+  if (!Array.isArray(rec.segs)) rec.segs = rec.done > 0 ? [[0, Math.min(rec.done, rec.dur || rec.done)]] : [];
+  return rec.segs;
+}
+function mergeSegs(segs) {
+  const xs = segs.filter(([a, b]) => b > a).map(([a, b]) => [a, b]).sort((x, y) => x[0] - y[0]);
+  const out = [];
+  xs.forEach(([a, b]) => { const l = out[out.length - 1]; if (l && a <= l[1] + 0.01) l[1] = Math.max(l[1], b); else out.push([a, b]); });
+  return out;
+}
+const coveredSec = (rec) => mergeSegs(segsOf(rec)).reduce((s, [a, b]) => s + (b - a), 0);
+const isCovered = (rec, x) => segsOf(rec).some(([a, b]) => x >= a - 1e-6 && x < b - 1e-6);
+/** נאך נישט פארטיג (מ'האט אנגעהויבן, אדער א טייל וואס מ'האט געבעטן) */
+const isPending = (f) => !f.img && f.dur && ('pending' in f ? Boolean(f.pending) : f.done < f.dur);
+/** "1:20:00" / "1:20" / "80" → סעקונדעס; ליידיג → null; א טעות → NaN */
+function parseT(v) {
+  const x = String(v || '').trim();
+  if (!x) return null;
+  const p = x.split(':').map((y) => Number(y));
+  if (p.length > 3 || p.some((y) => !Number.isFinite(y) || y < 0)) return NaN;
+  return p.reduce((a, y) => a * 60 + y, 0);
+}
+/** סעקונדעס → "1 שעה 20 מינוט" (אז מ'זאל זען ווי מ'האט עס פארשטאנען) */
+function tWords(sec) {
+  const hh = Math.floor(sec / 3600); const mm = Math.floor((sec % 3600) / 60); const ss = Math.floor(sec % 60);
+  return [hh ? t('fcTH', { n: hh }) : '', mm ? t('fcTM', { n: mm }) : '', ss || (!hh && !mm) ? t('fcTS', { n: ss }) : ''].filter(Boolean).join(' ');
+}
+
 async function runScan(ev, files, opts) {
   if (SCAN.running) return;
   const box = $('#fc-scanbox');
@@ -282,26 +311,38 @@ async function runScan(ev, files, opts) {
       if (!ok || !video.videoWidth) { say(t('fcBadFormat', { name: file.name }), 'err'); URL.revokeObjectURL(url); continue; }
       rec.dur = video.duration || 0;
       const step = opts.step;
-      const t0 = performance.now(); const startAt = rec.done;
-      let n = 0;
-      for (let tt = rec.done; tt < rec.dur; tt += step) {
+      // דער טייל: פון–ביז (אדער דער גאנצער ווידעא); וואס איז שוין געסקענט — איבערגעשפרונגען
+      const rg = opts.ranges?.get(key) || null;
+      const from = Math.max(0, Math.min(rec.dur, rg?.from ?? 0));
+      const to = Math.max(from, Math.min(rec.dur, rg?.to ?? rec.dur));
+      const segs = segsOf(rec);
+      rec.range = [from, to]; rec.pending = true;
+      const label = rg ? `${file.name} (${fmtT(from)}–${fmtT(to)})` : file.name;
+      const t0 = performance.now();
+      let n = 0; let seg = null;
+      for (let tt = from; tt < to; tt += step) {
         if (SCAN.stop) break;
+        if (isCovered(rec, tt)) { seg = null; continue; }
         video.currentTime = tt;
         // eslint-disable-next-line no-await-in-loop
         await new Promise((res) => { const done = () => { video.removeEventListener('seeked', done); res(); }; video.addEventListener('seeked', done); setTimeout(done, 4000); });
         // eslint-disable-next-line no-await-in-loop
         const added = await facesFrom(human, scan, video, opts, { file: file.name, t: tt });
-        rec.done = Math.min(rec.dur, tt + step);
+        const end = Math.min(to, tt + step);
+        if (seg && Math.abs(seg[1] - tt) < 1e-6) seg[1] = end; else { seg = [tt, end]; segs.push(seg); }
+        rec.done = coveredSec(rec);
         n += 1;
-        const elapsed = (performance.now() - t0) / 1000;
-        const per = elapsed / Math.max(0.001, rec.done - startAt);
-        const left = per * (rec.dur - rec.done);
-        progress(scan, rec, left);
+        const per = (performance.now() - t0) / 1000 / n; // פער שריט
+        const left = per * ((to - end) / step);
+        progress(scan, { name: label, done: end - from, dur: to - from }, left);
         if (added) liveGrid(scan);
         // eslint-disable-next-line no-await-in-loop
         if (n % 15 === 0) await saveScan(ev.event_id, scan);
         if (n % 60 === 0) bgUpload();
       }
+      rec.segs = mergeSegs(segs);
+      rec.done = coveredSec(rec);
+      if (!SCAN.stop) rec.pending = false;
       await saveScan(ev.event_id, scan);
       URL.revokeObjectURL(url);
     }
@@ -386,7 +427,9 @@ function filesList(scan) {
   const imLine = im.length ? `<div class="fc-file"><span>📷 ${h(t('fcImgsN', { n: im.filter((f) => f.done >= 1).length, total: im.length }))}</span>${im.some((f) => f.bad) ? `<span class="muted small">⚠ ${h(t('fcBadImgs', { n: im.filter((f) => f.bad).length }))}</span>` : ''}</div>` : '';
   box.innerHTML = imLine + (fs.length ? fs.map((f) => {
     const pct = f.dur ? Math.round((f.done / f.dur) * 100) : 0;
-    return `<div class="fc-file"><span>🎬 ${h(f.name)}</span><span class="muted small" dir="ltr">${(f.size / 1048576).toFixed(0)} MB · ${fmtT(f.dur)}</span><span class="fc-fpct ${pct >= 100 ? 'ok' : ''}">${pct >= 100 ? '✓' : `${pct}%`}</span></div>`;
+    const parts = Array.isArray(f.segs) && pct < 100 ? mergeSegs(f.segs).map(([a, b]) => `${fmtT(a)}–${fmtT(b)}`).join(', ') : '';
+    const st = pct >= 100 ? '✓' : !isPending(f) && parts ? `✓ ${t('fcPartDone')}` : `${pct}%`;
+    return `<div class="fc-file"><span>🎬 ${h(f.name)}</span><span class="muted small" dir="ltr">${(f.size / 1048576).toFixed(0)} MB · ${fmtT(f.dur)}${parts ? ` · ${h(parts)}` : ''}</span><span class="fc-fpct ${pct >= 100 || st.startsWith('✓') ? 'ok' : ''}">${st}</span></div>`;
   }).join('') : '');
 }
 function renderScanButtons() {
@@ -533,6 +576,7 @@ async function scanPane(pane, ev) {
         <label>${h(t('fcMin'))} <select id="fc-min"><option value="40">${h(t('fcMinN'))}</option><option value="28">${h(t('fcMinS'))}</option><option value="64">${h(t('fcMinL'))}</option></select></label>
       </div>
       <div id="fc-chosen" class="muted small"></div>
+      <div id="fc-ranges"></div>
       <div class="fc-row">
         <button type="button" class="btn primary" id="fc-go" disabled>▶ ${h(t('fcStart'))}</button>
         <button type="button" class="btn" id="fc-stop" hidden>⏸ ${h(t('fcStop'))}</button>
@@ -554,7 +598,7 @@ async function scanPane(pane, ev) {
   renderScanButtons();
   upButton(scan);
   // נאך א ריענון / ווען דער קאמפיוטער איז אויסגעלאשן: וואס איז נאך נישט פארטיג
-  const unfinished = Object.values(scan.files).filter((f) => !f.img && f.dur && f.done < f.dur);
+  const unfinished = Object.values(scan.files).filter(isPending);
   const imgsLeft = Object.values(scan.files).filter((f) => f.img && !(f.done >= 1)).length;
   if (!SCAN.running && (unfinished.length || imgsLeft)) {
     const m = $('#fc-msg'); m.className = 'fc-msg';
@@ -566,12 +610,51 @@ async function scanPane(pane, ev) {
   $('#fc-pick').onchange = (e) => {
     chosen = [...e.target.files];
     const ni = chosen.filter(isImage).length; const vs = chosen.filter((f) => !isImage(f));
-    $('#fc-chosen').textContent = [ni ? `📷 ${t('fcImgsChosen', { n: ni })}` : '', ...vs.map((f) => `🎬 ${f.name} (${(f.size / 1048576).toFixed(0)} MB)`)].filter(Boolean).join(' · ');
+    $('#fc-chosen').textContent = ni ? `📷 ${t('fcImgsChosen', { n: ni })}` : '';
+    // יעדער ווידעא: פון–ביז (ליידיג = דער גאנצער)
+    const rbox = $('#fc-ranges');
+    rbox.innerHTML = vs.map((f, i) => {
+      const old = scan.files[fileKey(f)];
+      const [a, b] = old && isPending(old) && Array.isArray(old.range) ? old.range : [null, null];
+      return `<div class="fc-rg" data-ri="${i}"><span>🎬 <b>${h(f.name)}</b> <span class="muted small">(${(f.size / 1048576).toFixed(0)} MB<span data-len></span>)</span></span>
+        <label>${h(t('fcFrom'))} <input data-from dir="ltr" placeholder="0:00:00" value="${a ? h(fmtT(a)) : ''}"></label>
+        <label>${h(t('fcTo'))} <input data-to dir="ltr" placeholder="${h(t('fcToEnd'))}" value="${b && old && b < old.dur ? h(fmtT(b)) : ''}"></label>
+        <span class="muted small" data-says></span></div>`;
+    }).join('') + (vs.length ? `<p class="muted small">${h(t('fcRangeHint'))}</p>` : '');
+    vs.forEach((f, i) => {
+      const row = $(`[data-ri="${i}"]`, rbox);
+      // די לענג פונעם ווידעא (נאר די "metadata")
+      const v = document.createElement('video'); v.preload = 'metadata'; const u = URL.createObjectURL(f);
+      v.onloadedmetadata = () => { $('[data-len]', row).textContent = ` · ${fmtT(v.duration || 0)}`; row.dataset.dur = String(v.duration || 0); URL.revokeObjectURL(u); };
+      v.onerror = () => URL.revokeObjectURL(u);
+      v.src = u;
+      const says = () => {
+        const a = parseT($('[data-from]', row).value); const b = parseT($('[data-to]', row).value);
+        const el = $('[data-says]', row);
+        if (Number.isNaN(a) || Number.isNaN(b)) { el.textContent = `⚠ ${t('fcTimeBad')}`; return; }
+        if (a === null && b === null) { el.textContent = ''; return; }
+        el.textContent = `= ${t('fcFrom')} ${tWords(a || 0)} ${t('fcTo')} ${b === null ? t('fcToEnd') : tWords(b)}`;
+      };
+      $$('input', row).forEach((x) => x.addEventListener('input', says));
+      says();
+    });
     $('#fc-go').disabled = !chosen.length;
   };
   $('#fc-go').onclick = () => {
     if (!chosen.length) { $('#fc-pick').click(); return; }
-    runScan(ev, chosen, { step: Number($('#fc-step').value) || 1, minPx: Number($('#fc-min').value) || 40 });
+    const vs = chosen.filter((f) => !isImage(f));
+    const ranges = new Map();
+    for (let i = 0; i < vs.length; i += 1) {
+      const row = $(`[data-ri="${i}"]`);
+      if (!row) continue;
+      const a = parseT($('[data-from]', row).value); const b = parseT($('[data-to]', row).value);
+      if (Number.isNaN(a) || Number.isNaN(b)) { ui.toast(t('fcTimeBad'), 'error'); $('[data-from]', row).focus(); return; }
+      if (a === null && b === null) continue;
+      const len = Number(row.dataset.dur) || Infinity;
+      if ((b !== null && b <= (a || 0)) || (a || 0) >= len) { ui.toast(t('fcTimeOrder'), 'error'); $('[data-to]', row).focus(); return; }
+      ranges.set(fileKey(vs[i]), { from: a || 0, to: b === null ? Infinity : b });
+    }
+    runScan(ev, chosen, { step: Number($('#fc-step').value) || 1, minPx: Number($('#fc-min').value) || 40, ranges });
   };
   $('#fc-stop').onclick = () => { SCAN.stop = true; };
   // מ'קען טוישן אויך אינמיטן סקענען

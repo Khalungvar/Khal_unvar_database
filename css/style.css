@@ -2121,3 +2121,6 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .fc-galrow img { width: 120px; height: 120px; object-fit: cover; border-radius: 8px; background: #eee; }
 .fc-galrow figcaption { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fc-galrow .fc-split { font-size: .75em; padding: 2px 6px; }
+.fc-rg { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 6px 8px; margin: 6px 0; border: 1px dashed #e3d3ad; border-radius: 8px; }
+.fc-rg input { width: 90px; }
+.fc-rg [data-says] { flex-basis: 100%; }
