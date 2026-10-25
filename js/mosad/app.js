@@ -1,9 +1,12 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=322';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=322';
-import { initGifts, renderGifts } from './gifts.js?v=322';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings } from './journal.js?v=322';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=323';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=323';
+import { initGifts, renderGifts } from './gifts.js?v=323';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=323';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=323';
+import { initTeam, renderTeam } from './team.js?v=323';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=323';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -31,6 +34,12 @@ const ERR = {
   'bad-logo': 'הלוגו גדול מדי.',
   'bad-week': 'חסר שבוע / סדר.',
   'bad-date': 'תאריך לא תקין.',
+  'not-team': 'אינך רשום כאיש צוות (או שהמייל שלך לא מוגדר ב"אנשי צוות").',
+  'clock-done': 'היום כבר נרשמו כניסה ויציאה.',
+  'need-text': 'חסר תוכן.',
+  'bad-file': 'אפשר להעלות רק תמונה או PDF.',
+  'file-big': 'הקובץ גדול מדי.',
+  'bad-currency': 'מטבע לא תקין.',
   'need-contact': 'נדבה שכבר באתר הכללי צריכה איש קשר. (קבלה אמריקאית — רק עם איש קשר.)',
 };
 const msg = (err) => ERR[err?.code] || ERR[err?.message] || String(err?.message || err || 'שגיאה');
@@ -48,8 +57,10 @@ const TILES = [
   { k: 'chavrusas', ic: '🤝', t: 'חברותות', sub: 'לכל סדר, כולל אברכים' },
   { k: 'attendance', ic: '✅', t: 'השתתפות', sub: 'יומנים, כניסה ויציאה של אברכים' },
   { k: 'donations', ic: '💝', t: 'נדבות וקבלות', sub: 'כולל קבלות אמריקאיות' },
+  { k: 'finance', ic: '💰', t: 'משכורות והוצאות', sub: 'הכנסות, חובות, מאזן' },
 ];
 const PERM_NAMES = { ...Object.fromEntries(TILES.map((x) => [x.k, x.t])), people_edit: 'הוספה ועדכון אנשי קשר' };
+
 const ROLE_NAMES = { owner: 'בעלים', admin: 'מנהל', staff: 'צוות' };
 const MARITAL = [['', '—'], ['בחור', 'בחור'], ['נשוי', 'נשוי'], ['גרוש', 'גרוש'], ['אלמן', 'אלמן']];
 
@@ -82,7 +93,7 @@ async function enter(prompt) {
     if (!configured()) throw Object.assign(new Error('not-configured'), { code: 'not-configured' });
     if (prompt !== null) await signIn(prompt);
     const r = await call(KEY, 'me');
-    st.me = r.me; st.mosad = r.mosad; st.settings = r.settings || {};
+    st.me = r.me; st.mosad = r.mosad; st.settings = r.settings || {}; st.team = r.team || null; st.openTasks = r.openTasks || 0; st.clock = r.clock || null;
     rememberHint(st.me.email);
     if (st.mosad?.name) document.title = `${st.mosad.name} – ניהול`;
     if (st.mosad?.logo) st.logo = st.mosad.logo;
@@ -118,18 +129,19 @@ const norm = (v) => S(v).toLowerCase().replace(/["'״׳]/g, '');
 
 function render() {
   const view = TILES.find((x) => x.k === st.tab);
-  const ok = st.tab === 'home' || (st.tab === 'people' && can('people_edit')) || (st.tab === 'staff' && isAdmin()) || (view && can(view.k));
+  const ok = st.tab === 'home' || st.tab === 'me' || (st.tab === 'people' && can('people_edit')) || ((st.tab === 'staff' || st.tab === 'log') && isAdmin()) || (view && can(view.k));
   if (!ok) st.tab = 'home';
   $('#ms-app').innerHTML = `<header class="ms-head">
       <button type="button" class="ms-brand linkish" id="ms-home" title="דף הבית"><img src="${h(logoSrc())}" alt=""><b>${h(st.mosad?.name || TITLE)}</b></button>
       <span class="spacer"></span>
-      <span class="muted small">${h(st.me.name || st.me.email)} · ${h(ROLE_NAMES[st.me.role] || '')}</span>
+      <button type="button" class="btn small-btn ms-mebtn" id="ms-me" title="אזור אישי">👤 ${h(st.me.name || st.me.email)} · ${h(ROLE_NAMES[st.me.role] || '')}${st.openTasks ? ` <span class="count-pill">${st.openTasks}</span>` : ''}</button>
       <button type="button" class="btn small-btn" id="ms-out">יציאה</button>
     </header>
     ${st.tab === 'home' ? '' : `<nav class="ms-crumb"><button type="button" class="linkish" id="ms-back">→ דף הבית</button></nav>`}
     <main id="ms-main"></main>`;
   $('#ms-out').onclick = () => { signOut(); st.me = null; loginView('יצאת מהמערכת.'); };
   $('#ms-home').onclick = () => { st.tab = 'home'; render(); };
+  $('#ms-me').onclick = () => { st.tab = 'me'; render(); };
   $('#ms-back')?.addEventListener('click', () => { st.tab = 'home'; render(); });
   const box = $('#ms-main');
   if (st.tab === 'home') renderHome(box);
@@ -143,22 +155,27 @@ function render() {
   else if (st.tab === 'chavrusas') renderChav(box);
   else if (st.tab === 'attendance') renderAtt(box);
   else if (st.tab === 'insurance') renderIns(box);
-  else if (st.tab === 'staff_list') { st.kind = 'staffav'; renderPeople(); }
+  else if (st.tab === 'staff_list') renderTeam(box);
+  else if (st.tab === 'finance') renderFinance(box);
+  else if (st.tab === 'me') renderMe(box);
+  else if (st.tab === 'log') renderLog(box);
   else renderSoon(box, view);
 }
 
 function renderHome(box) {
   const tiles = TILES.filter((x) => can(x.k));
-  box.innerHTML = `<div class="ms-tiles">${tiles.map((x, i) => `<button type="button" class="ms-tile${x.soon ? ' soon' : ''}" data-go="${x.k}">
+  box.innerHTML = `${st.openTasks ? `<button type="button" class="ms-note ms-tasknote" id="ms-tasks">📋 יש לך ${st.openTasks} משימות פתוחות — לחץ לאזור האישי</button>` : ''}<div class="ms-tiles">${tiles.map((x, i) => `<button type="button" class="ms-tile${x.soon ? ' soon' : ''}" data-go="${x.k}">
       <span class="ms-ti">${x.ic}</span><b>${h(x.t)}</b>${x.sub ? `<span class="muted small">${h(x.sub)}</span>` : ''}${x.soon ? '<span class="ms-soon">בקרוב</span>' : ''}</button>`).join('')}</div>
     ${tiles.length ? '' : '<p class="ms-note">עדיין לא קיבלת הרשאה לאף כפתור. בקש מהמנהל.</p>'}
     <div class="ms-more">
       ${can('people_edit') ? '<button type="button" class="btn" data-go="people">👥 כל האנשים (הוספה ועדכון)</button>' : ''}
       ${isAdmin() ? '<button type="button" class="btn" data-go="staff">⚙️ צוות והרשאות</button>' : ''}
+      ${isAdmin() ? '<button type="button" class="btn" data-go="log">📜 יומן פעולות</button>' : ''}
       ${isAdmin() ? '<button type="button" class="btn" id="ms-logo">🖼 לוגו</button>' : ''}
     </div>`;
   $$('[data-go]', box).forEach((b) => { b.onclick = () => { st.tab = b.dataset.go; st.kind = 'all'; render(); }; });
   $('#ms-logo', box)?.addEventListener('click', () => logoDialog());
+  $('#ms-tasks', box)?.addEventListener('click', () => { st.tab = 'me'; render(); });
 }
 function renderSoon(box, view) {
   box.innerHTML = `<h2 class="ms-h">${view?.ic || ''} ${h(view?.t || '')}</h2><p class="ms-note">החלק הזה בבנייה — יהיה כאן בקרוב.</p>`;
@@ -254,6 +271,7 @@ function personDialog(p) {
     </section>
     <div class="actions">
       ${can('people_edit') ? '<button type="button" class="btn danger" id="ms-rm">🗑 הוצא מהמוסד</button>' : ''}
+      <button type="button" class="btn" id="ms-hx">📜 היסטוריה</button>
       <span class="spacer"></span>
       ${can('people_edit') ? '<button type="button" class="btn primary" id="ms-edit">✏️ עריכה</button>' : ''}
       <button type="button" class="btn" data-x>סגירה</button>
@@ -261,6 +279,7 @@ function personDialog(p) {
   $$('[data-x]', d).forEach((b) => { b.onclick = () => d.close(); });
   $$('[data-open]', d).forEach((a) => { a.onclick = (ev) => { ev.preventDefault(); d.close(); personDialog(pById(a.dataset.open)); }; });
   $('#ms-edit', d)?.addEventListener('click', () => { d.close(); editDialog(p); });
+  $('#ms-hx', d).onclick = () => historyDialog({ contact_id: p.contact_id }, nameOf(p));
   $('#ms-rm', d)?.addEventListener('click', async () => {
     const why = window.prompt(`להוציא את ${nameOf(p)} מהמוסד?\n\nהוא ייצא מיד מהרשימה כאן, ותישלח בקשה למנהל המאגר הכללי למחוק אותו גם משם (המנהל יאשר או ידחה).\n\nסיבה (לא חובה):`, '');
     if (why === null) return;
@@ -390,8 +409,10 @@ async function renderStaff() {
       <button type="submit" class="btn primary">הוסף</button>
     </form>
     <p class="muted small">איש הצוות נכנס לאתר הזה עם חשבון הגוגל שלו. אין לו גישה לגיליונות עצמם.</p>
-    ${settingsHtml()}`;
+    ${settingsHtml()}
+    ${backupsHtml()}`;
   wireSettings(box);
+  wireBackups(box);
   const rowData = (row) => {
     const s = r.staff[Number(row.dataset.i)];
     return { email: s.email, name: s.name, role: $('[data-role]', row).value, active: $('[data-active]', row).checked, perms: $$('[data-perm]:checked', row).map((x) => x.dataset.perm) };
@@ -421,8 +442,15 @@ async function renderStaff() {
 const ctx = { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render: () => render(), personDialog: (p) => personDialog(p), addDialog: (k) => addDialog(k) };
 initSchool(ctx);
 initGifts(ctx);
-ctx.printPhones = () => printPhones();
+Object.assign(ctx, {
+  printPhones: () => printPhones(), printWin: (...a) => printWin(...a), payDialog: (id) => payDialog(id),
+  permName: (k) => PERM_NAMES[k] || k, roleName: (r) => ROLE_NAMES[r] || r,
+  go: (tab, sub) => { st.tab = tab; if (tab === 'attendance' && sub) setAttTab(sub); render(); },
+});
 initJournal(ctx);
+initMe(ctx);
+initTeam(ctx);
+initFinance(ctx);
 (async () => {
   loginView();
   brand(KEY).then((b) => { if (b?.logo) { st.logo = b.logo; if (!st.me) { const im = $('.ms-logo'); if (im) im.src = b.logo; } } });

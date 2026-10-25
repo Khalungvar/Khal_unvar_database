@@ -115,3 +115,27 @@ fieldset { border: 1px solid #e8dcc4; border-radius: 10px; margin: 8px 0; }
   .ja-cell.m-l { background: #3a3020; color: #f0d080; }
   .ji-need td { background: #33291b; }
 }
+/* אזור אישי, משימות, יומן, כספים */
+.ms-dlg.ms-wide { max-width: 980px; width: 96vw; }
+.ms-mebtn { white-space: nowrap; }
+.ms-tasknote { display: block; width: 100%; text-align: start; border: 1px solid #e6c77a; background: #fff4d6; cursor: pointer; font: inherit; margin-bottom: 12px; }
+.me-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.me-card { background: var(--card, #fff); border: 1px solid #e8dcc4; border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; }
+.me-card h3 { margin-top: 0; }
+.me-clock-btn { font-size: 1.15em; padding: 10px 22px; }
+.tk-row { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid #efe5cf; flex-wrap: wrap; }
+.tk-row .tk-text { flex: 1; min-width: 200px; }
+.tk-row.done .tk-text { text-decoration: line-through; opacity: .6; }
+.tk-row.late .tk-text { color: #a11; }
+.tk-urgent { color: #a11; }
+.lg-table td { vertical-align: top; }
+.lg-kv { display: inline-block; margin-inline-end: 8px; }
+.lg-filter label { display: inline-flex; gap: 4px; align-items: center; }
+.tm-sched .tm-day { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+.tm-sched .tm-day label.check { width: 44px; margin: 0; }
+.tm-sched input[type=time] { width: 100px; }
+@media (prefers-color-scheme: dark) {
+  .ms-tasknote { background: #3a3020; border-color: #6a5a30; }
+  .me-card { border-color: #3a2c28; }
+  .tk-row { border-color: #3a2c28; }
+}

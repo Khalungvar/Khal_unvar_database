@@ -15,7 +15,7 @@ const MAIN_ID = '16gyhQ4W7p2DHjPMtdXldFynG1KUzDypGvTvYlS7cnJY';
 const CLIENT_ID = '73541082309-bb0bc3jv1dchtpgsr129m5bbertk79ua.apps.googleusercontent.com';
 const FIRST_CONTACT_ID = 2001;
 // יעדער כפתור אויפן ערשטן בלאט איז א הרשאה; people_edit = צולייגן / טוישן אנשי קשר (שרייבט אינעם הויפט-מאגר)
-const PERMS = ['students', 'alumni', 'staff_list', 'tuition', 'insurance', 'parents', 'chavrusas', 'attendance', 'donations', 'people_edit'];
+const PERMS = ['students', 'alumni', 'staff_list', 'tuition', 'insurance', 'parents', 'chavrusas', 'attendance', 'donations', 'finance', 'people_edit'];
 // וואס דער מוסד מעג זען / טוישן אין א קאנטאקט
 const C_FIELDS = ['title_he', 'first_name_he', 'last_name_he', 'title_en', 'first_name_en', 'last_name_en', 'legal_first_name',
   'marital_status', 'wife_name_he', 'wife_name_en', 'address', 'city', 'state', 'zip', 'country', 'is_alive'];
@@ -23,7 +23,7 @@ const P_FIELDS = ['mobile', 'home_phone', 'email_1'];
 const TABS = {
   Staff: ['email', 'name', 'role', 'perms', 'active', 'added_by', 'added_at', 'updated_by', 'updated_at'],
   People: ['contact_id', 'kind', 'status', 'added_by', 'added_at', 'removed_by', 'removed_at', 'note', 'il_phone'],
-  Log: ['at', 'by', 'action', 'contact_id', 'detail'],
+  Log: ['at', 'by', 'action', 'contact_id', 'detail', 'entity', 'entity_id', 'changes'],
   Enrollments: ['enroll_id', 'contact_id', 'parent_id', 'status', 'start_date', 'end_date', 'zman', 'shiur', 'room', 'tuition_amount', 'tuition_period', 'month_amounts', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
   Tuition: ['payment_id', 'enroll_id', 'contact_id', 'payer_id', 'date', 'amount', 'method', 'check_number', 'card_last4', 'for_text', 'receipt_no', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
   Gifts: ['gift_id', 'donor_name', 'date', 'currency', 'amount_orig', 'fx_rate', 'amount_usd', 'payment_method', 'check_number', 'card_last4', 'dedication_type', 'dedication_text', 'note', 'il_receipt_no', 'created_at', 'created_by', 'updated_at', 'updated_by'],
@@ -32,6 +32,15 @@ const TABS = {
   Attendance: ['week', 'seder', 'contact_id', 'marks', 'note', 'updated_at', 'updated_by'],
   Hours: ['date', 'contact_id', 'time_in', 'time_out', 'note', 'updated_at', 'updated_by'],
   Insurance: ['contact_id', 'kupah', 'member_no', 'company', 'policy_no', 'expires', 'passport', 'debt', 'left_date', 'status', 'note', 'updated_at', 'updated_by'],
+  Team: ['contact_id', 'email', 'role', 'start_date', 'end_date', 'active', 'pay_type', 'schedule', 'note', 'updated_at', 'updated_by'],
+  PayInfo: ['contact_id', 'id_number', 'bank_last4', 'global_amount', 'hourly_rate', 'note', 'updated_at', 'updated_by'],
+  PayItems: ['item_id', 'contact_id', 'month', 'kind', 'amount', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
+  PayPayments: ['pay_id', 'contact_id', 'date', 'amount', 'method', 'advance', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
+  Expenses: ['exp_id', 'date', 'amount', 'currency', 'category', 'paid_to', 'charged_type', 'charged_to', 'charged_id', 'is_paid', 'paid_by', 'paid_by_id', 'method', 'note', 'receipt_file', 'created_at', 'created_by', 'updated_at', 'updated_by'],
+  Incomes: ['inc_id', 'date', 'amount', 'currency', 'category', 'source', 'source_id', 'is_loan', 'method', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
+  Debts: ['debt_id', 'date', 'direction', 'person', 'person_id', 'amount', 'currency', 'reason', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
+  Repayments: ['rep_id', 'debt_key', 'date', 'amount', 'currency', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
+  Tasks: ['task_id', 'text', 'assigned_to', 'from_email', 'due', 'urgent', 'status', 'contact_id', 'done_at', 'done_by', 'created_at', 'created_by', 'updated_at', 'updated_by'],
   Receipts: ['receipt_no', 'payment_id', 'contact_id', 'payer_id', 'amount', 'issued_at', 'issued_by', 'void', 'void_by', 'void_at', 'note'],
 };
 // א דאטום פון גיליון (Date) → 'yyyy-MM-dd' (מיט צייט ווען ס'איז דא)
@@ -56,6 +65,7 @@ function doPost(e) {
     if (!M) return out({ error: 'no-mosad' });
     const me = roleOf(M, email);
     if (!me) return out({ error: 'not-allowed', email: email });
+    CUR = { M: M, me: me };
     const fn = ACTIONS[req.action];
     if (!fn) return out({ error: 'bad-action' });
     return out(fn(M, me, req));
@@ -115,15 +125,72 @@ function ensureTab(ss, name, head) {
   if (add.length) sh.getRange(1, cur.length + 1, 1, add.length).setValues([add]);
   return sh;
 }
-function appendObj(sheet, o) {
-  const head = rows(sheet).head;
-  sheet.appendRow(head.map(function (h) { return o[h] === undefined ? '' : o[h]; }));
+// ---------- יומן פעולות: יעדע שרייבונג ווערט פארשריבן (ווער, ווען, פריער → יעצט) ----------
+let CUR = null; // { M, me } — פון doPost
+const NO_AUDIT = { Log: true, History: true };
+const BIG = { logo: true, logo_data: true, photo_data: true, data: true };
+function entityOf(sheet) {
+  let pre = '';
+  try { pre = sheet.getParent().getId() === MAIN_ID ? 'main.' : ''; } catch (err) { pre = ''; }
+  return pre + sheet.getName();
 }
+function audit(sheet, action, id, cid, changes) {
+  if (!CUR || NO_AUDIT[sheet.getName()]) return;
+  try {
+    const lg = CUR.M.book.getSheetByName('Log');
+    const head = headOf(lg);
+    const o = { at: now(), by: CUR.me.email, action: action, contact_id: cid || '', entity: entityOf(sheet), entity_id: S(id), changes: JSON.stringify(changes).slice(0, 45000) };
+    lg.appendRow(head.map(function (h) { return o[h] === undefined ? '' : o[h]; }));
+  } catch (err) { /* דאס יומן זאל נישט שטערן */ }
+}
+const clean = function (v) { const x = cell(v); return S(x).replace(/^'/, ''); };
+function appendObj(sheet, o) {
+  const head = headOf(sheet);
+  sheet.appendRow(head.map(function (h) { return o[h] === undefined ? '' : o[h]; }));
+  const snap = {};
+  head.forEach(function (h) { if (o[h] !== undefined && S(o[h]) !== '' && !BIG[h] && ['created_at', 'created_by', 'updated_at', 'updated_by'].indexOf(h) < 0) snap[h] = S(o[h]).replace(/^'/, '').slice(0, 300); });
+  audit(sheet, 'create', o[head[0]], o.contact_id, snap);
+}
+/** טוישן א שורה: אלע ווערטן אויף איינמאל, און אין יומן — וואס האט זיך געטוישט */
 function setCells(sheet, rowNo, o) {
-  const head = rows(sheet).head;
+  const head = headOf(sheet);
+  const rng = sheet.getRange(rowNo, 1, 1, head.length);
+  const row = rng.getValues()[0];
+  const changes = [];
+  const next = row.slice();
   Object.keys(o).forEach(function (k) {
     const j = head.indexOf(k);
-    if (j >= 0) sheet.getRange(rowNo, j + 1).setValue(o[k]);
+    if (j < 0) return;
+    const before = clean(row[j]); const after = S(o[k]).replace(/^'/, '');
+    if (before !== after && ['updated_at', 'updated_by'].indexOf(k) < 0) changes.push([k, BIG[k] ? '…' : before.slice(0, 300), BIG[k] ? '…' : after.slice(0, 300)]);
+    next[j] = o[k];
+  });
+  rng.setValues([next]);
+  if (changes.length) {
+    const ci = head.indexOf('contact_id');
+    audit(sheet, 'update', row[0], ci >= 0 ? S(row[ci]) : '', changes);
+  }
+}
+/** אויסמעקן א שורה — מיט א קאפיע אין יומן */
+function delRow(sheet, rowNo) {
+  const head = headOf(sheet);
+  const row = sheet.getRange(rowNo, 1, 1, head.length).getValues()[0];
+  const snap = {};
+  head.forEach(function (h, j) { if (S(row[j]) !== '' && !BIG[h]) snap[h] = clean(row[j]).slice(0, 300); });
+  sheet.deleteRow(rowNo);
+  const ci = head.indexOf('contact_id');
+  audit(sheet, 'delete', row[0], ci >= 0 ? S(row[ci]) : '', snap);
+}
+/** פילע נייע שורות אויף איינמאל (רייען = מערכים לויט headOf) */
+function addRows(sheet, list) {
+  if (!list.length) return;
+  const head = headOf(sheet);
+  sheet.getRange(sheet.getLastRow() + 1, 1, list.length, head.length).setValues(list);
+  const ci = head.indexOf('contact_id');
+  list.forEach(function (r) {
+    const snap = {};
+    head.forEach(function (h, j) { if (S(r[j]) !== '' && ['created_at', 'created_by', 'updated_at', 'updated_by'].indexOf(h) < 0) snap[h] = S(r[j]).replace(/^'/, '').slice(0, 300); });
+    audit(sheet, 'create', r[0], ci >= 0 ? S(r[ci]) : '', snap);
   });
 }
 function now() { return Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd HH:mm'); }
@@ -274,7 +341,10 @@ const REVERSE = { 'זון פון': 'טאטע פון', 'טאטע פון': 'זון
 
 const ACTIONS = {
   me: function (M, me) {
-    return { me: { email: me.email, name: me.name, role: me.role, perms: me.perms }, mosad: { key: M.key, name: M.name, org: M.org, logo: brandOf(M.key).logo }, permsAll: PERMS, settings: settingsOf(M) };
+    const team = teamOf(M, me.email);
+    const tasks = objs(M.book.getSheetByName('Tasks')).filter(function (t) { return S(t.task_id) && S(t.status) !== 'done' && S(t.assigned_to).toLowerCase() === me.email; });
+    return { me: { email: me.email, name: me.name, role: me.role, perms: me.perms }, mosad: { key: M.key, name: M.name, org: M.org, logo: brandOf(M.key).logo }, permsAll: PERMS, settings: settingsOf(M),
+      team: team, openTasks: tasks.length, clock: team ? clockState(M, team) : null };
   },
 
   people: function (M) { return linkedData(M); },
@@ -502,7 +572,7 @@ const ACTIONS = {
           id = String(nextDonationId(ss));
           o.donation_id = Number(id); o.created_at = now(); o.created_by = by;
           appendObj(ds, o);
-          if (old) gs.deleteRow(old._row); // פון "אן איש קשר" → צו אן איש קשר
+          if (old) delRow(gs, old._row); // פון "אן איש קשר" → צו אן איש קשר
         }
         main().getSheetByName('History').appendRow([now(), by, 'donation', id, cid, '*', '', (old ? 'updated' : 'created') + ': $' + usd]);
         logIt(M, me, 'gift', cid, 'm' + id + ' $' + usd);
@@ -531,7 +601,7 @@ const ACTIONS = {
       if (S(req.src) === 'l') {
         const gs = M.book.getSheetByName('Gifts');
         const g = objs(gs).filter(function (x) { return S(x.gift_id) === S(req.id); })[0];
-        if (g) { gs.deleteRow(g._row); logIt(M, me, 'gift-delete', '', 'l' + S(req.id) + ' $' + S(g.amount_usd)); }
+        if (g) { delRow(gs, g._row); logIt(M, me, 'gift-delete', '', 'l' + S(req.id) + ' $' + S(g.amount_usd)); }
         return { ok: true };
       }
       const ss = main();
@@ -541,7 +611,7 @@ const ACTIONS = {
       // נאר וואס מ'האט צוגעלייגט פונעם אתר פונעם מוסד, און אן א קבלה
       if (S(d.org) !== M.org || S(d.created_by).slice(-(M.key.length + 2)) !== ' @' + M.key) throw new Error('not-yours');
       if (onReceipt(ss, S(req.id))) throw new Error('has-receipt');
-      ds.deleteRow(d._row);
+      delRow(ds, d._row);
       ss.getSheetByName('History').appendRow([now(), me.email + ' @' + M.key, 'donation', S(req.id), S(d.contact_id), '*', '$' + S(d.amount_usd), 'deleted']);
       logIt(M, me, 'gift-delete', S(d.contact_id), 'm' + S(req.id) + ' $' + S(d.amount_usd));
       return { ok: true };
@@ -624,7 +694,7 @@ const ACTIONS = {
         if (have[cid]) setCells(sh, have[cid]._row, o);
         else if (pid || o.partner_text) { o.zman = z; o.seder = seder; o.contact_id = Number(cid); add.push(head.map(function (h) { return o[h] === undefined ? '' : o[h]; })); }
       });
-      if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, head.length).setValues(add);
+      addRows(sh, add);
       logIt(M, me, 'chavrusas', '', z + ' ' + seder);
       return { ok: true };
     } finally { lock.releaseLock(); }
@@ -655,7 +725,7 @@ const ACTIONS = {
         if (have[cid]) setCells(sh, have[cid]._row, o);
         else { o.week = week; o.seder = seder; o.contact_id = Number(cid) || cid; add.push(head.map(function (h) { return o[h] === undefined ? '' : o[h]; })); }
       });
-      if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, head.length).setValues(add);
+      addRows(sh, add);
       logIt(M, me, 'attendance', '', week + ' ' + seder);
       return { ok: true };
     } finally { lock.releaseLock(); }
@@ -690,8 +760,8 @@ const ACTIONS = {
         if (ex) setCells(sh, ex._row, o);
         else { o.date = d; o.contact_id = Number(cid); add.push(head.map(function (h) { return o[h] === undefined ? '' : o[h]; })); }
       });
-      del.sort(function (a, b) { return b - a; }).forEach(function (r) { sh.deleteRow(r); });
-      if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, head.length).setValues(add);
+      del.sort(function (a, b) { return b - a; }).forEach(function (r) { delRow(sh, r); });
+      addRows(sh, add);
       logIt(M, me, 'hours', '', String((req.rows || []).length));
       return { ok: true };
     } finally { lock.releaseLock(); }
@@ -721,10 +791,264 @@ const ACTIONS = {
     } finally { lock.releaseLock(); }
   },
 
+  // ---------- 👔 צוות (Team): תפקיד, טעלעפאן, פעיל/לשעבר, סארט שכר — אן סכומים ----------
+  team: function (M, me) {
+    if (!isAdminRole(me) && ['staff_list', 'finance', 'attendance'].every(function (p) { return me.perms.indexOf(p) < 0; })) throw new Error('no-permission');
+    return { team: objs(M.book.getSheetByName('Team')).filter(function (t) { return S(t.contact_id); }).map(function (t) {
+      const o = {}; TABS.Team.forEach(function (k) { o[k] = S(t[k]); }); o.start_date = o.start_date.slice(0, 10); o.end_date = o.end_date.slice(0, 10); return o; }) };
+  },
+  teamSave: function (M, me, req) {
+    need(me, 'staff_list');
+    const t = req.team || {};
+    const mine = {}; peopleRows(M).forEach(function (p) { mine[S(p.contact_id)] = true; });
+    if (!mine[S(t.contact_id)]) throw new Error('not-yours');
+    const em = S(t.email).toLowerCase();
+    if (em && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) throw new Error('bad-email');
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const sh = M.book.getSheetByName('Team');
+      const o = { email: em, role: S(t.role), start_date: S(t.start_date), end_date: S(t.end_date), active: t.active === false || S(t.active) === 'FALSE' ? 'FALSE' : 'TRUE',
+        pay_type: ['global', 'schedule', 'log', 'mixed'].indexOf(S(t.pay_type)) >= 0 ? S(t.pay_type) : '', schedule: typeof t.schedule === 'string' ? t.schedule : JSON.stringify(t.schedule || []), note: S(t.note), updated_at: now(), updated_by: me.email };
+      const ex = objs(sh).filter(function (x) { return S(x.contact_id) === S(t.contact_id); })[0];
+      if (ex) setCells(sh, ex._row, o); else { o.contact_id = Number(t.contact_id) || t.contact_id; appendObj(sh, o); }
+      return { ok: true };
+    } finally { lock.releaseLock(); }
+  },
+
+  // ---------- ⏱ שעון נוכחות (פונעם אזור אישי) ----------
+  clock: function (M, me) {
+    const t = teamOf(M, me.email);
+    if (!t) throw new Error('not-team');
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const sh = M.book.getSheetByName('Hours');
+      const d = Utilities.formatDate(new Date(), 'Asia/Jerusalem', 'yyyy-MM-dd');
+      const tm = Utilities.formatDate(new Date(), 'Asia/Jerusalem', 'HH:mm');
+      const ex = objs(sh).filter(function (x) { return S(x.date).slice(0, 10) === d && S(x.contact_id) === S(t.contact_id); })[0];
+      if (!ex) appendObj(sh, { date: d, contact_id: Number(t.contact_id) || t.contact_id, time_in: "'" + tm, time_out: '', note: 'שעון', updated_at: now(), updated_by: me.email });
+      else if (!hhmm(ex.time_out)) setCells(sh, ex._row, { time_out: "'" + tm, updated_at: now(), updated_by: me.email });
+      else throw new Error('clock-done');
+      return { ok: true, clock: clockState(M, t) };
+    } finally { lock.releaseLock(); }
+  },
+
+  // ---------- 📋 משימות ----------
+  users: function (M) {
+    const list = M.owners.map(function (e) { return { email: e, name: '' }; });
+    objs(M.book.getSheetByName('Staff')).forEach(function (x) { if (S(x.email) && S(x.active) !== 'FALSE') list.push({ email: S(x.email).toLowerCase(), name: S(x.name) }); });
+    const seen = {};
+    return { users: list.filter(function (u) { if (seen[u.email]) return false; seen[u.email] = true; return true; }) };
+  },
+  tasks: function (M, me) {
+    const all = objs(M.book.getSheetByName('Tasks')).filter(function (t) { return S(t.task_id); });
+    const mine = all.filter(function (t) { return isAdminRole(me) || S(t.assigned_to).toLowerCase() === me.email || S(t.from_email).toLowerCase() === me.email; });
+    return { tasks: mine.map(function (t) { const o = {}; TABS.Tasks.forEach(function (k) { o[k] = S(t[k]); }); o.due = o.due.slice(0, 10); return o; }) };
+  },
+  taskSave: function (M, me, req) {
+    const t = req.task || {};
+    if (!S(t.text)) throw new Error('need-text');
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const sh = M.book.getSheetByName('Tasks');
+      const all = objs(sh);
+      const o = { text: S(t.text).slice(0, 2000), assigned_to: S(t.assigned_to).toLowerCase() || me.email, due: S(t.due), urgent: t.urgent ? 'TRUE' : '', contact_id: S(t.contact_id), updated_at: now(), updated_by: me.email };
+      let id = S(t.task_id);
+      if (id) {
+        const ex = all.filter(function (x) { return S(x.task_id) === id; })[0];
+        if (!ex) throw new Error('not-found');
+        if (!isAdminRole(me) && [S(ex.assigned_to).toLowerCase(), S(ex.from_email).toLowerCase()].indexOf(me.email) < 0) throw new Error('no-permission');
+        setCells(sh, ex._row, o);
+      } else {
+        let mx = 0; all.forEach(function (x) { const n = Number(x.task_id); if (isFinite(n) && n > mx) mx = n; });
+        id = String(mx + 1);
+        o.task_id = Number(id); o.from_email = me.email; o.status = 'open'; o.created_at = now(); o.created_by = me.email;
+        appendObj(sh, o);
+      }
+      return { ok: true, task_id: id };
+    } finally { lock.releaseLock(); }
+  },
+  taskDone: function (M, me, req) {
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const sh = M.book.getSheetByName('Tasks');
+      const ex = objs(sh).filter(function (x) { return S(x.task_id) === S(req.task_id); })[0];
+      if (!ex) throw new Error('not-found');
+      if (!isAdminRole(me) && [S(ex.assigned_to).toLowerCase(), S(ex.from_email).toLowerCase()].indexOf(me.email) < 0) throw new Error('no-permission');
+      if (req.del) { if (!isAdminRole(me) && S(ex.from_email).toLowerCase() !== me.email) throw new Error('no-permission'); delRow(sh, ex._row); return { ok: true }; }
+      setCells(sh, ex._row, req.undo ? { status: 'open', done_at: '', done_by: '' } : { status: 'done', done_at: now(), done_by: me.email });
+      return { ok: true };
+    } finally { lock.releaseLock(); }
+  },
+
+  // ---------- 📜 יומן פעולות ----------
+  log: function (M, me, req) {
+    const own = !isAdminRole(me) || req.mine;
+    const from = S(req.from); const to = S(req.to); const by = S(req.by).toLowerCase(); const ent = S(req.entity); const q = S(req.q);
+    const fin = isAdminRole(me) || me.perms.indexOf('finance') >= 0;
+    const rowsL = objs(M.book.getSheetByName('Log')).filter(function (x) {
+      const at = S(x.at);
+      if (own && S(x.by).toLowerCase() !== me.email) return false;
+      if (from && at.slice(0, 10) < from) return false;
+      if (to && at.slice(0, 10) > to) return false;
+      if (by && S(x.by).toLowerCase() !== by) return false;
+      if (ent && S(x.entity) !== ent) return false;
+      if (!fin && SECRET[S(x.entity)]) return false;
+      if (q && (S(x.detail) + ' ' + S(x.changes) + ' ' + S(x.contact_id) + ' ' + S(x.entity_id)).indexOf(q) < 0) return false;
+      return true;
+    });
+    const list = rowsL.slice(-1500).reverse().map(function (x) { return { at: S(x.at), by: S(x.by), action: S(x.action), contact_id: S(x.contact_id), detail: S(x.detail), entity: S(x.entity), entity_id: S(x.entity_id), changes: S(x.changes) }; });
+    return { log: list, total: rowsL.length };
+  },
+  /** די היסטאריע פון איין רשומה (entity + id), אדער פון א מענטש (contact_id) */
+  history: function (M, me, req) {
+    const ent = S(req.entity); const id = S(req.id); const cid = S(req.contact_id);
+    const fin = isAdminRole(me) || me.perms.indexOf('finance') >= 0;
+    if (SECRET[ent] && !fin) throw new Error('no-permission');
+    return { log: objs(M.book.getSheetByName('Log')).filter(function (x) {
+      if (SECRET[S(x.entity)] && !fin) return false;
+      return (ent && S(x.entity) === ent && S(x.entity_id) === id) || (cid && S(x.contact_id) === cid);
+    }).reverse().slice(0, 500).map(function (x) { return { at: S(x.at), by: S(x.by), action: S(x.action), entity: S(x.entity), entity_id: S(x.entity_id), detail: S(x.detail), changes: S(x.changes) }; }) };
+  },
+
+  // ---------- 💰 משכורות והוצאות (finance) ----------
+  fin: function (M, me) {
+    need(me, 'finance');
+    const take = function (tab) { return objs(M.book.getSheetByName(tab)).filter(function (x) { return S(x[TABS[tab][0]]); }).map(function (x) { const o = {}; TABS[tab].forEach(function (k) { o[k] = S(x[k]).replace(/^'/, ''); }); return o; }); };
+    const team = take('Team');
+    const ids = {}; team.forEach(function (t) { ids[S(t.contact_id)] = true; });
+    const hours = objs(M.book.getSheetByName('Hours')).filter(function (x) { return ids[S(x.contact_id)]; })
+      .map(function (x) { return { date: S(x.date).slice(0, 10), contact_id: S(x.contact_id), time_in: hhmm(x.time_in), time_out: hhmm(x.time_out) }; });
+    // הכנסות פון שכר לימוד און נדבות (נאר סכומים לויט טאג)
+    const tuition = objs(M.book.getSheetByName('Tuition')).filter(function (x) { return S(x.payment_id); }).map(function (x) { return { date: S(x.date).slice(0, 10), amount: Number(x.amount) || 0 }; });
+    const gifts = objs(main().getSheetByName('Donations')).filter(function (d) { return S(d.org) === M.org; }).map(function (d) { return { date: S(d.date).slice(0, 10), currency: S(d.currency) || 'USD', orig: Number(d.amount_orig) || 0, usd: Number(d.amount_usd) || 0 }; })
+      .concat(objs(M.book.getSheetByName('Gifts')).filter(function (g) { return S(g.gift_id); }).map(function (g) { return { date: S(g.date).slice(0, 10), currency: S(g.currency) || 'USD', orig: Number(g.amount_orig) || 0, usd: Number(g.amount_usd) || 0 }; }));
+    return { team: team, payInfo: take('PayInfo'), items: take('PayItems'), payments: take('PayPayments'), expenses: take('Expenses'), incomes: take('Incomes'),
+      debts: take('Debts'), repayments: take('Repayments'), hours: hours, tuition: tuition, gifts: gifts, settings: settingsOf(M) };
+  },
+  /** א שורה אין איינע פון די finance-לשוניות (נייע אדער טוישן) */
+  finSave: function (M, me, req) {
+    need(me, 'finance');
+    const tab = S(req.tab);
+    if (!FIN_TABS[tab]) throw new Error('bad-tab');
+    const r = req.row || {};
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const sh = M.book.getSheetByName(tab);
+      const idf = TABS[tab][0];
+      const all = objs(sh);
+      const o = { updated_at: now(), updated_by: me.email };
+      TABS[tab].forEach(function (k) { if (k !== idf && ['created_at', 'created_by', 'updated_at', 'updated_by'].indexOf(k) < 0 && k in r) o[k] = S(r[k]); });
+      if (o.currency && ['ILS', 'USD'].indexOf(o.currency) < 0) throw new Error('bad-currency');
+      if ('amount' in o) { const n = Math.round(Number(o.amount) * 100) / 100; if (!isFinite(n)) throw new Error('bad-amount'); o.amount = n; }
+      if (o.id_number) o.id_number = "'" + o.id_number.replace(/\D/g, '');
+      if ('bank_last4' in o) { o.bank_last4 = o.bank_last4.replace(/\D/g, ''); if (o.bank_last4 && o.bank_last4.length !== 4) throw new Error('bad-last4'); }
+      let id = S(r[idf]);
+      if (tab === 'PayInfo') { // איין שורה פאר א מענטש
+        id = S(r.contact_id);
+        const ex0 = all.filter(function (x) { return S(x.contact_id) === id; })[0];
+        if (ex0) setCells(sh, ex0._row, o); else { o.contact_id = Number(id) || id; appendObj(sh, o); }
+        return { ok: true, id: id };
+      }
+      const ex = id ? all.filter(function (x) { return S(x[idf]) === id; })[0] : null;
+      if (id && !ex) throw new Error('not-found');
+      if (ex) setCells(sh, ex._row, o);
+      else {
+        let mx = 0; all.forEach(function (x) { const n = Number(x[idf]); if (isFinite(n) && n > mx) mx = n; });
+        id = String(mx + 1); o[idf] = Number(id); o.created_at = now(); o.created_by = me.email;
+        appendObj(sh, o);
+      }
+      return { ok: true, id: id };
+    } finally { lock.releaseLock(); }
+  },
+  finDelete: function (M, me, req) {
+    need(me, 'finance');
+    const tab = S(req.tab);
+    if (!FIN_TABS[tab] || tab === 'PayInfo') throw new Error('bad-tab');
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const sh = M.book.getSheetByName(tab);
+      const ex = objs(sh).filter(function (x) { return S(x[TABS[tab][0]]) === S(req.id); })[0];
+      if (ex) delRow(sh, ex._row);
+    } finally { lock.releaseLock(); }
+    return { ok: true };
+  },
+  finSettings: function (M, me, req) {
+    need(me, 'finance');
+    const sh = M.book.getSheetByName('Settings');
+    const all = objs(sh);
+    ['exp_cats', 'inc_cats'].forEach(function (k) {
+      if (!(k in (req.settings || {}))) return;
+      const v = JSON.stringify([].concat(req.settings[k] || []).map(S).filter(Boolean).slice(0, 80));
+      const ex = all.filter(function (x) { return S(x.key) === k; })[0];
+      if (ex) setCells(sh, ex._row, { value: v, updated_at: now(), updated_by: me.email }); else appendObj(sh, { key: k, value: v, updated_at: now(), updated_by: me.email });
+    });
+    return { ok: true, settings: settingsOf(M) };
+  },
+  /** א צילום פון א קבלה → דרייב (אין דעם דאטאבייס) */
+  upload: function (M, me, req) {
+    need(me, 'finance');
+    const m = S(req.data).match(/^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,(.+)$/);
+    if (!m) throw new Error('bad-file');
+    if (m[2].length > 2800000) throw new Error('file-big');
+    const blob = Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], (S(req.name) || 'receipt').slice(0, 80));
+    const file = folderPath(['מוסדות אונגוואר', S(M.name) || M.key, 'קבלות הוצאות']).createFile(blob);
+    file.setDescription('by ' + me.email + ' · ' + now());
+    return { ok: true, id: file.getId() };
+  },
+  fileGet: function (M, me, req) {
+    need(me, 'finance');
+    const id = S(req.id);
+    const used = objs(M.book.getSheetByName('Expenses')).some(function (x) { return S(x.receipt_file) === id; });
+    if (!used) throw new Error('not-found');
+    const b = DriveApp.getFileById(id).getBlob();
+    return { data: 'data:' + b.getContentType() + ';base64,' + Utilities.base64Encode(b.getBytes()) };
+  },
+
+  // ---------- 🗂 גיבויים (נאר בעלים / מנהל) ----------
+  backups: function (M, me) {
+    if (!isAdminRole(me)) throw new Error('no-permission');
+    const out2 = { mosad: backupList(M.key) };
+    if (me.role === 'owner') out2.main = backupList('main');
+    return out2;
+  },
+  backupNow: function (M, me) {
+    if (!isAdminRole(me)) throw new Error('no-permission');
+    makeBackup(M.key, M.book, 'ידני · ' + me.email);
+    return { ok: true, mosad: backupList(M.key) };
+  },
+  /** צו זען א גיבוי: דער מענטש באקומט "צפייה" אויף דעם טעקע */
+  backupOpen: function (M, me, req) {
+    if (!isAdminRole(me)) throw new Error('no-permission');
+    const f = backupFile(req.id, me.role === 'owner' ? [M.key, 'main'] : [M.key]);
+    f.addViewer(me.email);
+    return { url: f.getUrl() };
+  },
+  /** שחזור: די לשוניות פונעם גיבוי → אינעם גיליון פונעם מוסד (פריער — א גיבוי פונעם יעצטיגן) */
+  backupRestore: function (M, me, req) {
+    if (!isAdminRole(me)) throw new Error('no-permission');
+    const f = backupFile(req.id, [M.key]);
+    const lock = LockService.getScriptLock(); lock.waitLock(30000);
+    try {
+      makeBackup(M.key, M.book, 'לפני שחזור · ' + me.email);
+      const src = SpreadsheetApp.openById(f.getId());
+      src.getSheets().forEach(function (s2) {
+        const name = s2.getName();
+        if (name === 'Log') return; // דאס יומן בלייבט (מיט דעם שחזור אליין)
+        let dst = M.book.getSheetByName(name);
+        if (!dst) dst = M.book.insertSheet(name);
+        const v = s2.getDataRange().getValues();
+        dst.clearContents();
+        if (v.length && v[0].length) dst.getRange(1, 1, v.length, v[0].length).setValues(v);
+      });
+      logIt(M, me, 'restore', '', f.getName());
+    } finally { lock.releaseLock(); }
+    return { ok: true };
+  },
+
   // ---------- ישיבה: רישום, שכר לימוד, קבלות ----------
   school: function (M, me) {
-    if (!isAdminRole(me) && !['students', 'alumni', 'parents', 'tuition', 'chavrusas', 'attendance', 'insurance'].some(function (p) { return me.perms.indexOf(p) >= 0; })) throw new Error('no-permission');
-    const tu = isAdminRole(me) || me.perms.indexOf('tuition') >= 0;
+    if (!isAdminRole(me) && !['students', 'alumni', 'parents', 'tuition', 'chavrusas', 'attendance', 'insurance', 'finance'].some(function (p) { return me.perms.indexOf(p) >= 0; })) throw new Error('no-permission');
+    const tu = isAdminRole(me) || me.perms.indexOf('tuition') >= 0 || me.perms.indexOf('finance') >= 0; // finance: נאר לייענען (חובות)
     const en = objs(M.book.getSheetByName('Enrollments')).filter(function (e) { return S(e.enroll_id); }).map(function (e) {
       const o = {};
       TABS.Enrollments.forEach(function (k) { if (tu || ['tuition_amount', 'month_amounts', 'tuition_period'].indexOf(k) < 0) o[k] = S(e[k]); });
@@ -784,7 +1108,7 @@ const ACTIONS = {
       const sh = M.book.getSheetByName('Enrollments');
       const ex = objs(sh).filter(function (x) { return S(x.enroll_id) === id; })[0];
       if (!ex) return { ok: true };
-      sh.deleteRow(ex._row);
+      delRow(sh, ex._row);
       logIt(M, me, 'enroll-delete', S(ex.contact_id), id);
     } finally { lock.releaseLock(); }
     return { ok: true };
@@ -835,7 +1159,7 @@ const ACTIONS = {
       const ex = objs(sh).filter(function (x) { return S(x.payment_id) === id; })[0];
       if (!ex) return { ok: true };
       if (S(ex.receipt_no)) throw new Error('has-receipt');
-      sh.deleteRow(ex._row);
+      delRow(sh, ex._row);
       logIt(M, me, 'pay-delete', S(ex.contact_id), id + ' $' + S(ex.amount));
     } finally { lock.releaseLock(); }
     return { ok: true };
@@ -934,7 +1258,7 @@ const ACTIONS = {
       const ex = objs(sh).filter(function (x) { return S(x.email).toLowerCase() === email; })[0];
       if (!ex) return { ok: true };
       if (me.role !== 'owner' && S(ex.role) === 'admin') throw new Error('owner-only');
-      sh.deleteRow(ex._row);
+      delRow(sh, ex._row);
       logIt(M, me, 'staff-remove', '', email);
     } finally { lock.releaseLock(); }
     return { ok: true };
@@ -984,10 +1308,12 @@ const DEFAULT_SEDARIM = [
 ];
 function settingsOf(M) {
   // calendar: 'il' = לוח ארץ ישראל (פרשיות), 'chul' = חוץ לארץ
-  const o = { sedarim: DEFAULT_SEDARIM, avreich_rate: '', calendar: 'il' };
+  const o = { sedarim: DEFAULT_SEDARIM, avreich_rate: '', calendar: 'il',
+    exp_cats: ['שכירות', 'אוכל', 'חשמל ומים', 'הסעות', 'קניות', 'תיקונים ואחזקה', 'ספרים', 'אחר'],
+    inc_cats: ['משרד החינוך', 'משרד הדתות', 'קהל אונגוואר', 'הלוואה שהתקבלה', 'אחר'] };
   objs(M.book.getSheetByName('Settings')).forEach(function (x) {
     const k = S(x.key);
-    if (k === 'sedarim') { try { const v = JSON.parse(S(x.value)); if (v && v.length) o.sedarim = v; } catch (err) { /* */ } }
+    if (k === 'sedarim' || k === 'exp_cats' || k === 'inc_cats') { try { const v = JSON.parse(S(x.value)); if (v && v.length) o[k] = v; } catch (err) { /* */ } }
     else if (k) o[k] = S(x.value);
   });
   return o;
@@ -996,6 +1322,75 @@ function settingsOf(M) {
 function hhmm(v) {
   if (Object.prototype.toString.call(v) === '[object Date]') return Utilities.formatDate(v, TZ || main().getSpreadsheetTimeZone(), 'HH:mm');
   return S(v).replace(/^'/, '').slice(0, 5);
+}
+const FIN_TABS = { PayInfo: true, PayItems: true, PayPayments: true, Expenses: true, Incomes: true, Debts: true, Repayments: true };
+const SECRET = { PayInfo: true, PayItems: true, PayPayments: true, Expenses: true, Incomes: true, Debts: true, Repayments: true };
+/** דער צוות-מענטש וואס איז אריינגעקומען (לויט זיין גוגל-אדרעס) */
+function teamOf(M, email) {
+  const t = objs(M.book.getSheetByName('Team')).filter(function (x) { return S(x.email).toLowerCase() === email && S(x.active) !== 'FALSE'; })[0];
+  if (!t) return null;
+  const o = {}; TABS.Team.forEach(function (k) { o[k] = S(t[k]); }); return o;
+}
+function clockState(M, t) {
+  const d = Utilities.formatDate(new Date(), 'Asia/Jerusalem', 'yyyy-MM-dd');
+  const ex = objs(M.book.getSheetByName('Hours')).filter(function (x) { return S(x.date).slice(0, 10) === d && S(x.contact_id) === S(t.contact_id); })[0];
+  return { date: d, time_in: ex ? hhmm(ex.time_in) : '', time_out: ex ? hhmm(ex.time_out) : '' };
+}
+/** א טעקע אין דרייב: ['א', 'ב', 'ג'] — מאכט וואס פעלט */
+function folderPath(parts) {
+  let f = DriveApp.getRootFolder();
+  parts.forEach(function (p) { const it = f.getFoldersByName(p); f = it.hasNext() ? it.next() : f.createFolder(p); });
+  return f;
+}
+const BK_DAYS = 14; const BK_MONTHS = 6;
+function backupFolder() { return folderPath(['מוסדות אונגוואר', 'גיבויים']); }
+/** א קאפיע פונעם גאנצן גיליון: "גיבוי <key> 2026-10-25 03:00" */
+function makeBackup(key, book, why) {
+  const stamp = Utilities.formatDate(new Date(), 'Asia/Jerusalem', 'yyyy-MM-dd HH:mm');
+  const f = DriveApp.getFileById(book.getId()).makeCopy('גיבוי ' + key + ' ' + stamp, backupFolder());
+  f.setDescription(why || 'אוטומטי');
+  pruneBackups(key);
+  return f;
+}
+function backupList(key) {
+  const it = backupFolder().getFiles();
+  const list = [];
+  const pre = 'גיבוי ' + key + ' ';
+  while (it.hasNext()) { const f = it.next(); if (f.getName().indexOf(pre) === 0) list.push({ id: f.getId(), name: f.getName(), at: f.getName().slice(pre.length), why: f.getDescription() || '' }); }
+  return list.sort(function (a, b) { return b.at < a.at ? -1 : 1; });
+}
+function backupFile(id, keys) {
+  const f = DriveApp.getFileById(S(id));
+  const ok = f.getParents().hasNext() && f.getParents().next().getId() === backupFolder().getId() && keys.some(function (k) { return f.getName().indexOf('גיבוי ' + k + ' ') === 0; });
+  if (!ok) throw new Error('not-found');
+  return f;
+}
+/** לאזן: די לעצטע 14 טעג, און דער ערשטער פון יעדן חודש פאר 6 חדשים */
+function pruneBackups(key) {
+  const list = backupList(key);
+  const keep = {};
+  const days = []; list.forEach(function (b) { const d = b.at.slice(0, 10); if (days.indexOf(d) < 0) days.push(d); });
+  const recentDays = days.slice(0, BK_DAYS);
+  list.forEach(function (b) { if (recentDays.indexOf(b.at.slice(0, 10)) >= 0) keep[b.id] = true; });
+  const months = {};
+  list.slice().reverse().forEach(function (b) { const m = b.at.slice(0, 7); if (!months[m]) months[m] = b.id; });
+  Object.keys(months).sort().reverse().slice(0, BK_MONTHS).forEach(function (m) { keep[months[m]] = true; });
+  list.forEach(function (b) { if (!keep[b.id]) { try { DriveApp.getFileById(b.id).setTrashed(true); } catch (err) { /* */ } } });
+}
+/** יעדע נאכט (טריגער): אלע מוסדות + דער הויפט-גיליון */
+function nightlyBackup() {
+  makeBackup('main', main(), 'אוטומטי');
+  objs(main().getSheetByName('Mosdos')).forEach(function (m) {
+    if (!S(m.key) || !S(m.sheet_id)) return;
+    try { makeBackup(S(m.key), SpreadsheetApp.openById(S(m.sheet_id)), 'אוטומטי'); } catch (err) { Logger.log('backup ' + S(m.key) + ': ' + err); }
+  });
+}
+/** פונעם עדיטאר, איינמאל: א טריגער פאר יעדע נאכט 3:00 (ירושלים), און א ערשטער גיבוי */
+function installBackup() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'nightlyBackup') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('nightlyBackup').timeBased().everyDays(1).atHour(3).inTimezone('Asia/Jerusalem').create();
+  nightlyBackup();
+  Logger.log('OK: ' + backupList('main').length + ' main, ' + backupList('yeshiva').length + ' yeshiva');
 }
 function isVoid(r) { const v = S(r.void).toLowerCase(); return v === 'true' || v === '1' || v === 'yes'; }
 /** די פרטים פונעם מוסד פאר א קבלה (פון OrgDetails אינעם הויפט-גיליון) */

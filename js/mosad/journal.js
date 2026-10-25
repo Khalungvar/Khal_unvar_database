@@ -1,10 +1,10 @@
 // אתר פון א מוסד — יומנים: 🤝 חברותות, ✅ השתתפות (מיט ⏱ כניסה/יציאה פון אברכים), 🏥 ביטוח בריאות, 📞 יומן מיט טעלעפאנען.
 // אלעס ווערט געדרוקט ווי די דפים פון דער ישיבה: צוויי זיילן מיט נומערירטע נעמען, "פרשת ...", טעג א–ה.
 // דער לוח (פרשיות) — לויט די הגדרות פונעם מוסד (ארץ ישראל / חוץ לארץ).
-import { downloadXlsx } from '../excel.js?v=322';
-import { todayIso, isoToHebrewText, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=322';
-import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=322';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=322';
+import { downloadXlsx } from '../excel.js?v=323';
+import { todayIso, isoToHebrewText, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=323';
+import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=323';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=323';
 
 let X = null;
 export function initJournal(ctx) { X = ctx; }
@@ -31,7 +31,7 @@ function students(day) { return activeStudents(day).map((e) => e.contact_id).fil
 const avreichim = () => X.st.people.filter((p) => p.kind === 'avreich').sort((a, b) => X.S(a.last_name_he).localeCompare(X.S(b.last_name_he), 'he'));
 
 /** א בלאט צום דרוקן (A4), מיטן לאגא און א קעפל */
-function printWin(title, sub, body, { landscape = false } = {}) {
+export function printWin(title, sub, body, { landscape = false } = {}) {
   const w = window.open('', '_blank');
   if (!w) { X.toast('הדפדפן חסם חלון חדש — אפשר חלונות קופצים לאתר הזה.', 'err'); return; }
   const logo = X.st.logo || X.st.mosad?.logo || '';
@@ -156,6 +156,8 @@ export async function renderChav(box) {
 // =====================================================================
 // ✅ השתתפות
 // =====================================================================
+/** פון אנדערע כפתורים: גלייך צו א טאב (למשל '_hours') */
+export function setAttTab(k) { J.seder = k; }
 export async function renderAtt(box) {
   const { h } = X;
   const ss = sedarim().filter((s) => s.att);

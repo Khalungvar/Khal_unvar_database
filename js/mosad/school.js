@@ -1,6 +1,6 @@
 // אתר פון א מוסד — די ישיבה: תלמידים, בוגרים, הורים, שכר לימוד און קבלות (אלעס אינעם גיליון פונעם מוסד, דורכן שומר).
-import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=322';
-import { downloadXlsx } from '../excel.js?v=322';
+import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=323';
+import { downloadXlsx } from '../excel.js?v=323';
 
 let X = null; // די כלים פון app.js: { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render }
 export function initSchool(ctx) { X = ctx; }
@@ -19,6 +19,12 @@ export const schoolLoaded = () => Boolean(sc.data);
 /** די תלמידים וואס לערנען אויף א טאג (פאר יומנים, חברותות, ביטוח) — לויטן משפחה-נאמען */
 export function activeStudents(day = todayIso()) {
   return enrolls().filter((e) => statusOn(e, day) === 'active').sort(byName);
+}
+/** בוגרים וואס זענען נאך שולדיג שכר לימוד: [{ enroll_id, contact_id, name, balance, end }] */
+export function alumniDebts() {
+  if (!sc.data?.tuitionAccess) return [];
+  return enrolls().filter((e) => statusOn(e) === 'left' && balance(e) > 0.009)
+    .map((e) => ({ enroll_id: e.enroll_id, contact_id: e.contact_id, name: nm(e.contact_id), balance: Math.round(balance(e) * 100) / 100, end: d10(e.end_date) }));
 }
 /** דער זמן פון היינט ("זמן חורף פ"ז") */
 export function currentZman() {
