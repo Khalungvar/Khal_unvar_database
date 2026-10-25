@@ -143,6 +143,21 @@ function objs(sheet) {
     return o;
   });
 }
+/** גיך: לייענט נאר דעם שטח צווישן די נויטיגע קאלאנעס (נישט אלע 40+) */
+function objsCols(sheet, names) {
+  if (!sheet) return [];
+  const head = headOf(sheet);
+  const idx = names.map(function (n) { return head.indexOf(n); }).filter(function (i) { return i >= 0; });
+  const n = sheet.getLastRow() - 1;
+  if (!idx.length || n < 1) return [];
+  const lo = Math.min.apply(null, idx), hi = Math.max.apply(null, idx);
+  const v = sheet.getRange(2, lo + 1, n, hi - lo + 1).getValues();
+  return v.map(function (row, r) {
+    const o = { _row: r + 2 };
+    names.forEach(function (nm) { const j = head.indexOf(nm); if (j >= 0) o[nm] = cell(row[j - lo]); });
+    return o;
+  });
+}
 function headOf(sh) {
   const n = sh.getLastColumn();
   return n ? sh.getRange(1, 1, 1, n).getValues()[0].map(function (x) { return String(x).trim(); }) : [];
@@ -365,9 +380,9 @@ function linkedData(M) {
   const people = peopleRows(M);
   const ids = {};
   people.forEach(function (p) { ids[S(p.contact_id)] = p; });
-  const contacts = objs(ss.getSheetByName('Contacts')).filter(function (c) { return ids[S(c.contact_id)] && !S(c.deleted_at); });
+  const contacts = objsCols(ss.getSheetByName('Contacts'), ['contact_id', 'deleted_at'].concat(C_FIELDS)).filter(function (c) { return ids[S(c.contact_id)] && !S(c.deleted_at); });
   const phones = {};
-  objs(ss.getSheetByName('Phones')).forEach(function (p) { if (ids[S(p.contact_id)]) phones[S(p.contact_id)] = p; });
+  objsCols(ss.getSheetByName('Phones'), ['contact_id'].concat(P_FIELDS)).forEach(function (p) { if (ids[S(p.contact_id)]) phones[S(p.contact_id)] = p; });
   // קשרים — נאר צווישן די מענטשן פונעם מוסד
   const rel = objs(ss.getSheetByName('Relations')).filter(function (r) { return ids[S(r.contact_id_a)] && ids[S(r.contact_id_b)]; })
     .map(function (r) { return { a: S(r.contact_id_a), type: S(r.relation_type), b: S(r.contact_id_b) }; });
@@ -594,7 +609,7 @@ const ACTIONS = {
       list.push(o);
     });
     const names = {};
-    objs(ss.getSheetByName('Contacts')).forEach(function (c) {
+    objsCols(ss.getSheetByName('Contacts'), ['contact_id', 'title_he', 'first_name_he', 'last_name_he', 'first_name_en', 'last_name_en', 'city']).forEach(function (c) {
       if (!cids[S(c.contact_id)]) return;
       names[S(c.contact_id)] = { he: [S(c.title_he), S(c.first_name_he), S(c.last_name_he)].filter(Boolean).join(' '), en: [S(c.first_name_en), S(c.last_name_en)].filter(Boolean).join(' '), city: S(c.city) };
     });
