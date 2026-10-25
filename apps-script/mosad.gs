@@ -1764,3 +1764,53 @@ function perfBatch() {
   ACTIONS.batch(M, me, { calls: calls });
   Logger.log('TOTAL batch (morning, from mirror): ' + (Date.now() - t3) + 'ms');
 }
+
+// ---------- תגיות פון דער ישיבה אינעם הויפט-מאגר (עץ התגיות: 2 > o:<org> > 40 תלמיד / 41 הורה / 42 צוות) ----------
+const Y_NODE = { student: '40', parent: '41', staff: '42' };
+/** וואס די תגיות פון יעדן מענטש אין דער ישיבה דארפן זיין, לויט די ידיעות פון דער ישיבה: { id: { student: 'a'|'f', parent, staff } } */
+function yeshivaExpected(M) {
+  const t = Utilities.formatDate(new Date(), 'Asia/Jerusalem', 'yyyy-MM-dd');
+  const en = objs(M.book.getSheetByName('Enrollments')).filter(function (e) { return S(e.enroll_id); });
+  const activeE = function (e) { const end = S(e.end_date).slice(0, 10); return S(e.status) !== 'יצא' && !(end && end < t); };
+  const exp = {};
+  const set = function (id, k, on) { id = S(id); if (!id) return; exp[id] = exp[id] || {}; exp[id][k] = (exp[id][k] === 'a' || on) ? 'a' : 'f'; };
+  en.forEach(function (e) { set(e.contact_id, 'student', activeE(e)); if (S(e.parent_id)) set(e.parent_id, 'parent', activeE(e)); });
+  const team = objs(M.book.getSheetByName('Team'));
+  peopleRows(M).forEach(function (p) {
+    const kinds = S(p.kind).split(',').map(S);
+    if (kinds.indexOf('staff') >= 0) {
+      const tm = team.filter(function (x) { return S(x.contact_id) === S(p.contact_id); })[0];
+      set(p.contact_id, 'staff', !tm || S(tm.active) !== 'FALSE');
+    }
+  });
+  return exp;
+}
+/** פונעם עדיטאר: א באריכט (גארנישט ווערט געטוישט) */
+function yeshivaTagsReport() {
+  const M = mosadOf('yeshiva');
+  const exp = yeshivaExpected(M);
+  const org = 'o:' + M.org;
+  const rows = objsCols(main().getSheetByName('Contacts'), ['contact_id', 'tags', 'deleted_at']);
+  const by = {}; rows.forEach(function (r) { by[S(r.contact_id)] = r; });
+  const n = { people: 0, missing: 0, unchecked: 0, okAlready: 0, otherU: 0, tagMissing: 0, tagWrong: 0, tagRight: 0, uYeshiva: 0 };
+  const samples = [];
+  Object.keys(exp).forEach(function (id) {
+    n.people++;
+    const r = by[id];
+    if (!r || S(r.deleted_at)) { n.missing++; return; }
+    let tg = []; try { tg = JSON.parse(S(r.tags) || '[]'); } catch (err) { tg = []; }
+    const ok = tg.some(function (x) { return x.p && x.p[0] === '_ok'; });
+    if (ok) n.okAlready++; else n.unchecked++;
+    const isY = function (x) { return x.p && String(x.p[0]) === '2' && String(x.p[1]) === org; };
+    if (tg.some(function (x) { return !isY(x) && x.s === 'u' && x.p && String(x.p[0]) !== '8'; })) n.otherU++;
+    Object.keys(exp[id]).forEach(function (k) {
+      const cur = tg.filter(function (x) { return isY(x) && String(x.p[2]) === Y_NODE[k]; })[0];
+      if (!cur) n.tagMissing++;
+      else if (cur.s === 'u') n.uYeshiva++;
+      else if (cur.s !== exp[id][k]) { n.tagWrong++; if (samples.length < 15) samples.push(id + ' ' + k + ': ' + cur.s + ' → ' + exp[id][k]); }
+      else n.tagRight++;
+    });
+  });
+  Logger.log(JSON.stringify(n));
+  Logger.log('wrong: ' + samples.join(' | '));
+}
