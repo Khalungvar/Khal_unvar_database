@@ -1603,3 +1603,18 @@ function perfTest() {
   Object.keys(TABS).forEach(function (n) { t('mosad ' + n, function () { return objs(M.book.getSheetByName(n)).length; }); });
   ['me', 'people', 'school', 'tasks', 'team', 'fin', 'gifts', 'log'].forEach(function (a) { t('ACTION ' + a, function () { return JSON.stringify(ACTIONS[a](M, me, {})).length; }); });
 }
+/** פונעם עדיטאר: וויפיל צייט נעמט די טעינה פון אלעס (batch) — יעדע קריאה באזונדער, און אלעס צוזאמען */
+function perfBatch() {
+  const M = mosadOf('yeshiva');
+  const me = { email: M.owners[0], role: 'owner', perms: PERMS.slice(), name: '' };
+  CacheService.getScriptCache().removeAll(['ppl:' + M.key, 'names:main']);
+  const calls = ['me', 'people', 'school', 'gifts', 'fin', 'team', 'tasks', 'ins', 'users', 'staff'].map(function (a) { return { action: a }; });
+  MEMO = {};
+  const t0 = Date.now();
+  calls.forEach(function (c) { const a = Date.now(); const r = ACTIONS[c.action](M, me, {}); Logger.log(c.action + ': ' + (Date.now() - a) + 'ms, ' + JSON.stringify(r).length + ' bytes'); });
+  MEMO = null;
+  Logger.log('TOTAL cold: ' + (Date.now() - t0) + 'ms');
+  const t1 = Date.now();
+  ACTIONS.batch(M, me, { calls: calls });
+  Logger.log('TOTAL warm: ' + (Date.now() - t1) + 'ms');
+}

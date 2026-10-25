@@ -91,12 +91,40 @@ function loginView(note = '', kind = '') {
   $('#ms-in').onclick = () => enter('');
   $('#ms-other').onclick = () => enter('select_account');
 }
+// ---------- 🚪 פתיחה: שערים + שעון חול, בשעת די ידיעות ווערן געלאדן; צום סוף עפענען זיך די שערים ----------
+const SPLASH_MSGS = ['פותחים את השערים…', 'טוען תלמידים…', 'טוען אנשי צוות ואברכים…', 'טוען שכר לימוד…', 'טוען נדבות…', 'טוען משכורות והוצאות…', 'כמעט מוכן…'];
+let splashT = null;
+function splashShow() {
+  if ($('#ms-splash')) return;
+  const el = document.createElement('div');
+  el.id = 'ms-splash';
+  el.setAttribute('role', 'status');
+  el.innerHTML = `<div class="sp-gate sp-r"></div><div class="sp-gate sp-l"></div>
+    <div class="sp-center"><div class="sp-medal"><img src="${h(logoSrc())}" alt=""></div>
+      <h1>${h(st.mosad?.name || TITLE)}</h1>
+      <div class="sp-glass" aria-hidden="true"><span class="sp-top"></span><span class="sp-bot"></span><span class="sp-stream"></span></div>
+      <p class="sp-msg">${h(SPLASH_MSGS[0])}</p><div class="sp-bar"><span></span></div></div>`;
+  document.body.appendChild(el);
+  let i = 0;
+  splashT = setInterval(() => { i = Math.min(i + 1, SPLASH_MSGS.length - 1); const m = $('.sp-msg', el); if (m) m.textContent = SPLASH_MSGS[i]; }, 1300);
+}
+function splashDone(ok = true) {
+  clearInterval(splashT);
+  const el = $('#ms-splash');
+  if (!el) return;
+  if (!ok) { el.remove(); return; }
+  const m = $('.sp-msg', el); if (m) m.textContent = 'ברוכים הבאים';
+  el.classList.add('sp-full');
+  setTimeout(() => el.classList.add('sp-open'), 250);
+  setTimeout(() => el.remove(), 1500);
+}
+
 async function enter(prompt) {
   try {
     if (!configured()) throw Object.assign(new Error('not-configured'), { code: 'not-configured' });
     if (prompt !== null) await signIn(prompt);
     // אלעס אויף איינמאל — דערנאך עפנט זיך יעדער כפתור גלייך
-    $('#ms-app').innerHTML = `<div class="ms-login"><img src="${h(logoSrc())}" alt="" class="ms-logo"><h1>${h(TITLE)}</h1><p class="muted">⏳ טוען את כל הנתונים… (פעם אחת בכניסה)</p></div>`;
+    splashShow();
     const iso = (d) => d.toISOString().slice(0, 10);
     const now0 = new Date(); const sun = new Date(Date.UTC(now0.getFullYear(), now0.getMonth(), now0.getDate() - now0.getDay(), 12));
     const sat = new Date(sun); sat.setUTCDate(sat.getUTCDate() + 6);
@@ -116,7 +144,9 @@ async function enter(prompt) {
     if (hv) st.tab = hv;
     history.replaceState({ tab: st.tab }, '', `#${st.tab}`);
     render();
+    splashDone();
   } catch (err) {
+    splashDone(false);
     if (err?.code === 'not-allowed' && err.email) loginView(`${err.email}: ${msg(err)}`, 'err');
     else loginView(msg(err), 'err');
   }
@@ -528,7 +558,8 @@ initFinance(ctx);
 (async () => {
   loginView();
   brand(KEY).then((b) => { if (b?.logo) { st.logo = b.logo; if (!st.me) { const im = $('.ms-logo'); if (im) im.src = b.logo; } } });
+  if (configured() && hasSession()) splashShow(); // גלייך — נישט ווייזן דעם לאגאין פאר א רגע
   try { await initAuth(); } catch { /* */ }
-  if (!configured()) { loginView(ERR['not-configured'], 'err'); return; }
-  if (hasSession()) enter(null);
+  if (!configured()) { splashDone(false); loginView(ERR['not-configured'], 'err'); return; }
+  if (hasSession()) enter(null); else splashDone(false);
 })();
