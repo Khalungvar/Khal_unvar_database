@@ -1891,6 +1891,6 @@ function syncYeshivaTags(M, ids, by) {
 function yeshivaTagsFix() {
   makeBackup('main', main(), 'לפני סידור התגיות של הישיבה');
   const M = mosadOf('yeshiva');
-  const r = syncYeshivaTags(M, null, Session.getActiveUser().getEmail() || 'owner');
+  const r = syncYeshivaTags(M, null, M.owners[0] || 'owner');
   Logger.log('changed: ' + r.changed + ', ⚠ removed: ' + r.ok);
 }
