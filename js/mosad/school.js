@@ -1,6 +1,6 @@
 // אתר פון א מוסד — די ישיבה: תלמידים, בוגרים, הורים, שכר לימוד און קבלות (אלעס אינעם גיליון פונעם מוסד, דורכן שומר).
-import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=328';
-import { downloadXlsx } from '../excel.js?v=328';
+import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=329';
+import { downloadXlsx } from '../excel.js?v=329';
 
 let X = null; // די כלים פון app.js: { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render }
 export function initSchool(ctx) { X = ctx; }
@@ -368,7 +368,7 @@ function enrollDialog(e0 = {}) {
   const e = { status: ST.active, ...(e0 || {}) };
   const isNew = !e.enroll_id;
   const pe = X.can('people_edit');
-  const opts = (kinds) => X.st.people.filter((p) => !kinds || kinds.includes(p.kind)).sort((a, b) => X.nameOf(a).localeCompare(X.nameOf(b), 'he'))
+  const opts = (kinds) => X.st.people.filter((p) => !kinds || (p.kinds || [p.kind]).some((k) => kinds.includes(k))).sort((a, b) => X.nameOf(a).localeCompare(X.nameOf(b), 'he'))
     .map((p) => `<option value="${h(`${X.nameOf(p)} (#${p.contact_id})`)}">`).join('');
   const label = (id) => (id && X.pById(id) ? `${X.nameOf(X.pById(id))} (#${id})` : '');
   const zs = zmanim();

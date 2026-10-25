@@ -1,12 +1,12 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=328';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=328';
-import { initGifts, renderGifts } from './gifts.js?v=328';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=328';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=328';
-import { initTeam, renderTeam } from './team.js?v=328';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=328';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=329';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=329';
+import { initGifts, renderGifts } from './gifts.js?v=329';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=329';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=329';
+import { initTeam, renderTeam } from './team.js?v=329';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=329';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -47,6 +47,8 @@ const msg = (err) => ERR[err?.code] || ERR[err?.message] || String(err?.message 
 
 const KINDS = [['student', 'תלמיד'], ['parent', 'הורה'], ['staff', 'צוות'], ['avreich', 'אברך'], ['donor', 'תורם'], ['other', 'אחר']];
 const kindName = (k) => (KINDS.find(([x]) => x === k) || ['', k || ''])[1];
+const hasKind = (p, k) => (p?.kinds || [p?.kind]).includes(k);
+const kindBadges = (p) => (p.kinds || [p.kind]).map((k) => `<span class="ms-kind k-${h(k)}">${h(kindName(k))}</span>`).join(' ');
 // הכפתורים בדף הפתיחה — כל כפתור הוא גם הרשאה
 const TILES = [
   { k: 'students', ic: '🎓', t: 'תלמידי הישיבה', sub: 'כולל טלפון בארץ' },
@@ -111,6 +113,8 @@ async function enter(prompt) {
 async function loadPeople() {
   const r = await call(KEY, 'people');
   st.people = r.people || []; st.relations = r.relations || []; st.enrollments = r.enrollments || [];
+  // כמה סוגים פאר א מענטש ("parent,avreich")
+  st.people.forEach((p) => { p.kinds = S(p.kind).split(',').map(S).filter(Boolean); if (!p.kinds.length) p.kinds = ['other']; p.kind = p.kinds[0]; });
 }
 const pById = (id) => st.people.find((p) => String(p.contact_id) === String(id));
 const nameOf = (p) => [p.title_he, p.first_name_he, p.last_name_he].map(S).filter(Boolean).join(' ') || [p.first_name_en, p.last_name_en].map(S).filter(Boolean).join(' ') || `#${p.contact_id}`;
@@ -214,10 +218,10 @@ function logoDialog() {
 
 function renderPeople() {
   const box = $('#ms-main');
-  const counts = Object.fromEntries(KINDS.map(([k]) => [k, st.people.filter((p) => p.kind === k).length]));
+  const counts = Object.fromEntries(KINDS.map(([k]) => [k, st.people.filter((p) => hasKind(p, k)).length]));
   const words = norm(st.q).split(/\s+/).filter(Boolean);
   const staffView = st.tab === 'staff_list';
-  const list = st.people.filter((p) => (staffView ? ['staff', 'avreich'].includes(p.kind) && (st.kind === 'staffav' || p.kind === st.kind) : st.kind === 'all' || p.kind === st.kind)
+  const list = st.people.filter((p) => (staffView ? (hasKind(p, 'staff') || hasKind(p, 'avreich')) && (st.kind === 'staffav' || hasKind(p, st.kind)) : st.kind === 'all' || hasKind(p, st.kind))
     && (!words.length || words.every((w) => norm([p.first_name_he, p.last_name_he, p.first_name_en, p.last_name_en, p.city, phoneOf(p), fatherOf(p) ? nameOf(fatherOf(p)) : ''].join(' ')).includes(w))))
     .sort((a, b) => S(a.last_name_he || a.last_name_en).localeCompare(S(b.last_name_he || b.last_name_en), 'he') || S(a.first_name_he).localeCompare(S(b.first_name_he), 'he'));
   const segs = staffView ? [['staffav', `הכל (${counts.staff + counts.avreich})`], ['staff', `צוות (${counts.staff})`], ['avreich', `אברכים (${counts.avreich})`]]
@@ -235,7 +239,7 @@ function renderPeople() {
     <div class="ms-list">${list.length ? `<table class="ms-table"><thead><tr><th>שם</th><th>סוג</th><th>אב</th><th>טלפון</th><th>עיר</th><th>סטטוס</th></tr></thead><tbody>
       ${list.map((p) => { const f = fatherOf(p); const e = enrollOf(p); return `<tr data-id="${h(p.contact_id)}">
         <td><b>${h(nameOf(p))}</b>${S(p.first_name_en) || S(p.last_name_en) ? `<div class="muted small" dir="ltr">${h([p.first_name_en, p.last_name_en].map(S).filter(Boolean).join(' '))}</div>` : ''}</td>
-        <td><span class="ms-kind k-${h(p.kind)}">${h(kindName(p.kind))}</span></td>
+        <td>${kindBadges(p)}</td>
         <td>${f ? h(nameOf(f)) : ''}</td><td dir="ltr">${h(phoneOf(p))}</td><td>${h(p.city)}</td>
         <td>${e ? `${h(e.status)}${e.shiur ? ` · ${h(e.shiur)}` : ''}` : ''}</td></tr>`; }).join('')}</tbody></table>`
     : `<p class="muted ms-empty">${st.people.length ? 'אין תוצאות.' : 'אין עדיין אנשים במוסד.'}</p>`}</div>`;
@@ -264,7 +268,7 @@ function personDialog(p) {
   // raw = צו וויסן צי עס איז דא עפעס (html קען זיין נישט ליידיג אפילו ווען דער ווערט איז ליידיג)
   const row = (k, html, raw = html) => (S(String(raw).replace(/<[^>]*>/g, '')) ? `<div class="kv"><span>${h(k)}</span><span>${html}</span></div>` : '');
   const addr = [p.address, [p.city, p.state, p.zip].map(S).filter(Boolean).join(', '), S(p.country) && S(p.country) !== 'USA' ? p.country : ''].map(S).filter(Boolean).map(h).join('<br>');
-  const d = dialog(`<h2>${h(nameOf(p))} <span class="ms-kind k-${h(p.kind)}">${h(kindName(p.kind))}</span></h2>
+  const d = dialog(`<h2>${h(nameOf(p))} ${kindBadges(p)}</h2>
     <section>
       ${row('באנגלית', `<span dir="ltr">${h([p.title_en, p.first_name_en, p.last_name_en].map(S).filter(Boolean).join(' '))}</span>`)}
       ${row('מצב משפחתי', h(p.marital_status))}
@@ -281,6 +285,7 @@ function personDialog(p) {
     <div class="actions">
       ${can('people_edit') ? '<button type="button" class="btn danger" id="ms-rm">🗑 הוצא מהמוסד</button>' : ''}
       <button type="button" class="btn" id="ms-hx">📜 היסטוריה</button>
+      ${can('people_edit') ? '<button type="button" class="btn" id="ms-kinds">🏷 סוגים</button>' : ''}
       <span class="spacer"></span>
       ${can('people_edit') ? '<button type="button" class="btn primary" id="ms-edit">✏️ עריכה</button>' : ''}
       <button type="button" class="btn" data-x>סגירה</button>
@@ -289,6 +294,16 @@ function personDialog(p) {
   $$('[data-open]', d).forEach((a) => { a.onclick = (ev) => { ev.preventDefault(); d.close(); personDialog(pById(a.dataset.open)); }; });
   $('#ms-edit', d)?.addEventListener('click', () => { d.close(); editDialog(p); });
   $('#ms-hx', d).onclick = () => historyDialog({ contact_id: p.contact_id }, nameOf(p));
+  $('#ms-kinds', d)?.addEventListener('click', () => {
+    const k2 = dialog(`<h2>🏷 ${h(nameOf(p))}</h2><p class="muted small">אפשר כמה ביחד — למשל הורה וגם אברך.</p>
+      <div class="ms-perms">${KINDS.map(([k, l]) => `<label class="check"><input type="checkbox" value="${k}"${hasKind(p, k) ? ' checked' : ''}> ${h(l)}</label>`).join('')}</div>
+      <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>ביטול</button><button type="button" class="btn primary" id="ms-k-save">💾 שמירה</button></div>`);
+    $('#ms-k-save', k2).onclick = async () => {
+      const kinds = $$('input:checked', k2).map((x) => x.value);
+      if (!kinds.length) { toast('צריך לפחות סוג אחד.', 'err'); return; }
+      try { await call(KEY, 'link', { contact_id: p.contact_id, kinds }); k2.close(); d.close(); await loadPeople(); render(); toast('נשמר.'); personDialog(pById(p.contact_id)); } catch (err) { toast(msg(err), 'err'); }
+    };
+  });
   $('#ms-rm', d)?.addEventListener('click', async () => {
     const why = window.prompt(`להוציא את ${nameOf(p)} מהמוסד?\n\nהוא ייצא מיד מהרשימה כאן, ותישלח בקשה למנהל המאגר הכללי למחוק אותו גם משם (המנהל יאשר או ידחה).\n\nסיבה (לא חובה):`, '');
     if (why === null) return;
@@ -317,10 +332,10 @@ function addDialog(kind0 = '') {
       const r = await call(KEY, 'find', { q, phone: $('#ms-fph', d).value });
       if (my !== seq) return;
       const inMosad = (id) => pById(id);
-      out.innerHTML = r.found.length ? `<div class="ms-found">${r.found.map((x) => { const p = inMosad(x.contact_id); return `<div class="ms-fr"><span><b>${h(x.name)}</b> <span class="muted small" dir="ltr">${h(x.en)}</span> ${x.city ? `· ${h(x.city)}` : ''} <span class="muted small">#${h(x.contact_id)}</span>${p ? ` <span class="ms-kind k-${h(p.kind)}">${h(kindName(p.kind))} במוסד</span>` : ''}</span>
+      out.innerHTML = r.found.length ? `<div class="ms-found">${r.found.map((x) => { const p = inMosad(x.contact_id); return `<div class="ms-fr"><span><b>${h(x.name)}</b> <span class="muted small" dir="ltr">${h(x.en)}</span> ${x.city ? `· ${h(x.city)}` : ''} <span class="muted small">#${h(x.contact_id)}</span>${p ? ` ${kindBadges(p)} <span class="muted small">במוסד</span>` : ''}</span>
           ${!p ? `<button type="button" class="btn small-btn primary" data-link="${h(x.contact_id)}">זה הוא — הוסף כ${h(kindName(kind()))}</button>`
-            : p.kind !== kind() ? `<button type="button" class="btn small-btn primary" data-link="${h(x.contact_id)}">שנה ל${h(kindName(kind()))}</button>`
-            : `<button type="button" class="btn small-btn" data-open="${h(x.contact_id)}">✓ כבר ${h(kindName(p.kind))} — פתח</button>`}</div>`; }).join('')}</div>`
+            : !hasKind(p, kind()) ? `<button type="button" class="btn small-btn primary" data-link="${h(x.contact_id)}">הוסף גם כ${h(kindName(kind()))}</button>`
+            : `<button type="button" class="btn small-btn" data-open="${h(x.contact_id)}">✓ כבר ${h(kindName(kind()))} — פתח</button>`}</div>`; }).join('')}</div>`
         : '<p class="muted">לא נמצא במאגר. אפשר להוסיף איש חדש.</p>';
       $$('[data-link]', out).forEach((b) => {
         b.onclick = async () => {
@@ -350,7 +365,7 @@ function addDialog(kind0 = '') {
 function editDialog(p, pre = {}) {
   const v0 = p || pre;
   const v = (k) => h(v0[k] ?? '');
-  const parents = st.people.filter((x) => x.kind === 'parent' || childrenOf(x).length);
+  const parents = st.people.filter((x) => hasKind(x, 'parent') || childrenOf(x).length);
   const f = p ? fatherOf(p) : null;
   const d = dialog(`<h2>${p ? `✏️ ${h(nameOf(p))}` : '➕ איש חדש'}</h2>
     <form autocomplete="off" class="ms-form">

@@ -1,10 +1,10 @@
 // אתר פון א מוסד — יומנים: 🤝 חברותות, ✅ השתתפות (מיט ⏱ כניסה/יציאה פון אברכים), 🏥 ביטוח בריאות, 📞 יומן מיט טעלעפאנען.
 // אלעס ווערט געדרוקט ווי די דפים פון דער ישיבה: צוויי זיילן מיט נומערירטע נעמען, "פרשת ...", טעג א–ה.
 // דער לוח (פרשיות) — לויט די הגדרות פונעם מוסד (ארץ ישראל / חוץ לארץ).
-import { downloadXlsx } from '../excel.js?v=328';
-import { todayIso, isoToHebrewText, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=328';
-import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=328';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=328';
+import { downloadXlsx } from '../excel.js?v=329';
+import { todayIso, isoToHebrewText, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=329';
+import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=329';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=329';
 
 let X = null;
 export function initJournal(ctx) { X = ctx; }
@@ -28,7 +28,7 @@ const full = (id) => { const p = X.pById(id); return p ? X.nameOf(p) : ''; };
 
 async function needSchool() { if (!schoolLoaded()) await loadSchool(); }
 function students(day) { return activeStudents(day).map((e) => e.contact_id).filter((id) => X.pById(id)); }
-const avreichim = () => X.st.people.filter((p) => p.kind === 'avreich').sort((a, b) => X.S(a.last_name_he).localeCompare(X.S(b.last_name_he), 'he'));
+const avreichim = () => X.st.people.filter((p) => (p.kinds || [p.kind]).includes('avreich')).sort((a, b) => X.S(a.last_name_he).localeCompare(X.S(b.last_name_he), 'he'));
 
 /** א בלאט צום דרוקן (A4), מיטן לאגא און א קעפל */
 export function printWin(title, sub, body, { landscape = false } = {}) {
@@ -89,7 +89,7 @@ export async function renderChav(box) {
   const partnerTxt = (r) => (r ? (r.partner_id ? full(r.partner_id) || `#${r.partner_id}` : r.partner_text) : '');
   const label = (id) => (X.pById(id) ? `${X.nameOf(X.pById(id))} (#${id})` : '');
   const zs = [...new Set([...zmanim().slice(0, 6).map((z) => z.label), ...(J.chav.zmanim || []), J.zman].filter(Boolean))];
-  const others = X.st.people.filter((p) => ['student', 'avreich', 'staff', 'other'].includes(p.kind)).sort((a, b) => X.nameOf(a).localeCompare(X.nameOf(b), 'he'));
+  const others = X.st.people.filter((p) => (p.kinds || [p.kind]).some((k) => ['student', 'avreich', 'staff', 'other'].includes(k))).sort((a, b) => X.nameOf(a).localeCompare(X.nameOf(b), 'he'));
   box.innerHTML = `<h2 class="ms-h">🤝 חברותות</h2>
     <div class="ms-bar">
       <label>זמן <select id="jc-zman">${zs.map((z) => `<option${z === J.zman ? ' selected' : ''}>${h(z)}</option>`).join('')}</select></label>

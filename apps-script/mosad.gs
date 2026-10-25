@@ -382,9 +382,18 @@ const ACTIONS = {
     try {
       const sh = M.book.getSheetByName('People');
       const ex = objs(sh).filter(function (p) { return S(p.contact_id) === id; })[0];
-      if (ex) setCells(sh, ex._row, { status: 'active', kind: S(req.kind) || ex.kind, removed_by: '', removed_at: '' });
-      else appendObj(sh, { contact_id: Number(id) || id, kind: S(req.kind) || 'student', status: 'active', added_by: me.email, added_at: now() });
-      logIt(M, me, 'link', id, S(req.kind));
+      // א מענטש קען האבן כמה סוגים (למשל הורה + אברך): "parent,avreich"
+      const KS = ['student', 'parent', 'staff', 'avreich', 'donor', 'other'];
+      let kinds;
+      if (req.kinds) kinds = [].concat(req.kinds).map(S).filter(function (k) { return KS.indexOf(k) >= 0; });
+      else {
+        kinds = S(ex && S(ex.status) !== 'removed' ? ex.kind : '').split(',').map(S).filter(Boolean);
+        if (S(req.kind) && kinds.indexOf(S(req.kind)) < 0) kinds.push(S(req.kind));
+      }
+      if (!kinds.length) kinds = [S(req.kind) || 'other'];
+      if (ex) setCells(sh, ex._row, { status: 'active', kind: kinds.join(','), removed_by: '', removed_at: '' });
+      else appendObj(sh, { contact_id: Number(id) || id, kind: kinds.join(','), status: 'active', added_by: me.email, added_at: now() });
+      logIt(M, me, 'link', id, kinds.join(','));
     } finally { lock.releaseLock(); }
     return { ok: true, contact_id: id };
   },
@@ -563,7 +572,8 @@ const ACTIONS = {
         const ps = M.book.getSheetByName('People');
         const pr = objs(ps).filter(function (x) { return S(x.contact_id) === cid; })[0];
         if (!pr) appendObj(ps, { contact_id: Number(cid), kind: 'donor', status: 'active', added_by: me.email, added_at: now() });
-        else if (S(pr.status) === 'removed') setCells(ps, pr._row, { status: 'active' });
+        else if (S(pr.status) === 'removed') setCells(ps, pr._row, { status: 'active', kind: 'donor' });
+        else if (S(pr.kind).split(',').map(S).indexOf('donor') < 0) setCells(ps, pr._row, { kind: S(pr.kind) + ',donor' });
         const o = { contact_id: Number(cid), donor_name: '', date: date, amount_usd: usd, is_paid: true, paid_date: date, payment_method: S(g.payment_method),
           check_number: S(g.check_number), card_last4: last4, dedication_type: S(g.dedication_type), dedication_text: S(g.dedication_text), event_note: S(g.note),
           il_receipt_no: S(g.il_receipt_no), org: M.org, updated_at: now(), updated_by: by };

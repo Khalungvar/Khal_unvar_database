@@ -1,9 +1,9 @@
 // אתר פון א מוסד — 👔 אנשי צוות ואברכים: צוויי באזונדערע רשימות אין איין כפתור.
 // אנשי צוות: תפקיד, טלפון, מייל (לאגאין), פון ווען, פעיל/לשעבר, סארט שכר (אן סכומים); 💰 → משכורות (נאר מיט הרשאה).
 // אברכים: וועמען זיי לערנען מיט (פון די חברותות), און שעות (כניסה/יציאה).
-import { downloadXlsx } from '../excel.js?v=328';
-import { currentZman } from './school.js?v=328';
-import { historyDialog } from './me.js?v=328';
+import { downloadXlsx } from '../excel.js?v=329';
+import { currentZman } from './school.js?v=329';
+import { historyDialog } from './me.js?v=329';
 
 let X = null;
 export function initTeam(ctx) { X = ctx; }
@@ -32,7 +32,7 @@ export async function renderTeam(box) {
 function staffList(body, box) {
   const { h } = X;
   const tOf = (id) => T.team.find((t) => String(t.contact_id) === String(id)) || {};
-  const people = X.st.people.filter((p) => p.kind === 'staff');
+  const people = X.st.people.filter((p) => (p.kinds || [p.kind]).includes('staff'));
   const isActive = (p) => tOf(p.contact_id).active !== 'FALSE';
   const list = people.filter((p) => (T.past ? !isActive(p) : isActive(p))).sort((a, b) => X.nameOf(a).localeCompare(X.nameOf(b), 'he'));
   const fin = X.can('finance');
@@ -90,7 +90,7 @@ function teamDialog(id, t, box) {
 
 async function avList(body) {
   const { h } = X;
-  const av = X.st.people.filter((p) => p.kind === 'avreich').sort((a, b) => X.nameOf(a).localeCompare(X.nameOf(b), 'he'));
+  const av = X.st.people.filter((p) => (p.kinds || [p.kind]).includes('avreich')).sort((a, b) => X.nameOf(a).localeCompare(X.nameOf(b), 'he'));
   const zman = currentZman();
   if (!T.chav || T.chav.zman !== zman) {
     body.innerHTML = '<p class="muted">טוען…</p>';
