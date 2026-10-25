@@ -1,9 +1,9 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=321';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=321';
-import { initGifts, renderGifts } from './gifts.js?v=321';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings } from './journal.js?v=321';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=322';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=322';
+import { initGifts, renderGifts } from './gifts.js?v=322';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings } from './journal.js?v=322';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -150,7 +150,7 @@ function render() {
 function renderHome(box) {
   const tiles = TILES.filter((x) => can(x.k));
   box.innerHTML = `<div class="ms-tiles">${tiles.map((x, i) => `<button type="button" class="ms-tile${x.soon ? ' soon' : ''}" data-go="${x.k}">
-      <span class="ms-tn">${TILES.indexOf(x) + 1}</span><span class="ms-ti">${x.ic}</span><b>${h(x.t)}</b>${x.sub ? `<span class="muted small">${h(x.sub)}</span>` : ''}${x.soon ? '<span class="ms-soon">בקרוב</span>' : ''}</button>`).join('')}</div>
+      <span class="ms-ti">${x.ic}</span><b>${h(x.t)}</b>${x.sub ? `<span class="muted small">${h(x.sub)}</span>` : ''}${x.soon ? '<span class="ms-soon">בקרוב</span>' : ''}</button>`).join('')}</div>
     ${tiles.length ? '' : '<p class="ms-note">עדיין לא קיבלת הרשאה לאף כפתור. בקש מהמנהל.</p>'}
     <div class="ms-more">
       ${can('people_edit') ? '<button type="button" class="btn" data-go="people">👥 כל האנשים (הוספה ועדכון)</button>' : ''}
