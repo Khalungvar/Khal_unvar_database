@@ -80,11 +80,15 @@ function objs(sheet) {
     return o;
   });
 }
+function headOf(sh) {
+  const n = sh.getLastColumn();
+  return n ? sh.getRange(1, 1, 1, n).getValues()[0].map(function (x) { return String(x).trim(); }) : [];
+}
 function ensureTab(ss, name, head) {
   let sh = ss.getSheetByName(name);
   if (!sh) { sh = ss.insertSheet(name); sh.getRange(1, 1, 1, head.length).setValues([head]); return sh; }
-  // א פעלנדע קאלאנע → צולייגן אין סוף
-  const cur = rows(sh).head;
+  // א פעלנדע קאלאנע → צולייגן אין סוף (נאר די ערשטע שורה ווערט געלייענט)
+  const cur = headOf(sh);
   const add = head.filter(function (h) { return cur.indexOf(h) < 0; });
   if (add.length) sh.getRange(1, cur.length + 1, 1, add.length).setValues([add]);
   return sh;
@@ -122,14 +126,19 @@ function mosadOf(key) {
     Object.keys(TABS).forEach(function (t) { ensureTab(book, t, TABS[t]); });
     const first = book.getSheets()[0];
     if (first && Object.keys(TABS).indexOf(first.getName()) < 0 && book.getSheets().length > 1) book.deleteSheet(first);
-    seedPeople(book, S(m.org));
   }
   Object.keys(TABS).forEach(function (t) { ensureTab(book, t, TABS[t]); });
+  // נאך קיינער נישט אין People → די תלמידים / עלטערן פון Enrollments (אויך ווען דאס ערשטע מאל איז איבערגעריסן געווארן)
+  if (book.getSheetByName('People').getLastRow() < 2) seedPeople(book, S(m.org));
   const owners = S(m.owner_email).toLowerCase().split(/[,\s]+/).filter(Boolean)
     .concat(settingsEmails(['owner_email']));
   return { key: k, name: S(m.name), org: S(m.org), book: book, owners: owners };
 }
 function settingsEmails(cols) {
+  const cache = CacheService.getScriptCache();
+  const ck = 'set:' + cols.join(',');
+  const hit = cache.get(ck);
+  if (hit !== null) return hit ? hit.split(',') : [];
   const r = rows(main().getSheetByName('Settings'));
   const out2 = [];
   cols.forEach(function (c) {
@@ -137,6 +146,7 @@ function settingsEmails(cols) {
     if (j < 0) return;
     r.body.forEach(function (row) { const v = S(row[j]).toLowerCase(); if (v) out2.push(v); });
   });
+  cache.put(ck, out2.join(','), 300);
   return out2;
 }
 /** ביים מאכן דעם גיליון: די תלמידים (און זייערע עלטערן) פון Enrollments אינעם הויפט-גיליון */
@@ -144,16 +154,28 @@ function seedPeople(book, org) {
   if (!org) return;
   const en = objs(main().getSheetByName('Enrollments')).filter(function (e) { return S(e.org) === org; });
   const sh = book.getSheetByName('People');
+  const head = headOf(sh);
   const seen = {};
+  objs(sh).forEach(function (p) { seen[S(p.contact_id)] = true; });
   const at = now();
+  const out3 = [];
   en.forEach(function (e) {
     [[e.contact_id, 'student'], [e.parent_id, 'parent']].forEach(function (p) {
       const id = S(p[0]);
       if (!id || seen[id]) return;
       seen[id] = true;
-      appendObj(sh, { contact_id: Number(id) || id, kind: p[1], status: 'active', added_by: 'system', added_at: at });
+      const o = { contact_id: Number(id) || id, kind: p[1], status: 'active', added_by: 'system', added_at: at };
+      out3.push(head.map(function (h) { return o[h] === undefined ? '' : o[h]; }));
     });
   });
+  // אלעס אויף איינמאל (גיך)
+  if (out3.length) sh.getRange(sh.getLastRow() + 1, 1, out3.length, head.length).setValues(out3);
+}
+/** פונעם עדיטאר: צולייגן תלמידים / עלטערן פון Enrollments וואס זענען נאך נישט אין People */
+function reseedYeshiva() {
+  const M = mosadOf('yeshiva');
+  seedPeople(M.book, M.org);
+  Logger.log('People rows: ' + (M.book.getSheetByName('People').getLastRow() - 1));
 }
 
 /** ווער ער איז אינעם מוסד: owner / admin / staff (מיט הרשאות) — אדער null */
@@ -401,5 +423,5 @@ const ACTIONS = {
 /** א פראבע פונעם עדיטאר: הפעלה ← testMosad (באשטעטיגט דעם צוטריט און מאכט דעם גיליון פון דער ישיבה) */
 function testMosad() {
   const M = mosadOf('yeshiva');
-  Logger.log(M ? ('OK: ' + M.name + ' · ' + M.book.getUrl() + ' · owners: ' + M.owners.join(', ')) : 'no row "yeshiva" in Mosdos');
+  Logger.log(M ? ('OK: ' + M.name + ' · ' + M.book.getUrl() + ' · owners: ' + M.owners.join(', ') + ' · people: ' + (M.book.getSheetByName('People').getLastRow() - 1)) : 'no row "yeshiva" in Mosdos');
 }
