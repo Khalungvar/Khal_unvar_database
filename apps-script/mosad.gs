@@ -55,6 +55,34 @@ function cell(v) {
   return v;
 }
 
+// גרויסע ווערטן אין cache (צעטיילט אויף שטיקלעך פון 90KB)
+function cachePut(key, obj, sec) {
+  try {
+    const t = JSON.stringify(obj);
+    const n = Math.ceil(t.length / 90000);
+    if (n > 20) return;
+    const m = { };
+    m[key] = String(n);
+    for (let i = 0; i < n; i++) m[key + ':' + i] = t.slice(i * 90000, (i + 1) * 90000);
+    CacheService.getScriptCache().putAll(m, sec);
+  } catch (err) { /* */ }
+}
+function cacheGet(key) {
+  try {
+    const c = CacheService.getScriptCache();
+    const n = Number(c.get(key));
+    if (!n) return null;
+    const keys = [];
+    for (let i = 0; i < n; i++) keys.push(key + ':' + i);
+    const parts = c.getAll(keys);
+    let t = '';
+    for (let i = 0; i < n; i++) { if (parts[keys[i]] == null) return null; t += parts[keys[i]]; }
+    return JSON.parse(t);
+  } catch (err) { return null; }
+}
+// אקציעס וואס לייענען נאר; יעדע אנדערע (א שרייבונג) מעקט אויס דעם cache פון די מענטשן
+const READS = { me: 1, people: 1, find: 1, school: 1, whereIs: 1, gifts: 1, chav: 1, att: 1, hours: 1, ins: 1, team: 1, clock: 0, users: 1, tasks: 1, log: 1, history: 1, fin: 1, fileGet: 1, backups: 1, staff: 1 };
+
 function doPost(e) {
   try {
     const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
@@ -68,7 +96,10 @@ function doPost(e) {
     CUR = { M: M, me: me };
     const fn = ACTIONS[req.action];
     if (!fn) return out({ error: 'bad-action' });
-    return out(fn(M, me, req));
+    if (req.fresh && req.action === 'people') CacheService.getScriptCache().remove('ppl:' + M.key);
+    const res = fn(M, me, req);
+    if (!READS[req.action]) CacheService.getScriptCache().remove('ppl:' + M.key);
+    return out(res);
   } catch (err) {
     return out({ error: String((err && err.message) || err) });
   }
@@ -197,9 +228,32 @@ function now() { return Utilities.formatDate(new Date(), 'America/New_York', 'yy
 const S = function (v) { return String(v === null || v === undefined ? '' : v).trim(); };
 
 // ---------- דער מוסד ----------
+// גיכקייט: דער מוסד (גיליון, נאמען, בעלים) ווערט געהאלטן אין cache 10 מינוט; די קאלאנעס פון די לשוניות
+// ווערן נאר דעמאלט געקאנטראלירט (און נאך יעדן נייעם TABS — דער סימן איז אינעם שליסל).
+function tabsSig() {
+  const t = JSON.stringify(TABS);
+  let x = 0;
+  for (let i = 0; i < t.length; i++) x = (x * 31 + t.charCodeAt(i)) | 0;
+  return String(x >>> 0);
+}
 function mosadOf(key) {
   const k = S(key);
   if (!k) return null;
+  const cache = CacheService.getScriptCache();
+  const ck = 'mosad:' + k + ':' + tabsSig();
+  const hit = cache.get(ck);
+  if (hit) {
+    try {
+      const c = JSON.parse(hit);
+      const bk = SpreadsheetApp.openById(c.sheet_id);
+      return { key: k, name: c.name, org: c.org, prefix: c.prefix, book: bk, owners: c.owners };
+    } catch (err) { /* ווייטער — פון אנהייב */ }
+  }
+  const M0 = mosadLoad(k);
+  if (M0) cache.put(ck, JSON.stringify({ sheet_id: M0.book.getId(), name: M0.name, org: M0.org, prefix: M0.prefix, owners: M0.owners }), 600);
+  return M0;
+}
+function mosadLoad(k) {
   const ss = main();
   const list = objs(ss.getSheetByName('Mosdos'));
   const m = list.filter(function (x) { return S(x.key) === k; })[0];
@@ -347,7 +401,14 @@ const ACTIONS = {
       team: team, openTasks: tasks.length, clock: team ? clockState(M, team) : null };
   },
 
-  people: function (M) { return linkedData(M); },
+  people: function (M) {
+    const ck = 'ppl:' + M.key;
+    const hit = cacheGet(ck);
+    if (hit) return hit;
+    const r = linkedData(M);
+    cachePut(ck, r, 120);
+    return r;
+  },
 
   /** א מענטש וואס איז שוין אינעם הויפט-מאגר? (כדי נישט צו מאכן טאפלט) — נאר נאמען + שטאט */
   find: function (M, me, req) {

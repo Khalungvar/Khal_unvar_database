@@ -1,11 +1,12 @@
 // אתר פון א מוסד — 💰 משכורות והוצאות (הרשאה "finance"):
 // 💵 משכורות (₪: גלובלי / שעות קבועות / רישום יומי / גלובלי + שעות, תוספות און ניכויים, תשלומים, וויפיל מ'איז נאך שולדיג),
 // 🧾 הוצאות (₪/$, קאטעגאריעס, צילום קבלה), 📥 הכנסות ותמיכה, ⚖️ חובות פתוחים, 📊 מאזן חודשי — יעדער מטבע באזונדער.
-import { downloadXlsx } from '../excel.js?v=329';
-import { todayIso, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=329';
-import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=329';
-import { historyDialog } from './me.js?v=329';
-import { PAY_TYPES, schedText } from './team.js?v=329';
+import { downloadXlsx } from '../excel.js?v=330';
+import { todayIso, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=330';
+import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=330';
+import { historyDialog } from './me.js?v=330';
+import { PAY_TYPES, schedText } from './team.js?v=330';
+import { usdRate } from '../fx.js?v=330';
 
 let X = null;
 export function initFinance(ctx) { X = ctx; }
@@ -19,8 +20,13 @@ const monthName = (mo) => { const x = toHebrew(`${mo}-15`); return x ? `${monthH
 const nameOf = (id, txt = '') => (id && X.pById(id) ? X.nameOf(X.pById(id)) : txt || (id ? `#${id}` : ''));
 
 async function load() {
-  F.d = await X.call(X.KEY, 'fin');
-  if (!schoolLoaded()) { try { await loadSchool(); } catch { /* */ } }
+  const [d] = await Promise.all([X.call(X.KEY, 'fin'), schoolLoaded() ? null : loadSchool().catch(() => null)]);
+  // נדבות אין דולר/אירו/ליש"ט → שקל, לויטן שער פונעם טאג פון דער נדבה
+  const days = [...new Set(d.gifts.filter((x) => x.currency !== 'ILS' && x.usd).map((x) => x.date))];
+  const rates = {};
+  await Promise.all(days.map(async (dt) => { const r = await usdRate('ILS', dt); if (r && r.rate) rates[dt] = 1 / r.rate; }));
+  d.gifts.forEach((x) => { x.ils = x.currency === 'ILS' ? x.orig : (rates[x.date] ? Math.round(x.usd * rates[x.date] * 100) / 100 : null); });
+  F.d = d;
 }
 
 // ---------- רעכענען משכורות ----------
@@ -291,9 +297,12 @@ function catsDialog(key, title, rer) {
 // ---------- 📥 הכנסות ותמיכה ----------
 function autoIncomes(mo) {
   const tu = F.d.tuition.filter((x) => x.date.slice(0, 7) === mo).reduce((s, x) => s + x.amount, 0);
-  const gIls = F.d.gifts.filter((x) => x.date.slice(0, 7) === mo && x.currency === 'ILS').reduce((s, x) => s + (x.orig || 0), 0);
-  const gUsd = F.d.gifts.filter((x) => x.date.slice(0, 7) === mo && x.currency !== 'ILS').reduce((s, x) => s + (x.usd || 0), 0);
-  return { tu, gIls, gUsd };
+  const g = F.d.gifts.filter((x) => x.date.slice(0, 7) === mo);
+  // אלץ אין ₪ (לויטן שער פונעם טאג); נאר אויב דער שער איז נישט געקומען — בלייבט עס אין $
+  const gIls = g.filter((x) => x.ils != null).reduce((s, x) => s + x.ils, 0);
+  const gUsd = g.filter((x) => x.ils == null).reduce((s, x) => s + (x.usd || 0), 0);
+  const gConv = g.filter((x) => x.currency !== 'ILS' && x.ils != null).reduce((s, x) => s + (x.usd || 0), 0);
+  return { tu, gIls, gUsd, gConv };
 }
 function incTab(body, rer) {
   const { h } = X;
@@ -302,7 +311,7 @@ function incTab(body, rer) {
   body.innerHTML = `${monthBar('<button type="button" class="btn primary" id="in-new">➕ הכנסה / תמיכה</button><button type="button" class="btn" id="in-cats">🏷 קטגוריות</button><button type="button" class="btn" id="in-xl">⬇ Excel</button>')}
     <h3>אוטומטי</h3><table class="ms-table"><tbody>
       <tr><td>💲 שכר לימוד</td><td class="num">${cur(a.tu, 'USD')}</td></tr>
-      <tr><td>💝 נדבות</td><td class="num">${cur(a.gIls)} · ${cur(a.gUsd, 'USD')}</td></tr></tbody></table>
+      <tr><td>💝 נדבות${a.gConv ? ` <span class="muted small">(כולל ${cur(a.gConv, 'USD')} שהומרו לפי שער יום הנדבה)</span>` : ''}</td><td class="num">${cur(a.gIls)}${a.gUsd ? ` · ${cur(a.gUsd, 'USD')} <span class="muted small">(אין שער)</span>` : ''}</td></tr></tbody></table>
     <h3>הכנסות ותמיכות</h3>
     ${list.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>תאריך</th><th>קטגוריה</th><th>ממי</th><th>סכום</th><th>הלוואה</th><th>הערה</th><th></th></tr></thead><tbody>
       ${list.map((x) => `<tr><td class="small">${h(x.date)}</td><td>${h(x.category)}</td><td>${h(nameOf(x.source_id, x.source))}</td><td class="num">${cur(x.amount, x.currency)}</td>

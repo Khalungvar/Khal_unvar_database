@@ -1,12 +1,12 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=329';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=329';
-import { initGifts, renderGifts } from './gifts.js?v=329';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=329';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=329';
-import { initTeam, renderTeam } from './team.js?v=329';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=329';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=330';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=330';
+import { initGifts, renderGifts } from './gifts.js?v=330';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=330';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=330';
+import { initTeam, renderTeam } from './team.js?v=330';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=330';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -100,8 +100,11 @@ async function enter(prompt) {
     rememberHint(st.me.email);
     if (st.mosad?.name) document.title = `${st.mosad.name} – ניהול`;
     if (st.mosad?.logo) st.logo = st.mosad.logo;
-    await loadPeople();
-    if (['students', 'alumni', 'parents', 'tuition'].some(can)) await loadSchool().catch(() => {});
+    await Promise.all([loadPeople(), ['students', 'alumni', 'parents', 'tuition'].some(can) ? loadSchool().catch(() => {}) : null]);
+    // נאך א רענון — צוריק צום זעלבן כפתור
+    const hv = decodeURIComponent(location.hash.slice(1));
+    if (hv) st.tab = hv;
+    history.replaceState({ tab: st.tab }, '', `#${st.tab}`);
     render();
   } catch (err) {
     if (err?.code === 'not-allowed' && err.email) loginView(`${err.email}: ${msg(err)}`, 'err');
@@ -132,10 +135,19 @@ const enrollOf = (p) => st.enrollments.filter((e) => e.contact_id === String(p.c
 const phoneOf = (p) => S(p.mobile) || S(p.home_phone);
 const norm = (v) => S(v).toLowerCase().replace(/["'״׳]/g, '');
 
-function render() {
+// דער „צוריק" פונעם בלעטערער: יעדער כפתור איז א שריט אין דער היסטאריע
+window.addEventListener('popstate', (e) => {
+  if (!st.me) return;
+  const dlg = document.querySelector('dialog[open]');
+  if (dlg) { dlg.close(); history.pushState({ tab: st.tab }, '', `#${st.tab}`); return; }
+  st.tab = e.state?.tab || decodeURIComponent(location.hash.slice(1)) || 'home';
+  render(true);
+});
+function render(fromPop) {
   const view = TILES.find((x) => x.k === st.tab);
   const ok = st.tab === 'home' || st.tab === 'me' || (st.tab === 'people' && can('people_edit')) || ((st.tab === 'staff' || st.tab === 'log') && isAdmin()) || (view && can(view.k));
   if (!ok) st.tab = 'home';
+  if (!fromPop && history.state?.tab !== st.tab) history.pushState({ tab: st.tab }, '', `#${st.tab}`);
   $('#ms-app').innerHTML = `<header class="ms-head">
       <button type="button" class="ms-brand linkish" id="ms-home" title="דף הבית"><img src="${h(logoSrc())}" alt=""><b>${h(st.mosad?.name || TITLE)}</b></button>
       <span class="spacer"></span>
