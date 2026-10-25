@@ -11,6 +11,7 @@ import {
   campaignOrg, effectiveOrg, donationInScope, defaultOrg, umbrellaName, entityOrgs, isEntityOrg,
 } from './scope.js';
 import { downloadXlsx } from './excel.js';
+import { CURRENCIES, isForeign, amountLabel, usdRate, toUsd } from './fx.js';
 import { submitRequest } from './requests.js';
 import { bookPickerHtml, wireBookPicker, readBookPicker, booksOf, BOOKS_ORG } from './books.js';
 
@@ -144,7 +145,7 @@ export function donationRow(d, withName = true) {
       <span class="muted small">${h(d.hebrew_date || isoToHebrewText(d.date))}${d.date ? ` · <span dir="ltr">${h(d.date)}</span>` : ''}</span>
     </span>
     <span class="row-tags">${effectiveOrg(d) ? `<span class="badge org">${h(effectiveOrg(d))}</span> ` : ''}${tags}${d.event_year ? ` <span class="muted small">${h(d.event_year)}</span>` : ''}</span>
-    <span class="don-amount">${money(d.amount_usd)}
+    <span class="don-amount">${h(amountLabel(d))}
       <span class="badge ${paid ? 'paid' : 'unpaid'}">${paid ? t('paid') : t('unpaid')}</span></span>
   </button>`;
 }
@@ -265,10 +266,14 @@ export function openDonationForm(donation = {}, presetContactId = null) {
         .map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>
 
       <div class="amount-line">
-        <label class="amount-box">${t('amount')}
-          <span class="amount-wrap"><span>$</span><input name="amount_usd" type="number" min="0" step="0.01" dir="ltr" inputmode="decimal" value="${h(d.amount_usd ?? '')}"></span>
+        <label class="amount-box">${t('amount').replace(/\s*\(\$\)/, '')}
+          <span class="amount-wrap"><select name="currency" class="cur-sel" title="מטבע">${CURRENCIES.map((c) => `<option value="${c.code}"${(isForeign(d) ? d.currency : 'USD') === c.code ? ' selected' : ''}>${c.sym}</option>`).join('')}</select><input name="amount_usd" type="number" min="0" step="0.01" dir="ltr" inputmode="decimal" value="${h(isForeign(d) ? d.amount_orig : d.amount_usd ?? '')}"></span>
         </label>
         <label class="check paid-toggle"><input type="checkbox" name="is_paid" ${isTrue(d.is_paid) ? 'checked' : ''}> ${t('paid')}</label>
+      </div>
+      <div class="fx-line"${isForeign(d) ? '' : ' hidden'}>
+        <label>≈ $<input name="usd_value" type="number" min="0" step="0.01" dir="ltr" value="${isForeign(d) ? h(d.amount_usd) : ''}"></label>
+        <span class="hint-line fx-note">${isForeign(d) && Number(d.fx_rate) ? `שער ${h(Number(d.fx_rate).toFixed(4))}` : ''}</span>
       </div>
 
       <div class="don-kind-line">
@@ -445,6 +450,27 @@ function wireDonationForm(form, original) {
       form.dataset.dirty = '1';
     };
   });
+  // מטבע: ניט קיין דולער → דער שווי אין דולער לויטן שער פונעם טאג (מ'קען טוישן)
+  const fxLine = $('.fx-line', form);
+  let fxSeq = 0;
+  const updFx = async () => {
+    const cur = f('currency').value;
+    fxLine.hidden = cur === 'USD';
+    if (cur === 'USD' || f('usd_value').dataset.manual) return;
+    const amt = Number(f('amount_usd').value);
+    const day = f('date').value || todayIso();
+    const seq = ++fxSeq;
+    $('.fx-note', form).textContent = 'מחפש שער…';
+    const r = await usdRate(cur, day);
+    if (seq !== fxSeq) return;
+    if (!r) { $('.fx-note', form).textContent = 'לא נמצא שער — כתוב את השווי בדולר'; return; }
+    f('usd_value').value = amt ? toUsd(amt, r.rate) : '';
+    $('.fx-note', form).textContent = `שער ${r.rate.toFixed(4)} ליום ${r.date}`;
+  };
+  f('currency').addEventListener('change', () => { delete f('usd_value').dataset.manual; updFx(); });
+  f('amount_usd').addEventListener('input', () => { if (f('currency').value !== 'USD') updFx(); });
+  f('date').addEventListener('change', () => { if (f('currency').value !== 'USD') { delete f('usd_value').dataset.manual; updFx(); } });
+  f('usd_value').addEventListener('input', () => { f('usd_value').dataset.manual = '1'; });
   // מכירה פון ספרים: דער סכום, "וואס" און דער ארגון — פון די ספרים
   let bookLines = readBookPicker(form);
   wireBookPicker(form, (lines, total, desc) => {
@@ -559,6 +585,17 @@ function wireDonationForm(form, original) {
       goods_value: f('kind').value === 'sale' || f('goods_value').value === '' ? '' : Number(f('goods_value').value),
       books: f('kind').value === 'sale' && bookLines.length ? JSON.stringify(bookLines) : '',
     };
+    // אן אנדער מטבע: amount_usd = דער שווי אין דולער; דער סכום און דער שער — באזונדער
+    const cur = f('currency').value;
+    if (cur !== 'USD' && Number(amount) > 0) {
+      let usd = Number(f('usd_value').value);
+      if (!(usd > 0)) {
+        const r = await usdRate(cur, f('date').value || todayIso());
+        usd = r ? toUsd(amount, r.rate) : 0;
+      }
+      if (!(usd > 0)) { ui.toast('לא נמצא שער — כתוב את השווי בדולר', 'error'); f('usd_value').focus(); return; }
+      Object.assign(donation, { amount_usd: usd, currency: cur, amount_orig: Number(amount), fx_rate: Math.round((usd / Number(amount)) * 1e6) / 1e6 });
+    } else Object.assign(donation, { currency: '', amount_orig: '', fx_rate: '' });
     const btn = $('#don-save', form);
     btn.disabled = true;
     btn.textContent = t('saving');

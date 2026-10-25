@@ -26,6 +26,7 @@ const TABS = {
   Log: ['at', 'by', 'action', 'contact_id', 'detail'],
   Enrollments: ['enroll_id', 'contact_id', 'parent_id', 'status', 'start_date', 'end_date', 'zman', 'shiur', 'room', 'tuition_amount', 'tuition_period', 'month_amounts', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
   Tuition: ['payment_id', 'enroll_id', 'contact_id', 'payer_id', 'date', 'amount', 'method', 'check_number', 'card_last4', 'for_text', 'receipt_no', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
+  Gifts: ['gift_id', 'donor_name', 'date', 'currency', 'amount_orig', 'fx_rate', 'amount_usd', 'payment_method', 'check_number', 'card_last4', 'dedication_type', 'dedication_text', 'note', 'il_receipt_no', 'created_at', 'created_by', 'updated_at', 'updated_by'],
   Receipts: ['receipt_no', 'payment_id', 'contact_id', 'payer_id', 'amount', 'issued_at', 'issued_by', 'void', 'void_by', 'void_at', 'note'],
 };
 // א דאטום פון גיליון (Date) → 'yyyy-MM-dd' (מיט צייט ווען ס'איז דא)
@@ -418,6 +419,160 @@ const ACTIONS = {
     return { ok: true };
   },
 
+  // ---------- נדבות פאר דעם מוסד ----------
+  // מיט אן איש קשר → אינעם הויפט-גיליון (Donations, org = דער מוסד) — עס ווייזט זיך אויך אינעם הויפט-אתר;
+  // אן איש קשר → נאר אינעם גיליון פונעם מוסד (Gifts).
+  gifts: function (M, me) {
+    need(me, 'donations');
+    const ss = main();
+    const rc = {};
+    objs(ss.getSheetByName('Receipts')).forEach(function (r) {
+      if (isVoid(r) || S(r.kind) !== 'receipt') return;
+      S(r.donation_ids).split(',').map(S).forEach(function (x) { if (x) rc[x] = S(r.receipt_no); });
+    });
+    const F = ['date', 'currency', 'amount_orig', 'fx_rate', 'amount_usd', 'payment_method', 'check_number', 'card_last4', 'dedication_type', 'dedication_text', 'il_receipt_no'];
+    const list = [];
+    const cids = {};
+    objs(ss.getSheetByName('Donations')).forEach(function (d) {
+      if (S(d.org) !== M.org || !S(d.donation_id)) return;
+      const o = { src: 'm', id: S(d.donation_id), contact_id: S(d.contact_id), donor_name: S(d.donor_name), note: S(d.event_note), is_paid: S(d.is_paid), receipt_no: rc[S(d.donation_id)] || '', by: S(d.created_by) };
+      F.forEach(function (k) { o[k] = S(d[k]); });
+      if (o.contact_id) cids[o.contact_id] = true;
+      list.push(o);
+    });
+    objs(M.book.getSheetByName('Gifts')).forEach(function (g) {
+      if (!S(g.gift_id)) return;
+      const o = { src: 'l', id: S(g.gift_id), contact_id: '', donor_name: S(g.donor_name), note: S(g.note), is_paid: 'TRUE', receipt_no: '', by: S(g.created_by) };
+      F.forEach(function (k) { o[k] = S(g[k]); });
+      list.push(o);
+    });
+    const names = {};
+    objs(ss.getSheetByName('Contacts')).forEach(function (c) {
+      if (!cids[S(c.contact_id)]) return;
+      names[S(c.contact_id)] = { he: [S(c.title_he), S(c.first_name_he), S(c.last_name_he)].filter(Boolean).join(' '), en: [S(c.first_name_en), S(c.last_name_en)].filter(Boolean).join(' '), city: S(c.city) };
+    });
+    return { gifts: list, names: names, methods: listValues('payment_method'), dedications: listValues('dedication_type') };
+  },
+
+  giftSave: function (M, me, req) {
+    need(me, 'donations');
+    const g = req.gift || {};
+    const cid = S(g.contact_id);
+    const cur = ['USD', 'ILS', 'EUR', 'GBP'].indexOf(S(g.currency)) >= 0 ? S(g.currency) : 'USD';
+    const orig = Math.round(Number(g.amount_orig || g.amount_usd) * 100) / 100;
+    const usd = cur === 'USD' ? orig : Math.round(Number(g.amount_usd) * 100) / 100;
+    if (!(orig > 0) || !(usd > 0)) throw new Error('bad-amount');
+    const last4 = S(g.card_last4).replace(/\D/g, '');
+    if (last4 && last4.length !== 4) throw new Error('bad-last4');
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(S(g.date)) ? S(g.date) : now().slice(0, 10);
+    const fx = cur === 'USD' ? { currency: '', amount_orig: '', fx_rate: '' } : { currency: cur, amount_orig: orig, fx_rate: Math.round((usd / orig) * 1e6) / 1e6 };
+    const by = me.email + ' @' + M.key;
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const ss = main();
+      const ds = ss.getSheetByName('Donations');
+      const gs = M.book.getSheetByName('Gifts');
+      let old = null;
+      if (S(g.id)) {
+        old = S(g.src) === 'm' ? objs(ds).filter(function (x) { return S(x.donation_id) === S(g.id); })[0] : objs(gs).filter(function (x) { return S(x.gift_id) === S(g.id); })[0];
+        if (!old) throw new Error('not-found');
+        if (S(g.src) === 'm' && S(old.org) !== M.org) throw new Error('not-yours');
+        if (S(g.src) === 'm' && onReceipt(ss, S(g.id)) && Number(old.amount_usd) !== usd) throw new Error('has-receipt');
+      }
+      if (cid) {
+        const c = objs(ss.getSheetByName('Contacts')).filter(function (x) { return S(x.contact_id) === cid && !S(x.deleted_at); })[0];
+        if (!c) throw new Error('not-found');
+        // דער נדבן → אינעם מוסד (סוג "תורם"), ווען ער איז נאך נישט דארט
+        const ps = M.book.getSheetByName('People');
+        const pr = objs(ps).filter(function (x) { return S(x.contact_id) === cid; })[0];
+        if (!pr) appendObj(ps, { contact_id: Number(cid), kind: 'donor', status: 'active', added_by: me.email, added_at: now() });
+        else if (S(pr.status) === 'removed') setCells(ps, pr._row, { status: 'active' });
+        const o = { contact_id: Number(cid), donor_name: '', date: date, amount_usd: usd, is_paid: true, paid_date: date, payment_method: S(g.payment_method),
+          check_number: S(g.check_number), card_last4: last4, dedication_type: S(g.dedication_type), dedication_text: S(g.dedication_text), event_note: S(g.note),
+          il_receipt_no: S(g.il_receipt_no), org: M.org, updated_at: now(), updated_by: by };
+        Object.keys(fx).forEach(function (k) { o[k] = fx[k]; });
+        let id;
+        if (old && S(g.src) === 'm') { id = S(g.id); setCells(ds, old._row, o); }
+        else {
+          id = String(nextDonationId(ss));
+          o.donation_id = Number(id); o.created_at = now(); o.created_by = by;
+          appendObj(ds, o);
+          if (old) gs.deleteRow(old._row); // פון "אן איש קשר" → צו אן איש קשר
+        }
+        main().getSheetByName('History').appendRow([now(), by, 'donation', id, cid, '*', '', (old ? 'updated' : 'created') + ': $' + usd]);
+        logIt(M, me, 'gift', cid, 'm' + id + ' $' + usd);
+        return { ok: true, src: 'm', id: id };
+      }
+      if (old && S(g.src) === 'm') throw new Error('need-contact'); // א נדבה אינעם הויפט-גיליון בלייבט מיט אן איש קשר
+      const o2 = { donor_name: S(g.donor_name), date: date, amount_usd: usd, payment_method: S(g.payment_method), check_number: S(g.check_number), card_last4: last4,
+        dedication_type: S(g.dedication_type), dedication_text: S(g.dedication_text), note: S(g.note), il_receipt_no: S(g.il_receipt_no), updated_at: now(), updated_by: me.email };
+      Object.keys(fx).forEach(function (k) { o2[k] = fx[k]; });
+      let id2;
+      if (old) { id2 = S(g.id); setCells(gs, old._row, o2); }
+      else {
+        let mx = 0; objs(gs).forEach(function (x) { const n = Number(x.gift_id); if (isFinite(n) && n > mx) mx = n; });
+        id2 = String(mx + 1); o2.gift_id = Number(id2); o2.created_at = now(); o2.created_by = me.email;
+        appendObj(gs, o2);
+      }
+      logIt(M, me, 'gift', '', 'l' + id2 + ' $' + usd);
+      return { ok: true, src: 'l', id: id2 };
+    } finally { lock.releaseLock(); }
+  },
+
+  giftDelete: function (M, me, req) {
+    need(me, 'donations');
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      if (S(req.src) === 'l') {
+        const gs = M.book.getSheetByName('Gifts');
+        const g = objs(gs).filter(function (x) { return S(x.gift_id) === S(req.id); })[0];
+        if (g) { gs.deleteRow(g._row); logIt(M, me, 'gift-delete', '', 'l' + S(req.id) + ' $' + S(g.amount_usd)); }
+        return { ok: true };
+      }
+      const ss = main();
+      const ds = ss.getSheetByName('Donations');
+      const d = objs(ds).filter(function (x) { return S(x.donation_id) === S(req.id); })[0];
+      if (!d) return { ok: true };
+      // נאר וואס מ'האט צוגעלייגט פונעם אתר פונעם מוסד, און אן א קבלה
+      if (S(d.org) !== M.org || S(d.created_by).slice(-(M.key.length + 2)) !== ' @' + M.key) throw new Error('not-yours');
+      if (onReceipt(ss, S(req.id))) throw new Error('has-receipt');
+      ds.deleteRow(d._row);
+      ss.getSheetByName('History').appendRow([now(), me.email + ' @' + M.key, 'donation', S(req.id), S(d.contact_id), '*', '$' + S(d.amount_usd), 'deleted']);
+      logIt(M, me, 'gift-delete', S(d.contact_id), 'm' + S(req.id) + ' $' + S(d.amount_usd));
+      return { ok: true };
+    } finally { lock.releaseLock(); }
+  },
+
+  /** קבלה פון אמעריקע (EIN פון קהל אונגוואר) — אין דער זעלבער סעריע ווי אינעם הויפט-אתר */
+  giftReceipt: function (M, me, req) {
+    need(me, 'donations');
+    const id = S(req.id);
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const ss = main();
+      const d = objs(ss.getSheetByName('Donations')).filter(function (x) { return S(x.donation_id) === id; })[0];
+      if (!d || S(d.org) !== M.org) throw new Error('not-found');
+      if (!S(d.contact_id)) throw new Error('need-contact');
+      const rs = ss.getSheetByName('Receipts');
+      const all = objs(rs);
+      let r = all.filter(function (x) { return !isVoid(x) && S(x.kind) === 'receipt' && S(x.donation_ids).split(',').map(S).indexOf(id) >= 0; })[0];
+      const copy = Boolean(r);
+      if (!r) {
+        let mx = 1000;
+        all.forEach(function (x) { const m = S(x.receipt_no).match(/^(\d+)$/); if (m && Number(m[1]) > mx) mx = Number(m[1]); });
+        r = { receipt_no: String(mx + 1), kind: 'receipt', org: M.org, contact_id: d.contact_id, donor_name: '', donation_ids: id, amount: Number(d.amount_usd),
+          period: '', issued_at: now(), issued_by: me.email + ' @' + M.key, void: '', note: '', meta: '' };
+        appendObj(rs, r);
+        logIt(M, me, 'gift-receipt', S(d.contact_id), S(r.receipt_no));
+      }
+      const c = objs(ss.getSheetByName('Contacts')).filter(function (x) { return S(x.contact_id) === S(d.contact_id); })[0] || {};
+      const gift = {};
+      ['donation_id', 'date', 'amount_usd', 'currency', 'amount_orig', 'fx_rate', 'payment_method', 'check_number', 'card_last4', 'dedication_type', 'dedication_text'].forEach(function (k) { gift[k] = S(d[k]); });
+      return { receipt: { receipt_no: S(r.receipt_no), issued_at: S(r.issued_at), copy: copy }, gift: gift, donor: contactView(c, null),
+        org: orgDetails(M), umbrella: orgDetByName(listValues('umbrella_org')[0] || 'כלל מוסדות אונגוואר') };
+    } finally { lock.releaseLock(); }
+  },
+
   // ---------- ישיבה: רישום, שכר לימוד, קבלות ----------
   school: function (M, me) {
     if (!isAdminRole(me) && !['students', 'alumni', 'parents', 'tuition'].some(function (p) { return me.perms.indexOf(p) >= 0; })) throw new Error('no-permission');
@@ -649,6 +804,28 @@ function brandOf(key) {
   try { cache.put('brand:' + k, JSON.stringify(o), 3600); } catch (err) { /* צו גרויס */ }
   return o;
 }
+function onReceipt(ss, donationId) {
+  return objs(ss.getSheetByName('Receipts')).some(function (r) { return !isVoid(r) && S(r.donation_ids).split(',').map(S).indexOf(String(donationId)) >= 0; });
+}
+function nextDonationId(ss) {
+  let mx = 0;
+  objs(ss.getSheetByName('Donations')).forEach(function (x) { const n = Number(x.donation_id); if (isFinite(n) && n > mx) mx = n; });
+  objs(ss.getSheetByName('Receipts')).forEach(function (r) { S(r.donation_ids).split(',').forEach(function (x) { const n = Number(x); if (isFinite(n) && n > mx) mx = n; }); });
+  return mx + 1;
+}
+/** א רשימה פון לשונית Lists (א קאלאנע) */
+function listValues(col) {
+  const r = rows(main().getSheetByName('Lists'));
+  const j = r.head.indexOf(col);
+  return j < 0 ? [] : r.body.map(function (row) { return S(row[j]); }).filter(Boolean);
+}
+/** די פרטים פון א ארגון (OrgDetails) — פאר א קבלה */
+function orgDetByName(org) {
+  const row = objs(main().getSheetByName('OrgDetails')).filter(function (o) { return S(o.org) === org; })[0] || {};
+  const keep = ['legal_name', 'address', 'city_state_zip', 'phone', 'email', 'website', 'ein', 'is_501c3', 'signer_name', 'signer_title', 'receipt_note', 'org_name_he', 'tax_text'];
+  const o = { org: org }; keep.forEach(function (k) { o[k] = S(row[k]); });
+  return o;
+}
 function isVoid(r) { const v = S(r.void).toLowerCase(); return v === 'true' || v === '1' || v === 'yes'; }
 /** די פרטים פונעם מוסד פאר א קבלה (פון OrgDetails אינעם הויפט-גיליון) */
 function orgDetails(M) {
@@ -658,10 +835,12 @@ function orgDetails(M) {
   if (hit) return JSON.parse(hit);
   const row = objs(main().getSheetByName('OrgDetails')).filter(function (o) { return S(o.org) === M.org; })[0] || {};
   const keep = ['legal_name', 'address', 'city_state_zip', 'phone', 'email', 'website', 'ein', 'is_501c3', 'signer_name', 'signer_title', 'receipt_prefix', 'receipt_note', 'org_name_he', 'sub_line', 'tax_text', 'thanks_yi'];
+  // ווען דער לאגא פונעם מוסד איז נישט אין OrgDetails — פון Mosdos
   const o = {}; keep.forEach(function (k) { o[k] = S(row[k]); });
   o.logo = '';
   const lg = objs(main().getSheetByName('OrgLogos')).filter(function (x) { return S(x.org) === M.org; })[0];
   if (lg && /^data:image\//.test(S(lg.logo_data)) && S(lg.logo_data).length < 90000) o.logo = S(lg.logo_data);
+  if (!o.logo) o.logo = brandOf(M.key).logo;
   cache.put(ck, JSON.stringify(o), 600);
   return o;
 }

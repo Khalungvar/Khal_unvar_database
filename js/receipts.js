@@ -2,6 +2,7 @@
 // יעדער ארגון מיט זיינע אייגענע פרטים (לשונית OrgDetails); יעדער דאקומענט באקומט א נומער (לשונית Receipts),
 // און ביים נאכאמאל דרוקן — דער זעלבער נומער.
 import { customFontNames } from './fonts.js';
+import { isForeign, fmtCur, amountLabel } from './fx.js';
 import {
   state, loadAll, orgDetailsOf, issueDocs, saveDonation, findIssued, voidReceipt, metaOfReceipt, orgLogo, saveOrgDetails, saveYearly, saveOrgLogo, deleteDonation,
 } from './data.js';
@@ -569,6 +570,15 @@ function payBoxes(c) {
   return `${box(cash, 'Cash')}${box(cc, 'CC')}${box(check, `Check${nums.length ? ` #${nums.join(', #')}` : ''}`)}`;
 }
 
+/** נדבות אין אן אנדער מטבע: "₪500" (צוזאמגערעכנט לויט מטבע) — אדער '' */
+function origText(c) {
+  const fl = (c.list || []).filter(isForeign);
+  if (!fl.length || fl.length !== (c.list || []).length) return '';
+  const by = {};
+  fl.forEach((d) => { by[d.currency] = (by[d.currency] || 0) + Number(d.amount_orig || 0); });
+  return Object.entries(by).map(([cur, n]) => fmtCur(n, cur)).join(' + ');
+}
+
 function letterParts(c) {
   const det = { ...(orgDetailsOf(c.org) || {}), ...(letterState[c.org] || {}) };
   // אלע ארגונים אין אמעריקע זענען אונטער דעם EIN פון קהל אונגוואר (דער כלל-ארגון) — ווען א ארגון האט נישט קיין אייגענעם
@@ -603,7 +613,8 @@ function letterParts(c) {
   const toName = ct ? [ct.title_he, ct.first_name_he, ct.last_name_he].filter(Boolean).join(' ') : (c.donor_name || '');
   const salLine = [det.letter_salutation || DEFAULTS.letter_salutation, toName, det.salutation_suffix || DEFAULTS.salutation_suffix].filter(Boolean).join(' ');
   // נישט קיין קאמפיין? מ'קען שרייבן וואס עס איז (c.forText) — דאן גייט עס גלייך נאך "בסך של $..."
-  const middle = c.forText ? `בסך של ${money(c.amount)} ${c.forText}` : `בסך של ${money(c.amount)} ב${forWhat(c)}`;
+  const sum = origText(c) ? `${origText(c)} (${money(c.amount)})` : money(c.amount);
+  const middle = c.forText ? `בסך של ${sum} ${c.forText}` : `בסך של ${sum} ב${forWhat(c)}`;
   const body = `${fillText(A, c, ct)} ${middle} ${fillText(B, c, ct)}`;
   const multi = c.list.length > 1;
   const title = { receipt: det.coupon_title || 'OFFICIAL RECEIPT', invoice: 'INVOICE · PLEDGE', year: `YEAR-END STATEMENT ${c.period}`, campaign: det.coupon_title || 'OFFICIAL RECEIPT', tuition: 'TUITION RECEIPT' }[c.kind];
@@ -641,10 +652,11 @@ function docHtml(c) {
         </div>
         <div class="cp-mid">
           <div class="cp-row"><span class="cp-lbl">${isInv ? 'Amount due' : 'Amount'}</span><span class="cp-amount">${money(c.amount)}</span></div>
+          ${origText(c) ? `<div class="cp-row"><span class="cp-lbl">Received</span><span class="cp-field" dir="ltr">${h(origText(c))} = ${money(c.amount)} (exchange rate of the date of donation)</span></div>` : ''}
           ${isInv ? '' : `<div class="cp-pay">${payBoxes(c)}</div>`}
           <div class="cp-row"><span class="cp-lbl">Date</span><span class="cp-field">${h(multi ? `${longDate(paidDate(c.list[0]))} – ${longDate(paidDate(c.list[c.list.length - 1]))}` : longDate(isInv ? c.list[0].date : paidDate(c.list[0])))}</span></div>
           <div class="cp-row"><span class="cp-lbl">${isInv ? 'Invoice #' : 'Receipt #'}</span><span class="cp-field">${h(c.receipt_no)}${c.reprint ? ' <small>(copy)</small>' : ''}</span></div>
-          ${multi ? `<table class="cp-lines">${c.list.map((d) => `<tr><td>${h(longDate(paidDate(d)))}</td><td><bdi dir="auto">${h(descText(d))}</bdi></td><td class="amt">${money(d.amount_usd)}</td></tr>`).join('')}</table>`
+          ${multi ? `<table class="cp-lines">${c.list.map((d) => `<tr><td>${h(longDate(paidDate(d)))}</td><td><bdi dir="auto">${h(descText(d))}</bdi></td><td class="amt">${h(amountLabel(d))}</td></tr>`).join('')}</table>`
             : `<div class="cp-row"><span class="cp-lbl">For</span><span class="cp-field cp-for" dir="rtl">${h(c.forText || forWhat(c))}</span></div>`}
           ${!multi && (c.list[0].dedication_text || c.list[0].event_note) ? `<div class="cp-note" dir="rtl">${h([c.list[0].dedication_type, c.list[0].dedication_text, c.list[0].event_note].filter(Boolean).join(' '))}</div>` : ''}
           <div class="cp-tax">${h(taxLine)}${det.receipt_note ? ` ${h(det.receipt_note)}` : ''}</div>

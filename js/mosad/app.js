@@ -1,7 +1,8 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=318';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=318';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=319';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=319';
+import { initGifts, renderGifts } from './gifts.js?v=319';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -27,10 +28,11 @@ const ERR = {
   'bad-amount': 'סכום לא תקין.',
   'bad-last4': 'רק 4 ספרות אחרונות של הכרטיס.',
   'bad-logo': 'הלוגו גדול מדי.',
+  'need-contact': 'נדבה שכבר באתר הכללי צריכה איש קשר. (קבלה אמריקאית — רק עם איש קשר.)',
 };
 const msg = (err) => ERR[err?.code] || ERR[err?.message] || String(err?.message || err || 'שגיאה');
 
-const KINDS = [['student', 'תלמיד'], ['parent', 'הורה'], ['staff', 'צוות'], ['avreich', 'אברך'], ['other', 'אחר']];
+const KINDS = [['student', 'תלמיד'], ['parent', 'הורה'], ['staff', 'צוות'], ['avreich', 'אברך'], ['donor', 'תורם'], ['other', 'אחר']];
 const kindName = (k) => (KINDS.find(([x]) => x === k) || ['', k || ''])[1];
 // הכפתורים בדף הפתיחה — כל כפתור הוא גם הרשאה
 const TILES = [
@@ -42,7 +44,7 @@ const TILES = [
   { k: 'parents', ic: '👪', t: 'הורי התלמידים' },
   { k: 'chavrusas', ic: '🤝', t: 'חברותות', soon: true },
   { k: 'attendance', ic: '✅', t: 'השתתפות', soon: true },
-  { k: 'donations', ic: '💝', t: 'נדבות וקבלות', soon: true },
+  { k: 'donations', ic: '💝', t: 'נדבות וקבלות', sub: 'כולל קבלות אמריקאיות' },
 ];
 const PERM_NAMES = { ...Object.fromEntries(TILES.map((x) => [x.k, x.t])), people_edit: 'הוספה ועדכון אנשי קשר' };
 const ROLE_NAMES = { owner: 'בעלים', admin: 'מנהל', staff: 'צוות' };
@@ -134,6 +136,7 @@ function render() {
   else if (st.tab === 'alumni') renderStudents(box, 'left');
   else if (st.tab === 'parents') renderParents(box);
   else if (st.tab === 'tuition') renderTuition(box);
+  else if (st.tab === 'donations') renderGifts(box);
   else if (st.tab === 'staff_list') { st.kind = 'staffav'; renderPeople(); }
   else renderSoon(box, view);
 }
@@ -407,7 +410,9 @@ async function renderStaff() {
 }
 
 // ---------- אנהייב ----------
-initSchool({ st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render: () => render(), personDialog: (p) => personDialog(p) });
+const ctx = { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render: () => render(), personDialog: (p) => personDialog(p), addDialog: (k) => addDialog(k) };
+initSchool(ctx);
+initGifts(ctx);
 (async () => {
   loginView();
   brand(KEY).then((b) => { if (b?.logo) { st.logo = b.logo; if (!st.me) { const im = $('.ms-logo'); if (im) im.src = b.logo; } } });
