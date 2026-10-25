@@ -42,7 +42,7 @@
 .ms-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 18px; border-radius: 10px; z-index: 100; max-width: 90vw; }
 .ms-toast.err { background: #8a1414; }
 @media (max-width: 640px) {
-  .ms-table th:nth-child(5), .ms-table td:nth-child(5), .ms-table th:nth-child(3), .ms-table td:nth-child(3) { display: none; }
+  .ms-list .ms-table th:nth-child(5), .ms-list .ms-table td:nth-child(5), .ms-list .ms-table th:nth-child(3), .ms-list .ms-table td:nth-child(3) { display: none; }
   #ms-main { padding: 10px 8px 40px; }
 }
 @media (prefers-color-scheme: dark) {
@@ -55,3 +55,39 @@
 .ms-perms label.check { display: inline-flex; align-items: center; gap: 4px; width: auto; margin: 0; }
 .ms-sadd .ms-perms { flex-basis: 100%; }
 .ms-bar .seg button { padding: 5px 10px; }
+/* דף הבית: כפתורים */
+.ms-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; margin: 8px 0 18px; }
+.ms-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 22px 12px 18px; border: 1px solid #e3d3ad; border-radius: 16px; background: var(--card, #fff); cursor: pointer; font: inherit; color: inherit; text-align: center; transition: transform .12s, box-shadow .12s; }
+.ms-tile:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.08); border-color: var(--accent); }
+.ms-tile b { font-size: 1.08em; }
+.ms-ti { font-size: 2.2em; line-height: 1; }
+.ms-tn { position: absolute; top: 8px; inset-inline-start: 10px; font-size: .78em; color: #9a8a66; }
+.ms-tile.soon { opacity: .72; }
+.ms-soon { font-size: .75em; padding: 1px 8px; border-radius: 10px; background: #f1e9d6; color: #7a5a2f; }
+.ms-more { display: flex; flex-wrap: wrap; gap: 8px; }
+.ms-crumb { padding: 8px 16px 0; max-width: 1200px; margin: 0 auto; }
+.ms-brand.linkish { background: none; border: 0; cursor: pointer; padding: 0; font: inherit; color: var(--accent); }
+.ms-brand img { object-fit: contain; }
+.ms-logo { object-fit: contain; width: auto; max-width: 140px; height: 90px; }
+.ms-h { margin: 6px 0 12px; display: flex; align-items: center; gap: 8px; }
+.ms-wrap { overflow-x: auto; }
+.ms-acts { white-space: nowrap; }
+.ms-owe { color: #a11; font-weight: 600; }
+.ms-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; }
+.ms-stat { display: flex; flex-direction: column; gap: 2px; padding: 10px 16px; border: 1px solid #e8dcc4; border-radius: 12px; background: var(--card, #fff); min-width: 180px; }
+.ms-stat b { font-size: 1.4em; }
+.ms-stat.owe b { color: #a11; }
+.ms-months td, .ms-months th { padding: 5px 6px; }
+.ms-now { background: #fff6dc; }
+.ms-mcell { width: 72px; padding: 3px 4px; text-align: center; }
+.ms-mcell.empty { opacity: .55; }
+.ms-my { display: flex; gap: 4px; }
+.ms-my select { flex: 1; min-width: 0; }
+.ms-table td.num, .ms-table th.num { text-align: center; }
+fieldset { border: 1px solid #e8dcc4; border-radius: 10px; margin: 8px 0; }
+@media (prefers-color-scheme: dark) {
+  .ms-tile { border-color: #3a2c28; }
+  .ms-now { background: #3a3020; }
+  .ms-soon { background: #3a3020; color: #e6c98a; }
+}
+@media (max-width: 640px) { .ms-tiles { grid-template-columns: repeat(2, 1fr); gap: 10px; } .ms-tile { padding: 16px 8px 12px; } }

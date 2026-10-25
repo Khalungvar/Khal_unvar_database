@@ -6,6 +6,7 @@ import {
   state, loadAll, displayName, trashContact, orgLogo, NESHEI_ORG, getHistory, getPhoto, savePhoto, saveOriginalToDrive, saveContact, saveKvitel, addListValue, addRelation, removeRelation,
   hostOf, guestsOf, ADDR_FIELDS, migratePhotosToDrive,
 } from './data.js';
+import { CONFIG } from './config.js';
 import { suggest, details, placesEnabled, placesError } from './places.js';
 import {
   t, setLang, getLang, applyStatic, maritalLabel, relationLabel,
@@ -266,7 +267,7 @@ function lobbyClick(e) {
     lobbyOpen = '';
     enterScope({ type: pick.dataset.scopeType, value: pick.dataset.scopeValue });
     // א ישיבה מיט אן אייגענעם בלאט (תלמידים, שכר לימוד)
-    if (isSchool(pick.dataset.scopeValue)) { document.body.classList.add('solo-mode'); openSchool(pick.dataset.scopeValue); return; }
+    if (isSchool(pick.dataset.scopeValue) && !mosadSite(pick.dataset.scopeValue)) { document.body.classList.add('solo-mode'); openSchool(pick.dataset.scopeValue); return; }
     showView('contacts');
     return;
   }
@@ -544,10 +545,18 @@ function renderOrgs() {
   }
   const scb = $('#scope-school');
   if (scb) {
-    scb.hidden = !(sc && sc.value && isSchool(sc.value));
-    scb.onclick = () => { document.body.classList.add('solo-mode'); openSchool(sc.value); };
+    const site = sc && sc.value ? mosadSite(sc.value) : '';
+    scb.hidden = !(sc && sc.value && (site || isSchool(sc.value)));
+    scb.title = site ? 'האתר של המוסד (תלמידים, שכר לימוד) — בחלון חדש' : '';
+    scb.onclick = () => {
+      if (site) { window.open(site, '_blank', 'noopener'); return; }
+      document.body.classList.add('solo-mode'); openSchool(sc.value);
+    };
   }
 }
+
+/** א מוסד מיט אן אייגענעם אתר (למשל די ישיבה) — דארט זענען די תלמידים און שכר לימוד */
+function mosadSite(org) { return (CONFIG.MOSAD_SITES || {})[org] || ''; }
 
 /** נכנסים לארגון (או יוצאים ממנו עם null) — וכל המסכים מתעדכנים. */
 /** דער נאמען פונעם הקשר: "ביהמ"ד מאנסי", "בתי מדרשים", "געגנט: מאנסי". */

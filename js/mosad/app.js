@@ -1,6 +1,7 @@
-// דער אתר פון א מוסד (שלב 1): לאגאין, די מענטשן פונעם מוסד (תלמידים / עלטערן / צוות), צולייגן און טוישן,
-// ארויסנעמען (מיט א בקשה צום הויפט-אתר), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint } from './api.js?v=317';
+// דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
+// תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=318';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=318';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -21,16 +22,34 @@ const ERR = {
   'not-found': 'לא נמצא.',
   'need-name': 'חובה למלא שם משפחה.',
   'bad-email': 'כתובת מייל לא תקינה.',
+  'has-receipt': 'יצאה קבלה על התשלום הזה — קודם לבטל את הקבלה.',
+  'has-payments': 'יש תשלומים על הרישום הזה.',
+  'bad-amount': 'סכום לא תקין.',
+  'bad-last4': 'רק 4 ספרות אחרונות של הכרטיס.',
+  'bad-logo': 'הלוגו גדול מדי.',
 };
 const msg = (err) => ERR[err?.code] || ERR[err?.message] || String(err?.message || err || 'שגיאה');
 
-const KINDS = [['student', 'תלמיד'], ['parent', 'הורה'], ['staff', 'צוות'], ['other', 'אחר']];
+const KINDS = [['student', 'תלמיד'], ['parent', 'הורה'], ['staff', 'צוות'], ['avreich', 'אברך'], ['other', 'אחר']];
 const kindName = (k) => (KINDS.find(([x]) => x === k) || ['', k || ''])[1];
-const PERM_NAMES = { people_edit: 'הוספה ועדכון אנשים', tuition: 'שכר לימוד', chavrusas: 'חברותות', journals: 'יומנים', insurance: 'ביטוח בריאות' };
+// הכפתורים בדף הפתיחה — כל כפתור הוא גם הרשאה
+const TILES = [
+  { k: 'students', ic: '🎓', t: 'תלמידי הישיבה', sub: 'כולל טלפון בארץ' },
+  { k: 'alumni', ic: '🚪', t: 'בוגרי הישיבה', sub: 'וההורים שלהם' },
+  { k: 'staff_list', ic: '👔', t: 'אנשי צוות ואברכים', sub: 'כולל אברכים שלומדים עם בחורים' },
+  { k: 'tuition', ic: '💲', t: 'שכר לימוד', sub: 'תשלומים וקבלות' },
+  { k: 'insurance', ic: '🏥', t: 'ביטוח בריאות', soon: true },
+  { k: 'parents', ic: '👪', t: 'הורי התלמידים' },
+  { k: 'chavrusas', ic: '🤝', t: 'חברותות', soon: true },
+  { k: 'attendance', ic: '✅', t: 'השתתפות', soon: true },
+  { k: 'donations', ic: '💝', t: 'נדבות וקבלות', soon: true },
+];
+const PERM_NAMES = { ...Object.fromEntries(TILES.map((x) => [x.k, x.t])), people_edit: 'הוספה ועדכון אנשי קשר' };
 const ROLE_NAMES = { owner: 'בעלים', admin: 'מנהל', staff: 'צוות' };
 const MARITAL = [['', '—'], ['בחור', 'בחור'], ['נשוי', 'נשוי'], ['גרוש', 'גרוש'], ['אלמן', 'אלמן']];
 
-const st = { me: null, mosad: null, people: [], relations: [], enrollments: [], tab: 'people', kind: 'all', q: '' };
+const st = { me: null, mosad: null, people: [], relations: [], enrollments: [], tab: 'home', kind: 'all', q: '', logo: '' };
+const logoSrc = () => st.logo || st.mosad?.logo || '../img/favicon.png';
 const can = (p) => st.me && (st.me.role === 'owner' || st.me.role === 'admin' || st.me.perms.includes(p));
 const isAdmin = () => st.me && (st.me.role === 'owner' || st.me.role === 'admin');
 
@@ -43,7 +62,7 @@ function toast(text, kind = '') {
 // ---------- כניסה ----------
 function loginView(note = '', kind = '') {
   $('#ms-app').innerHTML = `<div class="ms-login">
-      <img src="../img/favicon.png" alt="" class="ms-logo">
+      <img src="${h(logoSrc())}" alt="" class="ms-logo">
       <h1>${h(TITLE)}</h1>
       <p class="muted">מערכת הניהול של המוסד</p>
       ${note ? `<p class="ms-note ${kind}">${h(note)}</p>` : ''}
@@ -61,7 +80,9 @@ async function enter(prompt) {
     st.me = r.me; st.mosad = r.mosad;
     rememberHint(st.me.email);
     if (st.mosad?.name) document.title = `${st.mosad.name} – ניהול`;
+    if (st.mosad?.logo) st.logo = st.mosad.logo;
     await loadPeople();
+    if (['students', 'alumni', 'parents', 'tuition'].some(can)) await loadSchool().catch(() => {});
     render();
   } catch (err) {
     if (err?.code === 'not-allowed' && err.email) loginView(`${err.email}: ${msg(err)}`, 'err');
@@ -91,31 +112,86 @@ const phoneOf = (p) => S(p.mobile) || S(p.home_phone);
 const norm = (v) => S(v).toLowerCase().replace(/["'״׳]/g, '');
 
 function render() {
-  const tabs = [['people', '👥 תלמידים והורים'], ...(isAdmin() ? [['staff', '⚙️ צוות והרשאות']] : [])];
-  if (!tabs.some(([k]) => k === st.tab)) st.tab = 'people';
+  const view = TILES.find((x) => x.k === st.tab);
+  const ok = st.tab === 'home' || (st.tab === 'people' && can('people_edit')) || (st.tab === 'staff' && isAdmin()) || (view && can(view.k));
+  if (!ok) st.tab = 'home';
   $('#ms-app').innerHTML = `<header class="ms-head">
-      <div class="ms-brand"><img src="../img/favicon.png" alt=""><b>${h(st.mosad?.name || TITLE)}</b></div>
+      <button type="button" class="ms-brand linkish" id="ms-home" title="דף הבית"><img src="${h(logoSrc())}" alt=""><b>${h(st.mosad?.name || TITLE)}</b></button>
       <span class="spacer"></span>
       <span class="muted small">${h(st.me.name || st.me.email)} · ${h(ROLE_NAMES[st.me.role] || '')}</span>
       <button type="button" class="btn small-btn" id="ms-out">יציאה</button>
     </header>
-    <nav class="ms-tabs">${tabs.map(([k, l]) => `<button type="button" data-tab="${k}" class="${st.tab === k ? 'on' : ''}">${h(l)}</button>`).join('')}</nav>
+    ${st.tab === 'home' ? '' : `<nav class="ms-crumb"><button type="button" class="linkish" id="ms-back">→ דף הבית</button></nav>`}
     <main id="ms-main"></main>`;
   $('#ms-out').onclick = () => { signOut(); st.me = null; loginView('יצאת מהמערכת.'); };
-  $$('[data-tab]').forEach((b) => { b.onclick = () => { st.tab = b.dataset.tab; render(); }; });
-  if (st.tab === 'staff') renderStaff(); else renderPeople();
+  $('#ms-home').onclick = () => { st.tab = 'home'; render(); };
+  $('#ms-back')?.addEventListener('click', () => { st.tab = 'home'; render(); });
+  const box = $('#ms-main');
+  if (st.tab === 'home') renderHome(box);
+  else if (st.tab === 'staff') renderStaff();
+  else if (st.tab === 'people') renderPeople();
+  else if (st.tab === 'students') renderStudents(box, 'active');
+  else if (st.tab === 'alumni') renderStudents(box, 'left');
+  else if (st.tab === 'parents') renderParents(box);
+  else if (st.tab === 'tuition') renderTuition(box);
+  else if (st.tab === 'staff_list') { st.kind = 'staffav'; renderPeople(); }
+  else renderSoon(box, view);
+}
+
+function renderHome(box) {
+  const tiles = TILES.filter((x) => can(x.k));
+  box.innerHTML = `<div class="ms-tiles">${tiles.map((x, i) => `<button type="button" class="ms-tile${x.soon ? ' soon' : ''}" data-go="${x.k}">
+      <span class="ms-tn">${TILES.indexOf(x) + 1}</span><span class="ms-ti">${x.ic}</span><b>${h(x.t)}</b>${x.sub ? `<span class="muted small">${h(x.sub)}</span>` : ''}${x.soon ? '<span class="ms-soon">בקרוב</span>' : ''}</button>`).join('')}</div>
+    ${tiles.length ? '' : '<p class="ms-note">עדיין לא קיבלת הרשאה לאף כפתור. בקש מהמנהל.</p>'}
+    <div class="ms-more">
+      ${can('people_edit') ? '<button type="button" class="btn" data-go="people">👥 כל האנשים (הוספה ועדכון)</button>' : ''}
+      ${isAdmin() ? '<button type="button" class="btn" data-go="staff">⚙️ צוות והרשאות</button>' : ''}
+      ${isAdmin() ? '<button type="button" class="btn" id="ms-logo">🖼 לוגו</button>' : ''}
+    </div>`;
+  $$('[data-go]', box).forEach((b) => { b.onclick = () => { st.tab = b.dataset.go; st.kind = 'all'; render(); }; });
+  $('#ms-logo', box)?.addEventListener('click', () => logoDialog());
+}
+function renderSoon(box, view) {
+  box.innerHTML = `<h2 class="ms-h">${view?.ic || ''} ${h(view?.t || '')}</h2><p class="ms-note">החלק הזה בבנייה — יהיה כאן בקרוב.</p>`;
+}
+
+/** לוגו: תמונה קטנה (מוקטנת ל-256 פיקסלים) — נשמרת אצל המוסד */
+function logoDialog() {
+  const d = dialog(`<h2>🖼 לוגו המוסד</h2>
+    <p><img src="${h(logoSrc())}" alt="" style="max-width:160px;max-height:120px"></p>
+    <input type="file" accept="image/*" id="ms-lf">
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>סגירה</button></div>`);
+  $('#ms-lf', d).onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      const url = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+      const img = new Image(); img.src = url; await img.decode();
+      const k = Math.min(1, 256 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      let data = c.toDataURL('image/png');
+      if (data.length > 45000) data = c.toDataURL('image/webp', 0.85);
+      await call(KEY, 'setLogo', { logo: data });
+      st.logo = data; d.close(); render(); toast('הלוגו נשמר.');
+    } catch (err) { toast(msg(err), 'err'); }
+  };
 }
 
 function renderPeople() {
   const box = $('#ms-main');
   const counts = Object.fromEntries(KINDS.map(([k]) => [k, st.people.filter((p) => p.kind === k).length]));
   const words = norm(st.q).split(/\s+/).filter(Boolean);
-  const list = st.people.filter((p) => (st.kind === 'all' || p.kind === st.kind)
+  const staffView = st.tab === 'staff_list';
+  const list = st.people.filter((p) => (staffView ? ['staff', 'avreich'].includes(p.kind) && (st.kind === 'staffav' || p.kind === st.kind) : st.kind === 'all' || p.kind === st.kind)
     && (!words.length || words.every((w) => norm([p.first_name_he, p.last_name_he, p.first_name_en, p.last_name_en, p.city, phoneOf(p), fatherOf(p) ? nameOf(fatherOf(p)) : ''].join(' ')).includes(w))))
     .sort((a, b) => S(a.last_name_he || a.last_name_en).localeCompare(S(b.last_name_he || b.last_name_en), 'he') || S(a.first_name_he).localeCompare(S(b.first_name_he), 'he'));
-  box.innerHTML = `<div class="ms-bar">
+  const segs = staffView ? [['staffav', `הכל (${counts.staff + counts.avreich})`], ['staff', `צוות (${counts.staff})`], ['avreich', `אברכים (${counts.avreich})`]]
+    : [['all', `הכל (${st.people.length})`], ...KINDS.filter(([k]) => counts[k]).map(([k, l]) => [k, `${l} (${counts[k]})`])];
+  box.innerHTML = `<h2 class="ms-h">${staffView ? '👔 אנשי צוות ואברכים' : '👥 כל האנשים'}</h2>
+    ${staffView ? '<p class="muted small">אברכים שלומדים עם בחורים — סוג "אברך". אפשר להוסיף או לשנות סוג דרך ➕ הוסף / עריכה.</p>' : ''}
+    <div class="ms-bar">
       <input type="search" id="ms-q" placeholder="חיפוש: שם, עיר, טלפון…" value="${h(st.q)}">
-      <div class="seg">${[['all', `הכל (${st.people.length})`], ...KINDS.filter(([k]) => counts[k]).map(([k, l]) => [k, `${l} (${counts[k]})`])]
+      <div class="seg">${segs
         .map(([k, l]) => `<button type="button" data-kind="${k}" class="${st.kind === k ? 'on' : ''}">${h(l)}</button>`).join('')}</div>
       <span class="spacer"></span>
       ${can('people_edit') ? '<button type="button" class="btn primary" id="ms-add">➕ הוסף</button>' : ''}
@@ -131,7 +207,7 @@ function renderPeople() {
   const q = $('#ms-q');
   q.oninput = () => { st.q = q.value; const pos = q.selectionStart; renderPeople(); const nq = $('#ms-q'); nq.focus(); nq.setSelectionRange(pos, pos); };
   $$('[data-kind]', box).forEach((b) => { b.onclick = () => { st.kind = b.dataset.kind; renderPeople(); }; });
-  $('#ms-add', box)?.addEventListener('click', () => addDialog());
+  $('#ms-add', box)?.addEventListener('click', () => addDialog(staffView ? (st.kind === 'avreich' ? 'avreich' : 'staff') : ''));
   $('#ms-reload', box).onclick = async () => { try { await loadPeople(); renderPeople(); toast('עודכן'); } catch (err) { toast(msg(err), 'err'); } };
   $$('tr[data-id]', box).forEach((tr) => { tr.onclick = () => personDialog(pById(tr.dataset.id)); });
 }
@@ -163,7 +239,8 @@ function personDialog(p) {
       ${row('נייד', `<a dir="ltr" href="tel:${h(S(p.mobile).replace(/\D/g, ''))}">${h(p.mobile)}</a>`)}
       ${row('טלפון בית', `<span dir="ltr">${h(p.home_phone)}</span>`)}
       ${row('מייל', `<a dir="ltr" href="mailto:${h(p.email_1)}">${h(p.email_1)}</a>`)}
-      ${e ? row('רישום', h([e.status, e.shiur, e.room ? `חדר ${e.room}` : '', e.start ? `מ-${e.start}` : '', e.end ? `עד ${e.end}` : ''].filter(Boolean).join(' · '))) : ''}
+      ${personSchool(p) || (e ? row('רישום', h([e.status, e.shiur, e.room ? `חדר ${e.room}` : '', e.start ? `מ-${e.start}` : '', e.end ? `עד ${e.end}` : ''].filter(Boolean).join(' · '))) : '')}
+      ${p.il_phone ? row('טלפון בארץ', `<span dir="ltr">${h(p.il_phone)}</span>`) : ''}
       <p class="muted small">מס' איש קשר: ${h(p.contact_id)}</p>
     </section>
     <div class="actions">
@@ -178,16 +255,16 @@ function personDialog(p) {
   $('#ms-rm', d)?.addEventListener('click', async () => {
     const why = window.prompt(`להוציא את ${nameOf(p)} מהמוסד?\n\nהוא ייצא מיד מהרשימה כאן, ותישלח בקשה למנהל המאגר הכללי למחוק אותו גם משם (המנהל יאשר או ידחה).\n\nסיבה (לא חובה):`, '');
     if (why === null) return;
-    try { await call(KEY, 'remove', { contact_id: p.contact_id, why }); d.close(); await loadPeople(); renderPeople(); toast('הוצא מהמוסד, ונשלחה בקשה למנהל.'); } catch (err) { toast(msg(err), 'err'); }
+    try { await call(KEY, 'remove', { contact_id: p.contact_id, why }); d.close(); await loadPeople(); render(); toast('הוצא מהמוסד, ונשלחה בקשה למנהל.'); } catch (err) { toast(msg(err), 'err'); }
   });
 }
 
 /** צולייגן: ערשט זוכן אינעם מאגר (נישט מאכן טאפלט), דערנאך — א נייער */
-function addDialog() {
+function addDialog(kind0 = '') {
   const d = dialog(`<h2>➕ הוספה</h2>
     <p class="muted small">קודם בודקים אם הוא כבר קיים במאגר הכללי — כדי לא ליצור כפילות.</p>
     <div class="ms-find"><input id="ms-fq" placeholder="שם (למשל: משה כהן)"><input id="ms-fph" dir="ltr" placeholder="טלפון (לא חובה)">
-      <select id="ms-fkind">${KINDS.map(([k, l]) => `<option value="${k}">${h(l)}</option>`).join('')}</select>
+      <select id="ms-fkind">${KINDS.map(([k, l]) => `<option value="${k}"${k === kind0 ? ' selected' : ''}>${h(l)}</option>`).join('')}</select>
       <button type="button" class="btn primary" id="ms-fgo">🔍 חיפוש</button></div>
     <div id="ms-fout"></div>
     <div class="actions"><span class="spacer"></span><button type="button" class="btn" id="ms-fnew">➕ איש חדש (לא נמצא)</button><button type="button" class="btn" data-x>ביטול</button></div>`);
@@ -206,7 +283,7 @@ function addDialog() {
       $$('[data-link]', out).forEach((b) => {
         b.onclick = async () => {
           b.disabled = true;
-          try { await call(KEY, 'link', { contact_id: b.dataset.link, kind: kind() }); d.close(); await loadPeople(); renderPeople(); toast('נוסף למוסד.'); personDialog(pById(b.dataset.link)); } catch (err) { b.disabled = false; toast(msg(err), 'err'); }
+          try { await call(KEY, 'link', { contact_id: b.dataset.link, kind: kind() }); d.close(); await loadPeople(); render(); toast('נוסף למוסד.'); personDialog(pById(b.dataset.link)); } catch (err) { b.disabled = false; toast(msg(err), 'err'); }
         };
       });
     } catch (err) { out.innerHTML = `<p class="ms-note err">${h(msg(err))}</p>`; }
@@ -270,7 +347,7 @@ function editDialog(p, pre = {}) {
     const btn = $('button[type=submit]', form); btn.disabled = true;
     try {
       const r = await call(KEY, 'save', { contact_id: p?.contact_id || '', contact, phones, kind: val('kind') || p?.kind || 'student', rel: fm ? { type: 'זון פון', to: fm[1] } : null });
-      d.close(); await loadPeople(); renderPeople(); toast(p ? 'נשמר.' : 'נוסף.');
+      d.close(); await loadPeople(); render(); toast(p ? 'נשמר.' : 'נוסף.');
       personDialog(pById(r.contact_id));
     } catch (err) { btn.disabled = false; toast(msg(err), 'err'); }
   };
@@ -330,8 +407,10 @@ async function renderStaff() {
 }
 
 // ---------- אנהייב ----------
+initSchool({ st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render: () => render(), personDialog: (p) => personDialog(p) });
 (async () => {
   loginView();
+  brand(KEY).then((b) => { if (b?.logo) { st.logo = b.logo; if (!st.me) { const im = $('.ms-logo'); if (im) im.src = b.logo; } } });
   try { await initAuth(); } catch { /* */ }
   if (!configured()) { loginView(ERR['not-configured'], 'err'); return; }
   if (hasSession()) enter(null);
