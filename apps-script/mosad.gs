@@ -96,9 +96,9 @@ function doPost(e) {
     CUR = { M: M, me: me };
     const fn = ACTIONS[req.action];
     if (!fn) return out({ error: 'bad-action' });
-    if (req.fresh && req.action === 'people') CacheService.getScriptCache().remove('ppl:' + M.key);
+    if (req.fresh) CacheService.getScriptCache().removeAll(['ppl:' + M.key, 'names:main']);
     const res = fn(M, me, req);
-    if (!READS[req.action]) CacheService.getScriptCache().remove('ppl:' + M.key);
+    if (!READS[req.action]) CacheService.getScriptCache().removeAll(['ppl:' + M.key, 'names:main']);
     return out(res);
   } catch (err) {
     return out({ error: String((err && err.message) || err) });
@@ -421,7 +421,7 @@ const ACTIONS = {
     const hit = cacheGet(ck);
     if (hit) return hit;
     const r = linkedData(M);
-    cachePut(ck, r, 120);
+    cachePut(ck, r, 300);
     return r;
   },
 
@@ -608,11 +608,18 @@ const ACTIONS = {
       F.forEach(function (k) { o[k] = S(g[k]); });
       list.push(o);
     });
+    // די נעמען פון אלע אנשי קשר — אין cache 10 מינוט (לייענען 3,000+ שורות איז פאמעלעך)
+    let all = cacheGet('names:main');
+    if (!all) {
+      all = {};
+      objsCols(ss.getSheetByName('Contacts'), ['contact_id', 'title_he', 'first_name_he', 'last_name_he', 'first_name_en', 'last_name_en', 'city']).forEach(function (c) {
+        if (!S(c.contact_id)) return;
+        all[S(c.contact_id)] = [[S(c.title_he), S(c.first_name_he), S(c.last_name_he)].filter(Boolean).join(' '), [S(c.first_name_en), S(c.last_name_en)].filter(Boolean).join(' '), S(c.city)];
+      });
+      cachePut('names:main', all, 600);
+    }
     const names = {};
-    objsCols(ss.getSheetByName('Contacts'), ['contact_id', 'title_he', 'first_name_he', 'last_name_he', 'first_name_en', 'last_name_en', 'city']).forEach(function (c) {
-      if (!cids[S(c.contact_id)]) return;
-      names[S(c.contact_id)] = { he: [S(c.title_he), S(c.first_name_he), S(c.last_name_he)].filter(Boolean).join(' '), en: [S(c.first_name_en), S(c.last_name_en)].filter(Boolean).join(' '), city: S(c.city) };
-    });
+    Object.keys(cids).forEach(function (id) { const c = all[id]; if (c) names[id] = { he: c[0], en: c[1], city: c[2] }; });
     return { gifts: list, names: names, methods: listValues('payment_method'), dedications: listValues('dedication_type') };
   },
 
