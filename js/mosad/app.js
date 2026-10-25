@@ -1,12 +1,12 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=331';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=331';
-import { initGifts, renderGifts } from './gifts.js?v=331';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=331';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=331';
-import { initTeam, renderTeam } from './team.js?v=331';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=331';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=332';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=332';
+import { initGifts, renderGifts } from './gifts.js?v=332';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=332';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=332';
+import { initTeam, renderTeam } from './team.js?v=332';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=332';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -95,6 +95,16 @@ async function enter(prompt) {
   try {
     if (!configured()) throw Object.assign(new Error('not-configured'), { code: 'not-configured' });
     if (prompt !== null) await signIn(prompt);
+    // אלעס אויף איינמאל — דערנאך עפנט זיך יעדער כפתור גלייך
+    $('#ms-app').innerHTML = `<div class="ms-login"><img src="${h(logoSrc())}" alt="" class="ms-logo"><h1>${h(TITLE)}</h1><p class="muted">⏳ טוען את כל הנתונים… (פעם אחת בכניסה)</p></div>`;
+    const iso = (d) => d.toISOString().slice(0, 10);
+    const now0 = new Date(); const sun = new Date(Date.UTC(now0.getFullYear(), now0.getMonth(), now0.getDate() - now0.getDay(), 12));
+    const sat = new Date(sun); sat.setUTCDate(sat.getUTCDate() + 6);
+    await prefetch(KEY, [{ action: 'me' }, { action: 'people' }, { action: 'school' }, { action: 'gifts' }, { action: 'fin' }, { action: 'team' }, { action: 'tasks' },
+      { action: 'ins' }, { action: 'users' }, { action: 'staff' }, { action: 'chav', params: { zman: currentZman() } },
+      { action: 'att', params: { from: iso(sun), to: iso(sun) } }, { action: 'hours', params: { from: iso(sun), to: iso(sat) } }]).catch((err) => {
+      if (['not-signed-in', 'not-allowed', 'no-mosad', 'not-configured'].includes(err?.code)) throw err;
+    });
     const r = await call(KEY, 'me');
     st.me = r.me; st.mosad = r.mosad; st.settings = r.settings || {}; st.team = r.team || null; st.openTasks = r.openTasks || 0; st.clock = r.clock || null;
     rememberHint(st.me.email);
@@ -156,7 +166,7 @@ function render(fromPop) {
     </header>
     ${st.tab === 'home' ? '' : `<nav class="ms-crumb"><button type="button" class="linkish" id="ms-back">→ דף הבית</button></nav>`}
     <main id="ms-main"></main>`;
-  $('#ms-out').onclick = () => { signOut(); st.me = null; loginView('יצאת מהמערכת.'); };
+  $('#ms-out').onclick = () => { signOut(); clearPrefetch(); st.me = null; loginView('יצאת מהמערכת.'); };
   $('#ms-home').onclick = () => { st.tab = 'home'; render(); };
   $('#ms-me').onclick = () => { st.tab = 'me'; render(); };
   $('#ms-back')?.addEventListener('click', () => { st.tab = 'home'; render(); });

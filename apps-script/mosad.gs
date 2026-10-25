@@ -81,7 +81,7 @@ function cacheGet(key) {
   } catch (err) { return null; }
 }
 // אקציעס וואס לייענען נאר; יעדע אנדערע (א שרייבונג) מעקט אויס דעם cache פון די מענטשן
-const READS = { me: 1, people: 1, find: 1, school: 1, whereIs: 1, gifts: 1, chav: 1, att: 1, hours: 1, ins: 1, team: 1, clock: 0, users: 1, tasks: 1, log: 1, history: 1, fin: 1, fileGet: 1, backups: 1, staff: 1 };
+const READS = { batch: 1, me: 1, people: 1, find: 1, school: 1, whereIs: 1, gifts: 1, chav: 1, att: 1, hours: 1, ins: 1, team: 1, clock: 0, users: 1, tasks: 1, log: 1, history: 1, fin: 1, fileGet: 1, backups: 1, staff: 1 };
 
 function doPost(e) {
   try {
@@ -128,12 +128,18 @@ function whoIs(token) {
 }
 
 // ---------- גיליונות ----------
-function main() { return SpreadsheetApp.openById(MAIN_ID); }
+let MAIN_SS = null;
+function main() { return MAIN_SS || (MAIN_SS = SpreadsheetApp.openById(MAIN_ID)); }
+let MEMO = null; // בשעת "batch" (נאר לייענען): יעדע לשונית ווערט געלייענט נאר איין מאל
 function rows(sheet) {
   if (!sheet) return { head: [], body: [] };
+  let mk = '';
+  if (MEMO) { mk = sheet.getParent().getId() + '/' + sheet.getName(); if (MEMO[mk]) return MEMO[mk]; }
   const v = sheet.getDataRange().getValues();
   const head = (v[0] || []).map(function (x) { return String(x).trim(); });
-  return { head: head, body: v.slice(1) };
+  const out = { head: head, body: v.slice(1) };
+  if (MEMO) MEMO[mk] = out;
+  return out;
 }
 function objs(sheet) {
   const r = rows(sheet);
@@ -427,6 +433,17 @@ function teamOff(M, id) {
 }
 
 const ACTIONS = {
+  /** אלעס אויף איינמאל ביים אריינקומען: א רשימה פון קריאות (נאר לייענען); יעדע מיט אירע הרשאות */
+  batch: function (M, me, req) {
+    const OK = { me: 1, people: 1, school: 1, gifts: 1, fin: 1, team: 1, tasks: 1, ins: 1, users: 1, staff: 1, chav: 1, att: 1, hours: 1 };
+    MEMO = {};
+    try {
+      return { results: [].concat(req.calls || []).slice(0, 30).map(function (c) {
+        if (!c || !OK[c.action]) return { error: 'bad-action' };
+        try { return ACTIONS[c.action](M, me, c.params || {}); } catch (err) { return { error: String((err && err.message) || err) }; }
+      }) };
+    } finally { MEMO = null; }
+  },
   /** ארויס פון איין רשימה (צוות / אברך / תלמיד…). די אנדערע סוגים בלייבן; קיין סוג נישט געבליבן → ארויס פונעם מוסד.
    *  req.request = אויך א בקשה צום הויפט-מאגר (נאר ווען ער איז אינגאנצן ארויס) */
   unlink: function (M, me, req) {

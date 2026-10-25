@@ -1,6 +1,6 @@
 // אתר פון א מוסד (למשל ישיבה): לאגאין מיט גוגל (נאר "ווער ביסטו" — קיין צוטריט צום גיליון),
 // און אלע ידיעות דורכן "שומר" (Apps Script mosad.gs), וואס גיט נאר וואס מ'מעג.
-import { CONFIG } from '../config.js?v=331';
+import { CONFIG } from '../config.js?v=332';
 
 const STORE = 'khal-mosad-auth';
 const SCOPE = 'openid email profile';
@@ -66,7 +66,7 @@ export async function brand(mosad) {
 }
 
 /** א קריאה צום שומר. mosad = דער שליסל (למשל "yeshiva") */
-export async function call(mosad, action, body = {}) {
+async function rawCall(mosad, action, body = {}) {
   if (!configured()) throw Object.assign(new Error('not-configured'), { code: 'not-configured' });
   if (!hasSession()) await signIn('');
   const res = await fetch(CONFIG.MOSAD_URL, {
@@ -77,4 +77,42 @@ export async function call(mosad, action, body = {}) {
   const j = await res.json();
   if (j.error) throw Object.assign(new Error(j.error), { code: j.error, email: j.email });
   return j;
+}
+
+// ---------- אלעס אויף איינמאל: ביים אריינקומען ווערט אלעס געלאדן מיט איין קריאה ----------
+// יעדער כפתור באקומט דאן זיינע ידיעות גלייך (דאס ערשטע מאל). נאך א שרייבונג / יעדע 5 מינוט —
+// ווערט ווידער געלאדן (ברקע) נאר וואס מ'האט נאך נישט גענוצט; א גענוצטע ידיעה גילט נאך 2 מינוט. נאר אין זכרון (נישט אויפן קאמפיוטער).
+const READS = new Set(['me', 'people', 'school', 'gifts', 'fin', 'team', 'tasks', 'ins', 'users', 'staff', 'chav', 'att', 'hours']);
+const PRE = new Map();
+const used = new Set();
+const keyOf = (action, body) => `${action}|${JSON.stringify(body || {})}`;
+let plan = null; // { mosad, calls }
+let gen = 0;
+let timer = null;
+export async function prefetch(mosad, calls) {
+  plan = { mosad, calls };
+  const g = gen;
+  const todo = calls.filter((c) => !used.has(keyOf(c.action, c.params)));
+  if (!todo.length) return;
+  const r = await rawCall(mosad, 'batch', { calls: todo });
+  if (g !== gen) return; // אין דערווייל האט מען עפעס געשריבן — אלט
+  todo.forEach((c, i) => { const x = r.results?.[i]; const k = keyOf(c.action, c.params); if (x && !x.error && !used.has(k)) PRE.set(k, { v: x, t: Date.now() }); });
+}
+function refetchSoon(ms) {
+  clearTimeout(timer);
+  timer = setTimeout(() => { if (plan) prefetch(plan.mosad, plan.calls).catch(() => {}); }, ms);
+}
+setInterval(() => { if (plan && document.visibilityState === 'visible') refetchSoon(0); }, 5 * 60 * 1000);
+export function clearPrefetch() { PRE.clear(); used.clear(); plan = null; gen += 1; }
+
+export async function call(mosad, action, body = {}) {
+  const k = keyOf(action, body);
+  if (READS.has(action)) {
+    used.add(k);
+    // א געלאדענע ידיעה גילט 2 מינוט (ביז א שרייבונג); דערנאך — פונעם שומר
+    const hit = PRE.get(k);
+    if (hit && Date.now() - hit.t < 120000) return hit.v;
+    PRE.delete(k);
+  } else if (action !== 'brand') { gen += 1; PRE.clear(); refetchSoon(2500); }
+  return rawCall(mosad, action, body);
 }
