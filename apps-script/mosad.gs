@@ -148,7 +148,7 @@ function mosadOf(key) {
   if (book.getSheetByName('People').getLastRow() < 2) seedPeople(book, S(m.org));
   const owners = S(m.owner_email).toLowerCase().split(/[,\s]+/).filter(Boolean)
     .concat(settingsEmails(['owner_email']));
-  return { key: k, name: S(m.name), org: S(m.org), book: book, owners: owners };
+  return { key: k, name: S(m.name), org: S(m.org), prefix: S(m.receipt_prefix), book: book, owners: owners };
 }
 function settingsEmails(cols) {
   const cache = CacheService.getScriptCache();
@@ -553,7 +553,8 @@ const ACTIONS = {
       let copy = Boolean(r);
       if (!r) {
         const od = orgDetails(M);
-        const pre = (S(od.receipt_prefix) || M.key).toUpperCase() + '-';
+        // די סעריע פון קבלות: Mosdos → receipt_prefix (למשל BS), אנדערש פון OrgDetails
+        const pre = (M.prefix || S(od.receipt_prefix) || M.key).toUpperCase() + '-';
         let mx = 1000;
         all.forEach(function (x) { const m = S(x.receipt_no).match(/(\d+)$/); if (m && Number(m[1]) > mx) mx = Number(m[1]); });
         r = { receipt_no: pre + (mx + 1), payment_id: Number(id), contact_id: p.contact_id, payer_id: p.payer_id, amount: Number(p.amount), issued_at: now(), issued_by: me.email, void: '' };
