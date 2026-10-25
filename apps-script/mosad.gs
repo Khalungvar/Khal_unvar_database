@@ -143,6 +143,15 @@ function unstore(M, keys) {
   } catch (err) { /* */ }
 }
 
+// נאך וועלכע אקציעס — פאר וועמען — מ'דערהיינטיגט די תגיות פון דער ישיבה אינעם הויפט-מאגר
+const Y_SYNC = {
+  enrollSave: function (req) { const e = req.enroll || {}; return [e.contact_id, e.parent_id, req._cid, req._pid, req._pid2].filter(Boolean); },
+  enrollDelete: function (req) { return [req._cid, req._pid].filter(Boolean); },
+  link: function (req) { return [req.contact_id]; },
+  unlink: function (req) { return [req.contact_id]; },
+  remove: function (req) { return [req.contact_id]; },
+  teamSave: function (req) { return [(req.team || {}).contact_id]; },
+};
 // וועלכע שרייבונגען טוישן וואס (כדי נישט אויסמעקן אומזיסט)
 const PPL_ACTS = { save: 1, link: 1, unlink: 1, remove: 1, ilPhone: 1, enrollSave: 1, enrollDelete: 1, giftSave: 1, backupRestore: 1 };
 const NAMES_ACTS = { save: 1, giftSave: 1, backupRestore: 1 };
@@ -183,6 +192,8 @@ function doPost(e) {
     if (req.fresh) dropCaches(M, true, true, true);
     const res = fn(M, me, req);
     if (!READS[req.action]) dropCaches(M, PPL_ACTS[req.action], NAMES_ACTS[req.action], DON_ACTS[req.action]);
+    // די תגיות פון דער ישיבה אינעם הויפט-מאגר (תלמיד / הורה / צוות — פעיל / יוצא)
+    if (Y_SYNC[req.action]) { try { syncYeshivaTags(M, Y_SYNC[req.action](req), me.email); } catch (err) { /* נישט שטערן די אקציע */ } }
     return out(res);
   } catch (err) {
     return out({ error: String((err && err.message) || err) });
@@ -1362,6 +1373,8 @@ const ACTIONS = {
       const mine = {}; peopleRows(M).forEach(function (p) { mine[S(p.contact_id)] = true; });
       const cid = 'contact_id' in o ? o.contact_id : S(ex && ex.contact_id);
       if (!mine[cid]) throw new Error('not-yours');
+      req._cid = cid; req._pid = S('parent_id' in o ? o.parent_id : (ex && ex.parent_id)); // פאר די תגיות אינעם הויפט-מאגר
+      if (ex && S(ex.parent_id) && S(ex.parent_id) !== req._pid) req._pid2 = S(ex.parent_id);
       if (o.parent_id && !mine[o.parent_id]) throw new Error('not-yours');
       ['contact_id', 'parent_id'].forEach(function (k) { if (o[k] && isFinite(Number(o[k]))) o[k] = Number(o[k]); });
       o.updated_at = now(); o.updated_by = me.email;
@@ -1388,6 +1401,7 @@ const ACTIONS = {
       const ex = objs(sh).filter(function (x) { return S(x.enroll_id) === id; })[0];
       if (!ex) return { ok: true };
       delRow(sh, ex._row);
+      req._cid = S(ex.contact_id); req._pid = S(ex.parent_id);
       logIt(M, me, 'enroll-delete', S(ex.contact_id), id);
     } finally { lock.releaseLock(); }
     return { ok: true };
@@ -1813,4 +1827,70 @@ function yeshivaTagsReport() {
   });
   Logger.log(JSON.stringify(n));
   Logger.log('wrong: ' + samples.join(' | '));
+}
+
+/** איין מענטש: די תגיות לויט דער ישיבה. e = { student|parent|staff: 'a'|'f' }. מחזיר { tags, changed, ok } */
+function yTagsApply(tg, e, org, today) {
+  const isY = function (x) { return x.p && String(x.p[0]) === '2' && String(x.p[1]) === org; };
+  let changed = false;
+  const anyA = Object.keys(e).some(function (k) { return e[k] === 'a'; });
+  Object.keys(e).forEach(function (k) {
+    const cur = tg.filter(function (x) { return isY(x) && String(x.p[2]) === Y_NODE[k]; })[0];
+    if (!cur) { tg.push({ p: ['2', org, Y_NODE[k]], s: e[k], d: today }); changed = true; }
+    else if (cur.s !== e[k]) { cur.s = e[k]; cur.d = today; delete cur.o; changed = true; }
+  });
+  // "די ישיבה" אליין (אן א תפקיד), פון די אלטע רשימות
+  tg.forEach(function (x) { if (isY(x) && !x.p[2] && x.s === 'u') { x.s = anyA ? 'a' : 'f'; x.d = today; delete x.o; changed = true; } });
+  // "⚠ לא נבדק" אוועק — נאר ווען קיין אנדערע תגית (אויסער דער אלטער רשימה) איז נישט "לא נבדק"
+  const hasOk = tg.some(function (x) { return x.p && x.p[0] === '_ok'; });
+  const otherU = tg.some(function (x) { return x.p && x.s === 'u' && !isY(x) && String(x.p[0]) !== '8' && x.p[0] !== '_ok'; });
+  let ok = false;
+  if (!hasOk && !otherU) {
+    tg.forEach(function (x) { if (x.s === 'u') { x.s = x.o === 'f' ? 'f' : 'a'; x.d = today; delete x.o; } });
+    tg.push({ p: ['_ok'], s: 'ok', d: today });
+    changed = true; ok = true;
+  }
+  return { tags: tg, changed: changed, ok: ok };
+}
+/** די תגיות פון דער ישיבה → אינעם הויפט-מאגר (ids ליידיג = אלע). מחזיר וויפל געטוישט */
+function syncYeshivaTags(M, ids, by) {
+  const exp = yeshivaExpected(M);
+  const want = ids ? ids.map(S).filter(function (id) { return exp[id]; }) : Object.keys(exp);
+  if (!want.length) return { changed: 0, ok: 0 };
+  const sh = main().getSheetByName('Contacts');
+  const head = headOf(sh);
+  const cT = head.indexOf('tags') + 1, cU = head.indexOf('updated_at') + 1, cB = head.indexOf('updated_by') + 1;
+  const rows = objsCols(sh, ['contact_id', 'tags', 'deleted_at']);
+  const by2 = {}; rows.forEach(function (r) { by2[S(r.contact_id)] = r; });
+  const today = Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd');
+  const org = 'o:' + M.org;
+  const hist = [];
+  const at = now();
+  const who = (by || 'system') + ' @' + M.key;
+  let n = 0, okN = 0;
+  want.forEach(function (id) {
+    const r = by2[id];
+    if (!r || S(r.deleted_at)) return;
+    const old = S(r.tags);
+    let tg = []; try { tg = JSON.parse(old || '[]'); if (!Array.isArray(tg)) tg = []; } catch (err) { return; } // א צעל וואס מ'קען נישט לייענען — נישט אנרירן
+    const res = yTagsApply(tg, exp[id], org, today);
+    if (!res.changed) return;
+    const nv = JSON.stringify(res.tags);
+    sh.getRange(r._row, cT).setValue(nv);
+    if (cU) sh.getRange(r._row, cU).setValue(at);
+    if (cB) sh.getRange(r._row, cB).setValue(who);
+    hist.push([at, who, 'contact', id, id, 'tags', old.slice(0, 45000), nv.slice(0, 45000)]);
+    n++; if (res.ok) okN++;
+  });
+  const h = main().getSheetByName('History');
+  if (h && hist.length) h.getRange(h.getLastRow() + 1, 1, hist.length, hist[0].length).setValues(hist);
+  if (n) dropCaches(M, false, false, false);
+  return { changed: n, ok: okN };
+}
+/** פונעם עדיטאר, איינמאל: א גיבוי פונעם הויפט-גיליון, און דערנאך אלע מענטשן פון דער ישיבה */
+function yeshivaTagsFix() {
+  makeBackup('main', main(), 'לפני סידור התגיות של הישיבה');
+  const M = mosadOf('yeshiva');
+  const r = syncYeshivaTags(M, null, Session.getActiveUser().getEmail() || 'owner');
+  Logger.log('changed: ' + r.changed + ', ⚠ removed: ' + r.ok);
 }
