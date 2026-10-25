@@ -80,6 +80,56 @@ function cacheGet(key) {
     return JSON.parse(t);
   } catch (err) { return null; }
 }
+// ---------- א קאפיע (מירור) פון די שווערע רשימות, אין א באהאלטענער לשונית "Cache" אינעם גיליון פונעם מוסד ----------
+// גוגל'ס cache פארגעסט נאך עטלעכע שעה; די קאפיע בלייבט. זי גילט נאר ווען דער הויפט-גיליון איז נישט געטוישט געווארן זינט דעמאלט.
+let MAIN_UPD = null;
+function mainUpdated() {
+  if (MAIN_UPD === null) { try { MAIN_UPD = DriveApp.getFileById(MAIN_ID).getLastUpdated().getTime(); } catch (err) { MAIN_UPD = Date.now(); } }
+  return MAIN_UPD;
+}
+function mirrorSheet(M, make) {
+  let sh = M.book.getSheetByName('Cache');
+  if (!sh && make) { sh = M.book.insertSheet('Cache'); try { sh.hideSheet(); } catch (err) { /* */ } }
+  return sh;
+}
+function store(M, key, obj) {
+  cachePut(key, obj, LONG);
+  try {
+    const t = JSON.stringify(obj);
+    const parts = [];
+    for (let i = 0; i < t.length; i += 45000) parts.push(t.slice(i, i + 45000));
+    if (parts.length > 40) return;
+    const sh = mirrorSheet(M, true);
+    const n = sh.getLastRow();
+    const keys = n ? sh.getRange(1, 1, n, 1).getValues().map(function (x) { return String(x[0]); }) : [];
+    const r = keys.indexOf(key) >= 0 ? keys.indexOf(key) + 1 : n + 1;
+    const w = Math.max(sh.getLastColumn(), parts.length + 2);
+    if (r <= n) sh.getRange(r, 1, 1, w).clearContent();
+    sh.getRange(r, 1, 1, parts.length + 2).setValues([[key, Date.now()].concat(parts)]);
+  } catch (err) { /* נישט קריטיש */ }
+}
+function load(M, key) {
+  const hit = cacheGet(key);
+  if (hit) return hit;
+  try {
+    const sh = mirrorSheet(M, false);
+    if (!sh || !sh.getLastRow()) return null;
+    const row = sh.getDataRange().getValues().filter(function (x) { return String(x[0]) === key; })[0];
+    if (!row || !Number(row[1]) || Number(row[1]) < mainUpdated()) return null;
+    const obj = JSON.parse(row.slice(2).join(''));
+    cachePut(key, obj, LONG);
+    return obj;
+  } catch (err) { return null; }
+}
+function unstore(M, keys) {
+  CacheService.getScriptCache().removeAll(keys);
+  try {
+    const sh = mirrorSheet(M, false);
+    if (!sh || !sh.getLastRow()) return;
+    sh.getRange(1, 1, sh.getLastRow(), 1).getValues().forEach(function (x, i) { if (keys.indexOf(String(x[0])) >= 0) sh.getRange(i + 1, 2).setValue(0); });
+  } catch (err) { /* */ }
+}
+
 // וועלכע שרייבונגען טוישן וואס (כדי נישט אויסמעקן אומזיסט)
 const PPL_ACTS = { save: 1, link: 1, unlink: 1, remove: 1, ilPhone: 1, enrollSave: 1, enrollDelete: 1, giftSave: 1, backupRestore: 1 };
 const NAMES_ACTS = { save: 1, giftSave: 1, backupRestore: 1 };
@@ -99,7 +149,7 @@ function dropCaches(M, ppl, names, don) {
   if (ppl) ks.push('ppl:' + M.key);
   if (names) ks.push('names:main');
   if (don) ks.push('don:' + M.key);
-  if (ks.length) c.removeAll(ks);
+  if (ks.length) unstore(M, ks);
 }
 // אקציעס וואס לייענען נאר; יעדע אנדערע (א שרייבונג) מעקט אויס דעם cache פון די מענטשן
 const READS = { batch: 1, me: 1, people: 1, find: 1, school: 1, whereIs: 1, gifts: 1, chav: 1, att: 1, hours: 1, ins: 1, team: 1, clock: 0, users: 1, tasks: 1, log: 1, history: 1, fin: 1, fileGet: 1, backups: 1, staff: 1 };
@@ -445,7 +495,7 @@ const GIFT_F = ['date', 'currency', 'amount_orig', 'fx_rate', 'amount_usd', 'pay
 /** די נדבות פונעם מוסד אינעם הויפט-גיליון (מיט קבלה-נומער) — אין cache (לייענען 2,000 שורות איז פאמעלעך) */
 function orgDonations(M) {
   const ck = 'don:' + M.key;
-  const hit = cacheGet(ck);
+  const hit = load(M, ck);
   if (hit) return hit;
   const ss = main();
   const rc = {};
@@ -460,7 +510,7 @@ function orgDonations(M) {
     GIFT_F.forEach(function (k) { o[k] = S(d[k]); });
     list.push(o);
   });
-  cachePut(ck, list, LONG);
+  store(M, ck, list);
   return list;
 }
 
@@ -469,14 +519,14 @@ function touchAll() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(1000)) return { ok: true, busy: true };
   try {
-    CacheService.getScriptCache().remove('names:main');
     objs(main().getSheetByName('Mosdos')).forEach(function (m) {
       if (!S(m.key) || !S(m.sheet_id)) return;
       const M = mosadOf(S(m.key));
       if (!M) return;
-      dropCaches(M, true, false, true);
-      cachePut('ppl:' + M.key, linkedData(M), LONG);
+      dropCaches(M, true, true, true);
+      store(M, 'ppl:' + M.key, linkedData(M));
       orgDonations(M);
+      ACTIONS.gifts(M, { role: 'owner', perms: PERMS.slice(), email: '' }, {}); // די נעמען פון די תורמים
     });
     return { ok: true };
   } finally { lock.releaseLock(); }
@@ -556,10 +606,10 @@ const ACTIONS = {
 
   people: function (M) {
     const ck = 'ppl:' + M.key;
-    const hit = cacheGet(ck);
+    const hit = load(M, ck);
     if (hit) return hit;
     const r = linkedData(M);
-    cachePut(ck, r, LONG);
+    store(M, ck, r);
     return r;
   },
 
@@ -729,14 +779,14 @@ const ACTIONS = {
       list.push(o);
     });
     // די נעמען פון אלע אנשי קשר — אין cache 10 מינוט (לייענען 3,000+ שורות איז פאמעלעך)
-    let all = cacheGet('names:main');
+    let all = load(M, 'names:main');
     if (!all) {
       all = {};
       objsCols(ss.getSheetByName('Contacts'), ['contact_id', 'title_he', 'first_name_he', 'last_name_he', 'first_name_en', 'last_name_en', 'city']).forEach(function (c) {
         if (!S(c.contact_id)) return;
         all[S(c.contact_id)] = [[S(c.title_he), S(c.first_name_he), S(c.last_name_he)].filter(Boolean).join(' '), [S(c.first_name_en), S(c.last_name_en)].filter(Boolean).join(' '), S(c.city)];
       });
-      cachePut('names:main', all, LONG);
+      store(M, 'names:main', all);
     }
     const names = {};
     Object.keys(cids).forEach(function (id) { const c = all[id]; if (c) names[id] = { he: c[0], en: c[1], city: c[2] }; });
@@ -1691,4 +1741,9 @@ function perfBatch() {
   const t2 = Date.now();
   ACTIONS.batch(M, me, { calls: calls });
   Logger.log('TOTAL batch (cached): ' + (Date.now() - t2) + 'ms');
+  // "אינדערפרי": גוגל'ס cache ליידיג, אבער די קאפיע אינעם גיליון איז דא
+  CacheService.getScriptCache().removeAll(['ppl:' + M.key, 'names:main', 'don:' + M.key, 'gen:' + M.key]);
+  const t3 = Date.now();
+  ACTIONS.batch(M, me, { calls: calls });
+  Logger.log('TOTAL batch (morning, from mirror): ' + (Date.now() - t3) + 'ms');
 }
