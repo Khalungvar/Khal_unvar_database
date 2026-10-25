@@ -92,7 +92,15 @@ function mirrorSheet(M, make) {
   if (!sh && make) { sh = M.book.insertSheet('Cache'); try { sh.hideSheet(); } catch (err) { /* */ } }
   return sh;
 }
-function store(M, key, obj) {
+let MIRROR = null; // די שורות פון "Cache" — איינמאל פער קריאה
+function mirrorRows(M) {
+  if (MIRROR) return MIRROR;
+  const sh = mirrorSheet(M, false);
+  MIRROR = sh && sh.getLastRow() ? sh.getDataRange().getValues() : [];
+  return MIRROR;
+}
+/** prune = אויסמעקן אנדערע שורות מיט דעם אנהייב (אלטע ווערסיעס) */
+function store(M, key, obj, prune) {
   cachePut(key, obj, LONG);
   try {
     const t = JSON.stringify(obj);
@@ -100,21 +108,25 @@ function store(M, key, obj) {
     for (let i = 0; i < t.length; i += 45000) parts.push(t.slice(i, i + 45000));
     if (parts.length > 40) return;
     const sh = mirrorSheet(M, true);
-    const n = sh.getLastRow();
+    let n = sh.getLastRow();
+    if (prune && n) {
+      const ks0 = sh.getRange(1, 1, n, 1).getValues();
+      for (let i = ks0.length - 1; i >= 0; i--) { const k = String(ks0[i][0]); if (k !== key && k.indexOf(prune) === 0) sh.deleteRow(i + 1); }
+      n = sh.getLastRow();
+    }
     const keys = n ? sh.getRange(1, 1, n, 1).getValues().map(function (x) { return String(x[0]); }) : [];
     const r = keys.indexOf(key) >= 0 ? keys.indexOf(key) + 1 : n + 1;
     const w = Math.max(sh.getLastColumn(), parts.length + 2);
     if (r <= n) sh.getRange(r, 1, 1, w).clearContent();
     sh.getRange(r, 1, 1, parts.length + 2).setValues([[key, Date.now()].concat(parts)]);
+    MIRROR = null;
   } catch (err) { /* נישט קריטיש */ }
 }
 function load(M, key) {
   const hit = cacheGet(key);
   if (hit) return hit;
   try {
-    const sh = mirrorSheet(M, false);
-    if (!sh || !sh.getLastRow()) return null;
-    const row = sh.getDataRange().getValues().filter(function (x) { return String(x[0]) === key; })[0];
+    const row = mirrorRows(M).filter(function (x) { return String(x[0]) === key; })[0];
     if (!row || !Number(row[1]) || Number(row[1]) < mainUpdated()) return null;
     const obj = JSON.parse(row.slice(2).join(''));
     cachePut(key, obj, LONG);
@@ -127,6 +139,7 @@ function unstore(M, keys) {
     const sh = mirrorSheet(M, false);
     if (!sh || !sh.getLastRow()) return;
     sh.getRange(1, 1, sh.getLastRow(), 1).getValues().forEach(function (x, i) { if (keys.indexOf(String(x[0])) >= 0) sh.getRange(i + 1, 2).setValue(0); });
+    MIRROR = null;
   } catch (err) { /* */ }
 }
 
@@ -135,16 +148,15 @@ const PPL_ACTS = { save: 1, link: 1, unlink: 1, remove: 1, ilPhone: 1, enrollSav
 const NAMES_ACTS = { save: 1, giftSave: 1, backupRestore: 1 };
 const DON_ACTS = { giftSave: 1, giftDelete: 1, giftReceipt: 1, receipt: 1, receiptVoid: 1, backupRestore: 1 };
 const LONG = 10800; // 3 שעות — מ'מעקט אויס ביי יעדער ענדערונג (אויך פונעם הויפט-אתר: "touch")
-/** א "דור" פאר דעם מוסד: יעדע שרייבונג → א נייער דור → דער גרויסער cache (batch) גילט מער נישט */
+/** א "דור" פאר דעם מוסד (פערמאנענט, אין ScriptProperties): יעדע שרייבונג → א נייער דור → די אלטע קאפיעס גילטן מער נישט */
+let GEN = {};
 function genOf(M) {
-  const c = CacheService.getScriptCache();
-  let g = c.get('gen:' + M.key);
-  if (!g) { g = String(Date.now()); c.put('gen:' + M.key, g, 21600); }
-  return g;
+  if (!GEN[M.key]) GEN[M.key] = PropertiesService.getScriptProperties().getProperty('gen:' + M.key) || '0';
+  return GEN[M.key];
 }
 function dropCaches(M, ppl, names, don) {
-  const c = CacheService.getScriptCache();
-  c.put('gen:' + M.key, String(Date.now()), 21600);
+  GEN[M.key] = String(Date.now());
+  try { PropertiesService.getScriptProperties().setProperty('gen:' + M.key, GEN[M.key]); } catch (err) { /* */ }
   const ks = [];
   if (ppl) ks.push('ppl:' + M.key);
   if (names) ks.push('names:main');
@@ -563,14 +575,16 @@ const ACTIONS = {
     // דער גאנצער ענטפער (אן די פערזענליכע) — אין cache ביז דער נעקסטער ענדערונג; לויט די הרשאות
     const sig = isAdminRole(me) ? 'all' : me.perms.slice().sort().join(',');
     const shared = calls.filter(function (c) { return c && !PERSONAL[c.action]; });
-    const ck = 'bundle:' + M.key + ':' + genOf(M) + ':' + skelHash(sig + JSON.stringify(shared));
+    const pre = 'bundle:' + skelHash(sig) + ':';
+    const ck = pre + skelHash(JSON.stringify(shared));
     MEMO = {};
     try {
-      let got = cacheGet(ck);
+      const hit = load(M, ck);
+      let got = hit && hit.g === genOf(M) ? hit.d : null;
       if (!got) {
         got = shared.map(run);
         // נאר ווען אלעס איז געלונגען (א "קיין הרשאה" איז נישט קיין פעלער)
-        if (got.every(function (r) { return !r || !r.error || r.error === 'no-permission' || r.error === 'bad-action'; })) cachePut(ck, got, LONG);
+        if (got.every(function (r) { return !r || !r.error || r.error === 'no-permission' || r.error === 'bad-action'; })) store(M, ck, { g: genOf(M), d: got }, pre);
       }
       let j = 0;
       return { results: calls.map(function (c) { return c && !PERSONAL[c.action] ? got[j++] : run(c); }) };
@@ -1742,7 +1756,10 @@ function perfBatch() {
   ACTIONS.batch(M, me, { calls: calls });
   Logger.log('TOTAL batch (cached): ' + (Date.now() - t2) + 'ms');
   // "אינדערפרי": גוגל'ס cache ליידיג, אבער די קאפיע אינעם גיליון איז דא
-  CacheService.getScriptCache().removeAll(['ppl:' + M.key, 'names:main', 'don:' + M.key, 'gen:' + M.key]);
+  const sig = 'all';
+  const ck = 'bundle:' + skelHash(sig) + ':' + skelHash(JSON.stringify(calls.filter(function (c) { return c.action !== 'me' && c.action !== 'tasks'; })));
+  CacheService.getScriptCache().removeAll(['ppl:' + M.key, 'names:main', 'don:' + M.key, ck, ck + ':0', ck + ':1', ck + ':2', ck + ':3', ck + ':4', ck + ':5']);
+  MIRROR = null; MAIN_UPD = null; GEN = {};
   const t3 = Date.now();
   ACTIONS.batch(M, me, { calls: calls });
   Logger.log('TOTAL batch (morning, from mirror): ' + (Date.now() - t3) + 'ms');
