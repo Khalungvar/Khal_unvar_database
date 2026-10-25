@@ -1,6 +1,6 @@
 // דער אתר פון א מוסד (שלב 1): לאגאין, די מענטשן פונעם מוסד (תלמידים / עלטערן / צוות), צולייגן און טוישן,
 // ארויסנעמען (מיט א בקשה צום הויפט-אתר), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint } from './api.js?v=316';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint } from './api.js?v=317';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
