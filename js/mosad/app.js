@@ -1,12 +1,12 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=333';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=333';
-import { initGifts, renderGifts } from './gifts.js?v=333';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=333';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=333';
-import { initTeam, renderTeam } from './team.js?v=333';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=333';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=334';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=334';
+import { initGifts, renderGifts } from './gifts.js?v=334';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=334';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=334';
+import { initTeam, renderTeam } from './team.js?v=334';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=334';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -94,6 +94,7 @@ function loginView(note = '', kind = '') {
 // ---------- 🚪 פתיחה: שערים + שעון חול, בשעת די ידיעות ווערן געלאדן; צום סוף עפענען זיך די שערים ----------
 const SPLASH_MSGS = ['פותחים את השערים…', 'טוען תלמידים…', 'טוען אנשי צוות ואברכים…', 'טוען שכר לימוד…', 'טוען נדבות…', 'טוען משכורות והוצאות…', 'כמעט מוכן…'];
 let splashT = null;
+let splashHold = false; // בשעת גוגל — נישט טוישן די מעלדונג
 function splashShow() {
   if ($('#ms-splash')) return;
   const el = document.createElement('div');
@@ -106,8 +107,9 @@ function splashShow() {
       <p class="sp-msg">${h(SPLASH_MSGS[0])}</p><div class="sp-bar"><span></span></div></div>`;
   document.body.appendChild(el);
   let i = 0;
-  splashT = setInterval(() => { i = Math.min(i + 1, SPLASH_MSGS.length - 1); const m = $('.sp-msg', el); if (m) m.textContent = SPLASH_MSGS[i]; }, 1300);
+  splashT = setInterval(() => { if (splashHold) return; i = Math.min(i + 1, SPLASH_MSGS.length - 1); const m = $('.sp-msg', el); if (m) m.textContent = SPLASH_MSGS[i]; }, 1300);
 }
+function splashMsg(t) { const m = $('#ms-splash .sp-msg'); if (m) m.textContent = t; }
 function splashDone(ok = true) {
   clearInterval(splashT);
   const el = $('#ms-splash');
@@ -122,9 +124,9 @@ function splashDone(ok = true) {
 async function enter(prompt) {
   try {
     if (!configured()) throw Object.assign(new Error('not-configured'), { code: 'not-configured' });
-    if (prompt !== null) await signIn(prompt);
-    // אלעס אויף איינמאל — דערנאך עפנט זיך יעדער כפתור גלייך
+    // די פתיחה — גלייך ביים קליק (אויך בשעת גוגל באשטעטיגט), נישט ערשט נאכדעם
     splashShow();
+    if (prompt !== null) { splashHold = true; splashMsg('מתחבר עם Google…'); try { await signIn(prompt); } finally { splashHold = false; } splashMsg(SPLASH_MSGS[0]); }
     const iso = (d) => d.toISOString().slice(0, 10);
     const now0 = new Date(); const sun = new Date(Date.UTC(now0.getFullYear(), now0.getMonth(), now0.getDate() - now0.getDay(), 12));
     const sat = new Date(sun); sat.setUTCDate(sat.getUTCDate() + 6);
