@@ -139,3 +139,11 @@ fieldset { border: 1px solid #e8dcc4; border-radius: 10px; margin: 8px 0; }
   .me-card { border-color: #3a2c28; }
   .tk-row { border-color: #3a2c28; }
 }
+/* ברוך הבא + אזור אישי (כמו באתר הכללי) */
+.ms-welcome { display: grid; grid-template-columns: 1fr 220px; gap: 16px; align-items: center; margin: 6px 0 16px; }
+.ms-wl-head { text-align: center; }
+.ms-wl-logo { height: 90px; width: auto; object-fit: contain; }
+.ms-wl-head h1 { margin: 6px 0 2px; color: var(--accent); }
+.ms-wl-me { min-height: 130px; }
+.ms-avatar { width: 52px; height: 52px; border-radius: 50%; background: var(--accent); color: var(--accent-ink, #fff); display: inline-flex; align-items: center; justify-content: center; font-size: 1.3em; font-weight: 700; }
+@media (max-width: 640px) { .ms-welcome { grid-template-columns: 1fr; } }

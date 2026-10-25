@@ -1,12 +1,12 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=323';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=323';
-import { initGifts, renderGifts } from './gifts.js?v=323';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=323';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=323';
-import { initTeam, renderTeam } from './team.js?v=323';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=323';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=324';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=324';
+import { initGifts, renderGifts } from './gifts.js?v=324';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=324';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=324';
+import { initTeam, renderTeam } from './team.js?v=324';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=324';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -164,7 +164,13 @@ function render() {
 
 function renderHome(box) {
   const tiles = TILES.filter((x) => can(x.k));
-  box.innerHTML = `${st.openTasks ? `<button type="button" class="ms-note ms-tasknote" id="ms-tasks">📋 יש לך ${st.openTasks} משימות פתוחות — לחץ לאזור האישי</button>` : ''}<div class="ms-tiles">${tiles.map((x, i) => `<button type="button" class="ms-tile${x.soon ? ' soon' : ''}" data-go="${x.k}">
+  const myName = (st.team && pById(st.team.contact_id) ? nameOf(pById(st.team.contact_id)) : '') || st.me.name || st.me.email.split('@')[0];
+  const initials = myName.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('');
+  box.innerHTML = `<div class="ms-welcome">
+      <div class="ms-wl-head"><img src="${h(logoSrc())}" alt="" class="ms-wl-logo"><h1>${h(st.mosad?.name || TITLE)}</h1><p class="muted">ברוך הבא · ${h(myName)}</p></div>
+      <button type="button" class="ms-tile ms-wl-me" id="ms-tasks"><span class="ms-avatar">${h(initials)}</span><b>${h(myName)}</b>
+        <span class="muted small">${st.openTasks ? `📋 ${st.openTasks} משימות פתוחות` : '👤 אזור אישי'}</span></button>
+    </div><div class="ms-tiles">${tiles.map((x, i) => `<button type="button" class="ms-tile${x.soon ? ' soon' : ''}" data-go="${x.k}">
       <span class="ms-ti">${x.ic}</span><b>${h(x.t)}</b>${x.sub ? `<span class="muted small">${h(x.sub)}</span>` : ''}${x.soon ? '<span class="ms-soon">בקרוב</span>' : ''}</button>`).join('')}</div>
     ${tiles.length ? '' : '<p class="ms-note">עדיין לא קיבלת הרשאה לאף כפתור. בקש מהמנהל.</p>'}
     <div class="ms-more">
