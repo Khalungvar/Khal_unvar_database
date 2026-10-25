@@ -363,8 +363,10 @@ const ACTIONS = {
       if (phones[S(c.contact_id)]) return true;
       if (!words.length) return false;
       const hay = [c.first_name_he, c.last_name_he, c.first_name_en, c.last_name_en].map(S).join(' ').toLowerCase();
-      return words.every(function (w) { return hay.indexOf(w) >= 0; });
-    }).slice(0, 15).map(function (c) {
+      const hayS = skel(hay);
+      // גענוי, אדער לויטן "שלד" (גינזבורג = גינסבערג)
+      return words.every(function (w) { return hay.indexOf(w) >= 0 || (skel(w).length >= 2 && hayS.indexOf(skel(w)) >= 0); });
+    }).slice(0, 25).map(function (c) {
       return { contact_id: c.contact_id, name: [c.title_he, c.first_name_he, c.last_name_he].map(S).filter(Boolean).join(' '), en: [c.first_name_en, c.last_name_en].map(S).filter(Boolean).join(' '), city: S(c.city) };
     });
     return { found: found };
@@ -1391,6 +1393,11 @@ function installBackup() {
   ScriptApp.newTrigger('nightlyBackup').timeBased().everyDays(1).atHour(3).inTimezone('Asia/Jerusalem').create();
   nightlyBackup();
   Logger.log('OK: ' + backupList('main').length + ' main, ' + backupList('yeshiva').length + ' yeshiva');
+}
+/** דער "שלד" פון א נאמען — אן אהוי"ע, ס=ז, ת=ט, ק=כ, סוף-אותיות — כדי צו געפינען אנדערע שרייבונגען */
+function skel(t) {
+  return String(t || '').toLowerCase().replace(/[ם]/g, 'מ').replace(/[ן]/g, 'נ').replace(/[ץ]/g, 'צ').replace(/[ף]/g, 'פ').replace(/[ך]/g, 'כ')
+    .replace(/[אהויע"'״׳\-]/g, '').replace(/ס/g, 'ז').replace(/ת/g, 'ט').replace(/ק/g, 'כ');
 }
 function isVoid(r) { const v = S(r.void).toLowerCase(); return v === 'true' || v === '1' || v === 'yes'; }
 /** די פרטים פונעם מוסד פאר א קבלה (פון OrgDetails אינעם הויפט-גיליון) */

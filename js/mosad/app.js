@@ -1,12 +1,12 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=327';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=327';
-import { initGifts, renderGifts } from './gifts.js?v=327';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=327';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=327';
-import { initTeam, renderTeam } from './team.js?v=327';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=327';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand } from './api.js?v=328';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool } from './school.js?v=328';
+import { initGifts, renderGifts } from './gifts.js?v=328';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=328';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=328';
+import { initTeam, renderTeam } from './team.js?v=328';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=328';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -299,34 +299,44 @@ function personDialog(p) {
 /** צולייגן: ערשט זוכן אינעם מאגר (נישט מאכן טאפלט), דערנאך — א נייער */
 function addDialog(kind0 = '') {
   const d = dialog(`<h2>➕ הוספה</h2>
-    <p class="muted small">קודם בודקים אם הוא כבר קיים במאגר הכללי — כדי לא ליצור כפילות.</p>
+    <p class="muted small">מתחילים לכתוב — מופיעים מי שכבר במאגר הכללי (גם בכתיב אחר, למשל גינזבורג / גינסבערג). כך לא נוצרות כפילויות.</p>
     <div class="ms-find"><input id="ms-fq" placeholder="שם (למשל: משה כהן)"><input id="ms-fph" dir="ltr" placeholder="טלפון (לא חובה)">
       <select id="ms-fkind">${KINDS.map(([k, l]) => `<option value="${k}"${k === kind0 ? ' selected' : ''}>${h(l)}</option>`).join('')}</select>
       <button type="button" class="btn primary" id="ms-fgo">🔍 חיפוש</button></div>
     <div id="ms-fout"></div>
     <div class="actions"><span class="spacer"></span><button type="button" class="btn" id="ms-fnew">➕ איש חדש (לא נמצא)</button><button type="button" class="btn" data-x>ביטול</button></div>`);
   const kind = () => $('#ms-fkind', d).value;
+  let seq = 0; let tm = null;
   const go = async () => {
     const q = $('#ms-fq', d).value.trim();
     const out = $('#ms-fout', d);
-    if (q.length < 2 && !$('#ms-fph', d).value.trim()) { out.innerHTML = '<p class="muted">כתוב לפחות 2 אותיות.</p>'; return; }
-    out.innerHTML = '<p class="muted">מחפש…</p>';
+    if (q.length < 2 && $('#ms-fph', d).value.replace(/\D/g, '').length < 7) { out.innerHTML = '<p class="muted small">כתוב לפחות 2 אותיות — התוצאות יופיעו תוך כדי כתיבה.</p>'; return; }
+    const my = ++seq;
+    out.innerHTML = '<p class="muted small">מחפש…</p>';
     try {
       const r = await call(KEY, 'find', { q, phone: $('#ms-fph', d).value });
-      const mine = new Set(st.people.map((p) => String(p.contact_id)));
-      out.innerHTML = r.found.length ? `<div class="ms-found">${r.found.map((x) => `<div class="ms-fr"><span><b>${h(x.name)}</b> <span class="muted small" dir="ltr">${h(x.en)}</span> ${x.city ? `· ${h(x.city)}` : ''} <span class="muted small">#${h(x.contact_id)}</span></span>
-          ${mine.has(String(x.contact_id)) ? '<span class="muted small">✓ כבר במוסד</span>' : `<button type="button" class="btn small-btn primary" data-link="${h(x.contact_id)}">זה הוא — הוסף</button>`}</div>`).join('')}</div>`
+      if (my !== seq) return;
+      const inMosad = (id) => pById(id);
+      out.innerHTML = r.found.length ? `<div class="ms-found">${r.found.map((x) => { const p = inMosad(x.contact_id); return `<div class="ms-fr"><span><b>${h(x.name)}</b> <span class="muted small" dir="ltr">${h(x.en)}</span> ${x.city ? `· ${h(x.city)}` : ''} <span class="muted small">#${h(x.contact_id)}</span>${p ? ` <span class="ms-kind k-${h(p.kind)}">${h(kindName(p.kind))} במוסד</span>` : ''}</span>
+          ${!p ? `<button type="button" class="btn small-btn primary" data-link="${h(x.contact_id)}">זה הוא — הוסף כ${h(kindName(kind()))}</button>`
+            : p.kind !== kind() ? `<button type="button" class="btn small-btn primary" data-link="${h(x.contact_id)}">שנה ל${h(kindName(kind()))}</button>`
+            : `<button type="button" class="btn small-btn" data-open="${h(x.contact_id)}">✓ כבר ${h(kindName(p.kind))} — פתח</button>`}</div>`; }).join('')}</div>`
         : '<p class="muted">לא נמצא במאגר. אפשר להוסיף איש חדש.</p>';
       $$('[data-link]', out).forEach((b) => {
         b.onclick = async () => {
           b.disabled = true;
-          try { await call(KEY, 'link', { contact_id: b.dataset.link, kind: kind() }); d.close(); await loadPeople(); render(); toast('נוסף למוסד.'); personDialog(pById(b.dataset.link)); } catch (err) { b.disabled = false; toast(msg(err), 'err'); }
+          try { await call(KEY, 'link', { contact_id: b.dataset.link, kind: kind() }); d.close(); await loadPeople(); render(); toast('נשמר.'); personDialog(pById(b.dataset.link)); } catch (err) { b.disabled = false; toast(msg(err), 'err'); }
         };
       });
+      $$('[data-open]', out).forEach((b) => { b.onclick = () => { d.close(); personDialog(pById(b.dataset.open)); }; });
     } catch (err) { out.innerHTML = `<p class="ms-note err">${h(msg(err))}</p>`; }
   };
+  const soon = () => { clearTimeout(tm); tm = setTimeout(go, 450); };
   $('#ms-fgo', d).onclick = go;
-  $('#ms-fq', d).onkeydown = (e) => { if (e.key === 'Enter') go(); };
+  $('#ms-fq', d).oninput = soon;
+  $('#ms-fph', d).oninput = soon;
+  $('#ms-fkind', d).onchange = () => { if ($('#ms-fout', d).innerHTML) go(); };
+  $('#ms-fq', d).onkeydown = (e) => { if (e.key === 'Enter') { clearTimeout(tm); go(); } };
   $('#ms-fnew', d).onclick = () => {
     const q = $('#ms-fq', d).value.trim().split(/\s+/);
     const he = /[֐-׿]/.test(q.join(''));
