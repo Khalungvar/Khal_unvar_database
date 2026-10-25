@@ -34,7 +34,7 @@ export async function usdRate(code, date = '') {
   const day = /^\d{4}-\d{2}-\d{2}$/.test(String(date)) ? date : 'latest';
   const k = `${code}:${day}`;
   if (day !== 'latest' && cache()[k]) return cache()[k];
-  const urls = [`https://api.frankfurter.app/${day}?from=${code}&to=USD`, `https://api.frankfurter.dev/v1/${day}?base=${code}&symbols=USD`];
+  const urls = [`https://api.frankfurter.dev/v1/${day}?base=${code}&symbols=USD`, `https://api.frankfurter.app/${day}?from=${code}&to=USD`];
   for (const u of urls) {
     try {
       const r = await fetch(u);
