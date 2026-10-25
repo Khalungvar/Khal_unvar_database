@@ -463,7 +463,8 @@ function renderEventsPage(main) {
     : `<p class="muted">${h(t('fcNoEvents'))}</p>`}`;
   $('#fc-back').onclick = () => ui.showView('lobby');
   $('#fc-new').onclick = () => eventDialog({});
-  main.onclick = (e) => { const b = e.target.closest('[data-ev]'); if (b) { cur.eventId = b.dataset.ev; cur.tab = 'scan'; renderFaces(); } };
+  // נאר די כרטיסן פון די אירועים (.fc-ev) — נישט אנדערע זאכן מיט data-ev (למשל דער סריקה-קעסטל אויפן בלאט פון אן אירוע)
+  main.onclick = (e) => { const b = e.target.closest('button.fc-ev[data-ev]'); if (b && main.contains(b)) { cur.eventId = b.dataset.ev; cur.tab = 'scan'; renderFaces(); } };
   // פאר יעדן אירוע: א פאס — וויפל זענען באשטעטיגט, וויפל ווארטן נאך
   evs.forEach(async (e) => {
     const el = () => document.querySelector(`[data-evbar="${CSS.escape(String(e.event_id))}"]`);
@@ -549,6 +550,7 @@ function eventDialog(e0) {
 }
 
 function renderEventPage(main, ev) {
+  main.onclick = null; // דער קליק פון דער רשימה פון אירועים גילט נישט דא
   const tabs = [['scan', `① ${t('fcTabScan')}`], ['tag', `② ${t('fcTabTag')}`], ['people', `③ ${t('fcTabPeople')}`]];
   main.innerHTML = `<div class="sc-head fc-head"><span class="sc-logo-ph">📸</span>
       <div><h1>${h(ev.name)}</h1><p class="muted small"><span dir="ltr">${h(ev.date || '')}</span> · ${ev.mode === 'fast' ? `⚡ ${h(t('fcModeFast'))}` : `🔒 ${h(t('fcModeNormal'))}`}
