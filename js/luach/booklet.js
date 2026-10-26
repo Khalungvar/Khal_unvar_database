@@ -6,7 +6,7 @@ import { buildYear, isoOf, nOf, mitzvaYomis } from './engine.js';
 import { START, LAST_PAGE, CONTENT, NUM_BAND } from './booklet-index.js';
 import { MONTH, CSS as MZ_CSS, monthHtml } from './mitzva.js';
 import { hebrewNumber, todayIso } from '../hebdate.js';
-import { readTabs, appendRow, updateRange, ensureDriveScope, driveFolder, driveUploadLarge, driveDownload } from '../google.js';
+import { readTabs, appendRow, updateRange, ensureDriveScope, hasDriveScope, driveFolder, driveUploadLarge, driveDownload } from '../google.js';
 import { state } from '../data.js';
 import { CONFIG } from '../config.js';
 import { escapeHtml as h, nowStamp } from '../util.js';
@@ -22,7 +22,7 @@ let loaded = false;
 let settings = {}; // key → { value, row }
 let deds = []; // [{ row, id, month, sort, kind, name, text, contact_id, amount }]
 
-async function loadData(force = false) {
+export async function loadData(force = false) {
   if (loaded && !force) return;
   const t = await readTabs(['Booklet', 'BookletDedications']);
   const [sh = [], ...sr] = t.Booklet || [];
@@ -37,8 +37,8 @@ async function loadData(force = false) {
   })).filter((d) => d.id && d.month && (d.name || d.text));
   loaded = true;
 }
-const setting = (k) => settings[k]?.value || '';
-async function saveSetting(k, v) {
+export const setting = (k) => settings[k]?.value || '';
+export async function saveSetting(k, v) {
   const row = [k, v, nowStamp(), state.email];
   if (settings[k]) await updateRange(`Booklet!A${settings[k].row}:D${settings[k].row}`, [row]);
   else await appendRow('Booklet', row);
@@ -90,7 +90,7 @@ export function bookRanges(a, b) {
 const countPages = (ranges) => ranges.reduce((s, r) => s + r.to - r.from + 1, 0);
 
 // ---------- טעקסט מיט סימנים: "# " גרויס, "## " מיטל, "~ " קליין, "---" א שטריך ----------
-function richLines(text) {
+export function richLines(text) {
   return String(text || '').split('\n').map((ln) => {
     const s = ln.trimEnd();
     if (/^-{3,}$/.test(s.trim())) return '<div class="bk-hr"></div>';
@@ -205,7 +205,7 @@ function backHtml(key) {
 }
 
 /** מאכט קלענער (--k) ביז דער טעקסט פאסט אריין אין זיין קעסטל */
-function fitAll(root) {
+export function fitAll(root) {
   $$('.bk-fit', root).forEach((el) => {
     const box = el.parentElement; let k = Number(el.dataset.k) || (el.closest('.bk-big') ? 1.6 : 1);
     el.style.setProperty('--k', k);
@@ -517,11 +517,21 @@ function filesDialog(main) {
     <input type="file" accept="application/pdf,.pdf" data-v="${v}">`;
   const { dlg, close } = dialog(`<h3>⚙ קבצי הספר "מצות המלך"</h3>
     <p class="muted small">מעלים פעם אחת את שני הקבצים (PDF). הם נשמרים ב-Google Drive של החשבון שמחובר עכשיו (${h(state.email || '')}), בתיקייה "${h(CONFIG.DRIVE_FOLDER)} / ספר מצות המלך" — לא באתר הציבורי. כדאי להיות מחובר עם חשבון הדאטאבייס.</p>
+    ${hasDriveScope() ? '' : '<p class="bk-scope"><button type="button" class="btn primary" data-a="scope">🔑 שלב 1: אישור גישה ל-Google Drive</button></p>'}
     ${row(1)}${row(2)}
     <div class="bk-prog" hidden><i></i></div><p id="bk-fmsg" class="muted"></p>
     <p><button type="button" class="btn ghost" data-a="close">סגירה</button></p>`);
   $('[data-a=close]', dlg).onclick = close;
-  $$('input[type=file]', dlg).forEach((inp) => {
+  const files = $$('input[type=file]', dlg);
+  const sc = $('[data-a=scope]', dlg);
+  if (sc) {
+    files.forEach((f) => { f.disabled = true; });
+    // דער גוגל-פענצטער מוז זיך עפענען גלייך ביים קליק (אנדערש בלאקירט עס דער בלעטערער)
+    sc.onclick = async () => {
+      try { await ensureDriveScope(); sc.parentElement.innerHTML = '✅ יש גישה ל-Drive — עכשיו בחר את הקבצים'; files.forEach((f) => { f.disabled = false; }); } catch (err) { $('#bk-fmsg', dlg).textContent = `❌ ${err.message || err}`; }
+    };
+  }
+  files.forEach((inp) => {
     inp.onchange = async () => {
       const file = inp.files[0]; if (!file) return;
       const v = Number(inp.dataset.v); const msg = $('#bk-fmsg', dlg); const bar = $('.bk-prog', dlg); const fill = $('i', bar);
@@ -558,6 +568,7 @@ function makeDialog(main) {
     <p style="display:flex;gap:8px"><button type="button" class="btn primary" data-a="go">הפק</button><button type="button" class="btn ghost" data-a="close">סגירה</button></p>`);
   $('[data-a=close]', dlg).onclick = close;
   $('[data-a=go]', dlg).onclick = async (e) => {
+    if (!hasDriveScope()) { try { await ensureDriveScope(); } catch (err) { $('#bk-mmsg', dlg).textContent = `❌ ${err.message || err}`; return; } }
     const kind = $('[name=kind]:checked', dlg).value; const msg = $('#bk-mmsg', dlg); const fill = $('.bk-prog i', dlg);
     e.target.disabled = true;
     try {
