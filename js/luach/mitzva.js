@@ -51,10 +51,10 @@ export const CSS = `
 .mz-week .mz-day span:last-child{font-size:18px}
 .mz-week .mz-row{font-size:14px;padding:1px 6px;line-height:1.25}
 .mz-week .mz-par{font-size:20px;margin:5px 0 2px;padding-top:3px;line-height:1.15}
-.mz-month{width:528px;height:816px;padding:24px 22px;box-sizing:border-box;display:flex;flex-direction:column}
+.mz-month{width:528px;height:816px;padding:44px 36px;box-sizing:border-box;display:flex;flex-direction:column}
 .mz-month .mz-title{font-size:24px;margin-bottom:14px;white-space:nowrap;color:#111}
 .mz-month .mz-sub{font-size:18px;margin:0 0 14px}
-.mz-cols{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-content:start}
+.mz-cols{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-content:start}
 .mz-month .mz-par{background:linear-gradient(90deg,#1e1e1e,#5c5c5c,#1e1e1e);color:#fff;border:none;font-size:16px;margin:12px 0 3px;padding:4px 0}
 .mz-month .mz-par:first-child{margin-top:0}
 .mz-ln{display:flex;align-items:center;gap:8px;padding:3px 2px;border-bottom:1px solid #111;white-space:nowrap}
@@ -92,19 +92,17 @@ function block(n) {
     <span class="mz-mm"><i>${h(m.num)}</i><span>${h(m.text)}</span></span></div>`;
 }
 export function monthHtml(page) {
-  // וואכן (פון זונטאג), יעדע וואך מיט דער פרשה; צוויי טורים — צעטיילט לויט וואכן, אזוי גלייך ווי מעגליך
-  const weeks = [];
-  page.monthDays.forEach((d) => { if (!weeks.length || d.dow === 0) weeks.push([]); weeks[weeks.length - 1].push(d.n); });
-  const total = page.monthDays.length; let acc = 0; let cut = weeks.length;
-  for (let i = 0; i < weeks.length; i += 1) { if (acc + weeks[i].length / 2 >= total / 2) { cut = i + (acc + weeks[i].length - total / 2 < total / 2 - acc ? 1 : 0); break; } acc += weeks[i].length; }
-  if (cut < 1) cut = 1;
-  const col = (ws) => ws.map((w) => {
+  // צוויי טורים גלייך צעטיילט: 15 טעג אין ערשטן, די איבעריגע (14/15) אינעם צווייטן; אין יעדן טור — וואכן (פון זונטאג) מיט דער פרשה
+  const days = page.monthDays.map((d) => d.n);
+  const half = Math.ceil(days.length / 2);
+  const weeksOf = (ns) => { const ws = []; ns.forEach((n) => { if (!ws.length || dowOf(n) === 0) ws.push([]); ws[ws.length - 1].push(n); }); return ws; };
+  const col = (ns) => weeksOf(ns).map((w) => {
     let s = w[0]; while (dowOf(s) !== 6) s += 1;
     return `<div class="mz-par">${h(shabbosName(s))}</div>${w.map(block).join('')}`;
   }).join('');
   return `<div class="mz-card mz-month">
     <div class="mz-title">לימוד מצוה יומית - חודש ${h(MONTH[page.key] || page.he)} ${h(hebrewNumber(page.Y % 1000))}</div>
-    <div class="mz-cols"><div>${col(weeks.slice(0, cut))}</div><div>${col(weeks.slice(cut))}</div></div>
+    <div class="mz-cols"><div>${col(days.slice(0, half))}</div><div>${col(days.slice(half))}</div></div>
   </div>`;
 }
 

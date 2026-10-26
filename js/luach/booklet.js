@@ -301,7 +301,7 @@ async function buildBooklet(m, progress = () => {}) {
   host.remove();
 
   // 2) עמודי הספר
-  const s = Math.min((PW - 40) / (CONTENT.x1 - CONTENT.x0), (PH - 40) / (CONTENT.y1 - CONTENT.y0));
+  const s = Math.min((PW - 76) / (CONTENT.x1 - CONTENT.x0), (PH - 76) / (CONTENT.y1 - CONTENT.y0)); // ~0.53 אינטש שוליים
   const cw = (CONTENT.x1 - CONTENT.x0) * s; const ch = (CONTENT.y1 - CONTENT.y0) * s;
   const box = { left: CONTENT.x0, right: CONTENT.x1, bottom: A4H - CONTENT.y1, top: A4H - CONTENT.y0 };
   let bookNo = 0; const total = countPages(ranges);
