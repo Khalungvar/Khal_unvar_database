@@ -238,6 +238,42 @@ export async function driveUpload(file, name, folderId) {
   return res.id;
 }
 
+/** גרויסע טעקע (ביז הונדערטער MB) — "resumable" ארויפלאדן מיט א פראגרעס. גיט צוריק דעם ID. */
+export async function driveUploadLarge(file, name, folderId, onProgress = () => {}) {
+  if (!accessToken) await requestToken();
+  const init = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json; charset=UTF-8',
+      'X-Upload-Content-Type': file.type || 'application/pdf', 'X-Upload-Content-Length': String(file.size),
+    },
+    body: JSON.stringify({ name, parents: [folderId] }),
+  });
+  const loc = init.headers.get('Location');
+  if (!init.ok || !loc) throw new Error(`upload ${init.status}`);
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open('PUT', loc);
+    x.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded / e.total); };
+    x.onload = () => { try { if (x.status >= 300) throw new Error(`upload ${x.status}`); resolve(JSON.parse(x.responseText).id); } catch (err) { reject(err); } };
+    x.onerror = () => reject(new Error('upload'));
+    x.send(file);
+  });
+}
+
+/** לאדט אראפ א טעקע פון דרייב (נאר וואס דער אתר האט אליין ארויפגעלייגט). Uint8Array. */
+export async function driveDownload(id, onProgress = () => {}) {
+  if (!accessToken) await requestToken();
+  const res = await fetch(`${DRIVE}/${id}?alt=media`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok) { const e = new Error(`drive ${res.status}`); e.status = res.status; throw e; }
+  const total = Number(res.headers.get('Content-Length')) || 0;
+  if (!res.body || !total) return new Uint8Array(await res.arrayBuffer());
+  const reader = res.body.getReader(); const parts = []; let got = 0;
+  for (;;) { const { done, value } = await reader.read(); if (done) break; parts.push(value); got += value.length; onProgress(got / total); }
+  const out = new Uint8Array(got); let o = 0; parts.forEach((p) => { out.set(p, o); o += p.length; });
+  return out;
+}
+
 export function signOut() {
   // נישט revoke: דאס מעקט אויס די דערלויבעניש ביי גוגל, און ביים קומענדיגן אריינגיין פרעגט גוגל אלעס פון ס'ניי
   accessToken = null;

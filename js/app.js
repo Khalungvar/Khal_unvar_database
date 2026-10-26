@@ -44,6 +44,7 @@ import { initFaces, openFaces, renderFaces } from './faces.js';
 import { initListSync } from './listsync.js';
 import { initBooks, openBooks, renderBooks, allBooks, BOOKS_ORG, BOOKS_LOGO } from './books.js';
 import { initLuach, openLuach, renderLuach } from './luach/view.js';
+import { fillBookletCard } from './luach/booklet.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount, parseOrgTags, splitEntry, entry } from './orgtags.js';
 import {
@@ -864,6 +865,7 @@ function openCard(id, tab = null) {
     </div>
     <div class="card-pane" data-tab="money">
       ${donationsSection(c)}
+      <div class="bk-card-ded"></div>
     </div>
     <div class="card-pane" data-tab="org">
       ${cardListsHtml(c)}
@@ -882,6 +884,7 @@ function openCard(id, tab = null) {
   wireSmsCard(c);
   wireFamily(c);
   wireDonationsSection(c);
+  fillBookletCard($('#card-body .bk-card-ded'), c.contact_id);
   wireOccasionsSection(c);
   wireKvitel(c);
   wireCardLists(c);
@@ -2018,7 +2021,7 @@ function start() {
   initMerge({ contactById, fullNameHe, pickerLabel, fieldLabel, toast, friendlyError, refreshAll, openCard });
   initListSync({ toast, friendlyError, fullNameHe, refreshAll });
   initFaces({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard, openForm });
-  initLuach({ showView, toast, friendlyError });
+  initLuach({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard });
   initBooks({ showView, toast, friendlyError, contactById, fullNameHe, receiptFor: (d) => printForDonation(d), cancelDoc: (c) => cancelDoc(c), quickSale: (org, done) => openQuickReceipt(org, done, { sale: true }) });
   initSimchos({ showView, contactById, fullNameHe, pickerLabel, toast, friendlyError, refreshAll, openCard, openForm });
   initSchool({

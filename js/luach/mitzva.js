@@ -6,7 +6,7 @@ import { escapeHtml as h } from '../util.js';
 import { htmlToJpeg } from '../pdf.js';
 
 const $ = (s, r = document) => r.querySelector(s);
-const MONTH = { Tishri: 'תשרי', Heshvan: 'מרחשון', Kislev: 'כסלו', Tevet: 'טבת', Shevat: 'שבט', Adar: 'אדר', 'Adar I': 'אדר א\'', 'Adar II': 'אדר ב\'', Nisan: 'ניסן', Iyar: 'אייר', Sivan: 'סיון', Tamuz: 'תמוז', Av: 'מנחם אב', Elul: 'אלול' };
+export const MONTH = { Tishri: 'תשרי', Heshvan: 'מרחשון', Kislev: 'כסלו', Tevet: 'טבת', Shevat: 'שבט', Adar: 'אדר', 'Adar I': 'אדר א\'', 'Adar II': 'אדר ב\'', Nisan: 'ניסן', Iyar: 'אייר', Sivan: 'סיון', Tamuz: 'תמוז', Av: 'מנחם אב', Elul: 'אלול' };
 const DAY = ['יום ראשון', 'יום שני', 'יום שלישי', 'יום רביעי', 'יום חמישי', 'ערב שבת', 'שבת קודש'];
 const hnum = (n) => { const s = hebrewNumber(n); return s; };
 const dateHe = (n) => { const x = hdOf(n); return `${hnum(x.d)} ${MONTH[x.m] || x.m}`; };
@@ -35,7 +35,7 @@ let back = () => {};
 
 function weekStart(n) { let s = n; while (dowOf(s) !== 5) s -= 1; return s; }
 
-const CSS = `
+export const CSS = `
 .mz-card{direction:rtl;background:transparent;padding:0;box-sizing:border-box;font-family:'Guttman David','David','Frank Ruehl',serif;color:#111}
 .mz-title{text-align:center;font-family:'Livorna','FontbitLivorna',serif;font-weight:700;font-size:24px;margin:2px 0 6px}
 .mz-sub{text-align:center;font-family:'Livorna','FontbitLivorna',serif;font-weight:700;font-size:16px;margin:-4px 0 8px}
@@ -89,7 +89,7 @@ function block(n) {
   return `<div class="mz-ln${dw === 6 ? ' mz-shb' : ''}"><span class="mz-dd"><b>${h(hnum(x.d))}</b><small>${dw === 6 ? 'שבת' : `יום ${SHORT[dw]}`}</small></span>
     <span class="mz-mm"><i>${h(m.num)}</i><span>${h(m.text)}</span></span></div>`;
 }
-function monthHtml(page) {
+export function monthHtml(page) {
   // וואכן (פון זונטאג), יעדע וואך מיט דער פרשה; צוויי טורים — צעטיילט לויט וואכן, אזוי גלייך ווי מעגליך
   const weeks = [];
   page.monthDays.forEach((d) => { if (!weeks.length || d.dow === 0) weeks.push([]); weeks[weeks.length - 1].push(d.n); });
