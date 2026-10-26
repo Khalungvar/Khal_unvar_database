@@ -162,7 +162,7 @@ const BK_CSS = `
 .bk-of>.f-tc{top:0}.bk-of>.f-bc{bottom:0}
 .bk-of>.bk-fin{display:flex;align-items:center;justify-content:center;min-height:calc(540px * var(--fk) - 154px * var(--fk))}
 .bk-shiur{margin-top:auto;background:linear-gradient(90deg,#1e1e1e,#5c5c5c,#1e1e1e);color:#fff;text-align:center;padding:6px 8px 7px;font-size:13px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.bk-shiur .bk-l{line-height:1.2}.bk-shiur .bk-l2{font-family:'Livorna Bold','Livorna',serif;font-size:1.6em;line-height:1.15;letter-spacing:.3px}.bk-shiur .bk-l3{font-size:.95em}
+.bk-shiur .bk-l{line-height:1.25;font-size:1em}.bk-shiur .bk-l2{font-family:'Livorna Bold','Livorna',serif;font-size:1.45em;line-height:1.2}.bk-shiur .bk-l3{font-size:.85em}
 .bk-fit-area{position:absolute;display:flex;align-items:center;justify-content:center}
 .bk-fit{text-align:center;transform-origin:center center;font-size:calc(16px * var(--k,1))}
 .bk-ded{margin:2px 0}
@@ -204,7 +204,7 @@ function coverHtml(p) {
 }
 const p2Html = () => `<div class="bk-pg"><img class="bk-bg" src="${IMG('p2.jpg')}" alt=""></div>`;
 // א פס אונטן פון דער טבלה (נאר אין קונטרס) — דער שיעור, ווי די שווארצע פרשה-פסן
-const DEF_SHIUR = '~ לשמוע שיעור יומי בסדר המצות (אידיש)\n## קול אונגוואר: 605-477-4427\n~ אחריו 3 ואחריו 1';
+const DEF_SHIUR = '## לשמוע שיעור יומי בסדר המצות (אידיש)\nקול אונגוואר: 605-477-4427 אחריו 3 ואחריו 1';
 const shiurBar = () => `<div class="bk-shiur">${richLines(setting('shiur_text') || DEF_SHIUR)}</div>`;
 const p3Html = (p) => `<div class="bk-pg"><img class="bk-bg" src="${IMG('bgL.jpg')}" alt=""><div style="position:absolute;inset:0">${monthHtml(p, shiurBar())}</div></div>`;
 function p4Html(key) {
