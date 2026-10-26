@@ -24,51 +24,45 @@
 .lx-g { position: absolute; left: 3pt; top: 2.5pt; font-family: 'Minion Pro', 'Cambria', Georgia, serif; font-size: 9pt; color: #3a7fc8; }
 .lx-d { position: absolute; right: 3.5pt; top: 1.5pt; font-family: 'Guttman David', 'David', serif; font-weight: 700; font-size: 14.7pt; color: #97214c; line-height: 1.1; }
 .lx-pm { font-size: 7.4pt; margin-inline-end: 2pt; vertical-align: 1pt; }
-.lx-parsha { position: absolute; left: 3pt; top: 14.5pt; font-family: 'FontbitLivorna', 'Livorna', serif; font-size: 10pt; color: #260066; max-width: 40pt; line-height: 1.05; }
-.lx-hol { position: absolute; right: 3.5pt; top: 20pt; left: 3pt; text-align: right; font-family: 'EFT_Chakika', 'David', serif; font-size: 6.9pt; color: #2f2421; line-height: 1.2; }
+/* דער אינהאלט פליסט פון אויבן ביז אונטן — קיינער פאלט נישט אויף דעם אנדערן */
+.lx-body { position: absolute; top: 18.5pt; bottom: 1.5pt; left: 2.5pt; right: 2.5pt; display: flex; flex-direction: column; gap: 1pt; direction: rtl; }
+.lx-r1 { display: flex; align-items: flex-start; gap: 2pt; min-height: 0; }
+.lx-hol { flex: 1 1 auto; min-width: 0; text-align: right; font-family: 'EFT_Chakika', 'David', serif; font-size: 6.9pt; color: #2f2421; line-height: 1.2; }
+.lx-hol > div { overflow: hidden; }
 .lx-hol .lx-ed { color: #97214c; }
-.lx-t { position: absolute; left: 3pt; top: 37pt; line-height: 1; }
+.lx-parsha { flex: 0 1 auto; max-width: 62%; margin-top: -4.5pt; overflow: hidden; text-align: left; font-family: 'FontbitLivorna', 'Livorna', serif; font-size: 10pt; color: #260066; line-height: 1.05; }
+.lx-r2 { flex: 1 1 auto; min-height: 0; display: flex; align-items: flex-end; gap: 2pt; }
+.lx-rc { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 0.5pt; }
+.lx-t { flex: 0 0 auto; line-height: 1; text-align: left; }
 .lx-tl { display: block; font-family: 'Sfarady', 'David', serif; font-size: 6pt; }
-.lx-tv { display: block; font-family: 'Monotype Corsiva', 'Cambria', serif; font-style: normal; font-size: 9.6pt; color: #7a0f0f; font-weight: bold; margin-bottom: 1pt; }
-.lx-fast { position: absolute; right: 3pt; left: 3pt; bottom: 14pt; text-align: left; font-family: 'Sfarady', serif; font-size: 5.5pt; }
-.lx-fast b { font-family: 'Monotype Corsiva', serif; font-size: 9.6pt; color: #7a0f0f; }
-.lx-chametz { position: absolute; right: 3pt; left: 22pt; top: 27.5pt; font-family: 'Sfarady', serif; font-size: 5pt; text-align: right; line-height: 1.12; }
-.lx-chametz b { font-family: 'Monotype Corsiva', serif; font-size: 8pt; color: #7a0f0f; }
-.lx-ic { position: absolute; right: 2pt; bottom: 3pt; object-fit: contain; }
-.lx-cell:has(.lx-bot > *) .lx-ic { bottom: 11pt; }
-.lx-cell:has(.lx-bot > :nth-child(2)) .lx-ic { bottom: 21.5pt; max-height: 22pt; }
-.lx-cell:has(.lx-omer):has(.lx-bot > *) .lx-ic { bottom: 26pt; }
-.lx-rebbe { position: absolute; right: 2pt; top: 30pt; white-space: nowrap; display: flex; flex-direction: row-reverse; align-items: center; gap: 1pt; font-family: 'FontbitLivorna', serif; font-size: 5pt; color: #3b2a1f; line-height: 1.1; text-align: right; }
-.lx-rebbe img { width: 9pt; }
-.lx-rebbe b { font-family: 'FontbitLivorna', serif; font-weight: 700; font-size: 7.2pt; }
-.lx-omer { position: absolute; left: 2pt; right: 2pt; bottom: 2pt; text-align: center; font-family: 'SfaradyMedium', 'Sfarady', serif; font-size: 6.4pt; color: #2e8a1e; line-height: 1.15; }
-.lx-bot { position: absolute; left: 3pt; right: 3pt; bottom: 2.5pt; display: flex; flex-direction: column; align-items: flex-start; gap: 0.5pt; direction: ltr; }
-.lx-bot > * { direction: rtl; }
-.lx-bot .lx-small, .lx-bot .lx-eruv { align-self: flex-end; }
-.lx-cell:has(.lx-ic) .lx-bot > * { align-self: flex-start; }
-.lx-cell:has(.lx-omer) .lx-bot > * { align-self: flex-end; }
-.lx-cell:has(.lx-omer):has(.lx-ic) .lx-bot > * { align-self: flex-start; }
-.lx-cell:has(.lx-omer) .lx-t, .lx-cell:has(.lx-bot > :nth-child(2)) .lx-t { top: 29pt; }
-.lx-bot > * { white-space: nowrap; }
-.lx-cell:has(.lx-omer) .lx-bot { bottom: 17pt; }
-.lx-cell:has(.lx-omer) .lx-ic { bottom: 17pt; }
+.lx-tv { display: block; font-family: 'Monotype Corsiva', 'Cambria', serif; font-size: 9.6pt; color: #7a0f0f; font-weight: bold; }
+.lx-ic { display: block; object-fit: contain; max-width: 100%; }
+.lx-rebbe { display: flex; flex-direction: row-reverse; align-items: center; gap: 1pt; font-family: 'FontbitLivorna', serif; font-size: 5pt; color: #3b2a1f; line-height: 1.1; text-align: right; white-space: nowrap; }
+.lx-rebbe img { width: 8pt; }
+.lx-rebbe b { font-family: 'FontbitLivorna', serif; font-weight: 700; font-size: 7pt; }
+.lx-chametz { font-family: 'Sfarady', serif; font-size: 5.6pt; }
+.lx-bot { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 0.5pt; }
+.lx-bot > *, .lx-rc > div { max-width: 100%; overflow: hidden; text-align: center; white-space: nowrap; }
+.lx-omer { flex: 0 0 auto; text-align: center; font-family: 'SfaradyMedium', 'Sfarady', serif; font-size: 6.2pt; color: #2e8a1e; line-height: 1.15; }
 .lx-note { font-family: 'EFT_Pnina', 'David', serif; font-size: 6.2pt; color: #7c4c26; }
 .lx-note.lx-xs { font-size: 5.5pt; }
+.lx-bahab { font-family: 'PFT_Frank', 'Frank Ruehl', serif; font-size: 6.2pt; color: #2f2421; }
 .lx-small { font-family: 'SfaradyMedium', 'Sfarady', serif; font-size: 7.7pt; color: #7c4c26; }
 .lx-small.lx-l { font-size: 8.8pt; }
 .lx-avos { font-family: 'SfaradyMedium', 'Sfarady', serif; font-size: 7.7pt; color: #7c4c26; }
-.lx-hil { font-family: 'PFT_Frank', 'Frank Ruehl', serif; font-size: 6.2pt; color: #2f2421; display: flex; align-items: flex-end; gap: 2pt; align-self: center; white-space: nowrap; }
-.lx-hil img { width: 9pt; }
-.lx-eruv { font-family: 'FontbitLivorna', serif; font-weight: 700; font-size: 7pt; color: #d9001c; line-height: 1; text-align: center; }
-.lx-dst { font-family: 'EFT_Pnina', serif; font-size: 7.5pt; color: #d9001c; text-align: left; line-height: 1.1; }
-.lx-dst b { font-size: 9pt; } .lx-dst i { font-size: 4.4pt; font-style: normal; font-weight: 700; } .lx-dst span { font-family: 'SfaradyMedium', serif; }
+.lx-hil { font-family: 'PFT_Frank', 'Frank Ruehl', serif; font-size: 6.2pt; color: #2f2421; display: flex; align-items: flex-end; justify-content: center; gap: 2pt; }
+.lx-hil img { width: 7pt; flex: 0 0 auto; }
+.lx-eruv { font-family: 'FontbitLivorna', serif; font-weight: 700; font-size: 7pt; color: #d9001c; line-height: 1; }
+.lx-dst { font-family: 'EFT_Pnina', serif; font-size: 6.5pt; color: #d9001c; line-height: 1.1; }
+.lx-dst b { font-size: 8pt; } .lx-dst i { font-size: 4.4pt; font-style: normal; font-weight: 700; } .lx-dst span { font-family: 'SfaradyMedium', serif; }
+.lx-fast { font-family: 'Sfarady', serif; font-size: 5.5pt; }
 .lx-banner { position: absolute; object-fit: cover; border: 0.6pt solid #351f17; }
 .lx-carry { position: absolute; width: 22pt; height: 18pt; border: 0.8pt solid #351f17; background: #fffee3; display: flex; align-items: center; justify-content: center; gap: 1pt;
   font-family: 'Guttman David', serif; font-weight: 700; font-size: 13pt; color: #97214c; direction: rtl; }
 .lx-carry span { font-family: 'David', serif; font-size: 16pt; }
 .lx-zr, .lx-mr { position: absolute; left: 0; width: 100%; height: 10.58pt; }
 .lx-mr { height: 11.7pt; }
-.lx-zr span, .lx-mr span { position: absolute; top: 0; height: 100%; display: flex; align-items: center; justify-content: center; white-space: nowrap; }
+.lx-zr > span, .lx-mr > span { position: absolute; top: 0; height: 100%; display: flex; align-items: center; justify-content: center; white-space: nowrap; }
 .lx-zd { left: 131.5pt; width: 13.7pt; font-family: 'EFT_Patient', serif; font-weight: 700; font-size: 8.4pt; }
 .lx-zn { left: 111.2pt; width: 20.1pt; } .lx-zm { left: 92.7pt; width: 18.5pt; } .lx-zs { left: 72.9pt; width: 19.8pt; }
 .lx-zn, .lx-zm, .lx-zs { font-family: 'Monotype Corsiva', 'Cambria', serif; font-size: 8pt; }
@@ -77,9 +71,8 @@
 .lx-md { left: 757.2pt; width: 12.8pt; font-family: 'EFT_Patient', serif; font-weight: 700; font-size: 8.4pt; }
 .lx-mn { left: 734.2pt; width: 23pt; font-family: 'PFT_Vilna', serif; font-weight: 700; font-size: 8.8pt; }
 .lx-mt { left: 674.6pt; width: 59.6pt; justify-content: flex-end !important; padding-right: 2pt; box-sizing: border-box; font-family: 'PFT_Vilna', serif; font-size: 7pt; overflow: visible; }
-.lx-mt i { white-space: nowrap; }
 .lx-bc { position: absolute; top: 408.9pt; height: 26.2pt; display: flex; flex-direction: column; }
-.lx-bc span { height: 8.7pt; display: flex; align-items: center; justify-content: center; font-family: 'Monotype Corsiva', serif; font-size: 6.5pt; white-space: nowrap; }
+.lx-bc > span { height: 8.7pt; display: flex; align-items: center; justify-content: center; font-family: 'Monotype Corsiva', serif; font-size: 6.5pt; white-space: nowrap; }
 .lx-bc .lx-bp { font-family: 'Livorna', 'FontbitLivorna', serif; font-size: 6pt; }
 .lx-dlg h4 { margin: 12px 0 4px; }
 .lx-list { margin: 0; padding-inline-start: 18px; line-height: 1.8; }
@@ -93,3 +86,9 @@
   body.printing-lx #lx-print-area .lx-page { page-break-after: always; break-after: page; }
   body.printing-lx { margin: 0; background: none; }
 }
+
+.lx-f { display: inline-block; white-space: nowrap; transform-origin: right center; }
+.lx-mt .lx-f, .lx-hol .lx-f { transform-origin: right center; }
+.lx-bot .lx-f, .lx-rc .lx-f { transform-origin: center; }
+.lx-parsha .lx-f { transform-origin: left center; }
+.lx-bc .lx-f { transform-origin: center; }

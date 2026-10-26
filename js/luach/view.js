@@ -75,32 +75,44 @@ function cellHtml(d, r, c, page) {
   const items = d.items;
   const of = (k) => items.filter((x) => x.kind === k);
   const prevMonth = d.hm !== page.key ? `<span class="lx-pm">${h(monthName(d.hm))}</span>` : '';
-  const hol = [...of('hol'), ...of('special'), ...of('bahab')];
-  const icon = items.find((x) => x.icon);
-  const bottom = [];
-  of('eruv').forEach((x) => bottom.push(`<div class="lx-eruv">${h(x.text)}</div>`));
-  of('small').forEach((x) => bottom.push(`<div class="lx-small${x.size === 'l' ? ' lx-l' : ''}">${h(x.text)}</div>`));
-  of('note').forEach((x) => bottom.push(`<div class="lx-note${x.size === 'xs' ? ' lx-xs' : ''}">${fitText(x.text, x.size === 'xs' ? 26 : 22)}</div>`));
-  of('avos').forEach((x) => bottom.push(`<div class="lx-avos">${h(x.text)}</div>`));
-  of('dst').forEach((x) => bottom.push(`<div class="lx-dst"><b>2</b><i>AM</i> - ${h(x.text)}<br><span>${h(x.en)}</span></div>`));
-  of('hillula').forEach((x) => bottom.push(`<div class="lx-hil"><img src="img/luach/candle.png" alt="">${fitText(x.text, 17)}</div>`));
-  const omer = of('omer')[0];
+  const hol = [...of('hol'), ...of('special')];
+  const icon = items.find((x) => x.icon && ICON_SIZE[x.icon]);
   const rebbe = of('rebbe')[0];
+  const omer = of('omer')[0];
   const times = d.times.filter((t) => !t.chametz && !t.fast);
   const fast = d.times.find((t) => t.fast);
   const chametz = d.times.filter((t) => t.chametz);
+  // קליינע זאכן: ווען ס'איז נישטא קיין בילד — אין דער מיטלסטער שורה רעכטס (לעבן די זמנים), סיי נישט — אונטן
+  const side = [];
+  of('eruv').forEach((x) => side.push(`<div class="lx-eruv">${fitText(x.text)}</div>`));
+  of('small').forEach((x) => side.push(`<div class="lx-small${x.size === 'l' ? ' lx-l' : ''}">${fitText(x.text)}</div>`));
+  of('avos').forEach((x) => side.push(`<div class="lx-avos">${fitText(x.text)}</div>`));
+  const bottom = [];
+  of('bahab').forEach((x) => bottom.push(`<div class="lx-bahab">${fitText(x.text)}</div>`));
+  of('note').forEach((x) => bottom.push(`<div class="lx-note${x.size === 'xs' ? ' lx-xs' : ''}">${fitText(x.text)}</div>`));
+  of('hillula').forEach((x) => bottom.push(`<div class="lx-hil"><img src="img/luach/candle.png" alt="">${fitText(x.text)}</div>`));
+  of('dst').forEach((x) => bottom.push(`<div class="lx-dst"><b>2</b><i>AM</i> - ${h(x.text)} <span>${h(x.en)}</span></div>`));
+  chametz.forEach((t) => bottom.push(`<div class="lx-chametz">${fitText(`${t.label} ${t.sub} ${t.time}`)}</div>`));
+  if (fast) bottom.push(`<div class="lx-fast">${fitText(`${fast.label} ${fast.time}`)}</div>`);
+  const rightCol = [];
+  if (rebbe) rightCol.push(`<div class="lx-rebbe"><img src="img/luach/candle.png" alt=""><div>כ"ק אדמו"ר הגה"ק<br>בעל <b>משנה</b><br><b>הלכות</b> זצוקללה"ה</div></div>`);
+  if (icon) rightCol.push(`<img class="lx-ic" src="img/luach/${icon.icon}.png" alt="" style="width:${ICON_SIZE[icon.icon][0]}pt;height:${ICON_SIZE[icon.icon][1]}pt">`);
+  if (icon || rebbe) bottom.unshift(...side); else rightCol.push(...side);
   return `<div class="lx-cell${d.shade ? ' lx-shade' : ''}" data-iso="${d.iso}" style="${pos(c, r)}">
     <span class="lx-g">${d.greg}</span>
     <span class="lx-d">${prevMonth}${h(d.heDay)}</span>
-    ${d.parsha ? `<div class="lx-parsha">${h(d.parsha)}</div>` : ''}
-    <div class="lx-hol">${hol.map((x) => `<div${x.edit ? ' class="lx-ed"' : ''}>${h(x.text)}</div>`).join('')}</div>
-    ${times.length ? `<div class="lx-t">${times.map((t) => `<span class="lx-tl">${h(t.label)}</span><span class="lx-tv">${h(t.time)}</span>`).join('')}</div>` : ''}
-    ${fast ? `<div class="lx-fast"><span>${h(fast.label)}</span> <b>${h(fast.time)}</b></div>` : ''}
-    ${chametz.length ? `<div class="lx-chametz">${chametz.map((t) => `<div><span>${h(t.label)}</span> <small>${h(t.sub)}</small> <b>${h(t.time)}</b></div>`).join('')}</div>` : ''}
-    ${icon && ICON_SIZE[icon.icon] ? `<img class="lx-ic lx-ic-${icon.icon}" src="img/luach/${icon.icon}.png" alt="" style="width:${ICON_SIZE[icon.icon][0]}pt;height:${ICON_SIZE[icon.icon][1]}pt">` : ''}
-    ${rebbe ? `<div class="lx-rebbe"><img src="img/luach/candle.png" alt=""><div>כ"ק אדמו"ר הגה"ק<br>בעל <b>משנה<br>הלכות</b> זצוקללה"ה</div></div>` : ''}
-    ${omer ? `<div class="lx-omer">${h(omer.text)}:</div>` : ''}
-    <div class="lx-bot">${bottom.join('')}</div>
+    <div class="lx-body">
+      <div class="lx-r1">
+        <div class="lx-hol">${hol.map((x) => `<div${x.edit ? ' class="lx-ed"' : ''}>${fitText(x.text)}</div>`).join('')}</div>
+        ${d.parsha ? `<div class="lx-parsha">${fitText(d.parsha)}</div>` : ''}
+      </div>
+      <div class="lx-r2">
+        <div class="lx-rc">${rightCol.join('')}</div>
+        ${times.length ? `<div class="lx-t">${times.map((t) => `<span class="lx-tl">${h(t.label)}</span><span class="lx-tv">${h(t.time)}</span>`).join('')}</div>` : ''}
+      </div>
+      ${bottom.length ? `<div class="lx-bot">${bottom.join('')}</div>` : ''}
+      ${omer ? `<div class="lx-omer">${h(omer.text)}:</div>` : ''}
+    </div>
   </div>`;
 }
 const pos = (c, r) => `left:${COLS[c]}pt;top:${ROW_T[r]}pt;width:${COL_W}pt;height:${ROW_H}pt`;
@@ -126,12 +138,12 @@ function pageHtml(p, print = false) {
       <span class="lx-zd">${h(d.heDay)}</span><span class="lx-zn">${hhmm(d.zm.neitz)}</span><span class="lx-zm">${hhmm(d.zm.maKS, 'floor')}</span>
       <span class="lx-zs">${hhmm(d.zm.shkia)}</span><span class="lx-zf"><small>${h(d.daf.masechta)}</small> ${h(d.daf.daf)}</span></div>`).join('');
   const mRows = md.map((d, i) => `<div class="lx-mr" style="top:${81.1 + i * 11.7}pt">
-      <span class="lx-md">${h(d.heDay)}</span><span class="lx-mn">${h(d.mitzva.num)}</span><span class="lx-mt">${fitText(d.mitzva.text, 13)}</span></div>`).join('');
+      <span class="lx-md">${h(d.heDay)}</span><span class="lx-mn">${h(d.mitzva.num)}</span><span class="lx-mt">${fitText(d.mitzva.text)}</span></div>`).join('');
   // טאבעלע אונטן: יעדער שבת פונעם חודש — פרשה, חצות, זק"ש גר"א
   const shab = md.filter((d) => d.dow === 6).slice(0, 5);
   const XS = [103.9, 84.8, 65.9, 47.1, 29.3]; const XW = [18.6, 19.1, 18.9, 18.8, 17.8];
   const bt = shab.map((d, i) => `<div class="lx-bc" style="left:${XS[i]}pt;width:${XW[i]}pt">
-      <span class="lx-bp">${fitText(shortName(d), 5)}</span><span>${hhmm(d.zm.chatzos)}</span><span>${hhmm(d.zm.graKS, 'floor')}</span></div>`).join('');
+      <span class="lx-bp">${fitText(shortName(d))}</span><span>${hhmm(d.zm.chatzos)}</span><span>${hhmm(d.zm.graKS, 'floor')}</span></div>`).join('');
   return `<div class="lx-page${print ? ' lx-print' : ''}" dir="rtl">
     <img class="lx-tmpl" src="img/luach/${print ? 'tmpl-print' : 'tmpl'}.jpg" alt="">
     <div class="lx-head"><span class="lx-mname">${h(p.he === 'אב' ? 'מנחם-אב' : p.he)}</span><span class="lx-mazal">${h(p.mazal)}</span><span class="lx-greg" dir="ltr">${h(greg)}</span></div>
@@ -144,11 +156,21 @@ function pageHtml(p, print = false) {
     <div class="lx-bt">${bt}</div>
   </div>`;
 }
-/** א לאנגער טעקסט ווערט שמאלער (ווי אין InDesign), אז ער זאל אריינפאסן */
-function fitText(txt, max) {
-  const n = [...String(txt)].length;
-  if (n <= max) return h(txt);
-  return `<i style="display:inline-block;font-style:normal;transform:scaleX(${(max / n).toFixed(3)});transform-origin:right center">${h(txt)}</i>`;
+/** א לאנגער טעקסט ווערט שמאלער (ווי אין InDesign), אז ער זאל אריינפאסן — געמאסטן נאכן צייכענען (fitAll) */
+function fitText(txt, maxPt) {
+  return `<span class="lx-f"${maxPt ? ` data-max="${maxPt}"` : ''}>${h(txt)}</span>`;
+}
+/** מעסט יעדן .lx-f און מאכט אים שמאלער ווען ער איז ברייטער ווי דער פלאץ */
+function fitAll(root) {
+  $$('.lx-f', root).forEach((el) => {
+    el.style.transform = '';
+    const natural = el.scrollWidth;
+    const par = el.parentElement;
+    const cs = getComputedStyle(par);
+    const avail = el.dataset.max ? Number(el.dataset.max) * (4 / 3)
+      : par.clientWidth - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0) - (par.querySelector('img') ? par.querySelector('img').offsetWidth + 3 : 0);
+    if (natural > avail - 1 && avail > 0) el.style.transform = `scaleX(${((avail - 1) / natural).toFixed(3)})`;
+  });
 }
 function shortName(d) {
   const hol = d.items.find((x) => x.kind === 'hol' && x.yt);
@@ -197,6 +219,7 @@ export async function renderLuach() {
     <p class="muted small">${h(t('hint'))}</p>
     <div class="lx-wrap"><div class="lx-scale">${pageHtml(p)}</div></div>`;
   fit(main);
+  fitAll(main); document.fonts?.ready.then(() => fitAll(main));
   $('#lx-prev', main).onclick = () => go(-1);
   $('#lx-next', main).onclick = () => go(1);
   $('#lx-year', main).onchange = (e) => { year = Number(e.target.value); pageIx = 0; renderLuach(); };
@@ -288,7 +311,12 @@ function printPages(list) {
   window.addEventListener('afterprint', done);
   // ווארטן ביז די בילדער זענען געלאדן
   const imgs = $$('img', area);
-  Promise.all(imgs.map((im) => (im.complete ? 1 : new Promise((r) => { im.onload = r; im.onerror = r; })))).then(() => setTimeout(() => window.print(), 200));
+  // צו מעסן מוז מען זען דעם בלאט — פאר א רגע אויסער'ן מסך
+  area.style.cssText = 'display:block;position:fixed;left:-20000px;top:0';
+  Promise.all([document.fonts?.ready, ...imgs.map((im) => (im.complete ? 1 : new Promise((r) => { im.onload = r; im.onerror = r; })))]).then(() => {
+    fitAll(area); area.style.cssText = '';
+    setTimeout(() => window.print(), 200);
+  });
 }
 
 // ---------- מנהל: גופנים ----------
