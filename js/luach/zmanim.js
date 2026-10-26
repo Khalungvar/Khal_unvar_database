@@ -7,7 +7,8 @@ export const LOCATIONS = {
   // בארא פארק: הדלקה 18 מינוט; די טאבעלע פון chaitables (LuachZmanim) איז נאר פאר דא
   bp: { key: 'bp', name: 'בארא פארק', en: 'Boro Park', lat: 40.6340, lon: -73.9960, tz: 'America/New_York', candles: 18, il: false },
   // ירושלים: מנהג ירושלים — הדלקה 40 מינוט פאר שקיעה
-  jlm: { key: 'jlm', name: 'ירושלים', en: 'Jerusalem', lat: 31.7780, lon: 35.2354, tz: 'Asia/Jerusalem', candles: 40, il: true },
+  // ירושלים — ווי MyZmanim: נץ/שקיעה "בגובה 650 מטר מישור"; עלות/צאת למג"א 72 דק' לפי 16.1 מעלות; לילה 72 דק' נאך שקיעה בגובה 650/0
+  jlm: { key: 'jlm', name: 'ירושלים', en: 'Jerusalem', lat: 31.7780, lon: 35.2354, tz: 'Asia/Jerusalem', candles: 40, il: true, myz: true },
 };
 export const LOCATION = LOCATIONS.bp;
 
@@ -88,8 +89,14 @@ export function zmanim(iso, loc = LOCATION) {
   let source = 'calc';
   if (t && t.neitz != null && t.shkia != null) { neitz = t.neitz; shkia = t.shkia; source = 'table'; }
   const chatzos = t?.chatzos ?? (neitz + shkia) / 2;
-  const alos = neitz - 72;
-  const tzeis = shkia + 72;
+  let alos = neitz - 72;
+  let tzeis = shkia + 72;
+  let night = shkia + 72;
+  if (loc.myz && !t) {
+    const deg = solar(y, m, d, loc.lat, loc.lon, 90 + 16.1); // 16.1 מעלות
+    alos = deg.rise + o; tzeis = deg.set + o;
+    night = solar(y, m, d, loc.lat, loc.lon, 90.833 + 0.92).set + o + 72; // שקיעה בגובה 650/0 + 72
+  }
   const maHour = (tzeis - alos) / 12;
   const graHour = (shkia - neitz) / 12;
   return {
@@ -99,7 +106,7 @@ export function zmanim(iso, loc = LOCATION) {
     maAchila: alos + 4 * maHour, // סוף זמן אכילת חמץ (מ"א)
     maSreifa: alos + 5 * maHour, // סוף זמן שריפת חמץ (מ"א)
     candles: t?.candles ?? shkia - (loc.candles ?? 18),
-    motzei: t?.motzei ?? shkia + 72,
+    motzei: t?.motzei ?? night,
   };
 }
 
