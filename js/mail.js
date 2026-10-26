@@ -192,7 +192,7 @@ export function openCompose(opts = {}) {
   const dlg = $('#mail-dialog');
   const form = $('#mail-form');
   const st = {
-    org: opts.org || umbrellaName(), photos: [], files: [], sending: false, cancel: false,
+    org: opts.org || umbrellaName(), photos: [], files: (opts.files || []).map((f) => (f.b64 ? f : { ...f, b64: b64bytes(f.bytes), size: f.bytes.length })), sending: false, cancel: false,
     contacts: opts.contacts || null, listKey: opts.contacts?.length ? 'given' : (opts.listKey || ''),
   };
   const listOptions = () => {

@@ -178,6 +178,17 @@ const BK_CSS = `
 .bk-rt{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0}
 .bk-ed{min-height:120px;max-height:300px;overflow:auto;border:1px solid #bbb;border-radius:6px;padding:10px;background:#fff;text-align:center;font-family:'Livorna','Frank Ruhl Libre',serif;font-size:20px;line-height:1.35}
 .bk-ed b{font-family:'Livorna Bold','Livorna',serif}
+.bk-view{display:grid;grid-template-columns:330px minmax(0,1fr);gap:16px;max-width:1400px;margin:0 auto;align-items:start}
+.bk-side{display:flex;flex-direction:column;gap:12px;position:sticky;top:8px}
+.bk-side section{border:1px solid #ddd;border-radius:10px;padding:10px 12px;background:#fff}
+.bk-side h4{margin:0 0 6px}
+.bk-side .small{font-size:12.5px;margin:3px 0}
+.bk-acts{display:flex;gap:8px;flex-wrap:wrap}
+.bk-pdf{min-height:80vh;border:1px solid #ccc;border-radius:10px;background:#525659;overflow:hidden;display:flex}
+.bk-frame-pdf{width:100%;height:84vh;border:0;background:#525659}
+.bk-wait{margin:auto;color:#fff;text-align:center;width:60%}
+.bk-wait .bk-prog{background:#777}
+@media (max-width:900px){.bk-view{grid-template-columns:1fr}.bk-side{position:static}}
 .bk-fit-area{position:absolute;display:flex;align-items:center;justify-content:center}
 .bk-fit{text-align:center;transform-origin:center center;font-size:calc(16px * var(--k,1))}
 .bk-ded{margin:2px 0}
@@ -406,6 +417,12 @@ export async function openBooklet(main, onBack, opts = {}) {
   render(main);
 }
 
+// ---------- דער קונטרס אויפן אתר: גאנץ אויסגעשטעלט, לינקס; די ענדערונגען רעכטס ----------
+const built = new Map(); // monthKey → { sig, bytes, url } | { sig, promise }
+let buildToken = 0;
+const sigOf = (key) => JSON.stringify([monthDeds(key).map((d) => [d.id, d.sort, d.kind, d.name, d.text]), setting('cover_text'), setting('info_text'), setting('shiur_text'), setting('book1_id'), setting('book2_id')]);
+const nextMonth = (m) => { let { Y, ix } = m; ix += 1; if (ix >= buildYear(Y).pages.length) { Y += 1; ix = 0; } return { Y, ix }; };
+
 function render(main) {
   const p = pageOf(cur); p.Y = cur.Y; const key = monthKey(cur);
   const { a, b } = monthMitzvos(p);
@@ -414,63 +431,68 @@ function render(main) {
   const totalRaw = 4 + bookN + 1; const total = Math.ceil(totalRaw / 4) * 4;
   const list = monthDeds(key);
   const books = [1, 2].map((v) => !!setting(`book${v}_id`));
+  const now = currentMonth(); const nx = nextMonth(now);
+  const isNow = cur.Y === now.Y && cur.ix === now.ix; const isNext = cur.Y === nx.Y && cur.ix === nx.ix;
   main.innerHTML = `<style>${BK_CSS}${MZ_CSS}</style>
     <div class="lx-bar">
       <button type="button" class="btn ghost" id="bk-back">← זמנים ולוחות</button>
       ${onView ? '<div class="lang-switch"><button type="button" data-v="week">שבועי</button><button type="button" data-v="month">חודשי</button><button type="button" data-v="cycle">לוח מחזור</button></div><button type="button" class="btn mz-kbtn on">📘 קונטרס</button>' : ''}
-      <button type="button" class="btn" id="bk-prev">‹ הקודם</button>
+      <div class="lang-switch"><button type="button" data-go="now" class="${isNow ? 'on' : ''}">החודש: ${h(monthName(pageOf(now)))}</button><button type="button" data-go="next" class="${isNext ? 'on' : ''}">החודש הבא: ${h(monthName(pageOf(nx)))}</button></div>
+      <button type="button" class="btn" id="bk-prev" title="חודש קודם">‹</button>
       <b class="lx-title">קונטרס ${h(monthName(p))} ${h(yearHe(cur.Y))}</b>
-      <button type="button" class="btn" id="bk-next">הבא ›</button>
+      <button type="button" class="btn" id="bk-next" title="חודש הבא">›</button>
       <select id="bk-mon" title="חודש">${buildYear(cur.Y).pages.map((x, i) => `<option value="${i}"${i === cur.ix ? ' selected' : ''}>${h(monthName(x))}</option>`).join('')}</select>
       <select id="bk-year" title="שנה">${[cur.Y - 1, cur.Y, cur.Y + 1, cur.Y + 2].map((y) => `<option value="${y}"${y === cur.Y ? ' selected' : ''}>${h(yearHe(y))}</option>`).join('')}</select>
-      <span class="spacer"></span>
-      <button type="button" class="btn primary" id="bk-make">⬇ הפקת הקונטרס (PDF)</button>
-      <button type="button" class="btn ghost" id="bk-files">⚙ קבצי הספר</button>
     </div>
     ${books.every(Boolean) ? '' : `<p class="lx-warn">⚠ צריך להעלות פעם אחת את שני חלקי הספר (⚙ קבצי הספר), מחובר עם חשבון הדאטאבייס. חסר: ${[1, 2].filter((v) => !books[v - 1]).map((v) => (v === 1 ? 'חלק א\'' : 'חלק ב\'')).join(', ')}</p>`}
-    <div class="bk-panel">
-      <section class="bk-sum">
-        <h4>📖 תוכן הקונטרס</h4>
-        <p>מצוה <b>${h(numHe(a))}</b> (${h(mitzvaYomis(isoOf(p.monthDays[0].n)).text)}) — עד מצוה <b>${h(numHe(b))}</b></p>
-        ${ranges.map((r) => `<p>חלק ${r.vol === 1 ? 'א\'' : 'ב\''}: מצוה ${h(numHe(r.a))}–${h(numHe(r.b))} · עמודים ${r.from}–${r.to} בקובץ (${r.to - r.from + 1} עמ')</p>`).join('')}
-        <p>4 עמודי פתיחה + ${bookN} עמודי ספר + כריכה אחורית${total > totalRaw ? ` + ${total - totalRaw} עמודים לבנים` : ''} = <b>${total} עמודים</b> (${total / 4} גליונות)</p>
-        <p class="muted small">"להדפסה בבית": 2 עמודים על כל דף Letter לרוחב, בסדר של חוברת. מדפיסים דו-צדדי — "הפיכה בצד הקצר" (Flip on short edge), מקפלים באמצע ומהדקים.</p>
-      </section>
-      <section>
-        <h4>🕯 הנצחות לחודש ${h(monthName(p))}</h4>
-        <ul class="bk-dl">${list.map((d) => {
-          const c = d.contact_id && ui.contactById ? ui.contactById(d.contact_id) : null;
-          return `<li><span>${d.kind === 'html' ? h(richToText(d.text).replace(/\n/g, ' · ').slice(0, 90)) : `<b>${h(kindOf(d.kind)[1])}</b> ${h(d.name)}`}${d.amount && (d.kind === 'nedavas' || d.kind === 'html') ? ` · $${h(d.amount)}` : ''}${c ? ` · <a href="#" data-card="${h(d.contact_id)}">👤 ${h(ui.fullNameHe(c))}</a>` : ''}</span>
-            <button type="button" class="btn small-btn" data-ed="${h(d.id)}">✏</button></li>`;
-        }).join('') || '<li class="muted">אין עדיין הנצחות לחודש הזה</li>'}</ul>
-        <p><button type="button" class="btn" id="bk-add">＋ הנצחה</button>
-          <button type="button" class="btn ghost" id="bk-copy">⧉ העתק מהחודש הקודם</button></p>
-        ${state.isAdmin ? '<p><button type="button" class="linkish" id="bk-txt">✏ עריכת הטקסטים הקבועים (שער / עמוד 4)</button></p>' : ''}
-      </section>
-    </div>
-    <div class="bk-thumbs">
-      ${[['שער', coverHtml(p)], ['עמ\' 2', p2Html()], ['עמ\' 3 – הטבלה', p3Html(p)], ['עמ\' 4 – פרטים', p4Html(key)], ['כריכה אחורית', backHtml(key)]]
-        .map(([t, html]) => `<div class="bk-th"><div class="bk-sc">${html}</div><b>${h(t)}</b></div>`).join('')}
+    <div class="bk-view">
+      <aside class="bk-side">
+        <section class="bk-acts">
+          <button type="button" class="btn primary" id="bk-print" disabled>🖨 הדפסה / PDF</button>
+          <button type="button" class="btn" id="bk-mail" disabled>✉ שליחה במייל</button>
+        </section>
+        <section>
+          <h4>🕯 הנצחות לחודש ${h(monthName(p))}</h4>
+          <ul class="bk-dl">${list.map((d) => {
+            const c = d.contact_id && ui.contactById ? ui.contactById(d.contact_id) : null;
+            return `<li><span>${d.kind === 'html' ? h(richToText(d.text).replace(/\n/g, ' · ').slice(0, 90)) : `<b>${h(kindOf(d.kind)[1])}</b> ${h(d.name)}`}${d.amount && (d.kind === 'nedavas' || d.kind === 'html') ? ` · $${h(d.amount)}` : ''}${c ? ` · <a href="#" data-card="${h(d.contact_id)}">👤 ${h(ui.fullNameHe(c))}</a>` : ''}</span>
+              <button type="button" class="btn small-btn" data-ed="${h(d.id)}">✏</button></li>`;
+          }).join('') || '<li class="muted">אין עדיין הנצחות לחודש הזה</li>'}</ul>
+          <p><button type="button" class="btn" id="bk-add">＋ הנצחה</button>
+            <button type="button" class="btn ghost" id="bk-copy">⧉ העתק מהחודש הקודם</button></p>
+        </section>
+        <section class="bk-sum">
+          <h4>📖 תוכן</h4>
+          <p>מצוה <b>${h(numHe(a))}</b> (${h(mitzvaYomis(isoOf(p.monthDays[0].n)).text)}) — עד מצוה <b>${h(numHe(b))}</b></p>
+          ${ranges.map((r) => `<p class="small">חלק ${r.vol === 1 ? 'א\'' : 'ב\''}: מצוה ${h(numHe(r.a))}–${h(numHe(r.b))} · עמודים ${r.from}–${r.to} בקובץ</p>`).join('')}
+          <p class="small">4 עמודי פתיחה + ${bookN} עמודי ספר + כריכה${total > totalRaw ? ` + ${total - totalRaw} לבנים` : ''} = <b>${total} עמודים</b></p>
+        </section>
+        <section>
+          <h4>⚙ הגדרות</h4>
+          ${state.isAdmin ? '<p><button type="button" class="linkish" id="bk-txt">✏ טקסטים קבועים (שער / עמוד 3 / עמוד 4)</button></p>' : ''}
+          <p><button type="button" class="linkish" id="bk-files">📚 קבצי הספר</button></p>
+        </section>
+      </aside>
+      <div class="bk-pdf"><div class="bk-wait"><p id="bk-pmsg">מכין את הקונטרס…</p><div class="bk-prog"><i></i></div></div></div>
     </div>`;
-  requestAnimationFrame(() => fitAll(main));
-  setTimeout(() => fitAll(main), 600); // נאכן לאדן די גופנים
   $('#bk-back', main).onclick = () => back();
+  const go = (m) => { cur = m; render(main); };
   const step = (dir) => {
     let { Y, ix } = cur; ix += dir;
     if (ix < 0) { Y -= 1; ix = buildYear(Y).pages.length - 1; } else if (ix >= buildYear(Y).pages.length) { Y += 1; ix = 0; }
-    cur = { Y, ix }; render(main);
+    go({ Y, ix });
   };
+  $$('[data-go]', main).forEach((x) => { x.onclick = () => go(x.dataset.go === 'now' ? currentMonth() : nextMonth(currentMonth())); });
   $('#bk-prev', main).onclick = () => step(-1);
-  $('#bk-mon', main).onchange = (e) => { cur = { Y: cur.Y, ix: Number(e.target.value) }; render(main); };
+  $('#bk-next', main).onclick = () => step(1);
+  $('#bk-mon', main).onchange = (e) => go({ Y: cur.Y, ix: Number(e.target.value) });
   $('#bk-year', main).onchange = (e) => {
-    const Y = Number(e.target.value); const key = pageOf(cur).key; const pages = buildYear(Y).pages;
-    const ix = pages.findIndex((x) => x.key === key);
-    cur = { Y, ix: ix >= 0 ? ix : Math.min(cur.ix, pages.length - 1) }; render(main);
+    const Y = Number(e.target.value); const k0 = pageOf(cur).key; const pages = buildYear(Y).pages;
+    const ix = pages.findIndex((x) => x.key === k0);
+    go({ Y, ix: ix >= 0 ? ix : Math.min(cur.ix, pages.length - 1) });
   };
   $$('[data-v]', main).forEach((x) => { x.onclick = () => onView?.(x.dataset.v, { ...cur }); });
-  $('#bk-next', main).onclick = () => step(1);
   $('#bk-files', main).onclick = () => filesDialog(main);
-  $('#bk-make', main).onclick = () => makeDialog(main);
   $('#bk-add', main).onclick = () => dedDialog(main, null, key);
   $$('[data-ed]', main).forEach((x) => { x.onclick = () => dedDialog(main, deds.find((d) => d.id === x.dataset.ed), key); });
   $$('[data-card]', main).forEach((x) => { x.onclick = (e) => { e.preventDefault(); ui.openCard?.(x.dataset.card); }; });
@@ -484,6 +506,78 @@ function render(main) {
     } catch (err) { ui.toast?.(String(err.message || err), 'error'); }
   };
   const tx = $('#bk-txt', main); if (tx) tx.onclick = () => textDialog(main);
+  showPdf(main, { ...cur }, key, p);
+}
+
+async function booksCached(p) {
+  const { a, b } = monthMitzvos(p);
+  const vols = [...new Set(bookRanges(a, b).map((r) => r.vol))];
+  try {
+    const c = await caches.open('bk-books');
+    for (const v of vols) { if (bookCache[v]) continue; const id = setting(`book${v}_id`); if (!id || !(await c.match(`https://booklet.local/${id}`))) return false; }
+    return true;
+  } catch { return false; }
+}
+/** בויט (אדער נעמט פונעם זכרון) דעם קונטרס פונעם חודש, און ווייזט אים */
+async function showPdf(main, m, key, p) {
+  const token = ++buildToken;
+  const box = $('.bk-pdf', main); const msg = $('#bk-pmsg', main); const fill = $('.bk-prog i', main);
+  const sig = sigOf(key);
+  let entry = built.get(key);
+  // דער ספר ליגט אין דרייב: דער ערשטער מאל דארף מען א קליק (גוגל'ס פענצטער)
+  if ((!entry || entry.sig !== sig) && !hasDriveScope() && !(await booksCached(p))) {
+    if (token !== buildToken) return;
+    $('.bk-wait', main).innerHTML = '<p>כדי להציג את הקונטרס צריך גישה לקבצי הספר ב-Google Drive.</p><button type="button" class="btn primary" id="bk-scope">🔑 חיבור ל-Drive והצגת הקונטרס</button>';
+    $('#bk-scope', main).onclick = async () => { try { await ensureDriveScope(); render(main); } catch (err) { ui.toast?.(String(err.message || err), 'error'); } };
+    return;
+  }
+  if (!entry || entry.sig !== sig) {
+    if (entry?.url) URL.revokeObjectURL(entry.url);
+    entry = { sig, promise: buildBooklet(m, (t, f) => { if (token === buildToken) { msg.textContent = t; if (f != null) fill.style.width = `${Math.round(f * 100)}%`; } }) };
+    built.set(key, entry);
+  }
+  try {
+    if (!entry.bytes) {
+      const r = await entry.promise;
+      entry.bytes = r.bytes; entry.pages = r.pages; entry.url = URL.createObjectURL(new Blob([r.bytes], { type: 'application/pdf' }));
+    }
+  } catch (err) {
+    built.delete(key);
+    if (token === buildToken) { msg.textContent = `❌ ${err.message || err}`; fill.style.width = '0'; }
+    return;
+  }
+  if (token !== buildToken || !main.isConnected) return;
+  box.innerHTML = `<iframe class="bk-frame-pdf" src="${entry.url}#view=FitH&toolbar=1" title="קונטרס"></iframe>`;
+  const name = `מצוה יומית - ${monthName(p)} ${yearHe(m.Y).replace(/"/g, '')}`;
+  const pr = $('#bk-print', main); const ml = $('#bk-mail', main);
+  pr.disabled = false; ml.disabled = false;
+  pr.onclick = () => printDialog(entry, name);
+  ml.onclick = () => {
+    if (!ui.openCompose) { ui.toast?.('שליחה במייל לא זמינה כאן'); return; }
+    ui.openCompose({
+      org: 'מכון משנה הלכות', subject: `קונטרס מצוה יומית – חודש ${monthName(p)} ${yearHe(m.Y)}`,
+      body: `מצורף קונטרס לימוד מצוה יומית לחודש ${monthName(p)} ${yearHe(m.Y)}.\n\nמפעל מצוה יומית`,
+      files: [{ name: `${name}.pdf`, mime: 'application/pdf', bytes: entry.bytes }],
+    });
+  };
+}
+
+function printDialog(entry, name) {
+  const { dlg, close } = dialog(`<h3>🖨 ${h(name)}</h3>
+    <p class="muted small">${entry.pages} עמודים · ${Math.round(entry.bytes.length / 1024 / 102.4) / 10}MB</p>
+    <p style="display:flex;flex-direction:column;gap:8px">
+      <button type="button" class="btn primary" data-a="single">⬇ PDF — עמודים בודדים (לבית דפוס / למייל)</button>
+      <button type="button" class="btn" data-a="imposed">⬇ PDF להדפסה בבית — 2 עמודים על דף Letter, בסדר של חוברת</button></p>
+    <p class="muted small">בהדפסה בבית: דו-צדדי, "הפיכה בצד הקצר" (Flip on short edge), מקפלים באמצע ומהדקים.</p>
+    <p id="bk-mmsg" class="muted"></p>
+    <p><button type="button" class="btn ghost" data-a="close">סגירה</button></p>`);
+  $('[data-a=close]', dlg).onclick = close;
+  $('[data-a=single]', dlg).onclick = () => download(entry.bytes, `${name}.pdf`);
+  $('[data-a=imposed]', dlg).onclick = async (e) => {
+    e.target.disabled = true; $('#bk-mmsg', dlg).textContent = 'מסדר להדפסה…';
+    try { download(await impose(entry.bytes), `${name} - להדפסה.pdf`); $('#bk-mmsg', dlg).textContent = '✅'; } catch (err) { $('#bk-mmsg', dlg).textContent = `❌ ${err.message || err}`; }
+    e.target.disabled = false;
+  };
 }
 
 const newId = () => `bd${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -682,31 +776,6 @@ function filesDialog(main) {
       } catch (err) { msg.textContent = `❌ ${err.message || err}`; }
     };
   });
-}
-
-function makeDialog(main) {
-  const p = pageOf(cur); p.Y = cur.Y;
-  const { dlg, close } = dialog(`<h3>⬇ קונטרס ${h(monthName(p))} ${h(yearHe(cur.Y))}</h3>
-    <label><input type="radio" name="kind" value="single" checked style="width:auto"> עמודים בודדים (לבית דפוס / למייל)</label>
-    <label><input type="radio" name="kind" value="imposed" style="width:auto"> להדפסה בבית — 2 עמודים על דף Letter, בסדר של חוברת</label>
-    <label><input type="radio" name="kind" value="both" style="width:auto"> שניהם</label>
-    <div class="bk-prog"><i></i></div><p id="bk-mmsg" class="muted"></p>
-    <p style="display:flex;gap:8px"><button type="button" class="btn primary" data-a="go">הפק</button><button type="button" class="btn ghost" data-a="close">סגירה</button></p>`);
-  $('[data-a=close]', dlg).onclick = close;
-  $('[data-a=go]', dlg).onclick = async (e) => {
-    if (!hasDriveScope()) { try { await ensureDriveScope(); } catch (err) { $('#bk-mmsg', dlg).textContent = `❌ ${err.message || err}`; return; } }
-    const kind = $('[name=kind]:checked', dlg).value; const msg = $('#bk-mmsg', dlg); const fill = $('.bk-prog i', dlg);
-    e.target.disabled = true;
-    try {
-      const r = await buildBooklet(cur, (m, f) => { msg.textContent = m; if (f != null) fill.style.width = `${Math.round(f * 100)}%`; });
-      const name = `מצוה יומית - ${monthName(p)} ${yearHe(cur.Y).replace(/"/g, '')}`;
-      if (kind !== 'imposed') download(r.bytes, `${name}.pdf`);
-      if (kind !== 'single') { msg.textContent = 'מסדר להדפסה…'; download(await impose(r.bytes), `${name} - להדפסה.pdf`); }
-      fill.style.width = '100%';
-      msg.textContent = `✅ ${r.pages} עמודים${r.blanks ? ` (כולל ${r.blanks} לבנים)` : ''}`;
-    } catch (err) { msg.textContent = `❌ ${err.message || err}`; console.error(err); }
-    e.target.disabled = false;
-  };
 }
 
 // ---------- אינעם כרטיס פון א קאנטאקט ----------

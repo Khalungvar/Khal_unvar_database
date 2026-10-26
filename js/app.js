@@ -2021,7 +2021,7 @@ function start() {
   initMerge({ contactById, fullNameHe, pickerLabel, fieldLabel, toast, friendlyError, refreshAll, openCard });
   initListSync({ toast, friendlyError, fullNameHe, refreshAll });
   initFaces({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard, openForm });
-  initLuach({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard });
+  initLuach({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard, openCompose });
   initBooks({ showView, toast, friendlyError, contactById, fullNameHe, receiptFor: (d) => printForDonation(d), cancelDoc: (c) => cancelDoc(c), quickSale: (org, done) => openQuickReceipt(org, done, { sale: true }) });
   initSimchos({ showView, contactById, fullNameHe, pickerLabel, toast, friendlyError, refreshAll, openCard, openForm });
   initSchool({
