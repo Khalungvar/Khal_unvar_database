@@ -166,3 +166,5 @@
 .lx-carry { width: 28pt !important; height: 15pt !important; background: #97214c !important; color: #fff !important; border: none !important; border-radius: 0 0 5pt 5pt; font-size: 11pt !important; box-shadow: 0 1.5pt 3pt rgba(0,0,0,.35); }
 .lx-carry span { font-size: 13pt !important; }
 .lx-carry { height: 19pt !important; padding-top: 1.5pt; box-sizing: border-box; }
+
+.lx-place { position: absolute; left: 161.2pt; width: 496.7pt; top: 452pt; text-align: center; font-family: 'Livorna', 'FontbitLivorna', serif; font-weight: 700; font-size: 12pt; color: #5a3418; letter-spacing: 0.5pt; text-shadow: 0 0 3pt #fff3c4, 0 0 2pt #fff3c4; }

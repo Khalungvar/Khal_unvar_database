@@ -3,7 +3,13 @@
 // מג"א: עלות 72 מינוט פאר נץ ביז צאת 72 מינוט נאך שקיעה.
 // ווען ס'איז דא א טאבעלע פון chaitables (נץ/שקיעה הנראים) פאר א טאג — ווערט זי גענוצט אנשטאט דעם חשבון.
 
-export const LOCATION = { name: 'בארא פארק', lat: 40.6340, lon: -73.9960, tz: 'America/New_York' };
+export const LOCATIONS = {
+  // בארא פארק: הדלקה 18 מינוט; די טאבעלע פון chaitables (LuachZmanim) איז נאר פאר דא
+  bp: { key: 'bp', name: 'בארא פארק', en: 'Boro Park', lat: 40.6340, lon: -73.9960, tz: 'America/New_York', candles: 18, il: false },
+  // ירושלים: מנהג ירושלים — הדלקה 40 מינוט פאר שקיעה
+  jlm: { key: 'jlm', name: 'ירושלים', en: 'Jerusalem', lat: 31.7780, lon: 35.2354, tz: 'Asia/Jerusalem', candles: 40, il: true },
+};
+export const LOCATION = LOCATIONS.bp;
 
 const RAD = Math.PI / 180;
 
@@ -78,7 +84,7 @@ export function zmanim(iso, loc = LOCATION) {
   const s = solar(y, m, d, loc.lat, loc.lon);
   let neitz = s.rise + o;
   let shkia = s.set + o;
-  const t = table[iso];
+  const t = loc.key === 'bp' ? table[iso] : null;
   let source = 'calc';
   if (t && t.neitz != null && t.shkia != null) { neitz = t.neitz; shkia = t.shkia; source = 'table'; }
   const chatzos = t?.chatzos ?? (neitz + shkia) / 2;
@@ -92,7 +98,7 @@ export function zmanim(iso, loc = LOCATION) {
     graKS: t?.graKS ?? neitz + 3 * graHour,
     maAchila: alos + 4 * maHour, // סוף זמן אכילת חמץ (מ"א)
     maSreifa: alos + 5 * maHour, // סוף זמן שריפת חמץ (מ"א)
-    candles: t?.candles ?? shkia - 18,
+    candles: t?.candles ?? shkia - (loc.candles ?? 18),
     motzei: t?.motzei ?? shkia + 72,
   };
 }

@@ -2,7 +2,7 @@
 // קליק אויף א טאג → צולייגן / באהאלטן א שורה, און "PDF" פאר א ריי חודשים (מיט bleed, גרייט פאר'ן דרוקער).
 // די אויסשטעלונג (מאסן אין pt) איז גענומען פונעם InDesign לוח תשפ"ז, 275×160 מ"מ + 7 מ"מ bleed.
 import { buildYear, isoOf } from './engine.js';
-import { setZmanimTable, hhmm } from './zmanim.js';
+import { setZmanimTable, hhmm, LOCATIONS } from './zmanim.js';
 import { hebrewNumber, todayIso } from '../hebdate.js';
 import { readTabs, appendRow, updateRange } from '../google.js';
 import { state } from '../data.js';
@@ -26,6 +26,9 @@ const MON_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 
 // ---------- דאטן ----------
 let year = 0; let pageIx = 0; let built = null;
+// מקום: בארא פארק (ברירת מחדל) אדער ירושלים — בלייבט אפגעהיטן ביז מ'טוישט
+let locKey = (() => { try { return LOCATIONS[localStorage.getItem('lx-loc')] ? localStorage.getItem('lx-loc') : 'bp'; } catch { return 'bp'; } })();
+const LOC = () => LOCATIONS[locKey] || LOCATIONS.bp;
 let edits = []; // [{ row, id, iso, kind, text, action }]  action: '' = צולייגן, 'hide' = באהאלטן א שורה פונעם חשבון
 let loaded = false;
 
@@ -61,7 +64,7 @@ async function loadData() {
 function build(Y) {
   const extra = {};
   edits.filter((e) => !e.action).forEach((e) => { (extra[e.iso] = extra[e.iso] || []).push({ kind: e.kind, text: e.text, edit: true }); });
-  const b = buildYear(Y, extra);
+  const b = buildYear(Y, extra, { loc: LOC() });
   // באהאלטענע שורות
   const hide = new Set(edits.filter((e) => e.action === 'hide').map((e) => `${e.iso}|${e.text}`));
   b.days.forEach((d) => { d.items = d.items.filter((x) => !hide.has(`${d.iso}|${x.text}`)); if (hide.has(`${d.iso}|${d.parsha}`)) d.parsha = ''; });
@@ -161,6 +164,7 @@ function pageHtml(p, print = false) {
     <div class="lx-mz">${mRows}</div>
     ${shab.length > 4 ? '<div class="lx-b5"><i></i><i></i><i></i></div>' : ''}
     <div class="lx-bt">${bt}</div>
+    ${p.loc === 'jlm' ? '<div class="lx-place">ירושלים עיה"ק תובב"א</div>' : ''}
   </div>`;
 }
 /** א לאנגער טעקסט ווערט שמאלער (ווי אין InDesign), אז ער זאל אריינפאסן — געמאסטן נאכן צייכענען (fitAll) */
@@ -242,8 +246,8 @@ function shortName(d) {
 function currentYearAndPage() {
   const iso = todayIso();
   let Y = 5787;
-  for (let y = 5780; y < 5900; y += 1) { const b = buildYear(y); if (b.days[b.days.length - 1].iso >= iso) { Y = y; break; } }
-  const b = buildYear(Y);
+  for (let y = 5780; y < 5900; y += 1) { const b = buildYear(y, {}, { loc: LOC() }); if (b.days[b.days.length - 1].iso >= iso) { Y = y; break; } }
+  const b = buildYear(Y, {}, { loc: LOC() });
   const pi = Math.max(0, b.pages.findIndex((p) => p.monthDays.some((d) => d.iso === iso)));
   return [Y, pi];
 }
@@ -266,6 +270,7 @@ export async function renderLuach() {
       <b class="lx-title">${h(p.he)} ${h(yl(year))}</b>
       <button type="button" class="btn" id="lx-next">${h(t('next'))} ›</button>
       <select id="lx-year">${[year - 1, year, year + 1, year + 2].map((y) => `<option value="${y}"${y === year ? ' selected' : ''}>${yl(y)}</option>`).join('')}</select>
+      <select id="lx-loc" title="${h(t('place'))}">${Object.values(LOCATIONS).map((l) => `<option value="${l.key}"${l.key === locKey ? ' selected' : ''}>📍 ${h(l.name)}</option>`).join('')}</select>
       <span class="spacer"></span>
       <button type="button" class="btn primary" id="lx-pdf">⬇ ${h(t('pdf'))}</button>
       ${state.isAdmin ? `<button type="button" class="btn ghost" id="lx-admin">⚙</button>` : ''}
@@ -293,6 +298,7 @@ export async function renderLuach() {
   $('#lx-prev', main).onclick = () => go(-1);
   $('#lx-next', main).onclick = () => go(1);
   $('#lx-year', main).onchange = (e) => { year = Number(e.target.value); pageIx = 0; renderLuach(); };
+  $('#lx-loc', main).onchange = (e) => { locKey = e.target.value; try { localStorage.setItem('lx-loc', locKey); } catch { /* ignore */ } renderLuach(); };
   $('#lx-pdf', main).onclick = () => pdfDialog();
   const adm = $('#lx-admin', main); if (adm) adm.onclick = () => adminDialog();
   const f2 = $('#lx-fonts2', main); if (f2) f2.onclick = () => adminDialog();
@@ -301,7 +307,7 @@ export async function renderLuach() {
 }
 function go(dir) {
   pageIx += dir;
-  if (pageIx < 0) { year -= 1; pageIx = buildYear(year).pages.length - 1; }
+  if (pageIx < 0) { year -= 1; pageIx = buildYear(year, {}, { loc: LOC() }).pages.length - 1; }
   else if (pageIx >= built.pages.length) { year += 1; pageIx = 0; }
   renderLuach();
 }
@@ -442,7 +448,8 @@ function adminDialog() {
 // ---------- ווערטער (עברית / אידיש / ענגליש) ----------
 const TX = {
   prev: ['הקודם', 'פריער', 'Prev'], next: ['הבא', 'ווייטער', 'Next'], pdf: ['הורדת PDF', 'PDF אראפנעמען', 'Download PDF'],
-  hint: ['לחיצה על יום — להוסיף או להסתיר שורה. הזמנים מחושבים (בארא פארק); אחרי העלאת טבלת chaitables הם יהיו לפיה.', 'קליקט אויף א טאג — צולייגן אדער באהאלטן א שורה. די זמנים זענען גערעכנט (בארא פארק).', 'Click a day to add or hide a line. Times are calculated for Boro Park.'],
+  hint: ['לחיצה על יום — להוסיף או להסתיר שורה. בארא פארק: לפי טבלת chaitables (ובלעדיה מחושב). ירושלים: מחושב, הדלקה 40 דקות, מנהגי ארץ ישראל.', 'קליקט אויף א טאג — צולייגן אדער באהאלטן א שורה.', 'Click a day to add or hide a line.'],
+  place: ['מיקום', 'ארט', 'Location'],
   fontsMissing: ['חסרים גופנים של הלוח — המראה עדיין לא כמו בדפוס.', 'עס פעלן גופנים פונעם לוח.', 'Calendar fonts are missing.'],
   fontsUp: ['העלאת גופנים', 'ארויפלייגן גופנים', 'Upload fonts'],
   auto: ['מה שהמחשב שם', 'וואס דער קאמפיוטער שטעלט', 'Automatic'], hide: ['הסתר', 'באהאלטן', 'Hide'], hidden: ['מוסתר', 'באהאלטן', 'Hidden'],

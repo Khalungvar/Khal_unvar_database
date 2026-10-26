@@ -1,7 +1,7 @@
 // דער לוח: וואס איז יעדן טאג פון א יאר (חוץ לארץ, מנהג אונגוואר). קיין DOM — נאר רעכענען.
 // { days: [...], pages: [...] } פאר א אידיש יאר. יעדער טאג: { iso, n, dow, hd, hm, he, items: [...], zm }.
 import { isLeapYear, hebrewNumber, monthHe } from '../hebdate.js';
-import { zmanim, hhmm, dstChange } from './zmanim.js';
+import { zmanim, hhmm, dstChange, LOCATIONS } from './zmanim.js';
 import { MITZVOS, MITZVA_ANCHOR } from './mitzvos.js';
 
 const DAY = 86400000;
@@ -65,46 +65,55 @@ export const PARSHIYOS = ['בראשית', 'נח', 'לך לך', 'וירא', 'חי
   'במדבר', 'נשא', 'בהעלותך', 'שלח', 'קרח', 'חוקת', 'בלק', 'פנחס', 'מטות', 'מסעי',
   'דברים', 'ואתחנן', 'עקב', 'ראה', 'שופטים', 'כי תצא', 'כי תבוא', 'נצבים', 'וילך', 'האזינו'];
 
-/** איז דער טאג (n) א יום טוב / חול המועד וואס פארדרייט די פרשה (חו"ל) */
-function holidayShabbos(I, n) {
-  const T = I.m.Tishri.start; const N = I.m.Nisan.start; const S = I.m.Sivan.start;
-  const d = n - T + 1;
-  if (n >= T && d <= 23) { if ([1, 2, 10].includes(d) || (d >= 15 && d <= 23)) return true; }
-  if (n >= N + 14 && n <= N + 21) return true;
-  if (n === S + 5 || n === S + 6) return true;
-  return false;
+// ---------- פרשיות לויט קביעות (פון Hebcal, GPL) — חו"ל און ארץ ישראל ----------
+const RH_ = 'rh'; const YK_ = 'yk'; const SUK = 'suk'; const CHMS = 'chms'; const SHM = 'shm';
+const PES = 'pes'; const PES1 = 'pes1'; const CHMP = 'chmp'; const PES7 = 'pes7'; const PES8 = 'pes8'; const SHAV = 'shav';
+const rg = (a, b) => Array.from({ length: b - a + 1 }, (_, k) => k + a);
+const D_ = (p) => -p;
+const sVay = [51, 52, CHMS]; const sHaa = [52, YK_, CHMS]; const sRH = [RH_, 52, SUK, SHM];
+const r020 = rg(0, 20); const r027 = rg(0, 27); const r3340 = rg(33, 40); const r4349 = rg(43, 49); const r4350 = rg(43, 50);
+const KEV = {
+  '020': [...sVay, ...r020, D_(21), 23, 24, CHMP, 25, D_(26), D_(28), 30, D_(31), ...r3340, D_(41), ...r4349, D_(50)],
+  '0220': [...sVay, ...r020, D_(21), 23, 24, CHMP, 25, D_(26), D_(28), 30, D_(31), 33, SHAV, ...rg(34, 37), D_(38), 40, D_(41), ...r4349, D_(50)],
+  '0510': [...sHaa, ...r020, D_(21), 23, 24, PES1, PES8, 25, D_(26), D_(28), 30, D_(31), ...r3340, D_(41), ...r4350],
+  '0511': [...sHaa, ...r020, D_(21), 23, 24, PES, 25, D_(26), D_(28), ...rg(30, 40), D_(41), ...r4350],
+  '052': [...sHaa, ...rg(0, 24), PES7, 25, D_(26), D_(28), 30, D_(31), ...r3340, D_(41), ...r4350],
+  '070': [...sRH, ...r020, D_(21), 23, 24, PES7, 25, D_(26), D_(28), 30, D_(31), ...r3340, D_(41), ...r4350],
+  '072': [...sRH, ...r020, D_(21), 23, 24, CHMP, 25, D_(26), D_(28), 30, D_(31), ...r3340, D_(41), ...r4349, D_(50)],
+  '1200': [...sVay, ...r027, CHMP, ...rg(28, 33), SHAV, ...rg(34, 37), D_(38), 40, D_(41), ...r4349, D_(50)],
+  '1201': [...sVay, ...r027, CHMP, ...rg(28, 40), D_(41), ...r4349, D_(50)],
+  '1220': [...sVay, ...r027, PES1, PES8, ...rg(28, 40), D_(41), ...r4350],
+  '1221': [...sVay, ...r027, PES, ...rg(28, 50)],
+  '150': [...sHaa, ...rg(0, 28), PES7, ...rg(29, 50)],
+  '152': [...sHaa, ...rg(0, 28), CHMP, ...rg(29, 49), D_(50)],
+  '170': [...sRH, ...r027, CHMP, ...rg(28, 40), D_(41), ...r4349, D_(50)],
+  '1720': [...sRH, ...r027, CHMP, ...rg(28, 33), SHAV, ...rg(34, 37), D_(38), 40, D_(41), ...r4349, D_(50)],
+};
+KEV['0221'] = KEV['020']; KEV['0310'] = KEV['0220']; KEV['0311'] = KEV['020'];
+KEV['1310'] = KEV['1220']; KEV['1311'] = KEV['1221']; KEV['1721'] = KEV['170'];
+function sedraKev(Y, il) {
+  const I = yearInfo(Y);
+  const type = I.len % 10 === 5 ? 2 : (I.len % 10 === 3 ? 0 : 1);
+  let key = `${+I.leap}${I.rhDow + 1}${type}`;
+  let arr = KEV[key];
+  if (!arr) { key += +il; arr = KEV[key]; }
+  const out = new Map();
+  let s = I.rh; while (dowOf(s) !== 6) s += 1;
+  for (let w = 0; w < arr.length; w += 1) {
+    const n = s + w * 7; if (n >= I.next) break;
+    const x = arr[w];
+    if (typeof x === 'string') continue;
+    out.set(isoOf(n), x >= 0 ? PARSHIYOS[x] : `${PARSHIYOS[-x]}-${PARSHIYOS[-x + 1]}`);
+  }
+  return out;
 }
 
 const sedraCache = new Map();
-/** Map iso → 'פרשה' פאר אלע שבתים פון יאר Y */
-export function sedra(Y) {
-  if (sedraCache.has(Y)) return sedraCache.get(Y);
-  const I = yearInfo(Y);
-  const out = new Map();
-  const T = I.m.Tishri.start;
-  const shabbosim = I.days.filter((x) => x.dow === 6).map((x) => x.n);
-  // פאר בראשית: וילך (אויב ר"ה איז ב' אדער ג') און האזינו
-  const pre = shabbosim.filter((n) => n - T + 1 <= 23 && !holidayShabbos(I, n));
-  const startList = (I.rhDow === 1 || I.rhDow === 2) ? [51, 52] : [52];
-  pre.forEach((n, i) => { if (startList[i] != null) out.set(isoOf(n), PARSHIYOS[startList[i]]); });
-  // פון בראשית ביז סוף יאר
-  const slots = shabbosim.filter((n) => n - T + 1 > 23 && !holidayShabbos(I, n));
-  const pesachDow = dowOf(I.m.Nisan.start + 14);
-  const join = new Set();
-  if (!I.leap) { join.add(26); join.add(28); join.add(31); }
-  if (!I.leap && !(I.rhDow === 4 && I.len === 355)) join.add(21);
-  if (pesachDow === 4) join.add(38);
-  if (!(I.leap && I.rhDow === 4)) join.add(41);
-  const vayelechHere = !(I.nextRhDow === 1 || I.nextRhDow === 2);
-  if (vayelechHere) join.add(50);
-  const seq = [];
-  for (let p = 0; p <= (vayelechHere ? 51 : 50); p += 1) {
-    if (join.has(p)) { seq.push(`${PARSHIYOS[p]}-${PARSHIYOS[p + 1]}`); p += 1; } else seq.push(PARSHIYOS[p]);
-  }
-  if (seq.length !== slots.length) console.warn('sedra mismatch', Y, seq.length, slots.length);
-  slots.forEach((n, i) => out.set(isoOf(n), seq[i] || ''));
-  sedraCache.set(Y, out);
-  return out;
+/** Map iso → 'פרשה' פאר אלע שבתים פון יאר Y (il = ארץ ישראל). געפרואווט: חו"ל גלייך מיטן פריערדיגן חשבון, תר"ס–תתק"ס */
+export function sedra(Y, il = false) {
+  const k = `${Y}|${+il}`;
+  if (!sedraCache.has(k)) sedraCache.set(k, sedraKev(Y, il));
+  return sedraCache.get(k);
 }
 
 // ---------- דף יומי ----------
@@ -189,7 +198,8 @@ void RC_NAME;
  *  kind: hol (נאמען פון יו"ט/טאג) · parsha · special (שבת שובה...) · note (קליין אונטן) · small (נוסח / יזכור...)
  *        hillula · omer · avos · time · eruv · rebbe */
 export function buildYear(Y, extra = {}, opts = {}) {
-  const il = !!opts.il; // ארץ ישראל — פארן קומענדיגן לוח פאר א"י (יעצט נאר קהלת / שיר השירים)
+  const loc = opts.loc || LOCATIONS.bp;
+  const il = !!loc.il; // ארץ ישראל: איין טאג יו"ט, פרשיות פון א"י, זמנים פון דעם ארט
   const I = yearInfo(Y);
   const P = yearInfo(Y - 1);
   const map = new Map();
@@ -208,20 +218,21 @@ export function buildYear(Y, extra = {}, opts = {}) {
   add(T(9), 'hol', 'ערב יום הכיפורים'); add(T(9), 'note', 'כפרות');
   add(T(10), 'hol', 'יום הכיפורים', { icon: 'yk', yt: true }); add(T(10), 'note', 'יזכור');
   add(T(14), 'hol', 'ערב סוכות');
-  add(T(15), 'hol', 'יום א\' דסוכות', { icon: 'sukkos', yt: true }); add(T(16), 'hol', 'יום ב\' דסוכות', { icon: 'sukkos2', yt: true });
+  add(T(15), 'hol', il ? 'סוכות' : 'יום א\' דסוכות', { icon: 'sukkos', yt: true });
+  if (!il) add(T(16), 'hol', 'יום ב\' דסוכות', { icon: 'sukkos2', yt: true });
   let shabbosChm = null;
-  ['א', 'ב', 'ג', 'ד'].forEach((l, i) => {
-    const n = T(17 + i);
+  (il ? ['א', 'ב', 'ג', 'ד', 'ה'] : ['א', 'ב', 'ג', 'ד']).forEach((l, i) => {
+    const n = T((il ? 16 : 17) + i);
     if (dow(n) === 6) { add(n, 'hol', 'שבת חוה"מ', { icon: 'chm', chm: true }); shabbosChm = n; } else add(n, 'hol', `${l}' דחוה"מ`, { icon: 'chm', chm: true });
   });
   add(T(20), 'small', 'בלילה: משנה תורה');
   add(T(21), 'hol', 'הושענא רבה', { icon: 'chm', chm: true });
-  add(T(22), 'hol', 'שמיני עצרת', { icon: 'scroll2', yt: true });
+  add(T(22), 'hol', il ? 'שמיני עצרת ושמחת תורה' : 'שמיני עצרת', { icon: il ? 'scroll' : 'scroll2', yt: true });
   add(T(22), 'note', `${shabbosChm == null && !il ? 'קהלת, ' : ''}יזכור, גשם`); // קהלת: שבת חוה"מ; ווען נישטא — חו"ל: שמיני עצרת, א"י: יום א' דסוכות
   if (shabbosChm == null && il) add(T(15), 'note', 'קהלת');
   if (shabbosChm != null) add(shabbosChm, 'note', 'קהלת');
-  add(T(23), 'hol', 'שמחת תורה', { icon: 'scroll', yt: true });
-  add(T(24), 'hol', 'אסרו חג');
+  if (!il) add(T(23), 'hol', 'שמחת תורה', { icon: 'scroll', yt: true });
+  add(T(il ? 23 : 24), 'hol', 'אסרו חג');
   // הושענות — לויט דעם טאג פון וואך (מנהג אשכנז; זיך צו פארזיכערן מיט די אלטע לוחות)
   hoshanos(I).forEach(([n, txt]) => add(n, 'note', txt));
   FIXED_NOTES.forEach((f) => { const n = I.at(f.d, f.m); add(n, f.kind, f.text); });
@@ -268,7 +279,7 @@ export function buildYear(Y, extra = {}, opts = {}) {
   // ---- שבט ----
   add(I.at(15, 'Shevat'), 'hol', 'ר"ה לאילנות', { icon: 'fruit' });
   // שבת שירה: דער שבת פון פרשת בשלח
-  { const S0 = sedra(Y); for (const [iso, p] of S0) if (p === 'בשלח') add(nOf(iso), 'special', 'שבת שירה'); }
+  { const S0 = sedra(Y, il); for (const [iso, p] of S0) if (p === 'בשלח') add(nOf(iso), 'special', 'שבת שירה'); }
 
   // ---- אדר ----
   if (I.leap) { add(I.at(14, 'Adar I'), 'hol', 'פורים קטן'); add(I.at(15, 'Adar I'), 'hol', 'שושן פורים קטן'); }
@@ -277,7 +288,14 @@ export function buildYear(Y, extra = {}, opts = {}) {
   const esther = dow(purim - 1) === 6 ? purim - 3 : purim - 1;
   add(esther, 'hol', dow(purim - 1) === 6 ? 'תענית אסתר (מוקדם)' : 'תענית אסתר', { fast: true, mark: true });
   add(esther, 'small', 'מחצית השקל');
-  add(purim, 'hol', 'פורים', { icon: 'purim', mark: true }); add(purim + 1, 'hol', 'שושן פורים', { mark: true });
+  if (loc.key === 'jlm') {
+    // ירושלים: שושן פורים; ווען ט"ו איז שבת — פורים המשולש
+    if (dow(purim + 1) === 6) {
+      add(purim, 'hol', 'פורים המשולש: קריאת המגילה', { icon: 'purim', mark: true });
+      add(purim + 1, 'hol', 'שושן פורים (על הניסים)', { mark: true });
+      add(purim + 2, 'hol', 'פורים המשולש: סעודה ומשלוח מנות', { mark: true });
+    } else { add(purim, 'hol', 'פורים (בשאר ערים)', { mark: true }); add(purim + 1, 'hol', 'שושן פורים', { icon: 'purim', mark: true }); }
+  } else { add(purim, 'hol', 'פורים', { icon: 'purim', mark: true }); add(purim + 1, 'hol', 'שושן פורים', { mark: true }); }
   const rcNisan = I.m.Nisan.start; const rcAdar = I.m[A].start;
   const onOrBefore = (n) => { let s = n; while (dow(s) !== 6) s -= 1; return s; };
   const shekalim = onOrBefore(rcAdar); add(shekalim, 'special', 'פרשת שקלים');
@@ -295,17 +313,19 @@ export function buildYear(Y, extra = {}, opts = {}) {
   add(erev, 'small', 'תענית בכורים');
   add(erev, 'chametz', '', { erevPesach: true });
   add(pesach, 'hol', 'יום א\' דפסח', { icon: 'seder', yt: true }); add(pesach, 'small', 'טל');
-  add(pesach + 1, 'hol', 'יום ב\' דפסח', { icon: 'seder', yt: true });
-  ['א', 'ב', 'ג', 'ד'].forEach((l, i) => {
-    const n = pesach + 2 + i;
+  if (!il) add(pesach + 1, 'hol', 'יום ב\' דפסח', { icon: 'seder', yt: true });
+  (il ? ['א', 'ב', 'ג', 'ד', 'ה'] : ['א', 'ב', 'ג', 'ד']).forEach((l, i) => {
+    const n = pesach + (il ? 1 : 2) + i;
     if (dow(n) === 6) { add(n, 'hol', 'שבת חוה"מ', { chm: true }); add(n, 'small', 'שיר השירים'); } else add(n, 'hol', `${l}' דחוה"מ`, { chm: true });
   });
   // שיר השירים: שבת חוה"מ, און ווען ס'איז נישטא — שביעי של פסח
   // (חו"ל: שביעי של פסח · א"י: יום א' דפסח)
-  if (![2, 3, 4, 5].some((i) => dow(pesach + i) === 6)) add(il ? pesach : pesach + 6, 'small', 'שיר השירים');
+  if (!(il ? [1, 2, 3, 4, 5] : [2, 3, 4, 5]).some((i) => dow(pesach + i) === 6)) add(il ? pesach : pesach + 6, 'small', 'שיר השירים');
   add(pesach + 6, 'hol', 'שביעי של פסח', { icon: 'matza', yt: true });
-  add(pesach + 7, 'hol', 'אחרון של פסח', { icon: 'matza2', yt: true }); add(pesach + 7, 'small', 'יזכור');
-  add(pesach + 8, 'hol', 'אסרו חג');
+  if (il) { add(pesach + 6, 'small', 'יזכור'); add(pesach + 7, 'hol', 'אסרו חג'); } else {
+    add(pesach + 7, 'hol', 'אחרון של פסח', { icon: 'matza2', yt: true }); add(pesach + 7, 'small', 'יזכור');
+    add(pesach + 8, 'hol', 'אסרו חג');
+  }
   // ספירה
   for (let k = 1; k <= 49; k += 1) add(pesach + k, 'omer', omerText(k));
   add(I.at(14, 'Iyar'), 'hol', 'פסח שני');
@@ -313,9 +333,11 @@ export function buildYear(Y, extra = {}, opts = {}) {
   // ---- שבועות ----
   const shavuos = I.at(6, 'Sivan');
   add(shavuos - 1, 'hol', 'ערב שבועות');
-  add(shavuos, 'hol', 'א\' דחג שבועות', { icon: 'flowers', yt: true }); add(shavuos + 1, 'hol', 'ב\' דחג השבועות', { icon: 'flowers', yt: true });
-  add(shavuos + 1, 'small', 'יזכור');
-  add(shavuos + 2, 'hol', 'אסרו חג');
+  if (il) { add(shavuos, 'hol', 'חג השבועות', { icon: 'flowers', yt: true }); add(shavuos, 'small', 'יזכור'); add(shavuos + 1, 'hol', 'אסרו חג'); } else {
+    add(shavuos, 'hol', 'א\' דחג שבועות', { icon: 'flowers', yt: true }); add(shavuos + 1, 'hol', 'ב\' דחג השבועות', { icon: 'flowers', yt: true });
+    add(shavuos + 1, 'small', 'יזכור');
+    add(shavuos + 2, 'hol', 'אסרו חג');
+  }
 
   // ---- תמוז / אב ----
   const t17 = I.at(17, 'Tamuz');
@@ -341,11 +363,14 @@ export function buildYear(Y, extra = {}, opts = {}) {
   }
   // ערב יו"ט: עירוב תבשילין (ווען יו"ט איז דאנערשטאג-פרייטאג אדער פרייטאג פאר שבת)
   [T(1) - 1, I.next - 1, T(14), T(21), pesach - 1, pesach + 5, shavuos - 1].forEach((n) => {
-    if (dow(n) === 3 || (dow(n) === 4 && n !== pesach + 5 && n !== T(21))) add(n, 'eruv', 'עירוב תבשילין');
+    const rh = n === T(1) - 1 || n === I.next - 1;
+    // א"י: נאר ווען יו"ט (איין טאג) איז פרייטאג; ר"ה (צוויי טעג) ווי אין חו"ל
+    const need = il && !rh ? dow(n) === 4 : (dow(n) === 3 || (dow(n) === 4 && n !== pesach + 5 && n !== T(21)));
+    if (need) add(n, 'eruv', 'עירוב תבשילין');
   });
 
   // ---- פרקי אבות ----
-  avos(I).forEach(([n, txt]) => add(n, 'avos', txt));
+  avos(I, il).forEach(([n, txt]) => add(n, 'avos', txt));
 
   // ---- הילולות ----
   HILLULOS.forEach((h) => {
@@ -360,7 +385,7 @@ export function buildYear(Y, extra = {}, opts = {}) {
 
   // ---- שעון קיץ / חורף ----
   for (let n = T(1) - 1; n < I.next; n += 1) {
-    const ch = dstChange(isoOf(n));
+    const ch = dstChange(isoOf(n), loc.tz);
     if (ch) add(n, 'dst', ch === 'end' ? 'שעון חורף (-1)' : 'שעון קיץ (+1)', { en: ch === 'end' ? 'DST Ends' : 'DST Begins' });
   }
 
@@ -368,14 +393,14 @@ export function buildYear(Y, extra = {}, opts = {}) {
   Object.entries(extra).forEach(([iso, items]) => items.forEach((it) => at(nOf(iso)).push(it)));
 
   // ---- טעג, זמנים, פרשה ----
-  const S = sedra(Y);
-  const SP = sedra(Y - 1);
+  const S = sedra(Y, il);
+  const SP = sedra(Y - 1, il);
   const ytDay = (n) => n === I.next || n === I.next + 1 || (map.get(isoOf(n)) || []).some((x) => x.yt); // ר"ה פונעם קומענדיגן יאר אויך
   const out = [];
   for (let n = T(1) - 1; n < I.next; n += 1) {
     const iso = isoOf(n); const h = hdOf(n);
     const items = map.get(iso) || [];
-    const zm = zmanim(iso);
+    const zm = zmanim(iso, loc);
     const d = dow(n);
     const parsha = d === 6 ? (S.get(iso) || SP.get(iso) || '') : '';
     const times = [];
@@ -398,7 +423,8 @@ export function buildYear(Y, extra = {}, opts = {}) {
       shade: d === 6 || yt || items.some((x) => x.chm || x.chanuka || x.mark),
     });
   }
-  return { Y, info: I, days: out, pages: pagesOf(I, out) };
+  const pages = pagesOf(I, out); pages.forEach((pg) => { pg.loc = loc.key; });
+  return { Y, info: I, loc: loc.key, days: out, pages };
 }
 
 // ---------- הושענות ----------
@@ -417,11 +443,11 @@ function hoshanos(I) {
 
 // ---------- פרקי אבות ----------
 const AV = ['א', 'ב', 'ג', 'ד', 'ה', 'ו'];
-function avos(I) {
-  const pesach8 = I.m.Nisan.start + 21;
+function avos(I, il = false) {
+  const lastPesach = I.m.Nisan.start + (il ? 20 : 21);
   const shavuos = I.at(6, 'Sivan');
   const list = [];
-  for (let n = pesach8 + 1; n < I.next; n += 1) if (dowOf(n) === 6 && n !== shavuos && n !== shavuos + 1) list.push(n);
+  for (let n = lastPesach + 1; n < I.next; n += 1) if (dowOf(n) === 6 && n !== shavuos && (il || n !== shavuos + 1)) list.push(n);
   const out = [];
   let i = 0;
   while (i < list.length) {
