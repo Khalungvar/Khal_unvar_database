@@ -229,7 +229,22 @@ export async function renderLuach() {
     </div>
     ${missing.length ? `<p class="lx-warn">⚠ ${h(t('fontsMissing'))} ${state.isAdmin ? `<button type="button" class="linkish" id="lx-fonts2">${h(t('fontsUp'))}</button>` : ''}</p>` : ''}
     <p class="muted small">${h(t('hint'))}</p>
-    <div class="lx-wrap"><div class="lx-scale">${pageHtml(p)}</div></div>`;
+    <div class="lx-zoom" role="group" aria-label="zoom">
+      <button type="button" data-z="in" title="${h(t('zIn'))}">＋</button>
+      <span class="lx-zv">${Math.round(zoom * 100)}%</span>
+      <button type="button" data-z="out" title="${h(t('zOut'))}">－</button>
+      <button type="button" data-z="fit" title="${h(t('zFit'))}">⤢</button>
+    </div>
+    <div class="lx-wrap"><div class="lx-sizer"><div class="lx-scale">${pageHtml(p)}</div></div></div>`;
+  $$('[data-z]', main).forEach((b) => { b.onclick = () => {
+    const z = b.dataset.z;
+    zoom = z === 'fit' ? 1 : Math.min(4, Math.max(0.5, Math.round((zoom + (z === 'in' ? 0.25 : -0.25)) * 100) / 100));
+    try { localStorage.setItem('lx-zoom', String(zoom)); } catch { /* ignore */ }
+    $('.lx-zv', main).textContent = `${Math.round(zoom * 100)}%`;
+    const w = $('.lx-wrap', main); const rx = w.scrollWidth ? (w.scrollLeft + w.clientWidth / 2) / w.scrollWidth : 1;
+    fit(main);
+    w.scrollLeft = zoom > 1 ? Math.max(0, rx * w.scrollWidth - w.clientWidth / 2) : 0;
+  }; });
   fit(main);
   fitAll(main); document.fonts?.ready.then(() => fitAll(main));
   $('#lx-prev', main).onclick = () => go(-1);
@@ -247,12 +262,15 @@ function go(dir) {
   else if (pageIx >= built.pages.length) { year += 1; pageIx = 0; }
   renderLuach();
 }
+// גרייס: "100%" = דער בלאט פאסט אין דער ברייט פונעם מסך; ＋/－ פארגרעסערט / פארקלענערט (מיט סקראל)
+let zoom = (() => { try { return Number(localStorage.getItem('lx-zoom')) || 1; } catch { return 1; } })();
 function fit(main) {
-  const wrap = $('.lx-wrap', main); const sc = $('.lx-scale', main); if (!wrap || !sc) return;
+  const wrap = $('.lx-wrap', main); const sc = $('.lx-scale', main); const sz = $('.lx-sizer', main); if (!wrap || !sc) return;
   const pxW = PAGE_W * (96 / 72); const pxH = PAGE_H * (96 / 72);
-  const k = Math.min(1.6, (wrap.clientWidth - 4) / pxW);
+  const k = Math.min(1.6, (wrap.clientWidth - 4) / pxW) * zoom;
   sc.style.transform = `scale(${k})`;
-  wrap.style.height = `${pxH * k}px`;
+  if (sz) { sz.style.width = `${pxW * k}px`; sz.style.height = `${pxH * k}px`; }
+  wrap.style.height = zoom > 1 ? `min(${pxH * k}px, 82vh)` : `${pxH * k}px`;
 }
 
 // ---------- טאג: צולייגן / באהאלטן ----------
@@ -391,6 +409,7 @@ const TX = {
   editNote: ['השינוי נשמר לתאריך הזה בלבד (בשנה הזו).', 'די ענדערונג איז נאר פאר דעם טאג.', 'The change applies to this date only.'],
   from: ['מ', 'פון', 'From'], to: ['עד', 'ביז', 'To'], allYear: ['כל השנה', 'דאס גאנצע יאר', 'Whole year'],
   pdfHint: ['ייפתח חלון הדפסה: בחר "Save as PDF" / "שמור כ-PDF". הגודל 11.38×6.85 אינץ\' כולל 7 מ"מ bleed לחיתוך. בהגדרות: שוליים "ללא", ו-"גרפיקת רקע" מסומן.', 'עס עפנט זיך א דרוק-פענצטער: קלייבט "Save as PDF".', 'A print window opens: choose "Save as PDF". Margins: none; background graphics: on.'],
+  zIn: ['הגדלה', 'גרעסער', 'Zoom in'], zOut: ['הקטנה', 'קלענער', 'Zoom out'], zFit: ['לגודל המסך', 'לויט דעם מסך', 'Fit to screen'],
   print: ['הדפסה / PDF', 'דרוקן / PDF', 'Print / PDF'], adminTitle: ['הגדרות הלוח', 'לוח איינשטעלונגען', 'Calendar settings'],
   fontsTitle: ['גופני הלוח', 'די גופנים פונעם לוח', 'Calendar fonts'],
   fontsHelp: ['בחר את כל קבצי הגופנים בבת אחת (מהתיקייה C:\\Users\\85100\\AppData\\Local\\Microsoft\\Windows\\Fonts). הם נשמרים בגיליון הפרטי בלבד — לא באתר הציבורי.', 'קלייבט אלע גופנים אויף איינמאל.', 'Select all the font files at once.'],
