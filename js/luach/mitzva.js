@@ -59,9 +59,9 @@ export const CSS = `
 .mz-month .mz-par:first-child{margin-top:0}
 .mz-ln{display:flex;align-items:center;gap:8px;padding:3px 2px;border-bottom:1px solid #111;white-space:nowrap}
 .mz-ln:last-child{border-bottom:none}
-.mz-dd{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:34px;padding-left:8px;border-left:1.5px solid #111;line-height:1.05}
+.mz-dd{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:40px;padding-left:8px;border-left:1.5px solid #111;line-height:1.05}
 .mz-dd b{font-family:'Livorna','FontbitLivorna',serif;font-weight:700;font-size:17px;color:#111}
-.mz-dd small{font-family:'Livorna','FontbitLivorna',serif;font-size:10px;color:#111}
+.mz-dd small{font-family:'Livorna','FontbitLivorna',serif;font-size:8.5px;color:#111;white-space:nowrap}
 .mz-ln.mz-shb .mz-dd b,.mz-ln.mz-shb .mz-dd small{color:#111;font-weight:700}
 .mz-mm{display:flex;align-items:center;gap:7px;flex:1;min-width:0;font-family:'Guttman David','David',serif;font-size:14px}
 .mz-mm i{font-style:normal;font-family:'Livorna','FontbitLivorna',serif;font-weight:700;font-size:19px;min-width:42px;padding:0 4px;box-sizing:border-box;border:1.3px solid #111;display:flex;align-items:center;justify-content:center;color:#111;line-height:1.15}
@@ -84,14 +84,14 @@ function weekHtml(fri) {
   </div>`;
 }
 
-const SHORT = ['א\'', 'ב\'', 'ג\'', 'ד\'', 'ה\'', 'ו\'', 'ש"ק'];
+const YDAY = ['זונטאג', 'מאנטאג', 'דינסטאג', 'מיטוואך', 'דאנערשטאג', 'פרייטאג', 'שב"ק'];
 function block(n) {
   const m = mitzvaYomis(isoOf(n)); const dw = dowOf(n);
   const x = hdOf(n);
-  return `<div class="mz-ln${dw === 6 ? ' mz-shb' : ''}"><span class="mz-dd"><b>${h(hnum(x.d))}</b><small>${dw === 6 ? 'שבת' : `יום ${SHORT[dw]}`}</small></span>
+  return `<div class="mz-ln${dw === 6 ? ' mz-shb' : ''}"><span class="mz-dd"><small>${h(YDAY[dw])}</small><b>${h(hnum(x.d))}</b></span>
     <span class="mz-mm"><i>${h(m.num)}</i><span>${h(m.text)}</span></span></div>`;
 }
-export function monthHtml(page) {
+export function monthHtml(page, footer = '') {
   // צוויי טורים גלייך צעטיילט: 15 טעג אין ערשטן, די איבעריגע (14/15) אינעם צווייטן; אין יעדן טור — וואכן (פון זונטאג) מיט דער פרשה
   const days = page.monthDays.map((d) => d.n);
   const half = Math.ceil(days.length / 2);
@@ -102,7 +102,7 @@ export function monthHtml(page) {
   }).join('');
   return `<div class="mz-card mz-month">
     <div class="mz-title">לימוד מצוה יומית - חודש ${h(MONTH[page.key] || page.he)} ${h(hebrewNumber(page.Y % 1000))}</div>
-    <div class="mz-cols"><div>${col(days.slice(0, half))}</div><div>${col(days.slice(half))}</div></div>
+    <div class="mz-cols"><div>${col(days.slice(0, half))}</div><div>${col(days.slice(half))}</div></div>${footer}
   </div>`;
 }
 

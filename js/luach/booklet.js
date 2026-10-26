@@ -161,6 +161,8 @@ const BK_CSS = `
 .bk-of>.f-tc,.bk-of>.f-bc{left:50%;transform:translateX(-50%);width:calc(256px * var(--fk));height:calc(77px * var(--fk));z-index:1}
 .bk-of>.f-tc{top:0}.bk-of>.f-bc{bottom:0}
 .bk-of>.bk-fin{display:flex;align-items:center;justify-content:center;min-height:calc(540px * var(--fk) - 154px * var(--fk))}
+.bk-shiur{margin-top:auto;background:linear-gradient(90deg,#1e1e1e,#5c5c5c,#1e1e1e);color:#fff;text-align:center;padding:6px 8px 7px;font-size:13px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.bk-shiur .bk-l{line-height:1.2}.bk-shiur .bk-l2{font-family:'Livorna Bold','Livorna',serif;font-size:1.6em;line-height:1.15;letter-spacing:.3px}.bk-shiur .bk-l3{font-size:.95em}
 .bk-fit-area{position:absolute;display:flex;align-items:center;justify-content:center}
 .bk-fit{text-align:center;transform-origin:center center;font-size:calc(16px * var(--k,1))}
 .bk-ded{margin:2px 0}
@@ -201,7 +203,10 @@ function coverHtml(p) {
   </div>`;
 }
 const p2Html = () => `<div class="bk-pg"><img class="bk-bg" src="${IMG('p2.jpg')}" alt=""></div>`;
-const p3Html = (p) => `<div class="bk-pg"><img class="bk-bg" src="${IMG('bgL.jpg')}" alt=""><div style="position:absolute;inset:0">${monthHtml(p)}</div></div>`;
+// א פס אונטן פון דער טבלה (נאר אין קונטרס) — דער שיעור, ווי די שווארצע פרשה-פסן
+const DEF_SHIUR = '~ לשמוע שיעור יומי בסדר המצות (אידיש)\n## קול אונגוואר: 605-477-4427\n~ אחריו 3 ואחריו 1';
+const shiurBar = () => `<div class="bk-shiur">${richLines(setting('shiur_text') || DEF_SHIUR)}</div>`;
+const p3Html = (p) => `<div class="bk-pg"><img class="bk-bg" src="${IMG('bgL.jpg')}" alt=""><div style="position:absolute;inset:0">${monthHtml(p, shiurBar())}</div></div>`;
 function p4Html(key) {
   const list = monthDeds(key);
   return `<div class="bk-pg"><img class="bk-bg" src="${IMG('bgR.jpg')}" alt="">
@@ -512,7 +517,8 @@ function textDialog(main) {
   const { dlg, close } = dialog(`<h3>✏ טקסטים קבועים בקונטרס</h3>
     <p class="muted small">סימנים בתחילת שורה: <b>#</b> רווח = גדול מאוד · <b>##</b> רווח = גדול ומודגש · <b>~</b> רווח = קטן · <b>---</b> = קו מפריד. שורה ריקה = רווח.</p>
     <label>שער — החלק התחתון (מופץ ע"י, טלפון, מייל)</label><textarea name="cover" rows="7" dir="rtl">${h(setting('cover_text'))}</textarea>
-    <label>עמוד 4 — פרטי המכון והשיעור</label><textarea name="info" rows="13" dir="rtl">${h(setting('info_text'))}</textarea>
+    <label>עמוד 4 — פרטי המכון</label><textarea name="info" rows="11" dir="rtl">${h(setting('info_text'))}</textarea>
+    <label>עמוד 3 — הפס השחור מתחת לטבלה (השיעור)</label><textarea name="shiur" rows="4" dir="rtl">${h(setting('shiur_text') || DEF_SHIUR)}</textarea>
     <p style="display:flex;gap:8px;margin-top:14px"><button type="button" class="btn primary" data-a="save">שמירה</button><button type="button" class="btn ghost" data-a="cancel">ביטול</button></p>`);
   $('[data-a=cancel]', dlg).onclick = close;
   $('[data-a=save]', dlg).onclick = async (e) => {
@@ -520,6 +526,7 @@ function textDialog(main) {
     try {
       await saveSetting('cover_text', $('[name=cover]', dlg).value);
       await saveSetting('info_text', $('[name=info]', dlg).value);
+      await saveSetting('shiur_text', $('[name=shiur]', dlg).value);
       close(); render(main);
     } catch (err) { e.target.disabled = false; ui.toast?.(String(err.message || err), 'error'); }
   };
