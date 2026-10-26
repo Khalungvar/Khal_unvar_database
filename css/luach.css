@@ -179,3 +179,8 @@
 .lx-gl { position: absolute; background: #351f17; pointer-events: none; z-index: 2; }
 /* כותרת פון די טעג: גענוי די זעלבע ברייט ווי די טאבעלע (מיט די ליניעס), אזוי ווערט עס איין פירעק */
 .lx-band { left: 160.7pt !important; width: 497.7pt !important; top: 70.6pt !important; height: 13.6pt !important; }
+
+.lx-hubh { margin: 10px 0 14px; color: var(--accent); }
+.lx-hub { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; max-width: 900px; }
+.lx-hubt[data-soon] { opacity: .6; }
+@media (max-width: 700px) { .lx-hub { grid-template-columns: 1fr; } }

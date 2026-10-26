@@ -201,7 +201,7 @@ function renderLobby() {
       <div class="lobby-pair">${typeTile(ORG_FIELDS[2], '🤝')}${tile('area', '📍', t('area'), t('lobbyAreaSub', { n: areas.length }))}</div>
       ${tile('faces', '📸', t('fcTitle'), t('fcTileSub', { n: (state.faceEvents || []).length }))}
       ${tile('calls', '📞', 'Calls & SMS', t('lobbyCallsSub'))}
-      <div class="lobby-pair">${tile('books', `<img class="tile-logo bk-tile-logo" src="${BOOKS_LOGO}" alt="">`, BOOKS_ORG, t('bkTileSub', { n: allBooks().length }))}${tile('luach', '📅', t('luachTile'), t('luachTileSub'))}</div>
+      <div class="lobby-pair">${tile('books', `<img class="tile-logo bk-tile-logo" src="${BOOKS_LOGO}" alt="">`, BOOKS_ORG, t('bkTileSub', { n: allBooks().length }))}${tile('luach', '🕰', t('luachTile'), t('luachTileSub'))}</div>
     </div>
     ${open ? `<div class="lobby-choose">
       <span class="muted">${h(t('lobbyChoose'))}</span>

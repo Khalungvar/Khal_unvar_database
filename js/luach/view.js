@@ -259,11 +259,28 @@ function currentYearAndPage() {
   return [Y, pi];
 }
 
-export async function openLuach() { ui.showView('luach'); }
+// "זמנים ולוחות": א בלאט מיט 3 קנעפלעך; דער לוח שנה איז איינער פון זיי
+let mode = 'hub';
+export async function openLuach() { mode = 'hub'; ui.showView('luach'); }
+function renderHub(main) {
+  const tile = (k, icon, title, sub, soon) => `<button type="button" class="lobby-tile lx-hubt" data-hub="${k}"${soon ? ' data-soon="1"' : ''}>
+    <span class="lobby-icon">${icon}</span><b>${h(title)}</b><span class="muted small">${h(soon ? t('soon') : sub)}</span></button>`;
+  main.innerHTML = `<h2 class="lx-hubh">🕰 ${h(t('hubTitle'))}</h2>
+    <div class="lx-hub">
+      ${tile('tefila', '🕍', t('hTefila'), '', true)}
+      ${tile('cal', '📅', t('hCal'), t('hCalSub'))}
+      ${tile('mitzva', '📜', t('hMitzva'), '', true)}
+    </div>`;
+  $$('[data-hub]', main).forEach((b) => { b.onclick = () => {
+    if (b.dataset.soon) { ui.toast?.(t('soon')); return; }
+    mode = 'cal'; renderLuach();
+  }; });
+}
 
 export async function renderLuach() {
   const main = $('#luach-main');
   if (!main) return;
+  if (mode === 'hub') { renderHub(main); return; }
   if (!year) [year, pageIx] = currentYearAndPage();
   if (!main.firstChild) main.innerHTML = `<p class="muted">…</p>`;
   await loadData();
@@ -273,6 +290,7 @@ export async function renderLuach() {
   const yl = (y) => hebrewNumber(y % 1000);
   const missing = LUACH_FONTS.filter((f) => !customFontNames().includes(f.name));
   main.innerHTML = `<div class="lx-bar">
+      <button type="button" class="btn ghost" id="lx-hub">← ${h(t('hubTitle'))}</button>
       <button type="button" class="btn" id="lx-prev">‹ ${h(t('prev'))}</button>
       <b class="lx-title">${h(p.he)} ${h(yl(year))}</b>
       <button type="button" class="btn" id="lx-next">${h(t('next'))} ›</button>
@@ -302,6 +320,7 @@ export async function renderLuach() {
   }; });
   fit(main);
   fitCells(main); fitAll(main); document.fonts?.ready.then(() => { fitCells(main); fitAll(main); });
+  $('#lx-hub', main).onclick = () => { mode = 'hub'; renderLuach(); };
   $('#lx-prev', main).onclick = () => go(-1);
   $('#lx-next', main).onclick = () => go(1);
   $('#lx-year', main).onchange = (e) => { year = Number(e.target.value); pageIx = 0; renderLuach(); };
@@ -457,6 +476,9 @@ const TX = {
   prev: ['הקודם', 'פריער', 'Prev'], next: ['הבא', 'ווייטער', 'Next'], pdf: ['הורדת PDF', 'PDF אראפנעמען', 'Download PDF'],
   hint: ['לחיצה על יום — להוסיף או להסתיר שורה. בארא פארק: לפי טבלת chaitables (ובלעדיה מחושב). ירושלים: מחושב, הדלקה 40 דקות, מנהגי ארץ ישראל.', 'קליקט אויף א טאג — צולייגן אדער באהאלטן א שורה.', 'Click a day to add or hide a line.'],
   place: ['מיקום', 'ארט', 'Location'],
+  hubTitle: ['זמנים ולוחות', 'זמנים און לוחות', 'Zmanim & Calendars'], hTefila: ['זמני תפילות', 'זמני תפילות', 'Davening times'],
+  hCal: ['לוח שנה אונגוואר', 'לוח שנה אונגוואר', 'Ungvar yearly calendar'], hCalSub: ['זמנים · דף יומי · מצוה יומית', 'זמנים · דף יומי · מצוה יומית', 'Zmanim · Daf Yomi · Mitzva'],
+  hMitzva: ['לוח מצוה יומית', 'לוח מצוה יומית', 'Mitzva Yomis calendar'], soon: ['בקרוב', 'באלד', 'Coming soon'],
   fontsMissing: ['חסרים גופנים של הלוח — המראה עדיין לא כמו בדפוס.', 'עס פעלן גופנים פונעם לוח.', 'Calendar fonts are missing.'],
   fontsUp: ['העלאת גופנים', 'ארויפלייגן גופנים', 'Upload fonts'],
   auto: ['מה שהמחשב שם', 'וואס דער קאמפיוטער שטעלט', 'Automatic'], hide: ['הסתר', 'באהאלטן', 'Hide'], hidden: ['מוסתר', 'באהאלטן', 'Hidden'],
