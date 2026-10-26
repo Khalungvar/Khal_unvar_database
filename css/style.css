@@ -2129,3 +2129,42 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .fx-line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: -4px 0 8px; }
 .fx-line label { display: inline-flex; align-items: center; gap: 4px; direction: ltr; margin: 0; }
 .fx-line input { width: 8em; }
+/* ❓ הילף פאר דעם מסך + ▶ טור */
+.hv-fab { position: fixed; right: 16px; bottom: 16px; z-index: 51; display: flex; align-items: center; gap: 8px; border: 1.5px solid var(--gold); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 5px 14px 5px 5px; font: inherit; font-weight: 600; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,.15); }
+[dir="rtl"] .hv-fab { padding: 5px 5px 5px 14px; }
+.hv-fab:hover { background: var(--accent); color: var(--accent-ink, #fff); }
+.hv-q { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--accent-ink, #fff); display: grid; place-items: center; font-weight: 800; font-size: 17px; }
+.hv-fab:hover .hv-q { background: var(--gold); }
+@media (max-width: 700px) { .hv-fab-t { display: none; } .hv-fab { padding: 5px !important; } }
+@media print { .hv-fab, .tour-box, .tour-ring { display: none !important; } }
+.hv-dialog { width: min(760px, 96vw); }
+.hv-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-inline-end: 34px; }
+.hv-head h2 { margin: 0; }
+.hv-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.hv-sec { border: 1px solid var(--line); border-radius: 12px; margin: 8px 0; background: var(--surface); }
+.hv-sec > summary { cursor: pointer; padding: 10px 14px; font-weight: 700; font-size: 1.05em; }
+.hv-sec[open] > summary { border-bottom: 1px solid var(--line); }
+.hv-edited { font-size: 12px; font-weight: 600; background: #fff3cd; color: #7a5b00; border-radius: 6px; padding: 1px 6px; }
+.hv-tools { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 8px 14px 0; }
+.hv-tools .hv-speaking { background: var(--accent); color: var(--accent-ink, #fff); }
+.hv-body { padding: 4px 16px 12px; line-height: 1.65; }
+.hv-body h4 { margin: 14px 0 4px; color: var(--accent); }
+.hv-body ol, .hv-body ul { margin: 4px 0; padding-inline-start: 22px; }
+.hv-body li { margin: 3px 0; }
+.hv-key { background: var(--bg, #f5f1e6); border: 1px solid var(--gold); border-radius: 6px; padding: 0 6px; white-space: nowrap; }
+.hv-others { margin-top: 12px; }
+.hv-others > summary { cursor: pointer; font-weight: 600; color: var(--muted); }
+.hv-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.hv-chips .chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 12px; font: inherit; cursor: pointer; color: var(--ink); }
+.hv-chips .chip:hover { border-color: var(--gold); }
+.hv-edit { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; }
+.hv-edit label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; }
+.hv-edit input, .hv-edit textarea { font: inherit; font-weight: 400; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.hv-edit textarea { font-family: ui-monospace, Consolas, monospace; font-size: 13.5px; line-height: 1.5; }
+.hv-edit-btns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tour-ring { position: fixed; z-index: 9998; border: 3px solid var(--gold); border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0,0,0,.45); pointer-events: none; transition: all .25s ease; }
+.tour-box { position: fixed; z-index: 9999; background: var(--surface); color: var(--ink); border-radius: 12px; padding: 12px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.3); border: 1.5px solid var(--gold); transition: top .25s ease, left .25s ease; }
+.tour-box p { margin: 0 0 10px; line-height: 1.55; font-size: 15px; }
+.tour-nav { display: flex; align-items: center; gap: 6px; }
+.tour-x { background: transparent; border: none; cursor: pointer; font-size: 15px; color: var(--muted); }
+.hv-tools .btn.ghost, .hv-actions .btn.ghost { border-color: var(--line); }

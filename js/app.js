@@ -30,6 +30,8 @@ import { initMailMerge, renderMailMerge, openMailMerge, mailMergeCanLeave } from
 import { initMail, openCompose, emailOf } from './mail.js';
 import { initRequests, submitRequest, pendingRequests } from './requests.js';
 import { openHelp, initHelpChat } from './help.js';
+import { initHelpView, setHelpView, openHelpView } from './helpview.js';
+import { applyTips } from './tour.js';
 import { initMerge, openMerge } from './merge.js';
 import { loadFonts } from './fonts.js';
 import { initFeedback, openFeedbackCount } from './feedback.js';
@@ -126,6 +128,7 @@ async function enterApp() {
   $('#login-view').hidden = true;
   $('#app-view').hidden = false;
   initHelpChat();
+  initHelpView();
   initFeedback({ toast, friendlyError, refreshBadges: updateBadges });
   initTags({ toast, friendlyError });
   refreshAll();
@@ -363,6 +366,7 @@ function showView(name) {
   if (name === 'books') renderBooks();
   if (name === 'faces') renderFaces();
   renderListsSide();
+  setHelpView(name); applyTips(name);
   $('#btn-admin')?.classList.toggle('on', name === 'admin');
   renderCampaignSide();
   recordNav(name);
@@ -2033,7 +2037,7 @@ function start() {
   $('#btn-personal').onclick = () => { document.body.classList.add('solo-mode'); openPersonal(); };
   initSortTables();
   initLists({ showView, fullNameHe, phonesOf, contactById, pickerLabel, openCard, toast, friendlyError, refreshAll, openForm });
-  $('#btn-help').onclick = () => openHelp();
+  $('#btn-help').onclick = () => openHelpView();
   $('#btn-admin').onclick = () => { if (pendingRequests().length) setAdminTab('requests'); document.body.classList.add('solo-mode'); showView('admin'); };
   closeOnBackdrop($('#form-dialog'), closeForm);
   $('#form-dialog').addEventListener('cancel', (e) => { e.preventDefault(); closeForm(); }); // מקש Esc

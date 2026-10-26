@@ -3502,6 +3502,12 @@ export function t(key, vars = {}) {
   return String(s).replace(/\{(\w+)\}/g, (_, k) => (vars[k] ?? ''));
 }
 
+/** א טעקסט אין א באשטימטער שפראך (פאר די הסברים) */
+export function tIn(l, key, vars = {}) {
+  const s = (STRINGS[l] || STRINGS.yi)[key] ?? STRINGS.yi[key] ?? key;
+  return String(s).replace(/\{(\w+)\}/g, (_, k) => (vars[k] ?? ''));
+}
+
 /** ערך מרשימת המצב המשפחתי, מוצג בשפת הממשק (הנתון בגליון לא משתנה). */
 export function maritalLabel(value) {
   return STRINGS[lang].marital_values?.[value] || value;
