@@ -140,3 +140,6 @@
 
 .lx-sh { padding: 0 1pt; box-sizing: border-box; overflow: hidden; }
 .lx-sh .lx-f { text-align: center; }
+
+.lx-dst { white-space: nowrap; text-align: center; }
+.lx-dst .lx-dsten { font-family: 'SfaradyMedium', 'Cambria', serif; font-size: 6.5pt; }

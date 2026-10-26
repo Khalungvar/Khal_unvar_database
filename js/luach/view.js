@@ -91,7 +91,10 @@ function cellHtml(d, r, c, page) {
   of('bahab').forEach((x) => bottom.push(`<div class="lx-bahab">${fitText(x.text)}</div>`));
   of('note').forEach((x) => bottom.push(`<div class="lx-note${x.size === 'xs' ? ' lx-xs' : ''}">${fitText(x.text)}</div>`));
   of('hillula').forEach((x) => bottom.push(`<div class="lx-hil"><img src="img/luach/candle.png" alt="">${fitText(x.text)}</div>`));
-  of('dst').forEach((x) => bottom.push(`<div class="lx-dst"><b>2</b><i>AM</i> - ${h(x.text)} <span>${h(x.en)}</span></div>`));
+  of('dst').forEach((x) => {
+    const [heb, num] = [x.text.replace(/\s*\(.*\)$/, ''), (x.text.match(/\(.*\)$/) || [''])[0]];
+    bottom.push(`<div class="lx-dst"><div dir="rtl"><bdi dir="ltr"><b>2</b><i>AM</i></bdi> - ${h(heb)} <bdi dir="ltr">${h(num)}</bdi></div><div dir="ltr" class="lx-dsten">${h(x.en)}</div></div>`);
+  });
   chametz.forEach((t) => bottom.push(`<div class="lx-chametz"><span>${h(t.label)} ${h(t.sub)}</span> <b>${h(t.time)}</b></div>`));
   if (fast) bottom.push(`<div class="lx-fast"><span>${h(fast.label)}</span> <b>${h(fast.time)}</b></div>`);
   const rightCol = [];
