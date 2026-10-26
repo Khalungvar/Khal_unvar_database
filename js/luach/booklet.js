@@ -158,7 +158,7 @@ const BK_CSS = `
 .bk-lat.bk-l3{font-size:.68em}
 .bk-hr{width:62%;height:0;border-top:1.5px solid #444;margin:14px auto}
 .bk-sp{height:.55em}
-.bk-of{position:relative;width:100%;box-sizing:border-box;padding:calc(77px * var(--fk) + 12px) calc(77px * var(--fk) + 16px)}
+.bk-of{font-family:'Livorna','Frank Ruhl Libre',serif;position:relative;width:100%;box-sizing:border-box;padding:calc(77px * var(--fk) + 12px) calc(77px * var(--fk) + 16px)}
 .bk-of>img{position:absolute;display:block}
 .bk-of>.f-tl,.bk-of>.f-tr,.bk-of>.f-bl,.bk-of>.f-br{width:calc(170px * var(--fk));height:calc(270px * var(--fk));z-index:1}
 .bk-of>.f-tl{top:0;left:0}.bk-of>.f-tr{top:0;right:0}.bk-of>.f-bl{bottom:0;left:0}.bk-of>.f-br{bottom:0;right:0}

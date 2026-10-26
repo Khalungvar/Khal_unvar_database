@@ -1,4 +1,4 @@
-// לוח מצוה יומית לפי מחזור — א קליין ביכל (153×198pt, 24 עמודים) מיט אלע 613 טעג פונעם מחזור:
+// לוח מצוה יומית לפי מחזור — א קליין ביכל (153×198pt, ~24 עמודים, יעדער עמוד א חודש) מיט אלע 613 טעג פונעם מחזור:
 // שער, טבלה (יום · דאטום · מצוה), סוף מיט דעם לאגא, און די הינטערשטע זייט. דרוקן = "Save as PDF" (וועקטאר).
 import { buildYear, isoOf, nOf, dowOf, hdOf } from './engine.js';
 import { MITZVOS, MITZVA_ANCHOR } from './mitzvos.js';
@@ -49,11 +49,12 @@ function rows(k) {
 
 // ---------- אויסשטעלונג ----------
 // עמ' 2: 10 שורות (אויבן א טעקסט), עמ' 3–22: 30/29 שורות, עמ' 23: 11 שורות + לאגא, עמ' 24: הינטן
+// יעדער עמוד = א חודש (ווי אינעם אריגינאל): דער ערשטער (טיילווייזער) חודש אויף עמ' 2 אונטער דעם טעקסט,
+// דער לעצטער חודש מיט דעם לאגא אונטן (אויב ס'איז דא ארט; אנדערש א באזונדער עמוד)
 function split(all) {
-  const pages = [all.slice(0, 10)]; let p = 10;
-  for (let i = 0; i < 20; i += 1) { const c = i < 12 ? 30 : 29; pages.push(all.slice(p, p + c)); p += c; }
-  pages.push(all.slice(p));
-  return pages;
+  const months = [];
+  all.forEach((r, i) => { if (i === 0 || r.first) months.push([]); months[months.length - 1].push(r); });
+  return months;
 }
 
 const IMG = (f) => `img/cycle/${f}?v=1`;
@@ -104,24 +105,37 @@ const rowHtml = (r) => `<div class="cy-r${r.dw === 6 ? ' cy-sh' : ''}${r.first ?
     <span class="cy-m">${h(r.m)} <small>(${h(r.y)})</small></span><span class="cy-n">${h(r.num)}</span><span class="cy-x"><span class="cy-s">${h(r.text)}</span></span></div>`;
 const tableHtml = (rs) => `<div class="cy-t"><div class="cy-r cy-h"><span class="cy-w">יום</span><span class="cy-d"></span><span class="cy-m"></span><span class="cy-n"></span><span class="cy-x">מצוה</span></div>${rs.map(rowHtml).join('')}</div>`;
 
+const ROW = 7.11; const TOP = 19.5; const BOTTOM = 241;
 function pagesHtml(k) {
-  const all = rows(k); const parts = split(all);
+  const all = rows(k); const months = split(all);
   const s = startOf(k);
   const pg = (inner, cls = '') => `<div class="cy-pg ${cls}">${inner}</div>`;
   const bg = `<img class="cy-bg" src="${IMG('bg.jpg')}" alt="">`;
-  const pn = (i) => `<div class="cy-pn">${h(plain(i))}</div>`;
   const out = [];
-  out.push(pg(`<img class="cy-full" src="${IMG('cover.jpg')}" alt=""><div class="cy-cov"><b>מחזור ${h(hebrewNumber(k))}</b>
-    <span>${h(dateLong(s))}</span><span>${h(dateLong(s + 612))}</span></div>`));
-  out.push(pg(`${bg}<div class="cy-top"><div class="bk-fit">${richLines(setting('cycle_p2_text') || DEF_P2)}</div></div>
-    <div class="cy-frame" style="top:124px">${tableHtml(parts[0])}</div>${pn(2)}`));
-  parts.slice(1, 21).forEach((rs, i) => out.push(pg(`${bg}<div class="cy-frame">${tableHtml(rs)}</div>${pn(i + 3)}`)));
-  const last = parts[21];
-  const endTop = 19.5 + (last.length + 1) * 7.11 + 12;
-  out.push(pg(`${bg}<div class="cy-frame">${tableHtml(last)}</div>
-    <div class="cy-end" style="top:${endTop}px;height:${240 - endTop}px;justify-content:center"><img src="${IMG('logo.png')}" alt=""><div class="bk-fit">${richLines(setting('cycle_end_text') || DEF_END)}</div></div>${pn(23)}`));
-  out.push(pg(`<img class="cy-full" src="${IMG('back.jpg')}" alt="">`));
-  return out;
+  out.push(`<img class="cy-full" src="${IMG('cover.jpg')}" alt=""><div class="cy-cov"><b>מחזור ${h(hebrewNumber(k))}</b>
+    <span>${h(dateLong(s))}</span><span>${h(dateLong(s + 612))}</span></div>`);
+  const tableH = (n) => (n + 1) * ROW;
+  // עמ' 2: דער ערשטער חודש אונטן, דער טעקסט אויבן (אין דעם ארט וואס בלייבט)
+  const m0 = months[0]; const top0 = BOTTOM - tableH(m0.length);
+  const textH = top0 - 6 - 22;
+  out.push(`${bg}${textH > 34 ? `<div class="cy-top" style="height:${textH}px"><div class="bk-fit">${richLines(setting('cycle_p2_text') || DEF_P2)}</div></div>` : ''}
+    <div class="cy-frame" style="top:${top0}px">${tableHtml(m0)}</div>`);
+  const mid = months.slice(1, -1);
+  mid.forEach((rs) => out.push(`${bg}<div class="cy-frame">${tableHtml(rs)}</div>`));
+  const last = months.length > 1 ? months[months.length - 1] : null;
+  const endBlock = (top) => `<div class="cy-end" style="top:${top}px;height:${BOTTOM - top}px;justify-content:center"><img src="${IMG('logo.png')}" alt=""><div class="bk-fit">${richLines(setting('cycle_end_text') || DEF_END)}</div></div>`;
+  let logoDone = false;
+  if (last) {
+    const endTop = TOP + tableH(last.length) + 10;
+    const room = BOTTOM - endTop;
+    if (room >= 95) { out.push(`${bg}<div class="cy-frame">${tableHtml(last)}</div>${endBlock(endTop)}`); logoDone = true; } else out.push(`${bg}<div class="cy-frame">${tableHtml(last)}</div>`);
+  }
+  // סך הכל א כפולה פון 4 (מיט דער הינטערשטער זייט): דער לאגא אויף א באזונדער עמוד, און ליידיגע עמודים
+  const need = (n) => (4 - ((n + 1) % 4)) % 4;
+  if (!logoDone) out.push(`${bg}${endBlock(70)}`);
+  for (let i = need(out.length); i > 0; i -= 1) out.push(`${bg}`);
+  out.push(`<img class="cy-full" src="${IMG('back.jpg')}" alt="">`);
+  return out.map((inner, i) => pg(`${inner}${i > 0 && i < out.length - 1 && inner.includes('cy-frame') ? `<div class="cy-pn">${h(plain(i + 1))}</div>` : ''}`));
 }
 const DEF_P2 = '~ בס"ד\n## סדר לימוד מצוה יומית\n~ מצוה אחת בכל יום, כסדר הסמ"ק\n~ בספר "מצות המלך" עם פירוש\n~ כ"ק מרן אדמו"ר בעל משנה הלכות זצוקללה"ה';
 const DEF_END = '## מפעל מצוה יומית\n## 605-477-4427\nMitzvahYomis@gmail.com';
@@ -167,7 +181,7 @@ function render(main) {
       ${state.isAdmin ? '<button type="button" class="btn ghost" id="cy-txt">✏ טקסטים</button>' : ''}
       <button type="button" class="btn primary" id="cy-print">🖨 הדפסה / PDF</button>
     </div>
-    <p class="cy-bar2 muted small">מחזור ${h(hebrewNumber(cycle))}: ${h(dateLong(s))} (${h(isoOf(s))}) — ${h(dateLong(s + 612))} (${h(isoOf(s + 612))}) · 24 עמודים, 2.125×2.75 אינץ'.
+    <p class="cy-bar2 muted small">מחזור ${h(hebrewNumber(cycle))}: ${h(dateLong(s))} (${h(isoOf(s))}) — ${h(dateLong(s + 612))} (${h(isoOf(s + 612))}) · ${pages.length} עמודים, 2.125×2.75 אינץ' (כל עמוד = חודש).
       בחלון ההדפסה: "Save as PDF", שוליים "ללא", וסמן "גרפיקת רקע".</p>
     <div class="cy-wrap">${pages.map((p, i) => `<div class="cy-th"><div class="cy-sc">${p}</div><b>${i + 1}</b></div>`).join('')}</div>`;
   const doSqueeze = () => squeeze(main);
