@@ -5,9 +5,9 @@
 import { buildYear, isoOf, nOf, mitzvaYomis } from './engine.js';
 import { START, LAST_PAGE, CONTENT, NUM_BAND } from './booklet-index.js';
 import { MONTH, CSS as MZ_CSS, monthHtml } from './mitzva.js';
-import { hebrewNumber, todayIso } from '../hebdate.js';
+import { hebrewNumber, todayIso, formatHebrew, toHebrew } from '../hebdate.js';
 import { readTabs, appendRow, updateRange, ensureDriveScope, hasDriveScope, driveFolder, driveUploadLarge, driveDownload } from '../google.js';
-import { state } from '../data.js';
+import { state, saveDonation } from '../data.js';
 import { CONFIG } from '../config.js';
 import { escapeHtml as h, nowStamp } from '../util.js';
 import { htmlToJpeg } from '../pdf.js';
@@ -33,7 +33,7 @@ export async function loadData(force = false) {
   deds = dr.map((r, i) => ({
     row: i + 2, id: String(r[ix('id')] || ''), month: String(r[ix('month')] || ''), sort: Number(r[ix('sort')]) || 0,
     kind: String(r[ix('kind')] || ''), name: String(r[ix('name')] || ''), text: String(r[ix('text')] || ''),
-    contact_id: String(r[ix('contact_id')] || ''), amount: String(r[ix('amount')] ?? ''),
+    contact_id: String(r[ix('contact_id')] || ''), amount: String(r[ix('amount')] ?? ''), donation_id: ix('donation_id') >= 0 ? String(r[ix('donation_id')] || '') : '',
   })).filter((d) => d.id && d.month && (d.name || d.text));
   loaded = true;
 }
@@ -117,6 +117,7 @@ const monthDeds = (key) => deds.filter((d) => d.month === key).sort((x, y) => x.
 function dedHtml(list) {
   if (!list.length) return '';
   return list.map((d) => {
+    if (d.kind === 'html') return `<div class="bk-ded bk-rich">${cleanRich(d.text)}</div>`;
     const [, , head] = kindOf(d.kind);
     return `<div class="bk-ded">
       ${head ? `<div class="bk-dk">${h(head)}</div>` : ''}
@@ -138,9 +139,9 @@ const BK_CSS = `
 .bk-pg{position:relative;width:528px;height:816px;overflow:hidden;direction:rtl;background:#fff;color:#111;font-family:'Guttman David','David','Frank Ruhl Libre',serif}
 .bk-pg>img.bk-bg{position:absolute;inset:0;width:100%;height:100%}
 .bk-abs{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
-.bk-box1{font-family:'Livorna','Frank Ruhl Libre',serif;font-weight:700;font-size:19px;line-height:1.15}
-.bk-box2{font-family:'Livorna Bold','Livorna','Frank Ruhl Libre',serif;font-weight:700;font-size:34px;line-height:1.1;margin:2px 0}
-.bk-box3{font-family:'Livorna','Frank Ruhl Libre',serif;font-weight:700;font-size:20px;line-height:1.15}
+.bk-box1{font-family:'Livorna','Frank Ruhl Libre',serif;font-weight:700;font-size:20.5px;line-height:.95}
+.bk-box2{font-family:'Livorna Bold','Livorna','Frank Ruhl Libre',serif;font-weight:700;font-size:37px;line-height:.95;margin:0}
+.bk-box3{font-family:'Livorna','Frank Ruhl Libre',serif;font-weight:700;font-size:21.5px;line-height:.95}
 .bk-l{font-family:'Livorna','Frank Ruhl Libre',serif;font-size:1em;line-height:1.25}
 .bk-l1{font-family:'Livorna Bold','Livorna',serif;font-weight:700;font-size:1.75em;line-height:1.15}
 .bk-l2{font-weight:700;font-size:1.25em;line-height:1.2}
@@ -165,6 +166,11 @@ const BK_CSS = `
 .bk-shiur .bk-l{line-height:1.25;font-size:1em}.bk-shiur .bk-l2{font-family:'Livorna Bold','Livorna',serif;font-size:1.45em;line-height:1.2}.bk-shiur .bk-l3{font-size:.85em}
 .bk-info{border:1px solid #6a6a6a;background:rgba(255,255,255,.6);padding:6px 10px;box-sizing:border-box}
 .bk-info .bk-lat{font-size:.85em;line-height:1.3}
+.bk-rich{font-family:'Livorna','Frank Ruhl Libre',serif;font-size:1.35em;line-height:1.3}
+.bk-rich b{font-family:'Livorna Bold','Livorna',serif;font-weight:700}
+.bk-rt{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0}
+.bk-ed{min-height:120px;max-height:300px;overflow:auto;border:1px solid #bbb;border-radius:6px;padding:10px;background:#fff;text-align:center;font-family:'Livorna','Frank Ruhl Libre',serif;font-size:20px;line-height:1.35}
+.bk-ed b{font-family:'Livorna Bold','Livorna',serif}
 .bk-fit-area{position:absolute;display:flex;align-items:center;justify-content:center}
 .bk-fit{text-align:center;transform-origin:center center;font-size:calc(16px * var(--k,1))}
 .bk-ded{margin:2px 0}
@@ -428,7 +434,7 @@ function render(main) {
         <h4>🕯 הנצחות לחודש ${h(monthName(p))}</h4>
         <ul class="bk-dl">${list.map((d) => {
           const c = d.contact_id && ui.contactById ? ui.contactById(d.contact_id) : null;
-          return `<li><span><b>${h(kindOf(d.kind)[1])}</b> ${h(d.name)}${d.amount && d.kind === 'nedavas' ? ` · $${h(d.amount)}` : ''}${c ? ` · <a href="#" data-card="${h(d.contact_id)}">👤 ${h(ui.fullNameHe(c))}</a>` : ''}</span>
+          return `<li><span>${d.kind === 'html' ? h(richToText(d.text).replace(/\n/g, ' · ').slice(0, 90)) : `<b>${h(kindOf(d.kind)[1])}</b> ${h(d.name)}`}${d.amount && (d.kind === 'nedavas' || d.kind === 'html') ? ` · $${h(d.amount)}` : ''}${c ? ` · <a href="#" data-card="${h(d.contact_id)}">👤 ${h(ui.fullNameHe(c))}</a>` : ''}</span>
             <button type="button" class="btn small-btn" data-ed="${h(d.id)}">✏</button></li>`;
         }).join('') || '<li class="muted">אין עדיין הנצחות לחודש הזה</li>'}</ul>
         <p><button type="button" class="btn" id="bk-add">＋ הנצחה</button>
@@ -467,7 +473,7 @@ function render(main) {
     const prev = monthDeds(monthKey({ Y, ix }));
     if (!prev.length) { ui.toast?.('אין הנצחות בחודש הקודם'); return; }
     try {
-      for (const d of prev) await appendRow('BookletDedications', [newId(), key, d.sort, d.kind, d.name, d.text, d.contact_id, d.amount, nowStamp(), state.email]);
+      for (const d of prev) await appendRow('BookletDedications', [newId(), key, d.sort, d.kind, d.name, d.text, d.contact_id, '', nowStamp(), state.email, '']);
       await loadData(true); render(main); ui.toast?.(`הועתקו ${prev.length}`);
     } catch (err) { ui.toast?.(String(err.message || err), 'error'); }
   };
@@ -485,41 +491,125 @@ function dialog(html) {
   return { dlg, close };
 }
 
+// ---------- טעקסט מיט בולד / גרעסער / קלענער (א קליינער רעדאקטאר) ----------
+/** לאזט נאר: b/strong, span מיט font-size (em), br, div/p — אלעס אנדערש ווערט טעקסט */
+export function cleanRich(html) {
+  const tpl = document.createElement('template'); tpl.innerHTML = String(html || '');
+  const walk = (node) => {
+    let out = '';
+    node.childNodes.forEach((n) => {
+      if (n.nodeType === 3) { out += h(n.nodeValue); return; }
+      if (n.nodeType !== 1) return;
+      const tag = n.tagName.toLowerCase(); const inner = walk(n);
+      if (tag === 'br') out += '<br>';
+      else if (tag === 'b' || tag === 'strong') out += inner ? `<b>${inner}</b>` : '';
+      else if (tag === 'div' || tag === 'p') out += `<div>${inner || '<br>'}</div>`;
+      else if (tag === 'span' || tag === 'font') {
+        const m = /font-size:\s*([\d.]+)em/.exec(n.getAttribute('style') || '');
+        const bold = /font-weight:\s*(bold|[6-9]00)/.test(n.getAttribute('style') || '');
+        let x = inner;
+        if (bold) x = `<b>${x}</b>`;
+        out += m && x ? `<span style="font-size:${Math.min(4, Math.max(0.3, Number(m[1]))).toFixed(2)}em">${x}</span>` : x;
+      } else out += inner;
+    });
+    return out;
+  };
+  return walk(tpl.content);
+}
+const richToText = (html) => { const d = document.createElement('div'); d.innerHTML = String(html || '').replace(/<br\s*\/?>|<\/div>/gi, '\n'); return d.textContent.replace(/\n{2,}/g, '\n').trim(); };
+
+function richEditor(dlg, html) {
+  const ed = $('.bk-ed', dlg);
+  ed.innerHTML = cleanRich(html);
+  const sizeSel = (factor) => {
+    const sel = window.getSelection(); if (!sel.rangeCount || sel.isCollapsed || !ed.contains(sel.anchorNode)) return;
+    const r = sel.getRangeAt(0);
+    const sp = document.createElement('span'); sp.style.fontSize = `${factor}em`;
+    sp.append(r.extractContents()); r.insertNode(sp);
+    sel.removeAllRanges(); const nr = document.createRange(); nr.selectNodeContents(sp); sel.addRange(nr);
+  };
+  $$('[data-rt]', dlg).forEach((b) => {
+    b.onmousedown = (e) => e.preventDefault(); // נישט פארלירן די סעלעקציע
+    b.onclick = () => {
+      ed.focus();
+      const a = b.dataset.rt;
+      if (a === 'b') document.execCommand('bold');
+      else if (a === 'up') sizeSel(1.25);
+      else if (a === 'down') sizeSel(0.8);
+      else if (a === 'clear') { document.execCommand('removeFormat'); const sel = window.getSelection(); if (sel.rangeCount && !sel.isCollapsed) { const t = sel.toString(); document.execCommand('insertText', false, t); } }
+    };
+  });
+  return () => cleanRich(ed.innerHTML);
+}
+
+// ---------- א נדבה ביים קאנטאקט ("קונטרס מצוה יומית") ----------
+const DON_NOTE = 'קונטרס מצוה יומית';
+async function linkDonation(d, contactId, amount, key, plain) {
+  if (!contactId || !(Number(amount) > 0)) return d.donation_id || '';
+  const before = d.donation_id ? (state.donations || []).find((x) => String(x.donation_id) === String(d.donation_id)) : null;
+  const iso = todayIso();
+  const don = {
+    ...(before || { date: iso, hebrew_date: formatHebrew(toHebrew(new Date(`${iso}T12:00:00`))), is_paid: false, org: 'מכון משנה הלכות' }),
+    ...(d.donation_id ? { donation_id: d.donation_id } : {}),
+    contact_id: Number(contactId),
+    amount_usd: Number(amount),
+    event_note: `${DON_NOTE} – ${monthLabel(key)}`,
+    dedication_type: DON_NOTE,
+    dedication_text: plain.slice(0, 300),
+  };
+  delete don._row;
+  const id = await saveDonation(don);
+  const ix = (state.donations || []).findIndex((x) => String(x.donation_id) === String(id));
+  const rec = { ...don, donation_id: id };
+  if (ix >= 0) state.donations[ix] = rec; else (state.donations || (state.donations = [])).push(rec);
+  return id;
+}
+
 function dedDialog(main, d, key) {
-  const isNew = !d; d = d || { id: newId(), month: key, sort: monthDeds(key).length + 1, kind: 'iluy', name: '', text: '', contact_id: '', amount: '' };
+  const isNew = !d; d = d || { id: newId(), month: key, sort: monthDeds(key).length + 1, kind: 'html', name: '', text: '', contact_id: '', amount: '', donation_id: '' };
   const c = d.contact_id && ui.contactById ? ui.contactById(d.contact_id) : null;
+  // אלטע הנצחות (סוג + שם + טעקסט) → אין רעדאקטאר אלס טעקסט
+  const startHtml = d.kind === 'html' ? d.text : [kindOf(d.kind)[2], d.name ? `<b><span style="font-size:1.6em">${h(d.name)}</span></b>` : '', h(d.text).replace(/\n/g, '<br>')].filter(Boolean).map((x) => `<div>${x}</div>`).join('');
   const { dlg, close } = dialog(`<h3>${isNew ? '＋ הנצחה חדשה' : '✏ הנצחה'} · ${h(monthLabel(key))}</h3>
-    <label>סוג</label><select name="kind">${KINDS.map(([k, l, full]) => `<option value="${k}"${k === d.kind ? ' selected' : ''}>${h(l)}${full && full !== l ? ` (${h(full)})` : ''}</option>`).join('')}</select>
-    <label>שם (שורה גדולה)</label><input name="name" value="${h(d.name)}" placeholder="למשל: הרה&quot;ח ר' משה בן ר' יעקב ז&quot;ל">
-    <label>טקסט נוסף (אפשר כמה שורות)</label><textarea name="text" rows="3" placeholder="למשל: נלב&quot;ע כ&quot;ה חשון תש&quot;ס">${h(d.text)}</textarea>
+    <label>הטקסט — חופשי. מסמנים מילים ולוחצים:</label>
+    <div class="bk-rt"><button type="button" class="btn small-btn" data-rt="b" title="מודגש"><b>B</b> מודגש</button>
+      <button type="button" class="btn small-btn" data-rt="up" title="להגדיל את המילים המסומנות">A＋ גדול</button>
+      <button type="button" class="btn small-btn" data-rt="down" title="להקטין את המילים המסומנות">A－ קטן</button>
+      <button type="button" class="btn small-btn ghost" data-rt="clear" title="להחזיר לרגיל">↺ רגיל</button></div>
+    <div class="bk-ed" contenteditable="true" dir="rtl"></div>
+    <p class="muted small">Enter = שורה חדשה. כל שורה ממורכזת, כמו בקונטרס.</p>
     <label>מקושר לאיש קשר (מי שנתן)</label><input name="contact" list="bk-dl-c" autocomplete="off" value="${c && ui.pickerLabel ? h(ui.pickerLabel(c)) : ''}" placeholder="חיפוש לפי שם…">
     <datalist id="bk-dl-c">${(state.contacts || []).map((x) => `<option value="${h(ui.pickerLabel ? ui.pickerLabel(x) : x.contact_id)}">`).join('')}</datalist>
-    <div class="bk-amt"><label>סכום הנדבה ($) — נרשם בכרטיס בלבד</label><input name="amount" type="number" min="0" step="1" value="${h(d.amount)}"></div>
+    <label>סכום ($) — נרשם כנדבה בכרטיס של איש הקשר ("${DON_NOTE}")</label><input name="amount" type="number" min="0" step="1" value="${h(d.amount)}">
     <label>סדר (1 = ראשון)</label><input name="sort" type="number" min="1" value="${h(d.sort || 1)}">
     <p class="dlg-actions" style="display:flex;gap:8px;margin-top:14px">
       <button type="button" class="btn primary" data-a="save">שמירה</button>
       ${isNew ? '' : '<button type="button" class="btn danger" data-a="del">מחיקה</button>'}
       <button type="button" class="btn ghost" data-a="cancel">ביטול</button></p>`);
-  const amt = $('.bk-amt', dlg); const kindSel = $('[name=kind]', dlg);
-  const syncAmt = () => { amt.hidden = kindSel.value !== 'nedavas'; };
-  kindSel.onchange = syncAmt; syncAmt();
+  const getHtml = richEditor(dlg, startHtml);
   $('[data-a=cancel]', dlg).onclick = close;
   const write = async (vals) => {
     if (isNew) await appendRow('BookletDedications', vals);
-    else await updateRange(`BookletDedications!A${d.row}:J${d.row}`, [vals]);
+    else await updateRange(`BookletDedications!A${d.row}:K${d.row}`, [vals]);
     await loadData(true); close(); render(main);
   };
   $('[data-a=save]', dlg).onclick = async (e) => {
     const f = (n) => $(`[name=${n}]`, dlg).value.trim();
-    const kind = f('kind'); const m = /#(\d+)/.exec(f('contact'));
-    if (!f('name') && !f('text')) { ui.toast?.('חסר שם'); return; }
+    const html = getHtml(); const plain = richToText(html);
+    const m = /#(\d+)/.exec(f('contact'));
+    if (!plain) { ui.toast?.('חסר טקסט'); return; }
+    if (f('amount') && !m) { ui.toast?.('לסכום צריך לבחור איש קשר'); return; }
     e.target.disabled = true;
-    try { await write([d.id, key, Number(f('sort')) || 1, kind, f('name'), f('text'), m ? m[1] : '', kind === 'nedavas' ? f('amount') : '', nowStamp(), state.email]); } catch (err) { e.target.disabled = false; ui.toast?.(String(err.message || err), 'error'); }
+    try {
+      const donId = await linkDonation(d, m ? m[1] : '', f('amount'), key, plain);
+      await write([d.id, key, Number(f('sort')) || 1, 'html', '', html, m ? m[1] : '', f('amount'), nowStamp(), state.email, donId]);
+      if (donId && !d.donation_id) ui.toast?.('נרשם גם כנדבה בכרטיס');
+    } catch (err) { e.target.disabled = false; ui.toast?.(String(err.message || err), 'error'); }
   };
   const del = $('[data-a=del]', dlg);
   if (del) del.onclick = async () => {
-    if (!confirm('למחוק את ההנצחה?')) return;
-    try { await write(['', '', '', '', '', '', '', '', nowStamp(), state.email]); } catch (err) { ui.toast?.(String(err.message || err), 'error'); }
+    if (!confirm(`למחוק את ההנצחה?${d.donation_id ? '\n(הנדבה בכרטיס של איש הקשר נשארת — אפשר למחוק אותה שם)' : ''}`)) return;
+    try { await write(['', '', '', '', '', '', '', '', nowStamp(), state.email, '']); } catch (err) { ui.toast?.(String(err.message || err), 'error'); }
   };
 }
 
@@ -620,5 +710,5 @@ export async function fillBookletCard(el, contactId) {
   const mine = deds.filter((d) => d.contact_id === String(contactId));
   if (!mine.length) { el.innerHTML = ''; return; }
   el.innerHTML = `<section><h3>📜 הנצחות בקונטרס מצוה יומית</h3>${mine.map((d) => `<div class="kv"><span>${h(monthLabel(d.month))}</span>
-    <span>${h(kindOf(d.kind)[1])} ${h(d.name)}${d.amount && d.kind === 'nedavas' ? ` · <b dir="ltr">$${h(d.amount)}</b>` : ''}</span></div>`).join('')}</section>`;
+    <span>${d.kind === 'html' ? h(richToText(d.text).replace(/\n/g, ' · ').slice(0, 90)) : `${h(kindOf(d.kind)[1])} ${h(d.name)}`}${d.amount && (d.kind === 'nedavas' || d.kind === 'html') ? ` · <b dir="ltr">$${h(d.amount)}</b>` : ''}</span></div>`).join('')}</section>`;
 }
