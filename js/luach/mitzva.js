@@ -60,9 +60,9 @@ export const CSS = `
 .mz-cols>div{min-width:0}
 .mz-ln{overflow:hidden;display:flex;align-items:center;gap:8px;padding:3px 2px;border-bottom:1px solid #111;white-space:nowrap}
 .mz-ln:last-child{border-bottom:none}
-.mz-dd{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:40px;padding-left:8px;border-left:1.5px solid #111;line-height:1.05}
+.mz-dd{display:flex;flex-direction:column;align-items:center;justify-content:center;width:44px;min-width:44px;flex:none;box-sizing:content-box;overflow:hidden;padding-left:8px;border-left:1.5px solid #111;line-height:1.05}
 .mz-dd b{font-family:'Livorna','FontbitLivorna',serif;font-weight:700;font-size:17px;color:#111}
-.mz-dd small{font-family:'Livorna','FontbitLivorna',serif;font-size:8.5px;color:#111;white-space:nowrap}
+.mz-dd small{font-family:'Livorna','FontbitLivorna',serif;font-size:8px;color:#111;white-space:nowrap;letter-spacing:-.2px}
 .mz-ln.mz-shb .mz-dd b,.mz-ln.mz-shb .mz-dd small{color:#111;font-weight:700}
 .mz-mm{display:flex;align-items:center;gap:7px;flex:1;min-width:0;font-family:'Guttman David','David',serif;font-size:14px}
 .mz-mm i{font-style:normal;font-family:'Livorna','FontbitLivorna',serif;font-weight:700;font-size:19px;min-width:42px;padding:0 4px;box-sizing:border-box;border:1.3px solid #111;display:flex;align-items:center;justify-content:center;color:#111;line-height:1.15}
@@ -162,6 +162,12 @@ function render(main) {
       <button type="button" class="btn primary" id="mz-print">🖨 הדפסה / PDF</button>
     </div>
     <div class="mz-stage" style="display:flex;justify-content:center;padding:14px 0">${current()}</div>`;
+  // לאנגע נעמען — קלענער ביז זיי פאסן (נישט אפשניידן)
+  const squeeze = () => main.querySelectorAll('.mz-mm > span').forEach((sp) => {
+    sp.style.fontSize = ''; let px = parseFloat(getComputedStyle(sp).fontSize) || 14;
+    for (let i = 0; i < 16 && sp.scrollWidth > sp.clientWidth + 0.5 && px > 8.5; i += 1) { px -= 0.5; sp.style.fontSize = `${px}px`; }
+  });
+  requestAnimationFrame(squeeze); document.fonts?.ready.then(squeeze);
   $('#mz-back', main).onclick = () => back();
   main.querySelectorAll('[data-v]').forEach((b) => { b.onclick = () => {
     const v = b.dataset.v; if (v === view) return;
