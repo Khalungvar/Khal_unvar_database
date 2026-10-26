@@ -324,8 +324,8 @@ function printPages(list) {
 export const LUACH_FONTS = [
   { name: 'Guttman David Bold', files: [/guttman\s*david-?bold/i] },
   { name: 'EFT_Chakika', files: [/eft_?chakika\.ttf/i] },
-  { name: 'FontbitLivorna', files: [/fbwlivorna\.otf/i, /^fontbitlivorna\.ttf/i] },
-  { name: 'FontbitLivorna Bold', files: [/fbwlivornabold\.otf/i, /^fontbitlivorna-bold\.ttf/i] },
+  { name: 'Livorna', files: [/^livorna\.ttf/i, /^fontbitlivorna\.ttf/i] },
+  { name: 'Livorna Bold', files: [/^livorna bold\.ttf/i, /^fontbitlivorna-bold\.ttf/i] },
   { name: 'Sfarady', files: [/sfaradyregular/i] },
   { name: 'SfaradyMedium', files: [/sfaradymedium/i] },
   { name: 'EFT_Pnina', files: [/eft_?pnina\.ttf/i] },
