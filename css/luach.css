@@ -1,0 +1,95 @@
+/* לוח שנה — אויסשטעלונג אין pt ווי דער InDesign בלאט (819.2×493.2pt מיט bleed) */
+.lx-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+.lx-title { font-size: 18px; min-width: 130px; text-align: center; }
+.lx-warn { background: #fff3cd; color: #7a5b00; padding: 6px 10px; border-radius: 8px; }
+.lx-wrap { direction: ltr; overflow: hidden; position: relative; }
+.lx-scale { transform-origin: top left; width: 819.213pt; }
+.lx-page { position: relative; width: 819.213pt; height: 493.228pt; overflow: hidden; background: #f3d98a; color: #000; direction: rtl;
+  font-family: 'EFT_Chakika', 'David', serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.lx-tmpl { position: absolute; inset: 0; width: 100%; height: 100%; }
+.lx-head { position: absolute; left: 292pt; width: 244pt; top: 34pt; height: 24pt; display: flex; align-items: center; gap: 8pt; color: #7c4c26; direction: rtl; }
+.lx-mname { font-family: 'EFT_Atara', 'Guttman David', serif; font-size: 23pt; line-height: 1; }
+.lx-mazal { font-family: 'EFT_Devash Heavy', 'EFT_Atara', serif; font-size: 9pt; }
+.lx-greg { margin-inline-start: auto; font-family: 'Cambria', Georgia, serif; font-size: 11pt; }
+.lx-band { position: absolute; left: 161.5pt; top: 70.6pt; width: 496.5pt; height: 12.6pt; background: #000; }
+.lx-days div { position: absolute; top: 70.6pt; height: 12.6pt; display: flex; justify-content: space-between; align-items: center; padding: 0 3pt; box-sizing: border-box; color: #fff; border-left: 1.2pt solid #fffde0; }
+.lx-days b { font-family: 'EFT_Patient', 'David', serif; font-weight: 700; font-size: 10.4pt; }
+.lx-days span { font-family: 'Cambria', Georgia, serif; font-weight: 700; font-size: 7.7pt; }
+.lx-cell { position: absolute; box-sizing: border-box; background: #fffee3; border-left: 0.6pt solid #351f17; border-bottom: 1.2pt solid #351f17; overflow: hidden; cursor: pointer; }
+.lx-print .lx-cell { cursor: default; }
+.lx-cell.lx-shade { background: #fffaa6; }
+.lx-cell:hover { outline: 1.5pt solid #c9a23f; outline-offset: -1.5pt; }
+.lx-print .lx-cell:hover, .lx-empty:hover { outline: none; }
+.lx-empty { cursor: default; }
+.lx-g { position: absolute; left: 3pt; top: 2.5pt; font-family: 'Minion Pro', 'Cambria', Georgia, serif; font-size: 9pt; color: #3a7fc8; }
+.lx-d { position: absolute; right: 3.5pt; top: 1.5pt; font-family: 'Guttman David', 'David', serif; font-weight: 700; font-size: 14.7pt; color: #97214c; line-height: 1.1; }
+.lx-pm { font-size: 7.4pt; margin-inline-end: 2pt; vertical-align: 1pt; }
+.lx-parsha { position: absolute; left: 3pt; top: 14.5pt; font-family: 'FontbitLivorna', 'Livorna', serif; font-size: 10pt; color: #260066; max-width: 40pt; line-height: 1.05; }
+.lx-hol { position: absolute; right: 3.5pt; top: 20pt; left: 3pt; text-align: right; font-family: 'EFT_Chakika', 'David', serif; font-size: 6.9pt; color: #2f2421; line-height: 1.2; }
+.lx-hol .lx-ed { color: #97214c; }
+.lx-t { position: absolute; left: 3pt; top: 37pt; line-height: 1; }
+.lx-tl { display: block; font-family: 'Sfarady', 'David', serif; font-size: 6pt; }
+.lx-tv { display: block; font-family: 'Monotype Corsiva', 'Cambria', serif; font-style: normal; font-size: 9.6pt; color: #7a0f0f; font-weight: bold; margin-bottom: 1pt; }
+.lx-fast { position: absolute; right: 3pt; left: 3pt; bottom: 14pt; text-align: left; font-family: 'Sfarady', serif; font-size: 5.5pt; }
+.lx-fast b { font-family: 'Monotype Corsiva', serif; font-size: 9.6pt; color: #7a0f0f; }
+.lx-chametz { position: absolute; right: 3pt; left: 22pt; top: 27.5pt; font-family: 'Sfarady', serif; font-size: 5pt; text-align: right; line-height: 1.12; }
+.lx-chametz b { font-family: 'Monotype Corsiva', serif; font-size: 8pt; color: #7a0f0f; }
+.lx-ic { position: absolute; right: 2pt; bottom: 3pt; object-fit: contain; }
+.lx-cell:has(.lx-bot > *) .lx-ic { bottom: 11pt; }
+.lx-cell:has(.lx-bot > :nth-child(2)) .lx-ic { bottom: 21.5pt; max-height: 22pt; }
+.lx-cell:has(.lx-omer):has(.lx-bot > *) .lx-ic { bottom: 26pt; }
+.lx-rebbe { position: absolute; right: 2pt; top: 30pt; white-space: nowrap; display: flex; flex-direction: row-reverse; align-items: center; gap: 1pt; font-family: 'FontbitLivorna', serif; font-size: 5pt; color: #3b2a1f; line-height: 1.1; text-align: right; }
+.lx-rebbe img { width: 9pt; }
+.lx-rebbe b { font-family: 'FontbitLivorna', serif; font-weight: 700; font-size: 7.2pt; }
+.lx-omer { position: absolute; left: 2pt; right: 2pt; bottom: 2pt; text-align: center; font-family: 'SfaradyMedium', 'Sfarady', serif; font-size: 6.4pt; color: #2e8a1e; line-height: 1.15; }
+.lx-bot { position: absolute; left: 3pt; right: 3pt; bottom: 2.5pt; display: flex; flex-direction: column; align-items: flex-start; gap: 0.5pt; direction: ltr; }
+.lx-bot > * { direction: rtl; }
+.lx-bot .lx-small, .lx-bot .lx-eruv { align-self: flex-end; }
+.lx-cell:has(.lx-ic) .lx-bot > * { align-self: flex-start; }
+.lx-cell:has(.lx-omer) .lx-bot > * { align-self: flex-end; }
+.lx-cell:has(.lx-omer):has(.lx-ic) .lx-bot > * { align-self: flex-start; }
+.lx-cell:has(.lx-omer) .lx-t, .lx-cell:has(.lx-bot > :nth-child(2)) .lx-t { top: 29pt; }
+.lx-bot > * { white-space: nowrap; }
+.lx-cell:has(.lx-omer) .lx-bot { bottom: 17pt; }
+.lx-cell:has(.lx-omer) .lx-ic { bottom: 17pt; }
+.lx-note { font-family: 'EFT_Pnina', 'David', serif; font-size: 6.2pt; color: #7c4c26; }
+.lx-note.lx-xs { font-size: 5.5pt; }
+.lx-small { font-family: 'SfaradyMedium', 'Sfarady', serif; font-size: 7.7pt; color: #7c4c26; }
+.lx-small.lx-l { font-size: 8.8pt; }
+.lx-avos { font-family: 'SfaradyMedium', 'Sfarady', serif; font-size: 7.7pt; color: #7c4c26; }
+.lx-hil { font-family: 'PFT_Frank', 'Frank Ruehl', serif; font-size: 6.2pt; color: #2f2421; display: flex; align-items: flex-end; gap: 2pt; align-self: center; white-space: nowrap; }
+.lx-hil img { width: 9pt; }
+.lx-eruv { font-family: 'FontbitLivorna', serif; font-weight: 700; font-size: 7pt; color: #d9001c; line-height: 1; text-align: center; }
+.lx-dst { font-family: 'EFT_Pnina', serif; font-size: 7.5pt; color: #d9001c; text-align: left; line-height: 1.1; }
+.lx-dst b { font-size: 9pt; } .lx-dst i { font-size: 4.4pt; font-style: normal; font-weight: 700; } .lx-dst span { font-family: 'SfaradyMedium', serif; }
+.lx-banner { position: absolute; object-fit: cover; border: 0.6pt solid #351f17; }
+.lx-carry { position: absolute; width: 22pt; height: 18pt; border: 0.8pt solid #351f17; background: #fffee3; display: flex; align-items: center; justify-content: center; gap: 1pt;
+  font-family: 'Guttman David', serif; font-weight: 700; font-size: 13pt; color: #97214c; direction: rtl; }
+.lx-carry span { font-family: 'David', serif; font-size: 16pt; }
+.lx-zr, .lx-mr { position: absolute; left: 0; width: 100%; height: 10.58pt; }
+.lx-mr { height: 11.7pt; }
+.lx-zr span, .lx-mr span { position: absolute; top: 0; height: 100%; display: flex; align-items: center; justify-content: center; white-space: nowrap; }
+.lx-zd { left: 131.5pt; width: 13.7pt; font-family: 'EFT_Patient', serif; font-weight: 700; font-size: 8.4pt; }
+.lx-zn { left: 111.2pt; width: 20.1pt; } .lx-zm { left: 92.7pt; width: 18.5pt; } .lx-zs { left: 72.9pt; width: 19.8pt; }
+.lx-zn, .lx-zm, .lx-zs { font-family: 'Monotype Corsiva', 'Cambria', serif; font-size: 8pt; }
+.lx-zf { left: 47.1pt; width: 25.8pt; font-family: 'PFT_Vilna', serif; font-weight: 700; font-size: 8pt; gap: 1pt; direction: rtl; }
+.lx-zf small { font-size: 4.8pt; }
+.lx-md { left: 757.2pt; width: 12.8pt; font-family: 'EFT_Patient', serif; font-weight: 700; font-size: 8.4pt; }
+.lx-mn { left: 734.2pt; width: 23pt; font-family: 'PFT_Vilna', serif; font-weight: 700; font-size: 8.8pt; }
+.lx-mt { left: 674.6pt; width: 59.6pt; justify-content: flex-end !important; padding-right: 2pt; box-sizing: border-box; font-family: 'PFT_Vilna', serif; font-size: 7pt; overflow: visible; }
+.lx-mt i { white-space: nowrap; }
+.lx-bc { position: absolute; top: 408.9pt; height: 26.2pt; display: flex; flex-direction: column; }
+.lx-bc span { height: 8.7pt; display: flex; align-items: center; justify-content: center; font-family: 'Monotype Corsiva', serif; font-size: 6.5pt; white-space: nowrap; }
+.lx-bc .lx-bp { font-family: 'Livorna', 'FontbitLivorna', serif; font-size: 6pt; }
+.lx-dlg h4 { margin: 12px 0 4px; }
+.lx-list { margin: 0; padding-inline-start: 18px; line-height: 1.8; }
+.lx-add { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.lx-add input { flex: 1; min-width: 160px; font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; }
+.lx-fonts { columns: 2; padding-inline-start: 18px; line-height: 1.7; }
+#lx-print-area { display: none; }
+@media print {
+  body.printing-lx > *:not(#lx-print-area) { display: none !important; }
+  body.printing-lx #lx-print-area { display: block; }
+  body.printing-lx #lx-print-area .lx-page { page-break-after: always; break-after: page; }
+  body.printing-lx { margin: 0; background: none; }
+}

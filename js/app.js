@@ -43,6 +43,7 @@ import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
 import { initFaces, openFaces, renderFaces } from './faces.js';
 import { initListSync } from './listsync.js';
 import { initBooks, openBooks, renderBooks, allBooks, BOOKS_ORG, BOOKS_LOGO } from './books.js';
+import { initLuach, openLuach, renderLuach } from './luach/view.js';
 import { initSchool, renderSchool, openSchool, isSchool, schoolCount, schoolSection, wireSchoolSection, afterRelation } from './school.js';
 import { orgTagsPaneHtml, orgTagsFormHtml, wireOrgTagsForm, readOrgTagsForm, orgTagsCount, parseOrgTags, splitEntry, entry } from './orgtags.js';
 import {
@@ -200,7 +201,7 @@ function renderLobby() {
       <div class="lobby-pair">${typeTile(ORG_FIELDS[2], '🤝')}${tile('area', '📍', t('area'), t('lobbyAreaSub', { n: areas.length }))}</div>
       ${tile('faces', '📸', t('fcTitle'), t('fcTileSub', { n: (state.faceEvents || []).length }))}
       ${tile('calls', '📞', 'Calls & SMS', t('lobbyCallsSub'))}
-      ${tile('books', `<img class="tile-logo bk-tile-logo" src="${BOOKS_LOGO}" alt="">`, BOOKS_ORG, t('bkTileSub', { n: allBooks().length }))}
+      <div class="lobby-pair">${tile('books', `<img class="tile-logo bk-tile-logo" src="${BOOKS_LOGO}" alt="">`, BOOKS_ORG, t('bkTileSub', { n: allBooks().length }))}${tile('luach', '📅', t('luachTile'), t('luachTileSub'))}</div>
     </div>
     ${open ? `<div class="lobby-choose">
       <span class="muted">${h(t('lobbyChoose'))}</span>
@@ -288,6 +289,7 @@ function lobbyClick(e) {
   if (key === 'receipts') { enterScope(null); document.body.classList.add('solo-mode'); openReceipts(); return; }
   if (key === 'faces') { enterScope(null); document.body.classList.add('solo-mode'); openFaces(); return; }
   if (key === 'books') { enterScope(null); document.body.classList.add('solo-mode'); openBooks(); return; }
+  if (key === 'luach') { enterScope(null); document.body.classList.add('solo-mode'); openLuach(); return; }
   // נדבות / לוח המאורעות: א באזונדערער בלאט פון אלע רעקארדס — אן די לשוניות
   if (key === 'donations' || key === 'occasions') {
     enterScope(null);
@@ -356,6 +358,7 @@ function showView(name) {
   if (name === 'school') renderSchool();
   if (name === 'simchos') renderSimchos();
   if (name === 'books') renderBooks();
+  if (name === 'luach') renderLuach();
   if (name === 'faces') renderFaces();
   renderListsSide();
   setHelpView(name); applyTips(name);
@@ -2015,6 +2018,7 @@ function start() {
   initMerge({ contactById, fullNameHe, pickerLabel, fieldLabel, toast, friendlyError, refreshAll, openCard });
   initListSync({ toast, friendlyError, fullNameHe, refreshAll });
   initFaces({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard, openForm });
+  initLuach({ showView, toast, friendlyError });
   initBooks({ showView, toast, friendlyError, contactById, fullNameHe, receiptFor: (d) => printForDonation(d), cancelDoc: (c) => cancelDoc(c), quickSale: (org, done) => openQuickReceipt(org, done, { sale: true }) });
   initSimchos({ showView, contactById, fullNameHe, pickerLabel, toast, friendlyError, refreshAll, openCard, openForm });
   initSchool({
