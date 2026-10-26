@@ -124,7 +124,8 @@ function cellHtml(d, r, c, page) {
 // כל ליניעס פון דער טאבעלע — איין דיקקייט און איין פארב, פארבונדן
 const LW = 1; const GX = [...COLS].reverse().concat([COLS[0] + COL_W]); const GY = [...ROW_T, ROW_T[4] + ROW_H];
 const GRID_LINES = [
-  ...GX.map((x) => `<div class="lx-gl" style="left:${x - LW / 2}pt;top:${GY[0] - LW / 2}pt;width:${LW}pt;height:${GY[5] - GY[0] + LW}pt"></div>`),
+  ...GX.map((x, i) => `<div class="lx-gl" style="left:${x - LW / 2}pt;top:${(i === 0 || i === 7 ? 70.6 : GY[0]) - LW / 2}pt;width:${LW}pt;height:${GY[5] - (i === 0 || i === 7 ? 70.6 : GY[0]) + LW}pt"></div>`),
+  `<div class="lx-gl" style="left:${GX[0] - LW / 2}pt;top:${70.6 - LW / 2}pt;width:${GX[7] - GX[0] + LW}pt;height:${LW}pt"></div>`,
   ...GY.map((y) => `<div class="lx-gl" style="left:${GX[0] - LW / 2}pt;top:${y - LW / 2}pt;width:${GX[7] - GX[0] + LW}pt;height:${LW}pt"></div>`),
 ].join('');
 const pos = (c, r) => `left:${COLS[c]}pt;top:${ROW_T[r]}pt;width:${COL_W}pt;height:${ROW_H}pt`;
@@ -160,7 +161,7 @@ function pageHtml(p, print = false) {
   return `<div class="lx-page${print ? ' lx-print' : ''}" dir="rtl">
     <img class="lx-tmpl" src="img/luach/${print ? 'tmpl-print' : 'tmpl'}.jpg" alt="">
     <div class="lx-head"><span class="lx-mname">${h(p.he === 'אב' ? 'מנחם-אב' : p.he)}</span><span class="lx-mazal">${h(p.mazal)}</span><span class="lx-greg" dir="ltr">${fitText(greg)}</span></div>
-    <div class="lx-band"></div><div class="lx-days">${DAY_HE.map((n, c) => `<div style="left:${COLS[c]}pt;width:${COL_W}pt"><b>${n}</b><span>${DAY_EN[c]}</span></div>`).join('')}</div>
+    <div class="lx-band"></div><div class="lx-days">${DAY_HE.map((n, c) => `<div style="left:${COLS[c]}pt;width:${COL_W}pt${c === 6 ? ';border-left:none' : ''}"><b>${n}</b><span>${DAY_EN[c]}</span></div>`).join('')}</div>
     ${cells.join('')}
     ${carried ? `<div class="lx-carry" style="left:${COLS[6]}pt;top:${ROW_T[4] + ROW_H - 0.6}pt" title="ל' — בעמוד הבא">ל<span>›</span></div>` : ''}
     ${GRID_LINES}
