@@ -10,7 +10,7 @@ import { readTabs, appendRow, updateRange, ensureDriveScope, hasDriveScope, driv
 import { state, saveDonation } from '../data.js';
 import { CONFIG } from '../config.js';
 import { escapeHtml as h, nowStamp } from '../util.js';
-import { htmlToJpeg } from '../pdf.js';
+import { drawDomPage, drawPlainText, fontSet } from '../pdfvec.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -153,7 +153,7 @@ const BK_CSS = `
 .bk-l3{font-size:.75em}
 .bk-l4{font-size:.9em;line-height:1.05;margin-top:-.15em}
 .bk-lb{font-family:'Livorna Bold','Livorna',serif;font-weight:700}
-.bk-lat{font-family:Arial,'Helvetica',sans-serif}
+.bk-lat{font-family:'Livorna','Frank Ruhl Libre',serif}
 .bk-lat.bk-l2{font-size:1.2em;font-weight:400}
 .bk-lat.bk-l3{font-size:.68em}
 .bk-hr{width:62%;height:0;border-top:1.5px solid #444;margin:14px auto}
@@ -304,12 +304,13 @@ const A4H = 841.89;
 
 /** בויט די חוברת. גיט צוריק { bytes, pages, blanks } */
 async function buildBooklet(m, progress = () => {}) {
-  const { PDFDocument, rgb } = await pdfLib();
+  const PL = await pdfLib(); const { PDFDocument, rgb } = PL;
   const p = pageOf(m); p.Y = p.Y || m.Y; const key = monthKey(m);
   const { a, b } = monthMitzvos(p);
   const ranges = bookRanges(a, b);
   const out = await PDFDocument.create();
   out.setTitle(`מצוה יומית – ${monthName(p)} ${yearHe(m.Y)}`);
+  const fs = fontSet(PL, out);
 
   // 1) די בלעטער פון HTML → בילד (300 dpi)
   const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-99999px;top:0';
@@ -317,16 +318,14 @@ async function buildBooklet(m, progress = () => {}) {
   const render = async (html) => {
     host.innerHTML = `<style>${BK_CSS}${MZ_CSS}</style>${html}`;
     await Promise.all($$('img', host).map((im) => (im.complete ? 0 : new Promise((r) => { im.onload = r; im.onerror = r; }))));
+    try { await document.fonts.ready; } catch { /* */ }
     fitAll(host);
-    const { bytes } = await htmlToJpeg(host.innerHTML, { widthIn: 5.5, heightIn: 8.5, scale: 3.125, quality: 0.92 });
-    return bytes;
+    // לעבעדיגער טעקסט (וועקטאר): יעדער אות אויף זיין ארט, מיט די שריפטן פונעם גיליון
+    await drawDomPage(PL, out, fs, host.querySelector('.bk-pg'), { widthPt: PW, heightPt: PH });
   };
-  const addJpg = async (bytes) => { const im = await out.embedJpg(bytes); const pg = out.addPage([PW, PH]); pg.drawImage(im, { x: 0, y: 0, width: PW, height: PH }); };
   progress('שער…', 0.02);
   const front = [coverHtml(p), p2Html(), p3Html(p), p4Html(key)];
-  for (let i = 0; i < front.length; i += 1) { progress(`עמוד ${i + 1}…`, 0.02 + i * 0.03); await addJpg(await render(front[i])); }
-  const backBytes = await render(backHtml(key));
-  host.remove();
+  for (let i = 0; i < front.length; i += 1) { progress(`עמוד ${i + 1}…`, 0.02 + i * 0.03); await render(front[i]); }
 
   // 2) עמודי הספר
   const s = Math.min((PW - 76) / (CONTENT.x1 - CONTENT.x0), (PH - 76) / (CONTENT.y1 - CONTENT.y0)); // ~0.53 אינטש שוליים
@@ -353,16 +352,16 @@ async function buildBooklet(m, progress = () => {}) {
       [NUM_BAND.left, NUM_BAND.right].forEach(([xa, xb]) => {
         pg.drawRectangle({ x: X(xa), y: Y(NUM_BAND.y1), width: (xb - xa) * s, height: (NUM_BAND.y1 - NUM_BAND.y0) * s, color: rgb(1, 1, 1) });
       });
-      const n = await numPng(out, plainNum(bookNo), 12.5 * s);
-      const cy = Y(135) - n.h / 2;
-      const nx = rightPage ? X(477.4) - n.w : X(117.3);
-      pg.drawImage(n.img, { x: nx, y: cy, width: n.w, height: n.h });
+      // דער נייער מספר — לעבעדיגער טעקסט, ווי אינעם ספר
+      drawPlainText(PL, pg, fs, plainNum(bookNo), { font: 'Guttman David Bold', sizePt: 12.5 * s, x: rightPage ? X(477.4) : X(117.3), y: Y(139.5), align: rightPage ? 'right' : 'left' });
     }
   }
   // 3) ווייסע בלעטער ביז א כפולה פון 4 (מיט דער כריכה אחורית)
   let blanks = 0;
   while ((out.getPageCount() + 1) % 4 !== 0) { out.addPage([PW, PH]).drawRectangle({ x: 0, y: 0, width: PW, height: PH, color: rgb(1, 1, 1) }); blanks += 1; }
-  await addJpg(backBytes);
+  await render(backHtml(key));
+  host.remove();
+  fs.finalize();
   progress('שמירה…', 0.95);
   const bytes = await out.save();
   return { bytes, pages: out.getPageCount(), blanks, ranges };
