@@ -9,6 +9,7 @@ import { state } from '../data.js';
 import { escapeHtml as h, nowStamp } from '../util.js';
 import { uploadFont, loadFonts, customFontNames } from '../fonts.js';
 import { getLang } from '../i18n.js';
+import { openMitzva } from './mitzva.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -269,11 +270,11 @@ function renderHub(main) {
     <div class="lx-hub">
       ${tile('tefila', '🕍', t('hTefila'), '', true)}
       ${tile('cal', '📅', t('hCal'), t('hCalSub'))}
-      ${tile('mitzva', '📜', t('hMitzva'), '', true)}
+      ${tile('mitzva', '📜', t('hMitzva'), t('hMitzvaSub'))}
     </div>`;
   $$('[data-hub]', main).forEach((b) => { b.onclick = () => {
     if (b.dataset.soon) { ui.toast?.(t('soon')); return; }
-    mode = 'cal'; renderLuach();
+    mode = b.dataset.hub; renderLuach();
   }; });
 }
 
@@ -281,6 +282,7 @@ export async function renderLuach() {
   const main = $('#luach-main');
   if (!main) return;
   if (mode === 'hub') { renderHub(main); return; }
+  if (mode === 'mitzva') { openMitzva(main, () => { mode = 'hub'; renderLuach(); }); return; }
   if (!year) [year, pageIx] = currentYearAndPage();
   if (!main.firstChild) main.innerHTML = `<p class="muted">…</p>`;
   await loadData();
@@ -478,7 +480,7 @@ const TX = {
   place: ['מיקום', 'ארט', 'Location'],
   hubTitle: ['זמנים ולוחות', 'זמנים און לוחות', 'Zmanim & Calendars'], hTefila: ['זמני תפילות', 'זמני תפילות', 'Davening times'],
   hCal: ['לוח שנה אונגוואר', 'לוח שנה אונגוואר', 'Ungvar yearly calendar'], hCalSub: ['זמנים · דף יומי · מצוה יומית', 'זמנים · דף יומי · מצוה יומית', 'Zmanim · Daf Yomi · Mitzva'],
-  hMitzva: ['לוח מצוה יומית', 'לוח מצוה יומית', 'Mitzva Yomis calendar'], soon: ['בקרוב', 'באלד', 'Coming soon'],
+  hMitzva: ['לוח מצוה יומית', 'לוח מצוה יומית', 'Mitzva Yomis calendar'], hMitzvaSub: ['שבועי · חודשי · לגליון', 'וועכנטליך · חודש · פארן גליון', 'Weekly · monthly · for the gilyon'], soon: ['בקרוב', 'באלד', 'Coming soon'],
   fontsMissing: ['חסרים גופנים של הלוח — המראה עדיין לא כמו בדפוס.', 'עס פעלן גופנים פונעם לוח.', 'Calendar fonts are missing.'],
   fontsUp: ['העלאת גופנים', 'ארויפלייגן גופנים', 'Upload fonts'],
   auto: ['מה שהמחשב שם', 'וואס דער קאמפיוטער שטעלט', 'Automatic'], hide: ['הסתר', 'באהאלטן', 'Hide'], hidden: ['מוסתר', 'באהאלטן', 'Hidden'],

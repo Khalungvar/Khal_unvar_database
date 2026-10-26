@@ -48,7 +48,7 @@ const xmlText = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
  * מאכט א JPEG פון HTML. widthIn/heightIn = די גרייס אין אינטשעס (96px = 1in).
  * גיט צוריק { bytes: Uint8Array, w, h, dataUrl }
  */
-export async function htmlToJpeg(html, { widthIn = 7.5, heightIn = 10, scale = 2, quality = 0.88 } = {}) {
+export async function htmlToJpeg(html, { widthIn = 7.5, heightIn = 10, scale = 2, quality = 0.88, png = false } = {}) {
   const W = Math.round(widthIn * 96); const H = Math.round(heightIn * 96);
   const wrap = document.createElement('div');
   wrap.innerHTML = html;
@@ -58,7 +58,7 @@ export async function htmlToJpeg(html, { widthIn = 7.5, heightIn = 10, scale = 2
   const body = new XMLSerializer().serializeToString(wrap);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
 <foreignObject x="0" y="0" width="${W}" height="${H}">
-<div xmlns="http://www.w3.org/1999/xhtml" style="width:${W}px;height:${H}px;background:#fff;overflow:hidden">
+<div xmlns="http://www.w3.org/1999/xhtml" style="width:${W}px;height:${H}px;background:${png ? 'transparent' : '#fff'};overflow:hidden">
 <style>${xmlText(fonts)}\n${xmlText(css)}\n.rc-doc{display:flex;background:#fff}.rd-letter{background:#fff}</style>${body}</div></foreignObject></svg>`;
   const img = new Image();
   img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
@@ -67,10 +67,10 @@ export async function htmlToJpeg(html, { widthIn = 7.5, heightIn = 10, scale = 2
   const canvas = document.createElement('canvas');
   canvas.width = W * scale; canvas.height = H * scale;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (!png) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  const dataUrl = canvas.toDataURL('image/jpeg', quality);
+  // png = שקופער הינטערגרונט (צו אריינלייגן אין יעדן דיזיין)
+  const dataUrl = png ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', quality);
   const bin = atob(dataUrl.split(',')[1]);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
