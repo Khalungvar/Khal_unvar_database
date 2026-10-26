@@ -377,7 +377,7 @@ function render(main) {
   main.innerHTML = `<style>${BK_CSS}${MZ_CSS}</style>
     <div class="lx-bar">
       <button type="button" class="btn ghost" id="bk-back">← זמנים ולוחות</button>
-      ${onView ? '<div class="lang-switch"><button type="button" data-v="week">שבועי</button><button type="button" data-v="month">חודשי</button><button type="button" class="on">חוברת</button></div>' : ''}
+      ${onView ? '<div class="lang-switch"><button type="button" data-v="week">שבועי</button><button type="button" data-v="month">חודשי</button><button type="button" class="on">חוברת</button><button type="button" data-v="cycle">לוח מחזור</button></div>' : ''}
       <button type="button" class="btn" id="bk-prev">‹ הקודם</button>
       <b class="lx-title">חוברת ${h(monthName(p))} ${h(yearHe(cur.Y))}</b>
       <button type="button" class="btn" id="bk-next">הבא ›</button>

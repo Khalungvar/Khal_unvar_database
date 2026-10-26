@@ -17,7 +17,7 @@ const startOf = (k) => C40 + (k - 40) * 613;
 export const currentCycle = () => 40 + Math.floor((nOf(todayIso()) - C40) / 613);
 
 const DOW = ['זונטאג', 'מאנטאג', 'דינסטאג', 'מיטוואך', 'דאנערשטאג', 'פרייטאג', 'שב"ק'];
-const MON = { ...MONTH, Av: 'מנחם-אב' };
+const monName = (m) => (m === 'Av' ? 'מנחם-אב' : MONTH[m] || m); // (לייזי — MONTH קומט פון א צירקולערן אימפארט)
 const plain = (n) => hebrewNumber(n).replace(/["']/g, '');
 const yShort = (y) => hebrewNumber(y % 100 || 100);
 const dateLong = (n) => { const x = hdOf(n); return `${hebrewNumber(x.d)} ${MONTH[x.m] || x.m} ${hebrewNumber(x.y % 1000)}`; };
@@ -43,7 +43,7 @@ function rows(k) {
       const par = d?.parsha || d?.items.find((it) => it.kind === 'hol')?.text || '';
       if (par) wd = `ש"ק ${par}`;
     }
-    return { i, n, dw, wd, d: hebrewNumber(x.d).replace(/["']/g, ''), m: MON[x.m] || x.m, y: yShort(x.y), first: x.d === 1, num: plain(i + 1), text };
+    return { i, n, dw, wd, d: hebrewNumber(x.d).replace(/["']/g, ''), m: monName(x.m), y: yShort(x.y), first: x.d === 1, num: plain(i + 1), text };
   });
 }
 
@@ -62,22 +62,26 @@ const CSS = `
 .cy-pg>img.cy-bg{position:absolute;left:-9.45px;top:-9.45px;width:222.9px;height:288.45px}
 .cy-pg>img.cy-full{position:absolute;inset:0;width:100%;height:100%}
 .cy-frame{position:absolute;right:15.5px;width:170.3px;top:19.5px;border:.67px solid #cc9966;background:#fff;box-sizing:border-box}
-.cy-t{width:100%;border-collapse:collapse;table-layout:fixed}
-.cy-t td,.cy-t th{height:7.11px;padding:0 1.2px;line-height:7.11px;white-space:nowrap;overflow:hidden;vertical-align:middle}
-.cy-t th{background:#8db3e2;color:#123;font-family:'PFT_Vilna Bold','PFT_Vilna',serif;font-weight:700;font-size:5.6px;text-align:right}
-.cy-t th.cy-hm{text-align:center}
-.cy-t tr:nth-child(even) td{background:#e6f2fb}
-.cy-t td.cy-w{font-size:3.9px;color:#333;width:25px}
-.cy-t td.cy-d{font-family:'Livorna Bold','Livorna',serif;font-weight:700;font-size:6.9px;width:8px;text-align:center}
-.cy-t td.cy-m{font-size:5.1px;width:24px}
-.cy-t td.cy-m small{font-size:3.3px;color:#555}
-.cy-t td.cy-n{font-family:'Livorna Bold','Livorna',serif;font-weight:700;font-size:6.6px;width:13px}
-.cy-t td.cy-x{font-family:'PFT_Vilna','Frank Ruhl Libre',serif;font-size:6.1px}
-.cy-t td span.cy-s{display:inline-block;transform-origin:right center}
-.cy-t tr.cy-sh td{background:#cfe3f4!important;font-weight:700}
-.cy-t tr.cy-sh td.cy-w{color:#0d2f57;font-size:3.7px}
-.cy-t tr.cy-sh td.cy-x{font-family:'PFT_Vilna Bold','PFT_Vilna',serif}
-.cy-t tr.cy-new td{border-top:.6px solid #cc9966}
+.cy-t{display:block}
+.cy-r{display:flex;align-items:center;height:7.11px;overflow:hidden;white-space:nowrap}
+.cy-r:nth-child(odd){background:#e6f2fb}
+.cy-r>span{display:block;overflow:hidden;padding:0 1px;box-sizing:border-box;line-height:7.11px}
+.cy-r .cy-w{width:24.7px;font-size:3.9px;color:#333}
+.cy-r .cy-d{width:9.3px;font-family:'Livorna Bold','Livorna',serif;font-weight:700;font-size:6.9px;text-align:center}
+.cy-r .cy-m{width:25.7px;font-size:5.1px}
+.cy-r .cy-m small{font-size:3.3px;color:#555}
+.cy-r .cy-n{width:13.5px;font-family:'Livorna Bold','Livorna',serif;font-weight:700;font-size:6.6px}
+.cy-r .cy-x{flex:1;min-width:0;font-size:6.1px}
+.cy-r span.cy-s{display:inline-block;transform-origin:right center;padding:0}
+.cy-r.cy-h{background:#8db3e2!important;color:#123;font-family:'PFT_Vilna Bold','PFT_Vilna',serif;font-weight:700}
+.cy-r.cy-h>span{font-size:5.6px;color:#123}
+.cy-r.cy-sh{background:#cfe3f4!important}
+.cy-r.cy-sh .cy-w{color:#0d2f57;font-weight:700;font-size:3.7px}
+.cy-r.cy-sh .cy-x{font-family:'PFT_Vilna Bold','PFT_Vilna',serif;font-weight:700}
+.cy-r.cy-new{box-shadow:inset 0 .6px 0 #cc9966}
+.bk-l{font-size:1em;line-height:1.3}.bk-l1{font-family:'Livorna Bold','Livorna',serif;font-weight:700;font-size:1.75em;line-height:1.15}
+.bk-l2{font-family:'Livorna Bold','Livorna',serif;font-weight:700;font-size:1.3em;line-height:1.25}.bk-l3{font-size:.85em}
+.bk-lat{font-family:Georgia,'Times New Roman',serif}.bk-hr{width:60%;border-top:.6px solid #cc9966;margin:3px auto}.bk-sp{height:3px}
 .cy-top{position:absolute;right:20px;width:164px;top:22px;height:98px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
 .cy-top .bk-fit,.cy-end .bk-fit{font-size:7px}
 .cy-end{position:absolute;right:20px;width:164px;display:flex;flex-direction:column;align-items:center;text-align:center}
@@ -95,10 +99,10 @@ const CSS = `
 .cy-bar2{display:flex;gap:10px;align-items:center;flex-wrap:wrap;max-width:1100px;margin:0 auto 4px}
 `;
 
-const tableHtml = (rs) => `<table class="cy-t"><colgroup><col style="width:24.7px"><col style="width:9.3px"><col style="width:25.7px"><col style="width:13.5px"><col></colgroup>
-  <tr><th colspan="2">יום</th><th class="cy-hm"></th><th colspan="2">מצוה</th></tr>
-  ${rs.map((r) => `<tr class="${r.dw === 6 ? 'cy-sh' : ''}${r.first ? ' cy-new' : ''}"><td class="cy-w"><span class="cy-s">${h(r.wd)}</span></td><td class="cy-d">${h(r.d)}</td>
-    <td class="cy-m">${h(r.m)} <small>(${h(r.y)})</small></td><td class="cy-n">${h(r.num)}</td><td class="cy-x"><span class="cy-s">${h(r.text)}</span></td></tr>`).join('')}</table>`;
+const RH = 7.11; // הייך פון א שורה (px) = 5.33pt ווי אין אריגינאל
+const rowHtml = (r) => `<div class="cy-r${r.dw === 6 ? ' cy-sh' : ''}${r.first ? ' cy-new' : ''}"><span class="cy-w"><span class="cy-s">${h(r.wd)}</span></span><span class="cy-d">${h(r.d)}</span>
+    <span class="cy-m">${h(r.m)} <small>(${h(r.y)})</small></span><span class="cy-n">${h(r.num)}</span><span class="cy-x"><span class="cy-s">${h(r.text)}</span></span></div>`;
+const tableHtml = (rs) => `<div class="cy-t"><div class="cy-r cy-h"><span class="cy-w">יום</span><span class="cy-d"></span><span class="cy-m"></span><span class="cy-n"></span><span class="cy-x">מצוה</span></div>${rs.map(rowHtml).join('')}</div>`;
 
 function pagesHtml(k) {
   const all = rows(k); const parts = split(all);
@@ -126,7 +130,7 @@ const DEF_END = '## מפעל מצוה יומית\n## 605-477-4427\nMitzvahYomis@
 function squeeze(root) {
   $$('.cy-s', root).forEach((s) => {
     s.style.transform = '';
-    const td = s.parentElement; const w = td.clientWidth - 2.4; const sw = s.scrollWidth;
+    const td = s.parentElement; const w = td.clientWidth - 2; const sw = s.scrollWidth;
     if (sw > w && w > 0) s.style.transform = `scaleX(${(w / sw).toFixed(3)})`;
   });
   $$('.bk-fit', root).forEach((el) => {
