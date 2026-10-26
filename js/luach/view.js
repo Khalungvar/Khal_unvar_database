@@ -92,15 +92,15 @@ function cellHtml(d, r, c, page) {
   of('note').forEach((x) => bottom.push(`<div class="lx-note${x.size === 'xs' ? ' lx-xs' : ''}">${fitText(x.text)}</div>`));
   of('hillula').forEach((x) => bottom.push(`<div class="lx-hil"><img src="img/luach/candle.png" alt="">${fitText(x.text)}</div>`));
   of('dst').forEach((x) => bottom.push(`<div class="lx-dst"><b>2</b><i>AM</i> - ${h(x.text)} <span>${h(x.en)}</span></div>`));
-  chametz.forEach((t) => bottom.push(`<div class="lx-chametz">${fitText(`${t.label} ${t.sub} ${t.time}`)}</div>`));
-  if (fast) bottom.push(`<div class="lx-fast">${fitText(`${fast.label} ${fast.time}`)}</div>`);
+  chametz.forEach((t) => bottom.push(`<div class="lx-chametz"><span>${h(t.label)} ${h(t.sub)}</span> <b>${h(t.time)}</b></div>`));
+  if (fast) bottom.push(`<div class="lx-fast"><span>${h(fast.label)}</span> <b>${h(fast.time)}</b></div>`);
   const rightCol = [];
   if (rebbe) rightCol.push(`<div class="lx-rebbe"><img src="img/luach/candle.png" alt=""><div>כ"ק אדמו"ר הגה"ק<br>בעל <b>משנה</b><br><b>הלכות</b> זצוקללה"ה</div></div>`);
-  if (icon) rightCol.push(`<img class="lx-ic" src="img/luach/${icon.icon}.png" alt="" style="width:${ICON_SIZE[icon.icon][0]}pt;height:${ICON_SIZE[icon.icon][1]}pt">`);
   if (icon || rebbe) bottom.unshift(...side); else rightCol.push(...side);
   return `<div class="lx-cell${d.shade ? ' lx-shade' : ''}" data-iso="${d.iso}" style="${pos(c, r)}">
     <span class="lx-g">${d.greg}</span>
     <span class="lx-d">${prevMonth}${h(d.heDay)}</span>
+    ${icon ? `<img class="lx-ic" src="img/luach/${icon.icon}.png" alt="" style="width:${ICON_SIZE[icon.icon][0]}pt">` : ''}
     <div class="lx-body">
       <div class="lx-r1">
         <div class="lx-hol">${hol.map((x) => `<div${x.edit ? ' class="lx-ed"' : ''}>${fitText(x.text)}</div>`).join('')}</div>
@@ -152,6 +152,8 @@ function pageHtml(p, print = false) {
     ${cells.join('')}
     ${adarBanner}
     ${carried ? `<div class="lx-carry" style="left:${COLS[6]}pt;top:${ROW_T[4] + ROW_H - 22}pt">ל<span>›</span></div>` : ''}
+    <div class="lx-frame"></div>${COLS.slice(0, 6).map((x) => `<div class="lx-vl" style="left:${x}pt"></div>`).join('')}
+    ${SIDE_HEAD}
     <div class="lx-zm">${zRows}</div>
     <div class="lx-mz">${mRows}</div>
     <div class="lx-bt">${bt}</div>
@@ -164,15 +166,23 @@ function fitText(txt, maxPt) {
 /** מעסט יעדן .lx-f און מאכט אים שמאלער ווען ער איז ברייטער ווי דער פלאץ */
 function fitAll(root) {
   $$('.lx-f', root).forEach((el) => {
-    el.style.transform = '';
+    el.style.transform = ''; el.style.width = '';
     const natural = el.scrollWidth;
     const par = el.parentElement;
     const cs = getComputedStyle(par);
     const avail = el.dataset.max ? Number(el.dataset.max) * (4 / 3)
       : par.clientWidth - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0) - (par.querySelector('img') ? par.querySelector('img').offsetWidth + 3 : 0);
-    if (natural > avail - 1 && avail > 0) el.style.transform = `scaleX(${((avail - 1) / natural).toFixed(3)})`;
+    // די ברייט ווערט די פלאץ, און דער טעקסט ווערט צוזאמגעדריקט אריין (פון רעכטס)
+    if (natural > avail - 1 && avail > 0) { el.style.width = `${avail - 1}px`; el.style.transform = `scaleX(${((avail - 1) / natural).toFixed(3)})`; }
   });
 }
+const sh = (x1, x2, y1, y2, html, cls = '') => `<div class="lx-sh${cls}" style="left:${x1}pt;width:${x2 - x1}pt;top:${y1}pt;height:${y2 - y1}pt">${html}</div>`;
+const SIDE_HEAD = [
+  sh(131.5, 145.2, 69.2, 81.1, 'יום'), sh(111.2, 131.3, 69.2, 81.1, 'נץ החמה'), sh(92.7, 111.2, 69.2, 81.1, 'זק"ש <small>מ"א</small>'),
+  sh(72.9, 92.7, 69.2, 81.1, 'שקיעה'), sh(47.1, 72.9, 69.2, 81.1, 'דף היומי'),
+  sh(757.2, 770, 69.2, 81.1, 'יום'), sh(674.6, 757.2, 69.2, 81.1, 'מצוה'),
+  sh(122.5, 145.2, 408.9, 417.7, 'פרשת', ' lx-dark'), sh(122.5, 145.2, 417.7, 426.4, 'חצות'), sh(122.5, 145.2, 426.4, 435.1, 'זק"ש <small>גר"א</small>'),
+].join('');
 function shortName(d) {
   const hol = d.items.find((x) => x.kind === 'hol' && x.yt);
   if (!d.parsha && hol) {

@@ -7,12 +7,12 @@
 .lx-page { position: relative; width: 819.213pt; height: 493.228pt; overflow: hidden; background: #f3d98a; color: #000; direction: rtl;
   font-family: 'EFT_Chakika', 'David', serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .lx-tmpl { position: absolute; inset: 0; width: 100%; height: 100%; }
-.lx-head { position: absolute; left: 292pt; width: 244pt; top: 34pt; height: 24pt; display: flex; align-items: center; gap: 8pt; color: #7c4c26; direction: rtl; }
+.lx-head { position: absolute; left: 289.4pt; width: 241.8pt; top: 37pt; height: 20pt; display: flex; align-items: center; justify-content: center; gap: 6pt; color: #7c4c26; direction: rtl; }
 .lx-mname { font-family: 'EFT_Atara', 'Guttman David', serif; font-size: 23pt; line-height: 1; }
 .lx-mazal { font-family: 'EFT_Devash Heavy', 'EFT_Atara', serif; font-size: 9pt; }
-.lx-greg { margin-inline-start: auto; font-family: 'Cambria', Georgia, serif; font-size: 11pt; }
+.lx-greg { margin-inline-start: 10pt; font-family: 'Cambria', Georgia, serif; font-size: 11pt; }
 .lx-band { position: absolute; left: 161.5pt; top: 70.6pt; width: 496.5pt; height: 12.6pt; background: #000; }
-.lx-days div { position: absolute; top: 70.6pt; height: 12.6pt; display: flex; justify-content: space-between; align-items: center; padding: 0 3pt; box-sizing: border-box; color: #fff; border-left: 1.2pt solid #fffde0; }
+.lx-days div { position: absolute; top: 70.6pt; height: 12.6pt; display: flex; justify-content: space-between; align-items: baseline; line-height: 12.6pt; padding: 0 3pt; box-sizing: border-box; color: #fff; border-left: 1.2pt solid #fffde0; }
 .lx-days b { font-family: 'EFT_Patient', 'David', serif; font-weight: 700; font-size: 10.4pt; }
 .lx-days span { font-family: 'Cambria', Georgia, serif; font-weight: 700; font-size: 7.7pt; }
 .lx-cell { position: absolute; box-sizing: border-box; background: #fffee3; border-left: 0.6pt solid #351f17; border-bottom: 1.2pt solid #351f17; overflow: hidden; cursor: pointer; }
@@ -36,14 +36,15 @@
 .lx-t { flex: 0 0 auto; line-height: 1; text-align: left; }
 .lx-tl { display: block; font-family: 'Sfarady', 'David', serif; font-size: 6pt; }
 .lx-tv { display: block; font-family: 'Monotype Corsiva', 'Cambria', serif; font-size: 9.6pt; color: #7a0f0f; font-weight: bold; }
-.lx-ic { display: block; object-fit: contain; max-width: 100%; }
-.lx-rebbe { display: flex; flex-direction: row-reverse; align-items: center; gap: 1pt; font-family: 'Livorna', 'FontbitLivorna', serif; font-size: 5pt; color: #3b2a1f; line-height: 1.1; text-align: right; white-space: nowrap; }
-.lx-rebbe img { width: 8pt; }
-.lx-rebbe b { font-family: 'Livorna', 'FontbitLivorna', serif; font-weight: 700; font-size: 7pt; }
-.lx-chametz { font-family: 'Sfarady', serif; font-size: 5.6pt; }
+.lx-rebbe { display: flex; flex-direction: row-reverse; align-items: center; gap: 1pt; font-family: 'Livorna', 'FontbitLivorna', serif; font-size: 5.6pt; color: #3b2a1f; line-height: 1.1; text-align: right; white-space: nowrap; }
+.lx-rebbe img { width: 10pt; }
+.lx-rebbe b { font-family: 'Livorna', 'FontbitLivorna', serif; font-weight: 700; font-size: 8pt; }
+.lx-chametz { font-family: 'Sfarady', serif; font-size: 5.6pt; line-height: 1.05; }
+.lx-chametz b, .lx-fast b { font-family: 'Monotype Corsiva', 'Cambria', serif; color: #7a0f0f; font-size: 9pt; }
+.lx-fast b { font-size: 9.6pt; }
 .lx-bot { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 0.5pt; }
 .lx-bot > *, .lx-rc > div { max-width: 100%; overflow: hidden; text-align: center; white-space: nowrap; }
-.lx-omer { flex: 0 0 auto; text-align: center; font-family: 'SfaradyMedium', 'Sfarady', serif; font-size: 6.2pt; color: #2e8a1e; line-height: 1.15; }
+.lx-omer { flex: 0 0 auto; text-align: center; font-family: 'SfaradyMedium', 'Sfarady', serif; font-size: 6.2pt; color: #2e8a1e; line-height: 0.98; }
 .lx-note { font-family: 'EFT_Pnina', 'David', serif; font-size: 6.2pt; color: #7c4c26; }
 .lx-note.lx-xs { font-size: 5.5pt; }
 .lx-bahab { font-family: 'PFT_Frank', 'Frank Ruehl', serif; font-size: 6.2pt; color: #2f2421; }
@@ -52,10 +53,11 @@
 .lx-avos { font-family: 'SfaradyMedium', 'Sfarady', serif; font-size: 7.7pt; color: #7c4c26; }
 .lx-hil { font-family: 'PFT_Frank', 'Frank Ruehl', serif; font-size: 6.2pt; color: #2f2421; display: flex; align-items: flex-end; justify-content: center; gap: 2pt; }
 .lx-hil img { width: 7pt; flex: 0 0 auto; }
+.lx-hil .lx-f { flex: 0 1 auto; }
 .lx-eruv { font-family: 'Livorna', 'FontbitLivorna', serif; font-weight: 700; font-size: 7pt; color: #d9001c; line-height: 1; }
 .lx-dst { font-family: 'EFT_Pnina', serif; font-size: 6.5pt; color: #d9001c; line-height: 1.1; }
 .lx-dst b { font-size: 8pt; } .lx-dst i { font-size: 4.4pt; font-style: normal; font-weight: 700; } .lx-dst span { font-family: 'SfaradyMedium', serif; }
-.lx-fast { font-family: 'Sfarady', serif; font-size: 5.5pt; }
+.lx-fast { font-family: 'Sfarady', serif; font-size: 5.8pt; line-height: 1.05; }
 .lx-banner { position: absolute; object-fit: cover; border: 0.6pt solid #351f17; }
 .lx-carry { position: absolute; width: 22pt; height: 18pt; border: 0.8pt solid #351f17; background: #fffee3; display: flex; align-items: center; justify-content: center; gap: 1pt;
   font-family: 'Guttman David', serif; font-weight: 700; font-size: 13pt; color: #97214c; direction: rtl; }
@@ -94,6 +96,19 @@
 
 .lx-f { display: inline-block; white-space: nowrap; transform-origin: right center; }
 .lx-mt .lx-f, .lx-hol .lx-f { transform-origin: right center; }
-.lx-bot .lx-f, .lx-rc .lx-f { transform-origin: center; }
-.lx-parsha .lx-f { transform-origin: left center; }
-.lx-bc .lx-f { transform-origin: center; }
+.lx-bot .lx-f, .lx-rc .lx-f { transform-origin: right center; }
+.lx-parsha .lx-f { transform-origin: right center; }
+.lx-bc .lx-f { transform-origin: right center; }
+
+/* כותרות פון די זייטן און דער טאבעלע אונטן (פריער אינעם בילד — יעצט טעקסט, שארף) */
+.lx-sh { position: absolute; display: flex; align-items: center; justify-content: center; gap: 1pt; color: #fff; font-family: 'EFT_Patient', 'David', serif; font-weight: 700; font-size: 6pt; white-space: nowrap; }
+.lx-sh small { font-size: 4pt; }
+.lx-sh.lx-dark { color: #000; font-family: 'Livorna', 'FontbitLivorna', serif; font-weight: 400; }
+/* די ליניעס ארום דער גרויסער טאבעלע */
+.lx-frame { position: absolute; left: 161.2pt; top: 83.7pt; width: 496.8pt; height: 364.5pt; border: 0.9pt solid #351f17; box-sizing: border-box; pointer-events: none; }
+.lx-vl { position: absolute; top: 70.6pt; height: 377.6pt; width: 0; border-left: 0.6pt solid #351f17; pointer-events: none; }
+/* דאס בילד פון יו"ט — אלעמאל אויפן זעלבן פלאץ */
+.lx-ic { position: absolute; right: 3pt; top: 27pt; max-height: 31pt; max-width: 42pt; object-fit: contain; object-position: right center; }
+.lx-cell:has(.lx-omer) .lx-ic { top: 25pt; max-height: 22pt; }
+.lx-rc > .lx-rebbe { overflow: visible; max-width: none; align-self: flex-end; font-size: 5.3pt; }
+.lx-rc > .lx-rebbe b { font-size: 7.6pt; }
