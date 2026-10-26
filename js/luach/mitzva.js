@@ -54,10 +54,11 @@ export const CSS = `
 .mz-month{width:528px;height:816px;padding:44px 36px;box-sizing:border-box;display:flex;flex-direction:column}
 .mz-month .mz-title{font-size:24px;margin-bottom:14px;white-space:nowrap;color:#111}
 .mz-month .mz-sub{font-size:18px;margin:0 0 14px}
-.mz-cols{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-content:start}
+.mz-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:26px;align-content:start}
 .mz-month .mz-par{background:linear-gradient(90deg,#1e1e1e,#5c5c5c,#1e1e1e);color:#fff;border:none;font-size:16px;margin:12px 0 3px;padding:4px 0}
 .mz-month .mz-par:first-child{margin-top:0}
-.mz-ln{display:flex;align-items:center;gap:8px;padding:3px 2px;border-bottom:1px solid #111;white-space:nowrap}
+.mz-cols>div{min-width:0}
+.mz-ln{overflow:hidden;display:flex;align-items:center;gap:8px;padding:3px 2px;border-bottom:1px solid #111;white-space:nowrap}
 .mz-ln:last-child{border-bottom:none}
 .mz-dd{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:40px;padding-left:8px;border-left:1.5px solid #111;line-height:1.05}
 .mz-dd b{font-family:'Livorna','FontbitLivorna',serif;font-weight:700;font-size:17px;color:#111}
@@ -65,7 +66,7 @@ export const CSS = `
 .mz-ln.mz-shb .mz-dd b,.mz-ln.mz-shb .mz-dd small{color:#111;font-weight:700}
 .mz-mm{display:flex;align-items:center;gap:7px;flex:1;min-width:0;font-family:'Guttman David','David',serif;font-size:14px}
 .mz-mm i{font-style:normal;font-family:'Livorna','FontbitLivorna',serif;font-weight:700;font-size:19px;min-width:42px;padding:0 4px;box-sizing:border-box;border:1.3px solid #111;display:flex;align-items:center;justify-content:center;color:#111;line-height:1.15}
-.mz-mm span{overflow:hidden;text-overflow:ellipsis;color:#111}
+.mz-mm span{overflow:hidden;text-overflow:ellipsis;color:#111;min-width:0}
 .mz-ln.mz-shb .mz-mm span{font-weight:700}
 `;
 

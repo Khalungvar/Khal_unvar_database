@@ -223,6 +223,12 @@ function backHtml(key) {
 
 /** מאכט קלענער (--k) ביז דער טעקסט פאסט אריין אין זיין קעסטל */
 export function fitAll(root) {
+  // שמות ארוכים בטבלה החודשית — קטנים קצת במקום להיחתך
+  $$('.mz-mm > span', root).forEach((sp) => {
+    sp.style.fontSize = '';
+    let px = parseFloat(getComputedStyle(sp).fontSize) || 14;
+    for (let i = 0; i < 16 && sp.scrollWidth > sp.clientWidth + 0.5 && px > 8.5; i += 1) { px -= 0.5; sp.style.fontSize = `${px}px`; }
+  });
   $$('.bk-fit', root).forEach((el) => {
     const box = el.parentElement; let k = Number(el.dataset.k) || (el.closest('.bk-big') ? 1.6 : 1);
     el.style.setProperty('--k', k);
