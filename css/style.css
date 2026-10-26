@@ -2168,3 +2168,34 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .tour-nav { display: flex; align-items: center; gap: 6px; }
 .tour-x { background: transparent; border: none; cursor: pointer; font-size: 15px; color: var(--muted); }
 .hv-tools .btn.ghost, .hv-actions .btn.ghost { border-color: var(--line); }
+/* לאבי: קאמפאקט — אלע 4 שורות אויף איין מסך */
+.lobby-top { margin: 6px 0 4px; }
+.lobby-main-col { gap: 10px; }
+.lobby-main-col .lobby-head { display: flex; align-items: center; justify-content: center; gap: 14px; text-align: start; }
+.lobby-main-col .lobby-logo { width: 64px; }
+.lobby-main-col .lobby-head h1 { margin: 0; font-size: 26px; line-height: 1.2; }
+.lobby-main-col .lobby-head p { margin: 2px 0 0; }
+.lobby-main-col .lobby-search input { min-height: 52px; }
+.lobby-main-col .lobby-results { top: 58px; }
+.lobby-side-col { gap: 6px; }
+.lobby-me { padding: 8px 10px; flex-direction: row; gap: 10px; justify-content: flex-start; flex-wrap: wrap; }
+.lobby-me .lobby-avatar { width: 38px; height: 38px; font-size: 15px; }
+.lobby-quicks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex: 1; }
+.lobby-quicks .lobby-quick { padding: 8px 6px; font-size: 14.5px; display: flex; align-items: center; justify-content: center; gap: 4px; line-height: 1.25; }
+.lobby-row { gap: 12px; margin: 10px 0; }
+.lobby .lobby-tile { min-height: 100px; padding: 10px; gap: 4px; }
+.lobby .lobby-icon { font-size: 28px; }
+.lobby .lobby-tile b { font-size: 17px; }
+.lobby .lobby-tile .tile-logo { max-height: 40px; }
+.lobby-me { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 10px; row-gap: 0; text-align: start; }
+.lobby-me .lobby-avatar { grid-row: span 2; }
+.lobby-me b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.lobby .lobby-tile:not(.lobby-me) { min-height: 92px; }
+.lobby-row { margin: 8px 0; }
+.lobby .lobby-me { min-height: 0; }
+.lobby-row.lobby-row6 { grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.lobby-row6 .lobby-tile b { font-size: 15.5px; }
+.lobby-row6 .lobby-tile .muted { font-size: 12px; }
+.lobby-row6 .bk-tile-logo { height: 34px; }
+@media (max-width: 900px) { .lobby-row.lobby-row6 { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 700px) { .lobby-row.lobby-row6 { grid-template-columns: 1fr 1fr; } }

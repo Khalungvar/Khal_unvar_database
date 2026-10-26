@@ -169,8 +169,8 @@ function renderLobby() {
   main.innerHTML = `
     <div class="lobby-top">
       <div class="lobby-main-col">
-        <div class="lobby-head"><img src="img/logo.png" alt="" class="lobby-logo"><h1>${h(t('appName'))}</h1>
-          <p class="muted">${h(t('lobbyHello', { email: displayName(state.email) }))}</p></div>
+        <div class="lobby-head"><img src="img/logo.png" alt="" class="lobby-logo"><div><h1>${h(t('appName'))}</h1>
+          <p class="muted">${h(t('lobbyHello', { email: displayName(state.email) }))}</p></div></div>
         <div class="lobby-search">
           <input type="search" id="lobby-q" placeholder="${h(t('lobbySearchPh'))}" autocomplete="off">
           <div class="lobby-results" id="lobby-results"></div>
@@ -182,10 +182,12 @@ function renderLobby() {
           <b>${h(displayName(state.email))}</b>
           <span class="muted small">${h(unreadCount() || tasksDueCount() ? t('pmUnreadSub2', { n: unreadCount(), m: tasksDueCount() }) : t('lobbyPersonal'))}</span>
         </button>
+        <div class="lobby-quicks">
         <button type="button" class="lobby-quick" data-quick="contact">＋ ${h(t('quickContact'))}</button>
         <button type="button" class="lobby-quick" data-quick="donation">＋ ${h(t('quickDonation'))}</button>
         <button type="button" class="lobby-quick" data-quick="occasion">＋ ${h(t('quickOccasion'))}</button>
         <button type="button" class="lobby-quick lobby-gtd" data-quick="gtodo">☑ ${h(t('gtdName'))} <span class="count-pill" id="gtd-count"${generalOpenCount() ? '' : ' hidden'}>${generalOpenCount()}</span></button>
+        </div>
       </div>
     </div>
     <div class="lobby-row">
@@ -211,13 +213,11 @@ function renderLobby() {
       ${areas.map((a) => `<button type="button" class="btn primary" data-area="${h(a)}">${h(a)} <span class="count-pill">${areaCount(a)}</span></button>`).join('')}
       <button type="button" class="btn" data-area="${NO_AREA}">${h(t('noArea'))} <span class="count-pill">${areaCount(NO_AREA)}</span></button>
     </div>` : ''}
-    <div class="lobby-row">
+    <div class="lobby-row lobby-row6">
       ${tile('lists', '📋', t('readyLists'), t('lobbyListsSub', { n: state.savedLists.length }))}
       ${tile('mailmerge', '✉', 'Mail Merge', t('lobbyMailSub'))}
       ${tile('calls', '📞', 'Calls & SMS', t('lobbyCallsSub'))}
       ${tile('receipts', '🧾', 'Invoice & Receipt', t('lobbyReceiptsSub'))}
-    </div>
-    <div class="lobby-row lobby-assoc">
       ${tile('faces', '📸', t('fcTitle'), t('fcTileSub', { n: (state.faceEvents || []).length }))}
       ${tile('books', `<img class="tile-logo bk-tile-logo" src="${BOOKS_LOGO}" alt="">`, BOOKS_ORG, t('bkTileSub', { n: allBooks().length }))}
     </div>`;
