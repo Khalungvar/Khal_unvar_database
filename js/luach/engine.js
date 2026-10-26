@@ -188,7 +188,8 @@ void RC_NAME;
 /** items: { kind, text, label?, time?, icon? }
  *  kind: hol (נאמען פון יו"ט/טאג) · parsha · special (שבת שובה...) · note (קליין אונטן) · small (נוסח / יזכור...)
  *        hillula · omer · avos · time · eruv · rebbe */
-export function buildYear(Y, extra = {}) {
+export function buildYear(Y, extra = {}, opts = {}) {
+  const il = !!opts.il; // ארץ ישראל — פארן קומענדיגן לוח פאר א"י (יעצט נאר קהלת / שיר השירים)
   const I = yearInfo(Y);
   const P = yearInfo(Y - 1);
   const map = new Map();
@@ -216,7 +217,8 @@ export function buildYear(Y, extra = {}) {
   add(T(20), 'small', 'בלילה: משנה תורה');
   add(T(21), 'hol', 'הושענא רבה', { icon: 'chm', chm: true });
   add(T(22), 'hol', 'שמיני עצרת', { icon: 'scroll2', yt: true });
-  add(T(22), 'note', `${shabbosChm == null ? 'קהלת, ' : ''}יזכור, גשם`); // קהלת: שבת חוה"מ, און ווען ס'איז נישטא — שמיני עצרת
+  add(T(22), 'note', `${shabbosChm == null && !il ? 'קהלת, ' : ''}יזכור, גשם`); // קהלת: שבת חוה"מ; ווען נישטא — חו"ל: שמיני עצרת, א"י: יום א' דסוכות
+  if (shabbosChm == null && il) add(T(15), 'note', 'קהלת');
   if (shabbosChm != null) add(shabbosChm, 'note', 'קהלת');
   add(T(23), 'hol', 'שמחת תורה', { icon: 'scroll', yt: true });
   add(T(24), 'hol', 'אסרו חג');
@@ -299,7 +301,8 @@ export function buildYear(Y, extra = {}) {
     if (dow(n) === 6) { add(n, 'hol', 'שבת חוה"מ', { chm: true }); add(n, 'small', 'שיר השירים'); } else add(n, 'hol', `${l}' דחוה"מ`, { chm: true });
   });
   // שיר השירים: שבת חוה"מ, און ווען ס'איז נישטא — שביעי של פסח
-  if (![2, 3, 4, 5].some((i) => dow(pesach + i) === 6)) add(pesach + 6, 'small', 'שיר השירים');
+  // (חו"ל: שביעי של פסח · א"י: יום א' דפסח)
+  if (![2, 3, 4, 5].some((i) => dow(pesach + i) === 6)) add(il ? pesach : pesach + 6, 'small', 'שיר השירים');
   add(pesach + 6, 'hol', 'שביעי של פסח', { icon: 'matza', yt: true });
   add(pesach + 7, 'hol', 'אחרון של פסח', { icon: 'matza2', yt: true }); add(pesach + 7, 'small', 'יזכור');
   add(pesach + 8, 'hol', 'אסרו חג');

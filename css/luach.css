@@ -59,7 +59,7 @@
 .lx-dst { font-family: 'EFT_Pnina', serif; font-size: 6.5pt; color: #d9001c; line-height: 1.1; }
 .lx-dst b { font-size: 8pt; } .lx-dst i { font-size: 4.4pt; font-style: normal; font-weight: 700; } .lx-dst span { font-family: 'SfaradyMedium', serif; }
 .lx-fast { font-family: 'Sfarady', serif; font-size: 5.8pt; line-height: 1.05; }
-.lx-banner { position: absolute; object-fit: cover; border: 0.6pt solid #351f17; }
+.lx-banner { position: absolute; object-fit: cover; display: block; }
 .lx-carry { position: absolute; width: 20pt; height: 12pt; border-top: none !important; border-radius: 0 0 3pt 3pt; border: 0.8pt solid #351f17; background: #fffee3; display: flex; align-items: center; justify-content: center; gap: 1pt;
   font-family: 'Guttman David', serif; font-weight: 700; font-size: 10pt; color: #97214c; direction: rtl; line-height: 1; }
 .lx-carry span { font-family: 'David', serif; font-size: 12pt; }

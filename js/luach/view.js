@@ -130,7 +130,7 @@ function pageHtml(p, print = false) {
   const firstRow = p.rows[0];
   const lead = firstRow.findIndex(Boolean);
   const adarBanner = (p.key === 'Adar' || p.key === 'Adar II') && lead >= 2
-    ? `<img class="lx-banner" src="img/luach/adar.jpg" alt="" style="left:${COLS[lead - 1]}pt;top:${ROW_T[0] + 1}pt;width:${COL_W * 2 - 2}pt;height:${ROW_H - 2}pt">` : '';
+    ? `<img class="lx-banner" src="img/luach/adar.jpg" alt="" style="left:${COLS[lead - 1] + 0.6}pt;top:${ROW_T[0]}pt;width:${COLS[lead - 2] + COL_W - COLS[lead - 1] - 0.6}pt;height:${ROW_H - 1.2}pt">` : '';
   const carried = p.monthDays.length === 30 && !p.days.some((d) => d.hd === 30 && d.hm === p.key);
   // זייטן: זמני היום (לינקס) און מצוה יומית (רעכטס) — יעדער טאג פונעם חודש
   const md = p.monthDays;
@@ -150,9 +150,9 @@ function pageHtml(p, print = false) {
     <div class="lx-head"><span class="lx-mname">${h(p.he === 'אב' ? 'מנחם-אב' : p.he)}</span><span class="lx-mazal">${h(p.mazal)}</span><span class="lx-greg" dir="ltr">${h(greg)}</span></div>
     <div class="lx-band"></div><div class="lx-days">${DAY_HE.map((n, c) => `<div style="left:${COLS[c]}pt;width:${COL_W}pt"><b>${n}</b><span>${DAY_EN[c]}</span></div>`).join('')}</div>
     ${cells.join('')}
-    ${adarBanner}
     ${carried ? `<div class="lx-carry" style="left:${COLS[6]}pt;top:${ROW_T[4] + ROW_H + 1.5}pt" title="ל' — בעמוד הבא">ל<span>›</span></div>` : ''}
     <div class="lx-frame"></div>${COLS.slice(0, 6).map((x) => `<div class="lx-vl" style="left:${x}pt"></div>`).join('')}
+    ${adarBanner}
     ${SIDE_HEAD}
     <div class="lx-zm">${zRows}</div>
     <div class="lx-mz">${mRows}</div>
