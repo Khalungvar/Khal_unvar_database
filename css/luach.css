@@ -165,3 +165,4 @@
 /* "ל›" — בולט: א ראטע לשונית אונטער דער טאבעלע */
 .lx-carry { width: 28pt !important; height: 15pt !important; background: #97214c !important; color: #fff !important; border: none !important; border-radius: 0 0 5pt 5pt; font-size: 11pt !important; box-shadow: 0 1.5pt 3pt rgba(0,0,0,.35); }
 .lx-carry span { font-size: 13pt !important; }
+.lx-carry { height: 19pt !important; padding-top: 1.5pt; box-sizing: border-box; }

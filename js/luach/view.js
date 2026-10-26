@@ -153,7 +153,7 @@ function pageHtml(p, print = false) {
     <div class="lx-head"><span class="lx-mname">${h(p.he === 'אב' ? 'מנחם-אב' : p.he)}</span><span class="lx-mazal">${h(p.mazal)}</span><span class="lx-greg" dir="ltr">${fitText(greg)}</span></div>
     <div class="lx-band"></div><div class="lx-days">${DAY_HE.map((n, c) => `<div style="left:${COLS[c]}pt;width:${COL_W}pt"><b>${n}</b><span>${DAY_EN[c]}</span></div>`).join('')}</div>
     ${cells.join('')}
-    ${carried ? `<div class="lx-carry" style="left:${COLS[6]}pt;top:${ROW_T[4] + ROW_H + 1.5}pt" title="ל' — בעמוד הבא">ל<span>›</span></div>` : ''}
+    ${carried ? `<div class="lx-carry" style="left:${COLS[6]}pt;top:${ROW_T[4] + ROW_H - 0.6}pt" title="ל' — בעמוד הבא">ל<span>›</span></div>` : ''}
     <div class="lx-frame"></div>${COLS.slice(0, 6).map((x) => `<div class="lx-vl" style="left:${x}pt"></div>`).join('')}
     ${adarBanner}
     ${SIDE_HEAD}
