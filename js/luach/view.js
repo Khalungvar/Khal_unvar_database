@@ -164,7 +164,7 @@ function pageHtml(p, print = false) {
     <div class="lx-mz">${mRows}</div>
     ${shab.length > 4 ? '<div class="lx-b5"><i></i><i></i><i></i></div>' : ''}
     <div class="lx-bt">${bt}</div>
-    ${p.loc === 'jlm' ? '<div class="lx-place">ירושלים עיה"ק תובב"א</div>' : ''}
+    ${print ? '' : `<div class="lx-badge">📍 ${h((LOCATIONS[p.loc] || LOCATIONS.bp).name)} · ${h(hebrewNumber(p.Y % 1000))}</div>`}
   </div>`;
 }
 /** א לאנגער טעקסט ווערט שמאלער (ווי אין InDesign), אז ער זאל אריינפאסן — געמאסטן נאכן צייכענען (fitAll) */
