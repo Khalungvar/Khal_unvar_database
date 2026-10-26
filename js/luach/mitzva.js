@@ -37,28 +37,31 @@ function weekStart(n) { let s = n; while (dowOf(s) !== 5) s -= 1; return s; }
 
 const CSS = `
 .mz-card{direction:rtl;background:transparent;padding:0;box-sizing:border-box;font-family:'Guttman David','David','Frank Ruehl',serif;color:#111}
-.mz-title{text-align:center;font-weight:700;font-size:22px;margin:2px 0 6px;letter-spacing:.3px}
-.mz-sub{text-align:center;font-weight:700;font-size:15px;margin:-4px 0 6px}
-.mz-par{text-align:center;font-weight:700;font-size:19px;margin:8px 0 5px;border-top:2px solid #2b2b2b;padding-top:5px}
-.mz-day{display:flex;justify-content:space-between;align-items:center;background:#111;color:#fff;font-weight:700;font-size:13.5px;padding:2px 6px;margin-top:3px}
-.mz-day.mz-sh{background:#4a3b1f}
-.mz-row{display:flex;gap:6px;align-items:baseline;border-bottom:1px solid #8a8780;padding:2px 6px;font-size:13.5px;white-space:nowrap;overflow:hidden}
-.mz-n{font-weight:700;min-width:52px}
+.mz-title{text-align:center;font-family:'Livorna','FontbitLivorna',serif;font-weight:700;font-size:24px;margin:2px 0 6px}
+.mz-sub{text-align:center;font-family:'Livorna','FontbitLivorna',serif;font-weight:700;font-size:16px;margin:-4px 0 8px}
+.mz-par{text-align:center;font-family:'Livorna','FontbitLivorna',serif;font-weight:700;font-size:19px;margin:8px 0 5px;border-top:2px solid #111;padding-top:5px}
+.mz-day{display:flex;justify-content:space-between;align-items:center;background:#111;color:#fff;font-family:'Livorna','FontbitLivorna',serif;font-weight:700;font-size:13.5px;padding:2px 6px;margin-top:3px}
+.mz-row{display:flex;gap:6px;align-items:baseline;border-bottom:1px solid #8a8780;padding:2px 6px;font-family:'Guttman David','David',serif;font-size:13.5px;white-space:nowrap;overflow:hidden}
+.mz-n{font-weight:700;min-width:50px}
 .mz-t{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis}
-.mz-month .mz-line{display:flex;align-items:center;gap:6px;border-bottom:1px solid #8a8780;padding:2px 4px;font-size:12.5px;white-space:nowrap}
-.mz-month .mz-line.mz-shl{font-weight:700;border-bottom:1.5px solid #111}
-.mz-month .mz-d{min-width:62px;font-weight:700}
-.mz-month .mz-dt{min-width:72px}
-.mz-month .mz-n{min-width:44px}
-.mz-month .mz-t{text-align:right}
-.mz-month .mz-par{font-size:15px;margin:5px 0 2px;padding-top:3px;border-top:1.5px solid #2b2b2b}
+.mz-month{width:528px;height:816px;padding:24px 22px;box-sizing:border-box;display:flex;flex-direction:column}
+.mz-month .mz-title{font-size:28px;margin-bottom:4px}
+.mz-month .mz-sub{font-size:18px;margin:0 0 14px}
+.mz-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-content:start}
+.mz-month .mz-par{background:#111;color:#fff;border:none;font-size:16px;margin:12px 0 3px;padding:4px 0}
+.mz-month .mz-par:first-child{margin-top:0}
+.mz-ln{display:flex;align-items:stretch;border-bottom:1px solid #8a8780;font-size:14px;white-space:nowrap}
+.mz-ln .mz-dd{background:#111;color:#fff;font-family:'Livorna','FontbitLivorna',serif;font-weight:700;padding:4px 6px;min-width:92px;display:flex;justify-content:space-between;gap:4px}
+.mz-ln .mz-mm{font-family:'Guttman David','David',serif;padding:4px 6px;display:flex;gap:5px;flex:1;min-width:0;overflow:hidden}
+.mz-ln .mz-mm b{min-width:30px}
+.mz-ln .mz-mm span{overflow:hidden;text-overflow:ellipsis}
 `;
 
 function weekHtml(fri) {
   const days = [0, 1, 2, 3, 4, 5, 6].map((i) => fri + i);
   const row = (n) => {
     const m = mitzvaYomis(isoOf(n)); const dw = dowOf(n);
-    return `<div class="mz-day${dw >= 5 ? ' mz-sh' : ''}"><span>${DAY[dw]}:</span><span>${h(dateHe(n))}</span></div>
+    return `<div class="mz-day"><span>${DAY[dw]}:</span><span>${h(dateHe(n))}</span></div>
       <div class="mz-row"><span class="mz-n">מצוה ${h(m.num)}.</span><span class="mz-t">${h(m.text)}</span></div>`;
   };
   return `<div class="mz-card mz-week" style="width:240px">
@@ -69,23 +72,28 @@ function weekHtml(fri) {
   </div>`;
 }
 
+const SHORT = ['א\'', 'ב\'', 'ג\'', 'ד\'', 'ה\'', 'ו\'', 'ש"ק'];
+function block(n) {
+  const m = mitzvaYomis(isoOf(n)); const dw = dowOf(n);
+  const x = hdOf(n);
+  return `<div class="mz-ln"><span class="mz-dd"><span>${dw === 6 ? 'שבת' : `יום ${SHORT[dw]}`}</span><span>${h(hnum(x.d))}</span></span>
+    <span class="mz-mm"><b>${h(m.num)}.</b><span>${h(m.text)}</span></span></div>`;
+}
 function monthHtml(page) {
-  const lines = [];
-  let lastPar = '';
-  page.monthDays.forEach((d) => {
-    if (d.dow === 0 || !lines.length) {
-      let s = d.n; while (dowOf(s) !== 6) s += 1;
-      const p = shabbosName(s);
-      if (p && p !== lastPar) { lines.push(`<div class="mz-par">${h(p)}</div>`); lastPar = p; }
-    }
-    const m = mitzvaYomis(d.iso);
-    lines.push(`<div class="mz-line${d.dow === 6 ? ' mz-shl' : ''}"><span class="mz-d">${DAY[d.dow]}</span><span class="mz-dt">${h(dateHe(d.n))}</span>
-      <span class="mz-n">מצוה ${h(m.num)}.</span><span class="mz-t">${h(m.text)}</span></div>`);
-  });
-  return `<div class="mz-card mz-month" style="width:500px">
+  // וואכן (פון זונטאג), יעדע וואך מיט דער פרשה; צוויי טורים — צעטיילט לויט וואכן, אזוי גלייך ווי מעגליך
+  const weeks = [];
+  page.monthDays.forEach((d) => { if (!weeks.length || d.dow === 0) weeks.push([]); weeks[weeks.length - 1].push(d.n); });
+  const total = page.monthDays.length; let acc = 0; let cut = weeks.length;
+  for (let i = 0; i < weeks.length; i += 1) { if (acc + weeks[i].length / 2 >= total / 2) { cut = i + (acc + weeks[i].length - total / 2 < total / 2 - acc ? 1 : 0); break; } acc += weeks[i].length; }
+  if (cut < 1) cut = 1;
+  const col = (ws) => ws.map((w) => {
+    let s = w[0]; while (dowOf(s) !== 6) s += 1;
+    return `<div class="mz-par">${h(shabbosName(s))}</div>${w.map(block).join('')}`;
+  }).join('');
+  return `<div class="mz-card mz-month">
     <div class="mz-title">לימוד מצוה יומית</div>
     <div class="mz-sub">חודש ${h(MONTH[page.key] || page.he)} ${h(hebrewNumber(page.Y % 1000))}</div>
-    ${lines.join('')}
+    <div class="mz-cols"><div>${col(weeks.slice(0, cut))}</div><div>${col(weeks.slice(cut))}</div></div>
   </div>`;
 }
 
@@ -122,7 +130,7 @@ function render(main) {
       <button type="button" class="btn" id="mz-jpg" title="רקע שקוף — להכניס לכל עיצוב">⬇ תמונה שקופה (PNG)</button>
       <button type="button" class="btn primary" id="mz-print">🖨 הדפסה / PDF</button>
     </div>
-    <div class="mz-stage" style="display:flex;justify-content:center;padding:14px 0;background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 0 0/16px 16px">${current()}</div>`;
+    <div class="mz-stage" style="display:flex;justify-content:center;padding:14px 0">${current()}</div>`;
   $('#mz-back', main).onclick = () => back();
   main.querySelectorAll('[data-v]').forEach((b) => { b.onclick = () => {
     const v = b.dataset.v; if (v === view) return;
