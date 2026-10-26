@@ -52,7 +52,7 @@ const CSS = `
 .mz-month{width:528px;height:816px;padding:24px 22px;box-sizing:border-box;display:flex;flex-direction:column}
 .mz-month .mz-title{font-size:24px;margin-bottom:14px;white-space:nowrap;color:#111}
 .mz-month .mz-sub{font-size:18px;margin:0 0 14px}
-.mz-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-content:start}
+.mz-cols{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-content:start}
 .mz-month .mz-par{background:linear-gradient(90deg,#1e1e1e,#5c5c5c,#1e1e1e);color:#fff;border:none;font-size:16px;margin:12px 0 3px;padding:4px 0}
 .mz-month .mz-par:first-child{margin-top:0}
 .mz-ln{display:flex;align-items:center;gap:8px;padding:3px 2px;border-bottom:1px solid #111;white-space:nowrap}
