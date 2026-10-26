@@ -129,3 +129,7 @@
 /* מוצ"ש / הדה"נ / ר"ת — אלעמאל אויפן זעלבן פלאץ אין דער משבצת */
 .lx-t { position: absolute; left: 0.5pt; top: 13pt; }
 .lx-body:has(.lx-t) .lx-r2 { padding-left: 21pt; }
+.lx-t { width: 20pt; padding: 1.2pt 0 1pt; box-sizing: border-box; text-align: center; background: rgba(255, 255, 255, 0.72); border: 0.5pt solid #c9a23f; border-radius: 3pt; }
+.lx-shade .lx-t { background: rgba(255, 255, 255, 0.6); }
+.lx-t .lx-tv { margin-top: 0.5pt; }
+.lx-body:has(.lx-t) .lx-r2 { padding-left: 22pt; }
