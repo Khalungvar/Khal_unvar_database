@@ -134,11 +134,12 @@ function pageHtml(p, print = false) {
   const carried = p.monthDays.length === 30 && !p.days.some((d) => d.hd === 30 && d.hm === p.key);
   // זייטן: זמני היום (לינקס) און מצוה יומית (רעכטס) — יעדער טאג פונעם חודש
   const md = p.monthDays;
-  const zRows = md.map((d, i) => `<div class="lx-zr" style="top:${81.1 + i * 10.58}pt">
+  const pad = (arr) => [...arr, ...Array(Math.max(0, 30 - arr.length)).fill(null)];
+  const zRows = pad(md).map((d, i) => (!d ? `<div class="lx-zr${i % 2 ? ' lx-alt' : ''}" style="top:${81.1 + i * 10.59}pt"><span class="lx-zd"></span><span class="lx-zn"></span><span class="lx-zm"></span><span class="lx-zs"></span><span class="lx-zf"></span></div>` : `<div class="lx-zr${i % 2 ? ' lx-alt' : ''}" style="top:${81.1 + i * 10.59}pt">
       <span class="lx-zd">${h(d.heDay)}</span><span class="lx-zn">${hhmm(d.zm.neitz)}</span><span class="lx-zm">${hhmm(d.zm.maKS, 'floor')}</span>
-      <span class="lx-zs">${hhmm(d.zm.shkia)}</span><span class="lx-zf"><small>${h(d.daf.masechta)}</small> ${h(d.daf.daf)}</span></div>`).join('');
-  const mRows = md.map((d, i) => `<div class="lx-mr" style="top:${81.1 + i * 11.7}pt">
-      <span class="lx-md">${h(d.heDay)}</span><span class="lx-mn">${h(d.mitzva.num)}</span><span class="lx-mt">${fitText(d.mitzva.text)}</span></div>`).join('');
+      <span class="lx-zs">${hhmm(d.zm.shkia)}</span><span class="lx-zf"><small>${h(d.daf.masechta)}</small> ${h(d.daf.daf)}</span></div>`)).join('');
+  const mRows = pad(md).map((d, i) => (!d ? `<div class="lx-mr${i % 2 ? ' lx-alt' : ''}" style="top:${81.1 + i * 11.69}pt"><span class="lx-md"></span><span class="lx-mn"></span><span class="lx-mt"></span></div>` : `<div class="lx-mr${i % 2 ? ' lx-alt' : ''}" style="top:${81.1 + i * 11.69}pt">
+      <span class="lx-md">${h(d.heDay)}</span><span class="lx-mn">${h(d.mitzva.num)}</span><span class="lx-mt">${fitText(d.mitzva.text)}</span></div>`)).join('');
   // טאבעלע אונטן: יעדער שבת פונעם חודש — פרשה, חצות, זק"ש גר"א
   const shab = md.filter((d) => d.dow === 6).slice(0, 5);
   const XS = [103.9, 84.8, 65.9, 47.1, 29.3]; const XW = [18.6, 19.1, 18.9, 18.8, 17.8];
