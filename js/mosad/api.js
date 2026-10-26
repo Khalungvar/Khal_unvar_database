@@ -1,6 +1,6 @@
 // אתר פון א מוסד (למשל ישיבה): לאגאין מיט גוגל (נאר "ווער ביסטו" — קיין צוטריט צום גיליון),
 // און אלע ידיעות דורכן "שומר" (Apps Script mosad.gs), וואס גיט נאר וואס מ'מעג.
-import { CONFIG } from '../config.js?v=351';
+import { CONFIG } from '../config.js?v=352';
 
 const STORE = 'khal-mosad-auth';
 const SCOPE = 'openid email profile';

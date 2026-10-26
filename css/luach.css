@@ -126,3 +126,6 @@
 .lx-zoom button[data-z="fit"] { background: transparent; color: var(--ink); border: 1px solid var(--line); font-size: 16px; }
 .lx-zv { font-size: 11px; color: var(--muted); }
 @media print { .lx-zoom { display: none; } }
+/* מוצ"ש / הדה"נ / ר"ת — אלעמאל אויפן זעלבן פלאץ אין דער משבצת */
+.lx-t { position: absolute; left: 0.5pt; top: 13pt; }
+.lx-body:has(.lx-t) .lx-r2 { padding-left: 21pt; }
