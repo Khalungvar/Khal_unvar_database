@@ -106,7 +106,7 @@
 .lx-sh small { font-size: 4pt; }
 .lx-sh.lx-dark { color: #000; font-family: 'Livorna', 'FontbitLivorna', serif; font-weight: 400; }
 /* די ליניעס ארום דער גרויסער טאבעלע */
-.lx-frame { position: absolute; left: 161.2pt; top: 83.7pt; width: 496.8pt; height: 364.5pt; border: 0.9pt solid #351f17; box-sizing: border-box; pointer-events: none; }
+.lx-frame { position: absolute; left: 161.2pt; top: 83.7pt; width: 496.7pt; height: 365.9pt; border: 1.2pt solid #351f17; box-sizing: border-box; pointer-events: none; }
 .lx-vl { position: absolute; top: 70.6pt; height: 377.6pt; width: 0; border-left: 0.6pt solid #351f17; pointer-events: none; }
 /* דאס בילד פון יו"ט — אלעמאל אויפן זעלבן פלאץ */
 .lx-ic { position: absolute; right: 3pt; top: 27pt; max-height: 31pt; max-width: 42pt; object-fit: contain; object-position: right center; }
