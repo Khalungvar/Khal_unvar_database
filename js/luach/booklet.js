@@ -163,6 +163,8 @@ const BK_CSS = `
 .bk-of>.bk-fin{display:flex;align-items:center;justify-content:center;min-height:calc(540px * var(--fk) - 154px * var(--fk))}
 .bk-shiur{margin-top:auto;background:linear-gradient(90deg,#1e1e1e,#5c5c5c,#1e1e1e);color:#fff;text-align:center;padding:6px 8px 7px;font-size:13px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .bk-shiur .bk-l{line-height:1.25;font-size:1em}.bk-shiur .bk-l2{font-family:'Livorna Bold','Livorna',serif;font-size:1.45em;line-height:1.2}.bk-shiur .bk-l3{font-size:.85em}
+.bk-info{border:1px solid #6a6a6a;background:rgba(255,255,255,.6);padding:6px 10px;box-sizing:border-box}
+.bk-info .bk-lat{font-size:.85em;line-height:1.3}
 .bk-fit-area{position:absolute;display:flex;align-items:center;justify-content:center}
 .bk-fit{text-align:center;transform-origin:center center;font-size:calc(16px * var(--k,1))}
 .bk-ded{margin:2px 0}
@@ -208,10 +210,11 @@ const DEF_SHIUR = '## לשמוע שיעור יומי בסדר המצות (איד
 const shiurBar = () => `<div class="bk-shiur">${richLines(setting('shiur_text') || DEF_SHIUR)}</div>`;
 const p3Html = (p) => `<div class="bk-pg"><img class="bk-bg" src="${IMG('bgL.jpg')}" alt=""><div style="position:absolute;inset:0">${monthHtml(p, shiurBar())}</div></div>`;
 function p4Html(key) {
+  // למעלה: ההנצחות במסגרת; למטה: א קליינע משבצת מיט די פרטים פונעם מכון
   const list = monthDeds(key);
   return `<div class="bk-pg"><img class="bk-bg" src="${IMG('bgR.jpg')}" alt="">
-    <div class="bk-abs" style="top:40px;right:40px;width:448px;height:${list.length ? 400 : 736}px"><div class="bk-fit" data-k="1.35">${richLines(setting('info_text'))}</div></div>
-    ${list.length ? `<div class="bk-fit-area" style="top:452px;right:46px;width:436px;height:340px">${frame(dedHtml(list), { fk: 0.17, maxh: 262 })}</div>` : ''}
+    <div class="bk-fit-area" style="top:36px;right:44px;width:440px;height:560px">${frame(list.length ? dedHtml(list) : '<div class="bk-empty">(הנצחה)</div>', { fk: 0.2, maxh: 470, k: 1.35 })}</div>
+    <div class="bk-abs bk-info" style="top:626px;right:124px;width:280px;height:150px"><div class="bk-fit" data-k="0.82">${richLines(setting('info_text'))}</div></div>
   </div>`;
 }
 function backHtml(key) {
@@ -231,6 +234,7 @@ export function fitAll(root) {
   });
   $$('.bk-fit', root).forEach((el) => {
     const box = el.parentElement; let k = Number(el.dataset.k) || (el.closest('.bk-big') ? 1.6 : 1);
+    el.style.fontSize = ''; // פון א פריערדיגער מעסטונג
     el.style.setProperty('--k', k);
     const maxH = Number(el.dataset.maxh) || box.clientHeight - 4;
     const fits = () => el.scrollHeight <= maxH && el.scrollWidth <= box.clientWidth + 1;
