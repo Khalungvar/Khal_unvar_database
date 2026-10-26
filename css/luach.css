@@ -111,7 +111,7 @@
 /* דאס בילד פון יו"ט — אלעמאל אויפן זעלבן פלאץ */
 .lx-ic { position: absolute; right: 3pt; top: 27pt; max-height: 31pt; max-width: 42pt; object-fit: contain; object-position: right center; }
 .lx-cell:has(.lx-omer) .lx-ic { top: 25pt; max-height: 22pt; }
-.lx-rc > .lx-rebbe { overflow: visible; max-width: none; align-self: flex-end; font-size: 5.3pt; }
+.lx-rc > .lx-rebbe { overflow: visible; max-width: none; align-self: flex-start; font-size: 5.3pt; }
 .lx-rc > .lx-rebbe b { font-size: 7.6pt; }
 
 /* א פינפטער שבת אין חודש — נאך א קאלום אין דער טאבעלע אונטן (ווי אינעם לוח) */

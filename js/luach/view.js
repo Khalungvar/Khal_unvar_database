@@ -184,6 +184,19 @@ const SIDE_HEAD = [
   sh(757.2, 770, 69.2, 81.1, 'יום'), sh(674.6, 757.2, 69.2, 81.1, 'מצוה'),
   sh(122.5, 145.2, 408.9, 417.7, 'פרשת', ' lx-dark'), sh(122.5, 145.2, 417.7, 426.4, 'חצות'), sh(122.5, 145.2, 426.4, 435.1, 'זק"ש <small>גר"א</small>'),
 ].join('');
+/** דאס בילד פון יו"ט: אונטער די שורות פונעם נאמען, און איבער די זאכן אונטן — קיינמאל נישט אויף א טעקסט */
+function placeIcons(root) {
+  const PT = 4 / 3;
+  $$('.lx-ic', root).forEach((img) => {
+    const cell = img.parentElement; const body = $('.lx-body', cell); if (!body) return;
+    const hol = $('.lx-hol', cell); const r1 = $('.lx-r1', cell);
+    const top = Math.max(27 * PT, body.offsetTop + (r1 ? r1.offsetTop + r1.offsetHeight : 0) + 1.5 * PT, hol ? body.offsetTop + hol.offsetTop + hol.offsetHeight + 1.5 * PT : 0);
+    const lows = [$('.lx-bot', cell), $('.lx-omer', cell)].filter(Boolean).map((el) => body.offsetTop + el.offsetTop);
+    const bottom = Math.min(cell.clientHeight - 2 * PT, ...lows.map((y) => y - 1 * PT));
+    img.style.top = `${top}px`;
+    img.style.maxHeight = `${Math.max(12 * PT, Math.min(31 * PT, bottom - top))}px`;
+  });
+}
 function shortName(d) {
   const hol = d.items.find((x) => x.kind === 'hol' && x.yt);
   if (!d.parsha && hol) {
@@ -246,7 +259,7 @@ export async function renderLuach() {
     w.scrollLeft = zoom > 1 ? Math.max(0, rx * w.scrollWidth - w.clientWidth / 2) : 0;
   }; });
   fit(main);
-  fitAll(main); document.fonts?.ready.then(() => fitAll(main));
+  fitAll(main); placeIcons(main); document.fonts?.ready.then(() => { fitAll(main); placeIcons(main); });
   $('#lx-prev', main).onclick = () => go(-1);
   $('#lx-next', main).onclick = () => go(1);
   $('#lx-year', main).onchange = (e) => { year = Number(e.target.value); pageIx = 0; renderLuach(); };
@@ -344,7 +357,7 @@ function printPages(list) {
   // צו מעסן מוז מען זען דעם בלאט — פאר א רגע אויסער'ן מסך
   area.style.cssText = 'display:block;position:fixed;left:-20000px;top:0';
   Promise.all([document.fonts?.ready, ...imgs.map((im) => (im.complete ? 1 : new Promise((r) => { im.onload = r; im.onerror = r; })))]).then(() => {
-    fitAll(area); area.style.cssText = '';
+    fitAll(area); placeIcons(area); area.style.cssText = '';
     setTimeout(() => window.print(), 200);
   });
 }
