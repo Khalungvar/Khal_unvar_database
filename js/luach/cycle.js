@@ -159,7 +159,7 @@ function render(main) {
   main.innerHTML = `<style>${CSS}</style>
     <div class="lx-bar">
       <button type="button" class="btn ghost" id="cy-back">← זמנים ולוחות</button>
-      ${onView ? '<div class="lang-switch"><button type="button" data-v="week">שבועי</button><button type="button" data-v="month">חודשי</button><button type="button" data-v="booklet">חוברת</button><button type="button" class="on">לוח מחזור</button></div>' : ''}
+      ${onView ? '<div class="lang-switch"><button type="button" data-v="week">שבועי</button><button type="button" data-v="month">חודשי</button><button type="button" class="on">לוח מחזור</button></div><button type="button" class="btn mz-kbtn" data-v="booklet">📘 קונטרס החודש</button>' : ''}
       <button type="button" class="btn" id="cy-prev">‹ הקודם</button>
       <select id="cy-sel">${opts.map((k) => `<option value="${k}"${k === cycle ? ' selected' : ''}>מחזור ${h(hebrewNumber(k))}${k === currentCycle() ? ' (הנוכחי)' : ''}</option>`).join('')}</select>
       <button type="button" class="btn" id="cy-next">הבא ›</button>

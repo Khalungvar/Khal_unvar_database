@@ -481,7 +481,7 @@ const TX = {
   place: ['מיקום', 'ארט', 'Location'],
   hubTitle: ['זמנים ולוחות', 'זמנים און לוחות', 'Zmanim & Calendars'], hTefila: ['זמני תפילות', 'זמני תפילות', 'Davening times'],
   hCal: ['לוח שנה אונגוואר', 'לוח שנה אונגוואר', 'Ungvar yearly calendar'], hCalSub: ['זמנים · דף יומי · מצוה יומית', 'זמנים · דף יומי · מצוה יומית', 'Zmanim · Daf Yomi · Mitzva'],
-  hMitzva: ['לוח מצוה יומית', 'לוח מצוה יומית', 'Mitzva Yomis calendar'], hMitzvaSub: ['שבועי · חודשי · חוברת חודשית', 'וועכנטליך · חודש · חוברת', 'Weekly · monthly · monthly booklet'], soon: ['בקרוב', 'באלד', 'Coming soon'],
+  hMitzva: ['לוח מצוה יומית', 'לוח מצוה יומית', 'Mitzva Yomis calendar'], hMitzvaSub: ['שבועי · חודשי · מחזור · קונטרס', 'וועכנטליך · חודש · מחזור · קונטרס', 'Weekly · monthly · cycle · booklet'], soon: ['בקרוב', 'באלד', 'Coming soon'],
   hBooklet: ['חוברת מצוה יומית', 'חוברת מצוה יומית', 'Mitzva Yomis booklet'], hBookletSub: ['גליון חודשי מתוך ספר מצות המלך', 'חודש\'ליכער גליון פון ספר מצות המלך', 'Monthly booklet from Sefer Mitzvos Hamelech'],
   fontsMissing: ['חסרים גופנים של הלוח — המראה עדיין לא כמו בדפוס.', 'עס פעלן גופנים פונעם לוח.', 'Calendar fonts are missing.'],
   fontsUp: ['העלאת גופנים', 'ארויפלייגן גופנים', 'Upload fonts'],

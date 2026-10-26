@@ -184,3 +184,6 @@
 .lx-hub { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; max-width: 900px; }
 .lx-hubt[data-soon] { opacity: .6; }
 @media (max-width: 700px) { .lx-hub { grid-template-columns: 1fr; } }
+/* "קונטרס החודש" — א באזונדערער קנעפל לעבן די לוחות */
+.mz-kbtn { background: #fff8e6; border-color: #c9a64a; font-weight: 700; }
+.mz-kbtn.on { background: #7a1f1f; color: #fff; border-color: #7a1f1f; }

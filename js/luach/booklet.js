@@ -126,7 +126,11 @@ function dedHtml(list) {
     </div>`;
   }).join('<div class="bk-dsep">❖</div>');
 }
-const frame = (inner, cls = '') => `<div class="bk-frame ${cls}"><i class="c1"></i><i class="c2"></i><i class="c3"></i><i class="c4"></i><div class="bk-fin"><div class="bk-fit">${inner}</div></div></div>`;
+// א מסגרת מיט ציר-ווינקלען: די ווינקלען און די מיטלסטע ציר בלייבן די זעלבע גרייס, נאר די שטריכן ווערן לענגער/קירצער
+const FR = (f) => `img/frame/${f}.png?v=1`;
+const frame = (inner, { fk = 0.16, maxh = 300, k = 1 } = {}) => `<div class="bk-of" style="--fk:${fk}">
+  ${['tl', 'tr', 'bl', 'br', 'tc', 'bc', 'et', 'eb', 'el', 'er'].map((p) => `<img class="f-${p}" src="${FR(p)}" alt="">`).join('')}
+  <div class="bk-fin"><div class="bk-fit" data-k="${k}" data-maxh="${maxh}">${inner}</div></div></div>`;
 
 // ---------- די בלעטער (HTML, 528×816 = 5.5×8.5in) ----------
 const IMG = (f) => `img/booklet/${f}?v=1`;
@@ -146,10 +150,18 @@ const BK_CSS = `
 .bk-lat.bk-l3{font-size:.68em}
 .bk-hr{width:62%;height:0;border-top:1.5px solid #444;margin:14px auto}
 .bk-sp{height:8px}
-.bk-frame{position:relative;border:2.5px solid #3a3a3a;padding:6px;box-sizing:border-box;background:rgba(255,255,255,.55)}
-.bk-frame>.bk-fin{border:1px solid #3a3a3a;height:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:14px 18px}
-.bk-frame>i{position:absolute;width:16px;height:16px;background:#3a3a3a;transform:rotate(45deg)}
-.bk-frame>i.c1{top:-9px;right:-9px}.bk-frame>i.c2{top:-9px;left:-9px}.bk-frame>i.c3{bottom:-9px;right:-9px}.bk-frame>i.c4{bottom:-9px;left:-9px}
+.bk-of{position:relative;width:100%;box-sizing:border-box;padding:calc(77px * var(--fk) + 12px) calc(77px * var(--fk) + 16px)}
+.bk-of>img{position:absolute;display:block}
+.bk-of>.f-tl,.bk-of>.f-tr,.bk-of>.f-bl,.bk-of>.f-br{width:calc(170px * var(--fk));height:calc(270px * var(--fk));z-index:1}
+.bk-of>.f-tl{top:0;left:0}.bk-of>.f-tr{top:0;right:0}.bk-of>.f-bl{bottom:0;left:0}.bk-of>.f-br{bottom:0;right:0}
+.bk-of>.f-et,.bk-of>.f-eb{left:calc(169px * var(--fk));right:calc(169px * var(--fk));height:calc(77px * var(--fk));width:calc(100% - 338px * var(--fk))}
+.bk-of>.f-et{top:0}.bk-of>.f-eb{bottom:0}
+.bk-of>.f-el,.bk-of>.f-er{top:calc(269px * var(--fk));height:calc(100% - 538px * var(--fk));width:calc(77px * var(--fk))}
+.bk-of>.f-el{left:0}.bk-of>.f-er{right:0}
+.bk-of>.f-tc,.bk-of>.f-bc{left:50%;transform:translateX(-50%);width:calc(256px * var(--fk));height:calc(77px * var(--fk));z-index:1}
+.bk-of>.f-tc{top:0}.bk-of>.f-bc{bottom:0}
+.bk-of>.bk-fin{display:flex;align-items:center;justify-content:center;min-height:calc(540px * var(--fk) - 154px * var(--fk))}
+.bk-fit-area{position:absolute;display:flex;align-items:center;justify-content:center}
 .bk-fit{text-align:center;transform-origin:center center;font-size:calc(16px * var(--k,1))}
 .bk-ded{margin:2px 0}
 .bk-dk{font-family:'Livorna','Frank Ruhl Libre',serif;font-weight:700;font-size:1.25em;line-height:1.2}
@@ -194,13 +206,13 @@ function p4Html(key) {
   const list = monthDeds(key);
   return `<div class="bk-pg"><img class="bk-bg" src="${IMG('bgR.jpg')}" alt="">
     <div class="bk-abs" style="top:40px;right:40px;width:448px;height:${list.length ? 400 : 736}px"><div class="bk-fit" data-k="1.35">${richLines(setting('info_text'))}</div></div>
-    ${list.length ? `<div style="position:absolute;top:470px;right:46px;width:436px;height:300px">${frame(dedHtml(list))}</div>` : ''}
+    ${list.length ? `<div class="bk-fit-area" style="top:452px;right:46px;width:436px;height:340px">${frame(dedHtml(list), { fk: 0.17, maxh: 262 })}</div>` : ''}
   </div>`;
 }
 function backHtml(key) {
   const list = monthDeds(key);
   return `<div class="bk-pg"><img class="bk-bg" src="${IMG('bgR.jpg')}" alt="">
-    <div style="position:absolute;top:110px;right:56px;width:416px;height:596px">${frame(list.length ? dedHtml(list) : '<div class="bk-empty">(הנצחה)</div>', 'bk-big')}</div>
+    <div class="bk-fit-area" style="top:50px;right:50px;width:428px;height:716px">${frame(list.length ? dedHtml(list) : '<div class="bk-empty">(הנצחה)</div>', { fk: 0.24, maxh: 590, k: 1.6 })}</div>
   </div>`;
 }
 
@@ -209,7 +221,8 @@ export function fitAll(root) {
   $$('.bk-fit', root).forEach((el) => {
     const box = el.parentElement; let k = Number(el.dataset.k) || (el.closest('.bk-big') ? 1.6 : 1);
     el.style.setProperty('--k', k);
-    const fits = () => el.scrollHeight <= box.clientHeight - 4 && el.scrollWidth <= box.clientWidth + 1;
+    const maxH = Number(el.dataset.maxh) || box.clientHeight - 4;
+    const fits = () => el.scrollHeight <= maxH && el.scrollWidth <= box.clientWidth + 1;
     for (let i = 0; i < 40 && !fits() && k > 0.35; i += 1) { k *= 0.95; el.style.setProperty('--k', k.toFixed(3)); }
     el.style.fontSize = `${(16 * k).toFixed(2)}px`; // אינליין — פארן בילד
   });
@@ -377,20 +390,20 @@ function render(main) {
   main.innerHTML = `<style>${BK_CSS}${MZ_CSS}</style>
     <div class="lx-bar">
       <button type="button" class="btn ghost" id="bk-back">← זמנים ולוחות</button>
-      ${onView ? '<div class="lang-switch"><button type="button" data-v="week">שבועי</button><button type="button" data-v="month">חודשי</button><button type="button" class="on">חוברת</button><button type="button" data-v="cycle">לוח מחזור</button></div>' : ''}
+      ${onView ? '<div class="lang-switch"><button type="button" data-v="week">שבועי</button><button type="button" data-v="month">חודשי</button><button type="button" data-v="cycle">לוח מחזור</button></div><button type="button" class="btn mz-kbtn on">📘 קונטרס</button>' : ''}
       <button type="button" class="btn" id="bk-prev">‹ הקודם</button>
-      <b class="lx-title">חוברת ${h(monthName(p))} ${h(yearHe(cur.Y))}</b>
+      <b class="lx-title">קונטרס ${h(monthName(p))} ${h(yearHe(cur.Y))}</b>
       <button type="button" class="btn" id="bk-next">הבא ›</button>
       <select id="bk-mon" title="חודש">${buildYear(cur.Y).pages.map((x, i) => `<option value="${i}"${i === cur.ix ? ' selected' : ''}>${h(monthName(x))}</option>`).join('')}</select>
       <select id="bk-year" title="שנה">${[cur.Y - 1, cur.Y, cur.Y + 1, cur.Y + 2].map((y) => `<option value="${y}"${y === cur.Y ? ' selected' : ''}>${h(yearHe(y))}</option>`).join('')}</select>
       <span class="spacer"></span>
-      <button type="button" class="btn primary" id="bk-make">⬇ הפקת החוברת (PDF)</button>
+      <button type="button" class="btn primary" id="bk-make">⬇ הפקת הקונטרס (PDF)</button>
       <button type="button" class="btn ghost" id="bk-files">⚙ קבצי הספר</button>
     </div>
     ${books.every(Boolean) ? '' : `<p class="lx-warn">⚠ צריך להעלות פעם אחת את שני חלקי הספר (⚙ קבצי הספר), מחובר עם חשבון הדאטאבייס. חסר: ${[1, 2].filter((v) => !books[v - 1]).map((v) => (v === 1 ? 'חלק א\'' : 'חלק ב\'')).join(', ')}</p>`}
     <div class="bk-panel">
       <section class="bk-sum">
-        <h4>📖 תוכן החוברת</h4>
+        <h4>📖 תוכן הקונטרס</h4>
         <p>מצוה <b>${h(numHe(a))}</b> (${h(mitzvaYomis(isoOf(p.monthDays[0].n)).text)}) — עד מצוה <b>${h(numHe(b))}</b></p>
         ${ranges.map((r) => `<p>חלק ${r.vol === 1 ? 'א\'' : 'ב\''}: מצוה ${h(numHe(r.a))}–${h(numHe(r.b))} · עמודים ${r.from}–${r.to} בקובץ (${r.to - r.from + 1} עמ')</p>`).join('')}
         <p>4 עמודי פתיחה + ${bookN} עמודי ספר + כריכה אחורית${total > totalRaw ? ` + ${total - totalRaw} עמודים לבנים` : ''} = <b>${total} עמודים</b> (${total / 4} גליונות)</p>
@@ -496,7 +509,7 @@ function dedDialog(main, d, key) {
 }
 
 function textDialog(main) {
-  const { dlg, close } = dialog(`<h3>✏ טקסטים קבועים בחוברת</h3>
+  const { dlg, close } = dialog(`<h3>✏ טקסטים קבועים בקונטרס</h3>
     <p class="muted small">סימנים בתחילת שורה: <b>#</b> רווח = גדול מאוד · <b>##</b> רווח = גדול ומודגש · <b>~</b> רווח = קטן · <b>---</b> = קו מפריד. שורה ריקה = רווח.</p>
     <label>שער — החלק התחתון (מופץ ע"י, טלפון, מייל)</label><textarea name="cover" rows="7" dir="rtl">${h(setting('cover_text'))}</textarea>
     <label>עמוד 4 — פרטי המכון והשיעור</label><textarea name="info" rows="13" dir="rtl">${h(setting('info_text'))}</textarea>
@@ -560,7 +573,7 @@ function filesDialog(main) {
 
 function makeDialog(main) {
   const p = pageOf(cur); p.Y = cur.Y;
-  const { dlg, close } = dialog(`<h3>⬇ חוברת ${h(monthName(p))} ${h(yearHe(cur.Y))}</h3>
+  const { dlg, close } = dialog(`<h3>⬇ קונטרס ${h(monthName(p))} ${h(yearHe(cur.Y))}</h3>
     <label><input type="radio" name="kind" value="single" checked style="width:auto"> עמודים בודדים (לבית דפוס / למייל)</label>
     <label><input type="radio" name="kind" value="imposed" style="width:auto"> להדפסה בבית — 2 עמודים על דף Letter, בסדר של חוברת</label>
     <label><input type="radio" name="kind" value="both" style="width:auto"> שניהם</label>
@@ -589,6 +602,6 @@ export async function fillBookletCard(el, contactId) {
   try { await loadData(); } catch { return; }
   const mine = deds.filter((d) => d.contact_id === String(contactId));
   if (!mine.length) { el.innerHTML = ''; return; }
-  el.innerHTML = `<section><h3>📜 הנצחות בחוברת מצוה יומית</h3>${mine.map((d) => `<div class="kv"><span>${h(monthLabel(d.month))}</span>
+  el.innerHTML = `<section><h3>📜 הנצחות בקונטרס מצוה יומית</h3>${mine.map((d) => `<div class="kv"><span>${h(monthLabel(d.month))}</span>
     <span>${h(kindOf(d.kind)[1])} ${h(d.name)}${d.amount && d.kind === 'nedavas' ? ` · <b dir="ltr">$${h(d.amount)}</b>` : ''}</span></div>`).join('')}</section>`;
 }

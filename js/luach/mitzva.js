@@ -153,7 +153,8 @@ function render(main) {
   main.innerHTML = `<style>${CSS}</style>
     <div class="lx-bar">
       <button type="button" class="btn ghost" id="mz-back">← זמנים ולוחות</button>
-      <div class="lang-switch"><button type="button" data-v="week" class="${view === 'week' ? 'on' : ''}">שבועי</button><button type="button" data-v="month" class="${view === 'month' ? 'on' : ''}">חודשי</button><button type="button" data-v="booklet">חוברת</button><button type="button" data-v="cycle">לוח מחזור</button></div>
+      <div class="lang-switch"><button type="button" data-v="week" class="${view === 'week' ? 'on' : ''}">שבועי</button><button type="button" data-v="month" class="${view === 'month' ? 'on' : ''}">חודשי</button><button type="button" data-v="cycle">לוח מחזור</button></div>
+      <button type="button" class="btn mz-kbtn" data-v="booklet">📘 קונטרס החודש</button>
       <button type="button" class="btn" id="mz-prev">‹ הקודם</button>
       <b class="lx-title">${h(label)}</b>
       <button type="button" class="btn" id="mz-next">הבא ›</button>
