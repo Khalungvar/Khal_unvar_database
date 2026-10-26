@@ -156,6 +156,7 @@ function pageHtml(p, print = false) {
     ${SIDE_HEAD}
     <div class="lx-zm">${zRows}</div>
     <div class="lx-mz">${mRows}</div>
+    ${shab.length > 4 ? '<div class="lx-b5"><i></i><i></i><i></i></div>' : ''}
     <div class="lx-bt">${bt}</div>
   </div>`;
 }
