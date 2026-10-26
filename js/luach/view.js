@@ -121,6 +121,12 @@ function cellHtml(d, r, c, page) {
     </div>
   </div>`;
 }
+// כל ליניעס פון דער טאבעלע — איין דיקקייט און איין פארב, פארבונדן
+const LW = 1; const GX = [...COLS].reverse().concat([COLS[0] + COL_W]); const GY = [...ROW_T, ROW_T[4] + ROW_H];
+const GRID_LINES = [
+  ...GX.map((x) => `<div class="lx-gl" style="left:${x - LW / 2}pt;top:${GY[0] - LW / 2}pt;width:${LW}pt;height:${GY[5] - GY[0] + LW}pt"></div>`),
+  ...GY.map((y) => `<div class="lx-gl" style="left:${GX[0] - LW / 2}pt;top:${y - LW / 2}pt;width:${GX[7] - GX[0] + LW}pt;height:${LW}pt"></div>`),
+].join('');
 const pos = (c, r) => `left:${COLS[c]}pt;top:${ROW_T[r]}pt;width:${COL_W}pt;height:${ROW_H}pt`;
 const MONTH_HE = { Tishri: 'תשרי', Heshvan: 'חשון', Kislev: 'כסלו', Tevet: 'טבת', Shevat: 'שבט', Adar: 'אדר', 'Adar I': 'אדר א\'', 'Adar II': 'אדר ב\'', Nisan: 'ניסן', Iyar: 'אייר', Sivan: 'סיון', Tamuz: 'תמוז', Av: 'מנחם-אב', Elul: 'אלול' };
 const monthName = (k) => MONTH_HE[k] || k;
@@ -157,7 +163,7 @@ function pageHtml(p, print = false) {
     <div class="lx-band"></div><div class="lx-days">${DAY_HE.map((n, c) => `<div style="left:${COLS[c]}pt;width:${COL_W}pt"><b>${n}</b><span>${DAY_EN[c]}</span></div>`).join('')}</div>
     ${cells.join('')}
     ${carried ? `<div class="lx-carry" style="left:${COLS[6]}pt;top:${ROW_T[4] + ROW_H - 0.6}pt" title="ל' — בעמוד הבא">ל<span>›</span></div>` : ''}
-    <div class="lx-frame"></div>${COLS.slice(0, 6).map((x) => `<div class="lx-vl" style="left:${x}pt"></div>`).join('')}
+    ${GRID_LINES}
     ${adarBanner}
     ${SIDE_HEAD}
     <div class="lx-zm">${zRows}</div>
