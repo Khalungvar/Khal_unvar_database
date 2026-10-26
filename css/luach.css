@@ -143,3 +143,25 @@
 
 .lx-dst { white-space: nowrap; text-align: center; }
 .lx-dst .lx-dsten { font-family: 'SfaradyMedium', 'Cambria', serif; font-size: 6.5pt; }
+
+/* דער יארצייט פון בעל משנה הלכות: די ליכט רעכטס, דער טעקסט לינקס דערפון (ווי אינעם לוח) */
+.lx-rc > .lx-rebbe { flex-direction: row; align-self: flex-start; gap: 1.5pt; font-size: 5.5pt; line-height: 1.12; }
+.lx-rc > .lx-rebbe img { width: auto; height: 17pt; }
+.lx-rc > .lx-rebbe b { font-size: 7.7pt; }
+
+/* בילד פון יו"ט: אלעמאל אין דער פינקל אונטן רעכטס, די זעלבע גרייס; קיין טעקסט גייט נישט דערויף */
+.lx-ic { top: auto !important; bottom: 2pt; right: 2pt; max-height: none !important; max-width: none; object-fit: contain; object-position: right bottom; }
+.lx-cell:has(.lx-ic) .lx-bot, .lx-cell:has(.lx-ic) .lx-omer { margin-right: var(--icw); }
+.lx-cell:has(.lx-ic) .lx-bot > * { align-self: center !important; }
+.lx-cell:has(.lx-ic) .lx-rc { padding-bottom: var(--ich); }
+
+.lx-head { padding: 0 8pt; box-sizing: border-box; }
+.lx-mname, .lx-mazal { flex: 0 0 auto; white-space: nowrap; }
+.lx-greg { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; }
+.lx-greg .lx-f { transform-origin: left center !important; }
+.lx-rc > .lx-rebbe { font-size: 4.7pt; gap: 1pt; }
+.lx-rc > .lx-rebbe b { font-size: 6.6pt; }
+.lx-rc > .lx-rebbe img { height: 15pt; }
+/* "ל›" — בולט: א ראטע לשונית אונטער דער טאבעלע */
+.lx-carry { width: 28pt !important; height: 15pt !important; background: #97214c !important; color: #fff !important; border: none !important; border-radius: 0 0 5pt 5pt; font-size: 11pt !important; box-shadow: 0 1.5pt 3pt rgba(0,0,0,.35); }
+.lx-carry span { font-size: 13pt !important; }

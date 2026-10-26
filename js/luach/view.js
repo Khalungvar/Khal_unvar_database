@@ -69,7 +69,7 @@ function build(Y) {
 }
 
 // ---------- איין טאג ----------
-const ICON_SIZE = { shofar: [44, 28], yk: [34, 31], sukkos: [26, 37], sukkos2: [28, 37], chm: [30, 22], scroll: [40, 20], scroll2: [36, 18], menorah: [32, 30], fruit: [44, 31], purim: [38, 22], seder: [36, 24], matza: [26, 18], matza2: [26, 18], flowers: [30, 24] };
+const ICON_SIZE = { shofar: [35, 22], yk: [33, 30], sukkos: [21, 30], sukkos2: [23, 30], chm: [27, 20], scroll: [35, 18], scroll2: [36, 18], menorah: [25, 24], fruit: [34, 24], purim: [32, 18], seder: [33, 22], matza: [23, 16], matza2: [23, 16], flowers: [30, 24] }; // [ברייט, הייך] pt
 function cellHtml(d, r, c, page) {
   if (!d) return `<div class="lx-cell lx-empty" style="${pos(c, r)}"></div>`;
   const items = d.items;
@@ -100,10 +100,10 @@ function cellHtml(d, r, c, page) {
   const rightCol = [];
   if (rebbe) rightCol.push(`<div class="lx-rebbe"><img src="img/luach/candle.png" alt=""><div>כ"ק אדמו"ר הגה"ק<br>בעל <b>משנה</b><br><b>הלכות</b> זצוקללה"ה</div></div>`);
   if (icon || rebbe) bottom.unshift(...side); else rightCol.push(...side);
-  return `<div class="lx-cell${d.shade ? ' lx-shade' : ''}" data-iso="${d.iso}" style="${pos(c, r)}">
+  return `<div class="lx-cell${d.shade ? ' lx-shade' : ''}" data-iso="${d.iso}" style="${pos(c, r)}${icon ? `;--icw:${ICON_SIZE[icon.icon][0] + 2}pt;--ich:${ICON_SIZE[icon.icon][1] + 2}pt` : ''}">
     <span class="lx-g">${d.greg}</span>
     <span class="lx-d">${prevMonth}${h(d.heDay)}</span>
-    ${icon ? `<img class="lx-ic" src="img/luach/${icon.icon}.png" alt="" style="width:${ICON_SIZE[icon.icon][0]}pt">` : ''}
+    ${icon ? `<img class="lx-ic" src="img/luach/${icon.icon}.png" alt="" style="width:${ICON_SIZE[icon.icon][0]}pt;height:${ICON_SIZE[icon.icon][1]}pt">` : ''}
     <div class="lx-body">
       <div class="lx-r1">
         <div class="lx-hol">${hol.map((x) => `<div${x.edit ? ' class="lx-ed"' : ''}>${fitText(x.text)}</div>`).join('')}</div>
@@ -150,7 +150,7 @@ function pageHtml(p, print = false) {
       <span class="lx-bp">${fitText(shortName(d))}</span><span>${hhmm(d.zm.chatzos)}</span><span>${hhmm(d.zm.graKS, 'floor')}</span></div>`).join('');
   return `<div class="lx-page${print ? ' lx-print' : ''}" dir="rtl">
     <img class="lx-tmpl" src="img/luach/${print ? 'tmpl-print' : 'tmpl'}.jpg" alt="">
-    <div class="lx-head"><span class="lx-mname">${h(p.he === 'אב' ? 'מנחם-אב' : p.he)}</span><span class="lx-mazal">${h(p.mazal)}</span><span class="lx-greg" dir="ltr">${h(greg)}</span></div>
+    <div class="lx-head"><span class="lx-mname">${h(p.he === 'אב' ? 'מנחם-אב' : p.he)}</span><span class="lx-mazal">${h(p.mazal)}</span><span class="lx-greg" dir="ltr">${fitText(greg)}</span></div>
     <div class="lx-band"></div><div class="lx-days">${DAY_HE.map((n, c) => `<div style="left:${COLS[c]}pt;width:${COL_W}pt"><b>${n}</b><span>${DAY_EN[c]}</span></div>`).join('')}</div>
     ${cells.join('')}
     ${carried ? `<div class="lx-carry" style="left:${COLS[6]}pt;top:${ROW_T[4] + ROW_H + 1.5}pt" title="ל' — בעמוד הבא">ל<span>›</span></div>` : ''}
@@ -187,18 +187,45 @@ const SIDE_HEAD = [
   sh(757.2, 770, 69.2, 81.1, 'יום'), sh(674.6, 757.2, 69.2, 81.1, 'מצוה'),
   sh(122.5, 145.2, 408.9, 417.7, 'פרשת', ' lx-dark'), sh(122.5, 145.2, 417.7, 426.4, 'חצות'), sh(122.5, 145.2, 426.4, 435.1, 'זק"ש <small>גר"א</small>'),
 ].join('');
+/** א משבצת מיט צו פיל זאכן: מ'פארקלענערט אביסל די שריפט (ביז 70%), אז גארנישט זאל ארויפגיין אדער אריינגיין איינס אין צווייטן */
+function fitCells(root) {
+  const hit = (a, b) => a && b && a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+  $$('.lx-body', root).forEach((body) => {
+    // נאר די זאכן אין דער מיט און אונטן ווערן קלענער — דער נאמען פונעם יו"ט און די פרשה בלייבן
+    const parts = $$(':scope > .lx-r2 .lx-rc, :scope > .lx-bot, :scope > .lx-omer', body);
+    parts.forEach((el) => { el.style.zoom = ''; });
+    const t = $('.lx-t', body); const r1 = $(':scope > .lx-r1', body);
+    const crowded = () => {
+      if (body.scrollHeight > body.clientHeight + 1) return true;
+      const tr = t?.getBoundingClientRect(); const r1r = r1?.getBoundingClientRect();
+      const kids = $$(':scope > .lx-r2 .lx-rc > *, :scope > .lx-bot > *, :scope > .lx-omer', body).map((el) => el.getBoundingClientRect());
+      return kids.some((k) => hit(k, tr) || (r1r && k.top < r1r.bottom - 0.5));
+    };
+    for (let z = 0.95; z >= 0.8 && crowded(); z -= 0.05) parts.forEach((el) => { el.style.zoom = String(z); });
+    // דער יארצייט פון בעל משנה הלכות: אזוי ברייט ווי ס'איז דא פלאץ (נישט אויף דער צייט)
+    const rb = $('.lx-rebbe', body); const rc = rb?.parentElement;
+    if (rb && rc) {
+      rb.style.zoom = '';
+      const cw = rc.getBoundingClientRect().width; const w = rb.getBoundingClientRect().width;
+      if (w > cw && w > 0) rb.style.zoom = String(Math.max(0.6, cw / w).toFixed(3));
+    }
+  });
+}
 /** דאס בילד פון יו"ט: אונטער די שורות פונעם נאמען, און איבער די זאכן אונטן — קיינמאל נישט אויף א טעקסט */
 function placeIcons(root) {
   const PT = 4 / 3;
-  $$('.lx-ic', root).forEach((img) => {
-    const cell = img.parentElement; const body = $('.lx-body', cell); if (!body) return;
+  const list = $$('.lx-ic', root).map((img) => {
+    const cell = img.parentElement; const body = $('.lx-body', cell); if (!body) return null;
     const hol = $('.lx-hol', cell); const r1 = $('.lx-r1', cell);
     const top = Math.max(27 * PT, body.offsetTop + (r1 ? r1.offsetTop + r1.offsetHeight : 0) + 1.5 * PT, hol ? body.offsetTop + hol.offsetTop + hol.offsetHeight + 1.5 * PT : 0);
     const lows = [$('.lx-bot', cell), $('.lx-omer', cell)].filter(Boolean).map((el) => body.offsetTop + el.offsetTop);
     const bottom = Math.min(cell.clientHeight - 2 * PT, ...lows.map((y) => y - 1 * PT));
-    img.style.top = `${top}px`;
-    img.style.maxHeight = `${Math.max(12 * PT, Math.min(31 * PT, bottom - top))}px`;
-  });
+    return { img, top, room: Math.max(12 * PT, Math.min(31 * PT, bottom - top)) };
+  }).filter(Boolean);
+  // דאס זעלבע בילד אויף דעם בלאט (צוויי טעג יו"ט) — די זעלבע גרייס, לויט דעם ענגסטן טאג
+  const minBy = {};
+  list.forEach((x) => { const k = x.img.getAttribute('src').replace(/2?\.png$/, ''); minBy[k] = Math.min(minBy[k] ?? Infinity, x.room); x.k = k; });
+  list.forEach((x) => { x.img.style.top = `${x.top}px`; x.img.style.maxHeight = `${minBy[x.k]}px`; });
 }
 function shortName(d) {
   const hol = d.items.find((x) => x.kind === 'hol' && x.yt);
@@ -262,7 +289,7 @@ export async function renderLuach() {
     w.scrollLeft = zoom > 1 ? Math.max(0, rx * w.scrollWidth - w.clientWidth / 2) : 0;
   }; });
   fit(main);
-  fitAll(main); placeIcons(main); document.fonts?.ready.then(() => { fitAll(main); placeIcons(main); });
+  fitCells(main); fitAll(main); document.fonts?.ready.then(() => { fitCells(main); fitAll(main); });
   $('#lx-prev', main).onclick = () => go(-1);
   $('#lx-next', main).onclick = () => go(1);
   $('#lx-year', main).onchange = (e) => { year = Number(e.target.value); pageIx = 0; renderLuach(); };
@@ -360,7 +387,7 @@ function printPages(list) {
   // צו מעסן מוז מען זען דעם בלאט — פאר א רגע אויסער'ן מסך
   area.style.cssText = 'display:block;position:fixed;left:-20000px;top:0';
   Promise.all([document.fonts?.ready, ...imgs.map((im) => (im.complete ? 1 : new Promise((r) => { im.onload = r; im.onerror = r; })))]).then(() => {
-    fitAll(area); placeIcons(area); area.style.cssText = '';
+    fitCells(area); fitAll(area); area.style.cssText = '';
     setTimeout(() => window.print(), 200);
   });
 }

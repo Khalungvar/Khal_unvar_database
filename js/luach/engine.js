@@ -370,7 +370,7 @@ export function buildYear(Y, extra = {}, opts = {}) {
   // ---- טעג, זמנים, פרשה ----
   const S = sedra(Y);
   const SP = sedra(Y - 1);
-  const ytDay = (n) => (map.get(isoOf(n)) || []).some((x) => x.yt);
+  const ytDay = (n) => n === I.next || n === I.next + 1 || (map.get(isoOf(n)) || []).some((x) => x.yt); // ר"ה פונעם קומענדיגן יאר אויך
   const out = [];
   for (let n = T(1) - 1; n < I.next; n += 1) {
     const iso = isoOf(n); const h = hdOf(n);
