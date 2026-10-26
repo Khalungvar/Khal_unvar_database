@@ -50,11 +50,16 @@ const CSS = `
 .mz-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-content:start}
 .mz-month .mz-par{background:#111;color:#fff;border:none;font-size:16px;margin:12px 0 3px;padding:4px 0}
 .mz-month .mz-par:first-child{margin-top:0}
-.mz-ln{display:flex;align-items:stretch;border-bottom:1px solid #8a8780;font-size:14px;white-space:nowrap}
-.mz-ln .mz-dd{background:#111;color:#fff;font-family:'Livorna','FontbitLivorna',serif;font-weight:700;padding:4px 6px;min-width:92px;display:flex;justify-content:space-between;gap:4px}
-.mz-ln .mz-mm{font-family:'Guttman David','David',serif;padding:4px 6px;display:flex;gap:5px;flex:1;min-width:0;overflow:hidden}
-.mz-ln .mz-mm b{min-width:30px}
-.mz-ln .mz-mm span{overflow:hidden;text-overflow:ellipsis}
+.mz-ln{display:flex;align-items:center;gap:8px;padding:3px 2px;border-bottom:1px dotted #9a8f7a;white-space:nowrap}
+.mz-ln:last-child{border-bottom:none}
+.mz-dd{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:34px;padding-left:8px;border-left:1.5px solid #b08a3e;line-height:1.05}
+.mz-dd b{font-family:'Livorna','FontbitLivorna',serif;font-weight:700;font-size:17px;color:#111}
+.mz-dd small{font-family:'Livorna','FontbitLivorna',serif;font-size:10px;color:#6b5a3a}
+.mz-ln.mz-shb .mz-dd b,.mz-ln.mz-shb .mz-dd small{color:#97214c}
+.mz-mm{display:flex;align-items:center;gap:7px;flex:1;min-width:0;font-family:'Guttman David','David',serif;font-size:14px}
+.mz-mm i{font-style:normal;font-weight:700;font-size:11px;min-width:24px;height:22px;padding:0 3px;box-sizing:border-box;border:1.3px solid #111;border-radius:11px;display:flex;align-items:center;justify-content:center}
+.mz-mm span{overflow:hidden;text-overflow:ellipsis}
+.mz-ln.mz-shb .mz-mm span{font-weight:700}
 `;
 
 function weekHtml(fri) {
@@ -76,8 +81,8 @@ const SHORT = ['א\'', 'ב\'', 'ג\'', 'ד\'', 'ה\'', 'ו\'', 'ש"ק'];
 function block(n) {
   const m = mitzvaYomis(isoOf(n)); const dw = dowOf(n);
   const x = hdOf(n);
-  return `<div class="mz-ln"><span class="mz-dd"><span>${dw === 6 ? 'שבת' : `יום ${SHORT[dw]}`}</span><span>${h(hnum(x.d))}</span></span>
-    <span class="mz-mm"><b>${h(m.num)}.</b><span>${h(m.text)}</span></span></div>`;
+  return `<div class="mz-ln${dw === 6 ? ' mz-shb' : ''}"><span class="mz-dd"><b>${h(hnum(x.d))}</b><small>${dw === 6 ? 'שבת' : `יום ${SHORT[dw]}`}</small></span>
+    <span class="mz-mm"><i>${h(m.num)}</i><span>${h(m.text)}</span></span></div>`;
 }
 function monthHtml(page) {
   // וואכן (פון זונטאג), יעדע וואך מיט דער פרשה; צוויי טורים — צעטיילט לויט וואכן, אזוי גלייך ווי מעגליך
