@@ -177,7 +177,7 @@ function fitAll(root) {
     if (natural > avail - 1 && avail > 0) { el.style.width = `${avail - 1}px`; el.style.transform = `scaleX(${((avail - 1) / natural).toFixed(3)})`; }
   });
 }
-const sh = (x1, x2, y1, y2, html, cls = '') => `<div class="lx-sh${cls}" style="left:${x1}pt;width:${x2 - x1}pt;top:${y1}pt;height:${y2 - y1}pt">${html}</div>`;
+const sh = (x1, x2, y1, y2, html, cls = '') => `<div class="lx-sh${cls}" style="left:${x1}pt;width:${x2 - x1}pt;top:${y1}pt;height:${y2 - y1}pt"><span class="lx-f">${html}</span></div>`;
 const SIDE_HEAD = [
   sh(131.5, 145.2, 69.2, 81.1, 'יום'), sh(111.2, 131.3, 69.2, 81.1, 'נץ החמה'), sh(92.7, 111.2, 69.2, 81.1, 'זק"ש <small>מ"א</small>'),
   sh(72.9, 92.7, 69.2, 81.1, 'שקיעה'), sh(47.1, 72.9, 69.2, 81.1, 'דף היומי'),

@@ -137,3 +137,6 @@
 .lx-t .lx-tl, .lx-t .lx-tv { display: block; width: 100%; text-align: center; margin: 0; }
 .lx-t .lx-tv { padding-right: 0.8pt; box-sizing: border-box; } /* דער שריפט איז שיף — א ביסל צוריק אין דער מיט */
 .lx-body:has(.lx-t) .lx-r2 { padding-left: 23pt; }
+
+.lx-sh { padding: 0 1pt; box-sizing: border-box; overflow: hidden; }
+.lx-sh .lx-f { text-align: center; }
