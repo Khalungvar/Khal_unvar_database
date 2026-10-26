@@ -182,19 +182,25 @@ function renderLobby() {
           <b>${h(displayName(state.email))}</b>
           <span class="muted small">${h(unreadCount() || tasksDueCount() ? t('pmUnreadSub2', { n: unreadCount(), m: tasksDueCount() }) : t('lobbyPersonal'))}</span>
         </button>
-        <div class="lobby-quicks">
         <button type="button" class="lobby-quick" data-quick="contact">＋ ${h(t('quickContact'))}</button>
         <button type="button" class="lobby-quick" data-quick="donation">＋ ${h(t('quickDonation'))}</button>
         <button type="button" class="lobby-quick" data-quick="occasion">＋ ${h(t('quickOccasion'))}</button>
         <button type="button" class="lobby-quick lobby-gtd" data-quick="gtodo">☑ ${h(t('gtdName'))} <span class="count-pill" id="gtd-count"${generalOpenCount() ? '' : ' hidden'}>${generalOpenCount()}</span></button>
-        </div>
       </div>
     </div>
-    <div class="lobby-row">
+    <div class="lobby-grid">
       ${tile('umbrella', orgLogo(umbrellaName()) ? `<img class="tile-logo" src="${orgLogo(umbrellaName())}" alt="">` : '🏛', umbrellaName(), t('lobbyAllSub', { n: alive }), 'data-primary')}
-      ${typeTile(ORG_FIELDS[0], '🕍')}
-      ${typeTile(ORG_FIELDS[1], '📖')}
-      ${typeTile(ORG_FIELDS[2], '🤝')}
+      ${tile('lists', '📋', t('readyLists'), t('lobbyListsSub', { n: state.savedLists.length }))}
+      ${tile('mailmerge', '✉', 'Mail Merge', t('lobbyMailSub'))}
+      ${tile('simchos', '🍷', t('lobbySimchos'), t('lobbySimchosSub'))}
+      <div class="lobby-pair">${typeTile(ORG_FIELDS[0], '🕍')}${typeTile(ORG_FIELDS[1], '📖')}</div>
+      ${tile('donations', '💰', t('lobbyDonations'), t('lobbyDonationsSub', { n: state.donations.length }))}
+      ${tile('receipts', '🧾', 'Invoice & Receipt', t('lobbyReceiptsSub'))}
+      ${tile('occasions', '🕯', t('lobbyOccasions'), t('lobbyOccasionsSub', { n: upcomingWeek() }))}
+      <div class="lobby-pair">${typeTile(ORG_FIELDS[2], '🤝')}${tile('area', '📍', t('area'), t('lobbyAreaSub', { n: areas.length }))}</div>
+      ${tile('faces', '📸', t('fcTitle'), t('fcTileSub', { n: (state.faceEvents || []).length }))}
+      ${tile('calls', '📞', 'Calls & SMS', t('lobbyCallsSub'))}
+      ${tile('books', `<img class="tile-logo bk-tile-logo" src="${BOOKS_LOGO}" alt="">`, BOOKS_ORG, t('bkTileSub', { n: allBooks().length }))}
     </div>
     ${open ? `<div class="lobby-choose">
       <span class="muted">${h(t('lobbyChoose'))}</span>
@@ -202,25 +208,11 @@ function renderLobby() {
       ${(state.lists[open[0]] || []).map((v) => `<button type="button" class="btn primary lobby-pick" data-scope-type="${open[0]}" data-scope-value="${h(v)}">${orgLogo(v) ? `<img src="${orgLogo(v)}" alt="">` : ''}${h(v)}
         <span class="count-pill">${currentCount(open[0], v)}</span></button>`).join('')}
     </div>` : ''}
-    <div class="lobby-row lobby-row4">
-      ${tile('area', '📍', t('area'), t('lobbyAreaSub', { n: areas.length }))}
-      ${tile('donations', '💰', t('lobbyDonations'), t('lobbyDonationsSub', { n: state.donations.length }))}
-      ${tile('occasions', '🕯', t('lobbyOccasions'), t('lobbyOccasionsSub', { n: upcomingWeek() }))}
-      ${tile('simchos', '🍷', t('lobbySimchos'), t('lobbySimchosSub'))}
-    </div>
     ${lobbyOpen === 'area' ? `<div class="lobby-choose">
       <span class="muted">${h(t('lobbyChoose'))}</span>
       ${areas.map((a) => `<button type="button" class="btn primary" data-area="${h(a)}">${h(a)} <span class="count-pill">${areaCount(a)}</span></button>`).join('')}
       <button type="button" class="btn" data-area="${NO_AREA}">${h(t('noArea'))} <span class="count-pill">${areaCount(NO_AREA)}</span></button>
-    </div>` : ''}
-    <div class="lobby-row lobby-row6">
-      ${tile('lists', '📋', t('readyLists'), t('lobbyListsSub', { n: state.savedLists.length }))}
-      ${tile('mailmerge', '✉', 'Mail Merge', t('lobbyMailSub'))}
-      ${tile('calls', '📞', 'Calls & SMS', t('lobbyCallsSub'))}
-      ${tile('receipts', '🧾', 'Invoice & Receipt', t('lobbyReceiptsSub'))}
-      ${tile('faces', '📸', t('fcTitle'), t('fcTileSub', { n: (state.faceEvents || []).length }))}
-      ${tile('books', `<img class="tile-logo bk-tile-logo" src="${BOOKS_LOGO}" alt="">`, BOOKS_ORG, t('bkTileSub', { n: allBooks().length }))}
-    </div>`;
+    </div>` : ''}`;
 }
 
 /** וויפיל מאורעות זענען די קומענדיגע וואך (פאר דעם לאבי). */
