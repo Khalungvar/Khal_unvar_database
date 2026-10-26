@@ -151,7 +151,7 @@ function pageHtml(p, print = false) {
     <div class="lx-band"></div><div class="lx-days">${DAY_HE.map((n, c) => `<div style="left:${COLS[c]}pt;width:${COL_W}pt"><b>${n}</b><span>${DAY_EN[c]}</span></div>`).join('')}</div>
     ${cells.join('')}
     ${adarBanner}
-    ${carried ? `<div class="lx-carry" style="left:${COLS[6]}pt;top:${ROW_T[4] + ROW_H - 22}pt">ל<span>›</span></div>` : ''}
+    ${carried ? `<div class="lx-carry" style="left:${COLS[6]}pt;top:${ROW_T[4] + ROW_H + 1.5}pt" title="ל' — בעמוד הבא">ל<span>›</span></div>` : ''}
     <div class="lx-frame"></div>${COLS.slice(0, 6).map((x) => `<div class="lx-vl" style="left:${x}pt"></div>`).join('')}
     ${SIDE_HEAD}
     <div class="lx-zm">${zRows}</div>
