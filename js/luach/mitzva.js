@@ -44,21 +44,26 @@ const CSS = `
 .mz-row{display:flex;gap:6px;align-items:baseline;border-bottom:1px solid #8a8780;padding:2px 6px;font-family:'Guttman David','David',serif;font-size:13.5px;white-space:nowrap;overflow:hidden}
 .mz-n{font-weight:700;min-width:50px}
 .mz-t{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis}
+.mz-week .mz-title{font-size:22px;margin:0 0 3px;line-height:1.1}
+.mz-week .mz-day{font-size:17px;padding:1px 6px;margin-top:2px;line-height:1.2}
+.mz-week .mz-day span:last-child{font-size:18px}
+.mz-week .mz-row{font-size:14px;padding:1px 6px;line-height:1.25}
+.mz-week .mz-par{font-size:20px;margin:5px 0 2px;padding-top:3px;line-height:1.15}
 .mz-month{width:528px;height:816px;padding:24px 22px;box-sizing:border-box;display:flex;flex-direction:column}
-.mz-month .mz-title{font-size:28px;margin-bottom:4px}
+.mz-month .mz-title{font-size:24px;margin-bottom:14px;white-space:nowrap;color:#97214c}
 .mz-month .mz-sub{font-size:18px;margin:0 0 14px}
 .mz-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-content:start}
-.mz-month .mz-par{background:#111;color:#fff;border:none;font-size:16px;margin:12px 0 3px;padding:4px 0}
+.mz-month .mz-par{background:linear-gradient(90deg,#6e1736,#97214c,#6e1736);color:#fff3d6;border:none;font-size:16px;margin:12px 0 3px;padding:4px 0}
 .mz-month .mz-par:first-child{margin-top:0}
 .mz-ln{display:flex;align-items:center;gap:8px;padding:3px 2px;border-bottom:1px dotted #9a8f7a;white-space:nowrap}
 .mz-ln:last-child{border-bottom:none}
 .mz-dd{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:34px;padding-left:8px;border-left:1.5px solid #b08a3e;line-height:1.05}
-.mz-dd b{font-family:'Livorna','FontbitLivorna',serif;font-weight:700;font-size:17px;color:#111}
-.mz-dd small{font-family:'Livorna','FontbitLivorna',serif;font-size:10px;color:#6b5a3a}
+.mz-dd b{font-family:'Livorna','FontbitLivorna',serif;font-weight:700;font-size:17px;color:#7a5418}
+.mz-dd small{font-family:'Livorna','FontbitLivorna',serif;font-size:10px;color:#8c7a58}
 .mz-ln.mz-shb .mz-dd b,.mz-ln.mz-shb .mz-dd small{color:#97214c}
 .mz-mm{display:flex;align-items:center;gap:7px;flex:1;min-width:0;font-family:'Guttman David','David',serif;font-size:14px}
-.mz-mm i{font-style:normal;font-weight:700;font-size:11px;min-width:24px;height:22px;padding:0 3px;box-sizing:border-box;border:1.3px solid #111;border-radius:11px;display:flex;align-items:center;justify-content:center}
-.mz-mm span{overflow:hidden;text-overflow:ellipsis}
+.mz-mm i{font-style:normal;font-weight:700;font-size:11px;min-width:24px;height:22px;padding:0 3px;box-sizing:border-box;border:1.3px solid #b08a3e;border-radius:11px;color:#97214c;display:flex;align-items:center;justify-content:center}
+.mz-mm span{overflow:hidden;text-overflow:ellipsis;color:#2a2118}
 .mz-ln.mz-shb .mz-mm span{font-weight:700}
 `;
 
@@ -96,8 +101,7 @@ function monthHtml(page) {
     return `<div class="mz-par">${h(shabbosName(s))}</div>${w.map(block).join('')}`;
   }).join('');
   return `<div class="mz-card mz-month">
-    <div class="mz-title">לימוד מצוה יומית</div>
-    <div class="mz-sub">חודש ${h(MONTH[page.key] || page.he)} ${h(hebrewNumber(page.Y % 1000))}</div>
+    <div class="mz-title">לימוד מצוה יומית - חודש ${h(MONTH[page.key] || page.he)} ${h(hebrewNumber(page.Y % 1000))}</div>
     <div class="mz-cols"><div>${col(weeks.slice(0, cut))}</div><div>${col(weeks.slice(cut))}</div></div>
   </div>`;
 }
