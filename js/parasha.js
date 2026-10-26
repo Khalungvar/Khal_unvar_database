@@ -4,6 +4,7 @@
 // געפרואווט קעגן Hebcal (חו"ל) פאר די יארן תש"ע–תת"ל: גלייך (אחוץ ווען דער בראוזער'ס לוח האט א טעות).
 // צווישן די אנקערס ווערן די פרשיות צוזאמגעשטעלט (ויקהל-פקודי, תזריע-מצורע א.א.וו.) לויט ווי פיל שבתים ס'זענען דא.
 import { toHebrew, fromHebrew, isLeapYear } from './hebdate.js';
+import { sedra, PARSHIYOS } from './luach/engine.js';
 
 // [ענגליש, אידיש/לשון קודש]
 const P = [
@@ -49,47 +50,19 @@ function shabbatot(y, il = false) {
 const tishreiCount = (y, il = false) => shabbatot(y, il).filter((s) => s.h.m === 'Tishri' && s.h.d < 23 && !s.chag).length;
 
 const cache = new Map();
-/** פרשיות פון א יאר: Map(iso → { en, he, ix: [נומערן] }) */
+/** פרשיות פון א יאר: Map(iso → { en, he, ix: [נומערן] }).
+ *  יעצט פונעם לוח (js/luach/engine.js — טאבעלעס פון קביעות, חו"ל און א"י), אזוי שטימט אלעס אויפן אתר מיטן לוח.
+ *  il = ארץ ישראל; אויפן אתר אלעמאל חו"ל (בארא פארק), חוץ ווען ס'שטייט אנדערש. */
 export function yearParshiyot(y, il = false) {
   const ck = `${y}${il ? 'il' : ''}`;
   if (cache.has(ck)) return cache.get(ck);
   const map = new Map();
-  const all = shabbatot(y, il);
-  const leap = isLeapYear(y);
-  const put = (s, ixs) => {
+  for (const [iso, name] of sedra(y, il)) {
+    const ixs = name.split('-').map((x) => PARSHIYOS.indexOf(x));
+    if (ixs.some((i) => i < 0)) continue;
     const en = ixs.map((i) => P[i][0]).join(' ');
-    map.set(s.iso, { en, he: SHORT[en] || ixs.map((i) => P[i][1]).join('-'), ix: ixs });
-  };
-  // תשרי: האזינו (און פריער וילך, ווען ס'זענען דא צוויי שבתים)
-  const tish = all.filter((s) => s.h.m === 'Tishri' && s.h.d < 23 && !s.chag);
-  if (tish.length === 2) { put(tish[0], [IX.Vayeilech]); put(tish[1], [IX["Ha'azinu"]]); } else if (tish.length) put(tish[0], [IX["Ha'azinu"]]);
-  const main = all.filter((s) => !s.chag && !(s.h.m === 'Tishri' && s.h.d < 23));
-  // וילך: אויב איבער א יאר איז נאר איין שבת אין תשרי — צוזאמען מיט נצבים היי-יאר
-  const nitzVay = tishreiCount(y + 1, il) < 2;
-  function ord(x) { const ms = ['Tishri', 'Heshvan', 'Kislev', 'Tevet', 'Shevat', 'Adar', 'Adar I', 'Adar II', 'Nisan', 'Iyar', 'Sivan', 'Tamuz', 'Av', 'Elul']; return ms.indexOf(x.m) * 100 + x.d; }
-  const idxOf = (pred) => main.findIndex(pred);
-  // אנקערס
-  const pesach = idxOf((s) => ord(s.h) >= ord({ m: 'Nisan', d: 15 })) - 1;      // דער לעצטער שבת פאר פסח
-  const nachamu = idxOf((s) => ord(s.h) > ord({ m: 'Av', d: 9 }));              // דער ערשטער שבת נאך ט' באב
-  const segs = leap ? [
-    { from: 0, to: nachamu - 1, first: IX.Bereshit, last: IX.Devarim, pairs: ['Matot', 'Chukat', 'Achrei Mot', 'Behar'].map((k) => IX[k]) },
-  ] : [
-    { from: 0, to: pesach, first: IX.Bereshit, last: IX.Tzav, pairs: [IX.Vayakhel] },
-    { from: pesach + 1, to: nachamu - 1, first: IX.Shmini, last: IX.Devarim, pairs: ['Tazria', 'Achrei Mot', 'Behar', 'Matot', 'Chukat'].map((k) => IX[k]) },
-  ];
-  segs.push({ from: nachamu, to: main.length - 1, first: IX.Vaetchanan, last: nitzVay ? IX.Vayeilech : IX.Nitzavim, pairs: nitzVay ? [IX.Nitzavim] : [] });
-  segs.forEach((g) => {
-    const slots = main.slice(g.from, g.to + 1);
-    const n = g.last - g.first + 1;
-    const need = n - slots.length;
-    const joined = new Set(g.pairs.slice(0, Math.max(0, need)));
-    // די נישט-באנוצטע צוזאמשטעלונגען (שבתים מער ווי פרשיות) — זאל נישט פאסירן
-    let i = g.first;
-    slots.forEach((s) => {
-      if (i > g.last) return;
-      if (joined.has(i)) { put(s, [i, i + 1]); i += 2; } else { put(s, [i]); i += 1; }
-    });
-  });
+    map.set(iso, { en, he: SHORT[en] || ixs.map((i) => P[i][1]).join('-'), ix: ixs });
+  }
   cache.set(ck, map);
   return map;
 }
