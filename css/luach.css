@@ -133,3 +133,7 @@
 .lx-shade .lx-t { background: rgba(255, 255, 255, 0.6); }
 .lx-t .lx-tv { margin-top: 0.5pt; }
 .lx-body:has(.lx-t) .lx-r2 { padding-left: 22pt; }
+.lx-t { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 18.5pt; width: 21pt; padding: 0; direction: rtl; }
+.lx-t .lx-tl, .lx-t .lx-tv { display: block; width: 100%; text-align: center; margin: 0; }
+.lx-t .lx-tv { padding-right: 0.8pt; box-sizing: border-box; } /* דער שריפט איז שיף — א ביסל צוריק אין דער מיט */
+.lx-body:has(.lx-t) .lx-r2 { padding-left: 23pt; }
