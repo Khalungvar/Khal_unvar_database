@@ -4,6 +4,7 @@ import { buildYear, mitzvaYomis, isoOf, nOf, dowOf, hdOf } from './engine.js';
 import { hebrewNumber, todayIso } from '../hebdate.js';
 import { escapeHtml as h } from '../util.js';
 import { htmlToJpeg } from '../pdf.js';
+import { openBooklet } from './booklet.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 export const MONTH = { Tishri: 'תשרי', Heshvan: 'מרחשון', Kislev: 'כסלו', Tevet: 'טבת', Shevat: 'שבט', Adar: 'אדר', 'Adar I': 'אדר א\'', 'Adar II': 'אדר ב\'', Nisan: 'ניסן', Iyar: 'אייר', Sivan: 'סיון', Tamuz: 'תמוז', Av: 'מנחם אב', Elul: 'אלול' };
@@ -125,13 +126,24 @@ function monthAnchorFor(n) {
 }
 
 function render(main) {
+  if (view === 'booklet') {
+    const n = anchor && typeof anchor === 'object' ? null : anchor;
+    const month = n != null ? monthAnchorFor(n) : anchor;
+    anchor = month;
+    openBooklet(main, back, { month, onView: (v, m) => {
+      anchor = m; view = 'month';
+      if (v === 'week') { view = 'week'; anchor = weekStart(buildYear(m.Y).pages[m.ix].monthDays[0].n); }
+      render(main);
+    } });
+    return;
+  }
   const label = view === 'week'
     ? `${dateHe(anchor)} – ${dateHe(anchor + 6)}`
     : (() => { const p = buildYear(anchor.Y).pages[anchor.ix]; return `${MONTH[p.key] || p.he} ${hebrewNumber(anchor.Y % 1000)}`; })();
   main.innerHTML = `<style>${CSS}</style>
     <div class="lx-bar">
       <button type="button" class="btn ghost" id="mz-back">← זמנים ולוחות</button>
-      <div class="lang-switch"><button type="button" data-v="week" class="${view === 'week' ? 'on' : ''}">שבועי</button><button type="button" data-v="month" class="${view === 'month' ? 'on' : ''}">חודשי</button></div>
+      <div class="lang-switch"><button type="button" data-v="week" class="${view === 'week' ? 'on' : ''}">שבועי</button><button type="button" data-v="month" class="${view === 'month' ? 'on' : ''}">חודשי</button><button type="button" data-v="booklet">חוברת</button></div>
       <button type="button" class="btn" id="mz-prev">‹ הקודם</button>
       <b class="lx-title">${h(label)}</b>
       <button type="button" class="btn" id="mz-next">הבא ›</button>
@@ -144,6 +156,7 @@ function render(main) {
   main.querySelectorAll('[data-v]').forEach((b) => { b.onclick = () => {
     const v = b.dataset.v; if (v === view) return;
     const n = view === 'week' ? anchor : buildYear(anchor.Y).pages[anchor.ix].monthDays[0].n;
+    if (v === 'booklet') { anchor = view === 'week' ? monthAnchorFor(n) : anchor; view = 'booklet'; render(main); return; }
     view = v; anchor = v === 'week' ? weekStart(n) : monthAnchorFor(n + (view === 'month' ? 1 : 0));
     render(main);
   }; });

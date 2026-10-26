@@ -354,8 +354,12 @@ function download(bytes, name) {
 // ---------- דער מסך ----------
 export function initBooklet(helpers) { ui = helpers; }
 
-export async function openBooklet(main, onBack) {
+let onView = null;
+/** opts: { month: { Y, ix }, onView(v, month) } — אינעם "לוח מצוה יומית" (שבועי / חודשי / חוברת) */
+export async function openBooklet(main, onBack, opts = {}) {
   back = onBack || back;
+  onView = opts.onView || null;
+  if (opts.month) cur = { ...opts.month };
   if (!cur) cur = currentMonth();
   main.innerHTML = '<p class="muted">…</p>';
   try { await loadData(); } catch (err) { main.innerHTML = `<p class="lx-warn">${h(String(err.message || err))}</p>`; return; }
@@ -373,9 +377,12 @@ function render(main) {
   main.innerHTML = `<style>${BK_CSS}${MZ_CSS}</style>
     <div class="lx-bar">
       <button type="button" class="btn ghost" id="bk-back">← זמנים ולוחות</button>
+      ${onView ? '<div class="lang-switch"><button type="button" data-v="week">שבועי</button><button type="button" data-v="month">חודשי</button><button type="button" class="on">חוברת</button></div>' : ''}
       <button type="button" class="btn" id="bk-prev">‹ הקודם</button>
       <b class="lx-title">חוברת ${h(monthName(p))} ${h(yearHe(cur.Y))}</b>
       <button type="button" class="btn" id="bk-next">הבא ›</button>
+      <select id="bk-mon" title="חודש">${buildYear(cur.Y).pages.map((x, i) => `<option value="${i}"${i === cur.ix ? ' selected' : ''}>${h(monthName(x))}</option>`).join('')}</select>
+      <select id="bk-year" title="שנה">${[cur.Y - 1, cur.Y, cur.Y + 1, cur.Y + 2].map((y) => `<option value="${y}"${y === cur.Y ? ' selected' : ''}>${h(yearHe(y))}</option>`).join('')}</select>
       <span class="spacer"></span>
       <button type="button" class="btn primary" id="bk-make">⬇ הפקת החוברת (PDF)</button>
       <button type="button" class="btn ghost" id="bk-files">⚙ קבצי הספר</button>
@@ -414,6 +421,13 @@ function render(main) {
     cur = { Y, ix }; render(main);
   };
   $('#bk-prev', main).onclick = () => step(-1);
+  $('#bk-mon', main).onchange = (e) => { cur = { Y: cur.Y, ix: Number(e.target.value) }; render(main); };
+  $('#bk-year', main).onchange = (e) => {
+    const Y = Number(e.target.value); const key = pageOf(cur).key; const pages = buildYear(Y).pages;
+    const ix = pages.findIndex((x) => x.key === key);
+    cur = { Y, ix: ix >= 0 ? ix : Math.min(cur.ix, pages.length - 1) }; render(main);
+  };
+  $$('[data-v]', main).forEach((x) => { x.onclick = () => onView?.(x.dataset.v, { ...cur }); });
   $('#bk-next', main).onclick = () => step(1);
   $('#bk-files', main).onclick = () => filesDialog(main);
   $('#bk-make', main).onclick = () => makeDialog(main);

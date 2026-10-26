@@ -10,7 +10,7 @@ import { escapeHtml as h, nowStamp } from '../util.js';
 import { uploadFont, loadFonts, customFontNames } from '../fonts.js';
 import { getLang } from '../i18n.js';
 import { openMitzva } from './mitzva.js';
-import { openBooklet, initBooklet } from './booklet.js';
+import { initBooklet } from './booklet.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -272,7 +272,6 @@ function renderHub(main) {
       ${tile('tefila', '🕍', t('hTefila'), '', true)}
       ${tile('cal', '📅', t('hCal'), t('hCalSub'))}
       ${tile('mitzva', '📜', t('hMitzva'), t('hMitzvaSub'))}
-      ${tile('booklet', '📘', t('hBooklet'), t('hBookletSub'))}
     </div>`;
   $$('[data-hub]', main).forEach((b) => { b.onclick = () => {
     if (b.dataset.soon) { ui.toast?.(t('soon')); return; }
@@ -285,7 +284,6 @@ export async function renderLuach() {
   if (!main) return;
   if (mode === 'hub') { renderHub(main); return; }
   if (mode === 'mitzva') { openMitzva(main, () => { mode = 'hub'; renderLuach(); }); return; }
-  if (mode === 'booklet') { openBooklet(main, () => { mode = 'hub'; renderLuach(); }); return; }
   if (!year) [year, pageIx] = currentYearAndPage();
   if (!main.firstChild) main.innerHTML = `<p class="muted">…</p>`;
   await loadData();
@@ -483,7 +481,7 @@ const TX = {
   place: ['מיקום', 'ארט', 'Location'],
   hubTitle: ['זמנים ולוחות', 'זמנים און לוחות', 'Zmanim & Calendars'], hTefila: ['זמני תפילות', 'זמני תפילות', 'Davening times'],
   hCal: ['לוח שנה אונגוואר', 'לוח שנה אונגוואר', 'Ungvar yearly calendar'], hCalSub: ['זמנים · דף יומי · מצוה יומית', 'זמנים · דף יומי · מצוה יומית', 'Zmanim · Daf Yomi · Mitzva'],
-  hMitzva: ['לוח מצוה יומית', 'לוח מצוה יומית', 'Mitzva Yomis calendar'], hMitzvaSub: ['שבועי · חודשי · לגליון', 'וועכנטליך · חודש · פארן גליון', 'Weekly · monthly · for the gilyon'], soon: ['בקרוב', 'באלד', 'Coming soon'],
+  hMitzva: ['לוח מצוה יומית', 'לוח מצוה יומית', 'Mitzva Yomis calendar'], hMitzvaSub: ['שבועי · חודשי · חוברת חודשית', 'וועכנטליך · חודש · חוברת', 'Weekly · monthly · monthly booklet'], soon: ['בקרוב', 'באלד', 'Coming soon'],
   hBooklet: ['חוברת מצוה יומית', 'חוברת מצוה יומית', 'Mitzva Yomis booklet'], hBookletSub: ['גליון חודשי מתוך ספר מצות המלך', 'חודש\'ליכער גליון פון ספר מצות המלך', 'Monthly booklet from Sefer Mitzvos Hamelech'],
   fontsMissing: ['חסרים גופנים של הלוח — המראה עדיין לא כמו בדפוס.', 'עס פעלן גופנים פונעם לוח.', 'Calendar fonts are missing.'],
   fontsUp: ['העלאת גופנים', 'ארויפלייגן גופנים', 'Upload fonts'],
