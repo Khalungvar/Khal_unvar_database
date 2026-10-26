@@ -92,13 +92,18 @@ const countPages = (ranges) => ranges.reduce((s, r) => s + r.to - r.from + 1, 0)
 // ---------- טעקסט מיט סימנים: "# " גרויס, "## " מיטל, "~ " קליין, "---" א שטריך ----------
 export function richLines(text) {
   return String(text || '').split('\n').map((ln) => {
-    const s = ln.trimEnd();
+    let s = ln.trimEnd();
     if (/^-{3,}$/.test(s.trim())) return '<div class="bk-hr"></div>';
+    // [+1.5] / [-1.5] בתחילת השורה = גדול / קטן יותר בנקודות
+    let adj = 0; const ma = /^\[([+-]\d+(?:\.\d+)?)\]\s*/.exec(s);
+    if (ma) { adj = Number(ma[1]); s = s.slice(ma[0].length); }
     let cls = 'bk-l'; let body = s;
-    if (s.startsWith('## ')) { cls = 'bk-l bk-l2'; body = s.slice(3); } else if (s.startsWith('# ')) { cls = 'bk-l bk-l1'; body = s.slice(2); } else if (s.startsWith('~ ')) { cls = 'bk-l bk-l3'; body = s.slice(2); }
+    if (s.startsWith('## ')) { cls = 'bk-l bk-l2'; body = s.slice(3); } else if (s.startsWith('# ')) { cls = 'bk-l bk-l1'; body = s.slice(2); } else if (s.startsWith('~~ ')) { cls = 'bk-l bk-l4'; body = s.slice(3); } else if (s.startsWith('~ ')) { cls = 'bk-l bk-l3'; body = s.slice(2); } else if (s.startsWith('* ')) { cls = 'bk-l bk-lb'; body = s.slice(2); }
     if (!body.trim()) return '<div class="bk-sp"></div>';
     const latin = !/[֐-׿]/.test(body);
-    return `<div class="${cls}${latin ? ' bk-lat' : ''}"${latin ? ' dir="ltr"' : ''}>${h(body)}</div>`;
+    const st = adj ? ` style="font-size:calc(1em + ${(adj * 0.1).toFixed(2)}em)"` : '';
+    const inner = adj ? `<span${st}>${h(body)}</span>` : h(body);
+    return `<div class="${cls}${latin ? ' bk-lat' : ''}"${latin ? ' dir="ltr"' : ''}>${inner}</div>`;
   }).join('');
 }
 
@@ -146,11 +151,13 @@ const BK_CSS = `
 .bk-l1{font-family:'Livorna Bold','Livorna',serif;font-weight:700;font-size:1.75em;line-height:1.15}
 .bk-l2{font-weight:700;font-size:1.25em;line-height:1.2}
 .bk-l3{font-size:.75em}
+.bk-l4{font-size:.9em;line-height:1.05;margin-top:-.15em}
+.bk-lb{font-family:'Livorna Bold','Livorna',serif;font-weight:700}
 .bk-lat{font-family:Arial,'Helvetica',sans-serif}
 .bk-lat.bk-l2{font-size:1.2em;font-weight:400}
 .bk-lat.bk-l3{font-size:.68em}
 .bk-hr{width:62%;height:0;border-top:1.5px solid #444;margin:14px auto}
-.bk-sp{height:8px}
+.bk-sp{height:.55em}
 .bk-of{position:relative;width:100%;box-sizing:border-box;padding:calc(77px * var(--fk) + 12px) calc(77px * var(--fk) + 16px)}
 .bk-of>img{position:absolute;display:block}
 .bk-of>.f-tl,.bk-of>.f-tr,.bk-of>.f-bl,.bk-of>.f-br{width:calc(170px * var(--fk));height:calc(270px * var(--fk));z-index:1}
@@ -165,7 +172,7 @@ const BK_CSS = `
 .bk-shiur{margin-top:auto;background:linear-gradient(90deg,#1e1e1e,#5c5c5c,#1e1e1e);color:#fff;text-align:center;padding:6px 8px 7px;font-size:13px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .bk-shiur .bk-l{line-height:1.25;font-size:1em}.bk-shiur .bk-l2{font-family:'Livorna Bold','Livorna',serif;font-size:1.45em;line-height:1.2}.bk-shiur .bk-l3{font-size:.85em}
 .bk-info{border:1px solid #6a6a6a;background:rgba(255,255,255,.6);padding:6px 10px;box-sizing:border-box}
-.bk-info .bk-lat{font-size:.85em;line-height:1.3}
+.bk-info .bk-lat{font-size:1em;line-height:1.3}
 .bk-rich{font-family:'Livorna','Frank Ruhl Libre',serif;font-size:1.35em;line-height:1.3}
 .bk-rich b{font-family:'Livorna Bold','Livorna',serif;font-weight:700}
 .bk-rt{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0}
@@ -615,7 +622,7 @@ function dedDialog(main, d, key) {
 
 function textDialog(main) {
   const { dlg, close } = dialog(`<h3>✏ טקסטים קבועים בקונטרס</h3>
-    <p class="muted small">סימנים בתחילת שורה: <b>#</b> רווח = גדול מאוד · <b>##</b> רווח = גדול ומודגש · <b>~</b> רווח = קטן · <b>---</b> = קו מפריד. שורה ריקה = רווח.</p>
+    <p class="muted small">סימנים בתחילת שורה: <b>#</b> רווח = גדול מאוד · <b>##</b> רווח = גדול ומודגש · <b>~</b> רווח = קטן · <b>~~</b> רווח = בינוני וצמוד לשורה שלפניו · <b>*</b> רווח = מודגש · <b>[+1.5]</b> / <b>[-1.5]</b> = גדול / קטן יותר בנקודות · <b>---</b> = קו מפריד. שורה ריקה = רווח.</p>
     <label>שער — החלק התחתון (מופץ ע"י, טלפון, מייל)</label><textarea name="cover" rows="7" dir="rtl">${h(setting('cover_text'))}</textarea>
     <label>עמוד 4 — פרטי המכון</label><textarea name="info" rows="11" dir="rtl">${h(setting('info_text'))}</textarea>
     <label>עמוד 3 — הפס השחור מתחת לטבלה (השיעור)</label><textarea name="shiur" rows="4" dir="rtl">${h(setting('shiur_text') || DEF_SHIUR)}</textarea>
