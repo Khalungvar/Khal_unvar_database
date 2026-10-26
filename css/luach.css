@@ -78,7 +78,7 @@
 .lx-zf small { font-size: 4.8pt; }
 .lx-md { left: 757.2pt; width: 12.8pt; font-family: 'EFT_Patient', serif; font-weight: 700; font-size: 8.4pt; }
 .lx-mn { left: 734.2pt; width: 23pt; font-family: 'PFT_Vilna', serif; font-weight: 700; font-size: 8.8pt; }
-.lx-mt { left: 674.6pt; width: 59.6pt; justify-content: flex-end !important; padding-right: 2pt; box-sizing: border-box; font-family: 'PFT_Vilna', serif; font-size: 7pt; overflow: visible; }
+.lx-mt { left: 674.6pt; width: 59.6pt; justify-content: flex-start !important; padding-right: 2pt; box-sizing: border-box; font-family: 'PFT_Vilna', serif; font-size: 7pt; overflow: visible; }
 .lx-bc { position: absolute; top: 408.9pt; height: 26.2pt; display: flex; flex-direction: column; }
 .lx-bc > span { height: 8.7pt; display: flex; align-items: center; justify-content: center; font-family: 'Monotype Corsiva', serif; font-size: 6.5pt; white-space: nowrap; }
 .lx-bc .lx-bp { font-family: 'Livorna', 'Livorna', 'FontbitLivorna', serif; font-size: 6pt; }
