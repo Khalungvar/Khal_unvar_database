@@ -114,7 +114,7 @@ function mazelPages() {
   if (mzCache.key === key) return mzCache.pages;
   let m = document.getElementById('mzmeas');
   if (!m) { m = document.createElement('div'); m.id = 'mzmeas'; m.className = 'frame mzl'; m.style.cssText = 'visibility:hidden;position:fixed;left:0;top:0;z-index:-1;pointer-events:none;direction:rtl'; document.body.appendChild(m); }
-  m.innerHTML = `<img class="head" src="${SCR.simchaHead || 'img/display/simcha-head.jpg'}" alt=""><div class="wk">x</div><div class="list">${MAZEL.map(entryHtml).join('')}</div>`;
+  m.innerHTML = `<img class="head" src="${SCR.simchaHead || 'img/display/simcha-title.jpg'}" alt=""><div class="wk">x</div><div class="list">${MAZEL.map(entryHtml).join('')}</div>`;
   const list = m.querySelector('.list');
   const cs = getComputedStyle(list);
   const avail = list.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
@@ -359,7 +359,7 @@ function render() {
     </div>` : HID.side ? '' : swap ? mnyHtml(board, 'pos-side') : shabHtml(nextEve, nextEve + 1, 'pos-side')}
 
     ${HID.simchos ? '' : `<div class="frame mzl">
-      <img class="head" src="${h(SCR.simchaHead || 'img/display/simcha-head.jpg')}" alt="שהשמחה במעונם">
+      <img class="head" src="${h(SCR.simchaHead || 'img/display/simcha-title.jpg')}" alt="שהשמחה במעונם">
       <div class="wk">${parsha ? `פרשת ${h(parsha)}` : ''}</div>
       <div class="list">${mzList.map(entryHtml).join('')}</div>
       ${pages > 1 ? `<div class="dots">${Array.from({ length: pages }, (_, i) => `<i class="${i === mzIx ? 'on' : ''}"></i>`).join('')}</div><div class="pg">${mzIx + 1} מתוך ${pages}</div>` : ''}

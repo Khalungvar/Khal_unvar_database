@@ -246,7 +246,7 @@ function render(main) {
       </section>
       <section class="sc-card"><h3>🖼 תמונות</h3>
         ${img('logo', 'לוגו (באמצע למעלה)', 'img/logo.png')}
-        ${img('simchaHead', 'כותרת "שהשמחה במעונם"', 'img/display/simcha-head.jpg')}
+        ${img('simchaHead', 'כותרת "שהשמחה במעונם"', 'img/display/simcha-title.jpg')}
         <p class="muted small">התמונה מוקטנת לבד ונשמרת בתוך ההגדרות.</p>
       </section>
       <section class="sc-card"><h3>👁 משבצות — להציג</h3>
