@@ -299,3 +299,7 @@
 .sc-img { display: flex; gap: 10px; align-items: center; margin: 6px 0 10px; }
 .sc-img img { width: 120px; height: 70px; object-fit: contain; background: #0d2350; border-radius: 8px; padding: 4px; }
 .sc-img > div { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.sc-kiosk .sc-k-last { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-bottom: 6px; }
+.sc-kiosk .sc-k-old { display: flex; gap: 8px; align-items: center; margin: 3px 0; }
+.sc-kiosk .sc-k-up { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.sc-kiosk .sc-k-up input:not([type=file]) { flex: 1; min-width: 8em; }

@@ -1,6 +1,6 @@
 // 📺 תצוגת והגדרות המסך: דער מסך (לעבעדיג, מיט א דאטום/שעה), און די הגדרות — טעקסטן, בילדער, באהאלטן משבצות, גיכקייטן, שוליים.
 // די הגדרות ליגן אינעם גיליון פון דער תצוגה (לשונית Screen); נאר נאך "💾 שמירה" גייען זיי צום מסך. יעדע שמירה = א נייע גירסא (ScreenHistory).
-import { otherSheet } from '../google.js';
+import { otherSheet, ensureDriveScope, hasDriveScope, driveFolder, driveUploadLarge, driveDownload } from '../google.js';
 import { CONFIG } from '../config.js';
 import { state, displayName } from '../data.js';
 import { escapeHtml as h, nowStamp, shrinkImage } from '../util.js';
@@ -38,6 +38,48 @@ async function load() {
     if (parts.length) { j = JSON.parse(parts.map((r) => r[1] || '').join('')); meta = { at: String(parts[0][2] || ''), by: String(parts[0][3] || '') }; }
   } catch { /* */ }
   S = normScreen(j); saved = JSON.stringify(S);
+  await loadKiosk();
+}
+// ---------- תוכנת המסך: נשמרת בדרייב (פרטי — רק מי שהעלה), הרשימה בגיליון הראשי, לשונית Kiosk ----------
+let kiosk = []; // [{ id, name, size, ver, note, at, by }] — האחרונה בסוף
+async function loadKiosk() {
+  try {
+    const rows = await otherSheet(CONFIG.SPREADSHEET_ID).read('Kiosk!A2:G200');
+    kiosk = rows.filter((r) => r[0]).map((r) => ({ id: String(r[0]), name: String(r[1] || 'UngvarDisplay.zip'), size: Number(r[2]) || 0, ver: String(r[3] || ''), note: String(r[4] || ''), at: String(r[5] || ''), by: String(r[6] || '') }));
+  } catch { kiosk = []; }
+}
+const mb = (n) => `${(n / 1048576).toFixed(0)} MB`;
+async function kioskDownload(k, btn) {
+  const old = btn.textContent; btn.disabled = true;
+  try {
+    await ensureDriveScope();
+    const bytes = await driveDownload(k.id, (f) => { btn.textContent = `⬇ ${Math.round(f * 100)}%`; });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/zip' })); a.download = k.name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 20000);
+  } catch (err) { ui.toast?.(err.status === 404 || err.status === 403 ? 'אין גישה לקובץ — רק מי שהעלה אותו יכול להוריד (או לשתף אותו ב-Drive).' : String(err.message || err), 'error'); }
+  btn.textContent = old; btn.disabled = false;
+}
+async function kioskUpload(file, main) {
+  const st = $('#sc-k-st', main);
+  try {
+    await ensureDriveScope();
+    const folder = await driveFolder('מסך בית המדרש - תוכנה');
+    const id = await driveUploadLarge(file, file.name, folder, (f) => { st.textContent = `מעלה… ${Math.round(f * 100)}%`; });
+    const ver = (/(\d+\.\d+\.\d+)/.exec(file.name) || [])[1] || '';
+    const row = kiosk.length + 2;
+    await otherSheet(CONFIG.SPREADSHEET_ID).write(`Kiosk!A${row}:G${row}`, [[id, file.name, file.size, ver, ($('#sc-k-note', main)?.value || '').trim(), nowStamp(), state.email]]);
+    await loadKiosk(); ui.toast?.('הקובץ נשמר ✓'); render(main);
+  } catch (err) { st.textContent = ''; ui.toast?.(String(err.message || err), 'error'); }
+}
+function kioskHtml(ed) {
+  const last = kiosk[kiosk.length - 1];
+  return `<section class="sc-card sc-kiosk"><h3>💻 תוכנת המסך (למחשב שבבית המדרש)</h3>
+    ${last ? `<div class="sc-k-last"><b>${h(last.name)}</b> <span class="muted small">${mb(last.size)} · הועלה ${h(last.at)} ע"י ${h(displayName(last.by))}${last.note ? ` · ${h(last.note)}` : ''}</span>
+      <button type="button" class="btn primary small-btn" data-kdl="${kiosk.length - 1}">⬇ הורדה</button></div>` : '<p class="muted">עדיין לא הועלה קובץ.</p>'}
+    ${kiosk.length > 1 ? `<details><summary class="muted small">גרסאות קודמות (${kiosk.length - 1})</summary>${kiosk.slice(0, -1).reverse().map((k) => `<div class="sc-k-old">${h(k.name)} <span class="muted small">${h(k.at)}${k.note ? ` · ${h(k.note)}` : ''}</span> <button type="button" class="btn small-btn ghost" data-kdl="${kiosk.indexOf(k)}">⬇</button></div>`).join('')}</details>` : ''}
+    ${ed ? `<div class="sc-k-up"><input id="sc-k-note" placeholder="הערה (לא חובה)"><label class="btn small-btn">📤 העלאת קובץ התוכנה (ZIP)<input type="file" accept=".zip,application/zip" id="sc-k-file" hidden></label><span id="sc-k-st" class="muted small"></span></div>` : ''}
+    <p class="muted small">הקובץ נשמר ב-Google Drive שלך בתיקייה "מסך בית המדרש - תוכנה", <b>פרטי</b> (לא משותף) — יש בו גופנים בתשלום. ${hasDriveScope() ? '' : 'בפעם הראשונה Google יבקש אישור גישה ל-Drive.'}</p>
+  </section>`;
 }
 
 async function save(main) {
@@ -138,6 +180,7 @@ function render(main) {
         <label class="sc-row"><span>שוליים לטלוויזיה (פיקסלים, 0–120)</span>${num('safe', S.safe, 0, 120)}</label>
         <p class="muted small">אם הטלוויזיה חותכת את הקצוות — להגדיל. אם רואים את כל המסגרות עד הסוף — אפשר להקטין עד 0.</p>
       </section>
+      ${kioskHtml(ed)}
     </div>`;
 
   const setK = (k, v) => { const ks = k.split('.'); const last = ks.pop(); ks.reduce((o, x) => o[x], S)[last] = v; };
@@ -175,6 +218,8 @@ function render(main) {
   }; });
   $$('[data-imgreset]', main).forEach((b) => { b.onclick = () => { S[b.dataset.imgreset] = ''; changed(true); }; });
   const tr = $('#sc-texts-reset', main); if (tr) tr.onclick = () => { if (!confirm('להחזיר את כל הטקסטים לברירת המחדל?')) return; S.texts = screenDefaults().texts; changed(true); };
+  $$('[data-kdl]', main).forEach((b) => { b.onclick = () => kioskDownload(kiosk[Number(b.dataset.kdl)], b); });
+  const kf = $('#sc-k-file', main); if (kf) kf.onchange = () => { if (kf.files[0]) kioskUpload(kf.files[0], main); };
   // דער מסך: 1920×1080, אויסגעשטעלט צו דער ברייט
   const box = $('.sc-frame-box', main); const fr = $('#sc-frame', main);
   const fit = () => { const k = box.clientWidth / 1920; fr.style.transform = `scale(${k})`; box.style.height = `${1080 * k}px`; };
