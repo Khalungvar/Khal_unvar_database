@@ -21,7 +21,12 @@ const WEEKDAY = {
   maariv: [M(REL('shkia', 60), "חדר א'", 'בערך'), M('20:00'), M('20:30'), M('21:00'), M('21:30'), M('22:00'), M('22:30'), M('23:00')],
 };
 const MINCHA_LAST = REL('shkia', 25);
-const SHABBOS = { shacharis: M('9:00', 'ביהמ"ד הגדול'), minchaErev: REL('shkia', 2), motzei: REL('shkia', 72, 1) };
+const SHABBOS = {
+  minchaErev: REL('shkia', 2), // מנחה ער"ש / ערב יו"ט
+  shacharis: M('9:00', 'ביהמ"ד הגדול'), shacharisYT: M('9:15', 'ביהמ"ד הגדול'),
+  mincha: REL('shkia', -10, 5, 'down'), // דוגמה — נישט אין דער אלטער תוכנה
+  maariv: [REL('shkia', 72, 1, 'up'), REL('shkia', 82, 1, 'up')],
+};
 
 const toMin = (t) => { const [a, b] = t.split(':').map(Number); return a * 60 + b; };
 function resolve(t, zm) {
@@ -95,6 +100,7 @@ function render() {
   const maHour = (z.tzeis - z.alos) / 12; const graHour = (z.shkia - z.neitz) / 12;
   const day = dayOf(n);
   let sat = n; while (dowOf(sat) !== 6) sat += 1;
+  if (sat === n && nowMin > z.shkia + 90) sat += 7; // מוצאי שבת: שוין די קומענדיגע וואך
   const fri = sat - 1;
   const parsha = dayOf(sat)?.parsha || dayOf(sat)?.items.find((i) => i.kind === 'hol')?.text || '';
   
@@ -116,21 +122,46 @@ function render() {
   const nextShiur = SHIURIM.find((x) => x.min >= nowMin) || null;
 
   // מניינים
-  const isShabbos = dw === 6;
-  const list = isShabbos ? null : {
-    shacharis: WEEKDAY.shacharis.map((m) => ({ ...m, min: resolve(m.t, zm) })),
-    mincha: WEEKDAY.mincha.map((m) => ({ ...m, min: resolve(m.t, zm) })).filter((m) => m.min <= resolve(MINCHA_LAST, zm)),
-    maariv: WEEKDAY.maariv.map((m) => ({ ...m, min: resolve(m.t, zm) })).sort((a, b) => a.min - b.min),
-  };
-  const all = list ? [...list.shacharis.map((m) => ({ ...m, k: 'שחרית' })), ...list.mincha.map((m) => ({ ...m, k: 'מנחה' })), ...list.maariv.map((m) => ({ ...m, k: 'מעריב' }))].sort((a, b) => a.min - b.min) : [];
+  // ---- דער לוח פון מניינים: וואכנטאג, אדער שבת/יו"ט (פון ערב שבת/יו"ט נאך דער לעצטער שחרית) ----
+  // min = מינוט פון היינט האלבנאכט (נעכטן: -1440, מארגן: +1440)
+  const holy = (k) => dowOf(k) === 6 || !!dayOf(k)?.items.some((i) => i.yt);
+  const zOf = (k) => zmanim(isoOf(k), LOC);
+  const at = (t, k, off, extra) => ({ ...extra, min: resolve(t, zOf(k)) + off });
+  function weekdayBoard(k, off) {
+    const zk = zOf(k); const last = resolve(MINCHA_LAST, zk);
+    return { holy: false, last: last + off, groups: [
+      { h: 'שחרית', sub: "(הודו +10 דק')", items: WEEKDAY.shacharis.map((m) => at(m.t, k, off, { k: 'שחרית', room: m.room })) },
+      { h: 'מנחה', items: WEEKDAY.mincha.map((m) => at(m.t, k, off, { k: 'מנחה', room: m.room })).filter((m) => m.min <= last + off) },
+      { h: 'מעריב', items: WEEKDAY.maariv.map((m) => at(m.t, k, off, { k: 'מעריב', room: m.room, note: m.note })).sort((x, y) => x.min - y.min) },
+    ] };
+  }
+  function holyBoard(eve, off) {
+    const d = eve + 1; const shab = dowOf(d) === 6;
+    const ytName = dayOf(d)?.items.find((i) => i.kind === 'hol' && i.yt)?.text || '';
+    const dayName = shab ? (ytName ? `שבת קודש · ${ytName}` : 'שבת קודש') : (ytName || 'יום טוב');
+    const groups = [
+      { h: holy(eve) ? `ליל ${dayName}` : (shab ? 'ערב שבת קודש' : `ערב ${ytName || 'יום טוב'}`), items: [at(SHABBOS.minchaErev, eve, off, { k: 'מנחה', room: '' })] },
+      { h: dayName, items: [at(ytName ? SHABBOS.shacharisYT.t : SHABBOS.shacharis.t, d, off + 1440, { k: 'שחרית', room: SHABBOS.shacharis.room }), at(SHABBOS.mincha, d, off + 1440, { k: 'מנחה', room: '' })] },
+    ];
+    if (!holy(d + 1)) groups.push({ h: shab ? 'מוצאי שבת קודש' : 'מוצאי יום טוב', items: SHABBOS.maariv.map((t) => at(t, d, off + 1440, { k: 'מעריב', room: '' })) });
+    return { holy: true, title: shab ? 'זמני התפילות לשבת קודש' : `זמני התפילות ל${ytName || 'יום טוב'}`, groups };
+  }
+  const hasFuture = (bd) => bd.groups.some((g) => g.items.some((m) => m.min >= nowMin));
+  let cands;
+  if (holy(n)) cands = [holyBoard(n - 1, -1440), holy(n + 1) ? holyBoard(n, 0) : weekdayBoard(n + 1, 1440)];
+  else if (holy(n + 1)) {
+    const lastSh = Math.max(...WEEKDAY.shacharis.map((m) => resolve(m.t, zm)));
+    cands = nowMin <= lastSh ? [weekdayBoard(n, 0)] : [holyBoard(n, 0)];
+  } else cands = [weekdayBoard(n, 0), weekdayBoard(n + 1, 1440)];
+  const board = cands.find(hasFuture) || cands[cands.length - 1];
+  const all = board.groups.flatMap((g) => g.items).sort((x, y) => x.min - y.min);
   const next = all.find((m) => m.min >= nowMin) || null;
-  const lastMincha = resolve(MINCHA_LAST, zm);
+  const lastMincha = board.holy ? null : board.last;
   const cd = next ? Math.max(0, (next.min - nowMin) * 60) : 0;
   const cdText = `${String(Math.floor(cd / 3600)).padStart(2, '0')}:${String(Math.floor((cd % 3600) / 60)).padStart(2, '0')}:${String(Math.floor(cd % 60)).padStart(2, '0')}`;
   const tm = (min) => hhmm(min);
   const pair = (a, b) => `<span class="pr">${tm(b)}<i>גר"א</i></span><span class="pr">${tm(a)}<i>מג"א</i></span>`;
-  const timesHtml = (arr) => arr.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${next && m === next ? ' nx' : ''}">${tm(m.min)}${m.note === 'בערך' ? '<small style="font-size:20px"> בערך</small>' : ''}</span>`).join('');
-  const mark = (arr) => arr.map((m) => (next && m.min === next.min && m.k === next.k ? next : m));
+  const timesHtml = (arr) => arr.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}">${tm(((m.min % 1440) + 1440) % 1440)}${m.note === 'בערך' ? '<small style="font-size:20px"> בערך</small>' : ''}</span>`).join('');
 
   const hh = now.getHours() % 12 || 12; const ap = now.getHours() < 12 ? 'AM' : 'PM';
   const heDate = `${hebrewNumber(x.d)} ${MONTH[x.m] || x.m} ${hebrewNumber(x.y % 1000)}`;
@@ -148,30 +179,29 @@ function render() {
     </div>
 
     <div class="frame mny">
-      <div class="ttl">זמני התפילות</div>
-      ${list ? `
-      <div class="grp"><h3>שחרית <small>(הודו +10 דק')</small></h3><div class="times">${timesHtml(mark(list.shacharis.map((m) => ({ ...m, k: 'שחרית' }))))}</div></div>
-      <div class="grp"><h3>מנחה</h3><div class="times">${timesHtml(mark(list.mincha.map((m) => ({ ...m, k: 'מנחה' }))))}</div></div>
-      <div class="grp"><h3>מעריב</h3><div class="times">${timesHtml(mark(list.maariv.map((m) => ({ ...m, k: 'מעריב' }))))}</div></div>` : '<div class="grp"><h3>שבת קודש</h3></div>'}
+      <div class="ttl">${h(board.title || 'זמני התפילות')}</div>
+      ${board.groups.map((g) => `<div class="grp${board.holy ? ' hg' : ''}"><h3>${h(g.h)}${g.sub ? ` <small>${h(g.sub)}</small>` : ''}</h3><div class="times">${timesHtml(g.items)}</div></div>`).join('')}
     </div>
 
     <div class="frame next">
       <div class="row1"><div class="lbl">המנין הבא</div>${next ? `<div class="cd">${cdText}</div>` : ''}</div>
-      ${next ? `<div class="big"><span class="name">${h(next.k)}</span><span class="time">${tm(next.min)}</span></div>
+      ${next ? `<div class="big"><span class="name">${h(next.k)}</span><span class="time">${tm(((next.min % 1440) + 1440) % 1440)}</span></div>
       <div class="room">${next.room ? h(next.room) : '&nbsp;'}</div>` : '<div class="big"><span class="name">לילה טוב</span></div>'}
     </div>
 
-    <div class="last">מנחה מנין אחרון: <b>${tm(lastMincha)}</b></div>
+    ${lastMincha != null ? `<div class="last">מנחה מנין אחרון: <b>${tm(lastMincha)}</b></div>`
+      : !holy(n) ? `<div class="last">הדלקת נרות: <b>${tm(z.candles)}</b></div>` : ''}
 
     ${AD ? `<div class="ad">${AD === '1' ? '<div class="ad-demo"><b>מודעה</b><span dir="ltr">8.5 × 11</span><small>כאן תופיע מודעה (קמפיין וכו\')<br>היא מכסה את זמני השבת והשמחות</small></div>' : `<img src="${h(AD)}" alt="">`}</div>` : `
     <div class="shab">
       <div class="sh-t">שבת קודש<small>${parsha ? `פרשת ${h(parsha)}` : ''}</small></div>
-      <div class="sh-r big"><span>הדלקת נרות</span><b>${tm(zFri.candles)}</b></div>
-      <div class="sh-r"><span>מנחה ערב שבת</span><b>${tm(resolve(SHABBOS.minchaErev, zFri))}</b></div>
-      <div class="sh-r"><span>שחרית</span><b>${h(SHABBOS.shacharis.t)}</b></div>
+      <div class="sh-r"><span>הדלקת נרות</span><b>${tm(zFri.candles)}</b></div>
+      <div class="sh-r big"><span>מנחה ערב שבת</span><b>${tm(resolve(SHABBOS.minchaErev, zFri))}</b></div>
+      <div class="sh-r big"><span>שחרית</span><b>${h(SHABBOS.shacharis.t)}</b></div>
       <div class="sh-r"><span>סוף זמן ק"ש</span><b class="sm">${pair(zSat.alos + 3 * ((zSat.tzeis - zSat.alos) / 12), zSat.neitz + 3 * ((zSat.shkia - zSat.neitz) / 12))}</b></div>
-      <div class="sh-r"><span>שקיעת החמה</span><b>${tm(zSat.shkia)}</b></div>
-      <div class="sh-r big"><span>מוצאי שבת קודש</span><b>${tm(zSat.motzei)}</b></div>
+      <div class="sh-r big"><span>מנחה</span><b>${tm(resolve(SHABBOS.mincha, zSat))}</b></div>
+      <div class="sh-r big"><span>מעריב מוצש"ק</span><b>${SHABBOS.maariv.map((t) => tm(resolve(t, zSat))).join(' · ')}</b></div>
+      <div class="sh-r"><span>מוצאי שבת קודש</span><b>${tm(zSat.motzei)}</b></div>
     </div>
 
     <div class="frame mzl">
