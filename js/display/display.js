@@ -231,7 +231,7 @@ function render() {
   const mzIx = Math.floor(Date.now() / 15000) % pages;
   const mzList = mzPages[mzIx].map((i) => MAZEL[i]);
 
-  $('#screen').innerHTML = `<div class="safe">
+  const html = `
     ${SAMPLE ? '<div class="sample">דוגמה לעיצוב — המניינים מהתוכנה הישנה</div>' : ''}
     <div class="top">
       <div class="day">${h(dw === 6 && nowMin > z.motzei ? 'מוצאי שבת קודש' : YDAY[dw])}${parsha ? `<small>פרשת ${h(parsha)}</small>` : ''}${holAll ? `<small class="sp">${h(holAll)}</small>` : ''}</div>
@@ -268,7 +268,7 @@ function render() {
       ${pages > 1 ? `<div class="dots">${Array.from({ length: pages }, (_, i) => `<i class="${i === mzIx ? 'on' : ''}"></i>`).join('')}</div>` : ''}
     </div>
 
-    ${AD ? `<div class="ad">${AD === '1' ? '<div class="ad-demo"><b>מודעה</b><span dir="ltr">8.5 × 11</span><small>כאן תופיע מודעה (קמפיין וכו\')<br>היא מכסה את זמני היום והלימוד</small></div>' : `<img src="${h(AD)}" alt="">`}</div>` : `
+    ${AD ? '' : `
     <div class="frame zm">
       <div class="ttl">זמני היום</div>
       <table>
@@ -292,13 +292,24 @@ function render() {
           : `<div class="ln"><b>${h(x.t)}</b> ${h(x.who)}${x.room ? ` · ${h(x.room)}` : ''}</div>`)).join('')}</div>
       </div>
     </div>`}
-
-    </div>
+<!--BOT-->
     <div class="bottom">
       <div class="hd">${h(heDate)}</div>
       <div class="kol">קול אונגוואר <b>605-477-4427</b></div>
       <div class="greg">${now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
     </div>`;
+  const [main, bot] = html.split('<!--BOT-->');
+  if (!$('#dyn')) {
+    $('#screen').innerHTML = '<div class="safe"><div id="dyn"></div><div id="adlayer"></div></div><div id="dynb"></div>';
+    if (AD) $('#adlayer').innerHTML = `<div class="ad">${adHtml()}</div>`;
+  }
+  $('#dyn').innerHTML = main;
+  $('#dynb').innerHTML = bot;
+}
+// די מודעה ווערט נישט איבערגעצייכנט יעדע סעקונדע (א ווידעא וואלט זיך אנגעהויבן פון אנפאנג)
+function adHtml() {
+  if (AD === '1') return '<div class="ad-demo"><b>מודעה</b><span dir="ltr">8.5 × 11</span><small>כאן תופיע מודעה (תמונה או וידאו)<br>היא מכסה את זמני היום והלימוד</small></div>';
+  return /\.(mp4|webm|mov)(\?|$)/i.test(AD) ? `<video src="${h(AD)}" autoplay muted loop playsinline></video>` : `<img src="${h(AD)}" alt="">`;
 }
 
 // שוליים פאר א מסך מיט א ראם (?safe=40 פיקסל; 0 = אן שוליים)

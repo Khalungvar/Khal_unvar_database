@@ -137,6 +137,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .ad { position: absolute; top: 164px; height: 766px; width: 592px; right: calc(44px + (633px - 592px) / 2); background: #fff; overflow: hidden;
   box-shadow: 0 0 0 3px var(--gold3), 0 0 0 7px var(--gold), 0 10px 30px rgba(0,0,0,.45); }
 .ad img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.ad video { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; background: #000; } /* ממלא מלמעלה למטה, רואים את המרכז */
 .ad-demo { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--serif); font-size: 60px; color: #999; border: 6px dashed #ccc; }
 .ad-demo b { font-size: 90px; color: #8b1a1a; }
 .ad-demo small { font-size: 26px; text-align: center; margin-top: 20px; }
