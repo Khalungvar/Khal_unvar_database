@@ -44,10 +44,13 @@ const entryHtml = (e) => `<div class="mz-e">${e.names.map((x) => `<div>${x}</div
 
 // ---------- שיעורים (פון BZS) ----------
 const SHIURIM = [
-  { t: '4:30 לפנות בוקר', who: 'ר\' שלום אליעזר טווערסקי', room: "חדר ב'" },
-  { t: '7:00 בערב', who: 'ר\' יעקב חיים אפטער', room: '' },
-  { t: '8:30 בערב', who: 'ר\' ישעי\' שטערן', room: '' },
+  { t: '4:30', min: 270, when: 'לפנות בוקר', who: 'ר\' שלום אליעזר טווערסקי', room: "חדר ב'" },
+  { t: '7:00', min: 1140, when: 'בערב', who: 'ר\' יעקב חיים אפטער', room: '' },
+  { t: '8:30', min: 1230, when: 'בערב', who: 'ר\' ישעי\' שטערן', room: '' },
 ];
+
+// ---------- מודעה (8.5×11) — דעקט צו זמני שבת + שמחות. דוגמה: ?ad=1 ----------
+const AD = new URLSearchParams(location.search).get('ad');
 
 // ---------- וואס איז היינט ----------
 const yc = new Map();
@@ -72,6 +75,16 @@ function prayerNote(n) {
   return `מוריד הגשם · ${tal ? 'ותן טל ומטר' : 'ותן ברכה'}`;
 }
 
+/** הוספות בתפילה פאר היינט */
+function additions(n, day) {
+  const out = [prayerNote(n)];
+  const it = day?.items || [];
+  if (it.some((i) => i.rc || i.chm || i.yt)) out.push('יעלה ויבוא');
+  if (it.some((i) => i.chanuka || (i.kind === 'hol' && /^פורים/.test(i.text) && !/קטן/.test(i.text)))) out.push('על הניסים');
+  if (it.some((i) => i.fast)) out.push('עננו');
+  return out;
+}
+
 function render() {
   const now = new Date();
   const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -84,16 +97,23 @@ function render() {
   let sat = n; while (dowOf(sat) !== 6) sat += 1;
   const fri = sat - 1;
   const parsha = dayOf(sat)?.parsha || dayOf(sat)?.items.find((i) => i.kind === 'hol')?.text || '';
-  const hol = day?.items.find((i) => i.kind === 'hol')?.text || '';
+  
   const zFri = zmanim(isoOf(fri), LOC); const zSat = zmanim(isoOf(sat), LOC);
 
+  // [נאמען, מג"א/איינס, גר"א, הדגשה]
   const rows = [
-    ['עלות השחר', z.alos], ['הנחת תפילין', z.neitz - 48], ['נץ החמה', z.neitz, true],
-    ['סוזק"ש מג"א', z.alos + 3 * maHour], ['סוזק"ש גר"א', z.neitz + 3 * graHour, true],
-    ['סוז"ת מג"א', z.alos + 4 * maHour], ['סוז"ת גר"א', z.neitz + 4 * graHour],
-    ['חצות', z.chatzos], ['מנחה גדולה', z.chatzos + 30], ['שקיעת החמה', z.shkia, true], ['רבינו תם', z.shkia + 72],
+    ['עלות השחר', z.alos], ['הנחת תפילין', z.neitz - 48], ['נץ החמה', z.neitz, null, true],
+    ['סוזק"ש', z.alos + 3 * maHour, z.neitz + 3 * graHour, true],
+    ['סוז"ת', z.alos + 4 * maHour, z.neitz + 4 * graHour],
+    ['חצות', z.chatzos], ['שקיעת החמה', z.shkia, null, true], ['רבינו תם', z.shkia + 72],
   ];
-  if (dw === 5) rows.push(['הדלקת נרות', z.candles, true]);
+  if (dw === 5) rows.push(['הדלקת נרות', z.candles, null, true]);
+  const holAll = (day?.items || []).filter((i) => i.kind === 'hol').map((i) => i.text).join(' · ');
+  const adds = additions(n, day);
+  // ספירת העומר: ביז שקיעה — וואס מ'האט געציילט נעכטן ביינאכט; נאך שקיעה — וואס מ'ציילט היינט ביינאכט
+  const omerDay = nowMin >= z.shkia ? dayOf(n + 1) : day;
+  const omer = omerDay?.items.find((i) => i.kind === 'omer')?.text || '';
+  const nextShiur = SHIURIM.find((x) => x.min >= nowMin) || null;
 
   // מניינים
   const isShabbos = dw === 6;
@@ -121,7 +141,7 @@ function render() {
   $('#screen').innerHTML = `
     ${SAMPLE ? '<div class="sample">דוגמה לעיצוב — המניינים מהתוכנה הישנה</div>' : ''}
     <div class="top">
-      <div class="day">${h(YDAY[dw])}<small>${h(hol || (parsha ? `פרשת ${parsha}` : ''))}</small></div>
+      <div class="day">${h(YDAY[dw])}<small>${h(holAll || (parsha ? `פרשת ${parsha}` : ''))}</small></div>
       <div class="logo"><img src="img/logo.png" alt=""><b>קהל אונגוואר</b></div>
       <div class="clock">${hh}:${String(now.getMinutes()).padStart(2, '0')}<span>${String(now.getSeconds()).padStart(2, '0')} ${ap}</span></div>
     </div>
@@ -142,6 +162,7 @@ function render() {
 
     <div class="last">מנחה מנין אחרון: <b>${tm(lastMincha)}</b></div>
 
+    ${AD ? `<div class="ad">${AD === '1' ? '<div class="ad-demo"><b>מודעה</b><span dir="ltr">8.5 × 11</span><small>כאן תופיע מודעה (קמפיין וכו\')<br>היא מכסה את זמני השבת והשמחות</small></div>' : `<img src="${h(AD)}" alt="">`}</div>` : `
     <div class="frame shab">
       <div class="ttl">זמני שבת קודש${parsha ? ` · פרשת ${h(parsha)}` : ''}</div>
       <table>
@@ -150,25 +171,34 @@ function render() {
       </table>
     </div>
 
-    <div class="mzl">
+    <div class="frame mzl">
       <img class="head" src="img/display/simcha-head.jpg" alt="שהשמחה במעונם">
       <div class="wk">${parsha ? `פרשת ${h(parsha)}` : ''}</div>
       <div class="list">${mzList.map(entryHtml).join('')}</div>
       ${pages > 1 ? `<div class="dots">${Array.from({ length: pages }, (_, i) => `<i class="${i === mzIx ? 'on' : ''}"></i>`).join('')}</div>` : ''}
-    </div>
+    </div>`}
 
     <div class="frame zm">
       <div class="ttl">זמני היום</div>
-      <table>${rows.map(([l, v, hl]) => `<tr${hl ? ' class="hl"' : ''}><td>${h(l)}</td><td>${tm(v)}</td></tr>`).join('')}</table>
-      <div class="note">${h(prayerNote(n))}</div>
+      <table>
+        <tr class="sub"><td></td><td>מג"א</td><td>גר"א</td></tr>
+        ${rows.map(([l, a, b, hl]) => `<tr${hl ? ' class="hl"' : ''}><td>${h(l)}</td>${b == null ? `<td colspan="2">${tm(a)}</td>` : `<td>${tm(a)}</td><td>${tm(b)}</td>`}</tr>`).join('')}
+      </table>
+      <div class="note">${adds.map(h).join(' · ')}</div>
+      ${omer ? `<div class="omer">${nowMin >= z.shkia ? 'הלילה: ' : ''}${h(omer)}</div>` : ''}
     </div>
 
     <div class="frame lrn">
-      <div class="cols">
-        <div><h4>מצוה יומית</h4><p>מצוה ${h(hebrewNumber(mz.n))}<small>${h(mz.text)}</small></p></div>
-        <div><h4>דף יומי</h4><p>${h(daf.text)}</p></div>
+      <div class="mzy">
+        <h4>מצוה יומית</h4>
+        <div class="num">מצוה ${h(hebrewNumber(mz.n))}</div>
+        <div class="txt">${h(mz.text)}</div>
+        <div class="kol">שיעור יומי בקול אונגוואר<b>605-477-4427</b>אחריו 3 ואחריו 1</div>
       </div>
-      <div class="shiur"><h4>השיעורים</h4>${SHIURIM.map((x) => `<div><b>${h(x.t)}</b> · ${h(x.who)}${x.room ? ` · ${h(x.room)}` : ''}</div>`).join('')}</div>
+      <div class="side">
+        <div class="daf"><h4>דף יומי</h4><p>${h(daf.text)}</p></div>
+        <div class="shiur"><h4>השיעורים</h4>${SHIURIM.map((x) => `<div class="${x === nextShiur ? 'nx' : ''}"><b>${h(x.t)}</b> <small>${h(x.when)}</small><span>${h(x.who)}${x.room ? ` · ${h(x.room)}` : ''}</span></div>`).join('')}</div>
+      </div>
     </div>
 
     <div class="bottom">
