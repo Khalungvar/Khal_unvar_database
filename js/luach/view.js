@@ -11,11 +11,12 @@ import { uploadFont, loadFonts, customFontNames } from '../fonts.js';
 import { getLang } from '../i18n.js';
 import { openMitzva } from './mitzva.js';
 import { initBooklet } from './booklet.js';
+import { initTefila, openTefila } from './tefila.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 let ui = {};
-export function initLuach(helpers) { ui = helpers; initBooklet(helpers); }
+export function initLuach(helpers) { ui = helpers; initBooklet(helpers); initTefila(helpers); }
 
 // ---------- מאסן (pt), לויט דעם InDesign בלאט ----------
 const PAGE_W = 819.213; const PAGE_H = 493.228;
@@ -270,7 +271,7 @@ function renderHub(main) {
     <span class="lobby-icon">${icon}</span><b>${h(title)}</b><span class="muted small">${h(soon ? t('soon') : sub)}</span></button>`;
   main.innerHTML = `<h2 class="lx-hubh">🕰 ${h(t('hubTitle'))}</h2>
     <div class="lx-hub">
-      ${tile('tefila', '🕍', t('hTefila'), '', true)}
+      ${tile('tefila', '🕍', t('hTefila'), t('hTefilaSub'))}
       ${tile('cal', '📅', t('hCal'), t('hCalSub'))}
       ${tile('mitzva', '📜', t('hMitzva'), t('hMitzvaSub'))}
     </div>`;
@@ -285,6 +286,7 @@ export async function renderLuach() {
   if (!main) return;
   if (mode === 'hub') { renderHub(main); return; }
   if (mode === 'mitzva') { openMitzva(main, () => { mode = 'hub'; renderLuach(); }); return; }
+  if (mode === 'tefila') { openTefila(main, () => { mode = 'hub'; renderLuach(); }); return; }
   if (!year) [year, pageIx] = currentYearAndPage();
   if (!main.firstChild) main.innerHTML = `<p class="muted">…</p>`;
   await loadData();
@@ -480,7 +482,7 @@ const TX = {
   prev: ['הקודם', 'פריער', 'Prev'], next: ['הבא', 'ווייטער', 'Next'], pdf: ['הורדת PDF', 'PDF אראפנעמען', 'Download PDF'],
   hint: ['לחיצה על יום — להוסיף או להסתיר שורה. בארא פארק: לפי טבלת chaitables (ובלעדיה מחושב). ירושלים: מחושב, הדלקה 40 דקות, מנהגי ארץ ישראל.', 'קליקט אויף א טאג — צולייגן אדער באהאלטן א שורה.', 'Click a day to add or hide a line.'],
   place: ['מיקום', 'ארט', 'Location'],
-  hubTitle: ['זמנים ולוחות', 'זמנים און לוחות', 'Zmanim & Calendars'], hTefila: ['זמני תפילות', 'זמני תפילות', 'Davening times'],
+  hubTitle: ['זמנים ולוחות', 'זמנים און לוחות', 'Zmanim & Calendars'], hTefila: ['זמני תפילות', 'זמני תפילות', 'Davening times'], hTefilaSub: ['ימות החול · שבת · יום טוב · תשרי', 'וואכנטאג · שבת · יום טוב · תשרי', 'Weekday · Shabbos · Yom Tov · Tishrei'],
   hCal: ['לוח שנה אונגוואר', 'לוח שנה אונגוואר', 'Ungvar yearly calendar'], hCalSub: ['זמנים · דף יומי · מצוה יומית', 'זמנים · דף יומי · מצוה יומית', 'Zmanim · Daf Yomi · Mitzva'],
   hMitzva: ['לוח מצוה יומית', 'לוח מצוה יומית', 'Mitzva Yomis calendar'], hMitzvaSub: ['שבועי · חודשי · מחזור · קונטרס', 'וועכנטליך · חודש · מחזור · קונטרס', 'Weekly · monthly · cycle · booklet'], soon: ['בקרוב', 'באלד', 'Coming soon'],
   hBooklet: ['חוברת מצוה יומית', 'חוברת מצוה יומית', 'Mitzva Yomis booklet'], hBookletSub: ['גליון חודשי מתוך ספר מצות המלך', 'חודש\'ליכער גליון פון ספר מצות המלך', 'Monthly booklet from Sefer Mitzvos Hamelech'],

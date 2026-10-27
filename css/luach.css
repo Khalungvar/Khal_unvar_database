@@ -187,3 +187,38 @@
 /* "קונטרס החודש" — א באזונדערער קנעפל לעבן די לוחות */
 .mz-kbtn { background: #fff8e6; border-color: #c9a64a; font-weight: 700; }
 .mz-kbtn.on { background: #7a1f1f; color: #fff; border-color: #7a1f1f; }
+
+/* ---------- זמני תפילות (ניהול) ---------- */
+.tf-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+@media (max-width: 1000px) { .tf-wrap { grid-template-columns: 1fr; } }
+.tf-side { position: sticky; top: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 14px; }
+.tf-side h4 { margin: 10px 0 2px; }
+.tf-pvh { display: flex; gap: 8px; align-items: center; font-weight: 700; }
+.tf-pv { margin: 0; line-height: 1.6; } .tf-pv .k, .tf-pt tr.k td { font-weight: 800; color: var(--accent, #1f2f6b); }
+.tf-pt { width: 100%; border-collapse: collapse; } .tf-pt td { padding: 2px 4px; border-bottom: 1px dashed var(--line); } .tf-pt td:last-child { text-align: left; direction: ltr; white-space: nowrap; }
+.tf-grp, .tf-blk { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; margin: 0 0 12px; background: var(--surface); }
+.tf-grp h3 { margin: 0 0 6px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; } .tf-grp h3 small { font-weight: 400; font-size: 13px; }
+.tf-t { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tf-t th { text-align: right; font-size: 12px; color: var(--muted); font-weight: 600; padding: 2px 4px; }
+.tf-t td { padding: 2px 4px; border-top: 1px solid var(--line); vertical-align: middle; }
+.tf-t input[type=text], .tf-t input[type=number], .tf-t input[type=time], .tf-t select, .tf-bh input, .tf-bh select { padding: 3px 5px; font-size: 13px; }
+.tf-w4 { width: 4em; } .tf-w8 { width: 8em; } .tf-w10 { width: 10em; } .tf-w12 { width: 12em; } .tf-w16 { width: 16em; }
+.tf-ts { display: inline-flex; gap: 3px; align-items: center; white-space: nowrap; }
+.tf-ts input[type=number] { width: 4.2em; }
+.tf-times { display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.tf-tm { display: inline-flex; gap: 2px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 1px 3px; }
+.tf-mini { border: 0; background: transparent; cursor: pointer; padding: 2px 4px; font-size: 13px; border-radius: 6px; }
+.tf-mini:hover { background: var(--line); }
+.tf-acts { white-space: nowrap; text-align: left; }
+.tf-add { margin-top: 6px; display: flex; gap: 8px; }
+.tf-bh { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+.tf-bt { font-weight: 700; font-size: 15px !important; }
+.tf-tcell { width: 58%; }
+.tf-blk .tf-t td:first-child input { width: 10em; }
+.tf-rows { display: flex; flex-direction: column; }
+.tf-r { border-top: 1px solid var(--line); padding: 4px 0; }
+.tf-rf { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.tf-rf input, .tf-rf select, .tf-times input, .tf-times select { padding: 3px 5px; font-size: 13px; }
+.tf-r .tf-times { margin-top: 3px; padding-right: 12px; }
+.tf-main { min-width: 0; overflow-x: auto; }
+.tf-wrap { grid-template-columns: minmax(0, 1fr) 270px; }
