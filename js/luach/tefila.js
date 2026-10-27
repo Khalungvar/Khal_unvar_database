@@ -299,9 +299,9 @@ function render(main, onBack) {
     else if (act === 'condOn') { const r = get(p); r.cond = [b.dataset.g === 'shacharis' ? { dir: 'after', min: 0, base: 'alos' } : b.dataset.g === 'mincha' ? { dir: 'before', min: 0, base: 'shkia' } : { dir: 'after', min: 50, base: 'shkia' }]; }
     else if (act === 'condAdd') { const r = get(p); const g = p.split('.')[1]; r.cond = condOf(r, g) || []; r.cond.push({ dir: 'before', min: 0, base: 'shkia' }); }
     else if (act === 'condDel') { const ks = p.split('.'); const ci = Number(ks.pop()); ks.pop(); const r = get(ks.join('.')); r.cond = condOf(r, ks[1]) || []; r.cond.splice(ci, 1); if (!r.cond.length) r.cond = null; }
-    else if (act === 'addS') data.shabbos.rows.push({ id: newId(), label: '', day: 'sat', kind: 'tefila', season: 'all', time: { b: 'fixed', t: '' }, note: '' });
+    else if (act === 'addS') data.shabbos.rows.push({ id: newId(), screen: true, label: '', day: 'sat', kind: 'tefila', season: 'all', time: { b: 'fixed', t: '' }, note: '' });
     else if (act === 'addB') data[p].blocks.push({ id: newId(), title: 'בלוק חדש', when: WHEN[p][0][0], rows: [] });
-    else if (act === 'addR') get(p).push({ id: newId(), label: '', note: '', kind: 'tefila', on: 'all', times: [{ b: 'fixed', t: '' }] });
+    else if (act === 'addR') get(p).push({ id: newId(), screen: true, label: '', note: '', kind: 'tefila', on: 'all', times: [{ b: 'fixed', t: '' }] });
     else if (act === 'addT') get(p).push({ b: 'fixed', t: '' });
     else if (act === 'del' || act === 'delT') {
       const ks = p.split('.'); const i = Number(ks.pop()); const arr = get(ks.join('.'));
