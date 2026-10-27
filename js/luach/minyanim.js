@@ -262,11 +262,12 @@ export function daysOf(when, Y) {
 // ---------- חשבון ----------
 /** ימות החול פאר טאג n: { shacharis:[..], mincha:[..], maariv:[..], last } — יעדער: { min, room, note, kahal } */
 /** זמני ימות החול זענען פאר דער גאנצער וואך: מען רעכנט לויט איין טאג (weekday.refDay) */
-export const REF_DAYS = [['0', 'יום א\''], ['1', 'יום ב\''], ['2', 'יום ג\''], ['3', 'יום ד\''], ['4', 'יום ה\''], ['5', 'יום ו\''], ['early', 'השקיעה המוקדמת בשבוע'], ['late', 'השקיעה המאוחרת בשבוע'], ['daily', 'כל יום לפי עצמו']];
+export const REF_DAYS = [['0', 'יום א\''], ['1', 'יום ב\''], ['2', 'יום ג\''], ['3', 'יום ד\''], ['4', 'יום ה\''], ['5', 'יום ו\''], ['early', 'השקיעה המוקדמת בשבוע'], ['late', 'השקיעה המאוחרת בשבוע'], ['avg', 'השקיעה הממוצעת בשבוע'], ['daily', 'כל יום לפי עצמו']];
 export function weekRefDay(data, n, loc) {
   const ref = data.weekday?.refDay ?? '0';
   if (ref === 'daily') return n;
   const sun = n - dowOf(n === undefined ? 0 : n) + (dowOf(n) === 6 ? 7 : 0); // שבת → די קומענדיגע וואך
+  if (ref === 'avg') return sun; // ווערט אויסגערעכנט אין weekZ
   if (ref === 'early' || ref === 'late') {
     const days = [0, 1, 2, 3, 4, 5].map((i) => sun + i);
     const sk = days.map((k) => dayZ(isoOf(k), loc).shkia);
@@ -275,8 +276,17 @@ export function weekRefDay(data, n, loc) {
   }
   return sun + Number(ref);
 }
+/** די זמנים פאר דער וואך (לויט refDay; 'avg' = דורכשניט פון זונטאג–פרייטאג) */
+export function weekZ(data, n, loc) {
+  if ((data.weekday?.refDay ?? '0') !== 'avg') return dayZ(isoOf(weekRefDay(data, n, loc)), loc);
+  const sun = weekRefDay(data, n, loc);
+  const zs = [0, 1, 2, 3, 4, 5].map((i) => dayZ(isoOf(sun + i), loc));
+  const out = { ...zs[0] };
+  for (const k of Object.keys(out)) if (typeof out[k] === 'number') out[k] = zs.reduce((a, z) => a + z[k], 0) / zs.length;
+  return out;
+}
 export function computeWeekday(data, n, loc) {
-  const w = data.weekday; const iso = isoOf(n); const zd = dayZ(isoOf(weekRefDay(data, n, loc)), loc); const fri = dowOf(n) === 5;
+  const w = data.weekday; const iso = isoOf(n); const zd = weekZ(data, n, loc); const fri = dowOf(n) === 5;
   const ok = (r) => inSeason(r.season, iso, r) && (!fri || r.fri);
   const mk = (r) => ({ min: timeOf(r.time, zd), room: r.room || w.defaultRoom || '', note: r.note || '', kahal: !!r.kahal, last: !!r.last });
   const valid = (x) => {
