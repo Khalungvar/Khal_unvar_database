@@ -222,7 +222,7 @@ function coverHtml(p) {
   const { a, b } = monthMitzvos(p);
   return `<div class="bk-pg"><img class="bk-bg" src="${IMG('cover.jpg')}" alt="">
     <div class="bk-abs" style="top:446px;height:100px;right:106px;width:320px">
-      <div class="bk-box1">סדר לימוד לחודש</div>
+      <div class="bk-box1">סדר הלימוד לחודש</div>
       <div class="bk-box2">${h(monthName(p))} ${h(yearHe(p.Y || 0))}</div>
       <div class="bk-box3">מצוה ${h(numHe(a))} – מצוה ${h(numHe(b))}</div>
     </div>
