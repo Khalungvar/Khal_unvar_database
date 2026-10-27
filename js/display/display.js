@@ -46,8 +46,31 @@ const MAZEL = [
   { names: ['הרה"ח ר\' <b>פלוני כהן</b> הי"ו'], for: 'לרגל הכנסת בנו <b>משה</b> ני"ו לעול התורה והמצוות בשעטו"מ' },
   { names: ['הרה"ח ר\' <b>פלוני לוי</b> הי"ו'], for: 'לרגל הולדת בנו בשעטו"מ' },
   { names: ['הרה"ח ר\' <b>אלמוני גרין</b> הי"ו'], for: 'לרגל שמחת האפשערן של בנו <b>אברהם</b> ני"ו בשעטו"מ' },
+  { names: ['הרה"ח ר\' <b>פלוני וויס</b> הי"ו'], for: 'לרגל הולדת בתו בשעטו"מ' },
 ];
-const PER = 1; // אין דעם שמאלן טור — איינס אויפאמאל
+// בלעטער: אזויפיל שמחות וויפיל עס גייט אריין (געמאסטן) — 2 פון 4 שורות, 3 פון 2–3 שורות א.א.וו.
+let mzCache = { key: '', pages: [[0]] };
+function mazelPages() {
+  const key = `${MAZEL.length}|${document.fonts?.status}|${Math.floor(Date.now() / 60000)}`;
+  if (mzCache.key === key) return mzCache.pages;
+  let m = document.getElementById('mzmeas');
+  if (!m) { m = document.createElement('div'); m.id = 'mzmeas'; m.className = 'frame mzl'; m.style.cssText = 'visibility:hidden;position:fixed;left:0;top:0;z-index:-1;pointer-events:none;direction:rtl'; document.body.appendChild(m); }
+  m.innerHTML = `<img class="head" src="img/display/simcha-head.jpg" alt=""><div class="wk">x</div><div class="list">${MAZEL.map(entryHtml).join('')}</div>`;
+  const list = m.querySelector('.list');
+  const cs = getComputedStyle(list);
+  const avail = list.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  const hs = [...list.children].map((e) => e.offsetHeight);
+  const gap = parseFloat(getComputedStyle(list).rowGap) || 0;
+  const pages = []; let cur = []; let used = 0;
+  hs.forEach((hh, i) => {
+    const need = (cur.length ? gap : 0) + hh;
+    if (cur.length && used + need > avail) { pages.push(cur); cur = []; used = 0; }
+    used += (cur.length ? gap : 0) + hh; cur.push(i);
+  });
+  if (cur.length) pages.push(cur);
+  mzCache = { key, pages: pages.length ? pages : [[0]] };
+  return mzCache.pages;
+}
 const entryHtml = (e) => `<div class="mz-e">${e.names.map((x) => `<div>${x}</div>`).join('')}<div class="for">${e.for}</div></div>`;
 
 // ---------- שיעורים (פון BZS) ----------
@@ -204,9 +227,9 @@ function render() {
   const hh = now.getHours() % 12 || 12; const ap = now.getHours() < 12 ? 'AM' : 'PM';
   const heDate = `${hebrewNumber(x.d)} ${MONTH[x.m] || x.m} ${hebrewNumber(x.y % 1000)}`;
   const mz = mitzvaYomis(iso); const daf = dafYomi(iso);
-  const pages = Math.ceil(MAZEL.length / PER);
+  const mzPages = mazelPages(); const pages = mzPages.length;
   const mzIx = Math.floor(Date.now() / 15000) % pages;
-  const mzList = MAZEL.slice(mzIx * PER, mzIx * PER + PER);
+  const mzList = mzPages[mzIx].map((i) => MAZEL[i]);
 
   $('#screen').innerHTML = `<div class="safe">
     ${SAMPLE ? '<div class="sample">דוגמה לעיצוב — המניינים מהתוכנה הישנה</div>' : ''}

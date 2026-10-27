@@ -50,9 +50,10 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .pr + .pr { margin-left: 10px; }
 .pr i { font-style: normal; font-family: var(--serif); font-size: 16px; font-weight: 700; color: var(--muted); direction: rtl; }
 .zm td:first-child { font-weight: 500; }
-.zm tr.nx td { background: #fff; font-weight: 900; border-top: 2px solid var(--gold); border-bottom: 2px solid var(--gold); }
-.zm tr.nx td:first-child { border-right: 2px solid var(--gold); border-radius: 0 8px 8px 0; padding-right: 8px; }
-.zm tr.nx td:last-child { border-left: 2px solid var(--gold); border-radius: 8px 0 0 8px; }
+.zm tr.nx td { background: linear-gradient(180deg, #f3dc9a, #c9a24c); color: #2a1709; font-weight: 900; }
+.zm tr.nx td:first-child { border-radius: 0 10px 10px 0; padding-right: 10px; }
+.zm tr.nx td:last-child { border-radius: 10px 0 0 10px; padding-left: 10px; }
+.zm tr.nx td + td, .zm tr.nx .pr i { color: #2a1709; }
 .zm .note { margin: 6px 18px 0; text-align: center; font-family: var(--serif); font-weight: 700; font-size: 24px; color: var(--navy); line-height: 1.2; }
 .zm .note .chg { color: #fff; background: #a3191b; font-weight: 900; font-size: 28px; padding: 0 12px 2px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
 .zm .omer { margin: 2px 18px 0; text-align: center; font-family: var(--serif); font-weight: 700; font-size: 21px; color: #8b1a1a; line-height: 1.15; }
@@ -77,7 +78,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 
 /* לינקס: לוח המניינים */
 .pos-main { top: 164px; left: 44px; width: 633px; height: 446px; }
-.pos-side { top: 246px; left: 725px; width: 470px; height: 372px; }
+.pos-side { top: 246px; left: 725px; width: 470px; height: 330px; }
 .mny .ttl { font-size: 34px; padding: 5px 0 7px; }
 .mny .grp { margin: 8px 22px 0; }
 .mny .grp h3 { margin: 0; font-family: var(--serif); font-weight: 900; font-size: 29px; color: var(--paper); text-align: center;
@@ -121,15 +122,15 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .sh-r.big b { color: #2a1709; font-size: 33px; }
 
 /* מזל טוב — אין דעם זעלבן סטיל ווי די אנדערע, מיט דער כותרת פונעם גליון */
-.mzl { top: 658px; left: 725px; width: 470px; height: 272px; text-align: center; overflow: hidden; }
-.mzl .head { display: block; width: 300px; margin: 12px auto 0; mix-blend-mode: multiply; }
-.mzl .wk { display: inline-block; margin-top: 2px; padding: 0 22px 2px; border: 1.5px solid var(--navy); border-radius: 12px; background: #fff;
-  color: var(--navy); font-family: var(--serif); font-weight: 700; font-size: 22px; }
-.mzl .list { display: flex; flex-direction: column; gap: 8px; padding: 8px 20px 0; }
-.mzl .mz-e { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(60,40,10,.25); padding: 6px 14px; font-family: var(--serif); font-size: 25px; line-height: 1.15; color: #111; }
+.mzl { top: 616px; left: 725px; width: 470px; height: 314px; text-align: center; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
+.mzl .head { display: block; width: 230px; height: 49px; margin: 10px auto 0; mix-blend-mode: multiply; flex: none; }
+.mzl .wk { flex: none; margin-top: 1px; padding: 0 18px 1px; border: 1.5px solid var(--navy); border-radius: 10px; background: #fff;
+  color: var(--navy); font-family: var(--serif); font-weight: 700; font-size: 19px; line-height: 1.25; }
+.mzl .list { flex: 1 1 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 6px 18px 20px; overflow: hidden; }
+.mzl .mz-e { background: #fff; border-radius: 10px; box-shadow: 0 1px 5px rgba(60,40,10,.25); padding: 4px 12px; font-family: var(--serif); font-size: 21px; line-height: 1.13; color: #111; flex: none; }
 .mzl .mz-e b { color: var(--navy); }
-.mzl .dots { position: absolute; bottom: 12px; left: 0; right: 0; }
-.mzl .dots i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: rgba(138,106,42,.35); margin: 0 4px; }
+.mzl .dots { position: absolute; bottom: 9px; left: 0; right: 0; line-height: 0; }
+.mzl .dots i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: rgba(138,106,42,.35); margin: 0 4px; }
 .mzl .dots i.on { background: var(--gold3); }
 
 /* מודעה 8.5×11 — דעקט צו 264–958 אין מיטן */
