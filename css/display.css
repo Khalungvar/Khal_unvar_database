@@ -73,7 +73,8 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .lrn .shiur > div.nx span { display: block; }
 
 /* לינקס: לוח המניינים */
-.mny { top: 164px; left: 44px; width: 633px; height: 446px; }
+.pos-main { top: 164px; left: 44px; width: 633px; height: 446px; }
+.pos-side { top: 246px; left: 725px; width: 470px; height: 372px; }
 .mny .ttl { font-size: 34px; padding: 5px 0 7px; }
 .mny .grp { margin: 8px 22px 0; }
 .mny .grp h3 { margin: 0; font-family: var(--serif); font-weight: 900; font-size: 29px; color: var(--paper); text-align: center;
@@ -103,7 +104,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
   font-family: var(--serif); font-weight: 900; font-size: 36px; box-shadow: 0 8px 20px rgba(0,0,0,.4); }
 .last b { color: #fff; font-family: 'Frank Ruhl Libre', serif; direction: ltr; }
 /* שבת קודש — אנדערש: טונקל בורדא מיט גאלד, גרויסע אותיות */
-.shab { position: absolute; top: 246px; left: 725px; width: 470px; height: 372px; border-radius: 18px; padding: 8px 22px 0; color: #f6e7c0;
+.shab { position: absolute; border-radius: 18px; padding: 8px 22px 0; color: #f6e7c0;
   background: linear-gradient(rgba(0,0,0,.08), rgba(0,0,0,.2)), url('../img/display/wood.jpg') center / cover;
   box-shadow: 0 0 0 3px var(--gold3), 0 0 0 7px var(--gold), 0 0 0 9px var(--gold3), 0 10px 30px rgba(0,0,0,.45); }
 .shab::before { content: ''; position: absolute; inset: 8px; border: 1.5px solid rgba(243,220,154,.45); border-radius: 12px; pointer-events: none; }
@@ -150,3 +151,21 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 /* שבת/יו"ט לוח אין לוח המניינים */
 .mny .grp.hg h3 { background: linear-gradient(90deg, transparent, #4a2a12 18%, #4a2a12 82%, transparent); }
 .mny .grp.hg .times span { font-size: 40px; }
+
+/* שבת גרויס (אויפן ארט פון זמני התפילות) */
+.shab.pos-main { padding: 12px 34px 0; }
+.shab.pos-main .sh-t { font-size: 42px; }
+.shab.pos-main .sh-t small { font-size: 26px; margin-bottom: 6px; }
+.shab.pos-main .sh-r { font-size: 31px; line-height: 1.12; }
+.shab.pos-main .sh-r b { font-size: 35px; }
+.shab.pos-main .sh-r b.sm { font-size: 30px; }
+.shab.pos-main .sh-r.big { font-size: 32px; margin: 3px -10px; }
+.shab.pos-main .sh-r.big b { font-size: 37px; }
+/* זמני התפילות קליין (אויפן ארט פון שבת) */
+.mny.pos-side .ttl { font-size: 28px; }
+.mny.pos-side .ttl small { font-size: 22px; color: var(--gold2); }
+.mny.pos-side .grp { margin: 8px 14px 0; }
+.mny.pos-side .grp h3 { font-size: 24px; }
+.mny.pos-side .grp h3 small { font-size: 16px; }
+.mny.pos-side .times span { font-size: 24px; padding: 0 8px; }
+.sh-r.big.past { background: linear-gradient(180deg, #8a7a55, #6b5a38); color: #2a1709; opacity: .55; }
