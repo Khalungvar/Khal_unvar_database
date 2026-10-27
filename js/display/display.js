@@ -138,10 +138,10 @@ function render() {
   const mzIx = Math.floor(Date.now() / 15000) % pages;
   const mzList = MAZEL.slice(mzIx * PER, mzIx * PER + PER);
 
-  $('#screen').innerHTML = `
+  $('#screen').innerHTML = `<div class="safe">
     ${SAMPLE ? '<div class="sample">דוגמה לעיצוב — המניינים מהתוכנה הישנה</div>' : ''}
     <div class="top">
-      <div class="day">${h(YDAY[dw])}<small>${h(holAll || (parsha ? `פרשת ${parsha}` : ''))}</small></div>
+      <div class="day">${h(YDAY[dw])}<small${holAll ? ' class="sp"' : ''}>${h(holAll || (parsha ? `פרשת ${parsha}` : ''))}</small></div>
       <div class="logo"><img src="img/logo.png" alt=""><b>קהל אונגוואר</b></div>
       <div class="clock">${hh}:${String(now.getMinutes()).padStart(2, '0')}<span>${String(now.getSeconds()).padStart(2, '0')} ${ap}</span></div>
     </div>
@@ -201,12 +201,18 @@ function render() {
       </div>
     </div>
 
+    </div>
     <div class="bottom">
       <div class="hd">${h(heDate)}</div>
       <div class="kol">קול אונגוואר<b>605-477-4427</b></div>
       <div class="greg">${now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
     </div>`;
 }
+
+// שוליים פאר א מסך מיט א ראם (?safe=40 פיקסל; 0 = אן שוליים)
+const SAFE = Math.max(0, Math.min(120, Number(new URLSearchParams(location.search).get('safe') ?? 36) || 0));
+document.documentElement.style.setProperty('--safe', `${SAFE}px`);
+document.documentElement.style.setProperty('--safe-s', String(1 - (2 * SAFE) / 1080));
 
 function fit() {
   const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
