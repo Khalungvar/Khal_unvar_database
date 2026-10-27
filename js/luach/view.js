@@ -482,7 +482,7 @@ const TX = {
   prev: ['הקודם', 'פריער', 'Prev'], next: ['הבא', 'ווייטער', 'Next'], pdf: ['הורדת PDF', 'PDF אראפנעמען', 'Download PDF'],
   hint: ['לחיצה על יום — להוסיף או להסתיר שורה. בארא פארק: לפי טבלת chaitables (ובלעדיה מחושב). ירושלים: מחושב, הדלקה 40 דקות, מנהגי ארץ ישראל.', 'קליקט אויף א טאג — צולייגן אדער באהאלטן א שורה.', 'Click a day to add or hide a line.'],
   place: ['מיקום', 'ארט', 'Location'],
-  hubTitle: ['זמנים ולוחות', 'זמנים און לוחות', 'Zmanim & Calendars'], hTefila: ['זמני תפילות', 'זמני תפילות', 'Davening times'], hTefilaSub: ['ימות החול · שבת · יום טוב · תשרי', 'וואכנטאג · שבת · יום טוב · תשרי', 'Weekday · Shabbos · Yom Tov · Tishrei'],
+  hubTitle: ['זמנים ולוחות', 'זמנים און לוחות', 'Zmanim & Calendars'], hTefila: ['זמני תפילות ביהמ"ד בארא פארק', 'זמני תפילות ביהמ"ד בארא פארק', 'Davening times – Boro Park shul'], hTefilaSub: ['ימות החול · שבת · ימי דפגרא · יו"ט · תשרי', 'וואכנטאג · שבת · ימי דפגרא · יו"ט · תשרי', 'Weekday · Shabbos · Minor days · Yom Tov · Tishrei'],
   hCal: ['לוח שנה אונגוואר', 'לוח שנה אונגוואר', 'Ungvar yearly calendar'], hCalSub: ['זמנים · דף יומי · מצוה יומית', 'זמנים · דף יומי · מצוה יומית', 'Zmanim · Daf Yomi · Mitzva'],
   hMitzva: ['לוח מצוה יומית', 'לוח מצוה יומית', 'Mitzva Yomis calendar'], hMitzvaSub: ['שבועי · חודשי · מחזור · קונטרס', 'וועכנטליך · חודש · מחזור · קונטרס', 'Weekly · monthly · cycle · booklet'], soon: ['בקרוב', 'באלד', 'Coming soon'],
   hBooklet: ['חוברת מצוה יומית', 'חוברת מצוה יומית', 'Mitzva Yomis booklet'], hBookletSub: ['גליון חודשי מתוך ספר מצות המלך', 'חודש\'ליכער גליון פון ספר מצות המלך', 'Monthly booklet from Sefer Mitzvos Hamelech'],

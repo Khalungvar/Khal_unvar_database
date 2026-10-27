@@ -284,7 +284,7 @@ function render(main, onBack) {
   const body = tab === 'weekday' ? weekdayHtml() : tab === 'shabbos' ? shabbosHtml() : blocksHtml(tab);
   main.innerHTML = `<div class="lx-bar">
       <button type="button" class="btn ghost" id="tf-back">← זמנים ולוחות</button>
-      <b class="lx-title">🕍 זמני תפילות</b>
+      <b class="lx-title">🕍 זמני תפילות ביהמ"ד בארא פארק</b>
       <div class="lang-switch">${TABS.map(([k, l]) => `<button type="button" data-tab="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div>
       <span class="spacer"></span>
       ${canEdit() ? `<button type="button" class="btn primary" id="tf-save"${dirty ? '' : ' disabled'}>💾 שמירה</button>` : ''}
