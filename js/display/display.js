@@ -26,7 +26,10 @@ const SHABBOS = {
   shacharis: M('9:00', 'ביהמ"ד הגדול'), shacharisYT: M('9:15', 'ביהמ"ד הגדול'),
   mincha: REL('shkia', -10, 5, 'down'), // דוגמה — נישט אין דער אלטער תוכנה
   maariv: [REL('shkia', 72, 1, 'up'), REL('shkia', 82, 1, 'up')],
+  // נאך נישט באשטימט — ווערט אויסגעפולט אין ניהול המניינים
+  tish: null, pirkeiAvos: null, melaveMalka: null,
 };
+const tOr = (t, z, tm) => (t ? tm(resolve(t, z)) : '—');
 
 const toMin = (t) => { const [a, b] = t.split(':').map(Number); return a * 60 + b; };
 function resolve(t, zm) {
@@ -183,15 +186,18 @@ function render() {
     const ps = shab ? (dayOf(d)?.parsha || '') : '';
     const oe = (eve - n) * 1440; const od = (d - n) * 1440;
     const P = (m) => (m < nowMin ? ' past' : '');
+    // פרקי אבות: שבתות פון נאך פסח ביז ראש השנה
+    const hx = hdOf(d);
+    const avos = shab && (['Iyar', 'Sivan', 'Tamuz', 'Av', 'Elul'].includes(hx.m) || (hx.m === 'Nisan' && hx.d > 22));
     return `<div class="shab ${pos}">
       <div class="sh-t">${h(shab ? 'שבת קודש' : ytName || 'יום טוב')}<small>${ps ? `פרשת ${h(ps)}` : shab && ytName ? h(ytName) : '&nbsp;'}</small></div>
       ${holy(eve) ? '' : `<div class="sh-r"><span>הדלקת נרות</span><b>${tm(ze.candles)}</b></div>`}
       <div class="sh-r big${P(resolve(SHABBOS.minchaErev, ze) + oe)}"><span>${holy(eve) ? 'מנחה' : shab ? 'מנחה ערב שבת' : 'מנחה ערב יו"ט'}</span><b>${tm(resolve(SHABBOS.minchaErev, ze))}</b></div>
+      <div class="sh-r"><span>שולחן הטהור</span><b>${tOr(SHABBOS.tish, ze, tm)}</b></div>
       <div class="sh-r big${P(toMin((ytName ? SHABBOS.shacharisYT : SHABBOS.shacharis).t) + od)}"><span>שחרית</span><b>${h(ytName ? SHABBOS.shacharisYT.t : SHABBOS.shacharis.t)}</b></div>
-      <div class="sh-r"><span>סוף זמן ק"ש</span><b class="sm">${pair(zd.alos + 3 * ((zd.tzeis - zd.alos) / 12), zd.neitz + 3 * ((zd.shkia - zd.neitz) / 12))}</b></div>
-      <div class="sh-r big${P(resolve(SHABBOS.mincha, zd) + od)}"><span>מנחה</span><b>${tm(resolve(SHABBOS.mincha, zd))}</b></div>
-      ${holy(d + 1) ? '' : `<div class="sh-r big${P(resolve(SHABBOS.maariv[SHABBOS.maariv.length - 1], zd) + od)}"><span>${shab ? 'מעריב מוצש"ק' : 'מעריב מוצאי יו"ט'}</span><b>${SHABBOS.maariv.map((t) => tm(resolve(t, zd))).join(' · ')}</b></div>
-      <div class="sh-r"><span>${shab ? 'מוצאי שבת קודש' : 'מוצאי יום טוב'}</span><b>${tm(zd.motzei)}</b></div>`}
+      ${avos ? `<div class="sh-r"><span>פרקי אבות</span><b>${tOr(SHABBOS.pirkeiAvos, zd, tm)}</b></div>` : ''}
+      <div class="sh-r big${P(resolve(SHABBOS.mincha, zd) + od)}"><span>מנחה ושלש סעודות</span><b>${tm(resolve(SHABBOS.mincha, zd))}</b></div>
+      ${holy(d + 1) ? '' : `<div class="sh-r"><span>מלוה מלכה</span><b>${tOr(SHABBOS.melaveMalka, zd, tm)}</b></div>`}
     </div>`;
   }
 
