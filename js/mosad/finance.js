@@ -1,12 +1,12 @@
 // אתר פון א מוסד — 💰 משכורות והוצאות (הרשאה "finance"):
 // 💵 משכורות (₪: גלובלי / שעות קבועות / רישום יומי / גלובלי + שעות, תוספות און ניכויים, תשלומים, וויפיל מ'איז נאך שולדיג),
 // 🧾 הוצאות (₪/$, קאטעגאריעס, צילום קבלה), 📥 הכנסות ותמיכה, ⚖️ חובות פתוחים, 📊 מאזן חודשי — יעדער מטבע באזונדער.
-import { downloadXlsx } from '../excel.js?v=429';
-import { todayIso, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=429';
-import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=429';
-import { historyDialog } from './me.js?v=429';
-import { PAY_TYPES, schedText } from './team.js?v=429';
-import { usdRate } from '../fx.js?v=429';
+import { downloadXlsx } from '../excel.js?v=430';
+import { todayIso, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=430';
+import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=430';
+import { historyDialog } from './me.js?v=430';
+import { PAY_TYPES, schedText } from './team.js?v=430';
+import { usdRate } from '../fx.js?v=430';
 
 let X = null;
 export function initFinance(ctx) { X = ctx; }
