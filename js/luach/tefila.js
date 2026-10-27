@@ -145,13 +145,14 @@ const SH_SEASONS = [...SEASONS, ['avos', 'שבתות פרקי אבות']];
 function shabbosHtml() {
   const rs = data.shabbos.rows || [];
   return `<p class="muted small">הדלקת נרות מחושבת לבד (18 דק' לפני השקיעה) ומופיעה תמיד ראשונה. "הדלקת נרות" בשעה = של אותו יום (ער"ש או שבת).</p>
-  <table class="tf-t"><thead><tr><th title="תצוגה במסך">📺</th><th>שם</th><th>יום</th><th>שעה</th><th>עונה</th><th>סוג</th><th>הערה</th><th></th></tr></thead><tbody>
-  ${rs.map((r, i) => { const p = `shabbos.rows.${i}`; return `<tr${r.screen === false ? ' class="tf-off"' : ''}>
-    <td>${fld(`${p}.screen`, 'check', ' title="תצוגה במסך"')}</td><td>${fld(`${p}.label`, 'text', ' class="tf-w12"')}</td><td>${sel(`${p}.day`, [['fri', 'ערב שבת'], ['sat', 'שבת']])}</td>
-    <td>${tsHtml(r.time, `${p}.time`, true)}</td><td>${seasonHtml(p, SH_SEASONS)}</td><td>${sel(`${p}.kind`, [['tefila', 'תפילה'], ['other', 'אחר']])}</td>
-    <td>${fld(`${p}.note`, 'text', ' class="tf-w10"')}</td>
-    <td class="tf-acts">${btn('up', p, '↑', 'למעלה')}${btn('down', p, '↓', 'למטה')}${btn('del', p, '🗑', 'מחק')}</td></tr>`; }).join('')}
-  </tbody></table>
+  <div class="tf-rows tf-shrows">
+  ${rs.map((r, i) => { const p = `shabbos.rows.${i}`; return `<div class="tf-r">
+    <div class="tf-rf${r.screen === false ? ' tf-off' : ''}"><label class="tf-scr" title="תצוגה במסך">${fld(`${p}.screen`, 'check')} 📺</label>
+      ${fld(`${p}.label`, 'text', ' class="tf-w12 tf-bt" placeholder="שם"')}${sel(`${p}.day`, [['fri', 'ערב שבת'], ['sat', 'שבת']])}${tsHtml(r.time, `${p}.time`, true)}
+      <span class="spacer"></span><span class="tf-acts">${btn('up', p, '↑', 'למעלה')}${btn('down', p, '↓', 'למטה')}${btn('del', p, '🗑', 'מחק')}</span></div>
+    <div class="tf-rf tf-sub">${seasonHtml(p, SH_SEASONS)}${sel(`${p}.kind`, [['tefila', 'תפילה'], ['other', 'אחר']])}${fld(`${p}.note`, 'text', ' class="tf-w12" placeholder="הערה"')}</div>
+  </div>`; }).join('')}
+  </div>
   ${canEdit() ? '<div class="tf-add"><button type="button" class="btn" data-act="addS">➕ שורה</button></div>' : ''}`;
 }
 

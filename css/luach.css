@@ -238,3 +238,7 @@
 .tf-scr { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; cursor: pointer; }
 .tf-rng { display: inline-flex; gap: 3px; align-items: center; margin-right: 4px; font-size: 12px; white-space: nowrap; }
 .tf-rng select { font-size: 12px; padding: 2px; }
+.tf-shrows { border: 1px solid var(--line); border-radius: 12px; padding: 4px 10px; background: var(--surface); }
+.tf-shrows .tf-r:first-child { border-top: 0; }
+.tf-rf.tf-sub { margin-top: 3px; padding-right: 34px; font-size: 13px; }
+.tf-rf.tf-sub select, .tf-rf.tf-sub input { font-size: 12px; }
