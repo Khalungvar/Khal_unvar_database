@@ -294,15 +294,6 @@ function render() {
     <div class="frame lrn-m lrn-d">
       <div class="l1"><span>דף היומי</span></div>
       <div class="l2 fit">${h(daf.text)}</div>
-    </div>
-    <div class="frame lrn-s">
-      <div class="ttl">שיעורי תורה</div>
-      ${(() => { // נאר וואס קומט נאך — עס מוז אריינגיין
-        const anyUp = SHI.some((x) => x.min != null && x.min >= nowMin - 5);
-        const up = (x) => !anyUp || x.min == null || x.min >= nowMin - 5; // ווען אלעס איז פארביי — ווייזן דעם גאנצן טאג
-        const daf = SHI.filter((x) => x.type === 'daf' && up(x)).slice(0, 3); const oth = SHI.filter((x) => x.type !== 'daf' && up(x)).slice(0, daf.length >= 2 ? 3 : 4);
-        return `${daf.length ? `<div class="shiur sh-daf"><h4>שיעורי דף היומי בבית מדרשינו:</h4>${daf.map(shLine).join('')}</div>` : ''}${oth.length ? `<div class="shiur sh-oth"><h4>שיעורים הנלמדים בביהמ"ד:</h4>${oth.map(shLine).join('')}</div>` : ''}`;
-      })()}
     </div>`}
 <!--BOT-->
     <div class="bottom">
@@ -310,12 +301,17 @@ function render() {
       <div class="kol">קול אונגוואר <b>605-477-4427</b></div>
       <div class="greg">${now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
     </div>`;
+  // שיעורי תורה: אין אן אייגענעם שיכט (נישט איבערגעצייכנט יעדע סעקונדע) — ווען עס גייט נישט אריין, פארט עס פאמעלעך ארויף אין א קרייז
+  const shDaf = SHI.filter((x) => x.type === 'daf'); const shOth = SHI.filter((x) => x.type !== 'daf');
+  const shRow = (x) => `<div class="${x === nextShiur ? 'nx' : x.min != null && x.min < nowMin ? 'ps' : 'ln'}">${shLine(x).replace(/^<div[^>]*>|<\/div>$/g, '')}</div>`;
+  const shInner = `${shDaf.length ? `<div class="shiur sh-daf"><h4>שיעורי דף היומי בבית מדרשינו:</h4>${shDaf.map(shRow).join('')}</div>` : ''}${shOth.length ? `<div class="shiur sh-oth"><h4>שיעורים הנלמדים בביהמ"ד:</h4>${shOth.map(shRow).join('')}</div>` : ''}`;
   const [main, bot] = html.split('<!--BOT-->');
   if (!$('#dyn')) {
-    $('#screen').innerHTML = '<div class="safe"><div id="dyn"></div><div id="adlayer"></div></div><div id="dynb"></div>';
+    $('#screen').innerHTML = '<div class="safe"><div id="dyn"></div><div id="shl"></div><div id="adlayer"></div></div><div id="dynb"></div>';
     if (AD) $('#adlayer').innerHTML = `<div class="ad">${adHtml()}</div>`;
   }
   $('#dyn').innerHTML = main;
+  updateShiurim(AD ? '' : shInner);
   // לוח המניינים (חול): די אותיות ווערן אזוי גרויס אז זיי פילן אויס די מסגרת
   for (const box of document.querySelectorAll('#dyn .mny')) fitBoard(box);
   // .fit: גרויס ווי מעגליך, אבער אין איין שורה אין דער מסגרת
@@ -324,6 +320,28 @@ function render() {
     while (el.scrollWidth > el.clientWidth + 1 && fs > 14) { fs -= 1; el.style.fontSize = `${fs}px`; }
   }
   $('#dynb').innerHTML = bot;
+}
+let shLast = null;
+function updateShiurim(inner) {
+  const L = $('#shl'); if (!L) return;
+  if (inner === shLast) return; shLast = inner;
+  if (!inner) { L.innerHTML = ''; return; }
+  L.innerHTML = `<div class="frame lrn-s"><div class="ttl">שיעורי תורה</div><div class="shv"><div class="shin">${inner}</div></div></div>`;
+  const v = L.querySelector('.shv'); const inn = L.querySelector('.shin');
+  // גרויס ווי מעגליך: די לענגסטע שורה פילט אויס די ברייט
+  const rows = [...inn.querySelectorAll('.shiur > div')];
+  let fs = 30; const setFs = () => rows.forEach((r) => { r.style.fontSize = `${fs}px`; });
+  setFs();
+  while (fs > 16 && rows.some((r) => r.scrollWidth > r.clientWidth + 1)) { fs -= 1; setFs(); }
+  // ווען עס גייט נישט אריין: קרייז ארויף
+  if (inn.scrollHeight > v.clientHeight + 2) {
+    const hgt = inn.scrollHeight;
+    inn.innerHTML += `<div class="shgap"></div>${inner}`;
+    inn.querySelectorAll('.shiur > div').forEach((r) => { r.style.fontSize = `${fs}px`; });
+    const step = hgt + 30;
+    inn.style.setProperty('--sh', `${step}px`);
+    inn.style.animation = `shscroll ${Math.round(step / 18)}s linear infinite`;
+  }
 }
 const boardCache = new Map();
 function fitBoard(box) {

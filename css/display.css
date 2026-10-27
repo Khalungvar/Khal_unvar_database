@@ -298,3 +298,16 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .lrn-m.lrn-d .l2 { color: var(--navy); }
 .lrn-s { top: 688px; height: 242px; }
 .next .lbl { font-size: 40px; } .next .room { font-size: 45px; }
+
+/* שיעורי תורה — שיכט פאר זיך, מיט קרייז-שקראל */
+.lrn-s .shv { position: absolute; top: 44px; bottom: 12px; left: 10px; right: 10px; overflow: hidden; }
+.lrn-s .shin { will-change: transform; }
+.lrn-s .shiur { padding: 4px 8px 0; }
+.lrn-s .shiur > div { white-space: nowrap; overflow: hidden; line-height: 1.2; margin-top: 3px; color: #8a7e66; }
+.lrn-s .shiur > div.ps { color: #b9ad94; }
+.lrn-s .shiur > div.ln { color: #5c513c; }
+.lrn-s .shiur > div.nx { color: var(--navy); font-weight: 700; }
+.lrn-s .shiur > div b { font-size: 1.1em; } .lrn-s .shiur > div small { font-size: .8em; }
+.lrn-s .shiur h4 { font-size: 21px; }
+.lrn-s .shgap { height: 30px; border-top: 2px dashed rgba(138,106,42,.35); margin-top: 14px; }
+@keyframes shscroll { from { transform: translateY(0); } to { transform: translateY(calc(-1 * var(--sh))); } }
