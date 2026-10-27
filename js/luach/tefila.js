@@ -84,14 +84,32 @@ const sel = (path, opts) => `<select data-f="${h(path)}"${canEdit() ? '' : ' dis
 const btn = (act, path, label, title = '') => (canEdit() ? `<button type="button" class="tf-mini" data-act="${act}" data-p="${h(path)}" title="${h(title)}">${label}</button>` : '');
 
 // ---------- "תלוי": א קנעפל; ווען אן — {לפני/אחרי} {דק'} {זמן} ----------
+let condOpen = null; // { p, g } — דער חלון פון "תלוי"
+const BASE_NAME = (k) => (BASES.find(([x]) => x === k) || [, k])[1];
+function condBtn(r, g, p) {
+  const cs = condOf(r, g);
+  const txt = cs && cs.length ? cs.map((c) => `${c.dir === 'before' ? 'לפני' : 'אחרי'}${Number(c.min) ? ` ${c.min} דק'` : ''} ${BASE_NAME(c.base)}`).join(' + ') : 'תלוי';
+  return `<button type="button" class="tf-cond${cs && cs.length ? ' set' : ''}" data-act="condOpen" data-p="${h(p)}" data-g="${g}"${canEdit() ? '' : ' disabled'}>${h(txt)}</button>`;
+}
+function condDialog() {
+  if (!condOpen) return '';
+  const { p, g } = condOpen; const r = get(p); if (!r) return '';
+  const tl = r.time?.b === 'fixed' ? r.time.t : '';
+  return `<div class="tf-dlg-bg" data-act="condClose"><div class="tf-dlg">
+    <h3>תלוי — ${h(GROUPS.find(([k]) => k === g)?.[1] || '')} ${h(tl)}</h3>
+    <p class="muted small">המניין יוצג רק בימים שכל התנאים מתקיימים.</p>
+    ${condHtml(r, g, p)}
+    <div class="tf-add"><span class="spacer"></span><button type="button" class="btn primary" data-act="condClose">סגור</button></div>
+  </div></div>`;
+}
 function condHtml(r, g, p) {
   const cs = condOf(r, g); const dis = canEdit() ? '' : ' disabled';
-  if (!cs || !cs.length) return canEdit() ? `<button type="button" class="tf-cond" data-act="condOn" data-p="${h(p)}" data-g="${g}">תלוי</button>` : '';
+  if (!cs || !cs.length) return canEdit() ? `<button type="button" class="tf-cond" data-act="condOn" data-p="${h(p)}" data-g="${g}">＋ הוסף תנאי</button>` : '';
   return `<div class="tf-conds">${cs.map((c, ci) => { const cp = `${p}.cond.${ci}`; return `<span class="tf-cond on">${ci ? 'וגם' : 'רק אם'}
     <select data-f="${h(cp)}.dir"${dis}><option value="before"${c.dir === 'before' ? ' selected' : ''}>לפני</option><option value="after"${c.dir === 'after' ? ' selected' : ''}>אחרי</option></select>
     <input type="number" min="0" class="tf-w4" data-f="${h(cp)}.min" value="${Number(c.min) || 0}"${dis}> דק'
     <select data-f="${h(cp)}.base"${dis}>${BASES.filter(([k]) => k !== 'fixed').map(([k, l]) => `<option value="${k}"${k === c.base ? ' selected' : ''}>${h(l)}</option>`).join('')}</select>
-    ${btn('condDel', cp, '✕', 'הסר תנאי')}</span>`; }).join('')}${btn('condAdd', p, '＋', 'עוד תנאי')}</div>`;
+    ${btn('condDel', cp, '✕', 'הסר תנאי')}</span>`; }).join('')}${btn('condAdd', p, '＋ עוד תנאי', 'עוד תנאי')}</div>`;
 }
 
 // ---------- ימות החול ----------
@@ -102,7 +120,7 @@ function weekdayHtml() {
     <table class="tf-t"><thead><tr><th>שעה</th><th>חדר</th><th>הערה</th><th>עונה</th><th title="המניין מוצג רק אם הוא לפני / אחרי זמן מסוים">תלוי</th>${g === 'shacharis' ? '<th>גם בער"ש</th>' : ''}<th></th></tr></thead><tbody>
     ${(w[g] || []).map((r, i) => { const p = `weekday.${g}.${i}`; return `<tr>
       <td>${tsHtml(r.time, `${p}.time`)}</td><td>${fld(`${p}.room`, 'text', ' class="tf-w8"')}</td><td>${fld(`${p}.note`, 'text', ' class="tf-w10"')}</td>
-      <td>${sel(`${p}.season`, SEASONS)}</td><td>${condHtml(r, g, p)}</td>
+      <td>${sel(`${p}.season`, SEASONS)}</td><td>${condBtn(r, g, p)}</td>
       ${g === 'shacharis' ? `<td>${fld(`${p}.fri`, 'check')}</td>` : ''}
       <td class="tf-acts">${btn('del', p, '🗑', 'מחק')}</td></tr>`; }).join('')}
     </tbody></table>
@@ -203,7 +221,7 @@ function render(main, onBack) {
       ${canEdit() ? '<button type="button" class="btn ghost" id="tf-reset" title="למלא מחדש מברירת המחדל (הלוח השנתי + התוכנה הישנה)">↺</button>' : ''}
     </div>
     ${row ? '' : '<p class="lx-warn">⚠ עדיין לא נשמר — מוצגים הזמנים מהלוח השנתי ומהתוכנה הישנה. לעבור, לתקן ולשמור.</p>'}
-    <div class="tf-wrap"><div class="tf-main">${body}</div><aside class="tf-side">${previewHtml()}</aside></div>`;
+    <div class="tf-wrap"><div class="tf-main">${body}</div><aside class="tf-side">${previewHtml()}</aside></div>${condDialog()}`;
   const rerender = () => render(main, onBack);
   const touched = (full) => { dirty = true; const s = $('#tf-save', main); if (s) s.disabled = false; if (full) rerender(); else $('.tf-side', main).innerHTML = previewHtml(); bindDate(); };
   const bindDate = () => { const d = $('#tf-date', main); if (d) d.onchange = () => { prevIso = d.value || todayIso(); $('.tf-side', main).innerHTML = previewHtml(); bindDate(); }; };
@@ -232,6 +250,8 @@ function render(main, onBack) {
     const act = b.dataset.act; const p = b.dataset.p || '';
     if (act === 'addW') { data.weekday[p].push({ id: newId(), time: { b: 'fixed', t: '' }, room: '', note: '', season: 'all', cond: null, kahal: false, fri: p === 'shacharis', last: false }); }
     else if (act === 'sortW') { const z = { neitz: 380, shkia: 1100, candles: 1082, rt: 1172, alos: 308, chatzos: 740 }; const k = (r) => (r.time?.b === 'fixed' ? (Number(String(r.time.t).replace(':', '.')) * 60 || 0) : (z[r.time?.b] || 0) + (r.time?.a || 0)); data.weekday[p].sort((a, c) => k(a) - k(c)); }
+    else if (act === 'condOpen') { condOpen = { p, g: b.dataset.g }; rerender(); return; }
+    else if (act === 'condClose') { if (e.target !== b && b.classList.contains('tf-dlg-bg')) return; condOpen = null; rerender(); return; }
     else if (act === 'condOn') { const r = get(p); r.cond = [b.dataset.g === 'shacharis' ? { dir: 'after', min: 0, base: 'alos' } : b.dataset.g === 'mincha' ? { dir: 'before', min: 0, base: 'shkia' } : { dir: 'after', min: 50, base: 'shkia' }]; }
     else if (act === 'condAdd') { const r = get(p); const g = p.split('.')[1]; r.cond = condOf(r, g) || []; r.cond.push({ dir: 'before', min: 0, base: 'shkia' }); }
     else if (act === 'condDel') { const ks = p.split('.'); const ci = Number(ks.pop()); ks.pop(); const r = get(ks.join('.')); r.cond = condOf(r, ks[1]) || []; r.cond.splice(ci, 1); if (!r.cond.length) r.cond = null; }

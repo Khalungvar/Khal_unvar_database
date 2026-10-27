@@ -227,3 +227,9 @@
 .tf-cond.on { display: inline-flex; gap: 3px; align-items: center; border-style: solid; color: inherit; cursor: default; white-space: nowrap; background: #fffaf0; }
 .tf-cond.on select, .tf-cond.on input { padding: 2px 3px; font-size: 12px; }
 .tf-conds { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.tf-cond.set { border-style: solid; border-color: #c9a24c; background: #fffaf0; color: inherit; white-space: nowrap; }
+.tf-dlg-bg { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.tf-dlg { background: var(--surface, #fff); border-radius: 14px; padding: 14px 18px; min-width: 420px; max-width: 92vw; box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+.tf-dlg h3 { margin: 0 0 4px; }
+.tf-dlg .tf-conds { gap: 6px; }
+.tf-dlg .tf-cond.on { font-size: 14px; padding: 4px 8px; } .tf-dlg .tf-cond.on select, .tf-dlg .tf-cond.on input { font-size: 14px; }
