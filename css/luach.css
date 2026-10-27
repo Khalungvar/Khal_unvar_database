@@ -242,3 +242,5 @@
 .tf-shrows .tf-r:first-child { border-top: 0; }
 .tf-rf.tf-sub { margin-top: 3px; padding-right: 34px; font-size: 13px; }
 .tf-rf.tf-sub select, .tf-rf.tf-sub input { font-size: 12px; }
+.tf-shrows .tf-r { padding: 10px 0; }
+.tf-shrows .tf-r:nth-child(even) { background: rgba(201,162,76,.06); margin: 0 -10px; padding: 10px 10px; }
