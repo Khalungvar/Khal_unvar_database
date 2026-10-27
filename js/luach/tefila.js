@@ -1,6 +1,6 @@
 // "זמני תפילות" — ניהול: ימות החול · שבת · יום טוב · תשרי. די דאטן: לשונית Minyanim (key = data, value = JSON).
 // דער חשבון (וואס קומט ארויס פאר א טאג) איז אין minyanim.js — דאס זעלבע וואס די תצוגה אין בית הכנסת ניצט.
-import { defaults, chagRows, condOf, ANCHORS, BASES, ROUNDS, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
+import { defaults, chagRows, computeShiurim, condOf, ANCHORS, BASES, ROUNDS, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
 import { hhmm } from './zmanim.js';
 import { hdOf, dowOf } from './engine.js';
 import { MONTH } from './mitzva.js';
@@ -14,7 +14,7 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 let ui = {};
 export function initTefila(helpers) { ui = helpers; }
 
-const TABS = [['weekday', 'ימות החול'], ['shabbos', 'שבת'], ['minor', 'ימי דפגרא ותעניות'], ['yt', 'ערב יו"ט ויו"ט'], ['tishrei', 'תשרי']];
+const TABS = [['weekday', 'ימות החול'], ['shabbos', 'שבת'], ['minor', 'ימי דפגרא ותעניות'], ['yt', 'ערב יו"ט ויו"ט'], ['tishrei', 'תשרי'], ['shiurim', 'שיעורים']];
 const GROUPS = [['shacharis', 'שחרית'], ['mincha', 'מנחה'], ['maariv', 'מעריב']];
 const MGROUPS = [['minchaEve', 'מנחה ערב'], ['maarivEve', 'מעריב ערב'], ['shacharis', 'שחרית'], ['mincha', 'מנחה'], ['maarivMid', 'מעריב לילות האמצע'], ['maariv', 'מעריב מוצאי']];
 const DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
@@ -247,9 +247,33 @@ function blocksHtml(part) {
 
 // ---------- תצוגה מקדימה: וואס קומט ארויס פאר א טאג ----------
 const tm = (m) => (m == null ? '—' : hhmm(m));
+// ---------- שיעורים ----------
+const WD = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+function shiurimHtml() {
+  const rs = data.shiurim.rows || [];
+  const dis = canEdit() ? '' : ' disabled';
+  return `<p class="muted small">שיעור דף יומי מוצג במסך מתחת לדף היומי. שיעור אחר — עם השם שלו. שעה שונה בימים מסוימים = שורה נוספת.</p>
+  <div class="tf-rows tf-shrows">
+  ${rs.map((r, i) => { const p = `shiurim.rows.${i}`; return `<div class="tf-r">
+    <div class="tf-rf${r.screen === false ? ' tf-off' : ''}"><label class="tf-scr" title="תצוגה במסך">${fld(`${p}.screen`, 'check')} 📺</label>
+      ${sel(`${p}.type`, [['daf', 'שיעור דף היומי'], ['other', 'שיעור אחר']])}${r.type === 'other' ? fld(`${p}.title`, 'text', ' class="tf-w12 tf-bt" placeholder="שם השיעור"') : ''}
+      ${fld(`${p}.who`, 'text', ' class="tf-w16" placeholder="מי מוסר"')}${fld(`${p}.room`, 'text', ' class="tf-w8" placeholder="איפה"')}
+      <span class="spacer"></span><span class="tf-acts">${btn('up', p, '↑', 'למעלה')}${btn('down', p, '↓', 'למטה')}${btn('del', p, '🗑', 'מחק')}</span></div>
+    <div class="tf-rf tf-sub">${tsHtml(r.time, `${p}.time`, true)}
+      <span class="tf-days">${WD.map((l, d) => `<label><input type="checkbox" data-day="${d}" data-p="${h(p)}"${(r.days || []).includes(d) ? ' checked' : ''}${dis}>${l}'</label>`).join('')}</span>
+      ${seasonHtml(p, SEASONS)}${fld(`${p}.note`, 'text', ' class="tf-w12" placeholder="הערה"')}</div>
+  </div>`; }).join('')}
+  </div>
+  ${canEdit() ? '<div class="tf-add"><button type="button" class="btn" data-act="addSh" data-t="daf">➕ שיעור דף היומי</button><button type="button" class="btn" data-act="addSh" data-t="other">➕ שיעור אחר</button></div>' : ''}`;
+}
 function previewHtml() {
   const n = nOf(prevIso);
   let body = '';
+  if (tab === 'shiurim') {
+    const list = computeShiurim(data, n);
+    return `<div class="tf-pvh">תצוגה מקדימה <input type="date" id="tf-date" value="${h(prevIso)}"></div>
+      <table class="tf-pt">${list.map((x) => `<tr><td>${h(x.type === 'daf' ? 'דף היומי' : x.title)}<br><small>${h(x.who)}${x.room ? ` · ${h(x.room)}` : ''}</small></td><td>${x.min == null ? h(x.note || '—') : tm(x.min)}</td></tr>`).join('') || '<tr><td class="muted">אין שיעורים ביום הזה</td></tr>'}</table>`;
+  }
   if (tab === 'weekday') {
     const w = computeWeekday(data, n);
     body = dowOf(n) === 6 ? '<p class="muted">שבת — ראה "שבת"</p>' : GROUPS.map(([g, t]) => `<h4>${t}</h4><p class="tf-pv">${w[g].map((x) => `<span${x.kahal ? ' class="k"' : ''} title="${h(x.room)}">${tm(x.min)}</span>`).join(' · ') || '—'}</p>`).join('')
@@ -298,6 +322,7 @@ export async function openTefila(main, onBack) {
   for (const b of data.yt.blocks || []) if (b.type === 'chag') for (const r of b.rows || []) if (!r.fri || !Array.isArray(r.fri.times)) r.fri = { on: false, times: [] };
   for (const b of data.yt.blocks || []) if (b.type === 'chag') for (const r of b.rows || []) if (!r.disp) r.disp = { ...dispDefault(r), place: 'shab' };
   if (!data.yt.blocks.some((b) => b.when === 'erevShvii')) { const i = data.yt.blocks.findIndex((b) => b.when === 'shviiPesach'); const nb = defaults().yt.blocks.find((b) => b.when === 'erevShvii'); data.yt.blocks.splice(i < 0 ? data.yt.blocks.length : i, 0, nb); }
+  if (!data.shiurim) data.shiurim = defaults().shiurim;
   for (const b of [...(data.minor.blocks || []), ...(data.yt.blocks || []).filter((x) => x.type !== 'chag')]) {
     b.like = { minchaEve: true, maarivEve: true, shacharis: true, mincha: true, maarivMid: true, maariv: true, ...(b.like || {}) };
     b.own = { minchaEve: [], maarivEve: [], shacharis: [], mincha: [], maarivMid: [], maariv: [], ...(b.own || {}) };
@@ -307,7 +332,7 @@ export async function openTefila(main, onBack) {
   render(main, onBack);
 }
 function render(main, onBack) {
-  const body = tab === 'weekday' ? weekdayHtml() : tab === 'shabbos' ? shabbosHtml() : blocksHtml(tab);
+  const body = tab === 'weekday' ? weekdayHtml() : tab === 'shabbos' ? shabbosHtml() : tab === 'shiurim' ? shiurimHtml() : blocksHtml(tab);
   main.innerHTML = `<div class="lx-bar">
       <button type="button" class="btn ghost" id="tf-back">← זמנים ולוחות</button>
       <b class="lx-title">🕍 זמני תפילות ביהמ"ד בארא פארק</b>
@@ -333,10 +358,15 @@ function render(main, onBack) {
   main.oninput = main.onchange = (e) => {
     const el = e.target;
     if (el.id === 'tf-date') return;
+    if (el.dataset.day != null && e.type === 'change') {
+      const r = get(el.dataset.p); const d = Number(el.dataset.day); const set2 = new Set(r.days || []);
+      if (el.checked) set2.add(d); else set2.delete(d); r.days = [...set2].sort(); touched(false); return;
+    }
+    if (el.dataset.day != null) return;
     const f = el.closest('[data-f]'); const ts = el.closest('[data-ts]');
     if (f && f.dataset.f) {
       const v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
-      set(f.dataset.f, v); touched(e.type === 'change' && ((el.tagName === 'SELECT' && /\.(when|season|mode|place|kind)$/.test(f.dataset.f)) || /\.(screen|like\.\w+|fri\.on)$/.test(f.dataset.f)));
+      set(f.dataset.f, v); touched(e.type === 'change' && ((el.tagName === 'SELECT' && /\.(when|season|mode|place|kind|type)$/.test(f.dataset.f)) || /\.(screen|like\.\w+|fri\.on)$/.test(f.dataset.f)));
     } else if (ts && el.dataset.k) {
       if (e.type === 'input' && el.tagName === 'SELECT') return;
       const full = tsChange(ts.dataset.ts, el.dataset.k, el.value); touched(full);
@@ -347,6 +377,7 @@ function render(main, onBack) {
     const act = b.dataset.act; const p = b.dataset.p || '';
     if (act === 'addW') { data.weekday[p].push({ id: newId(), time: { b: 'fixed', t: '' }, room: '', note: '', season: 'all', cond: null, kahal: false, fri: p === 'shacharis', last: false }); }
     else if (act === 'sortW') { const z = { neitz: 380, shkia: 1100, candles: 1082, rt: 1172, alos: 308, chatzos: 740 }; const k = (r) => (r.time?.b === 'fixed' ? (Number(String(r.time.t).replace(':', '.')) * 60 || 0) : (z[r.time?.b] || 0) + (r.time?.a || 0)); data.weekday[p].sort((a, c) => k(a) - k(c)); }
+    else if (act === 'addSh') data.shiurim.rows.push({ id: newId(), type: b.dataset.t, title: '', who: '', room: '', time: { b: 'fixed', t: '' }, days: [0, 1, 2, 3, 4, 5], note: '', season: 'all', screen: true });
     else if (act === 'pvSide') { prevIso = b.dataset.d; $('.tf-side', main).innerHTML = previewHtml(); bindDate(); $('.tf-side', main).classList.add('flash'); setTimeout(() => $('.tf-side', main)?.classList.remove('flash'), 600); return; }
     else if (act === 'pv') {
       try { localStorage.setItem('tf-preview', JSON.stringify(data)); } catch { /* */ }

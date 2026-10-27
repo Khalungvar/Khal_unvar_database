@@ -4,7 +4,7 @@ import { buildYear, isoOf, nOf, dowOf, hdOf, dafYomi, mitzvaYomis } from '../lua
 import { zmanim, hhmm, LOCATIONS } from '../luach/zmanim.js';
 import { MONTH } from '../luach/mitzva.js';
 import { hebrewNumber } from '../hebdate.js';
-import { defaults, computeWeekday, computeShabbos, computeSpecial } from '../luach/minyanim.js';
+import { defaults, computeWeekday, computeShabbos, computeSpecial, computeShiurim } from '../luach/minyanim.js';
 
 // ---------- דאטן: תצוגה מקדימה (פון "זמני תפילות" — localStorage), אנדערש ברירת מחדל ----------
 const QS = new URLSearchParams(location.search);
@@ -55,13 +55,6 @@ function mazelPages() {
   return mzCache.pages;
 }
 const entryHtml = (e) => `<div class="mz-e">${e.names.map((x) => `<div>${x}</div>`).join('')}<div class="for">${e.for}</div></div>`;
-
-// ---------- שיעורים (פון BZS) ----------
-const SHIURIM = [
-  { t: '4:30', min: 270, when: 'לפנות בוקר', who: 'ר\' שלום אליעזר טווערסקי', room: "חדר ב'" },
-  { t: '7:00', min: 1140, when: 'בערב', who: 'ר\' יעקב חיים אפטער', room: '' },
-  { t: '8:30', min: 1230, when: 'בערב', who: 'ר\' ישעי\' שטערן', room: '' },
-];
 
 // ---------- מודעה (8.5×11) — דעקט צו זמני שבת + שמחות. דוגמה: ?ad=1 ----------
 const AD = new URLSearchParams(location.search).get('ad');
@@ -130,7 +123,12 @@ function render() {
   // ספירת העומר: ביז שקיעה — וואס מ'האט געציילט נעכטן ביינאכט; נאך שקיעה — וואס מ'ציילט היינט ביינאכט
   const omerDay = nowMin >= z.shkia ? dayOf(n + 1) : day;
   const omer = omerDay?.items.find((i) => i.kind === 'omer')?.text || '';
-  const nextShiur = SHIURIM.find((x) => x.min >= nowMin) || null;
+  const SHI = computeShiurim(DATA, n, LOC);
+  const nextShiur = SHI.find((x) => x.min != null && x.min >= nowMin) || null;
+  const when = (m) => (m < 360 ? 'לפנות בוקר' : m < 720 ? 'בבוקר' : m < 1020 ? 'אחה"צ' : 'בערב');
+  const shLine = (x) => { const t = x.min == null ? h(x.note || '') : `<b>${tm(x.min)}</b>`; const name = x.type === 'daf' ? '' : `${h(x.title)} · `;
+    return x === nextShiur ? `<div class="nx">${t} <small>${x.min == null ? '' : when(x.min)}</small><span>${name}${h(x.who)}${x.room ? ` · ${h(x.room)}` : ''}</span></div>`
+      : `<div class="ln">${t} ${name}${h(x.who)}${x.room ? ` · ${h(x.room)}` : ''}</div>`; };
 
   // מניינים
   // ---- דער לוח פון מניינים: וואכנטאג, אדער שבת/יו"ט (פון ערב שבת/יו"ט נאך דער לעצטער שחרית) ----
@@ -296,9 +294,11 @@ function render() {
       </div>
       <div class="side">
         <div class="daf"><h4>דף יומי</h4><p>${h(daf.text)}</p></div>
-        <div class="shiur"><h4>השיעורים</h4>${SHIURIM.map((x) => (x === nextShiur
-          ? `<div class="nx"><b>${h(x.t)}</b> <small>${h(x.when)}</small><span>${h(x.who)}${x.room ? ` · ${h(x.room)}` : ''}</span></div>`
-          : `<div class="ln"><b>${h(x.t)}</b> ${h(x.who)}${x.room ? ` · ${h(x.room)}` : ''}</div>`)).join('')}</div>
+        ${(() => { // נאר וואס קומט נאך (ביז 3 דף יומי, 2 אנדערע) — עס מוז אריינגיין
+          const up = (x) => x.min == null || x.min >= nowMin - 5;
+          const daf = SHI.filter((x) => x.type === 'daf' && up(x)).slice(0, 3); const oth = SHI.filter((x) => x.type !== 'daf' && up(x)).slice(0, daf.length > 2 ? 1 : 2);
+          return `${daf.length ? `<div class="shiur"><h4>שיעורי דף היומי</h4>${daf.map(shLine).join('')}</div>` : ''}${oth.length ? `<div class="shiur"><h4>שיעורים</h4>${oth.map(shLine).join('')}</div>` : ''}`;
+        })()}
       </div>
     </div>`}
 <!--BOT-->

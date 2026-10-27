@@ -126,7 +126,31 @@ export function defaults() {
     minor: { blocks: MINOR_BLOCKS() },
     yt: { blocks: YT_BLOCKS() },
     tishrei: { blocks: TISHREI_BLOCKS() },
+    shiurim: { rows: SHIURIM_DEF() },
   };
+}
+// שיעורים: type 'daf' (ווערט געוויזן אונטער דף יומי) אדער 'other' (מיט א נאמען)
+const SH = (type, title, who, room, t, days, note = '') => ({ id: id(), type, title, who, room, time: F(t), days, note, season: 'all', screen: true });
+const ALL6 = [0, 1, 2, 3, 4, 5]; const ALL7 = [0, 1, 2, 3, 4, 5, 6];
+function SHIURIM_DEF() {
+  return [
+    SH('daf', '', 'הרב שלום אליעזר טווערסקי שליט"א', "חדר ב'", '04:30', ALL6),
+    SH('daf', '', 'הרב יעקב חיים אפטער שליט"א', 'ביהמ"ד הגדול', '07:00', [1, 2, 3, 4, 5]),
+    SH('daf', '', 'הרב יעקב חיים אפטער שליט"א', 'ביהמ"ד הגדול', '07:30', [0]),
+    SH('daf', '', 'הרב יעקב חיים אפטער שליט"א', 'ביהמ"ד הגדול', '08:00', [6]),
+    SH('daf', '', 'הרב ישעי\' שטערן שליט"א', "חדר ב'", '20:30', [0, 1, 2, 3, 4], 'מוצ"ש כפי שמודיעים בשיעור'),
+    SH('other', 'שיעור בהלכה ואגדה', 'כ"ק מרן אדמו"ר שליט"א', '', '13:00', [3]),
+    SH('other', 'שיעור חומש רש"י', 'כ"ק מרן אדמו"ר שליט"א', '', '', [4], 'בין מנחה למעריב'),
+    SH('other', 'עמוד יומי', 'הרב ישעי\' שטערן שליט"א', "חדר א'", '07:00', ALL6),
+    SH('other', 'שיעור בסדר כהלכתו', 'הרב יחיאל קליין שליט"א', "חדר א'", '21:45', [0, 1, 2, 3, 4]),
+  ];
+}
+/** די שיעורים פון טאג n: [{ type, title, who, room, note, min }] לויט דער שעה */
+export function computeShiurim(data, n, loc) {
+  const iso = isoOf(n); const zd = dayZ(iso, loc); const dw = dowOf(n);
+  return (data.shiurim?.rows || []).filter((r) => r.screen !== false && (r.days || []).includes(dw) && inSeason(r.season, iso, r))
+    .map((r) => ({ type: r.type, title: r.title, who: r.who, room: r.room, note: r.note, min: timeOf(r.time, zd) }))
+    .sort((a, b) => (a.min ?? 9999) - (b.min ?? 9999));
 }
 const row = (label, times, o = {}) => ({ id: id(), label, note: '', kind: /שחרית|מנחה|מעריב|נדרי|סליחות/.test(label) ? 'tefila' : 'other', on: 'all', times: times.map((t) => (typeof t === 'string' ? F(t) : t)), ...o });
 const block = (title, when, rows) => ({ id: id(), title, when, rows, like: { minchaEve: true, maarivEve: true, shacharis: true, mincha: true, maarivMid: true, maariv: true }, own: { minchaEve: [], maarivEve: [], shacharis: [], mincha: [], maarivMid: [], maariv: [] }, fri: { mode: 'regular', time: null } });

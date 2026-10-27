@@ -232,3 +232,9 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .next .lbl { font-size: 32px; }
 .next .room { font-size: 36px; }
 .next .big { margin-top: 0; }
+
+.lrn .side { overflow: hidden; min-width: 0; }
+.lrn .shiur > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lrn .shiur > div.nx span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 20px; }
+.lrn .shiur > div.nx { font-size: 22px; } .lrn .shiur > div.nx b { font-size: 28px; }
+.lrn .shiur h4 { font-size: 20px; }
