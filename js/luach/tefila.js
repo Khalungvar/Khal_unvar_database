@@ -7,7 +7,8 @@ import { MONTH } from './mitzva.js';
 import { hebrewNumber, todayIso } from '../hebdate.js';
 import { readTabs, otherSheet } from '../google.js';
 import { CONFIG } from '../config.js';
-import { state } from '../data.js';
+import { versionStore, askNote, openVersions } from '../versions.js';
+import { state, displayName } from '../data.js';
 import { escapeHtml as h, nowStamp } from '../util.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -319,6 +320,9 @@ function previewHtml() {
 /** לאדן + צוגרייטן די דאטן (אויך פאר דרוקן) */
 async function prepare() {
   await load();
+  normalize();
+}
+function normalize() {
   const dr = defaults().weekday.rebbe;
   data.weekday.rebbe = { ...dr, ...(data.weekday.rebbe || {}) };
   for (const g of ['shacharis', 'mincha', 'maariv']) for (const r of data.weekday[g] || []) { r.cond = condOf(r, g); delete r.auto; }
@@ -374,6 +378,8 @@ function render(main, onBack) {
       <div class="lang-switch">${TABS.map(([k, l]) => `<button type="button" data-tab="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div>
       <span class="spacer"></span>
       ${canEdit() ? `<button type="button" class="btn primary" id="tf-save"${dirty ? '' : ' disabled'}>💾 שמירה</button>` : ''}
+${canEdit() ? '<button type="button" class="btn" id="tf-ver" title="לשמור את המצב הנוכחי כנקודה שאפשר לחזור אליה">📌 שמור כגרסה</button>' : ''}
+      <button type="button" class="btn ghost" id="tf-vers" title="רשימת הגרסאות השמורות">🕘 גרסאות</button>
       <button type="button" class="btn" data-act="pv" data-d="" title="לראות במסך את התאריך שבתצוגה המקדימה">👁 במסך</button>
       ${canEdit() ? '<button type="button" class="btn ghost" id="tf-reset" title="למלא מחדש מברירת המחדל (הלוח השנתי + התוכנה הישנה)">↺</button>' : ''}
     </div>
@@ -386,6 +392,14 @@ function render(main, onBack) {
   $('#tf-back', main).onclick = () => { if (dirty && !confirm('יש שינויים שלא נשמרו. לצאת?')) return; onBack(); };
   $$('[data-tab]', main).forEach((b) => { b.onclick = () => { tab = b.dataset.tab; rerender(); }; });
   const sv = $('#tf-save', main); if (sv) sv.onclick = async () => { await save(); rerender(); };
+  const VS = versionStore('MinyanimHistory');
+  const vb = $('#tf-ver', main); if (vb) vb.onclick = async () => {
+    const note = await askNote('שמור כגרסה — זמני התפילות'); if (note === null) return;
+    if (dirty) { await save(); if (dirty) return; }
+    try { const v = await VS.add(data, note, state.email); ui.toast?.(`נשמר כגרסה ${v} ✓`); rerender(); } catch (err) { ui.toast?.(String(err.message || err), 'error'); }
+  };
+  $('#tf-vers', main).onclick = () => openVersions({ store: VS, title: 'גרסאות — זמני התפילות', canRestore: !!(state.canRestore || state.isAdmin), nameOf: (e) => displayName(e),
+    onRestore: (obj, v) => { data = obj; normalize(); dirty = true; rerender(); ui.toast?.(`גרסה ${v} נטענה — לחץ 💾 שמירה כדי להחזיר אותה`); } });
   const rs = $('#tf-reset', main); if (rs) rs.onclick = () => {
     if (!confirm(`למלא מחדש את "${TABS.find(([k]) => k === tab)[1]}" מברירת המחדל? (השינויים בחלק הזה יימחקו)`)) return;
     data[tab] = defaults()[tab]; touched(true);

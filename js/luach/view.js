@@ -13,6 +13,7 @@ import { openMitzva } from './mitzva.js';
 import { initBooklet } from './booklet.js';
 import { initTefila, openTefila } from './tefila.js';
 import { openTfPrint } from './tfprintui.js';
+import { openScreen } from './screen.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -289,7 +290,7 @@ function renderTefilaHub(main) {
   main.innerHTML = `<div class="lx-bar"><button type="button" class="btn ghost" id="tfh-back">← ${h(t('hubTitle'))}</button></div>
     <h2 class="lx-hubh">🕍 ${h(t('hTefila'))}</h2>
     <div class="lx-hub">
-      ${tile('tfScreen', '📺', t('tfScreen'), t('tfScreenSub'), true)}
+      ${tile('tfScreen', '📺', t('tfScreen'), t('tfScreenSub'))}
       ${tile('tfPrint', '🖨', t('tfPrint'), t('tfPrintSub'))}
       ${tile('tfTimes', '🕰', t('tfTimes'), t('hTefilaSub'))}
     </div>`;
@@ -306,6 +307,7 @@ export async function renderLuach() {
   if (mode === 'hub') { renderHub(main); return; }
   if (mode === 'mitzva') { openMitzva(main, () => { mode = 'hub'; renderLuach(); }); return; }
   if (mode === 'tefila') { renderTefilaHub(main); return; }
+  if (mode === 'tfScreen') { openScreen(main, () => { mode = 'tefila'; renderLuach(); }, ui); return; }
   if (mode === 'tfPrint') { openTfPrint(main, () => { mode = 'tefila'; renderLuach(); }, ui); return; }
   if (mode === 'tfTimes') { openTefila(main, () => { mode = 'tefila'; renderLuach(); }, t('hTefila')); return; }
   if (!year) [year, pageIx] = currentYearAndPage();

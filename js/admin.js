@@ -55,6 +55,8 @@ const GROUPS = [
   { title: 'admPeople', lists: [
     { cols: ['admin_email', 'admin_name', 'note'], label: 'admAdmins', sub: ['admName', 'admNote'], source: 'settings', emails: true, hint: 'admAdminsHint' },
     { cols: ['gabbai_name', 'gabbai_email', 'gabbai_phone'], label: 'admGabbaim', sub: ['colEmail', 'colMobile'], source: 'settings', hint: 'admGabbaimHint' },
+    { cols: ['screen_email'], label: 'admScreenEditors', source: 'settings', emails: true, hint: 'admScreenEditorsHint' },
+    { cols: ['restore_email'], label: 'admRestorers', source: 'settings', emails: true, hint: 'admRestorersHint' },
   ] },
   { title: 'admFamily', lists: [
     { cols: ['relation_type', 'relation_reverse'], label: 'admRelations', sub: ['admReverse'] },

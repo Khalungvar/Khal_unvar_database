@@ -272,6 +272,10 @@ export async function loadAll({ full = false } = {}) {
     // אויך פארשלאסן אין גוגל שיטס (Protected range) — נאר ער קען זי טוישן, אפילו גלייך אין שיט.
     const owners = settings.map((s) => String(s.owner_email || '').trim().toLowerCase()).filter(Boolean);
     state.isOwner = owners.length ? owners.includes(state.email) : state.isAdmin;
+    // רשויות: עריכת המסך / צוריק צו א פריערדיגע גירסא (מנהלים — שטענדיג)
+    const emailsOf = (k) => settings.map((s) => String(s[k] || '').trim().toLowerCase()).filter(Boolean);
+    state.canScreen = state.isAdmin || (state.isAllowed && emailsOf('screen_email').includes(state.email));
+    state.canRestore = state.isAdmin || (state.isAllowed && emailsOf('restore_email').includes(state.email));
   }
   // בילדער וואס ליגן אין דרייב (drv:<id>) → אין זכרון. ווען דער הילף ענטפערט נישט — די בילדער זענען בלויז ליידיג.
   const imgTabs = ['MailTemplates', 'OrgDetails', 'YearlyCampaigns', 'Books', 'OrgLogos'];

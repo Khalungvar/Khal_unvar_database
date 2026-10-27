@@ -4,6 +4,7 @@ import { buildYear, isoOf, nOf, dowOf, hdOf, dafYomi, mitzvaYomis, omerText } fr
 import { zmanim, hhmm, LOCATIONS } from '../luach/zmanim.js';
 import { MONTH } from '../luach/mitzva.js';
 import { hebrewNumber } from '../hebdate.js';
+import { normScreen } from './screenset.js';
 import { defaults, computeWeekday, computeShabbos, computeSpecial, computeShiurim, computeHoly, chagOn, partOfDay } from '../luach/minyanim.js';
 
 // ---------- דאטן: תצוגה מקדימה (פון "זמני תפילות" — localStorage), אנדערש ברירת מחדל ----------
@@ -56,8 +57,27 @@ async function pullSimchos() {
     try { localStorage.setItem('disp-simchos', JSON.stringify(SIMCHOS)); } catch { /* */ }
   } catch { /* */ }
 }
-pull(); setInterval(pull, 5 * 60 * 1000);
-pullSimchos(); setInterval(pullSimchos, 5 * 60 * 1000);
+// ---------- הגדרות פונעם מסך (לשונית Screen); ?scrpv=1 — תצוגה מקדימה פון "תצוגת והגדרות המסך" (נאך נישט געשפייכלט) ----------
+const SCRPV = QS.has('scrpv');
+let SCR = normScreen(null);
+try { const j = JSON.parse(localStorage.getItem(SCRPV ? 'scr-preview' : 'disp-screen') || 'null'); if (j) SCR = normScreen(j); } catch { /* */ }
+async function pullScreen() {
+  if (SCRPV) return;
+  try {
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Screen&headers=1&t=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) return;
+    const rows = parseCsv(await r.text());
+    const parts = rows.filter((x) => /^data#\d+$/.test(x[0] || '')).sort((a, b) => Number(a[0].split('#')[1]) - Number(b[0].split('#')[1]));
+    if (!parts.length) return;
+    const j = JSON.parse(parts.map((x) => x[1] || '').join(''));
+    SCR = normScreen(j); applySafe(); mzCache.key = ''; shLast = null;
+    try { localStorage.setItem('disp-screen', JSON.stringify(j)); } catch { /* */ }
+  } catch { /* */ }
+}
+// אלע מינוט: די הגדרות, די זמנים און די שמחות
+pull(); setInterval(pull, 60 * 1000);
+pullScreen(); setInterval(pullScreen, 60 * 1000);
+pullSimchos(); setInterval(pullSimchos, 60 * 1000);
 // א פאלשע שעה (?at=2026-12-20T15:00) — צו זען א געוויסן טאג
 let OFFSET = 0;
 if (QS.get('at')) { const t = new Date(QS.get('at')); if (!Number.isNaN(t.getTime())) OFFSET = t.getTime() - Date.now(); }
@@ -93,7 +113,7 @@ function mazelPages() {
   if (mzCache.key === key) return mzCache.pages;
   let m = document.getElementById('mzmeas');
   if (!m) { m = document.createElement('div'); m.id = 'mzmeas'; m.className = 'frame mzl'; m.style.cssText = 'visibility:hidden;position:fixed;left:0;top:0;z-index:-1;pointer-events:none;direction:rtl'; document.body.appendChild(m); }
-  m.innerHTML = `<img class="head" src="img/display/simcha-head.jpg" alt=""><div class="wk">x</div><div class="list">${MAZEL.map(entryHtml).join('')}</div>`;
+  m.innerHTML = `<img class="head" src="${SCR.simchaHead || 'img/display/simcha-head.jpg'}" alt=""><div class="wk">x</div><div class="list">${MAZEL.map(entryHtml).join('')}</div>`;
   const list = m.querySelector('.list');
   const cs = getComputedStyle(list);
   const avail = list.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
@@ -148,6 +168,7 @@ function additions(n, day) {
 }
 
 function render() {
+  const HID = SCR.hide || {};
   const now = nowD();
   const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const n = nOf(iso); const dw = dowOf(n); const x = hdOf(n);
@@ -208,7 +229,7 @@ function render() {
       items: w[g].filter((m) => g === 'shacharis' || !m.rebbe).map((m) => ({ ...m, k: GN[g], min: m.min + off })) }));
     const rbM = w.mincha.find((m) => m.rebbe); const rbA = w.maariv.find((m) => m.rebbe);
     if (rbM || rbA) {
-      groups.splice(2, 0, { h: 'מנחה מעריב מנין כ"ק אדמו"ר שליט"א', rebbe: true, items: [
+      groups.splice(2, 0, { h: SCR.texts.tRebbe, rebbe: true, items: [
         ...(rbM ? [{ ...rbM, k: 'מנחה', lbl: 'מנחה', min: rbM.min + off }] : []),
         ...(rbA ? [{ ...rbA, k: 'מעריב', lbl: 'מעריב <small>(בערך)</small>', min: rbA.min + off }] : [])] });
     }
@@ -233,7 +254,9 @@ function render() {
   let hd = null;
   if (holy(n)) {
     hd = n;
-    if (!hasFuture(holyBoard(n - 1))) hd = holy(n + 1) ? n + 1 : null;
+    // מוצאי שבת/יו"ט: צוריק צום וואכנטאג X מינוט נאך דער לעצטער תפילה (הגדרות המסך)
+    const rv = Number(SCR.revertMin) || 0;
+    if (!holyBoard(n - 1).groups.some((g) => g.items.some((m) => m.min + rv >= nowMin))) hd = holy(n + 1) ? n + 1 : null;
   } else if (holy(n + 1)) {
     const lastSh = Math.max(0, ...computeWeekday(DATA, n, LOC).shacharis.map((m) => m.min));
     if (nowMin > lastSh) hd = n + 1;
@@ -267,7 +290,7 @@ function render() {
   const timesHtml = (arr) => arr.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}${isNew(m) ? ' new' : ''}">${isNew(m) ? '<em>חדש</em>' : ''}${tm(((m.min % 1440) + 1440) % 1440)}${m.note === 'בערך' ? '<small style="font-size:20px"> בערך</small>' : ''}</span>`).join('');
 
   const mnyHtml = (bd, pos) => `<div class="frame mny ${pos}${CHG === 'before' && pos === 'pos-main' ? ' has-chg' : ''}">
-      <div class="ttl">זמני התפילות ימות החול${(() => { const k0 = swap ? wk : n; let s6 = k0; while (dowOf(s6) !== 6) s6 += 1; const p6 = dayOf(s6)?.parsha; return p6 ? ` לפרשת ${h(p6)}` : ''; })()}</div>
+      <div class="ttl">${h(SCR.texts.tWeek)}${(() => { const k0 = swap ? wk : n; let s6 = k0; while (dowOf(s6) !== 6) s6 += 1; const p6 = dayOf(s6)?.parsha; return p6 ? ` לפרשת ${h(p6)}` : ''; })()}</div>
       ${bd.groups.map((g) => (g.rebbe
         ? `<div class="grp rb"><h3>${h(g.h)}</h3><div class="times rbt">${g.items.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}"><i>${m.lbl}</i> ${tm(((m.min % 1440) + 1440) % 1440)}</span>`).join('')}</div></div>`
         : `<div class="grp"><h3>${h(g.h)}${g.sub ? ` <small>${h(g.sub)}</small>` : ''}</h3><div class="times">${timesHtml(g.items)}</div></div>`)).join('')}
@@ -283,7 +306,7 @@ function render() {
     const rows = holyRows(eve).filter((r) => r.min != null).sort((a, b) => a.min - b.min);
     const dense = rows.length > (pos === 'pos-main' ? 8 : 7) ? ' dense' : '';
     return `<div class="shab ${pos}${dense}" style="--n:${rows.length}">
-      <div class="sh-t"><small class="pre">זמני התפילות</small>${h(chagTitle ? `ל${chagTitle}` : shab ? 'לשבת קודש' : `ל${ytName || 'יום טוב'}`)}<small>${ps ? `פרשת ${h(ps)}` : '&nbsp;'}</small></div>
+      <div class="sh-t"><small class="pre">${h(SCR.texts.tHoly)}</small>${h(chagTitle ? `ל${chagTitle}` : shab ? 'לשבת קודש' : `ל${ytName || 'יום טוב'}`)}<small>${ps ? `פרשת ${h(ps)}` : '&nbsp;'}</small></div>
       ${rows.map((r) => `<div class="sh-r${r.kind === 'tefila' ? ' big' : ''}${r.kind === 'tefila' && r.min != null && r.min < nowMin ? ' past' : ''}"><span>${h(r.label)}</span><b>${r.min == null ? '—' : [r.min, ...(r.more || [])].map((m) => tm(((m % 1440) + 1440) % 1440)).join(' · ')}</b></div>`).join('')}
     </div>`;
   }
@@ -292,81 +315,82 @@ function render() {
   const heDate = `${hebrewNumber(x.d)} ${MONTH[x.m] || x.m} ${hebrewNumber(x.y % 1000)}`;
   const mz = mitzvaYomis(iso); const daf = dafYomi(iso);
   const mzPages = mazelPages(); const pages = mzPages.length;
-  const mzIx = Math.floor(Date.now() / 15000) % pages;
+  const mzSec = Math.max(3, Number(SCR.mzSec) || 15);
+  const mzIx = QS.has('mzpage') ? Math.min(pages - 1, Math.max(0, Number(QS.get('mzpage')) || 0)) : Math.floor(Date.now() / (mzSec * 1000)) % pages;
   const mzList = mzPages[mzIx].map((i) => MAZEL[i]);
 
   const html = `
     ${PREVIEW ? '<div class="sample">תצוגה מקדימה — לא נשמר</div>' : !LIVE ? '<div class="sample">דוגמה — זמני ברירת מחדל</div>' : ''}
     <div class="top">
-      <div class="day">${h(dw === 6 && nowMin > z.motzei ? 'מוצאי שבת קודש' : YDAY[dw])}${parsha ? `<small>פרשת ${h(parsha)}</small>` : ''}${holAll ? `<small class="sp">${h(holAll)}</small>` : ''}</div>
-      <div class="logo"><img src="img/logo.png" alt=""><b>קהל אונגוואר</b><i>בנשיאות כ"ק מרן אדמו"ר שליט"א</i></div>
-      <div class="clock">${hh}:${String(now.getMinutes()).padStart(2, '0')}<span>${String(now.getSeconds()).padStart(2, '0')} ${ap}</span></div>
+      ${HID.day ? '<div class="day"></div>' : `<div class="day">${h(dw === 6 && nowMin > z.motzei ? 'מוצאי שבת קודש' : YDAY[dw])}${parsha ? `<small>פרשת ${h(parsha)}</small>` : ''}${holAll ? `<small class="sp">${h(holAll)}</small>` : ''}</div>`}
+      ${HID.logo ? '<div class="logo"></div>' : `<div class="logo"><img src="${h(SCR.logo || 'img/logo.png')}" alt=""><b>${h(SCR.texts.title)}</b><i>${h(SCR.texts.sub)}</i></div>`}
+      ${HID.clock ? '<div class="clock"></div>' : `<div class="clock">${hh}:${String(now.getMinutes()).padStart(2, '0')}<span>${String(now.getSeconds()).padStart(2, '0')} ${ap}</span></div>`}
     </div>
 
     ${swap ? shabHtml(hd - 1, hd, 'pos-main') : mnyHtml(board, 'pos-main')}
 
-    <div class="frame next">
-      <div class="row1"><div class="lbl">המנין הבא</div>${next ? `<div class="cd">${cdText}</div>` : ''}</div>
+    ${HID.next ? '' : `<div class="frame next">
+      <div class="row1"><div class="lbl">${h(SCR.texts.tNext)}</div>${next && SCR.countdown !== false ? `<div class="cd">${cdText}</div>` : ''}</div>
       ${next ? `<div class="big${next.k.length > 6 ? ' long' : ''}"><span class="name">${h(next.k)}</span><span class="time">${tm(((next.min % 1440) + 1440) % 1440)}</span></div>
-      <div class="room">${next.room ? h(next.room) : '&nbsp;'}</div>` : '<div class="big"><span class="name">לילה טוב</span></div>'}
-    </div>
+      <div class="room">${next.room ? h(next.room) : '&nbsp;'}</div>` : '<div class="big"><span class="name">&nbsp;</span></div>'}
+    </div>`}
 
     ${false ? ''
       : ''}
 
     ${AD ? `
     <div class="frame zm zm-c pos-side">
-      <div class="ttl">זמני היום</div>
+      <div class="ttl">${h(SCR.texts.tZmanim)}</div>
       <table>
         ${rows.map(([l, a, b], i) => `<tr${i === nxz ? ' class="nx"' : ''}><td>${h(l)}</td><td>${b == null ? tm(a) : pair(a, b)}</td></tr>`).join('')}
       </table>
       <div class="note">${adds.map((a, i) => (i ? `<span class="chg">${h(a)}</span>` : h(a))).join(' · ')}</div>
       ${omer ? `<div class="omer">${h(omer)}</div>` : ''}
-      <div class="lc"><div><h4>מצוה יומית</h4><p>מצוה ${h(hebrewNumber(mz.n))}</p><small>${h(mz.text)}</small></div><div><h4>דף יומי</h4><p>${h(daf.text)}</p></div></div>
-    </div>` : swap ? mnyHtml(board, 'pos-side') : shabHtml(nextEve, nextEve + 1, 'pos-side')}
+      <div class="lc"><div><h4>${h(SCR.texts.tMitzva)}</h4><p>מצוה ${h(hebrewNumber(mz.n))}</p><small>${h(mz.text)}</small></div><div><h4>${h(SCR.texts.tDaf)}</h4><p>${h(daf.text)}</p></div></div>
+    </div>` : HID.side ? '' : swap ? mnyHtml(board, 'pos-side') : shabHtml(nextEve, nextEve + 1, 'pos-side')}
 
-    <div class="frame mzl">
-      <img class="head" src="img/display/simcha-head.jpg" alt="שהשמחה במעונם">
+    ${HID.simchos ? '' : `<div class="frame mzl">
+      <img class="head" src="${h(SCR.simchaHead || 'img/display/simcha-head.jpg')}" alt="שהשמחה במעונם">
       <div class="wk">${parsha ? `פרשת ${h(parsha)}` : ''}</div>
       <div class="list">${mzList.map(entryHtml).join('')}</div>
       ${pages > 1 ? `<div class="dots">${Array.from({ length: pages }, (_, i) => `<i class="${i === mzIx ? 'on' : ''}"></i>`).join('')}</div><div class="pg">${mzIx + 1} מתוך ${pages}</div>` : ''}
-    </div>
+    </div>`}
 
     ${AD ? '' : `
-    <div class="frame zm zx${(dw === 5 ? 1 : 0) + (omer ? 1 : 0)}">
-      <div class="ttl">זמני היום</div>
+    ${HID.zmanim ? '' : `<div class="frame zm zx${(dw === 5 ? 1 : 0) + (omer ? 1 : 0)}">
+      <div class="ttl">${h(SCR.texts.tZmanim)}</div>
       <table>
         ${rows.map(([l, a, b], i) => `<tr${i === nxz ? ' class="nx"' : ''}><td>${h(l)}</td><td>${b == null ? tm(a) : pair(a, b)}</td></tr>`).join('')}
       </table>
       <div class="note">${adds.map((a, i) => (i ? `<span class="chg">${h(a)}</span>` : h(a))).join(' · ')}</div>
       ${omer ? `<div class="omer">${h(omer)}</div>` : ''}
-    </div>
-
-    <div class="frame lrn-m">
-      <div class="l1"><span>מצוה יומית:</span> מצוה ${h(hebrewNumber(mz.n))}</div>
-      <div class="l2 fit">${h(mz.text)}</div>
-    </div>
-    <div class="frame lrn-m lrn-d">
-      <div class="l1"><span>דף היומי</span></div>
-      <div class="l2 fit">${h(daf.text)}</div>
     </div>`}
+
+    ${HID.mitzva ? '' : `<div class="frame lrn-m">
+      <div class="l1"><span>${h(SCR.texts.tMitzva)}:</span> מצוה ${h(hebrewNumber(mz.n))}</div>
+      <div class="l2 fit">${h(mz.text)}</div>
+    </div>`}
+    ${HID.daf ? '' : `<div class="frame lrn-m lrn-d">
+      <div class="l1"><span>${h(SCR.texts.tDaf)}</span></div>
+      <div class="l2 fit">${h(daf.text)}</div>
+    </div>`}`}
 <!--BOT-->
-    <div class="bottom">
+    ${HID.bottom ? '' : `<div class="bottom">
       <div class="hd">${h(heDate)}</div>
-      <div class="kol">קול אונגוואר <b>605-477-4427</b></div>
+      <div class="kol">${h(SCR.texts.kolText)} <b>${h(SCR.texts.kolPhone)}</b></div>
       <div class="greg">${now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
-    </div>`;
+    </div>`}`;
   // שיעורי תורה: אין אן אייגענעם שיכט (נישט איבערגעצייכנט יעדע סעקונדע) — ווען עס גייט נישט אריין, פארט עס פאמעלעך ארויף אין א קרייז
   const shDaf = SHI.filter((x) => x.type === 'daf'); const shOth = SHI.filter((x) => x.type !== 'daf');
   const shRow = (x) => `<div class="ln">${shLine(x).replace(/^<div[^>]*>|<\/div>$/g, '')}</div>`;
-  const shInner = `${shDaf.length ? `<div class="shiur sh-daf"><h4>שיעורי דף היומי בבית מדרשינו:</h4>${shDaf.map(shRow).join('')}</div>` : ''}${shOth.length ? `<div class="shiur sh-oth"><h4>שיעורים הנלמדים בביהמ"ד:</h4>${shOth.map(shRow).join('')}</div>` : ''}`;
+  const shInner = `${shDaf.length ? `<div class="shiur sh-daf"><h4>${h(SCR.texts.tShDaf)}</h4>${shDaf.map(shRow).join('')}</div>` : ''}${shOth.length ? `<div class="shiur sh-oth"><h4>${h(SCR.texts.tShOth)}</h4>${shOth.map(shRow).join('')}</div>` : ''}`;
   const [main, bot] = html.split('<!--BOT-->');
   if (!$('#dyn')) {
     $('#screen').innerHTML = '<div class="safe"><div id="dyn"></div><div id="shl"></div><div id="adlayer"></div></div><div id="dynb"></div>';
     if (AD) $('#adlayer').innerHTML = `<div class="ad">${adHtml()}</div>`;
   }
   $('#dyn').innerHTML = main;
-  updateShiurim(AD ? '' : shInner);
+  updateShiurim(AD || HID.shiurim ? '' : shInner);
   // לוח המניינים (חול): די אותיות ווערן אזוי גרויס אז זיי פילן אויס די מסגרת
   for (const box of document.querySelectorAll('#dyn .mny')) fitBoard(box);
   for (const box of document.querySelectorAll('#dyn .shab')) fitBoard(box, '.sh-r span, .sh-r b', 1);
@@ -382,7 +406,7 @@ function updateShiurim(inner) {
   const L = $('#shl'); if (!L) return;
   if (inner === shLast) return; shLast = inner;
   if (!inner) { L.innerHTML = ''; return; }
-  L.innerHTML = `<div class="frame lrn-s"><div class="ttl">שיעורי תורה</div><div class="shv"><div class="shin">${inner}</div></div></div>`;
+  L.innerHTML = `<div class="frame lrn-s"><div class="ttl">${h(SCR.texts.tShiurim)}</div><div class="shv"><div class="shin">${inner}</div></div></div>`;
   const v = L.querySelector('.shv'); const inn = L.querySelector('.shin');
   // גרויס ווי מעגליך: די לענגסטע שורה פילט אויס די ברייט
   const rows = [...inn.querySelectorAll('.shiur > div')];
@@ -396,7 +420,7 @@ function updateShiurim(inner) {
     inn.querySelectorAll('.shiur > div').forEach((r) => { r.style.fontSize = `${fs}px`; });
     const step = hgt + 30;
     inn.style.setProperty('--sh', `${step}px`);
-    inn.style.animation = `shscroll ${Math.round(step / 18)}s linear infinite`;
+    inn.style.animation = `shscroll ${Math.round(step / Math.max(4, Number(SCR.shiurSpeed) || 18))}s linear infinite`;
   }
 }
 const boardCache = new Map();
@@ -424,9 +448,13 @@ function adHtml() {
 }
 
 // שוליים פאר א מסך מיט א ראם (?safe=40 פיקסל; 0 = אן שוליים)
-const SAFE = Math.max(0, Math.min(120, Number(new URLSearchParams(location.search).get('safe') ?? 36) || 0));
-document.documentElement.style.setProperty('--safe', `${SAFE}px`);
-document.documentElement.style.setProperty('--safe-s', String(1 - (2 * SAFE) / 1080));
+function applySafe() {
+  const q = new URLSearchParams(location.search).get('safe');
+  const SAFE = Math.max(0, Math.min(120, Number(q ?? SCR.safe ?? 36) || 0));
+  document.documentElement.style.setProperty('--safe', `${SAFE}px`);
+  document.documentElement.style.setProperty('--safe-s', String(1 - (2 * SAFE) / 1080));
+}
+applySafe();
 
 function fit() {
   const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
