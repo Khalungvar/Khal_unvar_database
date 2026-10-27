@@ -128,6 +128,7 @@ function render() {
   const cd = next ? Math.max(0, (next.min - nowMin) * 60) : 0;
   const cdText = `${String(Math.floor(cd / 3600)).padStart(2, '0')}:${String(Math.floor((cd % 3600) / 60)).padStart(2, '0')}:${String(Math.floor(cd % 60)).padStart(2, '0')}`;
   const tm = (min) => hhmm(min);
+  const pair = (a, b) => `<span class="pr">${tm(b)}<i>גר"א</i></span><span class="pr">${tm(a)}<i>מג"א</i></span>`;
   const timesHtml = (arr) => arr.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${next && m === next ? ' nx' : ''}">${tm(m.min)}${m.note === 'בערך' ? '<small style="font-size:20px"> בערך</small>' : ''}</span>`).join('');
   const mark = (arr) => arr.map((m) => (next && m.min === next.min && m.k === next.k ? next : m));
 
@@ -169,7 +170,7 @@ function render() {
         <tr class="hl"><td>הדלקת נרות</td><td>${tm(zFri.candles)}</td></tr>
         <tr><td>מנחה ערב שבת</td><td>${tm(resolve(SHABBOS.minchaErev, zFri))}</td></tr>
         <tr><td>שחרית</td><td>${h(SHABBOS.shacharis.t)}</td></tr>
-        <tr><td>סוזק"ש <small>מג"א · גר"א</small></td><td>${tm(zSat.alos + 3 * ((zSat.tzeis - zSat.alos) / 12))} · ${tm(zSat.neitz + 3 * ((zSat.shkia - zSat.neitz) / 12))}</td></tr>
+        <tr><td>סוף זמן ק"ש</td><td>${pair(zSat.alos + 3 * ((zSat.tzeis - zSat.alos) / 12), zSat.neitz + 3 * ((zSat.shkia - zSat.neitz) / 12))}</td></tr>
         <tr><td>שקיעת החמה</td><td>${tm(zSat.shkia)}</td></tr>
         <tr class="hl"><td>מוצאי שבת קודש</td><td>${tm(zSat.motzei)}</td></tr>
         ${Math.round(zSat.shkia + 72) !== Math.round(zSat.motzei) ? `<tr><td>רבינו תם</td><td>${tm(zSat.shkia + 72)}</td></tr>` : ''}
@@ -186,10 +187,9 @@ function render() {
     <div class="frame zm">
       <div class="ttl">זמני היום</div>
       <table>
-        <tr class="sub"><td></td><td>מג"א</td><td>גר"א</td></tr>
-        ${rows.map(([l, a, b, hl]) => `<tr${hl ? ' class="hl"' : ''}><td>${h(l)}</td>${b == null ? `<td colspan="2">${tm(a)}</td>` : `<td>${tm(a)}</td><td>${tm(b)}</td>`}</tr>`).join('')}
+        ${rows.map(([l, a, b, hl]) => `<tr${hl ? ' class="hl"' : ''}><td>${h(l)}</td><td>${b == null ? tm(a) : pair(a, b)}</td></tr>`).join('')}
       </table>
-      <div class="note">${adds.map(h).join(' · ')}</div>
+      <div class="note">${adds.map((a, i) => (i ? `<span class="chg">${h(a)}</span>` : h(a))).join(' · ')}</div>
       ${omer ? `<div class="omer">${nowMin >= z.shkia ? 'הלילה: ' : ''}${h(omer)}</div>` : ''}
     </div>
 
@@ -202,7 +202,9 @@ function render() {
       </div>
       <div class="side">
         <div class="daf"><h4>דף יומי</h4><p>${h(daf.text)}</p></div>
-        <div class="shiur"><h4>השיעורים</h4>${SHIURIM.map((x) => `<div class="${x === nextShiur ? 'nx' : ''}"><b>${h(x.t)}</b> <small>${h(x.when)}</small><span>${h(x.who)}${x.room ? ` · ${h(x.room)}` : ''}</span></div>`).join('')}</div>
+        <div class="shiur"><h4>השיעורים</h4>${SHIURIM.map((x) => (x === nextShiur
+          ? `<div class="nx"><b>${h(x.t)}</b> <small>${h(x.when)}</small><span>${h(x.who)}${x.room ? ` · ${h(x.room)}` : ''}</span></div>`
+          : `<div class="ln"><b>${h(x.t)}</b> ${h(x.who)}${x.room ? ` · ${h(x.room)}` : ''}</div>`)).join('')}</div>
       </div>
     </div>
 
