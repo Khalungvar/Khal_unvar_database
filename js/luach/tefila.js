@@ -87,8 +87,8 @@ const btn = (act, path, label, title = '') => (canEdit() ? `<button type="button
 function weekdayHtml() {
   const w = data.weekday;
   const groups = GROUPS.map(([g, title]) => `<section class="tf-grp">
-    <h3>${title}${g === 'shacharis' ? ` <small>הערה: ${fld('weekday.shacharisNote', 'text', ' class="tf-w12"')}</small>` : ''}${g === 'maariv' ? ` <small>מעריב בשעה קבועה "תלוי" — רק ${fld('weekday.maarivAfter', 'number', ' class="tf-w4"')} דק' אחרי השקיעה</small>` : ''}</h3>
-    <table class="tf-t"><thead><tr><th>שעה</th><th>חדר</th><th>הערה</th><th>עונה</th><th title="תלוי בזמני היום: שחרית רק אחרי עלות, מנחה רק לפני השקיעה, מעריב רק אחרי השקיעה">תלוי*</th>${g === 'shacharis' ? '<th>גם בער"ש</th>' : ''}${g === 'mincha' ? '<th>מנין אחרון</th>' : ''}<th></th></tr></thead><tbody>
+    <h3>${title}${g === 'shacharis' ? ` <small>הערה: ${fld('weekday.shacharisNote', 'text', ' class="tf-w12"')}</small>` : ''}${g === 'maariv' ? ` <small>"צאת" לעניין זה = ${fld('weekday.maarivAfter', 'number', ' class="tf-w4"')} דק' אחרי השקיעה</small>` : ''}</h3>
+    <table class="tf-t"><thead><tr><th>שעה</th><th>חדר</th><th>הערה</th><th>עונה</th><th title="מסומן = המניין מוצג רק בימים שהוא מתאים לזמני היום">${g === 'shacharis' ? 'רק אחרי עלות' : g === 'mincha' ? 'רק לפני השקיעה' : 'רק אחרי צאת'}</th>${g === 'shacharis' ? '<th>גם בער"ש</th>' : ''}${g === 'mincha' ? '<th>מנין אחרון</th>' : ''}<th></th></tr></thead><tbody>
     ${(w[g] || []).map((r, i) => { const p = `weekday.${g}.${i}`; return `<tr>
       <td>${tsHtml(r.time, `${p}.time`)}</td><td>${fld(`${p}.room`, 'text', ' class="tf-w8"')}</td><td>${fld(`${p}.note`, 'text', ' class="tf-w10"')}</td>
       <td>${sel(`${p}.season`, SEASONS)}</td><td>${fld(`${p}.auto`, 'check')}</td>
