@@ -141,7 +141,7 @@ function render() {
   $('#screen').innerHTML = `<div class="safe">
     ${SAMPLE ? '<div class="sample">דוגמה לעיצוב — המניינים מהתוכנה הישנה</div>' : ''}
     <div class="top">
-      <div class="day">${h(YDAY[dw])}<small${holAll ? ' class="sp"' : ''}>${h(holAll || (parsha ? `פרשת ${parsha}` : ''))}</small></div>
+      <div class="day">${h(YDAY[dw])}${parsha ? `<small>פרשת ${h(parsha)}</small>` : ''}${holAll ? `<small class="sp">${h(holAll)}</small>` : ''}</div>
       <div class="logo"><img src="img/logo.png" alt=""><b>קהל אונגוואר</b></div>
       <div class="clock">${hh}:${String(now.getMinutes()).padStart(2, '0')}<span>${String(now.getSeconds()).padStart(2, '0')} ${ap}</span></div>
     </div>
