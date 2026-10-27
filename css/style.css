@@ -2223,3 +2223,9 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 html[dir="ltr"] .lobby-grid { background-position: calc((100% - 81px) * .2875 + 13px) 0, calc((100% - 81px) * .525 + 40px) 0, calc((100% - 81px) * .7625 + 67px) 0; }
 @media (max-width: 900px) { .lobby-grid, html[dir="ltr"] .lobby-grid { grid-template-columns: 1fr 1fr; background: none; } }
 @media (max-width: 520px) { .lobby-grid, html[dir="ltr"] .lobby-grid { grid-template-columns: 1fr; } }
+/* זוגות קנעפלעך (צוויי אין איין קעסטל): נישט העכער ווי די אנדערע — א שורה טיטל, א שורה אונטער-טעקסט */
+.lobby-pair .lobby-tile { min-width: 0; justify-content: center; }
+.lobby-pair .lobby-tile b { font-size: 13.5px; line-height: 1.12; max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.lobby-pair .lobby-tile .muted { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.2; }
+.lobby-pair .lobby-icon { font-size: 22px; line-height: 1; }
+.lobby-pair .bk-tile-logo { height: 30px; width: auto; }
