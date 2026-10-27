@@ -169,7 +169,7 @@ const BK_CSS = `
 .bk-of>.f-tc,.bk-of>.f-bc{left:50%;transform:translateX(-50%);width:calc(256px * var(--fk));height:calc(77px * var(--fk));z-index:1}
 .bk-of>.f-tc{top:0}.bk-of>.f-bc{bottom:0}
 .bk-of>.bk-fin{display:flex;align-items:center;justify-content:center;min-height:calc(540px * var(--fk) - 154px * var(--fk))}
-.bk-shiur{margin-top:auto;background:linear-gradient(90deg,#1e1e1e,#5c5c5c,#1e1e1e);color:#fff;text-align:center;padding:6px 8px 7px;font-size:13px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.bk-shiur{margin-top:auto;border:1.5px solid #111;border-radius:12px;color:#111;background:transparent;text-align:center;padding:5px 8px 6px;font-size:13px}
 .bk-shiur .bk-l{line-height:1.25;font-size:1em}.bk-shiur .bk-l2{font-family:'Livorna Bold','Livorna',serif;font-size:1.45em;line-height:1.2}.bk-shiur .bk-l3{font-size:.85em}
 .bk-info{border:1px solid #6a6a6a;background:rgba(255,255,255,.6);padding:6px 10px;box-sizing:border-box}
 .bk-mhl{display:block;width:6.2em;height:auto;margin:0 auto .35em}
