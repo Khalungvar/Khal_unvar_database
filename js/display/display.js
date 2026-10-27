@@ -1,6 +1,6 @@
 // תצוגת בית הכנסת (1920×1080) — זמנים, מניינים, מצוה יומית, דף יומי, מזל טובים.
 // דוגמה: די מניינים זענען איבערגענומען פון דער אלטער תוכנה (BZS); שפעטער — פון "זמני תפילות" אינעם אתר.
-import { buildYear, isoOf, nOf, dowOf, hdOf, dafYomi, mitzvaYomis } from '../luach/engine.js';
+import { buildYear, isoOf, nOf, dowOf, hdOf, dafYomi, mitzvaYomis, omerText } from '../luach/engine.js';
 import { zmanim, hhmm, LOCATIONS } from '../luach/zmanim.js';
 import { MONTH } from '../luach/mitzva.js';
 import { hebrewNumber } from '../hebdate.js';
@@ -177,7 +177,9 @@ function render() {
   const adds = additions(n, day);
   // ספירת העומר: ביז שקיעה — וואס מ'האט געציילט נעכטן ביינאכט; נאך שקיעה — וואס מ'ציילט היינט ביינאכט
   const omerDay = nowMin >= z.shkia ? dayOf(n + 1) : day;
-  const omer = omerDay?.items.find((i) => i.kind === 'omer')?.text || '';
+  const omerT = omerDay?.items.find((i) => i.kind === 'omer')?.text || '';
+  const omerK = omerT ? Array.from({ length: 49 }, (_, i) => i + 1).find((k) => omerText(k) === omerT) : 0;
+  const omer = omerK ? `יום ${hebrewNumber(omerK)} לעומר` : '';
   const SHI = computeShiurim(DATA, n, LOC);
   const nextShiur = SHI.find((x) => x.min != null && x.min >= nowMin) || null;
   // {שעה} {חלק היום} - {שם השיעור} - {מגיד שיעור} - {מיקום}
@@ -244,7 +246,16 @@ function render() {
   // שבת-קעסטל (ווען נישט געטוישט): די קומענדיגע שבת / יו"ט
   let nextEve = n; while (!holy(nextEve + 1) || holy(nextEve)) nextEve += 1;
   const all = (swap ? hb : board).groups.flatMap((g) => g.items).sort((x, y) => x.min - y.min);
-  const next = all.find((m) => m.min >= nowMin) || null;
+  // דער קומענדיגער מנין — אויב נישט אויפן לוח (נאך דעם לעצטן מעריב), זוכן ווייטער: וואכנטאג / שבת / יו"ט
+  const nextAny = () => {
+    for (let k = n; k < n + 10; k += 1) {
+      const items = holy(k) ? holyBoard(k - 1).groups.flatMap((g) => g.items) : weekdayBoard(k, (k - n) * 1440).groups.flatMap((g) => g.items);
+      const f = items.filter((m) => m.min >= nowMin).sort((a, b) => a.min - b.min);
+      if (f.length) return f[0];
+    }
+    return null;
+  };
+  const next = all.find((m) => m.min >= nowMin) || nextAny();
   const lastMincha = swap ? null : board.last;
   const cd = next ? Math.max(0, (next.min - nowMin) * 60) : 0;
   const cdText = `${String(Math.floor(cd / 3600)).padStart(2, '0')}:${String(Math.floor((cd % 3600) / 60)).padStart(2, '0')}:${String(Math.floor(cd % 60)).padStart(2, '0')}`;
@@ -310,7 +321,7 @@ function render() {
         ${rows.map(([l, a, b], i) => `<tr${i === nxz ? ' class="nx"' : ''}><td>${h(l)}</td><td>${b == null ? tm(a) : pair(a, b)}</td></tr>`).join('')}
       </table>
       <div class="note">${adds.map((a, i) => (i ? `<span class="chg">${h(a)}</span>` : h(a))).join(' · ')}</div>
-      ${omer ? `<div class="omer">${nowMin >= z.shkia ? 'הלילה: ' : ''}${h(omer)}</div>` : ''}
+      ${omer ? `<div class="omer">${h(omer)}</div>` : ''}
       <div class="lc"><div><h4>מצוה יומית</h4><p>מצוה ${h(hebrewNumber(mz.n))}</p><small>${h(mz.text)}</small></div><div><h4>דף יומי</h4><p>${h(daf.text)}</p></div></div>
     </div>` : swap ? mnyHtml(board, 'pos-side') : shabHtml(nextEve, nextEve + 1, 'pos-side')}
 
@@ -328,7 +339,7 @@ function render() {
         ${rows.map(([l, a, b], i) => `<tr${i === nxz ? ' class="nx"' : ''}><td>${h(l)}</td><td>${b == null ? tm(a) : pair(a, b)}</td></tr>`).join('')}
       </table>
       <div class="note">${adds.map((a, i) => (i ? `<span class="chg">${h(a)}</span>` : h(a))).join(' · ')}</div>
-      ${omer ? `<div class="omer">${nowMin >= z.shkia ? 'הלילה: ' : ''}${h(omer)}</div>` : ''}
+      ${omer ? `<div class="omer">${h(omer)}</div>` : ''}
     </div>
 
     <div class="frame lrn-m">
