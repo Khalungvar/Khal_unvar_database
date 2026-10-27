@@ -250,16 +250,25 @@ function render() {
     ${lastMincha != null ? `<div class="last">מנחה מנין אחרון: <b>${tm(lastMincha)}</b></div>`
       : ''}
 
-    ${AD ? `<div class="ad">${AD === '1' ? '<div class="ad-demo"><b>מודעה</b><span dir="ltr">8.5 × 11</span><small>כאן תופיע מודעה (קמפיין וכו\')<br>היא מכסה את זמני השבת והשמחות</small></div>' : `<img src="${h(AD)}" alt="">`}</div>` : `
-    ${swap ? mnyHtml(board, 'pos-side') : shabHtml(fri, sat, 'pos-side')}
+    ${AD ? `
+    <div class="frame zm zm-c pos-side">
+      <div class="ttl">זמני היום</div>
+      <table>
+        ${rows.map(([l, a, b], i) => `<tr${i === nxz ? ' class="nx"' : ''}><td>${h(l)}</td><td>${b == null ? tm(a) : pair(a, b)}</td></tr>`).join('')}
+      </table>
+      <div class="note">${adds.map((a, i) => (i ? `<span class="chg">${h(a)}</span>` : h(a))).join(' · ')}</div>
+      ${omer ? `<div class="omer">${nowMin >= z.shkia ? 'הלילה: ' : ''}${h(omer)}</div>` : ''}
+      <div class="lc"><div><h4>מצוה יומית</h4><p>מצוה ${h(hebrewNumber(mz.n))}</p><small>${h(mz.text)}</small></div><div><h4>דף יומי</h4><p>${h(daf.text)}</p></div></div>
+    </div>` : swap ? mnyHtml(board, 'pos-side') : shabHtml(fri, sat, 'pos-side')}
 
     <div class="frame mzl">
       <img class="head" src="img/display/simcha-head.jpg" alt="שהשמחה במעונם">
       <div class="wk">${parsha ? `פרשת ${h(parsha)}` : ''}</div>
       <div class="list">${mzList.map(entryHtml).join('')}</div>
       ${pages > 1 ? `<div class="dots">${Array.from({ length: pages }, (_, i) => `<i class="${i === mzIx ? 'on' : ''}"></i>`).join('')}</div>` : ''}
-    </div>`}
+    </div>
 
+    ${AD ? `<div class="ad">${AD === '1' ? '<div class="ad-demo"><b>מודעה</b><span dir="ltr">8.5 × 11</span><small>כאן תופיע מודעה (קמפיין וכו\')<br>היא מכסה את זמני היום והלימוד</small></div>' : `<img src="${h(AD)}" alt="">`}</div>` : `
     <div class="frame zm">
       <div class="ttl">זמני היום</div>
       <table>
@@ -282,7 +291,7 @@ function render() {
           ? `<div class="nx"><b>${h(x.t)}</b> <small>${h(x.when)}</small><span>${h(x.who)}${x.room ? ` · ${h(x.room)}` : ''}</span></div>`
           : `<div class="ln"><b>${h(x.t)}</b> ${h(x.who)}${x.room ? ` · ${h(x.room)}` : ''}</div>`)).join('')}</div>
       </div>
-    </div>
+    </div>`}
 
     </div>
     <div class="bottom">

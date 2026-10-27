@@ -134,7 +134,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .mzl .dots i.on { background: var(--gold3); }
 
 /* מודעה 8.5×11 — דעקט צו 264–958 אין מיטן */
-.ad { position: absolute; top: 284px; height: 608px; width: 470px; left: 725px; background: #fff; overflow: hidden;
+.ad { position: absolute; top: 164px; height: 766px; width: 592px; right: calc(44px + (633px - 592px) / 2); background: #fff; overflow: hidden;
   box-shadow: 0 0 0 3px var(--gold3), 0 0 0 7px var(--gold), 0 10px 30px rgba(0,0,0,.45); }
 .ad img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .ad-demo { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--serif); font-size: 60px; color: #999; border: 6px dashed #ccc; }
@@ -173,3 +173,17 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .mny.pos-side .grp h3 small { font-size: 16px; }
 .mny.pos-side .times span { font-size: 24px; padding: 0 8px; }
 .sh-r.big.past { background: linear-gradient(180deg, #8a7a55, #6b5a38); color: #2a1709; opacity: .55; }
+
+/* זמני היום קליין (ווען א מודעה דעקט צו דעם רעכטן טור) */
+.zm.zm-c { top: 246px; left: 725px; right: auto; width: 470px; height: 330px; }
+.zm.zm-c .ttl { font-size: 24px; padding: 2px 0 4px; }
+.zm.zm-c table { margin: 2px 18px 0; width: calc(100% - 36px); font-size: 18px; line-height: 1.05; }
+.zm.zm-c .pr { width: 74px; } .zm.zm-c .pr + .pr { margin-left: 6px; } .zm.zm-c .pr i { font-size: 11px; }
+.zm.zm-c tr.nx td:first-child { padding-right: 6px; } .zm.zm-c tr.nx td:last-child { padding-left: 6px; }
+.zm.zm-c .note { margin: 3px 10px 0; font-size: 15px; } .zm.zm-c .note .chg { font-size: 16px; padding: 0 6px 1px; border-radius: 5px; }
+.zm.zm-c .omer { font-size: 13px; margin-top: 1px; }
+.zm.zm-c .lc { display: flex; margin: 4px 18px 0; border-top: 1.5px solid rgba(138,106,42,.45); padding-top: 2px; text-align: center; font-family: var(--serif); }
+.zm.zm-c .lc > div { flex: 1; } .zm.zm-c .lc > div + div { border-right: 1.5px solid rgba(138,106,42,.45); }
+.zm.zm-c .lc h4 { margin: 0; font-size: 13px; color: var(--muted); }
+.zm.zm-c .lc p { margin: 0; font-size: 20px; font-weight: 900; color: var(--navy); line-height: 1.05; }
+.zm.zm-c .lc small { display: block; font-size: 13px; font-weight: 700; line-height: 1.1; }
