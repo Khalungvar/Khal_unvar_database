@@ -88,7 +88,7 @@ let condOpen = null; // { p, g } — דער חלון פון "תלוי"
 const BASE_NAME = (k) => (BASES.find(([x]) => x === k) || [, k])[1];
 function condBtn(r, g, p) {
   const cs = condOf(r, g);
-  const txt = cs && cs.length ? cs.map((c) => `${c.dir === 'before' ? 'לפני' : 'אחרי'}${Number(c.min) ? ` ${c.min} דק'` : ''} ${BASE_NAME(c.base)}`).join(' + ') : 'תלוי';
+  const txt = cs && cs.length ? cs.map((c) => `${Number(c.min) ? `${c.min} דק' ` : ''}${c.dir === 'before' ? 'לפני' : 'אחרי'} ${BASE_NAME(c.base)}`).join(' + ') : 'תלוי';
   return `<button type="button" class="tf-cond${cs && cs.length ? ' set' : ''}" data-act="condOpen" data-p="${h(p)}" data-g="${g}"${canEdit() ? '' : ' disabled'}>${h(txt)}</button>`;
 }
 function condDialog() {
@@ -106,8 +106,8 @@ function condHtml(r, g, p) {
   const cs = condOf(r, g); const dis = canEdit() ? '' : ' disabled';
   if (!cs || !cs.length) return canEdit() ? `<button type="button" class="tf-cond" data-act="condOn" data-p="${h(p)}" data-g="${g}">＋ הוסף תנאי</button>` : '';
   return `<div class="tf-conds">${cs.map((c, ci) => { const cp = `${p}.cond.${ci}`; return `<span class="tf-cond on">${ci ? 'וגם' : 'רק אם'}
-    <select data-f="${h(cp)}.dir"${dis}><option value="before"${c.dir === 'before' ? ' selected' : ''}>לפני</option><option value="after"${c.dir === 'after' ? ' selected' : ''}>אחרי</option></select>
     <input type="number" min="0" class="tf-w4" data-f="${h(cp)}.min" value="${Number(c.min) || 0}"${dis}> דק'
+    <select data-f="${h(cp)}.dir"${dis}><option value="before"${c.dir === 'before' ? ' selected' : ''}>לפני</option><option value="after"${c.dir === 'after' ? ' selected' : ''}>אחרי</option></select>
     <select data-f="${h(cp)}.base"${dis}>${BASES.filter(([k]) => k !== 'fixed').map(([k, l]) => `<option value="${k}"${k === c.base ? ' selected' : ''}>${h(l)}</option>`).join('')}</select>
     ${btn('condDel', cp, '✕', 'הסר תנאי')}</span>`; }).join('')}${btn('condAdd', p, '＋ עוד תנאי', 'עוד תנאי')}</div>`;
 }
