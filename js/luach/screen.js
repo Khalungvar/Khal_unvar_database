@@ -146,7 +146,8 @@ function itemsHtml(ed) {
           ${ed ? `<button type="button" class="tf-mini" data-imv="${i}" data-d="-1" title="למעלה">↑</button><button type="button" class="tf-mini" data-imv="${i}" data-d="1" title="למטה">↓</button><button type="button" class="tf-mini" data-idel="${i}" title="מחק">🗑</button>` : ''}
         </div>
         ${it.type === 'text' || it.type === 'notice' ? `<textarea data-k="items.${i}.text" rows="2" placeholder="${it.type === 'notice' ? 'טקסט ההודעה' : 'הטקסט שיופיע על המסך'}"${dis}>${h(it.text || '')}</textarea>` : ''}
-        ${it.type === 'text' ? `<div class="sc-r1">גודל ${f(i, 'size', it.size, ' type="number" min="12" max="400" data-num="1" class="sc-num"')} צבע <input type="color" data-k="items.${i}.color" value="${h(it.color || '#0d2350')}"${dis}> רקע <input type="color" data-k="items.${i}.bg" value="${h(it.bg || '#ffffff')}"${dis}>
+        ${it.type === 'text' ? `<div class="sc-r1">גודל ${f(i, 'size', it.size, ' type="number" min="12" max="400" data-num="1" class="sc-num"')} צבע <input type="color" data-k="items.${i}.color" value="${h(it.color || '#0d2350')}"${dis}> ${it.clear ? '' : `רקע <input type="color" data-k="items.${i}.bg" value="${h(it.bg || '#ffffff')}"${dis}>`}
+          <label class="sc-chk"><input type="checkbox" data-k="items.${i}.clear"${it.clear ? ' checked' : ''}${dis}> רקע שקוף</label>
           <label class="sc-chk"><input type="checkbox" data-k="items.${i}.bold"${it.bold !== false ? ' checked' : ''}${dis}> מודגש</label></div>` : ''}
         ${it.type !== 'notice' ? `<div class="sc-r1">איפה: ${sel(i, 'place', it.place || 'right', PLACES, true)}
           ${it.place === 'free' && ed ? `<button type="button" class="btn small-btn${dragI === i ? ' primary' : ''}" data-drag="${i}">${dragI === i ? '✔ סיום מיקום' : '✋ למקם על המסך'}</button>` : ''}
@@ -282,7 +283,7 @@ function render(main) {
   };
   main.onchange = (e) => {
     const el = e.target;
-    if (el.dataset.k && el.type === 'checkbox') { setK(el.dataset.k, el.dataset.inv ? !el.checked : el.checked); changed(/^items\.\d+\.on$/.test(el.dataset.k)); }
+    if (el.dataset.k && el.type === 'checkbox') { setK(el.dataset.k, el.dataset.inv ? !el.checked : el.checked); changed(/^items\.\d+\.(on|clear)$/.test(el.dataset.k)); }
     else if (el.dataset.full) changed(true);
     else if (el.dataset.iday != null) {
       const it = S.items[Number(el.dataset.iday)]; const d = Number(el.dataset.dw); const set = new Set(it.days || []);

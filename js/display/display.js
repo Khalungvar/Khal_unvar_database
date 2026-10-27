@@ -422,7 +422,7 @@ function itemHtml(it) {
     return it.item.kind === 'video' ? `<video src="${h(u)}" autoplay muted loop playsinline style="object-fit:${fit}"></video>` : `<img src="${h(u)}" alt="" style="object-fit:${fit}">`;
   }
   if (it.type === 'system') return `<div class="ovs" data-sys="${h(it.sys || 'weekday')}"></div>`;
-  return `<div class="ovt" style="font-size:${Number(it.size) || 48}px;color:${h(it.color || '#0d2350')};background:${h(it.bg || 'transparent')};font-weight:${it.bold === false ? 500 : 800}">${esc2(it.text)}</div>`;
+  return `<div class="ovt" style="font-size:${Number(it.size) || 48}px;color:${h(it.color || '#0d2350')};background:${it.clear ? 'transparent' : h(it.bg || 'transparent')};text-shadow:${it.clear ? '0 2px 6px rgba(0,0,0,.45)' : 'none'};font-weight:${it.bold === false ? 500 : 800}">${esc2(it.text)}</div>`;
 }
 // א בלאט פון "הדפסת זמני התפילה" (ימות החול / שבת) — מתעדכן לבד כל וואך
 let pcssOn = false;
@@ -452,7 +452,7 @@ function updateOverlays() {
   const key = list.map(([p, x]) => `${p}:${x.id}:${x.lib || x.sys || ''}:${x.text || ''}:${x.size || ''}:${x.color || ''}:${x.bg || ''}:${x.fit || ''}:${x.frame}:${JSON.stringify(x.box || {})}`).join('|');
   if (key !== ovLast) {
     ovLast = key;
-    L.innerHTML = list.map(([p, x]) => `<div class="ovi${x.frame !== false ? ' frame ovf' : ''}" data-p="${p}">${itemHtml(x)}</div>`).join('');
+    L.innerHTML = list.map(([p, x]) => `<div class="ovi${x.frame !== false ? ' frame ovf' : ''}${x.clear ? ' clr' : ''}" data-p="${p}">${itemHtml(x)}</div>`).join('');
     // פלאץ פאר די בלעטער (נאכן אריינשטעלן)
     requestAnimationFrame(() => { place(); fillSystem(L); });
   }
