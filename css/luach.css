@@ -251,3 +251,5 @@
 .tf-frib { background: #f6efe2; border-color: #d8c49a; margin-top: 8px; }
 .tf-sg { width: 3em; font-weight: 900; text-align: center; }
 .tf-ts select[data-k="r"] { max-width: 10em; }
+.tf-dl { display: flex; gap: 8px; align-items: center; margin: 8px 0; flex-wrap: wrap; } .tf-dl b { min-width: 4.5em; } .tf-disp { font-size: 12px; }
+.tf-r .tf-times { align-items: center; } .tf-r .tf-times .spacer { flex: 1; }

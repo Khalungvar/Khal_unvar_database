@@ -313,7 +313,7 @@ export function computeSpecial(data, n, loc) {
           if (r.on === 'last') return ds[ds.length - 1] === n;
           const i = Number(r.on);
           return i < 0 ? ds[0] + i === n : ds[i] === n;
-        }).map((r) => ({ label: r.label, note: r.note, kind: r.kind, screen: r.screen !== false, mins: (r.times || []).map((t) => timeOf(t, zd)).filter((m) => m != null) }));
+        }).map((r) => ({ label: r.label, note: r.note, kind: r.kind, screen: r.screen !== false, disp: r.disp || null, mins: (r.times || []).map((t) => timeOf(t, zd)).filter((m) => m != null) }));
         if (rows.length) { out.push({ title: b.title, rows }); break; }
       }
     }

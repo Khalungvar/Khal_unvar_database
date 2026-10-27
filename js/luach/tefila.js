@@ -96,6 +96,32 @@ function condBtn(r, g, p) {
   const txt = cs && cs.length ? cs.map((c) => `${Number(c.min) ? `${c.min} דק' ` : ''}${c.dir === 'before' ? 'לפני' : 'אחרי'} ${BASE_NAME(c.base)}`).join(' + ') : 'תלוי';
   return `<button type="button" class="tf-cond${cs && cs.length ? ' set' : ''}" data-act="condOpen" data-p="${h(p)}" data-g="${g}"${canEdit() ? '' : ' disabled'}>${h(txt)}</button>`;
 }
+// ---------- תצוגה: איפה (מקום שבת / חול) און ממתי עד מתי ----------
+let dispOpen = null;
+export const dispDefault = (r) => ({ place: 'weekday', from: { mode: r.kind === 'other' ? 'daysBefore' : 'dayStart', days: 1 }, to: { mode: 'pass', min: 0 } });
+const dispOf = (r) => ({ ...dispDefault(r), ...(r.disp || {}) });
+function dispSummary(d) {
+  const pl = d.place === 'shab' ? 'שבת' : 'חול';
+  const fr = d.from.mode === 'daysBefore' ? (Number(d.from.days) === 1 ? 'מיום לפני' : `מ-${d.from.days} ימים לפני`) : d.from.mode === 'afterShacharis' ? 'מאחרי שחרית אחרונה' : 'מתחילת היום';
+  const to = d.to.mode === 'dayEnd' ? 'עד סוף היום' : d.to.mode === 'after' ? `עד ${d.to.min} דק' אחרי` : 'עד הזמן';
+  return `📺 ${pl} · ${fr} ${to}`;
+}
+const dispBtn = (r, p) => `<button type="button" class="tf-cond set tf-disp" data-act="dispOpen" data-p="${h(p)}"${canEdit() ? '' : ' disabled'}>${h(dispSummary(dispOf(r)))}</button>`;
+function dispDialog() {
+  if (!dispOpen) return '';
+  const p = dispOpen; const r = get(p); if (!r) return '';
+  if (!r.disp) r.disp = dispDefault(r);
+  const d = r.disp; const dp = `${p}.disp`;
+  return `<div class="tf-dlg-bg" data-act="dispClose"><div class="tf-dlg">
+    <h3>תצוגה במסך — ${h(r.label || '')}</h3>
+    <div class="tf-dl"><b>איפה:</b> ${sel(`${dp}.place`, [['weekday', 'מקום זמני חול (לוח התפילות)'], ['shab', 'מקום זמני שבת (תיבת העץ)']])}</div>
+    <div class="tf-dl"><b>ממתי:</b> ${sel(`${dp}.from.mode`, [['dayStart', 'מתחילת היום'], ['daysBefore', 'ימים לפני'], ['afterShacharis', 'מאחרי השחרית האחרונה (יום לפני)']])}
+      ${d.from.mode === 'daysBefore' ? `${fld(`${dp}.from.days`, 'number', ' class="tf-w4" min="1"')} ימים לפני` : ''}</div>
+    <div class="tf-dl"><b>עד מתי:</b> ${sel(`${dp}.to.mode`, [['pass', 'עד שעבר הזמן'], ['after', 'עד דקות אחרי הזמן'], ['dayEnd', 'עד סוף היום']])}
+      ${d.to.mode === 'after' ? `${fld(`${dp}.to.min`, 'number', ' class="tf-w4" min="0"')} דק' אחרי` : ''}</div>
+    <div class="tf-add"><span class="spacer"></span><button type="button" class="btn primary" data-act="dispClose">סגור</button></div>
+  </div></div>`;
+}
 function condDialog() {
   if (!condOpen) return '';
   const { p, g } = condOpen; const r = get(p); if (!r) return '';
@@ -201,7 +227,7 @@ function blocksHtml(part) {
     ${(b.rows || []).map((r, i) => { const p = `${bp}.rows.${i}`; return `<div class="tf-r">
       <div class="tf-rf${r.screen === false ? ' tf-off' : ''}"><label class="tf-scr" title="תצוגה במסך">${fld(`${p}.screen`, 'check')} 📺</label>${fld(`${p}.label`, 'text', ' class="tf-w12" placeholder="שם"')}${fld(`${p}.note`, 'text', ' class="tf-w10" placeholder="הערה"')}
       ${sel(`${p}.on`, onOpts(r.on))}${sel(`${p}.kind`, [['tefila', 'תפילה'], ['other', 'אחר']])}<span class="spacer"></span><span class="tf-acts">${btn('up', p, '↑', 'למעלה')}${btn('down', p, '↓', 'למטה')}${btn('del', p, '🗑', 'מחק')}</span></div>
-      <div class="tf-times">${(r.times || []).map((T, ti) => `<span class="tf-tm">${tsHtml(T, `${p}.times.${ti}`)}${btn('delT', `${p}.times.${ti}`, '✕', 'הסר שעה')}</span>`).join('')}${btn('addT', `${p}.times`, '＋ שעה')}</div>
+      <div class="tf-times">${(r.times || []).map((T, ti) => `<span class="tf-tm">${tsHtml(T, `${p}.times.${ti}`)}${btn('delT', `${p}.times.${ti}`, '✕', 'הסר שעה')}</span>`).join('')}${btn('addT', `${p}.times`, '＋ שעה')}<span class="spacer"></span>${r.screen === false ? '' : dispBtn(r, p)}</div>
     </div>`; }).join('')}
     </div>
     ${part === 'minor' ? minorFri(b, bp) : ''}
@@ -265,7 +291,7 @@ function render(main, onBack) {
       ${canEdit() ? '<button type="button" class="btn ghost" id="tf-reset" title="למלא מחדש מברירת המחדל (הלוח השנתי + התוכנה הישנה)">↺</button>' : ''}
     </div>
     ${row ? '' : '<p class="lx-warn">⚠ עדיין לא נשמר — מוצגים הזמנים מהלוח השנתי ומהתוכנה הישנה. לעבור, לתקן ולשמור.</p>'}
-    <div class="tf-wrap"><div class="tf-main">${body}</div><aside class="tf-side">${previewHtml()}</aside></div>${condDialog()}`;
+    <div class="tf-wrap"><div class="tf-main">${body}</div><aside class="tf-side">${previewHtml()}</aside></div>${condDialog()}${dispDialog()}`;
   const rerender = () => render(main, onBack);
   const touched = (full) => { dirty = true; const s = $('#tf-save', main); if (s) s.disabled = false; if (full) rerender(); else $('.tf-side', main).innerHTML = previewHtml(); bindDate(); };
   const bindDate = () => { const d = $('#tf-date', main); if (d) d.onchange = () => { prevIso = d.value || todayIso(); $('.tf-side', main).innerHTML = previewHtml(); bindDate(); }; };
@@ -283,7 +309,7 @@ function render(main, onBack) {
     const f = el.closest('[data-f]'); const ts = el.closest('[data-ts]');
     if (f && f.dataset.f) {
       const v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
-      set(f.dataset.f, v); touched(e.type === 'change' && ((el.tagName === 'SELECT' && /\.(when|season|mode)$/.test(f.dataset.f)) || /\.(screen|like\.\w+)$/.test(f.dataset.f)));
+      set(f.dataset.f, v); touched(e.type === 'change' && ((el.tagName === 'SELECT' && /\.(when|season|mode|place|kind)$/.test(f.dataset.f)) || /\.(screen|like\.\w+)$/.test(f.dataset.f)));
     } else if (ts && el.dataset.k) {
       if (e.type === 'input' && el.tagName === 'SELECT') return;
       const full = tsChange(ts.dataset.ts, el.dataset.k, el.value); touched(full);
@@ -294,6 +320,8 @@ function render(main, onBack) {
     const act = b.dataset.act; const p = b.dataset.p || '';
     if (act === 'addW') { data.weekday[p].push({ id: newId(), time: { b: 'fixed', t: '' }, room: '', note: '', season: 'all', cond: null, kahal: false, fri: p === 'shacharis', last: false }); }
     else if (act === 'sortW') { const z = { neitz: 380, shkia: 1100, candles: 1082, rt: 1172, alos: 308, chatzos: 740 }; const k = (r) => (r.time?.b === 'fixed' ? (Number(String(r.time.t).replace(':', '.')) * 60 || 0) : (z[r.time?.b] || 0) + (r.time?.a || 0)); data.weekday[p].sort((a, c) => k(a) - k(c)); }
+    else if (act === 'dispOpen') { dispOpen = p; rerender(); return; }
+    else if (act === 'dispClose') { if (e.target !== b && b.classList.contains('tf-dlg-bg')) return; dispOpen = null; rerender(); return; }
     else if (act === 'condOpen') { condOpen = { p, g: b.dataset.g }; rerender(); return; }
     else if (act === 'condClose') { if (e.target !== b && b.classList.contains('tf-dlg-bg')) return; condOpen = null; rerender(); return; }
     else if (act === 'condOn') { const r = get(p); r.cond = [b.dataset.g === 'shacharis' ? { dir: 'after', min: 0, base: 'alos' } : b.dataset.g === 'mincha' ? { dir: 'before', min: 0, base: 'shkia' } : { dir: 'after', min: 50, base: 'shkia' }]; }
