@@ -87,6 +87,11 @@ export function printCss(fontHe = 'Frank Ruhl Libre') {
 .tp-tbl tr:nth-child(even) td { background: #e6e6e6; }
 .tp-tbl td.rb { background: #000 !important; color: #fff; font-weight: 700; text-align: right; }
 .tp-tbl td .tp-num { font-size: 1.1em; }
+.tp-sp .tp-grid { column-count: 2; column-gap: 2.2em; margin: .05em 0 .2em; }
+.tp-sp .tp-grid .tp-dots { width: 100%; break-inside: avoid; }
+.tp-sp .tp-grid .rm { font-size: .9em; white-space: nowrap; }
+.tp-sp .tp-rbrow { width: 100%; }
+.tp-sp .tp-cols .tp-grid { column-gap: 1em; }
 .tp-sp .tp-sub { font-weight: 900; font-size: 1.7em; margin: .15em 0 .1em; }
 .tp-sp .tp-txt { font-size: 1.3em; margin: .15em 0; }
 .tp-sp .tp-cols { display: block; column-count: 2; column-gap: 1.6em; column-rule: 1.5px solid #000; justify-content: initial; }
@@ -154,9 +159,16 @@ export function specialPage({ pasuk, psrc, title, sections, cols = 1 }, size = '
   const part = (x) => {
     if (x.k === 'text') return `<div class="tp-txt">${h(x.label)}${note(x.note)}</div>`;
     if (x.k === 'dots') return `<div class="tp-dots"><span class="l">${h(x.label)}${note(x.note)}</span><span class="f"></span><span class="tp-num">${x.mins.map(tm).join(' • ')}</span></div>`;
-    if (x.k === 'strip') return `<div class="tp-sub">${h(x.label)}${note(x.note)}:</div>${chunk(x.mins, 8).map((c) => `<div class="tp-strip">${c.map((m) => `<div class="tp-num">${tm(m)}</div>`).join('')}</div>`).join('')}`;
+    if (x.k === 'strip') return `<div class="tp-sub">${h(x.label)}${note(x.note)}:</div>${chunk(x.mins, Math.ceil(x.mins.length / Math.ceil(x.mins.length / 8))).map((c) => `<div class="tp-strip">${c.map((m) => `<div class="tp-num">${tm(m)}</div>`).join('')}</div>`).join('')}`;
     if (x.k === 'table') {
       const hasMeg = x.rows.some((r) => r.meg != null); const hasEz = x.rows.some((r) => r.ezras);
+      // נאר שעה + חדר (חול המועד, סליחות): צוויי שפאלטן "5:30 ....... בביהמ"ד"
+      if (!hasMeg && !hasEz) {
+        const rb = x.rows.filter((r) => r.rebbe); const rest = x.rows.filter((r) => !r.rebbe);
+        return `<div class="tp-sub">${h(x.label)}${note(x.note)}:</div>
+          ${rb.map((r) => `<div class="tp-dots tp-rbrow"><span class="l"><span class="tp-num">${tm(r.min)}</span> מנין כ"ק אדמו"ר שליט"א</span><span class="f"></span><span>${h(r.room || '')}</span></div>`).join('')}
+          <div class="tp-grid">${rest.map((r) => `<div class="tp-dots"><span class="l tp-num">${tm(r.min)}</span><span class="f"></span><span class="rm">${h(r.room || '')}</span></div>`).join('')}</div>`;
+      }
       const span = 3 + (hasMeg ? 1 : 0);
       return `<div class="tp-sub">${h(x.label)}:</div><table class="tp-tbl"><tr><th class="lt" colspan="2">${h(x.note || '')}</th><th>${h(x.label)}</th>${hasMeg ? '<th>מגילה-בערך</th>' : ''}${hasEz ? '<th>עזרת נשים</th>' : ''}</tr>
         ${x.rows.map((r) => (r.rebbe
@@ -224,7 +236,7 @@ export function buildSpecial(data, part, whens, Y, loc) {
         const zd = dayZ(isoOf(n), loc);
         return { n, Ts, mins: Ts.map((T) => timeOf(T, zd)) };
       });
-      if (!per.some((p) => p.mins.some((m) => m != null))) { parts.push({ k: 'text', label: r.label, note: r.note }); continue; }
+      if (!per.some((p) => p.mins.some((m) => m != null))) { if (r.kind !== 'tefila' || r.note) parts.push({ k: 'text', label: r.label, note: r.note }); continue; }
       // טעג מיט די זעלבע שעות — צוזאמען
       const grp = [];
       for (const p of per) { const key = p.mins.join(','); const g = grp.find((x) => x.key === key); if (g) g.days.push(p.n); else grp.push({ key, days: [p.n], p }); }
