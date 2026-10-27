@@ -9,7 +9,7 @@ export const BASES = [
   ['shkia', 'שקיעה'], ['candles', 'הדלקת נרות'], ['rt', 'ר"ת'],
 ];
 export const ROUNDS = [['1n', 'בלי עיגול'], ['5n', 'עיגול ל-5 (קרוב)'], ['5u', 'עיגול ל-5 (למעלה)'], ['5d', 'עיגול ל-5 (למטה)'], ['10n', 'עיגול ל-10']];
-export const SEASONS = [['all', 'כל השנה'], ['winter', 'חורף'], ['summer', 'קיץ']];
+export const SEASONS = [['all', 'כל השנה'], ['winter', 'שעון חורף'], ['summer', 'שעון קיץ']];
 
 const toMin = (t) => { const [a, b] = String(t || '').split(':').map(Number); return Number.isFinite(a) ? a * 60 + (b || 0) : null; };
 export const F = (t) => ({ b: 'fixed', t });

@@ -135,7 +135,7 @@ function weekdayHtml() {
     <table class="tf-t"><thead><tr><th></th><th>פעיל</th><th>שעה</th><th>חדר</th><th>הערה</th><th>אין מנין אחר — לפניו</th><th>— אחריו</th><th></th></tr></thead><tbody>
     ${rb('shacharis', 'שחרית')}${rb('mincha', 'מנחה')}${rb('maariv', 'מעריב')}</tbody></table></section>`;
   return `${rebbe}<p class="muted small">חדר שיוצג במסך כשלמניין לא נכתב חדר (אפשר להשאיר ריק): ${fld('weekday.defaultRoom', 'text', ' class="tf-w10" placeholder="למשל: ביהמ&quot;ד"')}</p>
-    <p class="muted small">עונה: "קיץ" = כשהשעון בשעון קיץ (מאמצע מרץ עד תחילת נובמבר), "חורף" = שאר השנה.</p>${groups}`;
+    <p class="muted small">שעון קיץ = מאמצע מרץ עד תחילת נובמבר · שעון חורף = שאר השנה.</p>${groups}`;
 }
 
 // ---------- שבת ----------
