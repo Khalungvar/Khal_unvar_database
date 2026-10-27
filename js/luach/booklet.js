@@ -139,7 +139,7 @@ const frame = (inner, { fk = 0.16, maxh = 300, k = 1 } = {}) => `<div class="bk-
   <div class="bk-fin"><div class="bk-fit" data-k="${k}" data-maxh="${maxh}">${inner}</div></div></div>`;
 
 // ---------- די בלעטער (HTML, 528×816 = 5.5×8.5in) ----------
-const IMG = (f) => `img/booklet/${f}?v=1`;
+const IMG = (f) => `img/booklet/${f}?v=2`;
 const BK_CSS = `
 .bk-pg{position:relative;width:528px;height:816px;overflow:hidden;direction:rtl;background:#fff;color:#111;font-family:'Guttman David','David','Frank Ruhl Libre',serif}
 .bk-pg>img.bk-bg{position:absolute;inset:0;width:100%;height:100%}
