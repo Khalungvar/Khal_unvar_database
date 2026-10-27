@@ -2,6 +2,7 @@
 // ארבע טיילן: ימות החול (שחרית/מנחה/מעריב), שבת, יום טוב (אלע חגים חוץ תשרי), תשרי (מיט סליחות).
 // א זמן (T): { b: 'fixed', t: 'HH:MM' (24 שעה) }  אדער  { b: 'shkia'|'neitz'|'alos'|'chatzos'|'candles'|'rt', a: ±מינוט, r: עיגול, m: 'n'|'u'|'d' }
 import { zmanim } from './zmanim.js';
+import { fromHebrew, isLeapYear } from '../hebdate.js';
 import { buildYear, hdOf, isoOf, nOf, dowOf } from './engine.js';
 
 export const BASES = [
@@ -9,7 +10,10 @@ export const BASES = [
   ['shkia', 'שקיעה'], ['candles', 'הדלקת נרות'], ['rt', 'ר"ת'],
 ];
 export const ROUNDS = [['1n', 'בלי עיגול'], ['5n', 'עיגול ל-5 (קרוב)'], ['5u', 'עיגול ל-5 (למעלה)'], ['5d', 'עיגול ל-5 (למטה)'], ['10n', 'עיגול ל-10']];
-export const SEASONS = [['all', 'כל השנה'], ['winter', 'שעון חורף'], ['summer', 'שעון קיץ']];
+export const SEASONS = [['all', 'כל השנה'], ['winter', 'שעון חורף'], ['summer', 'שעון קיץ'], ['custom', 'מ... עד...']];
+// נקודות אין יאר פאר "מ... עד..." (פון דעם טאג אן, אריינגערעכנט)
+export const ANCHORS = [['dstStart', 'תחילת שעון קיץ'], ['dstEnd', 'תחילת שעון חורף'], ['afterPesach', 'אחרי פסח'], ['afterShavuos', 'אחרי שבועות'],
+  ['rh', 'ראש השנה'], ['afterSukkos', 'אחרי סוכות'], ['chanuka', 'חנוכה'], ['purim', 'פורים']];
 
 const toMin = (t) => { const [a, b] = String(t || '').split(':').map(Number); return Number.isFinite(a) ? a * 60 + (b || 0) : null; };
 export const F = (t) => ({ b: 'fixed', t });
@@ -44,7 +48,30 @@ export function isSummer(iso) {
     return /-4/.test(p.find((x) => x.type === 'timeZoneName')?.value || '');
   } catch { return false; }
 }
-const inSeason = (s, iso) => !s || s === 'all' || (s === 'summer') === isSummer(iso);
+const sundayN = (y, m, k) => { let n = nOf(`${y}-${String(m).padStart(2, '0')}-01`); while (dowOf(n) !== 0) n += 1; return n + 7 * (k - 1); };
+const hebN = (d, m, Y) => { const iso = fromHebrew(d, m, Y); return iso ? nOf(iso) : null; };
+function anchorN(a, cy) { // cy = לועזי יאר
+  switch (a) {
+    case 'dstStart': return sundayN(cy, 3, 2);
+    case 'dstEnd': return sundayN(cy, 11, 1);
+    case 'afterPesach': return hebN(23, 'Nisan', cy + 3760);
+    case 'afterShavuos': return hebN(8, 'Sivan', cy + 3760);
+    case 'rh': return hebN(1, 'Tishri', cy + 3761);
+    case 'afterSukkos': return hebN(24, 'Tishri', cy + 3761);
+    case 'chanuka': return hebN(25, 'Kislev', cy + 3761);
+    case 'purim': return hebN(14, isLeapYear(cy + 3760) ? 'Adar II' : 'Adar', cy + 3760);
+    default: return null;
+  }
+}
+/** איז n צווישן "from" (אריין) און "to" (נישט אריין), רונד ארום א יאר */
+function inRange(from, to, iso) {
+  const n = nOf(iso); const y = Number(iso.slice(0, 4));
+  const pts = [];
+  for (const cy of [y - 1, y]) { const f = anchorN(from, cy); const t = anchorN(to, cy); if (f != null) pts.push([f, 1]); if (t != null) pts.push([t, 0]); }
+  const past = pts.filter(([m]) => m <= n).sort((a, b) => b[0] - a[0]);
+  return past.length ? past[0][1] === 1 : false;
+}
+const inSeason = (s, iso, r = {}) => !s || s === 'all' || (s === 'custom' ? inRange(r.from, r.to, iso) : (s === 'summer') === isSummer(iso));
 
 // ---------- ברירת מחדל: פונעם לוח השנה (צו איבערקוקן) + די אלטע תוכנה ----------
 let uid = 0; const id = () => `m${Date.now().toString(36)}${(uid += 1)}`;
@@ -84,8 +111,8 @@ export function defaults() {
     },
     shabbos: {
       rows: [
-        { id: id(), label: 'מנחה וקבלת שבת', day: 'fri', kind: 'tefila', season: 'winter', time: R('candles', 20), note: '' },
-        { id: id(), label: 'מנחה וקבלת שבת', day: 'fri', kind: 'tefila', season: 'summer', time: R('candles', 10), note: '' },
+        { id: id(), label: 'מנחה וקבלת שבת', day: 'fri', kind: 'tefila', season: 'custom', from: 'dstEnd', to: 'afterShavuos', time: R('candles', 20), note: '' },
+        { id: id(), label: 'מנחה וקבלת שבת', day: 'fri', kind: 'tefila', season: 'custom', from: 'afterShavuos', to: 'dstEnd', time: R('candles', 10), note: '' },
         { id: id(), label: 'נועם שבת', day: 'fri', kind: 'other', season: 'summer', time: R('candles', -60), note: '' },
         { id: id(), label: 'שולחן הטהור', day: 'fri', kind: 'other', season: 'all', time: null, note: '' },
         { id: id(), label: 'נועם שבת', day: 'sat', kind: 'other', season: 'winter', time: F('08:00'), note: '' },
@@ -197,7 +224,7 @@ export function daysOf(when, Y) {
 /** ימות החול פאר טאג n: { shacharis:[..], mincha:[..], maariv:[..], last } — יעדער: { min, room, note, kahal } */
 export function computeWeekday(data, n, loc) {
   const w = data.weekday; const iso = isoOf(n); const zd = dayZ(iso, loc); const fri = dowOf(n) === 5;
-  const ok = (r) => inSeason(r.season, iso) && (!fri || r.fri);
+  const ok = (r) => inSeason(r.season, iso, r) && (!fri || r.fri);
   const mk = (r) => ({ min: timeOf(r.time, zd), room: r.room || w.defaultRoom || '', note: r.note || '', kahal: !!r.kahal, last: !!r.last });
   const valid = (x) => {
     if (x.min == null) return false;
@@ -233,7 +260,7 @@ export function computeShabbos(data, fri, loc) {
   const zf = dayZ(isoOf(fri), loc); const zs = dayZ(isoOf(fri + 1), loc); const iso = isoOf(fri);
   const rows = [{ label: 'הדלקת נרות', min: zf.candles, kind: 'zman', note: '', day: 'fri' }];
   for (const r of data.shabbos.rows || []) {
-    if (r.season === 'avos' ? !avosSeason(fri + 1) : !inSeason(r.season, iso)) continue;
+    if (r.season === 'avos' ? !avosSeason(fri + 1) : !inSeason(r.season, isoOf(r.day === 'sat' ? fri + 1 : fri), r)) continue;
     rows.push({ label: r.label, min: timeOf(r.time, r.day === 'sat' ? zs : zf), kind: r.kind, note: r.note || '', day: r.day, screen: r.screen !== false });
   }
   return rows; // אין דעם סדר וואס מ'האט באשטימט

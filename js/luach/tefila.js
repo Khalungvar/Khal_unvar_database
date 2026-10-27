@@ -1,6 +1,6 @@
 // "זמני תפילות" — ניהול: ימות החול · שבת · יום טוב · תשרי. די דאטן: לשונית Minyanim (key = data, value = JSON).
 // דער חשבון (וואס קומט ארויס פאר א טאג) איז אין minyanim.js — דאס זעלבע וואס די תצוגה אין בית הכנסת ניצט.
-import { defaults, condOf, BASES, ROUNDS, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
+import { defaults, condOf, ANCHORS, BASES, ROUNDS, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
 import { hhmm } from './zmanim.js';
 import { hdOf, dowOf } from './engine.js';
 import { hebrewNumber, todayIso } from '../hebdate.js';
@@ -75,6 +75,8 @@ function tsChange(path, k, v) {
   else if (k === 'r') { T.r = parseInt(v, 10) || 1; T.m = v.replace(/\d+/, '') || 'n'; }
   return false;
 }
+// עונה: ווען "מ... עד..." — צוויי באקסן
+const seasonHtml = (p, list) => `${sel(`${p}.season`, list)}${get(`${p}.season`) === 'custom' ? `<span class="tf-rng">מ${sel(`${p}.from`, ANCHORS)} עד${sel(`${p}.to`, ANCHORS)}</span>` : ''}`;
 const fld = (path, type = 'text', extra = '') => {
   const v = get(path); const dis = canEdit() ? '' : ' disabled';
   if (type === 'check') return `<input type="checkbox" data-f="${h(path)}"${v ? ' checked' : ''}${dis}${extra}>`;
@@ -120,7 +122,7 @@ function weekdayHtml() {
     <table class="tf-t"><thead><tr><th>שעה</th><th>חדר</th><th>הערה</th><th>עונה</th><th title="המניין מוצג רק אם הוא לפני / אחרי זמן מסוים">תלוי</th>${g === 'shacharis' ? '<th>גם בער"ש</th>' : ''}<th></th></tr></thead><tbody>
     ${(w[g] || []).map((r, i) => { const p = `weekday.${g}.${i}`; return `<tr>
       <td>${tsHtml(r.time, `${p}.time`)}</td><td>${fld(`${p}.room`, 'text', ' class="tf-w8"')}</td><td>${fld(`${p}.note`, 'text', ' class="tf-w10"')}</td>
-      <td>${sel(`${p}.season`, SEASONS)}</td><td>${condBtn(r, g, p)}</td>
+      <td>${seasonHtml(p, SEASONS)}</td><td>${condBtn(r, g, p)}</td>
       ${g === 'shacharis' ? `<td>${fld(`${p}.fri`, 'check')}</td>` : ''}
       <td class="tf-acts">${btn('del', p, '🗑', 'מחק')}</td></tr>`; }).join('')}
     </tbody></table>
@@ -146,7 +148,7 @@ function shabbosHtml() {
   <table class="tf-t"><thead><tr><th title="תצוגה במסך">📺</th><th>שם</th><th>יום</th><th>שעה</th><th>עונה</th><th>סוג</th><th>הערה</th><th></th></tr></thead><tbody>
   ${rs.map((r, i) => { const p = `shabbos.rows.${i}`; return `<tr${r.screen === false ? ' class="tf-off"' : ''}>
     <td>${fld(`${p}.screen`, 'check', ' title="תצוגה במסך"')}</td><td>${fld(`${p}.label`, 'text', ' class="tf-w12"')}</td><td>${sel(`${p}.day`, [['fri', 'ערב שבת'], ['sat', 'שבת']])}</td>
-    <td>${tsHtml(r.time, `${p}.time`, true)}</td><td>${sel(`${p}.season`, SH_SEASONS)}</td><td>${sel(`${p}.kind`, [['tefila', 'תפילה'], ['other', 'אחר']])}</td>
+    <td>${tsHtml(r.time, `${p}.time`, true)}</td><td>${seasonHtml(p, SH_SEASONS)}</td><td>${sel(`${p}.kind`, [['tefila', 'תפילה'], ['other', 'אחר']])}</td>
     <td>${fld(`${p}.note`, 'text', ' class="tf-w10"')}</td>
     <td class="tf-acts">${btn('up', p, '↑', 'למעלה')}${btn('down', p, '↓', 'למטה')}${btn('del', p, '🗑', 'מחק')}</td></tr>`; }).join('')}
   </tbody></table>
@@ -242,7 +244,7 @@ function render(main, onBack) {
     const f = el.closest('[data-f]'); const ts = el.closest('[data-ts]');
     if (f && f.dataset.f) {
       const v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
-      set(f.dataset.f, v); touched(e.type === 'change' && ((el.tagName === 'SELECT' && /\.when$/.test(f.dataset.f)) || /\.screen$/.test(f.dataset.f)));
+      set(f.dataset.f, v); touched(e.type === 'change' && ((el.tagName === 'SELECT' && /\.(when|season)$/.test(f.dataset.f)) || /\.screen$/.test(f.dataset.f)));
     } else if (ts && el.dataset.k) {
       if (e.type === 'input' && el.tagName === 'SELECT') return;
       const full = tsChange(ts.dataset.ts, el.dataset.k, el.value); touched(full);

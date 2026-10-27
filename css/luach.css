@@ -236,3 +236,5 @@
 .tf-off td, .tf-rf.tf-off input, tr.tf-off { opacity: .45; }
 .tf-off td:first-child { opacity: 1; }
 .tf-scr { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; cursor: pointer; }
+.tf-rng { display: inline-flex; gap: 3px; align-items: center; margin-right: 4px; font-size: 12px; white-space: nowrap; }
+.tf-rng select { font-size: 12px; padding: 2px; }
