@@ -278,7 +278,7 @@ function render() {
     </div>
 
     ${AD ? '' : `
-    <div class="frame zm">
+    <div class="frame zm zx${(dw === 5 ? 1 : 0) + (omer ? 1 : 0)}">
       <div class="ttl">זמני היום</div>
       <table>
         ${rows.map(([l, a, b], i) => `<tr${i === nxz ? ' class="nx"' : ''}><td>${h(l)}</td><td>${b == null ? tm(a) : pair(a, b)}</td></tr>`).join('')}
@@ -288,18 +288,18 @@ function render() {
     </div>
 
     <div class="frame lrn-m">
-      <h4>מצוה יומית</h4>
-      <div class="num">מצוה ${h(hebrewNumber(mz.n))}</div>
-      <div class="txt">${h(mz.text)}</div>
+      <div class="l1"><span>מצוה יומית:</span> מצוה ${h(hebrewNumber(mz.n))}</div>
+      <div class="l2 fit">${h(mz.text)}</div>
     </div>
     <div class="frame lrn-m lrn-d">
-      <h4>דף היומי</h4>
-      <div class="num daf">${h(daf.text)}</div>
+      <div class="l1"><span>דף היומי</span></div>
+      <div class="l2 fit">${h(daf.text)}</div>
     </div>
     <div class="frame lrn-s">
       <div class="ttl">שיעורי תורה</div>
       ${(() => { // נאר וואס קומט נאך — עס מוז אריינגיין
-        const up = (x) => x.min == null || x.min >= nowMin - 5;
+        const anyUp = SHI.some((x) => x.min != null && x.min >= nowMin - 5);
+        const up = (x) => !anyUp || x.min == null || x.min >= nowMin - 5; // ווען אלעס איז פארביי — ווייזן דעם גאנצן טאג
         const daf = SHI.filter((x) => x.type === 'daf' && up(x)).slice(0, 3); const oth = SHI.filter((x) => x.type !== 'daf' && up(x)).slice(0, daf.length >= 2 ? 3 : 4);
         return `${daf.length ? `<div class="shiur sh-daf"><h4>שיעורי דף היומי בבית מדרשינו:</h4>${daf.map(shLine).join('')}</div>` : ''}${oth.length ? `<div class="shiur sh-oth"><h4>שיעורים הנלמדים בביהמ"ד:</h4>${oth.map(shLine).join('')}</div>` : ''}`;
       })()}
@@ -316,6 +316,11 @@ function render() {
     if (AD) $('#adlayer').innerHTML = `<div class="ad">${adHtml()}</div>`;
   }
   $('#dyn').innerHTML = main;
+  // .fit: גרויס ווי מעגליך, אבער אין איין שורה אין דער מסגרת
+  for (const el of document.querySelectorAll('#dyn .fit')) {
+    let fs = 40; el.style.fontSize = `${fs}px`;
+    while (el.scrollWidth > el.clientWidth + 1 && fs > 14) { fs -= 1; el.style.fontSize = `${fs}px`; }
+  }
   $('#dynb').innerHTML = bot;
 }
 // די מודעה ווערט נישט איבערגעצייכנט יעדע סעקונדע (א ווידעא וואלט זיך אנגעהויבן פון אנפאנג)

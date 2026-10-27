@@ -273,3 +273,27 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .lrn-m .txt { font-size: 23px; } .lrn-m .num { font-size: 40px; } .lrn-m .num.daf { font-size: 38px; } .lrn-m { justify-content: center; } .lrn-m .rule { margin: 14px -12px 10px; }
 .lrn-m { height: 144px; padding: 8px 10px; } .lrn-m.lrn-d { top: calc(614px + 144px + 28px); }
 .lrn-m .num { font-size: 36px; } .lrn-m .txt { font-size: 21px; }
+/* LAYOUT-B (דוגמה): זמני היום · צוויי קליינע ראמען · שיעורי תורה איבער דער גאנצער ברייט */
+.zm:not(.zm-c) { height: 372px; }
+.zm:not(.zm-c) table { font-size: 26px; line-height: 1.1; }
+.zm:not(.zm-c) .ttl { font-size: 30px; padding: 3px 0 5px; }
+.zm:not(.zm-c) .note { margin-top: 4px; font-size: 22px; }
+.lrn-m { top: 564px; width: 302px; height: 112px; padding: 6px 10px; }
+.lrn-m.lrn-d { top: 564px; right: calc(44px + 302px + 29px); }
+.lrn-m h4 { font-size: 18px; } .lrn-m .num { font-size: 32px; } .lrn-m .num.daf { font-size: 32px; } .lrn-m .txt { font-size: 18px; }
+.lrn-s { top: 704px; right: 44px; width: 633px; height: 226px; }
+.lrn-s .ttl { font-size: 24px; padding: 2px 0 4px; }
+.lrn-s .shiur > div { font-size: 18px; } .lrn-s .shiur h4 { font-size: 17px; }
+/* זמני היום פילט אויס די מסגרת: ווייניגער שורות = גרעסער */
+.zm.zx0 table { font-size: 28px; line-height: 1.17; }
+.zm.zx1 table { font-size: 27px; line-height: 1.12; }
+.zm.zx2 table { font-size: 26px; line-height: 1.08; }
+.zm.zx0 .note { font-size: 24px; margin-top: 6px; }
+/* מצוה יומית (⅔) + דף היומי (⅓): צוויי שורות יעדע */
+.lrn-m { top: 564px; right: 44px; width: 400px; height: 96px; padding: 8px 14px; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+.lrn-m.lrn-d { top: 564px; right: calc(44px + 400px + 29px); width: 204px; }
+.lrn-m .l1 { font-family: var(--serif); font-weight: 900; font-size: 26px; color: var(--navy); line-height: 1.1; white-space: nowrap; }
+.lrn-m .l1 span { color: var(--muted); font-weight: 700; font-size: 22px; }
+.lrn-m .l2 { font-family: var(--serif); font-weight: 900; color: var(--ink); line-height: 1.15; white-space: nowrap; overflow: hidden; }
+.lrn-m.lrn-d .l2 { color: var(--navy); }
+.lrn-s { top: 688px; height: 242px; }
