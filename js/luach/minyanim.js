@@ -129,7 +129,7 @@ export function defaults() {
   };
 }
 const row = (label, times, o = {}) => ({ id: id(), label, note: '', kind: /שחרית|מנחה|מעריב|נדרי|סליחות/.test(label) ? 'tefila' : 'other', on: 'all', times: times.map((t) => (typeof t === 'string' ? F(t) : t)), ...o });
-const block = (title, when, rows) => ({ id: id(), title, when, rows, like: { maarivEve: true, shacharis: true, mincha: true, maariv: true }, own: { maarivEve: [], shacharis: [], mincha: [], maariv: [] }, fri: { mode: 'regular', time: null } });
+const block = (title, when, rows) => ({ id: id(), title, when, rows, like: { maarivEve: true, shacharis: true, mincha: true, maarivMid: true, maariv: true }, own: { maarivEve: [], shacharis: [], mincha: [], maarivMid: [], maariv: [] }, fri: { mode: 'regular', time: null } });
 function TISHREI_BLOCKS() {
   return [
     block('סליחות - יום א\'', 'selichos1', [row('סליחות', ['05:00'])]),
@@ -252,22 +252,22 @@ export function computeWeekday(data, n, loc) {
   }
   if (out.last != null) out.mincha = out.mincha.filter((x) => x.min <= out.last);
   // ימי דפגרא ותעניות: א תפילה וואס איז נישט "כמו ימות החול" — אירע אייגענע שעות
-  const mb = minorBlockOn(data, n);
+  const own = (blk, g) => (blk.own?.[g] || []).map((T) => ({ min: timeOf(T, zd), room: '', note: '' })).filter((x) => x.min != null).sort((a, b) => a.min - b.min);
+  const mb = minorBlockOn(data, n); const nb = minorBlockOn(data, n + 1);
   if (mb) {
     out.minor = mb.title;
     const like = mb.like || {};
-    for (const g of ['shacharis', 'mincha', 'maariv']) {
+    for (const g of ['shacharis', 'mincha']) {
       if (like[g] !== false) continue;
-      out[g] = (mb.own?.[g] || []).map((T) => ({ min: timeOf(T, zd), room: '', note: '' })).filter((x) => x.min != null).sort((a, b) => a.min - b.min);
+      out[g] = own(mb, g);
       if (g === 'mincha') out.last = null;
     }
     if (fri && mb.fri?.mode === 'custom') out.friMincha = timeOf(mb.fri.time, zd);
   }
-  // "מעריב ערב": דער מעריב פון היינט ביינאכט, ווען מארגן איז א יום דפגרא/תענית
-  const nb = minorBlockOn(data, n + 1);
-  if (nb && (nb.like || {}).maarivEve === false) {
-    out.maariv = (nb.own?.maarivEve || []).map((T) => ({ min: timeOf(T, zd), room: '', note: '' })).filter((x) => x.min != null).sort((a, b) => a.min - b.min);
-  }
+  // מעריב פון היינט ביינאכט: ערב (פאר'ן ערשטן טאג) · אמצע (צווישן טעג פון א לענגערן בלאק) · מוצאי (נאכן לעצטן טאג)
+  const eveG = !mb && nb ? 'maarivEve' : mb && nb === mb ? 'maarivMid' : mb ? 'maariv' : null;
+  const eb = eveG === 'maarivEve' ? nb : mb;
+  if (eveG && (eb.like || {})[eveG] === false) out.maariv = own(eb, eveG);
   out.shacharisNote = w.shacharisNote || ''; out.minchaNote = w.minchaNote || ''; out.maarivNote = w.maarivNote || '';
   return out;
 }
