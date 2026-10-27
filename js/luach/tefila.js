@@ -3,6 +3,7 @@
 import { defaults, condOf, ANCHORS, BASES, ROUNDS, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
 import { hhmm } from './zmanim.js';
 import { hdOf, dowOf } from './engine.js';
+import { MONTH } from './mitzva.js';
 import { hebrewNumber, todayIso } from '../hebdate.js';
 import { readTabs, appendRow, updateRange } from '../google.js';
 import { state } from '../data.js';
@@ -163,7 +164,7 @@ function upcomingYear(part) {
   if (part === 'tishrei') return daysOf('bereishis', x.y)[0] >= nOf(todayIso()) ? x.y : x.y + 1;
   return daysOf('tishaBav', x.y)[0] >= nOf(todayIso()) ? x.y : x.y + 1;
 }
-const dateLabel = (n) => { const x = hdOf(n); return `${DAYS[dowOf(n)]}' ${hebrewNumber(x.d)} ${x.m === 'Tishri' ? 'תשרי' : x.m === 'Elul' ? 'אלול' : ''}`.trim(); };
+const dateLabel = (n) => { const x = hdOf(n); return `${DAYS[dowOf(n)]}' ${hebrewNumber(x.d)} ${MONTH[x.m] || ''}`.trim(); };
 function blocksHtml(part) {
   const Y = upcomingYear(part);
   const bs = data[part].blocks || [];
