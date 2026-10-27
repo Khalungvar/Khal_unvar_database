@@ -2238,3 +2238,8 @@ html[dir="ltr"] .lobby-grid { background-position: calc((100% - 81px) * .2875 + 
   body.printing-tp { background: #fff !important; margin: 0; }
   body.printing-tp #tp-print-area { display: block !important; }
 }
+.sg-bgdlg { min-width: 560px; }
+.sg-bgrow { display: flex; gap: 14px; align-items: flex-start; }
+.sg-bgrow img { width: 150px; height: 232px; object-fit: cover; border: 1px solid #ddd; border-radius: 6px; flex: none; }
+.sg-bgrow > div { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.sg-bgrow p { margin: 0; }

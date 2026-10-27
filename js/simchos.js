@@ -12,7 +12,8 @@ import { customFontNames } from './fonts.js';
 import { htmlToJpeg, jpegsToPdf } from './pdf.js';
 import { otherSheet } from './google.js';
 import { CONFIG } from './config.js';
-import { nowStamp } from './util.js';
+import { nowStamp, shrinkImage } from './util.js';
+import { storeImage, fetchImages, imageOf, isDrv } from './images.js';
 import { tagsOf as tagEntries, nameOf as tagNodeName, roots as tagRoots, UNCHECKED as TAG_U } from './tags.js';
 
 /** בלויז פאר די גבאים (נישט אין דער תצוגה): ווער האט צוגעלייגט די שמחה */
@@ -253,7 +254,7 @@ function pageHtml(list, fontPt, cols = 1, pageNo = 0, opt = {}) {
   const font = getFont().replace(/'/g, '');
   return `<div class="sg-page" style="font-family:'${h(font)}','Frank Ruhl Libre',serif">
     <div class="sg-inner">
-    <img class="sg-bg" src="img/simcha-bg2.jpg" alt="">
+    <img class="sg-bg" src="${h(bgSrc(cur.week))}" alt="">
     <div class="sg-parsha">${h(issueTitle(cur.week))}</div>
     ${bodyHtml(list, fontPt, cols, opt)}</div>
     ${pageNo ? `<div class="sg-pageno">${h(t('lobbySimchos'))} ${h(issueTitle(cur.week))} ${h(t('sgPageNo', { n: pageNo }))}</div>` : ''}</div>`;
@@ -360,6 +361,63 @@ function finalize(pages) {
 }
 const pagesHtml = (pages) => pages.map((p, i) => pageHtml(p.list, p.pt, p.cols, pages.length > 1 ? i + 1 : 0, p)).join('');
 
+// ---------- רקע הגליון: אחד לכל הגליונות, אדער באזונדער פאר א געוויסן גליון (נאר א מנהל) — לשונית SimchaSettings ----------
+const DEF_BG = 'img/simcha-bg2.jpg';
+let bgSet = null; // { key: value } — "bg" / "bg:<week>"
+const bgSheet = () => otherSheet(CONFIG.SPREADSHEET_ID);
+async function loadBg() {
+  try {
+    const rows = await bgSheet().read('SimchaSettings!A2:D200');
+    bgSet = Object.fromEntries(rows.filter((r) => r[0]).map((r) => [String(r[0]), String(r[1] || '')]));
+    const ids = Object.values(bgSet).filter(isDrv).map((v) => v.slice(4));
+    if (ids.length) await fetchImages(ids);
+  } catch { bgSet = bgSet || {}; }
+}
+function bgSrc(week) {
+  const v = (bgSet || {})[`bg:${week}`] || (bgSet || {}).bg;
+  return (v && imageOf(v)) || DEF_BG;
+}
+async function setBg(key, value) {
+  const rows = await bgSheet().read('SimchaSettings!A1:A200');
+  let row = rows.findIndex((r, i) => i > 0 && String(r[0]) === key) + 1;
+  if (row <= 0) row = rows.length + 1;
+  await bgSheet().write(`SimchaSettings!A${row}:D${row}`, [[value ? key : '', value || '', nowStamp(), state.email]]);
+  await loadBg();
+}
+function bgDialog() {
+  const bg = document.createElement('div'); bg.className = 'tf-dlg-bg';
+  const own = (bgSet || {})[`bg:${cur.week}`];
+  bg.innerHTML = `<div class="tf-dlg sg-bgdlg"><h3>🖼 רקע הגליון</h3>
+    <div class="sg-bgrow"><img src="${h(bgSrc(cur.week))}" alt=""><div>
+      <p><b>${own ? 'לגליון הזה יש רקע מיוחד' : (bgSet || {}).bg ? 'רקע קבוע (שהועלה)' : 'הרקע הרגיל של האתר'}</b></p>
+      <label class="btn small-btn primary">📤 רקע חדש לכל הגליונות<input type="file" accept="image/*" data-bgk="bg" hidden></label>
+      <label class="btn small-btn">📤 רקע רק לגליון הזה (${h(weekLabel(cur.week))})<input type="file" accept="image/*" data-bgk="bg:${h(cur.week)}" hidden></label>
+      ${own ? '<button type="button" class="btn small-btn ghost" data-bgx="own">↺ הגליון הזה — חזרה לרקע הקבוע</button>' : ''}
+      ${(bgSet || {}).bg ? '<button type="button" class="btn small-btn ghost" data-bgx="bg">↺ הרקע הקבוע — חזרה לרקע הרגיל של האתר</button>' : ''}
+      <p class="muted small">מומלץ תמונה בגודל 5.5×8.5 אינטש (למשל 1650×2550 פיקסלים). התמונה נשמרת ב-Drive.</p>
+      <p class="muted small" data-st></p>
+    </div></div>
+    <div class="vs-acts"><button type="button" class="btn ghost" data-x>סגירה</button></div></div>`;
+  document.body.appendChild(bg);
+  const close = () => bg.remove();
+  bg.querySelector('[data-x]').onclick = close;
+  bg.addEventListener('click', (e) => { if (e.target === bg) close(); });
+  const st = bg.querySelector('[data-st]');
+  bg.querySelectorAll('[data-bgk]').forEach((inp) => { inp.onchange = async () => {
+    const file = inp.files[0]; if (!file) return;
+    st.textContent = 'מעלה…';
+    try {
+      let data = await shrinkImage(file, 2600, 2500000, true);
+      let v = await storeImage(data, 'simcha-bg');
+      if (!isDrv(v)) { data = await shrinkImage(file, 900, 45000, true); v = data; ui.toast('נשמר באיכות נמוכה (עוזר התמונות לא זמין)', 'error'); }
+      await setBg(inp.dataset.bgk, v); close(); renderSimchos(); ui.toast(t('saved'));
+    } catch (err) { st.textContent = ''; ui.toast(ui.friendlyError(err), 'error'); }
+  }; });
+  bg.querySelectorAll('[data-bgx]').forEach((b) => { b.onclick = async () => {
+    try { await setBg(b.dataset.bgx === 'own' ? `bg:${cur.week}` : 'bg', ''); close(); renderSimchos(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  }; });
+}
+
 export function openSimchos() {
   if (!cur.week) cur.week = weekNow();
   ui.showView('simchos');
@@ -368,6 +426,7 @@ export function openSimchos() {
 export function renderSimchos() {
   const main = $('#simchos-main');
   if (!main) return;
+  if (bgSet === null) { bgSet = {}; loadBg().then(() => { if ($('#simchos-main')) renderSimchos(); }); }
   if (!cur.week) cur.week = weekNow();
   const list = simchosOf(cur.week);
   const fonts = ['Frank Ruhl Libre', ...customFontNames().filter((n) => !/bold/i.test(n))];
@@ -384,6 +443,7 @@ export function renderSimchos() {
       ${cur.week !== weekNow() ? `<button type="button" class="linkish" id="sg-today">${h(t('sgThisWeek'))}</button>` : ''}
       ${(() => { const mids = ytInWeek(shabbatOfWeek(cur.week)).filter((x) => !x.touching); return mids.map((x) => `<label class="check sg-yt"><input type="checkbox" data-yt="${h(x.start)}"${issueOn(x.start) ? ' checked' : ''}> ${h(t('sgYtInstead'))}${mids.length > 1 ? ` (${h(x.title)})` : ''}</label>`).join(''); })()}
       <span class="spacer"></span>
+      ${state.isAdmin ? '<button type="button" class="btn small-btn" id="sg-bgbtn" title="להחליף את תמונת הרקע של הגליון">🖼 רקע</button>' : ''}
       <label class="small">${h(t('sgFont'))} <select id="sg-font">${fonts.map((f) => `<option${f === getFont() ? ' selected' : ''}>${h(f)}</option>`).join('')}</select></label>
       <label class="small">${h(t('sgCols'))} <select id="sg-cols">${[['auto', t('sgColsAuto')], ['1', '1'], ['2', '2']].map(([v, l]) => `<option value="${v}"${getCols() === v ? ' selected' : ''}>${h(l)}</option>`).join('')}</select></label>
       <span class="sg-exports">
@@ -420,6 +480,7 @@ function wire(main, list) {
   $('#sg-next', main).onclick = () => { cur.week = nextIssue(cur.week); renderSimchos(); };
   const td = $('#sg-today', main); if (td) td.onclick = () => { cur.week = weekNow(); renderSimchos(); };
   $('#sg-font', main).onchange = (e) => { setFont(e.target.value); renderSimchos(); };
+  const bgb = $('#sg-bgbtn', main); if (bgb) bgb.onclick = () => bgDialog();
   $$('[data-yt]', main).forEach((cb) => { cb.onchange = () => toggleYt(cb.dataset.yt, cb.checked, cb); });
   $('#sg-cols', main).onchange = (e) => { setCols(e.target.value); renderSimchos(); };
   $('#sg-jpg', main).onclick = () => jpgPages();
