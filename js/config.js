@@ -18,6 +18,8 @@ export const CONFIG = {
 
   // הגוגל שיטס של המאגר (בבעלות החשבון האישי)
   SPREADSHEET_ID: '16gyhQ4W7p2DHjPMtdXldFynG1KUzDypGvTvYlS7cnJY',
+  // גיליון נפרד פאר דער תצוגה אין ביהמ"ד (זמני תפילות, שיעורים ...) — ווערט פארעפנטלעכט פאר לייענען
+  DISPLAY_SHEET_ID: '1hhrsXNhDCK7OGXOClTPE8pxOJ3EjmTmndH0r_qrms70',
 
   // מפתח Places API (New) להשלמת כתובות. ריק = ההשלמה של גוגל כבויה,
   // והתוכנה משלימה רק מתוך כתובות שכבר קיימות במאגר.

@@ -5,7 +5,8 @@ import { hhmm } from './zmanim.js';
 import { hdOf, dowOf } from './engine.js';
 import { MONTH } from './mitzva.js';
 import { hebrewNumber, todayIso } from '../hebdate.js';
-import { readTabs, appendRow, updateRange } from '../google.js';
+import { readTabs, otherSheet } from '../google.js';
+import { CONFIG } from '../config.js';
 import { state } from '../data.js';
 import { escapeHtml as h, nowStamp } from '../util.js';
 
@@ -21,17 +22,30 @@ const DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 let data = null; let row = 0; let dirty = false; let tab = 'weekday'; let prevIso = todayIso(); let saving = false;
 const canEdit = () => !!(state.isAllowed || state.isAdmin);
 
+// די דאטן ליגן אין דעם גיליון פון דער תצוגה (CONFIG.DISPLAY_SHEET_ID), לשונית Minyanim:
+// שורה 1 = כותרות, שורות 2.. = JSON אין שטיקער (א צעל האט א גרענעץ פון 50,000 אותיות)
+const CHUNK = 40000;
+const disp = () => otherSheet(CONFIG.DISPLAY_SHEET_ID);
 async function load(force = false) {
   if (data && !force) return;
+  let saved = null;
   try {
-    const t = await readTabs(['Minyanim']);
-    const [hd = [], ...rs] = t.Minyanim || [];
-    const i = rs.findIndex((r) => r[hd.indexOf('key')] === 'data');
-    row = i >= 0 ? i + 2 : 0;
-    data = i >= 0 ? JSON.parse(rs[i][hd.indexOf('value')] || '{}') : null;
-  } catch { data = null; row = 0; }
+    const rows = await disp().read('Minyanim!A2:B200');
+    const parts = rows.filter((r) => /^data#\d+$/.test(String(r[0] || ''))).sort((x, y) => Number(String(x[0]).split('#')[1]) - Number(String(y[0]).split('#')[1]));
+    if (parts.length) { saved = JSON.parse(parts.map((r) => r[1] || '').join('')); row = 1; }
+  } catch { /* */ }
+  if (!saved) {
+    // נאך נישט אריבערגעטראגן — פונעם הויפט-גיליון (אלטע לשונית Minyanim)
+    try {
+      const t = await readTabs(['Minyanim']);
+      const [hd = [], ...rs] = t.Minyanim || [];
+      const i = rs.findIndex((r) => r[hd.indexOf('key')] === 'data');
+      if (i >= 0) saved = JSON.parse(rs[i][hd.indexOf('value')] || '{}');
+    } catch { /* */ }
+    row = 0;
+  }
   const d = defaults();
-  data = { ...d, ...(data || {}) };
+  data = { ...d, ...(saved || {}) };
   dirty = false;
 }
 async function save() {
@@ -39,9 +53,11 @@ async function save() {
   saving = true;
   try {
     const v = JSON.stringify(data);
-    if (row) await updateRange(`Minyanim!A${row}:D${row}`, [['data', v, nowStamp(), state.email]]);
-    else { await appendRow('Minyanim', ['data', v, nowStamp(), state.email]); await load(true); }
-    dirty = false; ui.toast?.('נשמר ✓');
+    const parts = []; for (let i = 0; i < v.length; i += CHUNK) parts.push(v.slice(i, i + CHUNK));
+    const stamp = nowStamp();
+    await disp().clear('Minyanim!A2:D200');
+    await disp().write(`Minyanim!A1:D${parts.length + 1}`, [['key', 'value', 'updated_at', 'updated_by'], ...parts.map((pt, i) => [`data#${i}`, pt, stamp, state.email])]);
+    row = 1; dirty = false; ui.toast?.('נשמר ✓');
   } catch (err) { ui.toast?.(String(err.message || err), 'error'); }
   saving = false;
 }

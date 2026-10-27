@@ -312,6 +312,16 @@ export async function getUserEmail() {
 const SHEETS = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}`;
 const enc = encodeURIComponent;
 
+/** א צווייטער גיליון (למשל דער פון דער תצוגה): לייענען / שרייבן א טווח */
+export function otherSheet(id) {
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${id}`;
+  return {
+    read: async (range) => (await authFetch(`${base}/values/${enc(range)}?valueRenderOption=UNFORMATTED_VALUE`)).values || [],
+    write: (range, values) => authFetch(`${base}/values/${enc(range)}?valueInputOption=RAW`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values }) }),
+    clear: (range) => authFetch(`${base}/values/${enc(range)}:clear`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }),
+  };
+}
+
 /** קורא כמה לשוניות בבת אחת. מחזיר { שם: [[...שורות]] }. */
 export async function readTabs(tabs) {
   const params = tabs.map((t) => `ranges=${enc(`${t}!A:AZ`)}`).join('&');

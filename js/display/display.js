@@ -10,7 +10,39 @@ import { defaults, computeWeekday, computeShabbos, computeSpecial, computeShiuri
 const QS = new URLSearchParams(location.search);
 const PREVIEW = QS.has('preview');
 let DATA = defaults();
+let LIVE = false; // נתונים מהגיליון (לא ברירת מחדל)
 if (PREVIEW) { try { const j = JSON.parse(localStorage.getItem('tf-preview') || 'null'); if (j) DATA = { ...DATA, ...j }; } catch { /* */ } }
+else {
+  // דער לעצטער וואס מ'האט באקומען — אויב דער אינטערנעט פאלט
+  try { const j = JSON.parse(localStorage.getItem('disp-data') || 'null'); if (j) { DATA = { ...DATA, ...j }; LIVE = true; } } catch { /* */ }
+}
+// ---------- לייענען פונעם גיליון פון דער תצוגה (פארעפנטלעכט) — יעדע 5 מינוט ----------
+const SHEET_ID = '1hhrsXNhDCK7OGXOClTPE8pxOJ3EjmTmndH0r_qrms70';
+function parseCsv(t) {
+  const rows = []; let row = []; let cur = ''; let q = false;
+  for (let i = 0; i < t.length; i += 1) {
+    const c = t[i];
+    if (q) { if (c === '"') { if (t[i + 1] === '"') { cur += '"'; i += 1; } else q = false; } else cur += c; }
+    else if (c === '"') q = true; else if (c === ',') { row.push(cur); cur = ''; } else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; } else if (c !== '\r') cur += c;
+  }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+async function pull() {
+  if (PREVIEW) return;
+  try {
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Minyanim&headers=1&t=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) return;
+    const rows = parseCsv(await r.text());
+    const parts = rows.filter((x) => /^data#\d+$/.test(x[0] || '')).sort((a, b) => Number(a[0].split('#')[1]) - Number(b[0].split('#')[1]));
+    if (!parts.length) return;
+    const j = JSON.parse(parts.map((x) => x[1] || '').join(''));
+    DATA = { ...defaults(), ...j }; LIVE = true;
+    try { localStorage.setItem('disp-data', JSON.stringify(j)); } catch { /* */ }
+    boardCache.clear(); shLast = null;
+  } catch { /* בלייבט מיט דעם וואס מ'האט */ }
+}
+pull(); setInterval(pull, 5 * 60 * 1000);
 // א פאלשע שעה (?at=2026-12-20T15:00) — צו זען א געוויסן טאג
 let OFFSET = 0;
 if (QS.get('at')) { const t = new Date(QS.get('at')); if (!Number.isNaN(t.getTime())) OFFSET = t.getTime() - Date.now(); }
@@ -20,7 +52,7 @@ const LOC = LOCATIONS.bp;
 const $ = (s, r = document) => r.querySelector(s);
 const h = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const YDAY = ['זונטאג', 'מאנטאג', 'דינסטאג', 'מיטוואך', 'דאנערשטאג', 'פרייטאג', 'שבת קודש'];
-const SAMPLE = !PREVIEW;
+const SAMPLE = !PREVIEW && !LIVE;
 
 // ---------- מזל טוב (שפעטער: פון "שהשמחה במעונם" — אותו טקסט ווי אינעם גליון) ----------
 // יעדע שמחה: שורות פון בעלי השמחה + "לרגל ..."; צוויי אויפאמאל, יעדע 15 סעקונדעס די קומענדיגע
@@ -241,7 +273,7 @@ function render() {
   const mzList = mzPages[mzIx].map((i) => MAZEL[i]);
 
   const html = `
-    ${PREVIEW ? '<div class="sample">תצוגה מקדימה — לא נשמר</div>' : SAMPLE ? '<div class="sample">דוגמה — זמני ברירת מחדל</div>' : ''}
+    ${PREVIEW ? '<div class="sample">תצוגה מקדימה — לא נשמר</div>' : !LIVE ? '<div class="sample">דוגמה — זמני ברירת מחדל</div>' : ''}
     <div class="top">
       <div class="day">${h(dw === 6 && nowMin > z.motzei ? 'מוצאי שבת קודש' : YDAY[dw])}${parsha ? `<small>פרשת ${h(parsha)}</small>` : ''}${holAll ? `<small class="sp">${h(holAll)}</small>` : ''}</div>
       <div class="logo"><img src="img/logo.png" alt=""><b>קהל אונגוואר</b><i>בנשיאות כ"ק מרן אדמו"ר שליט"א</i></div>
