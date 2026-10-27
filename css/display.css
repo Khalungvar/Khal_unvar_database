@@ -50,7 +50,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .zm .omer { margin: 2px 18px 0; text-align: center; font-family: var(--serif); font-weight: 700; font-size: 21px; color: #8b1a1a; line-height: 1.15; }
 
 /* רעכטס אונטן: מצוה יומית | דף יומי + שיעורים */
-.lrn { top: 650px; right: 44px; width: 566px; height: 300px; display: flex; padding: 16px 14px; }
+.lrn { top: 650px; right: 44px; width: 566px; height: 288px; display: flex; padding: 10px 14px; }
 .lrn h4 { margin: 0 0 2px; font-family: var(--serif); font-size: 25px; color: var(--muted); font-weight: 700; }
 .lrn .mzy { flex: 1; text-align: center; padding: 0 8px; display: flex; flex-direction: column; }
 .lrn .mzy .num { font-family: var(--serif); font-weight: 900; font-size: 44px; color: var(--navy); line-height: 1.05; }
@@ -59,8 +59,8 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .lrn .mzy .kol b { display: block; direction: ltr; font-family: 'Frank Ruhl Libre', serif; font-size: 24px; color: var(--navy); }
 .lrn .side { flex: 1; border-right: 2px solid rgba(138,106,42,.45); padding: 0 12px; text-align: center; display: flex; flex-direction: column; }
 .lrn .daf p { margin: 0; font-family: var(--serif); font-weight: 900; font-size: 34px; color: var(--navy); line-height: 1.1; }
-.lrn .shiur { margin-top: 6px; border-top: 2px solid rgba(138,106,42,.45); padding-top: 6px; font-family: var(--serif); }
-.lrn .shiur > div { color: #9a8f78; font-size: 18px; line-height: 1.12; margin-top: 4px; }
+.lrn .shiur { margin-top: 4px; border-top: 2px solid rgba(138,106,42,.45); padding-top: 3px; font-family: var(--serif); }
+.lrn .shiur > div { color: #9a8f78; font-size: 18px; line-height: 1.1; margin-top: 2px; }
 .lrn .shiur > div b { font-family: 'Frank Ruhl Libre', serif; font-size: 22px; }
 .lrn .shiur > div span { display: block; }
 .lrn .shiur > div.nx { color: var(--navy); font-size: 24px; font-weight: 700; }
@@ -80,8 +80,8 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .mny .times span.nx { color: #8b1a1a; text-decoration: underline; text-decoration-color: var(--gold); text-underline-offset: 6px; }
 
 /* לינקס אונטן: דער קומענדיגער מנין — ווייס, בולט */
-.next { top: 720px; left: 44px; width: 566px; height: 230px; text-align: center; background: #fff; }
-.next .row1 { display: flex; align-items: center; justify-content: center; gap: 24px; margin-top: 20px; }
+.next { top: 720px; left: 44px; width: 566px; height: 218px; text-align: center; background: #fff; }
+.next .row1 { display: flex; align-items: center; justify-content: center; gap: 24px; margin-top: 16px; }
 .next .lbl { font-family: var(--serif); font-weight: 700; font-size: 34px; color: var(--muted); }
 .next .lbl::before, .next .lbl::after { content: ' ❧ '; color: var(--gold); }
 .next .cd { direction: ltr; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 34px; color: #8b1a1a;
@@ -104,7 +104,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .shab td:nth-child(3) { border-right: 2px solid rgba(138,106,42,.45); padding-right: 16px; }
 
 /* מזל טוב — אין דעם זעלבן סטיל ווי די אנדערע, מיט דער כותרת פונעם גליון */
-.mzl { top: 468px; left: 658px; width: 604px; height: 482px; text-align: center; overflow: hidden; }
+.mzl { top: 468px; left: 658px; width: 604px; height: 470px; text-align: center; overflow: hidden; }
 .mzl .head { display: block; width: 420px; margin: 16px auto 0; mix-blend-mode: multiply; }
 .mzl .wk { display: inline-block; margin-top: 6px; padding: 1px 26px 3px; border: 1.5px solid var(--navy); border-radius: 12px; background: #fff;
   color: var(--navy); font-family: var(--serif); font-weight: 700; font-size: 25px; }
@@ -116,7 +116,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .mzl .dots i.on { background: var(--gold3); }
 
 /* מודעה 8.5×11 — דעקט צו 264–958 אין מיטן */
-.ad { position: absolute; top: 276px; height: 674px; width: 521px; left: calc(658px + (604px - 521px) / 2); background: #fff; overflow: hidden;
+.ad { position: absolute; top: 276px; height: 662px; width: 512px; left: calc(658px + (604px - 512px) / 2); background: #fff; overflow: hidden;
   box-shadow: 0 0 0 3px var(--gold3), 0 0 0 7px var(--gold), 0 10px 30px rgba(0,0,0,.45); }
 .ad img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .ad-demo { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--serif); font-size: 60px; color: #999; border: 6px dashed #ccc; }
@@ -124,10 +124,10 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .ad-demo small { font-size: 26px; text-align: center; margin-top: 20px; }
 
 /* אונטן */
-.bottom { position: absolute; bottom: 0; left: 0; right: 0; height: 96px; display: flex; align-items: center; justify-content: space-between; padding: 0 50px;
-  background: linear-gradient(180deg, #3a2a10, #22170a); border-top: 4px solid var(--gold); color: var(--gold2); }
-.bottom .hd { font-family: var(--serif); font-weight: 900; font-size: 56px; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
-.bottom .kol { font-family: var(--serif); font-weight: 900; font-size: 34px; text-align: center; line-height: 1.05; }
-.bottom .kol b { display: block; direction: ltr; font-family: 'Frank Ruhl Libre', serif; font-size: 34px; color: #fff; letter-spacing: 2px; }
+.bottom { position: absolute; bottom: 0; left: 0; right: 0; height: 118px; display: flex; align-items: center; justify-content: space-between; padding: 43px 50px 0;
+  background: url('../img/display/bottom.jpg') center / 100% 100% no-repeat; color: var(--gold2); }
+.bottom .hd { font-family: var(--serif); font-weight: 900; font-size: 52px; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+.bottom .kol { font-family: var(--serif); font-weight: 900; font-size: 26px; text-align: center; line-height: 1.05; }
+.bottom .kol b { display: block; direction: ltr; font-family: 'Frank Ruhl Libre', serif; font-size: 30px; color: #fff; letter-spacing: 2px; }
 .bottom .greg { direction: ltr; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 40px; color: #e9d9ad; }
 .sample { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); background: #c0392b; color: #fff; font: 700 16px Arial; padding: 2px 10px; border-radius: 0 0 6px 6px; z-index: 5; }
