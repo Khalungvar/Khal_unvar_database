@@ -142,7 +142,7 @@ function render() {
     ${SAMPLE ? '<div class="sample">דוגמה לעיצוב — המניינים מהתוכנה הישנה</div>' : ''}
     <div class="top">
       <div class="day">${h(YDAY[dw])}${parsha ? `<small>פרשת ${h(parsha)}</small>` : ''}${holAll ? `<small class="sp">${h(holAll)}</small>` : ''}</div>
-      <div class="logo"><img src="img/logo.png" alt=""><b>קהל אונגוואר</b></div>
+      <div class="logo"><img src="img/logo.png" alt=""><b>קהל אונגוואר</b><i>בנשיאות כ"ק מרן אדמו"ר שליט"א</i></div>
       <div class="clock">${hh}:${String(now.getMinutes()).padStart(2, '0')}<span>${String(now.getSeconds()).padStart(2, '0')} ${ap}</span></div>
     </div>
 
@@ -166,8 +166,13 @@ function render() {
     <div class="frame shab">
       <div class="ttl">זמני שבת קודש${parsha ? ` · פרשת ${h(parsha)}` : ''}</div>
       <table>
-        <tr><td>הדלקת נרות</td><td>${tm(zFri.candles)}</td><td>מנחה ער"ש</td><td>${tm(resolve(SHABBOS.minchaErev, zFri))}</td></tr>
-        <tr><td>שחרית</td><td>${h(SHABBOS.shacharis.t)}</td><td>מוצאי שבת</td><td>${tm(zSat.motzei)}</td></tr>
+        <tr class="hl"><td>הדלקת נרות</td><td>${tm(zFri.candles)}</td></tr>
+        <tr><td>מנחה ערב שבת</td><td>${tm(resolve(SHABBOS.minchaErev, zFri))}</td></tr>
+        <tr><td>שחרית</td><td>${h(SHABBOS.shacharis.t)}</td></tr>
+        <tr><td>סוזק"ש <small>מג"א · גר"א</small></td><td>${tm(zSat.alos + 3 * ((zSat.tzeis - zSat.alos) / 12))} · ${tm(zSat.neitz + 3 * ((zSat.shkia - zSat.neitz) / 12))}</td></tr>
+        <tr><td>שקיעת החמה</td><td>${tm(zSat.shkia)}</td></tr>
+        <tr class="hl"><td>מוצאי שבת קודש</td><td>${tm(zSat.motzei)}</td></tr>
+        ${Math.round(zSat.shkia + 72) !== Math.round(zSat.motzei) ? `<tr><td>רבינו תם</td><td>${tm(zSat.shkia + 72)}</td></tr>` : ''}
       </table>
     </div>
 
@@ -204,7 +209,7 @@ function render() {
     </div>
     <div class="bottom">
       <div class="hd">${h(heDate)}</div>
-      <div class="kol">קול אונגוואר<b>605-477-4427</b></div>
+      <div class="kol">קול אונגוואר <b>605-477-4427</b></div>
       <div class="greg">${now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
     </div>`;
 }
