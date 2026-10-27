@@ -291,7 +291,8 @@ function render() {
       <h4>מצוה יומית</h4>
       <div class="num">מצוה ${h(hebrewNumber(mz.n))}</div>
       <div class="txt">${h(mz.text)}</div>
-      <div class="rule"></div>
+    </div>
+    <div class="frame lrn-m lrn-d">
       <h4>דף היומי</h4>
       <div class="num daf">${h(daf.text)}</div>
     </div>
