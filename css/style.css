@@ -2230,3 +2230,11 @@ html[dir="ltr"] .lobby-grid { background-position: calc((100% - 81px) * .2875 + 
 .lobby-pair .lobby-icon { font-size: 22px; line-height: 1; }
 .lobby-pair .bk-tile-logo { height: 30px; width: auto; }
 .sg-screen { display: inline-flex; gap: 4px; align-items: center; font-size: .9rem; white-space: nowrap; margin-inline-end: 8px; cursor: pointer; }
+#tp-print-area { display: none; }
+#tp-print-area .tp-page { break-after: page; page-break-after: always; }
+#tp-print-area .tp-page:last-child { break-after: auto; page-break-after: auto; }
+@media print {
+  body.printing-tp > *:not(#tp-print-area) { display: none !important; }
+  body.printing-tp { background: #fff !important; margin: 0; }
+  body.printing-tp #tp-print-area { display: block !important; }
+}

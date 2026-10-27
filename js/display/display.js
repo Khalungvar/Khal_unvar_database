@@ -369,6 +369,7 @@ function render() {
   updateShiurim(AD ? '' : shInner);
   // לוח המניינים (חול): די אותיות ווערן אזוי גרויס אז זיי פילן אויס די מסגרת
   for (const box of document.querySelectorAll('#dyn .mny')) fitBoard(box);
+  for (const box of document.querySelectorAll('#dyn .shab')) fitBoard(box, '.sh-r span, .sh-r b', 1);
   // .fit: גרויס ווי מעגליך, אבער אין איין שורה אין דער מסגרת
   for (const el of document.querySelectorAll('#dyn .fit')) {
     let fs = 40; el.style.fontSize = `${fs}px`;
@@ -399,15 +400,15 @@ function updateShiurim(inner) {
   }
 }
 const boardCache = new Map();
-function fitBoard(box) {
-  const els = [...box.querySelectorAll('.grp h3, .times span, .times.rbt i')];
+function fitBoard(box, sel = '.grp h3, .times span, .times.rbt i', max = 1.6) {
+  const els = [...box.querySelectorAll(sel)];
   const key = `${box.className}|${box.textContent}`;
   const apply = (k) => els.forEach((e) => { e.style.fontSize = `${(Number(e.dataset.b) * k).toFixed(1)}px`; });
   els.forEach((e) => { if (!e.dataset.b) e.dataset.b = parseFloat(getComputedStyle(e).fontSize); });
   const gaps = box.querySelectorAll('.grp');
   if (boardCache.has(key)) { apply(boardCache.get(key)); return; }
   let best = 0.6;
-  for (let k = 1.6; k >= 0.6; k -= 0.04) {
+  for (let k = max; k >= 0.5; k -= 0.04) {
     apply(k); gaps.forEach((g) => { g.style.marginTop = `${Math.round(8 * k)}px`; });
     const br = box.getBoundingClientRect(); const sc = br.height / box.offsetHeight || 1;
     const bottom = Math.max(...[...box.children].map((c) => c.getBoundingClientRect().bottom));

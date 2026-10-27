@@ -12,6 +12,7 @@ import { getLang } from '../i18n.js';
 import { openMitzva } from './mitzva.js';
 import { initBooklet } from './booklet.js';
 import { initTefila, openTefila } from './tefila.js';
+import { openTfPrint } from './tfprintui.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -289,7 +290,7 @@ function renderTefilaHub(main) {
     <h2 class="lx-hubh">🕍 ${h(t('hTefila'))}</h2>
     <div class="lx-hub">
       ${tile('tfScreen', '📺', t('tfScreen'), t('tfScreenSub'), true)}
-      ${tile('tfPrint', '🖨', t('tfPrint'), t('tfPrintSub'), true)}
+      ${tile('tfPrint', '🖨', t('tfPrint'), t('tfPrintSub'))}
       ${tile('tfTimes', '🕰', t('tfTimes'), t('hTefilaSub'))}
     </div>`;
   $('#tfh-back', main).onclick = () => { mode = 'hub'; renderLuach(); };
@@ -305,6 +306,7 @@ export async function renderLuach() {
   if (mode === 'hub') { renderHub(main); return; }
   if (mode === 'mitzva') { openMitzva(main, () => { mode = 'hub'; renderLuach(); }); return; }
   if (mode === 'tefila') { renderTefilaHub(main); return; }
+  if (mode === 'tfPrint') { openTfPrint(main, () => { mode = 'tefila'; renderLuach(); }, ui); return; }
   if (mode === 'tfTimes') { openTefila(main, () => { mode = 'tefila'; renderLuach(); }, t('hTefila')); return; }
   if (!year) [year, pageIx] = currentYearAndPage();
   if (!main.firstChild) main.innerHTML = `<p class="muted">…</p>`;

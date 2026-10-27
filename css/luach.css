@@ -260,3 +260,15 @@
 .tf-frirow { margin-top: 4px; padding: 3px 8px; background: #f6efe2; border-radius: 8px; font-size: 13px; }
 .tf-side.flash { box-shadow: 0 0 0 3px #c9a24c; transition: box-shadow .3s; }
 .tf-days { display: inline-flex; gap: 2px; } .tf-days label { display: inline-flex; align-items: center; gap: 1px; font-weight: 700; padding: 0 3px; }
+.tf-tmt { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; border: 1px dashed #c9b27a; border-radius: 8px; padding: 2px 6px; }
+.tf-meta { display: inline-flex; gap: 6px; align-items: center; font-size: .85rem; }
+.tf-meta label { display: inline-flex; gap: 3px; align-items: center; white-space: nowrap; }
+.tf-w6 { width: 6.5em; }
+.tf-ph { gap: 6px; opacity: .9; }
+/* 🖨 הדפסת זמני התפילה */
+.tp-ctl { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin: 10px 0 14px; padding: 10px 12px; background: #fffaf0; border: 1px solid #e6d3a6; border-radius: 12px; }
+.tp-ctl label { display: inline-flex; gap: 6px; align-items: center; }
+.tp-ctl .tp-wide { width: 22em; }
+.tp-prev { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; padding: 16px; background: #8a8a8a; border-radius: 12px; }
+.tp-pw { position: relative; overflow: hidden; box-shadow: 0 3px 12px rgba(0,0,0,.35); background: #fff; }
+.tp-pi { position: absolute; top: 0; right: 0; transform-origin: top right; }
