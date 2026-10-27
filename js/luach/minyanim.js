@@ -55,12 +55,13 @@ export function defaults() {
       shacharisNote: 'הודו +10 מינוט', maarivAfter: 50, defaultRoom: '',
       // מנין כ"ק אדמו"ר שליט"א — באזונדער: א זמן מיט עיגול, און א "שטילע צייט" ארום אים ווען קיין אנדער מנין טאר נישט זיין
       rebbe: {
+        shacharis: { on: true, time: F('07:30'), room: "חדר א'", note: '', before: 0, after: 0, fri: true },
         mincha: { on: true, time: R('shkia', 25, 5), room: "חדר ב'", note: '', before: 30, after: 0, last: true },
         maariv: { on: true, time: R('shkia', 60, 5), room: 'למטה', note: '', before: 0, after: 30 },
       },
       shacharis: [
         W(F('05:30'), { fri: true }), W(F('06:00'), { room: "חדר ב'", auto: true, fri: true }), W(F('06:30'), { room: "חדר א'", fri: true }),
-        W(F('07:00'), { room: "חדר ב'", fri: true }), W(F('07:30'), { room: "חדר א'", kahal: true, fri: true }), W(F('08:00'), { room: "חדר ב'", fri: true }),
+        W(F('07:00'), { room: "חדר ב'", fri: true }), W(F('08:00'), { room: "חדר ב'", fri: true }),
         W(F('08:30'), { room: "חדר א'", fri: true }), W(F('09:00'), { room: "חדר ב'", fri: true }), W(F('09:30'), { room: 'למטה', fri: true }),
         W(F('10:00'), { room: "חדר ב'", fri: true }),
       ],
@@ -199,8 +200,9 @@ export function computeWeekday(data, n, loc) {
   out.last = lastRow ? timeOf(lastRow.time, zd) : null;
   // מנין כ"ק: צולייגן, און אראפנעמען אנדערע מניינים אין דער "שטילער צייט" פאר/נאך אים
   const rb = w.rebbe || defaults().weekday.rebbe;
-  for (const g of ['mincha', 'maariv']) {
+  for (const g of ['shacharis', 'mincha', 'maariv']) {
     const r = rb[g]; if (!r || !r.on) continue;
+    if (g === 'shacharis' && fri && r.fri === false) continue;
     const m = timeOf(r.time, zd); if (m == null) continue;
     const b = Number(r.before) || 0; const a = Number(r.after) || 0;
     out[g] = out[g].filter((x) => !(x.min >= m - b && x.min <= m + a));
