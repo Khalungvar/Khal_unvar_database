@@ -10,6 +10,7 @@ import { readTabs, appendRow, updateRange } from '../google.js';
 import { state, saveDonation } from '../data.js';
 import { escapeHtml as h, nowStamp } from '../util.js';
 import { drawDomPage, drawPlainText, fontSet } from '../pdfvec.js';
+import { showPdfIn } from '../pdfview.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -183,7 +184,7 @@ const BK_CSS = `
 .bk-side h4{margin:0 0 6px}
 .bk-side .small{font-size:12.5px;margin:3px 0}
 .bk-acts{display:flex;gap:8px;flex-wrap:wrap}
-.bk-pdf{min-height:80vh;border:1px solid #ccc;border-radius:10px;background:#525659;overflow:hidden;display:flex}
+.bk-pdf{min-height:84vh;border:1px solid #ccc;border-radius:10px;background:#525659;overflow:hidden;display:flex}
 .bk-frame-pdf{width:100%;height:84vh;border:0;background:#525659}
 .bk-wait{margin:auto;color:#fff;text-align:center;width:60%}
 .bk-wait .bk-prog{background:#777}
@@ -412,6 +413,7 @@ export async function openBooklet(main, onBack, opts = {}) {
 }
 
 // ---------- דער קונטרס אויפן אתר: גאנץ אויסגעשטעלט, לינקס; די ענדערונגען רעכטס ----------
+let viewer = null;
 const built = new Map(); // monthKey → { sig, bytes, url } | { sig, promise }
 let buildToken = 0;
 const sigOf = (key) => JSON.stringify([monthDeds(key).map((d) => [d.id, d.sort, d.kind, d.name, d.text]), setting('cover_text'), setting('info_text'), setting('shiur_text')]);
@@ -447,7 +449,7 @@ function render(main) {
           <h4>🕯 הנצחות לחודש ${h(monthName(p))}</h4>
           <ul class="bk-dl">${list.map((d) => {
             const c = d.contact_id && ui.contactById ? ui.contactById(d.contact_id) : null;
-            return `<li><span>${d.kind === 'html' ? h(richToText(d.text).replace(/\n/g, ' · ').slice(0, 90)) : `<b>${h(kindOf(d.kind)[1])}</b> ${h(d.name)}`}${d.amount && (d.kind === 'nedavas' || d.kind === 'html') ? ` · $${h(d.amount)}` : ''}${c ? ` · <a href="#" data-card="${h(d.contact_id)}">👤 ${h(ui.fullNameHe(c))}</a>` : ''}</span>
+            return `<li><span>${d.kind === 'html' ? h(richToText(d.text).replace(/\n/g, ' · ').slice(0, 90)) : `${d.kind !== 'free' ? `<b>${h(kindOf(d.kind)[1])}</b> ` : ''}${h(d.name || d.text.replace(/\n/g, ' · ').slice(0, 90))}`}${d.amount && (d.kind === 'nedavas' || d.kind === 'html') ? ` · $${h(d.amount)}` : ''}${c ? ` · <a href="#" data-card="${h(d.contact_id)}">👤 ${h(ui.fullNameHe(c))}</a>` : ''}</span>
               <button type="button" class="btn small-btn" data-ed="${h(d.id)}">✏</button></li>`;
           }).join('') || '<li class="muted">אין עדיין הנצחות לחודש הזה</li>'}</ul>
           <p><button type="button" class="btn" id="bk-add">＋ הנצחה</button>
@@ -521,7 +523,10 @@ async function showPdf(main, m, key, p) {
     return;
   }
   if (token !== buildToken || !main.isConnected) return;
-  box.innerHTML = `<iframe class="bk-frame-pdf" src="${entry.url}#view=FitH&toolbar=1" title="קונטרס"></iframe>`;
+  // א PDF-לייענער אינעם אתר (נישט תלוי אינעם בלעטערער)
+  try { viewer?.destroy(); } catch { /* */ }
+  box.innerHTML = '';
+  try { viewer = await showPdfIn(box, entry.bytes); } catch (err) { box.innerHTML = `<p class="bk-wait">❌ ${h(String(err.message || err))}</p>`; }
   const name = `מצוה יומית - ${monthName(p)} ${yearHe(m.Y).replace(/"/g, '')}`;
   const pr = $('#bk-print', main); const ml = $('#bk-mail', main);
   pr.disabled = false; ml.disabled = false;
