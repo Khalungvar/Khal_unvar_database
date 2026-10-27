@@ -154,7 +154,9 @@ function itemsHtml(ed) {
           ${it.type === 'media' || it.type === 'system' ? `${sel(i, 'fit', it.fit || 'contain', [['contain', 'מוצג שלם'], ['cover', 'ממלא את המקום']])}` : ''}
           ${it.type === 'media' ? `<label class="sc-chk" title="תמונת PNG עם שקיפות — רואים את המסך מאחוריה"><input type="checkbox" data-k="items.${i}.clear"${it.clear ? ' checked' : ''}${dis}> רקע שקוף</label>` : ''}
           <label class="sc-chk"><input type="checkbox" data-k="items.${i}.frame"${it.frame !== false ? ' checked' : ''}${dis}> מסגרת</label></div>` : ''}
-        <div class="sc-r1">מתאריך <input type="date" data-k="items.${i}.from" value="${h(it.from || '')}"${dis}> עד <input type="date" data-k="items.${i}.to" value="${h(it.to || '')}"${dis}>
+        <div class="sc-r1">מתאריך <input type="date" data-k="items.${i}.from" value="${h(it.from || '')}"${dis}>
+          ${it.forever ? '' : `עד <input type="date" data-k="items.${i}.to" value="${h(it.to || '')}"${dis}>`}
+          <label class="sc-chk" title="מופיע עד שמורידים אותו (מוחקים או מכבים)"><input type="checkbox" data-k="items.${i}.forever"${it.forever ? ' checked' : ''}${dis}> ♾ לתמיד</label>
           <span class="sc-days">${DAYS.map((d, k) => `<label><input type="checkbox" data-iday="${i}" data-dw="${k}"${(it.days || []).includes(k) ? ' checked' : ''}${dis}>${d}</label>`).join('')}</span>
           <span class="muted small">${(it.days || []).length ? '' : '(כל הימים)'}</span>
           שניות ${f(i, 'sec', it.sec || '', ' type="number" min="0" max="600" data-num="1" class="sc-num" placeholder="ברירת מחדל"')}</div>
@@ -284,7 +286,7 @@ function render(main) {
   };
   main.onchange = (e) => {
     const el = e.target;
-    if (el.dataset.k && el.type === 'checkbox') { setK(el.dataset.k, el.dataset.inv ? !el.checked : el.checked); changed(/^items\.\d+\.(on|clear)$/.test(el.dataset.k)); }
+    if (el.dataset.k && el.type === 'checkbox') { setK(el.dataset.k, el.dataset.inv ? !el.checked : el.checked); changed(/^items\.\d+\.(on|clear|forever)$/.test(el.dataset.k)); }
     else if (el.dataset.full) changed(true);
     else if (el.dataset.iday != null) {
       const it = S.items[Number(el.dataset.iday)]; const d = Number(el.dataset.dw); const set = new Set(it.days || []);

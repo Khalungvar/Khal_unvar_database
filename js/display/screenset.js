@@ -63,7 +63,7 @@ export const SYSTEM = [['weekday', 'דף זמני ימות החול של השב�
 /** די פריטים וואס ווייזן זיך יעצט (לויט טעג און דאטעס) */
 export function activeItems(S, now) {
   const iso = isoD(now); const dw = now.getDay();
-  return (S.items || []).filter((a) => a.on !== false && (!a.from || a.from <= iso) && (!a.to || a.to >= iso) && (!(a.days || []).length || a.days.includes(dw)))
+  return (S.items || []).filter((a) => a.on !== false && (!a.from || a.from <= iso) && (a.forever || !a.to || a.to >= iso) && (!(a.days || []).length || a.days.includes(dw)))
     .map((a) => ({ ...a, item: a.type === 'media' ? (S.library || []).find((x) => x.id === a.lib) : null }))
     .filter((a) => (a.type === 'media' ? a.item && adUrl(a.item) : a.type === 'text' || a.type === 'notice' ? String(a.text || '').trim() : a.type === 'system'));
 }
