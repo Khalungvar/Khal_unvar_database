@@ -154,14 +154,21 @@ function MINOR_BLOCKS() {
   return [['חנוכה', 'chanuka'], ['עשרה בטבת', 'asaraTeves'], ['תענית אסתר', 'taanisEsther'], ['פורים', 'purim'], ['ל"ג בעומר', 'lagBaomer'], ['י"ז בתמוז', 'tamuz17'], ['תשעה באב', 'tishaBav']]
     .map(([t, w]) => block(t, w, []));
 }
+// א חג: מנחה ומעריב (ערב) · שחרית · מנחה ומעריב — פאר יעדן טאג פון חג
+export function chagRows(when) {
+  const days = when === 'shabbosChmPesach' ? 1 : 2;
+  const rows = [{ ...row('מנחה ומעריב', []), on: -1 }];
+  for (let i = 0; i < days; i += 1) rows.push({ ...row('שחרית', []), on: i }, { ...row('מנחה ומעריב', []), on: i });
+  return rows.map((r) => ({ ...r, screen: true, disp: { place: 'shab', from: { mode: 'dayStart', days: 1 }, to: { mode: 'pass', min: 0 } } }));
+}
 function YT_BLOCKS() {
   // type: 'erev' = ערב חג (ווי א וואכנטאג, מיט די V פון ימי דפגרא) · 'chag' = חג (ווי שבת)
   const E = (t, w) => ({ ...block(t, w, []), type: 'erev' });
-  const C = (t, w, rows) => ({ ...block(t, w, empty(rows)), type: 'chag' });
+  const C = (t, w) => ({ ...block(t, w, chagRows(w)), type: 'chag' });
   return [
-    E('ערב פסח', 'erevPesach'), C('פסח', 'pesach', ['שחרית', 'מנחה']),
-    { ...E('חול המועד פסח', 'cholPesach'), type: 'chm' }, C('שבת חול המועד פסח', 'shabbosChmPesach', ['שחרית', 'מנחה']), E('ערב שביעי של פסח', 'erevShvii'), C('שביעי ואחרון של פסח', 'shviiPesach', ['שחרית', 'מנחה']),
-    E('ערב שבועות', 'erevShavuos'), C('שבועות', 'shavuos', ['שחרית', 'מנחה']),
+    E('ערב פסח', 'erevPesach'), C('פסח', 'pesach'),
+    { ...E('חול המועד פסח', 'cholPesach'), type: 'chm' }, C('שבת חול המועד פסח', 'shabbosChmPesach'), E('ערב שביעי של פסח', 'erevShvii'), C('שביעי ואחרון של פסח', 'shviiPesach'),
+    E('ערב שבועות', 'erevShavuos'), C('שבועות', 'shavuos'),
   ];
 }
 

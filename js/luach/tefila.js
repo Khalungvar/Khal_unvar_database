@@ -1,6 +1,6 @@
 // "זמני תפילות" — ניהול: ימות החול · שבת · יום טוב · תשרי. די דאטן: לשונית Minyanim (key = data, value = JSON).
 // דער חשבון (וואס קומט ארויס פאר א טאג) איז אין minyanim.js — דאס זעלבע וואס די תצוגה אין בית הכנסת ניצט.
-import { defaults, condOf, ANCHORS, BASES, ROUNDS, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
+import { defaults, chagRows, condOf, ANCHORS, BASES, ROUNDS, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
 import { hhmm } from './zmanim.js';
 import { hdOf, dowOf } from './engine.js';
 import { MONTH } from './mitzva.js';
@@ -197,7 +197,7 @@ const dateLabel = (n) => { const x = hdOf(n); return `${DAYS[dowOf(n)]}' ${hebre
 // ימי דפגרא: "כמו ימות החול" פאר יעדע תפילה; ווען נישט — אייגענע שעות. און וואס טוט זיך ער"ש
 function minorHead(b, bp) {
   const multi = daysOf(b.when, upcomingYear('minor')).length > 1;
-  const GS = MGROUPS.filter(([g]) => g !== 'maarivMid' || multi);
+  const GS = MGROUPS.filter(([g]) => (g !== 'maarivMid' || multi) && (b.type !== 'erev' || ['minchaEve', 'maarivEve', 'shacharis'].includes(g)));
   const like = (g) => (b.like || {})[g] !== false;
   const gs = GS.map(([g, t]) => `<label class="tf-like"><input type="checkbox" data-f="${h(bp)}.like.${g}"${like(g) ? ' checked' : ''}${canEdit() ? '' : ' disabled'}> ${t}</label>`).join('');
   const own = GS.filter(([g]) => !like(g)).map(([g, t]) => { const op = `${bp}.own.${g}`; const arr = get(op) || []; return `<div class="tf-own"><b>${t}:</b>
@@ -285,6 +285,8 @@ export async function openTefila(main, onBack) {
   // ערב חג / חג (אלטע דאטן אן type)
   const chagW = new Set(['pesach', 'shviiPesach', 'shavuos', 'shabbosChmPesach']);
   for (const b of data.yt.blocks || []) { if (!b.type) b.type = chagW.has(b.when) ? 'chag' : 'erev'; if (b.when === 'cholPesach' && b.type === 'erev') b.type = 'chm'; }
+  // חג מיט די אלטע ליידיקע שורות (שחרית/מנחה) → מנחה ומעריב · שחרית · מנחה ומעריב
+  for (const b of data.yt.blocks || []) if (b.type === 'chag' && (b.rows || []).every((r) => !(r.times || []).length && /^(שחרית|מנחה)$/.test(r.label))) b.rows = chagRows(b.when);
   for (const b of data.yt.blocks || []) if (b.type === 'chag') for (const r of b.rows || []) if (!r.disp) r.disp = { ...dispDefault(r), place: 'shab' };
   if (!data.yt.blocks.some((b) => b.when === 'erevShvii')) { const i = data.yt.blocks.findIndex((b) => b.when === 'shviiPesach'); const nb = defaults().yt.blocks.find((b) => b.when === 'erevShvii'); data.yt.blocks.splice(i < 0 ? data.yt.blocks.length : i, 0, nb); }
   for (const b of [...(data.minor.blocks || []), ...(data.yt.blocks || []).filter((x) => x.type !== 'chag')]) {
