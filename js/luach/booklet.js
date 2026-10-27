@@ -1,14 +1,13 @@
 // חוברת מצוה יומית — כל חודש: שער, קריאת גדולי הדור + תפילה, הטבלה החודשית, פרטים + הנצחות,
 // עמודי הספר "מצות המלך" (מהמצוה הראשונה של החודש עד האחרונה, עמודים שלמים), עמודים לבנים עד כפולה של 4,
 // וכריכה אחורית עם ההנצחות. גודל: חצי Letter (5.5×8.5), כריכה מימין.
-// שני חלקי הספר שמורים בדרייב של חשבון הדאטאבייס (לא באתר הציבורי) — ה-ID שלהם בלשונית Booklet.
+// עמודי הספר: books/mitzvos-hamelech (שטיקלעך פון 20 עמודים) — פאר יעדן, אן דרייב.
 import { buildYear, isoOf, nOf, mitzvaYomis } from './engine.js';
 import { START, LAST_PAGE, CONTENT, NUM_BAND } from './booklet-index.js';
 import { MONTH, CSS as MZ_CSS, monthHtml } from './mitzva.js';
 import { hebrewNumber, todayIso, formatHebrew, toHebrew } from '../hebdate.js';
-import { readTabs, appendRow, updateRange, ensureDriveScope, hasDriveScope, driveFolder, driveUploadLarge, driveDownload } from '../google.js';
+import { readTabs, appendRow, updateRange } from '../google.js';
 import { state, saveDonation } from '../data.js';
-import { CONFIG } from '../config.js';
 import { escapeHtml as h, nowStamp } from '../util.js';
 import { drawDomPage, drawPlainText, fontSet } from '../pdfvec.js';
 
@@ -267,32 +266,22 @@ export function fitAll(root) {
   });
 }
 
-// ---------- דער ספר: ארויפלייגן / אראפלאדן ----------
-const bookCache = {}; // vol → PDFDocument
-async function bookBytes(vol, onProgress) {
-  const id = setting(`book${vol}_id`);
-  if (!id) throw new Error(`חלק ${vol === 1 ? 'א' : 'ב'} של הספר עדיין לא הועלה (⚙ קבצי הספר).`);
-  const key = `https://booklet.local/${id}`;
-  try {
-    const c = await caches.open('bk-books'); const hit = await c.match(key);
-    if (hit) return new Uint8Array(await hit.arrayBuffer());
-  } catch { /* קיין cache */ }
-  await ensureDriveScope();
-  let bytes;
-  try { bytes = await driveDownload(id, onProgress); } catch (err) {
-    if (err.status === 404 || err.status === 403) throw new Error('אין גישה לקובץ הספר מהחשבון הזה. צריך להיות מחובר עם חשבון הדאטאבייס (שהעלה את הקבצים).');
-    throw err;
-  }
-  try { const c = await caches.open('bk-books'); await c.put(key, new Response(bytes)); } catch { /* */ }
-  return bytes;
-}
+// ---------- דער ספר: שטיקלעך פון 20 עמודים אויפן אתר (books/mitzvos-hamelech), פאר יעדן — אן דרייב ----------
+const CHUNK = 20;
+const chunkCache = new Map(); // "v-c" → Promise<PDFDocument>
 let PL = null;
 const pdfLib = async () => { PL = PL || await import('../vendor/pdf-lib.esm.min.js'); return PL; };
-async function bookDoc(vol, onProgress) {
-  if (bookCache[vol]) return bookCache[vol];
-  const { PDFDocument } = await pdfLib();
-  bookCache[vol] = await PDFDocument.load(await bookBytes(vol, onProgress), { ignoreEncryption: true, updateMetadata: false });
-  return bookCache[vol];
+function chunkDoc(vol, c) {
+  const k = `${vol}-${c}`;
+  if (!chunkCache.has(k)) {
+    chunkCache.set(k, (async () => {
+      const { PDFDocument } = await pdfLib();
+      const res = await fetch(`books/mitzvos-hamelech/v${vol}_${String(c).padStart(2, '0')}.pdf?v=1`);
+      if (!res.ok) throw new Error(`ספר: חלק ${vol} (${res.status})`);
+      return PDFDocument.load(new Uint8Array(await res.arrayBuffer()), { ignoreEncryption: true, updateMetadata: false });
+    })().catch((err) => { chunkCache.delete(k); throw err; }));
+  }
+  return chunkCache.get(k);
 }
 
 // א מספר עמוד ווי אינעם ספר (PNG פון א canvas, 4× שארף)
@@ -344,10 +333,15 @@ async function buildBooklet(m, progress = () => {}) {
   const box = { left: CONTENT.x0, right: CONTENT.x1, bottom: A4H - CONTENT.y1, top: A4H - CONTENT.y0 };
   let bookNo = 0; const total = countPages(ranges);
   for (const r of ranges) {
-    const src = await bookDoc(r.vol, (f) => progress(`הורדת חלק ${r.vol === 1 ? 'א' : 'ב'} של הספר… ${Math.round(f * 100)}%`, 0.15 + f * 0.25));
-    const idx = []; for (let pg = r.from; pg <= r.to; pg += 1) idx.push(pg - 1);
-    const pages = idx.map((i) => src.getPage(i));
-    const emb = await out.embedPages(pages, pages.map(() => box));
+    progress('טוען את עמודי הספר…', 0.2);
+    const emb = [];
+    for (let pg = r.from; pg <= r.to;) {
+      const c = Math.floor((pg - 1) / CHUNK); const last = Math.min(r.to, (c + 1) * CHUNK);
+      const src = await chunkDoc(r.vol, c);
+      const pages = []; for (let q = pg; q <= last; q += 1) pages.push(src.getPage((q - 1) % CHUNK));
+      emb.push(...await out.embedPages(pages, pages.map(() => box)));
+      pg = last + 1;
+    }
     for (const e of emb) {
       bookNo += 1;
       progress(`עמודי הספר ${bookNo}/${total}`, 0.45 + 0.45 * (bookNo / total));
@@ -420,7 +414,7 @@ export async function openBooklet(main, onBack, opts = {}) {
 // ---------- דער קונטרס אויפן אתר: גאנץ אויסגעשטעלט, לינקס; די ענדערונגען רעכטס ----------
 const built = new Map(); // monthKey → { sig, bytes, url } | { sig, promise }
 let buildToken = 0;
-const sigOf = (key) => JSON.stringify([monthDeds(key).map((d) => [d.id, d.sort, d.kind, d.name, d.text]), setting('cover_text'), setting('info_text'), setting('shiur_text'), setting('book1_id'), setting('book2_id')]);
+const sigOf = (key) => JSON.stringify([monthDeds(key).map((d) => [d.id, d.sort, d.kind, d.name, d.text]), setting('cover_text'), setting('info_text'), setting('shiur_text')]);
 const nextMonth = (m) => { let { Y, ix } = m; ix += 1; if (ix >= buildYear(Y).pages.length) { Y += 1; ix = 0; } return { Y, ix }; };
 
 function render(main) {
@@ -430,7 +424,6 @@ function render(main) {
   const bookN = countPages(ranges);
   const totalRaw = 4 + bookN + 1; const total = Math.ceil(totalRaw / 4) * 4;
   const list = monthDeds(key);
-  const books = [1, 2].map((v) => !!setting(`book${v}_id`));
   const now = currentMonth(); const nx = nextMonth(now);
   const isNow = cur.Y === now.Y && cur.ix === now.ix; const isNext = cur.Y === nx.Y && cur.ix === nx.ix;
   main.innerHTML = `<style>${BK_CSS}${MZ_CSS}</style>
@@ -444,7 +437,6 @@ function render(main) {
       <select id="bk-mon" title="חודש">${buildYear(cur.Y).pages.map((x, i) => `<option value="${i}"${i === cur.ix ? ' selected' : ''}>${h(monthName(x))}</option>`).join('')}</select>
       <select id="bk-year" title="שנה">${[cur.Y - 1, cur.Y, cur.Y + 1, cur.Y + 2].map((y) => `<option value="${y}"${y === cur.Y ? ' selected' : ''}>${h(yearHe(y))}</option>`).join('')}</select>
     </div>
-    ${books.every(Boolean) ? '' : `<p class="lx-warn">⚠ צריך להעלות פעם אחת את שני חלקי הספר (⚙ קבצי הספר), מחובר עם חשבון הדאטאבייס. חסר: ${[1, 2].filter((v) => !books[v - 1]).map((v) => (v === 1 ? 'חלק א\'' : 'חלק ב\'')).join(', ')}</p>`}
     <div class="bk-view">
       <aside class="bk-side">
         <section class="bk-acts">
@@ -470,7 +462,6 @@ function render(main) {
         <section>
           <h4>⚙ הגדרות</h4>
           ${state.isAdmin ? '<p><button type="button" class="linkish" id="bk-txt">✏ טקסטים קבועים (שער / עמוד 3 / עמוד 4)</button></p>' : ''}
-          <p><button type="button" class="linkish" id="bk-files">📚 קבצי הספר</button></p>
         </section>
       </aside>
       <div class="bk-pdf"><div class="bk-wait"><p id="bk-pmsg">מכין את הקונטרס…</p><div class="bk-prog"><i></i></div></div></div>
@@ -492,7 +483,6 @@ function render(main) {
     go({ Y, ix: ix >= 0 ? ix : Math.min(cur.ix, pages.length - 1) });
   };
   $$('[data-v]', main).forEach((x) => { x.onclick = () => onView?.(x.dataset.v, { ...cur }); });
-  $('#bk-files', main).onclick = () => filesDialog(main);
   $('#bk-add', main).onclick = () => dedDialog(main, null, key);
   $$('[data-ed]', main).forEach((x) => { x.onclick = () => dedDialog(main, deds.find((d) => d.id === x.dataset.ed), key); });
   $$('[data-card]', main).forEach((x) => { x.onclick = (e) => { e.preventDefault(); ui.openCard?.(x.dataset.card); }; });
@@ -509,28 +499,12 @@ function render(main) {
   showPdf(main, { ...cur }, key, p);
 }
 
-async function booksCached(p) {
-  const { a, b } = monthMitzvos(p);
-  const vols = [...new Set(bookRanges(a, b).map((r) => r.vol))];
-  try {
-    const c = await caches.open('bk-books');
-    for (const v of vols) { if (bookCache[v]) continue; const id = setting(`book${v}_id`); if (!id || !(await c.match(`https://booklet.local/${id}`))) return false; }
-    return true;
-  } catch { return false; }
-}
 /** בויט (אדער נעמט פונעם זכרון) דעם קונטרס פונעם חודש, און ווייזט אים */
 async function showPdf(main, m, key, p) {
   const token = ++buildToken;
   const box = $('.bk-pdf', main); const msg = $('#bk-pmsg', main); const fill = $('.bk-prog i', main);
   const sig = sigOf(key);
   let entry = built.get(key);
-  // דער ספר ליגט אין דרייב: דער ערשטער מאל דארף מען א קליק (גוגל'ס פענצטער)
-  if ((!entry || entry.sig !== sig) && !hasDriveScope() && !(await booksCached(p))) {
-    if (token !== buildToken) return;
-    $('.bk-wait', main).innerHTML = '<p>כדי להציג את הקונטרס צריך גישה לקבצי הספר ב-Google Drive.</p><button type="button" class="btn primary" id="bk-scope">🔑 חיבור ל-Drive והצגת הקונטרס</button>';
-    $('#bk-scope', main).onclick = async () => { try { await ensureDriveScope(); render(main); } catch (err) { ui.toast?.(String(err.message || err), 'error'); } };
-    return;
-  }
   if (!entry || entry.sig !== sig) {
     if (entry?.url) URL.revokeObjectURL(entry.url);
     entry = { sig, promise: buildBooklet(m, (t, f) => { if (token === buildToken) { msg.textContent = t; if (f != null) fill.style.width = `${Math.round(f * 100)}%`; } }) };
@@ -732,51 +706,6 @@ function textDialog(main) {
   };
 }
 
-function filesDialog(main) {
-  const row = (v) => `<label>חלק ${v === 1 ? 'א\' (מצוה א–שכג, 541 עמודים)' : 'ב\' (מצוה שכד–תריג, 566 עמודים)'} ${setting(`book${v}_id`) ? '✅ הועלה' : '❌ חסר'}</label>
-    <input type="file" accept="application/pdf,.pdf" data-v="${v}">`;
-  const { dlg, close } = dialog(`<h3>⚙ קבצי הספר "מצות המלך"</h3>
-    <p class="muted small">מעלים פעם אחת את שני הקבצים (PDF). הם נשמרים ב-Google Drive של החשבון שמחובר עכשיו (${h(state.email || '')}), בתיקייה "${h(CONFIG.DRIVE_FOLDER)} / ספר מצות המלך" — לא באתר הציבורי. כדאי להיות מחובר עם חשבון הדאטאבייס.</p>
-    ${hasDriveScope() ? '' : '<p class="bk-scope"><button type="button" class="btn primary" data-a="scope">🔑 שלב 1: אישור גישה ל-Google Drive</button></p>'}
-    ${row(1)}${row(2)}
-    <div class="bk-prog" hidden><i></i></div><p id="bk-fmsg" class="muted"></p>
-    <p><button type="button" class="btn ghost" data-a="close">סגירה</button></p>`);
-  $('[data-a=close]', dlg).onclick = close;
-  const files = $$('input[type=file]', dlg);
-  const sc = $('[data-a=scope]', dlg);
-  if (sc) {
-    files.forEach((f) => { f.disabled = true; });
-    // דער גוגל-פענצטער מוז זיך עפענען גלייך ביים קליק (אנדערש בלאקירט עס דער בלעטערער)
-    sc.onclick = async () => {
-      try { await ensureDriveScope(); sc.parentElement.innerHTML = '✅ יש גישה ל-Drive — עכשיו בחר את הקבצים'; files.forEach((f) => { f.disabled = false; }); } catch (err) { $('#bk-fmsg', dlg).textContent = `❌ ${err.message || err}`; }
-    };
-  }
-  files.forEach((inp) => {
-    inp.onchange = async () => {
-      const file = inp.files[0]; if (!file) return;
-      const v = Number(inp.dataset.v); const msg = $('#bk-fmsg', dlg); const bar = $('.bk-prog', dlg); const fill = $('i', bar);
-      try {
-        bar.hidden = false; msg.textContent = 'בודק את הקובץ…';
-        const { PDFDocument } = await pdfLib();
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        const doc = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
-        const n = doc.getPageCount(); const want = v === 1 ? 541 : 566;
-        if (n !== want && !confirm(`לקובץ יש ${n} עמודים (חלק ${v === 1 ? 'א' : 'ב'} צריך ${want}). להעלות בכל זאת?`)) { msg.textContent = ''; bar.hidden = true; return; }
-        msg.textContent = 'מעלה ל-Drive…';
-        await ensureDriveScope();
-        const root = await driveFolder(CONFIG.DRIVE_FOLDER);
-        const folder = await driveFolder('ספר מצות המלך', root);
-        const id = await driveUploadLarge(file, `מצות המלך - חלק ${v === 1 ? 'א' : 'ב'}.pdf`, folder, (f) => { fill.style.width = `${Math.round(f * 100)}%`; msg.textContent = `מעלה… ${Math.round(f * 100)}%`; });
-        await saveSetting(`book${v}_id`, id);
-        bookCache[v] = doc;
-        try { const c = await caches.open('bk-books'); await c.put(`https://booklet.local/${id}`, new Response(bytes)); } catch { /* */ }
-        msg.textContent = '✅ הועלה'; fill.style.width = '100%';
-        dlg.querySelectorAll('label')[v - 1].innerHTML = dlg.querySelectorAll('label')[v - 1].innerHTML.replace('❌ חסר', '✅ הועלה');
-        render(main);
-      } catch (err) { msg.textContent = `❌ ${err.message || err}`; }
-    };
-  });
-}
 
 // ---------- אינעם כרטיס פון א קאנטאקט ----------
 export async function fillBookletCard(el, contactId) {
