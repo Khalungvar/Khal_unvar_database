@@ -181,7 +181,8 @@ function minorHead(b, bp) {
 function minorFri(b, bp) {
   const fm = b.fri?.mode === 'custom';
   return `<div class="tf-minor tf-frib"><div class="tf-rf"><b>🕯 כשחל בערב שבת</b> — מנחה וקבלת שבת:
-    ${sel(`${bp}.fri.mode`, [['regular', 'כרגיל (לפי לשונית שבת)'], ['custom', 'שעה מיוחדת']])}${fm ? tsHtml(b.fri.time, `${bp}.fri.time`, true) : ''}</div></div>`;
+    ${sel(`${bp}.fri.mode`, [['regular', 'כרגיל (לפי לשונית שבת)'], ['custom', 'שעה מיוחדת']])}${fm ? tsHtml(b.fri.time, `${bp}.fri.time`, true)
+      : `${sel(`${bp}.fri.sign`, [['+', '+'], ['-', '−']])}${fld(`${bp}.fri.shift`, 'number', ' class="tf-w4" min="0"')} דק'`}</div></div>`;
 }
 function blocksHtml(part) {
   const Y = upcomingYear(part);

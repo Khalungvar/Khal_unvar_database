@@ -281,7 +281,11 @@ export function computeShabbos(data, fri, loc) {
     if (r.season === 'avos' ? !avosSeason(fri + 1) : !inSeason(r.season, isoOf(r.day === 'sat' ? fri + 1 : fri), r)) continue;
     let min = timeOf(r.time, r.day === 'sat' ? zs : zf);
     // ער"ש וואס איז א יום דפגרא/תענית מיט אן אייגענער מנחה וקבלת שבת
-    if (r.day === 'fri' && r.kind === 'tefila' && /מנחה/.test(r.label)) { const mb = minorBlockOn(data, fri); if (mb?.fri?.mode === 'custom') min = timeOf(mb.fri.time, zf); }
+    if (r.day === 'fri' && r.kind === 'tefila' && /מנחה/.test(r.label)) {
+      const mb = minorBlockOn(data, fri);
+      if (mb?.fri?.mode === 'custom') min = timeOf(mb.fri.time, zf);
+      else if (mb?.fri && min != null) min += (mb.fri.sign === '-' ? -1 : 1) * (Number(mb.fri.shift) || 0);
+    }
     rows.push({ label: r.label, min, kind: r.kind, note: r.note || '', day: r.day, screen: r.screen !== false });
   }
   return rows; // אין דעם סדר וואס מ'האט באשטימט
