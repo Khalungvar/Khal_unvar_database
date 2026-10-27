@@ -257,3 +257,4 @@
 .tf-type.erev { background: #eef3fb; color: #1f2f6b; } .tf-type.chag { background: #3a2410; color: #f3dc9a; }
 .tf-type.chm { background: #eaf5ec; color: #1d5e33; }
 .tf-pvb { border: 1px solid #c9a24c; background: #fffaf0; font-weight: 700; }
+.tf-frirow { margin-top: 4px; padding: 3px 8px; background: #f6efe2; border-radius: 8px; font-size: 13px; }

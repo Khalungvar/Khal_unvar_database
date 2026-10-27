@@ -208,6 +208,12 @@ function minorHead(b, bp) {
     ${own}
   </div>`;
 }
+// א שורה פון חג: אנדערע שעה ווען דער טאג פאלט אויס ערב שבת
+function friRowHtml(r, p) {
+  const on = !!r.fri?.on; const fp = `${p}.fri`;
+  return `<div class="tf-rf tf-frirow"><label class="tf-like"><input type="checkbox" data-f="${h(fp)}.on"${on ? ' checked' : ''}${canEdit() ? '' : ' disabled'}> 🕯 כשחל בערב שבת — שעה אחרת</label>
+    ${on ? `<div class="tf-times">${(r.fri.times || []).map((T, ti) => `<span class="tf-tm">${tsHtml(T, `${fp}.times.${ti}`)}${btn('delT', `${fp}.times.${ti}`, '✕', 'הסר שעה')}</span>`).join('')}${btn('addT', `${fp}.times`, '＋ שעה')}</div>` : ''}</div>`;
+}
 function minorFri(b, bp) {
   const fm = b.fri?.mode === 'custom';
   return `<div class="tf-minor tf-frib"><div class="tf-rf"><b>🕯 כשחל בערב שבת</b> — מנחה וקבלת שבת:
@@ -229,9 +235,10 @@ function blocksHtml(part) {
       <div class="tf-rf${r.screen === false ? ' tf-off' : ''}"><label class="tf-scr" title="תצוגה במסך">${fld(`${p}.screen`, 'check')} 📺</label>${fld(`${p}.label`, 'text', ' class="tf-w12" placeholder="שם"')}${fld(`${p}.note`, 'text', ' class="tf-w10" placeholder="הערה"')}
       ${sel(`${p}.on`, onOpts(r.on))}${sel(`${p}.kind`, [['tefila', 'תפילה'], ['other', 'אחר']])}<span class="spacer"></span><span class="tf-acts">${btn('up', p, '↑', 'למעלה')}${btn('down', p, '↓', 'למטה')}${btn('del', p, '🗑', 'מחק')}</span></div>
       <div class="tf-times">${(r.times || []).map((T, ti) => `<span class="tf-tm">${tsHtml(T, `${p}.times.${ti}`)}${btn('delT', `${p}.times.${ti}`, '✕', 'הסר שעה')}</span>`).join('')}${btn('addT', `${p}.times`, '＋ שעה')}<span class="spacer"></span>${r.screen === false ? '' : dispBtn(r, p)}</div>
+      ${part === 'yt' && b.type === 'chag' ? friRowHtml(r, p) : ''}
     </div>`; }).join('')}
     </div>
-    ${part === 'minor' || (part === 'yt' && b.type !== 'chag') ? minorFri(b, bp) : ''}
+    ${part === 'minor' || (part === 'yt' && b.type === 'chm') ? minorFri(b, bp) : ''}
     ${canEdit() ? `<div class="tf-add"><button type="button" class="btn ghost" data-act="addR" data-p="${bp}.rows">➕ שורה</button></div>` : ''}
   </section>`; }).join('')}
   ${canEdit() ? (part === 'yt' ? `<div class="tf-add"><button type="button" class="btn" data-act="addB" data-p="yt" data-t="erev">➕ ערב חג</button><button type="button" class="btn" data-act="addB" data-p="yt" data-t="chm">➕ חול המועד</button><button type="button" class="btn" data-act="addB" data-p="yt" data-t="chag">➕ חג</button></div>`
@@ -287,6 +294,7 @@ export async function openTefila(main, onBack) {
   for (const b of data.yt.blocks || []) { if (!b.type) b.type = chagW.has(b.when) ? 'chag' : 'erev'; if (b.when === 'cholPesach' && b.type === 'erev') b.type = 'chm'; }
   // חג מיט די אלטע ליידיקע שורות (שחרית/מנחה) → מנחה ומעריב · שחרית · מנחה ומעריב
   for (const b of data.yt.blocks || []) if (b.type === 'chag' && (b.rows || []).every((r) => !(r.times || []).length && /^(שחרית|מנחה)$/.test(r.label))) b.rows = chagRows(b.when);
+  for (const b of data.yt.blocks || []) if (b.type === 'chag') for (const r of b.rows || []) if (!r.fri || !Array.isArray(r.fri.times)) r.fri = { on: false, times: [] };
   for (const b of data.yt.blocks || []) if (b.type === 'chag') for (const r of b.rows || []) if (!r.disp) r.disp = { ...dispDefault(r), place: 'shab' };
   if (!data.yt.blocks.some((b) => b.when === 'erevShvii')) { const i = data.yt.blocks.findIndex((b) => b.when === 'shviiPesach'); const nb = defaults().yt.blocks.find((b) => b.when === 'erevShvii'); data.yt.blocks.splice(i < 0 ? data.yt.blocks.length : i, 0, nb); }
   for (const b of [...(data.minor.blocks || []), ...(data.yt.blocks || []).filter((x) => x.type !== 'chag')]) {
@@ -327,7 +335,7 @@ function render(main, onBack) {
     const f = el.closest('[data-f]'); const ts = el.closest('[data-ts]');
     if (f && f.dataset.f) {
       const v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
-      set(f.dataset.f, v); touched(e.type === 'change' && ((el.tagName === 'SELECT' && /\.(when|season|mode|place|kind)$/.test(f.dataset.f)) || /\.(screen|like\.\w+)$/.test(f.dataset.f)));
+      set(f.dataset.f, v); touched(e.type === 'change' && ((el.tagName === 'SELECT' && /\.(when|season|mode|place|kind)$/.test(f.dataset.f)) || /\.(screen|like\.\w+|fri\.on)$/.test(f.dataset.f)));
     } else if (ts && el.dataset.k) {
       if (e.type === 'input' && el.tagName === 'SELECT') return;
       const full = tsChange(ts.dataset.ts, el.dataset.k, el.value); touched(full);
