@@ -345,6 +345,8 @@ function render(main) {
   const box = $('.sc-frame-box', main); const fr = $('#sc-frame', main);
   const fit = () => { const k = box.clientWidth / 1920; fr.style.transform = `scale(${k})`; box.style.height = `${1080 * k}px`; };
   fit(); window.removeEventListener('resize', onRs); onRs = () => { fit(); placeDrag(); }; window.addEventListener('resize', onRs);
+  // ווען דער בלאט איז געווען באהאלטן ביים צייכענען (ברייט 0) — נאכאמאל ווען ער ווערט געזען
+  try { roObs?.disconnect(); roObs = new ResizeObserver(() => { fit(); placeDrag(); }); roObs.observe(box); } catch { /* */ }
   // מיקום חופשי: א ראם איבער דער תצוגה — גרירה און גרעסער מאכן (קאארדינאטן פונעם מסך 1920×1080, אינעווייניג פון די שוליים)
   const dl = $('.sc-dragl', main);
   function placeDrag() {
@@ -374,4 +376,4 @@ function render(main) {
     };
   }
 }
-let onRs = () => {};
+let onRs = () => {}; let roObs = null;

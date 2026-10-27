@@ -386,7 +386,8 @@ const toIn = (x, c) => c + (x - c) / SC; // בלאט → sg-inner
 export const LAYOUT_DEF = { body: { x: 0.905, y: 2.587, w: 3.69, h: 4.872 }, parsha: { x: 1.45, y: 1.80, w: 2.6, h: 0.42, size: 14, border: true, color: '#1f2f6b', bg: true, padV: 1, padH: 8 } };
 const layKey = (week) => ((bgSet || {})[`bg:${week}`] ? `layout:${week}` : 'layout');
 function layoutFor(week) {
-  const v = (bgSet || {})[layKey(week)];
+  // א גליון מיט אן אייגענעם רקע: זיין אייגענער אויסלייג, און אויב נישטא — דער קבועער
+  const v = (bgSet || {})[layKey(week)] || (bgSet || {}).layout;
   if (!v) return null;
   try { const L = JSON.parse(v); return { body: { ...LAYOUT_DEF.body, ...(L.body || {}) }, parsha: { ...LAYOUT_DEF.parsha, ...(L.parsha || {}) } }; } catch { return null; }
 }
