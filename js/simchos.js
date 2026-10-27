@@ -381,8 +381,9 @@ function bgSrc(week) {
 }
 // ---------- מיקומים (לויטן רקע): אזור השמחות + קעסטל פון דער פרשה — אינטשעס אויפן גאנצן האלבן בלאט ----------
 const SC = 0.909; // .sg-inner
+const numOr = (v, d) => (v === '' || v == null || !Number.isFinite(Number(v)) ? d : Number(v));
 const toIn = (x, c) => c + (x - c) / SC; // בלאט → sg-inner
-export const LAYOUT_DEF = { body: { x: 0.905, y: 2.587, w: 3.69, h: 4.872 }, parsha: { x: 1.45, y: 1.80, w: 2.6, h: 0.42, size: 14, border: true, color: '#1f2f6b', bg: true } };
+export const LAYOUT_DEF = { body: { x: 0.905, y: 2.587, w: 3.69, h: 4.872 }, parsha: { x: 1.45, y: 1.80, w: 2.6, h: 0.42, size: 14, border: true, color: '#1f2f6b', bg: true, padV: 1, padH: 8 } };
 const layKey = (week) => ((bgSet || {})[`bg:${week}`] ? `layout:${week}` : 'layout');
 function layoutFor(week) {
   const v = (bgSet || {})[layKey(week)];
@@ -397,7 +398,8 @@ function layoutCss(L) {
   const px = toIn(p.x, 2.75); const py = toIn(p.y, 4.25); const pw = p.w / SC; const ph = p.h / SC;
   return {
     body: `top:${by.toFixed(3)}in;left:${bx.toFixed(3)}in;width:${bw.toFixed(3)}in;height:${bh.toFixed(3)}in;right:auto;bottom:auto;`,
-    parsha: `top:${py.toFixed(3)}in;left:${px.toFixed(3)}in;width:${pw.toFixed(3)}in;height:${ph.toFixed(3)}in;transform:none;min-width:0;padding:0;display:flex;align-items:center;justify-content:center;font-size:${(Number(p.size) || 14) / SC}pt;color:${p.color || '#1f2f6b'};border:${p.border ? `1px solid ${p.color || '#1f2f6b'}` : '0'};background:${p.bg ? 'rgba(255,255,255,.85)' : 'transparent'};`,
+    // די מסגרת איז צוגעפאסט צום טעקסט (צענטרירט אינעם קעסטל), נישט די גאנצע גרייס פונעם קעסטל
+    parsha: `top:${(py + ph / 2).toFixed(3)}in;left:${(px + pw / 2).toFixed(3)}in;transform:translate(-50%,-50%);min-width:0;padding:${(numOr(p.padV, 1) / SC).toFixed(2)}pt ${(numOr(p.padH, 8) / SC).toFixed(2)}pt;line-height:1.1;font-size:${(Number(p.size) || 14) / SC}pt;color:${p.color || '#1f2f6b'};border:${p.border ? `1px solid ${p.color || '#1f2f6b'}` : '0'};background:${p.bg ? 'rgba(255,255,255,.85)' : 'transparent'};`,
   };
 }
 let LAY = null; // דער אקטיווער אויסלייג פארן פאגינירן/צייכענען (null = רעגולער)
@@ -458,10 +460,11 @@ function layoutEditor() {
     <div class="sg-lay-wrap"><div class="sg-lay-page"><div class="sg-lay-pv"></div>
       <div class="sg-box" data-b="parsha"><span>פרשה</span><i></i></div><div class="sg-box" data-b="body"><span>אזור השמחות</span><i></i></div></div>
     <div class="sg-lay-side">
-      <p class="muted small">גוררים את המלבנים למקום המתאים ברקע; מגדילים מהעיגול בפינה.</p>
+      <p class="muted small">גוררים את המלבנים למקום המתאים ברקע; מגדילים מהעיגול בפינה. מסגרת הפרשה נצמדת לטקסט, באמצע המלבן הכתום.</p>
       <b>הפרשה</b>
       <label>גודל אות <input type="number" min="6" max="40" step="0.5" data-p="size" value="${L.parsha.size}"></label>
       <label>צבע <input type="color" data-p="color" value="${h(L.parsha.color)}"></label>
+      <label>ריווח בתוך המסגרת: למעלה/למטה <input type="number" min="0" max="20" step="0.5" data-p="padV" value="${L.parsha.padV ?? 1}" style="width:4.5em"> בצדדים <input type="number" min="0" max="30" step="0.5" data-p="padH" value="${L.parsha.padH ?? 8}" style="width:4.5em"></label>
       <label><input type="checkbox" data-p="border"${L.parsha.border ? ' checked' : ''}> מסגרת</label>
       <label><input type="checkbox" data-p="bg"${L.parsha.bg ? ' checked' : ''}> רקע לבן</label>
       <div class="vs-acts"><button type="button" class="btn primary" data-save>💾 שמירה</button><button type="button" class="btn ghost" data-def>↺ ברירת מחדל</button><button type="button" class="btn ghost" data-x>ביטול</button></div>
