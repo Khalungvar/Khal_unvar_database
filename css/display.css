@@ -251,3 +251,22 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .lrn .shiur > div.nx { color: var(--navy); font-weight: 700; }
 .lrn .shiur > div.nx b { font-size: 21px; }
 .lrn .mzy { flex: 0 0 35%; } .lrn .mzy .txt { font-size: 25px; } .lrn .mzy .num { font-size: 42px; }
+
+/* צוויי באזונדערע ראמען: מצוה יומית + דף יומי (רעכטס), שיעורי תורה (לינקס) */
+.lrn-m { top: 614px; right: 44px; width: 232px; height: 316px; text-align: center; padding: 12px 12px; display: flex; flex-direction: column; }
+.lrn-m h4 { margin: 0; font-family: var(--serif); font-size: 21px; color: var(--muted); font-weight: 700; }
+.lrn-m .num { font-family: var(--serif); font-weight: 900; font-size: 36px; color: var(--navy); line-height: 1.05; }
+.lrn-m .txt { font-family: var(--serif); font-weight: 700; font-size: 21px; line-height: 1.15; margin-top: 2px; }
+.lrn-m .kol { font-family: var(--serif); font-size: 14px; color: var(--muted); line-height: 1.2; margin-top: 4px; }
+.lrn-m .kol b { direction: ltr; display: inline-block; font-family: 'Frank Ruhl Libre', serif; font-size: 16px; color: var(--navy); }
+.lrn-m .rule { border-top: 2px solid rgba(138,106,42,.45); margin: 8px -12px 6px; }
+.lrn-m .num.daf { font-size: 34px; }
+.lrn-s { top: 614px; right: calc(44px + 232px + 28px); width: 373px; height: 316px; }
+.lrn-s .ttl { font-size: 28px; padding: 3px 0 5px; }
+.lrn-s .shiur { margin: 0; padding: 6px 16px 0; font-family: var(--serif); text-align: right; }
+.lrn-s .shiur.sh-oth { border-top: 2px solid rgba(138,106,42,.45); margin-top: 6px; }
+.lrn-s .shiur h4 { margin: 0 0 2px; font-size: 18px; color: #7a5a1c; font-weight: 900; }
+.lrn-s .shiur > div { color: #9a8f78; font-size: 17px; line-height: 1.18; margin-top: 2px; }
+.lrn-s .shiur > div b { font-family: 'Frank Ruhl Libre', serif; font-size: 19px; }
+.lrn-s .shiur > div small { font-size: 15px; }
+.lrn-s .shiur > div.nx { color: var(--navy); font-weight: 700; } .lrn-s .shiur > div.nx b { font-size: 21px; }

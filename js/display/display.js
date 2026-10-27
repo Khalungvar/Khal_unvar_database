@@ -287,21 +287,22 @@ function render() {
       ${omer ? `<div class="omer">${nowMin >= z.shkia ? 'הלילה: ' : ''}${h(omer)}</div>` : ''}
     </div>
 
-    <div class="frame lrn">
-      <div class="mzy">
-        <h4>מצוה יומית</h4>
-        <div class="num">מצוה ${h(hebrewNumber(mz.n))}</div>
-        <div class="txt">${h(mz.text)}</div>
-        <div class="kol">שיעור יומי בקול אונגוואר<b>605-477-4427</b>אחריו 3 ואחריו 1</div>
-      </div>
-      <div class="side">
-        <div class="daf"><p><span>דף היומי:</span> ${h(daf.text)}</p></div>
-        ${(() => { // נאר וואס קומט נאך (ביז 3 דף יומי, 2 אנדערע) — עס מוז אריינגיין
-          const up = (x) => x.min == null || x.min >= nowMin - 5;
-          const daf = SHI.filter((x) => x.type === 'daf' && up(x)).slice(0, 3); const oth = SHI.filter((x) => x.type !== 'daf' && up(x)).slice(0, daf.length >= 2 ? 2 : 3);
-          return `${daf.length ? `<div class="shiur sh-daf"><h4>שיעורי דף היומי בבית מדרשינו:</h4>${daf.map(shLine).join('')}</div>` : ''}${oth.length ? `<div class="shiur sh-oth"><h4>שיעורים הנלמדים בביהמ"ד:</h4>${oth.map(shLine).join('')}</div>` : ''}`;
-        })()}
-      </div>
+    <div class="frame lrn-m">
+      <h4>מצוה יומית</h4>
+      <div class="num">מצוה ${h(hebrewNumber(mz.n))}</div>
+      <div class="txt">${h(mz.text)}</div>
+      <div class="kol">שיעור יומי בקול אונגוואר <b>605-477-4427</b> אחריו 3 ואחריו 1</div>
+      <div class="rule"></div>
+      <h4>דף היומי</h4>
+      <div class="num daf">${h(daf.text)}</div>
+    </div>
+    <div class="frame lrn-s">
+      <div class="ttl">שיעורי תורה</div>
+      ${(() => { // נאר וואס קומט נאך — עס מוז אריינגיין
+        const up = (x) => x.min == null || x.min >= nowMin - 5;
+        const daf = SHI.filter((x) => x.type === 'daf' && up(x)).slice(0, 3); const oth = SHI.filter((x) => x.type !== 'daf' && up(x)).slice(0, daf.length >= 2 ? 3 : 4);
+        return `${daf.length ? `<div class="shiur sh-daf"><h4>שיעורי דף היומי בבית מדרשינו:</h4>${daf.map(shLine).join('')}</div>` : ''}${oth.length ? `<div class="shiur sh-oth"><h4>שיעורים הנלמדים בביהמ"ד:</h4>${oth.map(shLine).join('')}</div>` : ''}`;
+      })()}
     </div>`}
 <!--BOT-->
     <div class="bottom">
