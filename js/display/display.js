@@ -205,7 +205,7 @@ function render() {
   const timesHtml = (arr) => arr.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}${isNew(m) ? ' new' : ''}">${isNew(m) ? '<em>חדש</em>' : ''}${tm(((m.min % 1440) + 1440) % 1440)}${m.note === 'בערך' ? '<small style="font-size:20px"> בערך</small>' : ''}</span>`).join('');
 
   const mnyHtml = (bd, pos) => `<div class="frame mny ${pos}${CHG === 'before' && pos === 'pos-main' ? ' has-chg' : ''}">
-      <div class="ttl">זמני התפילות${swap ? ` <small>${h(YDAY[dowOf(wk)])}</small>` : ''}</div>
+      <div class="ttl">זמני התפילות ימות החול${(() => { const k0 = swap ? wk : n; let s6 = k0; while (dowOf(s6) !== 6) s6 += 1; const p6 = dayOf(s6)?.parsha; return p6 ? ` לפרשת ${h(p6)}` : ''; })()}</div>
       ${bd.groups.map((g) => `<div class="grp"><h3>${h(g.h)}${g.sub ? ` <small>${h(g.sub)}</small>` : ''}</h3><div class="times">${timesHtml(g.items)}</div></div>`).join('')}
       ${CHG === 'before' && pos === 'pos-main' ? '<div class="chg-note">⚠ <b>מיום ראשון</b> ט\' כסלו: מנחה <b>12:40</b> במקום <b>1:45</b></div>' : ''}
     </div>`;
@@ -213,11 +213,13 @@ function render() {
     const shab = dowOf(d) === 6;
     const ytName = dayOf(d)?.items.find((i) => i.kind === 'hol' && i.yt)?.text || '';
     const ps = shab ? (dayOf(d)?.parsha || '') : '';
+    // דער נאמען פונעם בלאק פון חג (פסח, שבועות, שבת חול המועד ...) — ווי אין "זמני תפילות"
+    const chagTitle = [d, eve].map((k) => specials(k, 0, 'shab').find((bk) => bk.type === 'chag')?.title).find(Boolean) || '';
     // נאר מיט א שעה, לויט דער שעה (הדלקת נרות / ער"ש / שבת)
     const rows = holyRows(eve).filter((r) => r.min != null).sort((a, b) => a.min - b.min);
     const dense = rows.length > (pos === 'pos-main' ? 8 : 7) ? ' dense' : '';
     return `<div class="shab ${pos}${dense}" style="--n:${rows.length}">
-      <div class="sh-t">${h(shab ? 'שבת קודש' : ytName || 'יום טוב')}<small>${ps ? `פרשת ${h(ps)}` : shab && ytName ? h(ytName) : '&nbsp;'}</small></div>
+      <div class="sh-t"><small class="pre">זמני התפילות</small>${h(chagTitle ? `ל${chagTitle}` : shab ? 'לשבת קודש' : `ל${ytName || 'יום טוב'}`)}<small>${ps ? `פרשת ${h(ps)}` : '&nbsp;'}</small></div>
       ${rows.map((r) => `<div class="sh-r${r.kind === 'tefila' ? ' big' : ''}${r.kind === 'tefila' && r.min != null && r.min < nowMin ? ' past' : ''}"><span>${h(r.label)}</span><b>${r.min == null ? '—' : [r.min, ...(r.more || [])].map((m) => tm(((m % 1440) + 1440) % 1440)).join(' · ')}</b></div>`).join('')}
     </div>`;
   }

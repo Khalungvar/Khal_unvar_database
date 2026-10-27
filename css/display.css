@@ -204,3 +204,10 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .shab.pos-main.dense .sh-r { font-size: calc(31px * 8 / var(--n)); } .shab.pos-main.dense .sh-r b { font-size: calc(35px * 8 / var(--n)); }
 .next .big.long .name { font-size: 58px; }
 .next .big.long .time { font-size: 80px; }
+
+.sh-t small.pre { display: block; font-size: 24px; margin: 0 0 2px; color: #e9d9ad; }
+.mny .ttl { font-size: 30px !important; }
+.mny.pos-side .ttl { font-size: 22px !important; }
+.shab:not(.pos-main) .sh-t { font-size: 29px; }
+.shab:not(.pos-main) .sh-t small.pre { display: inline; font-size: inherit; color: inherit; margin: 0 0 0 8px; }
+.shab:not(.pos-main) .sh-t small { margin-bottom: 2px; }
