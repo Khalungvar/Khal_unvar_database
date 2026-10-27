@@ -42,7 +42,22 @@ async function pull() {
     boardCache.clear(); shLast = null;
   } catch { /* בלייבט מיט דעם וואס מ'האט */ }
 }
+// שמחות: לשונית Simchos — [simcha_id, html, until(ms)]; יעדע שמחה ווייזט זיך ביז "until"
+let SIMCHOS = null;
+try { const j = JSON.parse(localStorage.getItem('disp-simchos') || 'null'); if (Array.isArray(j)) SIMCHOS = j; } catch { /* */ }
+async function pullSimchos() {
+  if (PREVIEW) return;
+  try {
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Simchos&headers=1&t=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) return;
+    const rows = parseCsv(await r.text());
+    if (!rows.length || rows[0][0] !== 'simcha_id') return;
+    SIMCHOS = rows.slice(1).filter((x) => x[0] && x[1]).map((x) => ({ id: x[0], html: x[1], until: Number(x[2]) || 0 }));
+    try { localStorage.setItem('disp-simchos', JSON.stringify(SIMCHOS)); } catch { /* */ }
+  } catch { /* */ }
+}
 pull(); setInterval(pull, 5 * 60 * 1000);
+pullSimchos(); setInterval(pullSimchos, 5 * 60 * 1000);
 // א פאלשע שעה (?at=2026-12-20T15:00) — צו זען א געוויסן טאג
 let OFFSET = 0;
 if (QS.get('at')) { const t = new Date(QS.get('at')); if (!Number.isNaN(t.getTime())) OFFSET = t.getTime() - Date.now(); }
@@ -56,7 +71,7 @@ const SAMPLE = !PREVIEW && !LIVE;
 
 // ---------- מזל טוב (שפעטער: פון "שהשמחה במעונם" — אותו טקסט ווי אינעם גליון) ----------
 // יעדע שמחה: שורות פון בעלי השמחה + "לרגל ..."; צוויי אויפאמאל, יעדע 15 סעקונדעס די קומענדיגע
-const MAZEL = [
+const SAMPLE_MAZEL = [
   { names: ['הרה"ח ר\' <b>פלוני פלונישטיין</b> הי"ו', 'הרה"ח ר\' <b>אלמוני אלמנשטיין</b> הי"ו'], for: 'לרגל אירוסי בנו-נכדו <b>יוסף</b> ני"ו עב"ג בשעטו"מ' },
   { names: ['הרה"ח ר\' <b>פלוני כהן</b> הי"ו'], for: 'לרגל הכנסת בנו <b>משה</b> ני"ו לעול התורה והמצוות בשעטו"מ' },
   { names: ['הרה"ח ר\' <b>פלוני לוי</b> הי"ו'], for: 'לרגל הולדת בנו בשעטו"מ' },
@@ -64,9 +79,17 @@ const MAZEL = [
   { names: ['הרה"ח ר\' <b>פלוני וויס</b> הי"ו'], for: 'לרגל הולדת בתו בשעטו"מ' },
 ];
 // בלעטער: אזויפיל שמחות וויפיל עס גייט אריין (געמאסטן) — 2 פון 4 שורות, 3 פון 2–3 שורות א.א.וו.
+let MAZEL = SAMPLE_MAZEL;
+function mazelNow() {
+  if (SIMCHOS === null) return SAMPLE_MAZEL;
+  const t = nowD().getTime();
+  return SIMCHOS.filter((x) => !x.until || x.until > t).map((x) => ({ html: x.html, id: x.id }));
+}
 let mzCache = { key: '', pages: [[0]] };
 function mazelPages() {
-  const key = `${MAZEL.length}|${document.fonts?.status}|${Math.floor(Date.now() / 60000)}`;
+  MAZEL = mazelNow();
+  if (!MAZEL.length) return [[]];
+  const key = `${MAZEL.map((x) => x.id || x.for).join(',')}|${document.fonts?.status}|${Math.floor(Date.now() / 60000)}`;
   if (mzCache.key === key) return mzCache.pages;
   let m = document.getElementById('mzmeas');
   if (!m) { m = document.createElement('div'); m.id = 'mzmeas'; m.className = 'frame mzl'; m.style.cssText = 'visibility:hidden;position:fixed;left:0;top:0;z-index:-1;pointer-events:none;direction:rtl'; document.body.appendChild(m); }
@@ -86,7 +109,7 @@ function mazelPages() {
   mzCache = { key, pages: pages.length ? pages : [[0]] };
   return mzCache.pages;
 }
-const entryHtml = (e) => `<div class="mz-e">${e.names.map((x) => `<div>${x}</div>`).join('')}<div class="for">${e.for}</div></div>`;
+const entryHtml = (e) => (e.html ? `<div class="mz-e">${e.html}</div>` : `<div class="mz-e">${e.names.map((x) => `<div>${x}</div>`).join('')}<div class="for">${e.for}</div></div>`);
 
 // ---------- מודעה (8.5×11) — דעקט צו זמני שבת + שמחות. דוגמה: ?ad=1 ----------
 const AD = new URLSearchParams(location.search).get('ad');

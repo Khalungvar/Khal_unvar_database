@@ -311,3 +311,6 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .lrn-s .shiur h4 { font-size: 21px; }
 .lrn-s .shgap { height: 30px; border-top: 2px dashed rgba(138,106,42,.35); margin-top: 14px; }
 @keyframes shscroll { from { transform: translateY(0); } to { transform: translateY(calc(-1 * var(--sh))); } }
+/* שמחות פונעם גיליון (דער זעלבער טעקסט ווי אין גליון) */
+.mzl .mz-e .sg-note, .mzl .mz-e .sg-after { font-size: 17px; color: #444; }
+.mzl .mz-e .sg-for { margin-top: 1px; }

@@ -10,6 +10,9 @@ import { toHebrew, monthHe, hebrewNumber, todayIso, fromHebrew } from './hebdate
 import { parashaOf, shabbatOfWeek, shabbatTitle } from './parasha.js';
 import { customFontNames } from './fonts.js';
 import { htmlToJpeg, jpegsToPdf } from './pdf.js';
+import { otherSheet } from './google.js';
+import { CONFIG } from './config.js';
+import { nowStamp } from './util.js';
 import { tagsOf as tagEntries, nameOf as tagNodeName, roots as tagRoots, UNCHECKED as TAG_U } from './tags.js';
 
 /** בלויז פאר די גבאים (נישט אין דער תצוגה): ווער האט צוגעלייגט די שמחה */
@@ -427,7 +430,7 @@ function wire(main, list) {
   $$('[data-sg-del]', main).forEach((b) => {
     b.onclick = async () => {
       if (!confirm(t('sgDelConfirm'))) return;
-      try { await deleteSimcha(list.find((s) => String(s.simcha_id) === b.dataset.sgDel)); await loadAll(); ui.refreshAll(); renderSimchos(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+      try { await deleteSimcha(list.find((s) => String(s.simcha_id) === b.dataset.sgDel)); await loadAll(); await syncScreen(); ui.refreshAll(); renderSimchos(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
     };
   });
   const move = async (id, dir) => {
@@ -526,6 +529,24 @@ async function toggleYt(start, on, cb) {
     cur.week = on ? start : S;
     ui.refreshAll(); renderSimchos();
   } catch (err) { ui.toast(ui.friendlyError(err), 'error'); cb.disabled = false; }
+}
+
+// ---------- דער מסך אין בית המדרש: די שמחות גייען אויך אין גיליון פון דער תצוגה (לשונית Simchos) ----------
+// נאר דער טעקסט פון דער שמחה (ווי אין גליון) — קיין טעלעפאנען/אדרעסן. א שמחה ווייזט זיך פונקט א וואך פון ווען מ'האט זי אריינגעלייגט.
+const SCREEN_DAYS = 7;
+export async function syncScreen() {
+  try {
+    const now = Date.now();
+    const rows = (state.simchos || [])
+      .filter((s) => s.screen !== 'FALSE' && String(s.screen).toUpperCase() !== 'FALSE' && s.created_at)
+      .map((s) => ({ s, from: new Date(String(s.created_at).replace(' ', 'T')).getTime() }))
+      .filter((x) => Number.isFinite(x.from) && x.from + SCREEN_DAYS * 864e5 > now)
+      .sort((a, b) => a.from - b.from)
+      .map(({ s, from }) => [String(s.simcha_id), simchaHtml(s), String(from + SCREEN_DAYS * 864e5), nowStamp()]);
+    const sh = otherSheet(CONFIG.DISPLAY_SHEET_ID);
+    await sh.clear('Simchos!A2:D200');
+    if (rows.length) await sh.write(`Simchos!A2:D${rows.length + 1}`, rows);
+  } catch (err) { ui?.toast?.(t('sgScreenFail'), 'error'); }
 }
 
 // ---------- אויסמעקן: אויך וואס די שמחה האט אריינגעלייגט אין די כרטיסן (קשרים, הערה נאכן נאמען) ----------
@@ -635,6 +656,7 @@ export function openSimchaForm(s = {}) {
       <div class="sg-toprow">
         <div class="sg-types">${[...Object.entries(TYPES), ['special', { label: t('sgSpecial') }]].map(([k, v]) => `<label class="chip-radio big"><input type="radio" name="type" value="${k}"${rec.type === k ? ' checked' : ''}> ${h(v.label)}</label>`).join('')}</div>
         <span class="spacer"></span>
+        <label class="sg-screen" title="${h(t('sgScreenTip'))}"><input type="checkbox" name="screen"${rec.screen === 'FALSE' ? '' : ' checked'}> 📺 ${h(t('sgScreen'))}</label>
         <span class="sg-when"><button type="button" class="btn small-btn" id="sg-when">📅 ${h(rec.week === weekNow() ? t('sgThisWeek') : weekLabel(rec.week))}</button>
           <input type="date" id="sg-when-date" hidden value="${h(rec.week)}"></span>
       </div>
@@ -679,6 +701,7 @@ export function openSimchaForm(s = {}) {
     rec.other_side = form.elements.other_side.value.trim();
     rec.text_override = form.elements.text_override.value.trim();
     rec.after_note = form.elements.after_note.value.trim();
+    if (form.elements.screen) rec.screen = form.elements.screen.checked ? '' : 'FALSE';
     if ($('#sg-rich', form)) rec.special = cleanRich($('#sg-rich', form).innerHTML);
     hs = $$('.sg-h', form).map((fs, i) => {
       const pk = $('.sg-pick', fs);
@@ -867,7 +890,7 @@ export function openSimchaForm(s = {}) {
           const out = { ...rec, honorees: '[]', related: JSON.stringify(related) };
           if (!out.simcha_id) { out.sort = ownOf(out.week).length + 1; if (lateFor(out.week) && out.week === weekNow()) out.also_next = 'TRUE'; }
           await saveRecord('Simchos', 'simcha_id', out);
-          await loadAll(); dlg.close(); cur.week = out.week; ui.refreshAll(); renderSimchos(); ui.toast(t('saved'));
+          await loadAll(); await syncScreen(); dlg.close(); cur.week = out.week; ui.refreshAll(); renderSimchos(); ui.toast(t('saved'));
         } catch (err) { ui.toast(ui.friendlyError(err), 'error'); btn.disabled = false; }
         return;
       }
@@ -907,6 +930,7 @@ export function openSimchaForm(s = {}) {
         out.made = JSON.stringify(made);
         await saveRecord('Simchos', 'simcha_id', out);
         await loadAll();
+        await syncScreen();
         dlg.close();
         cur.week = out.week;
         ui.refreshAll();

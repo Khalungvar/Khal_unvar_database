@@ -2229,3 +2229,4 @@ html[dir="ltr"] .lobby-grid { background-position: calc((100% - 81px) * .2875 + 
 .lobby-pair .lobby-tile .muted { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.2; }
 .lobby-pair .lobby-icon { font-size: 22px; line-height: 1; }
 .lobby-pair .bk-tile-logo { height: 30px; width: auto; }
+.sg-screen { display: inline-flex; gap: 4px; align-items: center; font-size: .9rem; white-space: nowrap; margin-inline-end: 8px; cursor: pointer; }
