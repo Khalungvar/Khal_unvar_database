@@ -335,3 +335,4 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .ov-covered { visibility: hidden !important; }
 .chg-note.ntc { white-space: normal; line-height: 1.2; }
 .shab.has-ntc .chg-note { margin: 4px 10px 2px; font-size: 21px; }
+.ttl { background: linear-gradient(180deg, var(--navy2), var(--navy)); }

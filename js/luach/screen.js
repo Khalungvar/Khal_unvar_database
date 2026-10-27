@@ -4,7 +4,7 @@ import { otherSheet, ensureDriveScope, hasDriveScope, driveFolder, driveUploadLa
 import { CONFIG } from '../config.js';
 import { state, displayName } from '../data.js';
 import { escapeHtml as h, nowStamp, shrinkImage } from '../util.js';
-import { normScreen, screenDefaults, PLACES, SYSTEM, adUrl } from '../display/screenset.js';
+import { normScreen, screenDefaults, PLACES, SYSTEM, adUrl, THEME, BOX_SEL } from '../display/screenset.js';
 import { versionStore, openVersions } from '../versions.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -262,6 +262,15 @@ function render(main) {
         <label class="sc-row"><span>שוליים לטלוויזיה (פיקסלים, 0–120)</span>${num('safe', S.safe, 0, 120)}</label>
         <p class="muted small">אם הטלוויזיה חותכת את הקצוות — להגדיל. אם רואים את כל המסגרות עד הסוף — אפשר להקטין עד 0.</p>
       </section>
+      <section class="sc-card sc-colors"><h3>🎨 צבעים</h3>
+        <p class="muted small">לכל המסך:</p>
+        ${THEME.map(([k, l, d]) => `<label class="sc-row"><span>${h(l)}</span><input type="color" data-thm="${k}" value="${h(S.theme[k] || d)}"${dis}>${S.theme[k] && ed ? `<button type="button" class="tf-mini" data-thmx="${k}" title="ברירת מחדל">↺</button>` : '<span class="sc-sp"></span>'}</label>`).join('')}
+        <p class="muted small">למשבצת מסוימת (רקע · טקסט · כותרת):</p>
+        <table class="sc-bx"><tr class="muted small"><td></td><td>רקע</td><td>טקסט</td><td>כותרת</td><td></td></tr>${Object.entries(BOX_SEL).map(([k, [l]]) => { const c = S.boxes[k] || {}; return `<tr><td>${h(l)}</td>
+          ${['bg', 'text', 'title'].map((f) => `<td><input type="color" data-box="${k}" data-bf="${f}" value="${h(c[f] || (f === 'bg' ? '#fbf5e6' : f === 'text' ? '#1d1a14' : '#0f2140'))}" class="${c[f] ? 'set' : 'unset'}" title="${f === 'bg' ? 'רקע' : f === 'text' ? 'טקסט' : 'כותרת'}"${dis}></td>`).join('')}
+          <td>${(c.bg || c.text || c.title) && ed ? `<button type="button" class="tf-mini" data-boxx="${k}" title="ברירת מחדל">↺</button>` : ''}</td></tr>`; }).join('')}</table>
+        ${ed ? '<button type="button" class="btn small-btn ghost" id="sc-col-reset">↺ כל הצבעים לברירת מחדל</button>' : ''}
+      </section>
       ${kioskHtml(ed)}
     </div>`;
 
@@ -307,6 +316,11 @@ function render(main) {
   const tr = $('#sc-texts-reset', main); if (tr) tr.onclick = () => { if (!confirm('להחזיר את כל הטקסטים לברירת המחדל?')) return; S.texts = screenDefaults().texts; changed(true); };
   $$('[data-kdl]', main).forEach((b) => { b.onclick = () => kioskDownload(kiosk[Number(b.dataset.kdl)], b); });
   const kf = $('#sc-k-file', main); if (kf) kf.onchange = () => { if (kf.files[0]) kioskUpload(kf.files[0], main); };
+  $$('[data-thm]', main).forEach((el) => { el.oninput = () => { S.theme[el.dataset.thm] = el.value; changed(false); }; el.onchange = () => changed(true); });
+  $$('[data-thmx]', main).forEach((b) => { b.onclick = () => { delete S.theme[b.dataset.thmx]; changed(true); }; });
+  $$('[data-box]', main).forEach((el) => { el.oninput = () => { const k = el.dataset.box; S.boxes[k] = { ...(S.boxes[k] || {}), [el.dataset.bf]: el.value }; changed(false); }; el.onchange = () => changed(true); });
+  $$('[data-boxx]', main).forEach((b) => { b.onclick = () => { delete S.boxes[b.dataset.boxx]; changed(true); }; });
+  const cr = $('#sc-col-reset', main); if (cr) cr.onclick = () => { if (!confirm('להחזיר את כל הצבעים לברירת המחדל?')) return; S.theme = {}; S.boxes = {}; changed(true); };
   const up = $('#sc-up', main); if (up) up.onchange = () => { if (up.files[0]) uploadMedia(up.files[0], main); };
   $$('[data-add]', main).forEach((b) => { b.onclick = () => {
     const a = b.dataset.add; const base = { id: uid(), on: true, from: todayIso(), to: '', days: [], sec: 0 };

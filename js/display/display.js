@@ -4,7 +4,7 @@ import { buildYear, isoOf, nOf, dowOf, hdOf, dafYomi, mitzvaYomis, omerText } fr
 import { zmanim, hhmm, LOCATIONS } from '../luach/zmanim.js';
 import { MONTH } from '../luach/mitzva.js';
 import { hebrewNumber } from '../hebdate.js';
-import { normScreen, currentByPlace, adUrl } from './screenset.js';
+import { normScreen, currentByPlace, adUrl, themeCss } from './screenset.js';
 import { printCss, weekdayPage, shabbosPage, fitPages } from '../luach/tfprint.js';
 import { defaults, computeWeekday, computeShabbos, computeSpecial, computeShiurim, computeHoly, chagOn, partOfDay } from '../luach/minyanim.js';
 
@@ -171,6 +171,9 @@ function additions(n, day) {
 
 function render() {
   const HID = SCR.hide || {};
+  // פארבן (נאר ווען זיי טוישן זיך)
+  const tc = themeCss(SCR);
+  if (tc !== thmLast) { thmLast = tc; let st = document.getElementById('thm'); if (!st) { st = document.createElement('style'); st.id = 'thm'; document.head.appendChild(st); } st.textContent = tc; }
   CUR = currentByPlace(SCR, nowD());
   AD = AD_Q ? { q: AD_Q } : CUR.right || null;
   const now = nowD();
@@ -410,7 +413,7 @@ function render() {
   $('#dynb').innerHTML = bot;
   updateOverlays();
 }
-let shLast = null; let adLast = null; let ovLast = null;
+let shLast = null; let adLast = null; let ovLast = null; let thmLast = null;
 // ---------- תמונות / טעקסטן / דפים אויפן מסך (פון "תצוגת והגדרות המסך") ----------
 const esc2 = (x) => h(x).replace(/\n/g, '<br>');
 function itemHtml(it) {

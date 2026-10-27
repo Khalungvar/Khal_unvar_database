@@ -28,6 +28,8 @@ export function screenDefaults() {
     // באהאלטן משבצות
     hide: { day: false, clock: false, logo: false, next: false, side: false, simchos: false, zmanim: false, mitzva: false, daf: false, shiurim: false, bottom: false },
     notice: { on: false, text: '', from: '', to: '' }, // א הודעה אויבן אויף לוח התפילות
+    // פארבן: theme = פארן גאנצן מסך (ליידיג = די געווענליכע); boxes = פאר א געוויסער משבצת { bg, text, title }
+    theme: {}, boxes: {},
   };
 }
 
@@ -37,6 +39,7 @@ export function normScreen(s) {
   o.notice = { ...d.notice, ...(o.notice || {}) };
   o.texts = { ...d.texts, ...(o.texts || {}) };
   o.hide = { ...d.hide, ...(o.hide || {}) };
+  o.theme = { ...(o.theme || {}) }; o.boxes = { ...(o.boxes || {}) };
   o.library = Array.isArray(o.library) ? o.library : [];
   o.items = (Array.isArray(o.items) ? o.items : []).map((a) => ({ on: true, from: '', to: '', days: [], sec: 0, fit: 'contain', frame: a.place !== 'free', ...a }));
   return o;
@@ -81,3 +84,27 @@ export function currentByPlace(S, now) {
 }
 /** הודעה (פס אדום) */
 export function activeNotice(S, now) { return currentByPlace(S, now).notice?.text?.trim() || ''; }
+
+// ---------- פארבן ----------
+export const THEME = [
+  ['navy', 'כחול (רקע וכותרות)', '#0f2140'], ['navy2', 'כחול בהיר (רקע למעלה)', '#17305a'], ['gold', 'זהב (מסגרות)', '#c9a24c'],
+  ['gold2', 'זהב בהיר (טקסט למעלה)', '#f3dc9a'], ['gold3', 'זהב כהה (קווים)', '#8a6a2a'], ['paper', 'רקע המשבצות', '#fbf5e6'], ['ink', 'צבע הטקסט', '#1d1a14'],
+];
+export const BOX_SEL = {
+  top: ['למעלה (יום, לוגו, שעון)', '#dyn .top'], main: ['לוח זמני התפילות (שמאל)', '#dyn .pos-main'], next: ['המנין הבא', '#dyn .next'],
+  side: ['המשבצת האמצעית (שבת)', '#dyn .pos-side'], simchos: ['שהשמחה במעונם', '#dyn .mzl'], zmanim: ['זמני היום', '#dyn .zm'],
+  mitzva: ['מצוה יומית', '#dyn .lrn-m:not(.lrn-d)'], daf: ['דף היומי', '#dyn .lrn-d'], shiurim: ['שיעורי תורה', '#shl .lrn-s'], bottom: ['הפס התחתון', '#dynb .bottom'],
+};
+/** CSS פאר די פארבן */
+export function themeCss(S) {
+  const t = S.theme || {}; const out = [];
+  const vars = THEME.filter(([k]) => t[k]).map(([k]) => `--${k}: ${t[k]};`).join(' ');
+  if (vars) out.push(`#screen { ${vars} }`);
+  for (const [k, c] of Object.entries(S.boxes || {})) {
+    const sel = BOX_SEL[k]?.[1]; if (!sel || !c) continue;
+    if (c.bg) out.push(`${sel} { --paper: ${c.bg}; background: ${c.bg} !important; }`);
+    if (c.text) out.push(`${sel}, ${sel} *:not(.ttl):not(.sh-t):not(.sh-t *):not(.cd):not(.chg-note) { --ink: ${c.text}; color: ${c.text} !important; }`);
+    if (c.title) out.push(`${sel} .ttl, ${sel} .sh-t { background: ${c.title} !important; }`);
+  }
+  return out.join('\n');
+}
