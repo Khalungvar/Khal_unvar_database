@@ -20,11 +20,20 @@ export function printCss(fontHe = 'Frank Ruhl Libre') {
 .tp-in { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: stretch; font-size: calc(var(--fs, 20px) * var(--k, 1)); }
 .tp-num { font-family: 'Times New Roman', 'Liberation Serif', serif; font-weight: 700; direction: ltr; unicode-bidi: isolate; }
 /* ---- ימות החול (ZMANIM1) ---- */
-.tp-wk .tp-frame { position: absolute; inset: calc(30px * var(--k)) ; width: auto; height: auto; pointer-events: none; }
-.tp-wk .tp-frame img { width: 100%; height: 100%; display: block; }
-.tp-wk .tp-in { inset: calc(60px * var(--k)); }
+.tp-wk .tp-frame { position: absolute; inset: calc(28px * var(--k)); border: calc(5px * var(--k)) solid #000; pointer-events: none; }
+.tp-wk .tp-frame::before { content: ''; position: absolute; inset: calc(6px * var(--k)); border: calc(1.5px * var(--k)) solid #000; }
+.tp-wk .tp-frame i { position: absolute; width: calc(22px * var(--k)); height: calc(22px * var(--k)); background: #000; transform: rotate(45deg); }
+.tp-wk .tp-frame i:nth-child(1) { top: calc(-13px * var(--k)); right: calc(-13px * var(--k)); }
+.tp-wk .tp-frame i:nth-child(2) { top: calc(-13px * var(--k)); left: calc(-13px * var(--k)); }
+.tp-wk .tp-frame i:nth-child(3) { bottom: calc(-13px * var(--k)); right: calc(-13px * var(--k)); }
+.tp-wk .tp-frame i:nth-child(4) { bottom: calc(-13px * var(--k)); left: calc(-13px * var(--k)); }
+.tp-wk .tp-rbl { text-align: center; font-weight: 900; font-size: 2em; line-height: 1.15; border: .09em solid #000; border-radius: .3em; margin: 0 .6em .25em; padding: .05em .4em .1em; white-space: nowrap; }
+.tp-wk .tp-rbl .t { font-size: .7em; line-height: 1.1; }
+.tp-wk .tp-rbl small { font-size: .6em; }
+.tp-wk .tp-rbl .tp-num { font-size: 1.15em; }
+.tp-wk .tp-in { inset: calc(48px * var(--k)); }
 .tp-wk .tp-title { text-align: center; font-weight: 900; font-size: 4.1em; line-height: 1.12; padding: .1em 0 .12em; }
-.tp-wk .tp-band { background: #000; color: #fff; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: .02em .5em .1em; }
+.tp-wk .tp-band { background: #000; color: #fff; border-radius: .25em; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: .02em .5em .1em; }
 .tp-wk .tp-band b { font-size: 3.2em; font-weight: 900; line-height: 1.15; }
 .tp-wk .tp-band small { font-size: .95em; font-weight: 700; text-align: center; line-height: 1.2; justify-self: end; }
 .tp-wk .tp-band small.r { justify-self: start; }
@@ -95,7 +104,10 @@ export function weekdayPage(data, n, fri, parsha, loc, size = 'letter') {
   const even = (a, per) => { const L = Math.max(1, Math.ceil(a.length / per)); const o = []; let i = 0; for (let k = 0; k < L; k += 1) { const c = Math.ceil((a.length - i) / (L - k)); o.push(a.slice(i, i + c)); i += c; } return o; };
   const line = (items, per) => even(items, per).map((row) => `<div class="tp-line">${row.map((x) => `<span class="tp-num${x.rebbe ? ' tp-rb' : ''}">${tm(x.min)}</span>${x.ap ? '<span class="tp-ap">בערך</span>' : ''}`).join('<span class="tp-num dot">•</span>')}</div>`).join('');
   const per = (g, a) => (g === 'mincha' ? (a.length > 9 ? 4 : 3) : g === 'maariv' ? (a.length > 4 ? 3 : 2) : (a.length > 9 ? 4 : 3));
-  const maariv = w.maariv.map((x) => ({ ...x, ap: x.rebbe }));
+  const rbM = w.mincha.find((x) => x.rebbe); const rbA = w.maariv.find((x) => x.rebbe);
+  const mincha = w.mincha.filter((x) => !x.rebbe); const maariv = w.maariv.filter((x) => !x.rebbe);
+  const shach = w.shacharis.map((x) => ({ ...x, rebbe: false }));
+  const rbLine = rbM || rbA ? `<div class="tp-rbl"><div class="t">מנין כ"ק אדמו"ר שליט"א</div>${[rbM ? `מנחה <span class="tp-num">${tm(rbM.min)}</span>` : '', rbA ? `מעריב <small>(בערך)</small> <span class="tp-num">${tm(rbA.min)}</span>` : ''].filter(Boolean).join(' <span class="tp-num">·</span> ')}</div>` : '';
   const fMin = sh.find((r) => r.day === 'fri' && r.kind === 'tefila' && /מנחה/.test(r.label));
   const sShach = sh.find((r) => r.day === 'sat' && /שחרית/.test(r.label));
   const sMin = sh.find((r) => r.day === 'sat' && r.kind === 'tefila' && /מנחה/.test(r.label));
@@ -103,13 +115,13 @@ export function weekdayPage(data, n, fri, parsha, loc, size = 'letter') {
   const shNote = w.shacharisNote ? `זמני ברכות<br>(${h(w.shacharisNote.replace(/\s*מינוט|\s*דקות/, ''))} מינוט)` : '';
   const inner = `
     <div class="tp-title">פרשת ${h(parsha)}</div>
-    ${band('שחרית', shNote)}<div class="tp-times">${line(w.shacharis, per('shacharis', w.shacharis))}</div>
-    ${band('מנחה', w.minchaNote ? h(w.minchaNote) : '')}<div class="tp-times">${line(w.mincha, per('mincha', w.mincha))}</div>
+    ${band('שחרית', shNote)}<div class="tp-times">${line(shach, per('shacharis', shach))}</div>
+    ${band('מנחה', w.minchaNote ? h(w.minchaNote) : '')}<div class="tp-times">${line(mincha, per('mincha', mincha))}</div>
+    ${rbLine}
     ${band('מעריב', w.maarivNote ? h(w.maarivNote) : '')}<div class="tp-times">${line(maariv, per('maariv', maariv))}</div>
     <div class="tp-band"><span></span><b style="font-size:2.3em">זמני שבת קודש</b>${sShach?.min != null ? `<small>שחרית<br><span class="tp-num">${tm(sShach.min)}</span></small>` : '<span></span>'}</div>
-    <div class="tp-shab">${[fMin?.min != null ? `מנחה ער"ש <span class="tp-num">${tm(fMin.min)}</span>` : '', sMin?.min != null ? `מנחה ש"ק <span class="tp-num">${tm(sMin.min)}</span>` : ''].filter(Boolean).join(' <span class="tp-num">•</span> ')}</div>
-    <div class="tp-key">▭ = מנין כ"ק אדמו"ר שליט"א</div>`;
-  return page('tp-wk', size, inner, '<div class="tp-frame"><img src="img/print/zigzag-frame.png" alt=""></div>');
+    <div class="tp-shab">${[fMin?.min != null ? `מנחה ער"ש <span class="tp-num">${tm(fMin.min)}</span>` : '', sMin?.min != null ? `מנחה ש"ק <span class="tp-num">${tm(sMin.min)}</span>` : ''].filter(Boolean).join(' <span class="tp-num">•</span> ')}</div>`;
+  return page('tp-wk', size, inner, '<div class="tp-frame"><i></i><i></i><i></i><i></i></div>');
 }
 
 // ---------- שבת ----------
@@ -154,7 +166,7 @@ export function fitPages(root, max = 26, min = 9) {
     const box = pg.querySelector('.tp-in');
     const over = () => {
       if (box.scrollHeight > box.clientHeight + 1) return true;
-      return [...box.querySelectorAll('.tp-line, .tp-shab, .tp-dots, .tp-strip, .tp-tbl, .tp-title')].some((e) => e.scrollWidth > e.clientWidth + 1 || e.getBoundingClientRect().right > box.getBoundingClientRect().right + 1);
+      return [...box.querySelectorAll('.tp-line, .tp-shab, .tp-dots, .tp-strip, .tp-tbl, .tp-title, .tp-rbl')].some((e) => e.scrollWidth > e.clientWidth + 1 || e.getBoundingClientRect().right > box.getBoundingClientRect().right + 1);
     };
     let fs = max; box.style.setProperty('--fs', `${fs}px`);
     while (fs > min && over()) { fs -= 0.5; box.style.setProperty('--fs', `${fs}px`); }
