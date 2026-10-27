@@ -173,11 +173,14 @@ function minorHead(b, bp) {
     <div class="tf-times">${arr.map((T, ti) => `<span class="tf-tm">${tsHtml(T, `${op}.${ti}`)}${btn('delT', `${op}.${ti}`, '✕', 'הסר שעה')}</span>`).join('')}${btn('addT', op, '＋ שעה')}</div></div>`; }).join('');
   const fm = b.fri?.mode === 'custom';
   return `<div class="tf-minor">
-    <div class="tf-rf"><span class="muted small">כמו ימות החול:</span>${gs}</div>
+    <div class="tf-rf"><span class="muted small">מתנהג כמו ימות החול:</span>${gs}</div>
     ${own}
-    <div class="tf-rf tf-fri"><span class="muted small">כשחל בער"ש — מנחה וקבלת שבת:</span>
-      ${sel(`${bp}.fri.mode`, [['regular', 'כרגיל (לפי לשונית שבת)'], ['custom', 'שעה מיוחדת']])}${fm ? tsHtml(b.fri.time, `${bp}.fri.time`, true) : ''}</div>
   </div>`;
+}
+function minorFri(b, bp) {
+  const fm = b.fri?.mode === 'custom';
+  return `<div class="tf-minor tf-frib"><div class="tf-rf"><b>🕯 כשחל בערב שבת</b> — מנחה וקבלת שבת:
+    ${sel(`${bp}.fri.mode`, [['regular', 'כרגיל (לפי לשונית שבת)'], ['custom', 'שעה מיוחדת']])}${fm ? tsHtml(b.fri.time, `${bp}.fri.time`, true) : ''}</div></div>`;
 }
 function blocksHtml(part) {
   const Y = upcomingYear(part);
@@ -195,6 +198,7 @@ function blocksHtml(part) {
       <div class="tf-times">${(r.times || []).map((T, ti) => `<span class="tf-tm">${tsHtml(T, `${p}.times.${ti}`)}${btn('delT', `${p}.times.${ti}`, '✕', 'הסר שעה')}</span>`).join('')}${btn('addT', `${p}.times`, '＋ שעה')}</div>
     </div>`; }).join('')}
     </div>
+    ${part === 'minor' ? minorFri(b, bp) : ''}
     ${canEdit() ? `<div class="tf-add"><button type="button" class="btn ghost" data-act="addR" data-p="${bp}.rows">➕ שורה</button></div>` : ''}
   </section>`; }).join('')}
   ${canEdit() ? `<div class="tf-add"><button type="button" class="btn" data-act="addB" data-p="${part}">➕ בלוק</button></div>` : ''}`;

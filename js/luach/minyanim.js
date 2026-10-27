@@ -150,15 +150,8 @@ function TISHREI_BLOCKS() {
 }
 const empty = (labels) => labels.map((l) => row(l, []));
 function MINOR_BLOCKS() {
-  return [
-    block('חנוכה', 'chanuka', empty(['הדלקת נר חנוכה'])),
-    block('עשרה בטבת', 'asaraTeves', []),
-    block('תענית אסתר', 'taanisEsther', empty(['קריאת המגילה (בלילה)'])),
-    block('פורים', 'purim', empty(['קריאת המגילה'])),
-    block('ל"ג בעומר', 'lagBaomer', empty(['הדלקה'])),
-    block('י"ז בתמוז', 'tamuz17', []),
-    block('תשעה באב', 'tishaBav', empty(['מעריב ואיכה', 'קינות'])),
-  ];
+  return [['חנוכה', 'chanuka'], ['עשרה בטבת', 'asaraTeves'], ['תענית אסתר', 'taanisEsther'], ['פורים', 'purim'], ['ל"ג בעומר', 'lagBaomer'], ['י"ז בתמוז', 'tamuz17'], ['תשעה באב', 'tishaBav']]
+    .map(([t, w]) => block(t, w, []));
 }
 function YT_BLOCKS() {
   return [
