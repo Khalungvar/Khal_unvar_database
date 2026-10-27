@@ -233,3 +233,6 @@
 .tf-dlg h3 { margin: 0 0 4px; }
 .tf-dlg .tf-conds { gap: 6px; }
 .tf-dlg .tf-cond.on { font-size: 14px; padding: 4px 8px; } .tf-dlg .tf-cond.on select, .tf-dlg .tf-cond.on input { font-size: 14px; }
+.tf-off td, .tf-rf.tf-off input, tr.tf-off { opacity: .45; }
+.tf-off td:first-child { opacity: 1; }
+.tf-scr { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; cursor: pointer; }

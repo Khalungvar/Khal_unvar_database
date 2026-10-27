@@ -234,7 +234,7 @@ export function computeShabbos(data, fri, loc) {
   const rows = [{ label: 'הדלקת נרות', min: zf.candles, kind: 'zman', note: '', day: 'fri' }];
   for (const r of data.shabbos.rows || []) {
     if (r.season === 'avos' ? !avosSeason(fri + 1) : !inSeason(r.season, iso)) continue;
-    rows.push({ label: r.label, min: timeOf(r.time, r.day === 'sat' ? zs : zf), kind: r.kind, note: r.note || '', day: r.day });
+    rows.push({ label: r.label, min: timeOf(r.time, r.day === 'sat' ? zs : zf), kind: r.kind, note: r.note || '', day: r.day, screen: r.screen !== false });
   }
   return rows; // אין דעם סדר וואס מ'האט באשטימט
 }
@@ -252,7 +252,7 @@ export function computeSpecial(data, n, loc) {
           if (r.on === 'wed') return ds.includes(n) && dowOf(n) === 3;
           const i = Number(r.on);
           return i < 0 ? ds[0] + i === n : ds[i] === n;
-        }).map((r) => ({ label: r.label, note: r.note, kind: r.kind, mins: (r.times || []).map((t) => timeOf(t, zd)).filter((m) => m != null) }));
+        }).map((r) => ({ label: r.label, note: r.note, kind: r.kind, screen: r.screen !== false, mins: (r.times || []).map((t) => timeOf(t, zd)).filter((m) => m != null) }));
         if (rows.length) { out.push({ title: b.title, rows }); break; }
       }
     }

@@ -1,12 +1,12 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=416';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=416';
-import { initGifts, renderGifts } from './gifts.js?v=416';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=416';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=416';
-import { initTeam, renderTeam } from './team.js?v=416';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=416';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=417';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=417';
+import { initGifts, renderGifts } from './gifts.js?v=417';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=417';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=417';
+import { initTeam, renderTeam } from './team.js?v=417';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=417';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';

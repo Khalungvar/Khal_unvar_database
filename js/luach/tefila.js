@@ -143,9 +143,9 @@ const SH_SEASONS = [...SEASONS, ['avos', 'שבתות פרקי אבות']];
 function shabbosHtml() {
   const rs = data.shabbos.rows || [];
   return `<p class="muted small">הדלקת נרות מחושבת לבד (18 דק' לפני השקיעה) ומופיעה תמיד ראשונה. "הדלקת נרות" בשעה = של אותו יום (ער"ש או שבת).</p>
-  <table class="tf-t"><thead><tr><th>שם</th><th>יום</th><th>שעה</th><th>עונה</th><th>סוג</th><th>הערה</th><th></th></tr></thead><tbody>
-  ${rs.map((r, i) => { const p = `shabbos.rows.${i}`; return `<tr>
-    <td>${fld(`${p}.label`, 'text', ' class="tf-w12"')}</td><td>${sel(`${p}.day`, [['fri', 'ערב שבת'], ['sat', 'שבת']])}</td>
+  <table class="tf-t"><thead><tr><th title="תצוגה במסך">📺</th><th>שם</th><th>יום</th><th>שעה</th><th>עונה</th><th>סוג</th><th>הערה</th><th></th></tr></thead><tbody>
+  ${rs.map((r, i) => { const p = `shabbos.rows.${i}`; return `<tr${r.screen === false ? ' class="tf-off"' : ''}>
+    <td>${fld(`${p}.screen`, 'check', ' title="תצוגה במסך"')}</td><td>${fld(`${p}.label`, 'text', ' class="tf-w12"')}</td><td>${sel(`${p}.day`, [['fri', 'ערב שבת'], ['sat', 'שבת']])}</td>
     <td>${tsHtml(r.time, `${p}.time`, true)}</td><td>${sel(`${p}.season`, SH_SEASONS)}</td><td>${sel(`${p}.kind`, [['tefila', 'תפילה'], ['other', 'אחר']])}</td>
     <td>${fld(`${p}.note`, 'text', ' class="tf-w10"')}</td>
     <td class="tf-acts">${btn('up', p, '↑', 'למעלה')}${btn('down', p, '↓', 'למטה')}${btn('del', p, '🗑', 'מחק')}</td></tr>`; }).join('')}
@@ -171,7 +171,7 @@ function blocksHtml(part) {
       <span class="spacer"></span>${btn('up', bp, '↑', 'למעלה')}${btn('down', bp, '↓', 'למטה')}${btn('del', bp, '🗑', 'מחק בלוק')}</div>
     <div class="tf-rows">
     ${(b.rows || []).map((r, i) => { const p = `${bp}.rows.${i}`; return `<div class="tf-r">
-      <div class="tf-rf">${fld(`${p}.label`, 'text', ' class="tf-w12" placeholder="שם"')}${fld(`${p}.note`, 'text', ' class="tf-w10" placeholder="הערה"')}
+      <div class="tf-rf${r.screen === false ? ' tf-off' : ''}"><label class="tf-scr" title="תצוגה במסך">${fld(`${p}.screen`, 'check')} 📺</label>${fld(`${p}.label`, 'text', ' class="tf-w12" placeholder="שם"')}${fld(`${p}.note`, 'text', ' class="tf-w10" placeholder="הערה"')}
       ${sel(`${p}.on`, ON)}${sel(`${p}.kind`, [['tefila', 'תפילה'], ['other', 'אחר']])}<span class="spacer"></span><span class="tf-acts">${btn('up', p, '↑', 'למעלה')}${btn('down', p, '↓', 'למטה')}${btn('del', p, '🗑', 'מחק')}</span></div>
       <div class="tf-times">${(r.times || []).map((T, ti) => `<span class="tf-tm">${tsHtml(T, `${p}.times.${ti}`)}${btn('delT', `${p}.times.${ti}`, '✕', 'הסר שעה')}</span>`).join('')}${btn('addT', `${p}.times`, '＋ שעה')}</div>
     </div>`; }).join('')}
@@ -192,10 +192,10 @@ function previewHtml() {
       + (w.last != null ? `<p><b>מנחה מנין אחרון: ${tm(w.last)}</b></p>` : '');
   } else if (tab === 'shabbos') {
     let fri = n; while (dowOf(fri) !== 5) fri += 1;
-    body = `<p class="muted small">שבת ${h(isoOf(fri + 1))}</p><table class="tf-pt">${computeShabbos(data, fri).map((r) => `<tr${r.kind === 'tefila' ? ' class="k"' : ''}><td>${h(r.label)}</td><td>${tm(r.min)}</td></tr>`).join('')}</table>`;
+    body = `<p class="muted small">שבת ${h(isoOf(fri + 1))}</p><table class="tf-pt">${computeShabbos(data, fri).map((r) => `<tr class="${r.kind === 'tefila' ? 'k' : ''}${r.screen === false ? ' tf-off' : ''}"><td>${h(r.label)}</td><td>${tm(r.min)}</td></tr>`).join('')}</table>`;
   } else {
     const sp = computeSpecial(data, n);
-    body = sp.length ? sp.map((b) => `<h4>${h(b.title)}</h4><table class="tf-pt">${b.rows.map((r) => `<tr${r.kind === 'tefila' ? ' class="k"' : ''}><td>${h(r.label)}${r.note ? ` <small>(${h(r.note)})</small>` : ''}</td><td>${r.mins.map(tm).join(' | ') || '—'}</td></tr>`).join('')}</table>`).join('')
+    body = sp.length ? sp.map((b) => `<h4>${h(b.title)}</h4><table class="tf-pt">${b.rows.map((r) => `<tr class="${r.kind === 'tefila' ? 'k' : ''}${r.screen === false ? ' tf-off' : ''}"><td>${h(r.label)}${r.note ? ` <small>(${h(r.note)})</small>` : ''}</td><td>${r.mins.map(tm).join(' | ') || '—'}</td></tr>`).join('')}</table>`).join('')
       : '<p class="muted">אין זמנים מיוחדים ביום הזה</p>';
   }
   return `<div class="tf-pvh">תצוגה מקדימה <input type="date" id="tf-date" value="${h(prevIso)}"></div>${body}`;
@@ -208,6 +208,9 @@ export async function openTefila(main, onBack) {
   const dr = defaults().weekday.rebbe;
   data.weekday.rebbe = { ...dr, ...(data.weekday.rebbe || {}) };
   for (const g of ['shacharis', 'mincha', 'maariv']) for (const r of data.weekday[g] || []) { r.cond = condOf(r, g); delete r.auto; }
+  // תצוגה במסך — ברירת מחדל: פעיל
+  for (const r of data.shabbos.rows || []) if (r.screen === undefined) r.screen = true;
+  for (const part of ['yt', 'tishrei']) for (const b of data[part].blocks || []) for (const r of b.rows || []) if (r.screen === undefined) r.screen = true;
   render(main, onBack);
 }
 function render(main, onBack) {
@@ -239,7 +242,7 @@ function render(main, onBack) {
     const f = el.closest('[data-f]'); const ts = el.closest('[data-ts]');
     if (f && f.dataset.f) {
       const v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
-      set(f.dataset.f, v); touched(e.type === 'change' && el.tagName === 'SELECT' && /\.when$/.test(f.dataset.f));
+      set(f.dataset.f, v); touched(e.type === 'change' && ((el.tagName === 'SELECT' && /\.when$/.test(f.dataset.f)) || /\.screen$/.test(f.dataset.f)));
     } else if (ts && el.dataset.k) {
       if (e.type === 'input' && el.tagName === 'SELECT') return;
       const full = tsChange(ts.dataset.ts, el.dataset.k, el.value); touched(full);
