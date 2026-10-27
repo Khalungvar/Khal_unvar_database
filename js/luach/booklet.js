@@ -172,6 +172,7 @@ const BK_CSS = `
 .bk-shiur{margin-top:auto;background:linear-gradient(90deg,#1e1e1e,#5c5c5c,#1e1e1e);color:#fff;text-align:center;padding:6px 8px 7px;font-size:13px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .bk-shiur .bk-l{line-height:1.25;font-size:1em}.bk-shiur .bk-l2{font-family:'Livorna Bold','Livorna',serif;font-size:1.45em;line-height:1.2}.bk-shiur .bk-l3{font-size:.85em}
 .bk-info{border:1px solid #6a6a6a;background:rgba(255,255,255,.6);padding:6px 10px;box-sizing:border-box}
+.bk-mhl{display:block;width:6.2em;height:auto;margin:0 auto .35em}
 .bk-info .bk-lat{font-size:1em;line-height:1.3}
 .bk-rich{font-family:'Livorna','Frank Ruhl Libre',serif;font-size:1.35em;line-height:1.3}
 .bk-rich b{font-family:'Livorna Bold','Livorna',serif;font-weight:700}
@@ -242,7 +243,7 @@ function p4Html(key) {
   const list = monthDeds(key); const none = noDed(key);
   return `<div class="bk-pg"><img class="bk-bg" src="${IMG('bgR.jpg')}" alt="">
     ${none ? '' : `<div class="bk-fit-area" style="top:36px;right:44px;width:440px;height:560px">${frame(list.length ? dedHtml(list) : EMPTY_DED, { fk: 0.2, maxh: 470, k: 1.35 })}</div>`}
-    <div class="bk-abs bk-info" style="top:${none ? 333 : 626}px;right:124px;width:280px;height:150px"><div class="bk-fit" data-k="0.82">${richLines(setting('info_text'))}</div></div>
+    <div class="bk-abs bk-info" style="top:${none ? 316 : 598}px;right:124px;width:280px;height:184px"><div class="bk-fit" data-k="0.82"><img class="bk-mhl" src="img/mishne-halachos-logo.png?v=1" alt="">${richLines(setting('info_text'))}</div></div>
   </div>`;
 }
 function backHtml(key) {
