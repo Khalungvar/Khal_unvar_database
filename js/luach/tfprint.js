@@ -20,18 +20,21 @@ export function printCss(fontHe = 'Frank Ruhl Libre') {
 .tp-in { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: stretch; font-size: calc(var(--fs, 20px) * var(--k, 1)); }
 .tp-num { font-family: 'Times New Roman', 'Liberation Serif', serif; font-weight: 700; direction: ltr; unicode-bidi: isolate; }
 /* ---- ימות החול (ZMANIM1) ---- */
-.tp-wk .tp-frame { position: absolute; inset: calc(28px * var(--k)); border: calc(5px * var(--k)) solid #000; pointer-events: none; }
-.tp-wk .tp-frame::before { content: ''; position: absolute; inset: calc(6px * var(--k)); border: calc(1.5px * var(--k)) solid #000; }
-.tp-wk .tp-frame i { position: absolute; width: calc(22px * var(--k)); height: calc(22px * var(--k)); background: #000; transform: rotate(45deg); }
-.tp-wk .tp-frame i:nth-child(1) { top: calc(-13px * var(--k)); right: calc(-13px * var(--k)); }
-.tp-wk .tp-frame i:nth-child(2) { top: calc(-13px * var(--k)); left: calc(-13px * var(--k)); }
-.tp-wk .tp-frame i:nth-child(3) { bottom: calc(-13px * var(--k)); right: calc(-13px * var(--k)); }
-.tp-wk .tp-frame i:nth-child(4) { bottom: calc(-13px * var(--k)); left: calc(-13px * var(--k)); }
+.tp-wk .tp-frame { position: absolute; inset: calc(22px * var(--k)); border: calc(7px * var(--k)) solid #000; pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cpath d='M10 1 L19 10 L10 19 L1 10Z' fill='%23000'/%3E%3Cpath d='M10 6 L14 10 L10 14 L6 10Z' fill='%23fff'/%3E%3Ccircle cx='0' cy='0' r='2' fill='%23000'/%3E%3Ccircle cx='20' cy='0' r='2' fill='%23000'/%3E%3Ccircle cx='0' cy='20' r='2' fill='%23000'/%3E%3Ccircle cx='20' cy='20' r='2' fill='%23000'/%3E%3C/svg%3E") center / calc(20px * var(--k)) calc(20px * var(--k)) repeat; }
+.tp-wk .tp-frame::before { content: ''; position: absolute; inset: calc(3px * var(--k)); border: calc(1.5px * var(--k)) solid #000; }
+.tp-wk .tp-frame::after { content: ''; position: absolute; inset: calc(24px * var(--k)); background: #fff; border: calc(3px * var(--k)) solid #000; outline: calc(1.5px * var(--k)) solid #000; outline-offset: calc(3px * var(--k)); }
+.tp-wk .tp-frame i { position: absolute; z-index: 1; width: calc(44px * var(--k)); height: calc(44px * var(--k)); background: #000; border: calc(3px * var(--k)) double #fff; outline: calc(2px * var(--k)) solid #000; }
+.tp-wk .tp-frame i::after { content: ''; position: absolute; inset: calc(9px * var(--k)); background: #fff; transform: rotate(45deg); box-shadow: inset 0 0 0 calc(4px * var(--k)) #fff, inset 0 0 0 calc(7px * var(--k)) #000; }
+.tp-wk .tp-frame i:nth-child(1) { top: calc(-9px * var(--k)); right: calc(-9px * var(--k)); }
+.tp-wk .tp-frame i:nth-child(2) { top: calc(-9px * var(--k)); left: calc(-9px * var(--k)); }
+.tp-wk .tp-frame i:nth-child(3) { bottom: calc(-9px * var(--k)); right: calc(-9px * var(--k)); }
+.tp-wk .tp-frame i:nth-child(4) { bottom: calc(-9px * var(--k)); left: calc(-9px * var(--k)); }
 .tp-wk .tp-rbl { text-align: center; font-weight: 900; font-size: 2em; line-height: 1.15; border: .09em solid #000; border-radius: .3em; margin: 0 .6em .25em; padding: .05em .4em .1em; white-space: nowrap; }
 .tp-wk .tp-rbl .t { font-size: .7em; line-height: 1.1; }
 .tp-wk .tp-rbl small { font-size: .6em; }
 .tp-wk .tp-rbl .tp-num { font-size: 1.15em; }
-.tp-wk .tp-in { inset: calc(48px * var(--k)); }
+.tp-wk .tp-in { inset: calc(62px * var(--k)); }
 .tp-wk .tp-title { text-align: center; font-weight: 900; font-size: 4.1em; line-height: 1.12; padding: .1em 0 .12em; }
 .tp-wk .tp-band { background: #000; color: #fff; border-radius: .25em; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: .02em .5em .1em; }
 .tp-wk .tp-band b { font-size: 3.2em; font-weight: 900; line-height: 1.15; }
