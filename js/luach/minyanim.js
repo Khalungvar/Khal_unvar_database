@@ -129,7 +129,7 @@ export function defaults() {
   };
 }
 const row = (label, times, o = {}) => ({ id: id(), label, note: '', kind: /שחרית|מנחה|מעריב|נדרי|סליחות/.test(label) ? 'tefila' : 'other', on: 'all', times: times.map((t) => (typeof t === 'string' ? F(t) : t)), ...o });
-const block = (title, when, rows) => ({ id: id(), title, when, rows, like: { shacharis: true, mincha: true, maariv: true }, own: { shacharis: [], mincha: [], maariv: [] }, fri: { mode: 'regular', time: null } });
+const block = (title, when, rows) => ({ id: id(), title, when, rows, like: { maarivEve: true, shacharis: true, mincha: true, maariv: true }, own: { maarivEve: [], shacharis: [], mincha: [], maariv: [] }, fri: { mode: 'regular', time: null } });
 function TISHREI_BLOCKS() {
   return [
     block('סליחות - יום א\'', 'selichos1', [row('סליחות', ['05:00'])]),
@@ -262,6 +262,11 @@ export function computeWeekday(data, n, loc) {
       if (g === 'mincha') out.last = null;
     }
     if (fri && mb.fri?.mode === 'custom') out.friMincha = timeOf(mb.fri.time, zd);
+  }
+  // "מעריב ערב": דער מעריב פון היינט ביינאכט, ווען מארגן איז א יום דפגרא/תענית
+  const nb = minorBlockOn(data, n + 1);
+  if (nb && (nb.like || {}).maarivEve === false) {
+    out.maariv = (nb.own?.maarivEve || []).map((T) => ({ min: timeOf(T, zd), room: '', note: '' })).filter((x) => x.min != null).sort((a, b) => a.min - b.min);
   }
   out.shacharisNote = w.shacharisNote || ''; out.minchaNote = w.minchaNote || ''; out.maarivNote = w.maarivNote || '';
   return out;
