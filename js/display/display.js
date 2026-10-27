@@ -31,11 +31,22 @@ function resolve(t, zm) {
   return t.mode === 'up' ? Math.ceil(v / r) * r : t.mode === 'down' ? Math.floor(v / r) * r : Math.round(v / r) * r;
 }
 
-// ---------- מזל טוב (שפעטער: פון "שהשמחה במעונם") ----------
+// ---------- מזל טוב (שפעטער: פון "שהשמחה במעונם" — אותו טקסט ווי אינעם גליון) ----------
+// יעדע שמחה: שורות פון בעלי השמחה + "לרגל ..."; צוויי אויפאמאל, יעדע 15 סעקונדעס די קומענדיגע
 const MAZEL = [
-  '<b>מזל טוב</b><br>להרה"ח ר\' <b>פלוני בן פלוני</b> הי"ו<br>לרגל שמחת הבר מצוה לבנו ני"ו',
-  '<b>מזל טוב</b><br>להרה"ח ר\' <b>אלמוני</b> הי"ו<br>לרגל אירוסי בתו תחי\'',
-  '<b>מזל טוב</b><br>להרה"ח ר\' <b>פלוני</b> הי"ו<br>לרגל הולדת הבן',
+  { names: ['הרה"ח ר\' <b>פלוני פלונישטיין</b> הי"ו', 'הרה"ח ר\' <b>אלמוני אלמנשטיין</b> הי"ו'], for: 'לרגל אירוסי בנו-נכדו <b>יוסף</b> ני"ו עב"ג בשעטו"מ' },
+  { names: ['הרה"ח ר\' <b>פלוני כהן</b> הי"ו'], for: 'לרגל הכנסת בנו <b>משה</b> ני"ו לעול התורה והמצוות בשעטו"מ' },
+  { names: ['הרה"ח ר\' <b>פלוני לוי</b> הי"ו'], for: 'לרגל הולדת בנו בשעטו"מ' },
+  { names: ['הרה"ח ר\' <b>אלמוני גרין</b> הי"ו'], for: 'לרגל שמחת האפשערן של בנו <b>אברהם</b> ני"ו בשעטו"מ' },
+];
+const PER = 2;
+const entryHtml = (e) => `<div class="mz-e">${e.names.map((x) => `<div>${x}</div>`).join('')}<div class="for">${e.for}</div></div>`;
+
+// ---------- שיעורים (פון BZS) ----------
+const SHIURIM = [
+  { t: '4:30 לפנות בוקר', who: 'ר\' שלום אליעזר טווערסקי', room: "חדר ב'" },
+  { t: '7:00 בערב', who: 'ר\' יעקב חיים אפטער', room: '' },
+  { t: '8:30 בערב', who: 'ר\' ישעי\' שטערן', room: '' },
 ];
 
 // ---------- וואס איז היינט ----------
@@ -103,7 +114,9 @@ function render() {
   const hh = now.getHours() % 12 || 12; const ap = now.getHours() < 12 ? 'AM' : 'PM';
   const heDate = `${hebrewNumber(x.d)} ${MONTH[x.m] || x.m} ${hebrewNumber(x.y % 1000)}`;
   const mz = mitzvaYomis(iso); const daf = dafYomi(iso);
-  const mzIx = Math.floor(Date.now() / 12000) % MAZEL.length;
+  const pages = Math.ceil(MAZEL.length / PER);
+  const mzIx = Math.floor(Date.now() / 15000) % pages;
+  const mzList = MAZEL.slice(mzIx * PER, mzIx * PER + PER);
 
   $('#screen').innerHTML = `
     ${SAMPLE ? '<div class="sample">דוגמה לעיצוב — המניינים מהתוכנה הישנה</div>' : ''}
@@ -114,31 +127,34 @@ function render() {
     </div>
 
     <div class="frame mny">
-      <div class="ttl">זמני התפילות${parsha ? ` · פרשת ${h(parsha)}` : ''}</div>
+      <div class="ttl">זמני התפילות</div>
       ${list ? `
       <div class="grp"><h3>שחרית <small>(הודו +10 דק')</small></h3><div class="times">${timesHtml(mark(list.shacharis.map((m) => ({ ...m, k: 'שחרית' }))))}</div></div>
       <div class="grp"><h3>מנחה</h3><div class="times">${timesHtml(mark(list.mincha.map((m) => ({ ...m, k: 'מנחה' }))))}</div></div>
       <div class="grp"><h3>מעריב</h3><div class="times">${timesHtml(mark(list.maariv.map((m) => ({ ...m, k: 'מעריב' }))))}</div></div>` : '<div class="grp"><h3>שבת קודש</h3></div>'}
-      <div class="shab">
-        <h3>זמני שבת קודש</h3>
-        <p>הדלקת נרות <b>${tm(zFri.candles)}</b> · מנחה ער"ש <b>${tm(resolve(SHABBOS.minchaErev, zFri))}</b></p>
-        <p>שחרית <b>${h(SHABBOS.shacharis.t)}</b> · מוצאי שבת <b>${tm(zSat.motzei)}</b></p>
-      </div>
     </div>
 
     <div class="frame next">
-      <div class="lbl">המנין הבא</div>
-      ${next ? `<div class="name">${h(next.k)}</div>
-      <div class="time">${tm(next.min)}</div>
-      ${next.room ? `<div class="room">${h(next.room)}</div>` : '<div class="room">&nbsp;</div>'}
-      <div class="cd">${cdText}</div>` : '<div class="name" style="margin-top:60px">לילה טוב</div>'}
+      <div class="row1"><div class="lbl">המנין הבא</div>${next ? `<div class="cd">${cdText}</div>` : ''}</div>
+      ${next ? `<div class="big"><span class="name">${h(next.k)}</span><span class="time">${tm(next.min)}</span></div>
+      <div class="room">${next.room ? h(next.room) : '&nbsp;'}</div>` : '<div class="big"><span class="name">לילה טוב</span></div>'}
     </div>
+
     <div class="last">מנחה מנין אחרון: <b>${tm(lastMincha)}</b></div>
 
-    <div class="frame mzl">
-      <div class="ttl">🎉 מזל טוב 🎉</div>
-      <div class="body">${MAZEL[mzIx]}</div>
-      <div class="dots">${MAZEL.map((_, i) => `<i class="${i === mzIx ? 'on' : ''}"></i>`).join('')}</div>
+    <div class="frame shab">
+      <div class="ttl">זמני שבת קודש${parsha ? ` · פרשת ${h(parsha)}` : ''}</div>
+      <table>
+        <tr><td>הדלקת נרות</td><td>${tm(zFri.candles)}</td><td>מנחה ער"ש</td><td>${tm(resolve(SHABBOS.minchaErev, zFri))}</td></tr>
+        <tr><td>שחרית</td><td>${h(SHABBOS.shacharis.t)}</td><td>מוצאי שבת</td><td>${tm(zSat.motzei)}</td></tr>
+      </table>
+    </div>
+
+    <div class="mzl">
+      <img class="head" src="img/display/simcha-head.jpg" alt="שהשמחה במעונם">
+      <div class="wk">${parsha ? `פרשת ${h(parsha)}` : ''}</div>
+      <div class="list">${mzList.map(entryHtml).join('')}</div>
+      ${pages > 1 ? `<div class="dots">${Array.from({ length: pages }, (_, i) => `<i class="${i === mzIx ? 'on' : ''}"></i>`).join('')}</div>` : ''}
     </div>
 
     <div class="frame zm">
@@ -148,8 +164,11 @@ function render() {
     </div>
 
     <div class="frame lrn">
-      <div><h4>מצוה יומית</h4><p>מצוה ${h(hebrewNumber(mz.n))}<small>${h(mz.text)}</small></p></div>
-      <div><h4>דף יומי</h4><p>${h(daf.text)}</p></div>
+      <div class="cols">
+        <div><h4>מצוה יומית</h4><p>מצוה ${h(hebrewNumber(mz.n))}<small>${h(mz.text)}</small></p></div>
+        <div><h4>דף יומי</h4><p>${h(daf.text)}</p></div>
+      </div>
+      <div class="shiur"><h4>השיעורים</h4>${SHIURIM.map((x) => `<div><b>${h(x.t)}</b> · ${h(x.who)}${x.room ? ` · ${h(x.room)}` : ''}</div>`).join('')}</div>
     </div>
 
     <div class="bottom">
