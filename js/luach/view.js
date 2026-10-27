@@ -40,7 +40,7 @@ async function loadData() {
     const t = await readTabs(['LuachEdits', 'LuachZmanim']);
     const [eh = [], ...er] = t.LuachEdits || [];
     const ix = (k) => eh.indexOf(k);
-    edits = er.map((r, i) => ({ row: i + 2, id: r[ix('id')], iso: String(r[ix('iso')] || ''), kind: String(r[ix('kind')] || 'note'), text: String(r[ix('text')] || ''), action: String(r[ix('action')] || '') }))
+    edits = er.map((r, i) => ({ row: i + 2, id: r[ix('id')], iso: String(r[ix('iso')] || ''), kind: String(r[ix('kind')] || 'note'), text: String(r[ix('text')] || ''), action: String(r[ix('action')] || ''), loc: String((ix('loc') >= 0 && r[ix('loc')]) || 'bp') }))
       .filter((e) => e.iso && e.text);
     const [zh = [], ...zr] = t.LuachZmanim || [];
     const zi = (k) => zh.indexOf(k);
@@ -65,10 +65,11 @@ async function loadData() {
 
 function build(Y) {
   const extra = {};
-  edits.filter((e) => !e.action).forEach((e) => { (extra[e.iso] = extra[e.iso] || []).push({ kind: e.kind, text: e.text, edit: true }); });
+  const here = edits.filter((e) => e.loc === locKey); // יעדער ארט (בארא פארק / ירושלים) האט זיינע אייגענע ענדערונגען
+  here.filter((e) => !e.action).forEach((e) => { (extra[e.iso] = extra[e.iso] || []).push({ kind: e.kind, text: e.text, edit: true }); });
   const b = buildYear(Y, extra, { loc: LOC() });
   // באהאלטענע שורות
-  const hide = new Set(edits.filter((e) => e.action === 'hide').map((e) => `${e.iso}|${e.text}`));
+  const hide = new Set(here.filter((e) => e.action === 'hide').map((e) => `${e.iso}|${e.text}`));
   b.days.forEach((d) => { d.items = d.items.filter((x) => !hide.has(`${d.iso}|${x.text}`)); if (hide.has(`${d.iso}|${d.parsha}`)) d.parsha = ''; });
   return b;
 }
@@ -356,8 +357,8 @@ const KINDS = [['hol', 'kHol'], ['note', 'kNote'], ['small', 'kSmall'], ['hillul
 function dayDialog(iso) {
   const d = built.days.find((x) => x.iso === iso); if (!d) return;
   const auto = [...(d.parsha ? [{ kind: 'parsha', text: d.parsha }] : []), ...d.items.filter((x) => !x.edit && x.kind !== 'omer' && x.kind !== 'dst' && x.kind !== 'rebbe')];
-  const mine = edits.filter((e) => e.iso === iso && !e.action);
-  const hidden = edits.filter((e) => e.iso === iso && e.action === 'hide');
+  const mine = edits.filter((e) => e.iso === iso && !e.action && e.loc === locKey);
+  const hidden = edits.filter((e) => e.iso === iso && e.action === 'hide' && e.loc === locKey);
   const dlg = document.createElement('dialog'); dlg.className = 'sheet lx-dlg'; dlg.dir = 'rtl';
   dlg.innerHTML = `<button type="button" class="x-close">✕</button>
     <h3>${h(d.heDay)} ${h(monthName(d.hm))} · ${iso}</h3>
@@ -380,12 +381,12 @@ function dayDialog(iso) {
 async function saveEdit(e) {
   try {
     const id = `${Date.now()}`;
-    await appendRow('LuachEdits', [id, e.iso, e.kind, e.text, e.action, nowStamp(), state.email]);
+    await appendRow('LuachEdits', [id, e.iso, e.kind, e.text, e.action, nowStamp(), state.email, locKey]);
     loaded = false; edits = [];
   } catch (err) { ui.toast?.(ui.friendlyError ? ui.friendlyError(err) : String(err), 'error'); }
 }
 async function delEdit(row) {
-  try { await updateRange(`LuachEdits!A${row}:G${row}`, [['', '', '', '', '', nowStamp(), state.email]]); loaded = false; edits = []; } catch (err) { ui.toast?.(String(err), 'error'); }
+  try { await updateRange(`LuachEdits!A${row}:H${row}`, [['', '', '', '', '', nowStamp(), state.email, '']]); loaded = false; edits = []; } catch (err) { ui.toast?.(String(err), 'error'); }
 }
 
 // ---------- PDF (דרוקן) ----------
@@ -489,7 +490,7 @@ const TX = {
   restore: ['החזר', 'צוריק', 'Restore'], added: ['נוסף ביד', 'צוגעלייגט', 'Added'], del: ['מחק', 'אויסמעקן', 'Delete'], add: ['הוסף', 'צולייגן', 'Add'],
   textPh: ['טקסט…', 'טעקסט…', 'Text…'], kHol: ['שורה ראשית', 'הויפט שורה', 'Main line'], kNote: ['הערה קטנה למטה', 'קליינע הערה', 'Small note'],
   kSmall: ['הערה בולטת', 'בולטע הערה', 'Highlighted note'], kHil: ['הילולא (עם נר)', 'הילולא (מיט א ליכט)', 'Hillula (with candle)'],
-  editNote: ['השינוי נשמר לתאריך הזה בלבד (בשנה הזו).', 'די ענדערונג איז נאר פאר דעם טאג.', 'The change applies to this date only.'],
+  editNote: ['השינוי נשמר לתאריך הזה בלבד (בשנה הזו), ורק למיקום הנוכחי.', 'די ענדערונג איז נאר פאר דעם טאג.', 'The change applies to this date only.'],
   from: ['מ', 'פון', 'From'], to: ['עד', 'ביז', 'To'], allYear: ['כל השנה', 'דאס גאנצע יאר', 'Whole year'],
   pdfHint: ['ייפתח חלון הדפסה: בחר "Save as PDF" / "שמור כ-PDF". הגודל 11.38×6.85 אינץ\' כולל 7 מ"מ bleed לחיתוך. בהגדרות: שוליים "ללא", ו-"גרפיקת רקע" מסומן.', 'עס עפנט זיך א דרוק-פענצטער: קלייבט "Save as PDF".', 'A print window opens: choose "Save as PDF". Margins: none; background graphics: on.'],
   zIn: ['הגדלה', 'גרעסער', 'Zoom in'], zOut: ['הקטנה', 'קלענער', 'Zoom out'], zFit: ['לגודל המסך', 'לויט דעם מסך', 'Fit to screen'],

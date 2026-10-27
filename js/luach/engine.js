@@ -320,7 +320,8 @@ export function buildYear(Y, extra = {}, opts = {}) {
   });
   // שיר השירים: שבת חוה"מ, און ווען ס'איז נישטא — שביעי של פסח
   // (חו"ל: שביעי של פסח · א"י: יום א' דפסח)
-  if (!(il ? [1, 2, 3, 4, 5] : [2, 3, 4, 5]).some((i) => dow(pesach + i) === 6)) add(il ? pesach : pesach + 6, 'small', 'שיר השירים');
+  // ווען פסח הייבט אן שבת (חו"ל) — שרייבט מען גארנישט (לויט דעם בעל הבית)
+  if (!(il ? [1, 2, 3, 4, 5] : [2, 3, 4, 5]).some((i) => dow(pesach + i) === 6) && (il || dow(pesach) !== 6)) add(il ? pesach : pesach + 6, 'small', 'שיר השירים');
   add(pesach + 6, 'hol', 'שביעי של פסח', { icon: 'matza', yt: true });
   if (il) { add(pesach + 6, 'small', 'יזכור'); add(pesach + 7, 'hol', 'אסרו חג'); } else {
     add(pesach + 7, 'hol', 'אחרון של פסח', { icon: 'matza2', yt: true }); add(pesach + 7, 'small', 'יזכור');
