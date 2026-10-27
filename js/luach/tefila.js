@@ -212,7 +212,7 @@ function minorFri(b, bp) {
   const fm = b.fri?.mode === 'custom';
   return `<div class="tf-minor tf-frib"><div class="tf-rf"><b>🕯 כשחל בערב שבת</b> — מנחה וקבלת שבת:
     ${sel(`${bp}.fri.mode`, [['regular', 'כרגיל (לפי לשונית שבת)'], ['custom', 'שעה מיוחדת']])}${fm ? tsHtml(b.fri.time, `${bp}.fri.time`, true)
-      : `${sel(`${bp}.fri.sign`, [['+', '+'], ['-', '−']])}${fld(`${bp}.fri.shift`, 'number', ' class="tf-w4" min="0"')} דק'`}</div></div>`;
+      : `${sel(`${bp}.fri.sign`, [['+', '+'], ['-', '−']])}${fld(`${bp}.fri.shift`, 'number', ' class="tf-w4" min="0" placeholder="0"')} דק'`}</div></div>`;
 }
 function blocksHtml(part) {
   const Y = upcomingYear(part);
@@ -222,7 +222,8 @@ function blocksHtml(part) {
     <div class="tf-bh">${fld(`${bp}.title`, 'text', ' class="tf-w16 tf-bt"')} ${sel(`${bp}.when`, WHEN[part])}
       <span class="muted small">${ds.length ? h(ds.length > 3 ? `${dateLabel(ds[0])} … ${dateLabel(ds[ds.length - 1])} (${ds.length} ימים)` : ds.map(dateLabel).join(' · ')) : '—'}</span>
       <span class="spacer"></span>${btn('up', bp, '↑', 'למעלה')}${btn('down', bp, '↓', 'למטה')}${btn('del', bp, '🗑', 'מחק בלוק')}</div>
-    ${part === 'minor' ? minorHead(b, bp) : ''}
+    ${part === 'yt' ? `<div class="tf-type ${b.type === 'chag' ? 'chag' : 'erev'}">${b.type === 'chag' ? '🕯 חג — מוצג כמו שבת' : '📅 ערב חג — מתנהג כמו ימות החול'}</div>` : ''}
+    ${part === 'minor' || (part === 'yt' && b.type !== 'chag') ? minorHead(b, bp) : ''}
     <div class="tf-rows">
     ${(b.rows || []).map((r, i) => { const p = `${bp}.rows.${i}`; return `<div class="tf-r">
       <div class="tf-rf${r.screen === false ? ' tf-off' : ''}"><label class="tf-scr" title="תצוגה במסך">${fld(`${p}.screen`, 'check')} 📺</label>${fld(`${p}.label`, 'text', ' class="tf-w12" placeholder="שם"')}${fld(`${p}.note`, 'text', ' class="tf-w10" placeholder="הערה"')}
@@ -230,10 +231,11 @@ function blocksHtml(part) {
       <div class="tf-times">${(r.times || []).map((T, ti) => `<span class="tf-tm">${tsHtml(T, `${p}.times.${ti}`)}${btn('delT', `${p}.times.${ti}`, '✕', 'הסר שעה')}</span>`).join('')}${btn('addT', `${p}.times`, '＋ שעה')}<span class="spacer"></span>${r.screen === false ? '' : dispBtn(r, p)}</div>
     </div>`; }).join('')}
     </div>
-    ${part === 'minor' ? minorFri(b, bp) : ''}
+    ${part === 'minor' || (part === 'yt' && b.type !== 'chag') ? minorFri(b, bp) : ''}
     ${canEdit() ? `<div class="tf-add"><button type="button" class="btn ghost" data-act="addR" data-p="${bp}.rows">➕ שורה</button></div>` : ''}
   </section>`; }).join('')}
-  ${canEdit() ? `<div class="tf-add"><button type="button" class="btn" data-act="addB" data-p="${part}">➕ בלוק</button></div>` : ''}`;
+  ${canEdit() ? (part === 'yt' ? `<div class="tf-add"><button type="button" class="btn" data-act="addB" data-p="yt" data-t="erev">➕ ערב חג</button><button type="button" class="btn" data-act="addB" data-p="yt" data-t="chag">➕ חג</button></div>`
+    : `<div class="tf-add"><button type="button" class="btn" data-act="addB" data-p="${part}">➕ בלוק</button></div>`) : ''}`;
 }
 
 // ---------- תצוגה מקדימה: וואס קומט ארויס פאר א טאג ----------
@@ -272,7 +274,12 @@ export async function openTefila(main, onBack) {
     data.yt.blocks = (data.yt.blocks || []).filter((b) => !mw.has(b.when));
     if (!data.minor.blocks.length) data.minor = defaults().minor;
   }
-  for (const b of data.minor.blocks || []) {
+  // ערב חג / חג (אלטע דאטן אן type)
+  const chagW = new Set(['pesach', 'shviiPesach', 'shavuos']);
+  for (const b of data.yt.blocks || []) if (!b.type) b.type = chagW.has(b.when) ? 'chag' : 'erev';
+  for (const b of data.yt.blocks || []) if (b.type === 'chag') for (const r of b.rows || []) if (!r.disp) r.disp = { ...dispDefault(r), place: 'shab' };
+  if (!data.yt.blocks.some((b) => b.when === 'erevShvii')) { const i = data.yt.blocks.findIndex((b) => b.when === 'shviiPesach'); const nb = defaults().yt.blocks.find((b) => b.when === 'erevShvii'); data.yt.blocks.splice(i < 0 ? data.yt.blocks.length : i, 0, nb); }
+  for (const b of [...(data.minor.blocks || []), ...(data.yt.blocks || []).filter((x) => x.type !== 'chag')]) {
     b.like = { minchaEve: true, maarivEve: true, shacharis: true, mincha: true, maarivMid: true, maariv: true, ...(b.like || {}) };
     b.own = { minchaEve: [], maarivEve: [], shacharis: [], mincha: [], maarivMid: [], maariv: [], ...(b.own || {}) };
     b.fri = b.fri || { mode: 'regular', time: null };
@@ -328,7 +335,12 @@ function render(main, onBack) {
     else if (act === 'condAdd') { const r = get(p); const g = p.split('.')[1]; r.cond = condOf(r, g) || []; r.cond.push({ dir: 'before', min: 0, base: 'shkia' }); }
     else if (act === 'condDel') { const ks = p.split('.'); const ci = Number(ks.pop()); ks.pop(); const r = get(ks.join('.')); r.cond = condOf(r, ks[1]) || []; r.cond.splice(ci, 1); if (!r.cond.length) r.cond = null; }
     else if (act === 'addS') data.shabbos.rows.push({ id: newId(), screen: true, label: '', day: 'sat', kind: 'tefila', season: 'all', time: { b: 'fixed', t: '' }, note: '' });
-    else if (act === 'addB') data[p].blocks.push({ id: newId(), title: 'בלוק חדש', when: WHEN[p][0][0], rows: [] });
+    else if (act === 'addB') {
+      const t = b.dataset.t;
+      data[p].blocks.push({ id: newId(), title: t === 'chag' ? 'חג' : t === 'erev' ? 'ערב חג' : 'בלוק חדש', when: WHEN[p][0][0], rows: [], ...(t ? { type: t } : {}),
+        like: { minchaEve: true, maarivEve: true, shacharis: true, mincha: true, maarivMid: true, maariv: true }, own: { minchaEve: [], maarivEve: [], shacharis: [], mincha: [], maarivMid: [], maariv: [] }, fri: { mode: 'regular', time: null } });
+    }
+    else if (act === 'addR' && get(p.replace(/\.rows$/, ''))?.type === 'chag') get(p).push({ id: newId(), screen: true, disp: { place: 'shab', from: { mode: 'dayStart', days: 1 }, to: { mode: 'pass', min: 0 } }, label: '', note: '', kind: 'tefila', on: 'all', times: [{ b: 'fixed', t: '' }] });
     else if (act === 'addR') get(p).push({ id: newId(), screen: true, label: '', note: '', kind: 'tefila', on: 'all', times: [{ b: 'fixed', t: '' }] });
     else if (act === 'addT') get(p).push({ b: 'fixed', t: '' });
     else if (act === 'del' || act === 'delT') {
