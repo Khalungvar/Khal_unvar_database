@@ -222,3 +222,4 @@
 .tf-r .tf-times { margin-top: 3px; padding-right: 12px; }
 .tf-main { min-width: 0; overflow-x: auto; }
 .tf-wrap { grid-template-columns: minmax(0, 1fr) 270px; }
+.tf-rebbe { border-color: var(--gold, #c9a24c); background: #fffaf0; }

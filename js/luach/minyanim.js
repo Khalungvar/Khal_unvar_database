@@ -53,6 +53,11 @@ export function defaults() {
   return {
     weekday: {
       shacharisNote: 'הודו +10 מינוט', maarivAfter: 50, defaultRoom: '',
+      // מנין כ"ק אדמו"ר שליט"א — באזונדער: א זמן מיט עיגול, און א "שטילע צייט" ארום אים ווען קיין אנדער מנין טאר נישט זיין
+      rebbe: {
+        mincha: { on: true, time: R('shkia', 25, 5), room: "חדר ב'", note: '', before: 30, after: 0, last: true },
+        maariv: { on: true, time: R('shkia', 60, 5), room: 'למטה', note: '', before: 0, after: 30 },
+      },
       shacharis: [
         W(F('05:30'), { fri: true }), W(F('06:00'), { room: "חדר ב'", auto: true, fri: true }), W(F('06:30'), { room: "חדר א'", fri: true }),
         W(F('07:00'), { room: "חדר ב'", fri: true }), W(F('07:30'), { room: "חדר א'", kahal: true, fri: true }), W(F('08:00'), { room: "חדר ב'", fri: true }),
@@ -62,10 +67,8 @@ export function defaults() {
       mincha: [
         W(F('12:45'), { room: "חדר ב'", season: 'winter' }), W(F('13:25'), { room: "חדר ב'" }), W(F('13:45'), { room: "חדר ב'", season: 'summer' }),
         ...['15:00', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30'].map((t) => W(F(t), { room: "חדר ב'", auto: !['16:00', '16:30', '17:00', '18:30'].includes(t) })),
-        W(R('shkia', 25, 5), { room: "חדר ב'", kahal: true, last: true }),
       ],
       maariv: [
-        W(R('shkia', 60, 5), { room: 'למטה', kahal: true, note: 'בערך' }),
         ...['20:00', '20:30', '21:00'].map((t) => W(F(t), { auto: true })),
         ...['21:30', '22:00', '22:30'].map((t) => W(F(t))),
       ],
@@ -194,6 +197,17 @@ export function computeWeekday(data, n, loc) {
   }
   const lastRow = (w.mincha || []).find((r) => r.last && inSeason(r.season, iso));
   out.last = lastRow ? timeOf(lastRow.time, zd) : null;
+  // מנין כ"ק: צולייגן, און אראפנעמען אנדערע מניינים אין דער "שטילער צייט" פאר/נאך אים
+  const rb = w.rebbe || defaults().weekday.rebbe;
+  for (const g of ['mincha', 'maariv']) {
+    const r = rb[g]; if (!r || !r.on) continue;
+    const m = timeOf(r.time, zd); if (m == null) continue;
+    const b = Number(r.before) || 0; const a = Number(r.after) || 0;
+    out[g] = out[g].filter((x) => !(x.min >= m - b && x.min <= m + a));
+    out[g].push({ min: m, room: r.room || w.defaultRoom || '', note: r.note || '', kahal: true, rebbe: true });
+    out[g].sort((x, y) => x.min - y.min);
+    if (g === 'mincha' && r.last) out.last = m;
+  }
   if (out.last != null) out.mincha = out.mincha.filter((x) => x.min <= out.last);
   out.shacharisNote = w.shacharisNote || '';
   return out;

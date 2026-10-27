@@ -97,7 +97,15 @@ function weekdayHtml() {
     </tbody></table>
     ${canEdit() ? `<div class="tf-add"><button type="button" class="btn" data-act="addW" data-p="${g}">➕ מניין ${title}</button> <button type="button" class="btn ghost" data-act="sortW" data-p="${g}">⇅ סדר לפי שעה</button></div>` : ''}
   </section>`).join('');
-  return `<p class="muted small">חדר שיוצג במסך כשלמניין לא נכתב חדר (אפשר להשאיר ריק): ${fld('weekday.defaultRoom', 'text', ' class="tf-w10" placeholder="למשל: ביהמ&quot;ד"')}</p>
+  const rb = (g, title) => { const p = `weekday.rebbe.${g}`; return `<tr><td><b>${title}</b></td><td>${fld(`${p}.on`, 'check')}</td><td>${tsHtml(get(`${p}.time`), `${p}.time`)}</td>
+      <td>${fld(`${p}.room`, 'text', ' class="tf-w8"')}</td><td>${fld(`${p}.note`, 'text', ' class="tf-w8"')}</td>
+      <td>${fld(`${p}.before`, 'number', ' class="tf-w4" min="0"')} דק'</td><td>${fld(`${p}.after`, 'number', ' class="tf-w4" min="0"')} דק'</td>
+      <td>${g === 'mincha' ? fld(`${p}.last`, 'check') : ''}</td></tr>`; };
+  const rebbe = `<section class="tf-grp tf-rebbe"><h3>מנין כ"ק מרן אדמו"ר שליט"א</h3>
+    <p class="muted small">שעה עם עיגול (למשל: שקיעה +25, עיגול ל-5). מניין אחר שנופל בתוך "אין מנין אחר" לפני או אחרי — לא יוצג באותו יום.</p>
+    <table class="tf-t"><thead><tr><th></th><th>פעיל</th><th>שעה</th><th>חדר</th><th>הערה</th><th>אין מנין אחר — לפניו</th><th>— אחריו</th><th>מנין אחרון</th></tr></thead><tbody>
+    ${rb('mincha', 'מנחה')}${rb('maariv', 'מעריב')}</tbody></table></section>`;
+  return `${rebbe}<p class="muted small">חדר שיוצג במסך כשלמניין לא נכתב חדר (אפשר להשאיר ריק): ${fld('weekday.defaultRoom', 'text', ' class="tf-w10" placeholder="למשל: ביהמ&quot;ד"')}</p>
     <p class="muted small">עונה: "קיץ" = כשהשעון בשעון קיץ (מאמצע מרץ עד תחילת נובמבר), "חורף" = שאר השנה.</p>${groups}`;
 }
 
@@ -168,6 +176,7 @@ function previewHtml() {
 export async function openTefila(main, onBack) {
   main.innerHTML = '<p class="muted">…</p>';
   await load();
+  if (!data.weekday.rebbe) data.weekday.rebbe = defaults().weekday.rebbe;
   render(main, onBack);
 }
 function render(main, onBack) {
