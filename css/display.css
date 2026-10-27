@@ -211,3 +211,11 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .shab:not(.pos-main) .sh-t { font-size: 29px; }
 .shab:not(.pos-main) .sh-t small.pre { display: inline; font-size: inherit; color: inherit; margin: 0 0 0 8px; }
 .shab:not(.pos-main) .sh-t small { margin-bottom: 2px; }
+/* המנין הבא — לויט דער סקיצע: ספירה לאחור אין ווינקל, קליינער טיטל, גרויס, חדר */
+.next .row1 { display: block; margin-top: 18px; }
+.next .lbl { font-size: 26px; }
+.next .lbl::before, .next .lbl::after { content: none; }
+.next .cd { position: absolute; top: -10px; left: 18px; font-size: 32px; padding: 0 18px; border: 2px solid rgba(139,26,26,.35); background: #fff3f0; box-shadow: 0 2px 6px rgba(0,0,0,.18); z-index: 2; }
+.next .big { margin-top: 6px; }
+.next .name, .next .time { font-size: 100px; }
+.next .room { font-size: 30px; margin-top: 2px; }
