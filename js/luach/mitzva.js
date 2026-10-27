@@ -52,7 +52,7 @@ export const CSS = `
 .mz-week .mz-row{font-size:14px;padding:1px 6px;line-height:1.25}
 .mz-week .mz-par{font-size:20px;margin:5px 0 2px;padding-top:3px;line-height:1.15}
 .mz-month{width:528px;height:816px;padding:44px 36px;box-sizing:border-box;display:flex;flex-direction:column}
-.mz-month .mz-title{font-size:24px;margin-bottom:14px;white-space:nowrap;color:#111}
+.mz-month .mz-title{font-size:24px;margin-bottom:14px;white-space:nowrap;color:#111;border:1.5px solid #111;border-radius:12px;padding:3px 10px 5px}
 .mz-month .mz-sub{font-size:18px;margin:0 0 14px}
 .mz-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:26px;align-content:start}
 .mz-month .mz-par{background:linear-gradient(90deg,#1e1e1e,#5c5c5c,#1e1e1e);color:#fff;border:none;font-size:16px;margin:12px 0 3px;padding:4px 0}

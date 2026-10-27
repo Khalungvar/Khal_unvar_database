@@ -199,8 +199,16 @@ export async function drawDomPage(PL, doc, fs, root, { widthPt, heightPt }) {
         }
       }
     }
-    // ראמען
-    [['Top', (w) => [r.left, r.top, r.width, w]], ['Bottom', (w) => [r.left, r.bottom - w, r.width, w]],
+    // ראמען — מיט קיילעכיגע עקן (border-radius), ווען אלע 4 זייטן זענען די זעלבע
+    const rad = parseFloat(cs.borderTopLeftRadius) || 0;
+    const bw = parseFloat(cs.borderTopWidth) || 0; const bc = parseColor(cs.borderTopColor);
+    const sameAll = ['Right', 'Bottom', 'Left'].every((sd) => parseFloat(cs[`border${sd}Width`]) === bw && cs[`border${sd}Style`] === cs.borderTopStyle);
+    if (rad > 0 && bw > 0 && sameAll && cs.borderTopStyle !== 'none' && bc && bc.a > 0) {
+      const w = r.width * K; const hh = r.height * K; const b = bw * K; const rr = Math.min(rad * K, w / 2, hh / 2);
+      const x0 = b / 2; const y0 = b / 2; const x1 = w - b / 2; const y1 = hh - b / 2; const q = Math.max(0, rr - b / 2);
+      const path = `M ${x0 + q} ${y0} L ${x1 - q} ${y0} Q ${x1} ${y0} ${x1} ${y0 + q} L ${x1} ${y1 - q} Q ${x1} ${y1} ${x1 - q} ${y1} L ${x0 + q} ${y1} Q ${x0} ${y1} ${x0} ${y1 - q} L ${x0} ${y0 + q} Q ${x0} ${y0} ${x0 + q} ${y0} Z`;
+      page.drawSvgPath(path, { x: X(r.left), y: Y(r.top), borderColor: rgb(bc.r, bc.g, bc.b), borderWidth: b, borderOpacity: op * bc.a });
+    } else [['Top', (w) => [r.left, r.top, r.width, w]], ['Bottom', (w) => [r.left, r.bottom - w, r.width, w]],
       ['Left', (w) => [r.left, r.top, w, r.height]], ['Right', (w) => [r.right - w, r.top, w, r.height]]].forEach(([side, geo]) => {
       const w = parseFloat(cs[`border${side}Width`]); const st = cs[`border${side}Style`];
       const c = parseColor(cs[`border${side}Color`]);
