@@ -268,11 +268,19 @@ export async function openTefila(main, onBack) {
   // תצוגה במסך — ברירת מחדל: פעיל
   for (const r of data.shabbos.rows || []) if (r.screen === undefined) r.screen = true;
   // ימי דפגרא ותעניות — אפגעטיילט פון יו"ט (אלטע דאטן)
-  if (!data.minor) {
-    const mw = new Set(WHEN.minor.map(([k]) => k));
-    data.minor = { blocks: (data.yt.blocks || []).filter((b) => mw.has(b.when)) };
-    data.yt.blocks = (data.yt.blocks || []).filter((b) => !mw.has(b.when));
-    if (!data.minor.blocks.length) data.minor = defaults().minor;
+  {
+    const mw = new Set(WHEN.minor.map(([k]) => k)); const yw = new Set(WHEN.yt.map(([k]) => k));
+    const moved = (data.yt.blocks || []).filter((b) => mw.has(b.when));
+    if (!data.minor) data.minor = defaults().minor;
+    if (moved.length) {
+      // אלטע בלאקן פון יו"ט → ימי דפגרא (אן די ליידיקע שורות פון שחרית/מנחה)
+      const strip = (b) => ({ ...b, rows: (b.rows || []).filter((r) => (r.times || []).length || !/^(שחרית|מנחה)$/.test(r.label)) });
+      data.minor.blocks = data.minor.blocks.filter((b) => !moved.some((m) => m.when === b.when)).concat(moved.map(strip));
+      const order = WHEN.minor.map(([k]) => k); data.minor.blocks.sort((x, y) => order.indexOf(x.when) - order.indexOf(y.when));
+    }
+    data.yt.blocks = (data.yt.blocks || []).filter((b) => yw.has(b.when));
+    for (const d of defaults().yt.blocks) if (!data.yt.blocks.some((b) => b.when === d.when)) data.yt.blocks.push(d);
+    const yo = WHEN.yt.map(([k]) => k); data.yt.blocks.sort((x, y) => yo.indexOf(x.when) - yo.indexOf(y.when));
   }
   // ערב חג / חג (אלטע דאטן אן type)
   const chagW = new Set(['pesach', 'shviiPesach', 'shavuos']);
