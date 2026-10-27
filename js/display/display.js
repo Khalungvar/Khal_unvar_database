@@ -197,11 +197,15 @@ function render() {
   const cdText = `${String(Math.floor(cd / 3600)).padStart(2, '0')}:${String(Math.floor((cd % 3600) / 60)).padStart(2, '0')}:${String(Math.floor(cd % 60)).padStart(2, '0')}`;
   const tm = (min) => hhmm(min);
   const pair = (a, b) => `<span class="pr">${tm(b)}<i>גר"א</i></span><span class="pr">${tm(a)}<i>מג"א</i></span>`;
-  const timesHtml = (arr) => arr.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}">${tm(((m.min % 1440) + 1440) % 1440)}${m.note === 'בערך' ? '<small style="font-size:20px"> בערך</small>' : ''}</span>`).join('');
+  // דוגמה (?chg=before / ?chg=after): הודעה לפני א שינוי, און "חדש" נאכן שינוי
+  const CHG = new URLSearchParams(location.search).get('chg');
+  const isNew = (m) => CHG === 'after' && Math.round(((m.min % 1440) + 1440) % 1440) === 12 * 60 + 40;
+  const timesHtml = (arr) => arr.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}${isNew(m) ? ' new' : ''}">${isNew(m) ? '<em>חדש</em>' : ''}${tm(((m.min % 1440) + 1440) % 1440)}${m.note === 'בערך' ? '<small style="font-size:20px"> בערך</small>' : ''}</span>`).join('');
 
-  const mnyHtml = (bd, pos) => `<div class="frame mny ${pos}">
+  const mnyHtml = (bd, pos) => `<div class="frame mny ${pos}${CHG === 'before' && pos === 'pos-main' ? ' has-chg' : ''}">
       <div class="ttl">זמני התפילות${swap ? ` <small>${h(YDAY[dowOf(wk)])}</small>` : ''}</div>
       ${bd.groups.map((g) => `<div class="grp"><h3>${h(g.h)}${g.sub ? ` <small>${h(g.sub)}</small>` : ''}</h3><div class="times">${timesHtml(g.items)}</div></div>`).join('')}
+      ${CHG === 'before' && pos === 'pos-main' ? '<div class="chg-note">⚠ שימו לב: <b>מיום ראשון</b> ט\' כסלו — מנחה <b>12:40</b> במקום <b>1:45</b></div>' : ''}
     </div>`;
   function shabHtml(eve, d, pos) {
     const ze = zOf(eve); const zd = zOf(d); const shab = dowOf(d) === 6;
