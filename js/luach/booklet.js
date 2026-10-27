@@ -101,9 +101,9 @@ export function richLines(text) {
     if (s.startsWith('## ')) { cls = 'bk-l bk-l2'; body = s.slice(3); } else if (s.startsWith('# ')) { cls = 'bk-l bk-l1'; body = s.slice(2); } else if (s.startsWith('~~ ')) { cls = 'bk-l bk-l4'; body = s.slice(3); } else if (s.startsWith('~ ')) { cls = 'bk-l bk-l3'; body = s.slice(2); } else if (s.startsWith('* ')) { cls = 'bk-l bk-lb'; body = s.slice(2); }
     if (!body.trim()) return '<div class="bk-sp"></div>';
     const latin = !/[֐-׿]/.test(body);
-    const st = adj ? ` style="font-size:calc(1em + ${(adj * 0.1).toFixed(2)}em)"` : '';
-    const inner = adj ? `<span${st}>${h(body)}</span>` : h(body);
-    return `<div class="${cls}${latin ? ' bk-lat' : ''}"${latin ? ' dir="ltr"' : ''}>${inner}</div>`;
+    // די גרייס אויפן שורה גופא (נישט אויף אן אינעווייניגן span) — אזוי ווערט אויך דער אינטערוואל צווישן שורות קלענער
+    const st = adj ? ` style="font-size:${(1 + adj * 0.1).toFixed(2)}em;line-height:1.12"` : '';
+    return `<div class="${cls}${latin ? ' bk-lat' : ''}"${latin ? ' dir="ltr"' : ''}${st}>${h(body)}</div>`;
   }).join('');
 }
 
