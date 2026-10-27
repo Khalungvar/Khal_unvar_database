@@ -198,6 +198,7 @@ const BK_CSS = `
 .bk-dz{font-family:'Livorna','Frank Ruhl Libre',serif;font-weight:700;font-size:1.05em;margin-top:3px;letter-spacing:1px}
 .bk-dsep{font-size:.9em;color:#555;margin:6px 0}
 .bk-empty{color:#999;font-size:1.1em}
+.bk-nod{display:flex;gap:6px;align-items:center;font-size:13px;margin-top:6px}
 .bk-thumbs{display:flex;flex-wrap:wrap;gap:18px;justify-content:center;padding:10px 0}
 .bk-th{display:flex;flex-direction:column;align-items:center;gap:6px}
 .bk-th>.bk-sc{width:264px;height:408px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.25);background:#fff}
@@ -233,18 +234,21 @@ const p2Html = () => `<div class="bk-pg"><img class="bk-bg" src="${IMG('p2.jpg')
 const DEF_SHIUR = '## לשמוע שיעור יומי בסדר המצות (אידיש)\nקול אונגוואר: 605-477-4427 אחריו 3 ואחריו 1';
 const shiurBar = () => `<div class="bk-shiur">${richLines(setting('shiur_text') || DEF_SHIUR)}</div>`;
 const p3Html = (p) => `<div class="bk-pg"><img class="bk-bg" src="${IMG('bgL.jpg')}" alt=""><div style="position:absolute;inset:0">${monthHtml(p, shiurBar())}</div></div>`;
+// "אין הנצחה" פאר א חודש (ברירת מחדל: יא — א מסגרת, אויך ליידיג)
+const noDed = (key) => setting(`noded|${key}`) === '1';
+const EMPTY_DED = '<div style="height:6em"></div>';
 function p4Html(key) {
   // למעלה: ההנצחות במסגרת; למטה: א קליינע משבצת מיט די פרטים פונעם מכון
-  const list = monthDeds(key);
+  const list = monthDeds(key); const none = noDed(key);
   return `<div class="bk-pg"><img class="bk-bg" src="${IMG('bgR.jpg')}" alt="">
-    <div class="bk-fit-area" style="top:36px;right:44px;width:440px;height:560px">${frame(list.length ? dedHtml(list) : '<div class="bk-empty">(הנצחה)</div>', { fk: 0.2, maxh: 470, k: 1.35 })}</div>
-    <div class="bk-abs bk-info" style="top:626px;right:124px;width:280px;height:150px"><div class="bk-fit" data-k="0.82">${richLines(setting('info_text'))}</div></div>
+    ${none ? '' : `<div class="bk-fit-area" style="top:36px;right:44px;width:440px;height:560px">${frame(list.length ? dedHtml(list) : EMPTY_DED, { fk: 0.2, maxh: 470, k: 1.35 })}</div>`}
+    <div class="bk-abs bk-info" style="top:${none ? 333 : 626}px;right:124px;width:280px;height:150px"><div class="bk-fit" data-k="0.82">${richLines(setting('info_text'))}</div></div>
   </div>`;
 }
 function backHtml(key) {
   const list = monthDeds(key);
   return `<div class="bk-pg"><img class="bk-bg" src="${IMG('bgR.jpg')}" alt="">
-    <div class="bk-fit-area" style="top:50px;right:50px;width:428px;height:716px">${frame(list.length ? dedHtml(list) : '<div class="bk-empty">(הנצחה)</div>', { fk: 0.24, maxh: 590, k: 1.6 })}</div>
+    ${noDed(key) ? '' : `<div class="bk-fit-area" style="top:50px;right:50px;width:428px;height:716px">${frame(list.length ? dedHtml(list) : EMPTY_DED, { fk: 0.24, maxh: 590, k: 1.6 })}</div>`}
   </div>`;
 }
 
@@ -416,7 +420,7 @@ export async function openBooklet(main, onBack, opts = {}) {
 let viewer = null;
 const built = new Map(); // monthKey → { sig, bytes, url } | { sig, promise }
 let buildToken = 0;
-const sigOf = (key) => JSON.stringify([monthDeds(key).map((d) => [d.id, d.sort, d.kind, d.name, d.text]), setting('cover_text'), setting('info_text'), setting('shiur_text')]);
+const sigOf = (key) => JSON.stringify([monthDeds(key).map((d) => [d.id, d.sort, d.kind, d.name, d.text]), setting('cover_text'), setting('info_text'), setting('shiur_text'), noDed(key)]);
 const nextMonth = (m) => { let { Y, ix } = m; ix += 1; if (ix >= buildYear(Y).pages.length) { Y += 1; ix = 0; } return { Y, ix }; };
 
 function render(main) {
@@ -454,6 +458,7 @@ function render(main) {
           }).join('') || '<li class="muted">אין עדיין הנצחות לחודש הזה</li>'}</ul>
           <p><button type="button" class="btn" id="bk-add">＋ הנצחה</button>
             <button type="button" class="btn ghost" id="bk-copy">⧉ העתק מהחודש הקודם</button></p>
+          <label class="bk-nod"><input type="checkbox" id="bk-noded"${noDed(key) ? ' checked' : ''}> אין הנצחה החודש (בלי מסגרת בעמוד 4 ובכריכה)</label>
         </section>
         <section class="bk-sum">
           <h4>📖 תוכן</h4>
@@ -496,6 +501,10 @@ function render(main) {
       for (const d of prev) await appendRow('BookletDedications', [newId(), key, d.sort, d.kind, d.name, d.text, d.contact_id, '', nowStamp(), state.email, '']);
       await loadData(true); render(main); ui.toast?.(`הועתקו ${prev.length}`);
     } catch (err) { ui.toast?.(String(err.message || err), 'error'); }
+  };
+  $('#bk-noded', main).onchange = async (e) => {
+    e.target.disabled = true;
+    try { await saveSetting(`noded|${key}`, e.target.checked ? '1' : ''); render(main); } catch (err) { e.target.disabled = false; ui.toast?.(String(err.message || err), 'error'); }
   };
   const tx = $('#bk-txt', main); if (tx) tx.onclick = () => textDialog(main);
   showPdf(main, { ...cur }, key, p);
