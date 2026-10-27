@@ -166,7 +166,11 @@ function YT_BLOCKS() {
   const E = (t, w) => ({ ...block(t, w, []), type: 'erev' });
   const C = (t, w) => ({ ...block(t, w, chagRows(w)), type: 'chag' });
   return [
-    E('ערב פסח', 'erevPesach'), C('פסח', 'pesach'),
+    E('ערב פסח', 'erevPesach'),
+    { ...block('ערב פסח שחל בשבת', 'erevPesachShabbos', [
+      ['שחרית', 0], ['מנחה וקבלת שבת', 0], ['שחרית', 1], ['סוף זמן אכילת חמץ', 1, 'other'], ['מנחה', 1],
+    ].map(([l, on, kind]) => ({ ...row(l, []), on, ...(kind ? { kind } : {}), screen: true, fri: { on: false, times: [] }, disp: { place: 'shab', from: { mode: 'dayStart', days: 1 }, to: { mode: 'pass', min: 0 } } }))), type: 'chag' },
+    C('פסח', 'pesach'),
     { ...E('חול המועד פסח', 'cholPesach'), type: 'chm' }, C('שבת חול המועד פסח', 'shabbosChmPesach'), E('ערב שביעי של פסח', 'erevShvii'), C('שביעי ואחרון של פסח', 'shviiPesach'),
     E('ערב שבועות', 'erevShavuos'), C('שבועות', 'shavuos'),
   ];
@@ -179,7 +183,7 @@ export const WHEN = {
     ['hoshana', 'הושענא רבה'], ['shmini', 'שמיני עצרת ושמחת תורה'], ['bereishis', 'שבת בראשית']],
   minor: [['chanuka', 'חנוכה'], ['asaraTeves', 'עשרה בטבת'], ['taanisEsther', 'תענית אסתר'], ['purim', 'פורים'], ['lagBaomer', 'ל"ג בעומר'],
     ['tamuz17', 'י"ז בתמוז'], ['tishaBav', 'תשעה באב']],
-  yt: [['erevPesach', 'ערב פסח'], ['pesach', 'פסח (ב\' ימים)'], ['cholPesach', 'חול המועד פסח'], ['shabbosChmPesach', 'שבת חול המועד פסח'], ['erevShvii', 'ערב שביעי של פסח'], ['shviiPesach', 'שביעי ואחרון של פסח'], ['erevShavuos', 'ערב שבועות'], ['shavuos', 'שבועות']],
+  yt: [['erevPesach', 'ערב פסח'], ['erevPesachShabbos', 'ערב פסח שחל בשבת (ו\' + ש\')'], ['pesach', 'פסח (ב\' ימים)'], ['cholPesach', 'חול המועד פסח'], ['shabbosChmPesach', 'שבת חול המועד פסח'], ['erevShvii', 'ערב שביעי של פסח'], ['shviiPesach', 'שביעי ואחרון של פסח'], ['erevShavuos', 'ערב שבועות'], ['shavuos', 'שבועות']],
 };
 const yc = new Map();
 const yearDays = (Y) => { if (!yc.has(Y)) yc.set(Y, buildYear(Y, {}, {})); return yc.get(Y).days; };
@@ -214,7 +218,8 @@ export function daysOf(when, Y) {
     case 'asaraTeves': return findHol(Y, /עשרה בטבת/);
     case 'taanisEsther': return findHol(Y, /תענית אסתר/);
     case 'purim': return findHol(Y, /^פורים$|^פורים \(/);
-    case 'erevPesach': return findHol(Y, /^ערב פסח/);
+    case 'erevPesach': { const e = at('Nisan', 14); return e != null && dowOf(e) !== 6 ? [e] : []; }
+    case 'erevPesachShabbos': { const e = at('Nisan', 14); return e != null && dowOf(e) === 6 ? [e - 1, e] : []; }
     case 'pesach': { const p = at('Nisan', 15); return [p, p + 1]; }
     case 'cholPesach': return range(at('Nisan', 17), at('Nisan', 19)).filter((n) => dowOf(n) !== 6);
     case 'shabbosChmPesach': return range(at('Nisan', 17), at('Nisan', 20)).filter((n) => dowOf(n) === 6);

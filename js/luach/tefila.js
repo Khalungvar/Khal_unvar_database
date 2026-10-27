@@ -224,9 +224,9 @@ function blocksHtml(part) {
   const Y = upcomingYear(part);
   const bs = data[part].blocks || [];
   return `<p class="muted small">התאריכים מחושבים לבד כל שנה (מוצג: ${hebrewNumber(Y % 1000)}). השעות — לעדכן כל שנה, או לקבוע ביחס לשקיעה וכו'.</p>
-  ${bs.map((b, bi) => { const bp = `${part}.blocks.${bi}`; const ds = daysOf(b.when, Y); return `<section class="tf-blk">
+  ${bs.map((b, bi) => { const bp = `${part}.blocks.${bi}`; let ds = daysOf(b.when, Y); let nextY = 0; if (!ds.length) { for (let y = Y + 1; y < Y + 40; y += 1) { const d2 = daysOf(b.when, y); if (d2.length) { ds = d2; nextY = y; break; } } } return `<section class="tf-blk">
     <div class="tf-bh">${fld(`${bp}.title`, 'text', ' class="tf-w16 tf-bt"')} ${sel(`${bp}.when`, WHEN[part])}
-      <span class="muted small">${ds.length ? h(ds.length > 3 ? `${dateLabel(ds[0])} … ${dateLabel(ds[ds.length - 1])} (${ds.length} ימים)` : ds.map(dateLabel).join(' · ')) : '—'}</span>
+      <span class="muted small">${ds.length ? h(ds.length > 3 ? `${dateLabel(ds[0])} … ${dateLabel(ds[ds.length - 1])} (${ds.length} ימים)` : ds.map(dateLabel).join(' · ')) + (nextY ? ` (הפעם הבאה: ${hebrewNumber(nextY % 1000)})` : '') : '—'}</span>
       <span class="spacer"></span>${ds.length ? `<button type="button" class="tf-mini tf-pvb" data-act="pv" data-d="${isoOf(b.type === 'chag' ? ds[0] - 1 : ds[0])}" data-t="${b.type === 'chag' ? '15:00' : '11:00'}" title="לראות במסך">👁 תצוגה</button>` : ''}${btn('up', bp, '↑', 'למעלה')}${btn('down', bp, '↓', 'למטה')}${btn('del', bp, '🗑', 'מחק בלוק')}</div>
     ${part === 'yt' ? `<div class="tf-type ${b.type || 'erev'}">${b.type === 'chag' ? '🕯 חג — מוצג כמו שבת' : b.type === 'chm' ? '🌿 חול המועד' : '📅 ערב חג — מתנהג כמו ימות החול'}</div>` : ''}
     ${part === 'minor' || (part === 'yt' && b.type !== 'chag') ? minorHead(b, bp) : ''}
@@ -290,7 +290,7 @@ export async function openTefila(main, onBack) {
     const yo = WHEN.yt.map(([k]) => k); data.yt.blocks.sort((x, y) => yo.indexOf(x.when) - yo.indexOf(y.when));
   }
   // ערב חג / חג (אלטע דאטן אן type)
-  const chagW = new Set(['pesach', 'shviiPesach', 'shavuos', 'shabbosChmPesach']);
+  const chagW = new Set(['pesach', 'shviiPesach', 'shavuos', 'shabbosChmPesach', 'erevPesachShabbos']);
   for (const b of data.yt.blocks || []) { if (!b.type) b.type = chagW.has(b.when) ? 'chag' : 'erev'; if (b.when === 'cholPesach' && b.type === 'erev') b.type = 'chm'; }
   // חג מיט די אלטע ליידיקע שורות (שחרית/מנחה) → מנחה ומעריב · שחרית · מנחה ומעריב
   for (const b of data.yt.blocks || []) if (b.type === 'chag' && (b.rows || []).every((r) => !(r.times || []).length && /^(שחרית|מנחה)$/.test(r.label))) b.rows = chagRows(b.when);
