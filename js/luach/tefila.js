@@ -60,7 +60,7 @@ function tsHtml(T, path, allowNone = false) {
   const rk = T && T.b !== 'fixed' ? `${T.r || 1}${T.m || 'n'}` : '1n';
   return `<span class="tf-ts" data-ts="${h(path)}"><select data-k="b"${dis}>${opts}</select>${
     !T ? '' : T.b === 'fixed' ? `<input type="time" data-k="t" value="${h(T.t || '')}"${dis}>`
-      : `<input type="number" data-k="a" value="${Number(T.a) || 0}" step="1" title="מינוט (+ אחרי / − לפני)"${dis}><select data-k="r"${dis}>${ROUNDS.map(([k, l]) => `<option value="${k}"${k === rk ? ' selected' : ''}>${h(l)}</option>`).join('')}</select>`}</span>`;
+      : `<select data-k="sg" class="tf-sg" title="+ אחרי / − לפני"${dis}><option value="+"${(Number(T.a) || 0) >= 0 && !T._neg ? ' selected' : ''}>+</option><option value="-"${(Number(T.a) || 0) < 0 || T._neg ? ' selected' : ''}>−</option></select><input type="number" min="0" data-k="a" value="${Math.abs(Number(T.a) || 0)}" step="1" title="דקות"${dis}><select data-k="r"${dis}>${ROUNDS.map(([k, l]) => `<option value="${k}"${k === rk ? ' selected' : ''}>${h(l)}</option>`).join('')}</select>`}</span>`;
 }
 function tsChange(path, k, v) {
   let T = get(path);
@@ -72,7 +72,8 @@ function tsChange(path, k, v) {
   }
   if (!T) return false;
   if (k === 't') T.t = v;
-  else if (k === 'a') T.a = Number(v) || 0;
+  else if (k === 'a') { const neg = (Number(T.a) || 0) < 0 || T._neg; T.a = Math.abs(Number(v) || 0) * (neg ? -1 : 1); if (T.a) delete T._neg; }
+  else if (k === 'sg') { const abs = Math.abs(Number(T.a) || 0); T.a = v === '-' ? -abs : abs; if (v === '-' && !abs) T._neg = true; else delete T._neg; }
   else if (k === 'r') { T.r = parseInt(v, 10) || 1; T.m = v.replace(/\d+/, '') || 'n'; }
   return false;
 }

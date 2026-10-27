@@ -249,3 +249,5 @@
 .tf-own { display: flex; gap: 8px; align-items: flex-start; padding-right: 10px; }
 .tf-own b { min-width: 3.5em; padding-top: 4px; }
 .tf-frib { background: #f6efe2; border-color: #d8c49a; margin-top: 8px; }
+.tf-sg { width: 3em; font-weight: 900; text-align: center; }
+.tf-ts select[data-k="r"] { max-width: 10em; }
