@@ -49,7 +49,10 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .pr { display: inline-flex; align-items: baseline; gap: 4px; width: 112px; direction: ltr; }
 .pr + .pr { margin-left: 10px; }
 .pr i { font-style: normal; font-family: var(--serif); font-size: 16px; font-weight: 700; color: var(--muted); direction: rtl; }
-.zm tr.hl td { color: #8b1a1a; font-weight: 700; }
+.zm td:first-child { font-weight: 500; }
+.zm tr.nx td { background: #fff; font-weight: 900; border-top: 2px solid var(--gold); border-bottom: 2px solid var(--gold); }
+.zm tr.nx td:first-child { border-right: 2px solid var(--gold); border-radius: 0 8px 8px 0; padding-right: 8px; }
+.zm tr.nx td:last-child { border-left: 2px solid var(--gold); border-radius: 8px 0 0 8px; }
 .zm .note { margin: 6px 18px 0; text-align: center; font-family: var(--serif); font-weight: 700; font-size: 24px; color: var(--navy); line-height: 1.2; }
 .zm .note .chg { color: #fff; background: #a3191b; font-weight: 900; font-size: 28px; padding: 0 12px 2px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
 .zm .omer { margin: 2px 18px 0; text-align: center; font-family: var(--serif); font-weight: 700; font-size: 21px; color: #8b1a1a; line-height: 1.15; }

@@ -114,6 +114,8 @@ function render() {
     ['חצות', z.chatzos], ['שקיעת החמה', z.shkia, null, true], ['רבינו תם', z.shkia + 72],
   ];
   if (dw === 5) rows.push(['הדלקת נרות', z.candles, null, true]);
+  // דער קומענדיגער זמן (ביי מג"א/גר"א — ביז דער שפעטערער)
+  const nxz = rows.findIndex(([, a, b]) => Math.max(a, b ?? a) >= nowMin);
   const holAll = (day?.items || []).filter((i) => i.kind === 'hol').map((i) => i.text).join(' · ');
   const adds = additions(n, day);
   // ספירת העומר: ביז שקיעה — וואס מ'האט געציילט נעכטן ביינאכט; נאך שקיעה — וואס מ'ציילט היינט ביינאכט
@@ -232,7 +234,7 @@ function render() {
     <div class="frame zm">
       <div class="ttl">זמני היום</div>
       <table>
-        ${rows.map(([l, a, b, hl]) => `<tr${hl ? ' class="hl"' : ''}><td>${h(l)}</td><td>${b == null ? tm(a) : pair(a, b)}</td></tr>`).join('')}
+        ${rows.map(([l, a, b], i) => `<tr${i === nxz ? ' class="nx"' : ''}><td>${h(l)}</td><td>${b == null ? tm(a) : pair(a, b)}</td></tr>`).join('')}
       </table>
       <div class="note">${adds.map((a, i) => (i ? `<span class="chg">${h(a)}</span>` : h(a))).join(' · ')}</div>
       ${omer ? `<div class="omer">${nowMin >= z.shkia ? 'הלילה: ' : ''}${h(omer)}</div>` : ''}
