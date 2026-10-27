@@ -88,10 +88,10 @@ function weekdayHtml() {
   const w = data.weekday;
   const groups = GROUPS.map(([g, title]) => `<section class="tf-grp">
     <h3>${title}${g === 'shacharis' ? ` <small>הערה: ${fld('weekday.shacharisNote', 'text', ' class="tf-w12"')}</small>` : ''}${g === 'maariv' ? ` <small>מעריב בשעה קבועה "תלוי" — רק ${fld('weekday.maarivAfter', 'number', ' class="tf-w4"')} דק' אחרי השקיעה</small>` : ''}</h3>
-    <table class="tf-t"><thead><tr><th>שעה</th><th>חדר</th><th>הערה</th><th>עונה</th><th title="תלוי בזמני היום: שחרית רק אחרי עלות, מנחה רק לפני השקיעה, מעריב רק אחרי השקיעה">תלוי*</th><th>מנין כ"ק</th>${g === 'shacharis' ? '<th>גם בער"ש</th>' : ''}${g === 'mincha' ? '<th>מנין אחרון</th>' : ''}<th></th></tr></thead><tbody>
+    <table class="tf-t"><thead><tr><th>שעה</th><th>חדר</th><th>הערה</th><th>עונה</th><th title="תלוי בזמני היום: שחרית רק אחרי עלות, מנחה רק לפני השקיעה, מעריב רק אחרי השקיעה">תלוי*</th>${g === 'shacharis' ? '<th>גם בער"ש</th>' : ''}${g === 'mincha' ? '<th>מנין אחרון</th>' : ''}<th></th></tr></thead><tbody>
     ${(w[g] || []).map((r, i) => { const p = `weekday.${g}.${i}`; return `<tr>
       <td>${tsHtml(r.time, `${p}.time`)}</td><td>${fld(`${p}.room`, 'text', ' class="tf-w8"')}</td><td>${fld(`${p}.note`, 'text', ' class="tf-w10"')}</td>
-      <td>${sel(`${p}.season`, SEASONS)}</td><td>${fld(`${p}.auto`, 'check')}</td><td>${fld(`${p}.kahal`, 'check')}</td>
+      <td>${sel(`${p}.season`, SEASONS)}</td><td>${fld(`${p}.auto`, 'check')}</td>
       ${g === 'shacharis' ? `<td>${fld(`${p}.fri`, 'check')}</td>` : ''}${g === 'mincha' ? `<td>${fld(`${p}.last`, 'check')}</td>` : ''}
       <td class="tf-acts">${btn('del', p, '🗑', 'מחק')}</td></tr>`; }).join('')}
     </tbody></table>
