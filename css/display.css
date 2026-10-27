@@ -297,3 +297,4 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .lrn-m .l2 { font-family: var(--serif); font-weight: 900; color: var(--ink); line-height: 1.15; white-space: nowrap; overflow: hidden; }
 .lrn-m.lrn-d .l2 { color: var(--navy); }
 .lrn-s { top: 688px; height: 242px; }
+.next .lbl { font-size: 40px; } .next .room { font-size: 45px; }
