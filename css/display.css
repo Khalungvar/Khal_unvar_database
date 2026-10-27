@@ -270,3 +270,4 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .lrn-s .shiur > div b { font-family: 'Frank Ruhl Libre', serif; font-size: 19px; }
 .lrn-s .shiur > div small { font-size: 15px; }
 .lrn-s .shiur > div.nx { color: var(--navy); font-weight: 700; } .lrn-s .shiur > div.nx b { font-size: 21px; }
+.lrn-m .txt { font-size: 23px; } .lrn-m .num { font-size: 40px; } .lrn-m .num.daf { font-size: 38px; } .lrn-m { justify-content: center; } .lrn-m .rule { margin: 14px -12px 10px; }
