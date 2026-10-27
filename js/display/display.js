@@ -316,12 +316,32 @@ function render() {
     if (AD) $('#adlayer').innerHTML = `<div class="ad">${adHtml()}</div>`;
   }
   $('#dyn').innerHTML = main;
+  // לוח המניינים (חול): די אותיות ווערן אזוי גרויס אז זיי פילן אויס די מסגרת
+  for (const box of document.querySelectorAll('#dyn .mny')) fitBoard(box);
   // .fit: גרויס ווי מעגליך, אבער אין איין שורה אין דער מסגרת
   for (const el of document.querySelectorAll('#dyn .fit')) {
     let fs = 40; el.style.fontSize = `${fs}px`;
     while (el.scrollWidth > el.clientWidth + 1 && fs > 14) { fs -= 1; el.style.fontSize = `${fs}px`; }
   }
   $('#dynb').innerHTML = bot;
+}
+const boardCache = new Map();
+function fitBoard(box) {
+  const els = [...box.querySelectorAll('.grp h3, .times span, .times.rbt i')];
+  const key = `${box.className}|${box.textContent}`;
+  const apply = (k) => els.forEach((e) => { e.style.fontSize = `${(Number(e.dataset.b) * k).toFixed(1)}px`; });
+  els.forEach((e) => { if (!e.dataset.b) e.dataset.b = parseFloat(getComputedStyle(e).fontSize); });
+  const gaps = box.querySelectorAll('.grp');
+  if (boardCache.has(key)) { apply(boardCache.get(key)); return; }
+  let best = 0.6;
+  for (let k = 1.6; k >= 0.6; k -= 0.04) {
+    apply(k); gaps.forEach((g) => { g.style.marginTop = `${Math.round(8 * k)}px`; });
+    const br = box.getBoundingClientRect(); const sc = br.height / box.offsetHeight || 1;
+    const bottom = Math.max(...[...box.children].map((c) => c.getBoundingClientRect().bottom));
+    const tooWide = els.some((e) => e.closest('.times') && e.closest('.times').scrollWidth > e.closest('.times').clientWidth + 1);
+    if (bottom <= br.bottom - 16 * sc && !tooWide) { best = k; break; }
+  }
+  apply(best); boardCache.set(key, best); if (boardCache.size > 50) boardCache.clear();
 }
 // די מודעה ווערט נישט איבערגעצייכנט יעדע סעקונדע (א ווידעא וואלט זיך אנגעהויבן פון אנפאנג)
 function adHtml() {
