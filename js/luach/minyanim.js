@@ -310,6 +310,7 @@ export function computeSpecial(data, n, loc) {
           if (r.on === 'all' || r.on == null) return ds.includes(n);
           if (r.on === 'wed') return ds.includes(n) && dowOf(n) === 3;
           if (r.on === 'fri') return ds.includes(n) && dowOf(n) === 5;
+          if (r.on === 'last') return ds[ds.length - 1] === n;
           const i = Number(r.on);
           return i < 0 ? ds[0] + i === n : ds[i] === n;
         }).map((r) => ({ label: r.label, note: r.note, kind: r.kind, screen: r.screen !== false, mins: (r.times || []).map((t) => timeOf(t, zd)).filter((m) => m != null) }));
