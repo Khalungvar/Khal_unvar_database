@@ -48,7 +48,15 @@ const inSeason = (s, iso) => !s || s === 'all' || (s === 'summer') === isSummer(
 
 // ---------- ברירת מחדל: פונעם לוח השנה (צו איבערקוקן) + די אלטע תוכנה ----------
 let uid = 0; const id = () => `m${Date.now().toString(36)}${(uid += 1)}`;
-const W = (time, o = {}) => ({ id: id(), time, room: '', note: '', season: 'all', auto: false, kahal: false, fri: false, last: false, ...o });
+const W = (time, o = {}) => ({ id: id(), time, room: '', note: '', season: 'all', cond: null, kahal: false, fri: false, last: false, ...o });
+// "תלוי": דער מנין ווערט געוויזן נאר אויב ער איז {לפני/אחרי} {X דק'} {זמן}
+const C = (dir, min, base) => ({ dir, min, base });
+/** אלטע "auto" → cond */
+export function condOf(r, g) {
+  if (r.cond !== undefined) return r.cond;
+  if (!r.auto) return null;
+  return g === 'shacharis' ? C('after', 0, 'alos') : g === 'mincha' ? C('before', 0, 'shkia') : C('after', 50, 'shkia');
+}
 export function defaults() {
   return {
     weekday: {
@@ -60,17 +68,17 @@ export function defaults() {
         maariv: { on: true, time: R('shkia', 60, 5), room: 'למטה', note: '', before: 0, after: 30 },
       },
       shacharis: [
-        W(F('05:30'), { fri: true }), W(F('06:00'), { room: "חדר ב'", auto: true, fri: true }), W(F('06:30'), { room: "חדר א'", fri: true }),
+        W(F('05:30'), { fri: true }), W(F('06:00'), { room: "חדר ב'", cond: C('after', 0, 'alos'), fri: true }), W(F('06:30'), { room: "חדר א'", fri: true }),
         W(F('07:00'), { room: "חדר ב'", fri: true }), W(F('08:00'), { room: "חדר ב'", fri: true }),
         W(F('08:30'), { room: "חדר א'", fri: true }), W(F('09:00'), { room: "חדר ב'", fri: true }), W(F('09:30'), { room: 'למטה', fri: true }),
         W(F('10:00'), { room: "חדר ב'", fri: true }),
       ],
       mincha: [
         W(F('12:45'), { room: "חדר ב'", season: 'winter' }), W(F('13:25'), { room: "חדר ב'" }), W(F('13:45'), { room: "חדר ב'", season: 'summer' }),
-        ...['15:00', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30'].map((t) => W(F(t), { room: "חדר ב'", auto: !['16:00', '16:30', '17:00', '18:30'].includes(t) })),
+        ...['15:00', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30'].map((t) => W(F(t), { room: "חדר ב'", cond: ['16:00', '16:30', '17:00', '18:30'].includes(t) ? null : C('before', 0, 'shkia') })),
       ],
       maariv: [
-        ...['20:00', '20:30', '21:00'].map((t) => W(F(t), { auto: true })),
+        ...['20:00', '20:30', '21:00'].map((t) => W(F(t), { cond: C('after', 50, 'shkia') })),
         ...['21:30', '22:00', '22:30'].map((t) => W(F(t))),
       ],
     },
@@ -191,10 +199,14 @@ export function computeWeekday(data, n, loc) {
   const w = data.weekday; const iso = isoOf(n); const zd = dayZ(iso, loc); const fri = dowOf(n) === 5;
   const ok = (r) => inSeason(r.season, iso) && (!fri || r.fri);
   const mk = (r) => ({ min: timeOf(r.time, zd), room: r.room || w.defaultRoom || '', note: r.note || '', kahal: !!r.kahal, last: !!r.last });
-  const valid = (g, x) => x.min != null && (!x.auto || (g === 'shacharis' ? x.min >= zd.alos : g === 'mincha' ? x.min <= zd.shkia : x.min >= zd.shkia + (Number(w.maarivAfter) || 50)));
+  const valid = (x) => {
+    if (x.min == null) return false; const c = x.cond; if (!c) return true;
+    const base = zd[c.base]; if (!Number.isFinite(base)) return true;
+    return c.dir === 'before' ? x.min <= base - (Number(c.min) || 0) : x.min >= base + (Number(c.min) || 0);
+  };
   const out = {};
   for (const g of ['shacharis', 'mincha', 'maariv']) {
-    out[g] = (w[g] || []).filter(ok).map((r) => ({ ...mk(r), auto: r.auto })).filter((x) => valid(g, x)).sort((a, b) => a.min - b.min);
+    out[g] = (w[g] || []).filter(ok).map((r) => ({ ...mk(r), cond: condOf(r, g) })).filter(valid).sort((a, b) => a.min - b.min);
   }
   const lastRow = (w.mincha || []).find((r) => r.last && inSeason(r.season, iso));
   out.last = lastRow ? timeOf(lastRow.time, zd) : null;

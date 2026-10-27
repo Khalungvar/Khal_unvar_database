@@ -1,6 +1,6 @@
 // "זמני תפילות" — ניהול: ימות החול · שבת · יום טוב · תשרי. די דאטן: לשונית Minyanim (key = data, value = JSON).
 // דער חשבון (וואס קומט ארויס פאר א טאג) איז אין minyanim.js — דאס זעלבע וואס די תצוגה אין בית הכנסת ניצט.
-import { defaults, BASES, ROUNDS, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
+import { defaults, condOf, BASES, ROUNDS, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
 import { hhmm } from './zmanim.js';
 import { hdOf, dowOf } from './engine.js';
 import { hebrewNumber, todayIso } from '../hebdate.js';
@@ -83,15 +83,26 @@ const fld = (path, type = 'text', extra = '') => {
 const sel = (path, opts) => `<select data-f="${h(path)}"${canEdit() ? '' : ' disabled'}>${opts.map(([k, l]) => `<option value="${h(k)}"${String(get(path) ?? '') === String(k) ? ' selected' : ''}>${h(l)}</option>`).join('')}</select>`;
 const btn = (act, path, label, title = '') => (canEdit() ? `<button type="button" class="tf-mini" data-act="${act}" data-p="${h(path)}" title="${h(title)}">${label}</button>` : '');
 
+// ---------- "תלוי": א קנעפל; ווען אן — {לפני/אחרי} {דק'} {זמן} ----------
+function condHtml(r, g, p) {
+  const c = condOf(r, g); const dis = canEdit() ? '' : ' disabled';
+  if (!c) return canEdit() ? `<button type="button" class="tf-cond" data-act="condOn" data-p="${h(p)}" data-g="${g}">תלוי</button>` : '';
+  return `<span class="tf-cond on">רק אם
+    <select data-f="${h(p)}.cond.dir"${dis}><option value="before"${c.dir === 'before' ? ' selected' : ''}>לפני</option><option value="after"${c.dir === 'after' ? ' selected' : ''}>אחרי</option></select>
+    <input type="number" min="0" class="tf-w4" data-f="${h(p)}.cond.min" value="${Number(c.min) || 0}"${dis}> דק'
+    <select data-f="${h(p)}.cond.base"${dis}>${BASES.filter(([k]) => k !== 'fixed').map(([k, l]) => `<option value="${k}"${k === c.base ? ' selected' : ''}>${h(l)}</option>`).join('')}</select>
+    ${btn('condOff', p, '✕', 'בלי תנאי')}</span>`;
+}
+
 // ---------- ימות החול ----------
 function weekdayHtml() {
   const w = data.weekday;
   const groups = GROUPS.map(([g, title]) => `<section class="tf-grp">
-    <h3>${title}${g === 'shacharis' ? ` <small>הערה: ${fld('weekday.shacharisNote', 'text', ' class="tf-w12"')}</small>` : ''}${g === 'maariv' ? ` <small>"צאת" לעניין זה = ${fld('weekday.maarivAfter', 'number', ' class="tf-w4"')} דק' אחרי השקיעה</small>` : ''}</h3>
-    <table class="tf-t"><thead><tr><th>שעה</th><th>חדר</th><th>הערה</th><th>עונה</th><th title="מסומן = המניין מוצג רק בימים שהוא מתאים לזמני היום">${g === 'shacharis' ? 'רק אחרי עלות' : g === 'mincha' ? 'רק לפני השקיעה' : 'רק אחרי צאת'}</th>${g === 'shacharis' ? '<th>גם בער"ש</th>' : ''}${g === 'mincha' ? '<th>מנין אחרון</th>' : ''}<th></th></tr></thead><tbody>
+    <h3>${title}${g === 'shacharis' ? ` <small>הערה: ${fld('weekday.shacharisNote', 'text', ' class="tf-w12"')}</small>` : ''}</h3>
+    <table class="tf-t"><thead><tr><th>שעה</th><th>חדר</th><th>הערה</th><th>עונה</th><th title="המניין מוצג רק אם הוא לפני / אחרי זמן מסוים">תלוי</th>${g === 'shacharis' ? '<th>גם בער"ש</th>' : ''}${g === 'mincha' ? '<th>מנין אחרון</th>' : ''}<th></th></tr></thead><tbody>
     ${(w[g] || []).map((r, i) => { const p = `weekday.${g}.${i}`; return `<tr>
       <td>${tsHtml(r.time, `${p}.time`)}</td><td>${fld(`${p}.room`, 'text', ' class="tf-w8"')}</td><td>${fld(`${p}.note`, 'text', ' class="tf-w10"')}</td>
-      <td>${sel(`${p}.season`, SEASONS)}</td><td>${fld(`${p}.auto`, 'check')}</td>
+      <td>${sel(`${p}.season`, SEASONS)}</td><td>${condHtml(r, g, p)}</td>
       ${g === 'shacharis' ? `<td>${fld(`${p}.fri`, 'check')}</td>` : ''}${g === 'mincha' ? `<td>${fld(`${p}.last`, 'check')}</td>` : ''}
       <td class="tf-acts">${btn('del', p, '🗑', 'מחק')}</td></tr>`; }).join('')}
     </tbody></table>
@@ -218,8 +229,10 @@ function render(main, onBack) {
   main.onclick = (e) => {
     const b = e.target.closest('[data-act]'); if (!b) return;
     const act = b.dataset.act; const p = b.dataset.p || '';
-    if (act === 'addW') { data.weekday[p].push({ id: newId(), time: { b: 'fixed', t: '' }, room: '', note: '', season: 'all', auto: false, kahal: false, fri: p === 'shacharis', last: false }); }
+    if (act === 'addW') { data.weekday[p].push({ id: newId(), time: { b: 'fixed', t: '' }, room: '', note: '', season: 'all', cond: null, kahal: false, fri: p === 'shacharis', last: false }); }
     else if (act === 'sortW') { const z = { neitz: 380, shkia: 1100, candles: 1082, rt: 1172, alos: 308, chatzos: 740 }; const k = (r) => (r.time?.b === 'fixed' ? (Number(String(r.time.t).replace(':', '.')) * 60 || 0) : (z[r.time?.b] || 0) + (r.time?.a || 0)); data.weekday[p].sort((a, c) => k(a) - k(c)); }
+    else if (act === 'condOn') { const r = get(p); r.cond = b.dataset.g === 'shacharis' ? { dir: 'after', min: 0, base: 'alos' } : b.dataset.g === 'mincha' ? { dir: 'before', min: 0, base: 'shkia' } : { dir: 'after', min: 50, base: 'shkia' }; }
+    else if (act === 'condOff') { get(p).cond = null; }
     else if (act === 'addS') data.shabbos.rows.push({ id: newId(), label: '', day: 'sat', kind: 'tefila', season: 'all', time: { b: 'fixed', t: '' }, note: '' });
     else if (act === 'addB') data[p].blocks.push({ id: newId(), title: 'בלוק חדש', when: WHEN[p][0][0], rows: [] });
     else if (act === 'addR') get(p).push({ id: newId(), label: '', note: '', kind: 'tefila', on: 'all', times: [{ b: 'fixed', t: '' }] });
