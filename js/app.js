@@ -235,7 +235,7 @@ function lobbySearch() {
   box.hidden = false;
   box.innerHTML = found.length ? found.map((c) => `<button type="button" class="lobby-hit" data-open-card="${h(c.contact_id)}">
       <b>${h(fullNameHe(c))}</b>
-      <span class="muted small">${h([c.area || c.city, [c.first_name_en, c.last_name_en].filter(Boolean).join(' ')].filter(Boolean).join(' · '))}</span>
+      <span class="muted small">${h([c.address ? [c.address, c.city].filter(Boolean).join(', ') : (c.area || c.city), [c.first_name_en, c.last_name_en].filter(Boolean).join(' ')].filter(Boolean).join(' · '))}</span>
       ${!isAlive(c.is_alive) ? `<span class="badge muted">${t('deceased')}</span>` : ''}</button>`).join('')
     : `<p class="muted small lobby-none">${h(t('noResults'))}</p>`;
 }
@@ -453,7 +453,7 @@ function haystack(c) {
   const p = phonesOf(c);
   const text = [
     c.first_name_he, c.last_name_he, c.first_name_en, c.last_name_en, c.legal_first_name,
-    c.wife_name_he, c.wife_name_en, c.city, c.address, c.contact_id,
+    c.wife_name_he, c.wife_name_en, c.city, c.address, c.zip, c.area, c.contact_id,
     p.email_1, p.email_2, workSearchText(c),
   ].map(normalize).join(' ');
   const phoneDigits = phoneFields().map(([k]) => digits(p[k])).join(' ');
