@@ -261,6 +261,11 @@ export async function driveUploadLarge(file, name, folderId, onProgress = () => 
   });
 }
 
+/** מאכט א טעקע (וואס דער אתר האט ארויפגעלייגט) עפנטלעך: "יעדער מיט דעם לינק — צוקוקן" */
+export async function drivePublic(id) {
+  await authFetch(`${DRIVE}/${id}/permissions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'reader', type: 'anyone' }) });
+}
+
 /** לאדט אראפ א טעקע פון דרייב (נאר וואס דער אתר האט אליין ארויפגעלייגט). Uint8Array. */
 export async function driveDownload(id, onProgress = () => {}) {
   if (!accessToken) await requestToken();

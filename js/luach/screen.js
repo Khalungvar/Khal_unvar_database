@@ -50,6 +50,7 @@ async function loadKiosk() {
 }
 const mb = (n) => `${(n / 1048576).toFixed(0)} MB`;
 async function kioskDownload(k, btn) {
+  if (!confirm(`⚠ שים לב: אתה מוריד את קובץ ההתקנה של תוכנת המסך (ZIP, ${mb(k.size)}) — בשביל המחשב שבבית המדרש.\nזה לא האתר ולא הגדרות המסך; ההגדרות מגיעות למסך לבד מהאתר.\n\nהקובץ פרטי (יש בו גופנים בתשלום) — לא לשתף.\n\nלהוריד?`)) return;
   const old = btn.textContent; btn.disabled = true;
   try {
     await ensureDriveScope();
