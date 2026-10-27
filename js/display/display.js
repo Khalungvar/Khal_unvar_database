@@ -135,8 +135,8 @@ function render() {
   // [נאמען, מג"א/איינס, גר"א, הדגשה]
   const rows = [
     ['עלות השחר', z.alos], ['הנחת תפילין', z.neitz - 48], ['נץ החמה', z.neitz, null, true],
-    ['סוזק"ש', z.alos + 3 * maHour, z.neitz + 3 * graHour, true],
-    ['סוז"ת', z.alos + 4 * maHour, z.neitz + 4 * graHour],
+    ['סוף זמן קריאת שמע', z.alos + 3 * maHour, z.neitz + 3 * graHour, true],
+    ['סוף זמן תפילה', z.alos + 4 * maHour, z.neitz + 4 * graHour],
     ['חצות', z.chatzos], ['שקיעת החמה', z.shkia, null, true], ['רבינו תם', z.shkia + 72],
   ];
   if (dw === 5) rows.push(['הדלקת נרות', z.candles, null, true]);
