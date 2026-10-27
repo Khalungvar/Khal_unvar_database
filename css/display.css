@@ -238,3 +238,16 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .lrn .shiur > div.nx span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 20px; }
 .lrn .shiur > div.nx { font-size: 22px; } .lrn .shiur > div.nx b { font-size: 28px; }
 .lrn .shiur h4 { font-size: 20px; }
+/* דף היומי + שיעורים (לויט דער באשרייבונג) */
+.lrn .side { text-align: right; padding: 0 14px 0 6px; }
+.lrn .daf p { font-size: 34px; text-align: center; white-space: nowrap; }
+.lrn .daf p span { font-size: 26px; color: var(--muted); font-weight: 700; }
+.lrn .shiur.sh-daf { border-top: 0; margin-top: 10px; padding-top: 0; }
+.lrn .shiur.sh-oth { margin: 8px -6px 0 -14px; padding: 6px 14px 0 6px; border-top: 2px solid rgba(138,106,42,.45); }
+.lrn .shiur h4 { font-size: 19px; color: #7a5a1c; font-weight: 900; margin-bottom: 1px; }
+.lrn .shiur > div, .lrn .shiur > div.ln, .lrn .shiur > div.nx { white-space: normal; overflow: visible; font-size: 17px; line-height: 1.18; margin: 2px 0 0; font-weight: 400; }
+.lrn .shiur > div b, .lrn .shiur > div.ln b, .lrn .shiur > div.nx b { font-size: 19px; font-family: 'Frank Ruhl Libre', serif; }
+.lrn .shiur > div small { font-size: 15px; }
+.lrn .shiur > div.nx { color: var(--navy); font-weight: 700; }
+.lrn .shiur > div.nx b { font-size: 21px; }
+.lrn .mzy { flex: 0 0 35%; } .lrn .mzy .txt { font-size: 25px; } .lrn .mzy .num { font-size: 42px; }

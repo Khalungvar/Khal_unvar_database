@@ -145,6 +145,8 @@ function SHIURIM_DEF() {
     SH('other', 'שיעור בסדר כהלכתו', 'הרב יחיאל קליין שליט"א', "חדר א'", '21:45', [0, 1, 2, 3, 4]),
   ];
 }
+/** חלק היום: לפנות בוקר / בבוקר / בצהריים / בערב / בלילה */
+export const partOfDay = (m) => (m < 360 ? 'לפנות בוקר' : m < 720 ? 'בבוקר' : m < 1020 ? 'בצהריים' : m < 1260 ? 'בערב' : 'בלילה');
 /** די שיעורים פון טאג n: [{ type, title, who, room, note, min }] לויט דער שעה */
 export function computeShiurim(data, n, loc) {
   const iso = isoOf(n); const zd = dayZ(iso, loc); const dw = dowOf(n);
