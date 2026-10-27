@@ -78,3 +78,18 @@ export async function showPdfIn(box, bytes) {
   layout();
   return { destroy() { destroyed = true; if (io) io.disconnect(); window.removeEventListener('resize', onResize); doc.destroy(); } };
 }
+
+/** דער ערשטער בלאט פון א PDF → א JPEG (data URL) אין דער ברייט widthPx — למשל א רקע פאר א גליון (300 DPI) */
+export async function pdfPageToJpeg(bytes, widthPx = 1650, quality = 0.92) {
+  const lib = await pdfjs();
+  const doc = await lib.getDocument({ data: bytes.slice(0) }).promise;
+  const page = await doc.getPage(1);
+  const vp0 = page.getViewport({ scale: 1 });
+  const vp = page.getViewport({ scale: widthPx / vp0.width });
+  const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+  const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+  await page.render({ canvasContext: ctx, viewport: vp }).promise;
+  const url = cv.toDataURL('image/jpeg', quality);
+  try { doc.cleanup?.(); doc.loadingTask?.destroy?.(); } catch { /* */ }
+  return url;
+}

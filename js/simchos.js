@@ -252,9 +252,11 @@ function weekLabel(iso) {
 
 function pageHtml(list, fontPt, cols = 1, pageNo = 0, opt = {}) {
   const font = getFont().replace(/'/g, '');
+  const bgU = bgSrc(cur.week); const full = bgU !== DEF_BG; // א רקע וואס מ'האט ארויפגעלייגט — איבערן גאנצן האלבן בלאט (די שוליים — אינעם רקע אליין)
   return `<div class="sg-page" style="font-family:'${h(font)}','Frank Ruhl Libre',serif">
+    ${full ? `<img class="sg-bg sg-bg-full" src="${h(bgU)}" alt="">` : ''}
     <div class="sg-inner">
-    <img class="sg-bg" src="${h(bgSrc(cur.week))}" alt="">
+    ${full ? '' : `<img class="sg-bg" src="${h(bgU)}" alt="">`}
     <div class="sg-parsha">${h(issueTitle(cur.week))}</div>
     ${bodyHtml(list, fontPt, cols, opt)}</div>
     ${pageNo ? `<div class="sg-pageno">${h(t('lobbySimchos'))} ${h(issueTitle(cur.week))} ${h(t('sgPageNo', { n: pageNo }))}</div>` : ''}</div>`;
@@ -390,11 +392,11 @@ function bgDialog() {
   bg.innerHTML = `<div class="tf-dlg sg-bgdlg"><h3>🖼 רקע הגליון</h3>
     <div class="sg-bgrow"><img src="${h(bgSrc(cur.week))}" alt=""><div>
       <p><b>${own ? 'לגליון הזה יש רקע מיוחד' : (bgSet || {}).bg ? 'רקע קבוע (שהועלה)' : 'הרקע הרגיל של האתר'}</b></p>
-      <label class="btn small-btn primary">📤 רקע חדש לכל הגליונות<input type="file" accept="image/*" data-bgk="bg" hidden></label>
-      <label class="btn small-btn">📤 רקע רק לגליון הזה (${h(weekLabel(cur.week))})<input type="file" accept="image/*" data-bgk="bg:${h(cur.week)}" hidden></label>
+      <label class="btn small-btn primary">📤 רקע חדש לכל הגליונות<input type="file" accept="image/*,application/pdf,.pdf" data-bgk="bg" hidden></label>
+      <label class="btn small-btn">📤 רקע רק לגליון הזה (${h(weekLabel(cur.week))})<input type="file" accept="image/*,application/pdf,.pdf" data-bgk="bg:${h(cur.week)}" hidden></label>
       ${own ? '<button type="button" class="btn small-btn ghost" data-bgx="own">↺ הגליון הזה — חזרה לרקע הקבוע</button>' : ''}
       ${(bgSet || {}).bg ? '<button type="button" class="btn small-btn ghost" data-bgx="bg">↺ הרקע הקבוע — חזרה לרקע הרגיל של האתר</button>' : ''}
-      <p class="muted small">מומלץ תמונה בגודל 5.5×8.5 אינטש (למשל 1650×2550 פיקסלים). התמונה נשמרת ב-Drive.</p>
+      <p class="muted small">אפשר להעלות <b>PDF</b> (העמוד הראשון נהפך לתמונה באיכות הדפסה, 300 DPI) או תמונה בגודל 5.5×8.5 אינטש (למשל 1650×2550 פיקסלים). נשמר ב-Drive. הרקע ממלא את כל חצי העמוד — השוליים לפי הרקע עצמו.</p>
       <p class="muted small" data-st></p>
     </div></div>
     <div class="vs-acts"><button type="button" class="btn ghost" data-x>סגירה</button></div></div>`;
@@ -407,9 +409,11 @@ function bgDialog() {
     const file = inp.files[0]; if (!file) return;
     st.textContent = 'מעלה…';
     try {
-      let data = await shrinkImage(file, 2600, 2500000, true);
+      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+      // PDF: דער ערשטער בלאט → א בילד אין 300 DPI (5.5 אינטש = 1650 פיקסל)
+      let data = isPdf ? await (await import('./pdfview.js')).pdfPageToJpeg(new Uint8Array(await file.arrayBuffer()), 1650) : await shrinkImage(file, 2600, 2500000, true);
       let v = await storeImage(data, 'simcha-bg');
-      if (!isDrv(v)) { data = await shrinkImage(file, 900, 45000, true); v = data; ui.toast('נשמר באיכות נמוכה (עוזר התמונות לא זמין)', 'error'); }
+      if (!isDrv(v)) { data = await shrinkImage(isPdf ? await (await fetch(data)).blob() : file, 900, 45000, true); v = data; ui.toast('נשמר באיכות נמוכה (עוזר התמונות לא זמין)', 'error'); }
       await setBg(inp.dataset.bgk, v); close(); renderSimchos(); ui.toast(t('saved'));
     } catch (err) { st.textContent = ''; ui.toast(ui.friendlyError(err), 'error'); }
   }; });
