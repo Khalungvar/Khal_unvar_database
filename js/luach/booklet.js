@@ -592,7 +592,10 @@ export function cleanRich(html) {
       const tag = n.tagName.toLowerCase(); const inner = walk(n);
       if (tag === 'br') out += '<br>';
       else if (tag === 'b' || tag === 'strong') out += inner ? `<b>${inner}</b>` : '';
-      else if (tag === 'div' || tag === 'p') out += `<div>${inner || '<br>'}</div>`;
+      else if (tag === 'div' || tag === 'p') {
+        const lh = /line-height:\s*([\d.]+)/.exec(n.getAttribute('style') || '');
+        out += `<div${lh ? ` style="line-height:${Math.min(3, Math.max(0.7, Number(lh[1]))).toFixed(2)}"` : ''}>${inner || '<br>'}</div>`;
+      }
       else if (tag === 'span' || tag === 'font') {
         const m = /font-size:\s*([\d.]+)em/.exec(n.getAttribute('style') || '');
         const bold = /font-weight:\s*(bold|[6-9]00)/.test(n.getAttribute('style') || '');
@@ -617,6 +620,22 @@ function richEditor(dlg, html) {
     sp.append(r.extractContents()); r.insertNode(sp);
     sel.removeAllRanges(); const nr = document.createRange(); nr.selectNodeContents(sp); sel.addRange(nr);
   };
+  // שורות (div) וואס זענען אין דער סעלעקציע; לויזער טעקסט אויבן ווערט אריינגעלייגט אין א div
+  const linesInSel = () => {
+    [...ed.childNodes].forEach((n) => {
+      if (n.nodeType === 1 && /^(DIV|P)$/.test(n.tagName)) return;
+      if (n.nodeType === 3 && !n.nodeValue.trim()) return;
+      const d = document.createElement('div'); ed.insertBefore(d, n);
+      while (d.nextSibling && !(d.nextSibling.nodeType === 1 && /^(DIV|P)$/.test(d.nextSibling.tagName))) d.append(d.nextSibling);
+    });
+    const sel = window.getSelection(); if (!sel.rangeCount || !ed.contains(sel.anchorNode)) return [];
+    const r = sel.getRangeAt(0);
+    return [...ed.children].filter((d) => r.intersectsNode(d));
+  };
+  const lineSp = (delta) => linesInSel().forEach((d) => {
+    const cur = parseFloat(d.style.lineHeight) || 1.3;
+    d.style.lineHeight = Math.min(3, Math.max(0.7, cur + delta)).toFixed(2);
+  });
   $$('[data-rt]', dlg).forEach((b) => {
     b.onmousedown = (e) => e.preventDefault(); // נישט פארלירן די סעלעקציע
     b.onclick = () => {
@@ -625,6 +644,8 @@ function richEditor(dlg, html) {
       if (a === 'b') document.execCommand('bold');
       else if (a === 'up') sizeSel(1.25);
       else if (a === 'down') sizeSel(0.8);
+      else if (a === 'lhup') lineSp(0.15);
+      else if (a === 'lhdown') lineSp(-0.15);
       else if (a === 'clear') { document.execCommand('removeFormat'); const sel = window.getSelection(); if (sel.rangeCount && !sel.isCollapsed) { const t = sel.toString(); document.execCommand('insertText', false, t); } }
     };
   });
@@ -664,9 +685,11 @@ function dedDialog(main, d, key) {
     <div class="bk-rt"><button type="button" class="btn small-btn" data-rt="b" title="מודגש"><b>B</b> מודגש</button>
       <button type="button" class="btn small-btn" data-rt="up" title="להגדיל את המילים המסומנות">A＋ גדול</button>
       <button type="button" class="btn small-btn" data-rt="down" title="להקטין את המילים המסומנות">A－ קטן</button>
+      <button type="button" class="btn small-btn" data-rt="lhup" title="יותר רווח בין השורות המסומנות">↕ רווח＋</button>
+      <button type="button" class="btn small-btn" data-rt="lhdown" title="פחות רווח בין השורות המסומנות">↕ רווח－</button>
       <button type="button" class="btn small-btn ghost" data-rt="clear" title="להחזיר לרגיל">↺ רגיל</button></div>
     <div class="bk-ed" contenteditable="true" dir="rtl"></div>
-    <p class="muted small">Enter = שורה חדשה. כל שורה ממורכזת, כמו בקונטרס.</p>
+    <p class="muted small">Enter = שורה חדשה. כל שורה ממורכזת, כמו בקונטרס. רווח בין שורות: מסמנים את השורות (או עומדים בשורה) ולוחצים ↕.</p>
     <label>מקושר לאיש קשר (מי שנתן)</label><input name="contact" list="bk-dl-c" autocomplete="off" value="${c && ui.pickerLabel ? h(ui.pickerLabel(c)) : ''}" placeholder="חיפוש לפי שם…">
     <datalist id="bk-dl-c">${(state.contacts || []).map((x) => `<option value="${h(ui.pickerLabel ? ui.pickerLabel(x) : x.contact_id)}">`).join('')}</datalist>
     <label>סכום ($) — נרשם כנדבה בכרטיס של איש הקשר ("${DON_NOTE}")</label><input name="amount" type="number" min="0" step="1" value="${h(d.amount)}">
