@@ -222,7 +222,7 @@ function blocksHtml(part) {
     <div class="tf-bh">${fld(`${bp}.title`, 'text', ' class="tf-w16 tf-bt"')} ${sel(`${bp}.when`, WHEN[part])}
       <span class="muted small">${ds.length ? h(ds.length > 3 ? `${dateLabel(ds[0])} … ${dateLabel(ds[ds.length - 1])} (${ds.length} ימים)` : ds.map(dateLabel).join(' · ')) : '—'}</span>
       <span class="spacer"></span>${btn('up', bp, '↑', 'למעלה')}${btn('down', bp, '↓', 'למטה')}${btn('del', bp, '🗑', 'מחק בלוק')}</div>
-    ${part === 'yt' ? `<div class="tf-type ${b.type === 'chag' ? 'chag' : 'erev'}">${b.type === 'chag' ? '🕯 חג — מוצג כמו שבת' : '📅 ערב חג — מתנהג כמו ימות החול'}</div>` : ''}
+    ${part === 'yt' ? `<div class="tf-type ${b.type || 'erev'}">${b.type === 'chag' ? '🕯 חג — מוצג כמו שבת' : b.type === 'chm' ? '🌿 חול המועד' : '📅 ערב חג — מתנהג כמו ימות החול'}</div>` : ''}
     ${part === 'minor' || (part === 'yt' && b.type !== 'chag') ? minorHead(b, bp) : ''}
     <div class="tf-rows">
     ${(b.rows || []).map((r, i) => { const p = `${bp}.rows.${i}`; return `<div class="tf-r">
@@ -234,7 +234,7 @@ function blocksHtml(part) {
     ${part === 'minor' || (part === 'yt' && b.type !== 'chag') ? minorFri(b, bp) : ''}
     ${canEdit() ? `<div class="tf-add"><button type="button" class="btn ghost" data-act="addR" data-p="${bp}.rows">➕ שורה</button></div>` : ''}
   </section>`; }).join('')}
-  ${canEdit() ? (part === 'yt' ? `<div class="tf-add"><button type="button" class="btn" data-act="addB" data-p="yt" data-t="erev">➕ ערב חג</button><button type="button" class="btn" data-act="addB" data-p="yt" data-t="chag">➕ חג</button></div>`
+  ${canEdit() ? (part === 'yt' ? `<div class="tf-add"><button type="button" class="btn" data-act="addB" data-p="yt" data-t="erev">➕ ערב חג</button><button type="button" class="btn" data-act="addB" data-p="yt" data-t="chm">➕ חול המועד</button><button type="button" class="btn" data-act="addB" data-p="yt" data-t="chag">➕ חג</button></div>`
     : `<div class="tf-add"><button type="button" class="btn" data-act="addB" data-p="${part}">➕ בלוק</button></div>`) : ''}`;
 }
 
@@ -276,7 +276,7 @@ export async function openTefila(main, onBack) {
   }
   // ערב חג / חג (אלטע דאטן אן type)
   const chagW = new Set(['pesach', 'shviiPesach', 'shavuos']);
-  for (const b of data.yt.blocks || []) if (!b.type) b.type = chagW.has(b.when) ? 'chag' : 'erev';
+  for (const b of data.yt.blocks || []) { if (!b.type) b.type = chagW.has(b.when) ? 'chag' : 'erev'; if (b.when === 'cholPesach' && b.type === 'erev') b.type = 'chm'; }
   for (const b of data.yt.blocks || []) if (b.type === 'chag') for (const r of b.rows || []) if (!r.disp) r.disp = { ...dispDefault(r), place: 'shab' };
   if (!data.yt.blocks.some((b) => b.when === 'erevShvii')) { const i = data.yt.blocks.findIndex((b) => b.when === 'shviiPesach'); const nb = defaults().yt.blocks.find((b) => b.when === 'erevShvii'); data.yt.blocks.splice(i < 0 ? data.yt.blocks.length : i, 0, nb); }
   for (const b of [...(data.minor.blocks || []), ...(data.yt.blocks || []).filter((x) => x.type !== 'chag')]) {
@@ -337,7 +337,7 @@ function render(main, onBack) {
     else if (act === 'addS') data.shabbos.rows.push({ id: newId(), screen: true, label: '', day: 'sat', kind: 'tefila', season: 'all', time: { b: 'fixed', t: '' }, note: '' });
     else if (act === 'addB') {
       const t = b.dataset.t;
-      data[p].blocks.push({ id: newId(), title: t === 'chag' ? 'חג' : t === 'erev' ? 'ערב חג' : 'בלוק חדש', when: WHEN[p][0][0], rows: [], ...(t ? { type: t } : {}),
+      data[p].blocks.push({ id: newId(), title: t === 'chag' ? 'חג' : t === 'chm' ? 'חול המועד' : t === 'erev' ? 'ערב חג' : 'בלוק חדש', when: WHEN[p][0][0], rows: [], ...(t ? { type: t } : {}),
         like: { minchaEve: true, maarivEve: true, shacharis: true, mincha: true, maarivMid: true, maariv: true }, own: { minchaEve: [], maarivEve: [], shacharis: [], mincha: [], maarivMid: [], maariv: [] }, fri: { mode: 'regular', time: null } });
     }
     else if (act === 'addR' && get(p.replace(/\.rows$/, ''))?.type === 'chag') get(p).push({ id: newId(), screen: true, disp: { place: 'shab', from: { mode: 'dayStart', days: 1 }, to: { mode: 'pass', min: 0 } }, label: '', note: '', kind: 'tefila', on: 'all', times: [{ b: 'fixed', t: '' }] });

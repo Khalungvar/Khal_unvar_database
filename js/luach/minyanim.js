@@ -160,7 +160,7 @@ function YT_BLOCKS() {
   const C = (t, w, rows) => ({ ...block(t, w, empty(rows)), type: 'chag' });
   return [
     E('ערב פסח', 'erevPesach'), C('פסח', 'pesach', ['שחרית', 'מנחה']),
-    E('חול המועד פסח', 'cholPesach'), E('ערב שביעי של פסח', 'erevShvii'), C('שביעי ואחרון של פסח', 'shviiPesach', ['שחרית', 'מנחה']),
+    { ...E('חול המועד פסח', 'cholPesach'), type: 'chm' }, E('ערב שביעי של פסח', 'erevShvii'), C('שביעי ואחרון של פסח', 'shviiPesach', ['שחרית', 'מנחה']),
     E('ערב שבועות', 'erevShavuos'), C('שבועות', 'shavuos', ['שחרית', 'מנחה']),
   ];
 }
