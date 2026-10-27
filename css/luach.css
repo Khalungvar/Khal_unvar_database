@@ -244,3 +244,7 @@
 .tf-rf.tf-sub select, .tf-rf.tf-sub input { font-size: 12px; }
 .tf-shrows .tf-r { padding: 10px 0; }
 .tf-shrows .tf-r:nth-child(even) { background: rgba(201,162,76,.06); margin: 0 -10px; padding: 10px 10px; }
+.tf-minor { background: #fffaf0; border: 1px solid #ecdcb0; border-radius: 10px; padding: 6px 10px; margin: 4px 0 6px; display: flex; flex-direction: column; gap: 5px; }
+.tf-like { display: inline-flex; gap: 3px; align-items: center; font-weight: 700; margin-left: 10px; }
+.tf-own { display: flex; gap: 8px; align-items: flex-start; padding-right: 10px; }
+.tf-own b { min-width: 3.5em; padding-top: 4px; }

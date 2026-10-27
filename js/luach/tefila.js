@@ -165,6 +165,20 @@ function upcomingYear(part) {
   return daysOf(part === 'minor' ? 'tishaBav' : 'shavuos', x.y).slice(-1)[0] >= nOf(todayIso()) ? x.y : x.y + 1;
 }
 const dateLabel = (n) => { const x = hdOf(n); return `${DAYS[dowOf(n)]}' ${hebrewNumber(x.d)} ${MONTH[x.m] || ''}`.trim(); };
+// ימי דפגרא: "כמו ימות החול" פאר יעדע תפילה; ווען נישט — אייגענע שעות. און וואס טוט זיך ער"ש
+function minorHead(b, bp) {
+  const like = (g) => (b.like || {})[g] !== false;
+  const gs = GROUPS.map(([g, t]) => `<label class="tf-like"><input type="checkbox" data-f="${h(bp)}.like.${g}"${like(g) ? ' checked' : ''}${canEdit() ? '' : ' disabled'}> ${t}</label>`).join('');
+  const own = GROUPS.filter(([g]) => !like(g)).map(([g, t]) => { const op = `${bp}.own.${g}`; const arr = get(op) || []; return `<div class="tf-own"><b>${t}:</b>
+    <div class="tf-times">${arr.map((T, ti) => `<span class="tf-tm">${tsHtml(T, `${op}.${ti}`)}${btn('delT', `${op}.${ti}`, '✕', 'הסר שעה')}</span>`).join('')}${btn('addT', op, '＋ שעה')}</div></div>`; }).join('');
+  const fm = b.fri?.mode === 'custom';
+  return `<div class="tf-minor">
+    <div class="tf-rf"><span class="muted small">כמו ימות החול:</span>${gs}</div>
+    ${own}
+    <div class="tf-rf tf-fri"><span class="muted small">כשחל בער"ש — מנחה וקבלת שבת:</span>
+      ${sel(`${bp}.fri.mode`, [['regular', 'כרגיל (לפי לשונית שבת)'], ['custom', 'שעה מיוחדת']])}${fm ? tsHtml(b.fri.time, `${bp}.fri.time`, true) : ''}</div>
+  </div>`;
+}
 function blocksHtml(part) {
   const Y = upcomingYear(part);
   const bs = data[part].blocks || [];
@@ -173,6 +187,7 @@ function blocksHtml(part) {
     <div class="tf-bh">${fld(`${bp}.title`, 'text', ' class="tf-w16 tf-bt"')} ${sel(`${bp}.when`, WHEN[part])}
       <span class="muted small">${ds.length ? h(ds.length > 3 ? `${dateLabel(ds[0])} … ${dateLabel(ds[ds.length - 1])} (${ds.length} ימים)` : ds.map(dateLabel).join(' · ')) : '—'}</span>
       <span class="spacer"></span>${btn('up', bp, '↑', 'למעלה')}${btn('down', bp, '↓', 'למטה')}${btn('del', bp, '🗑', 'מחק בלוק')}</div>
+    ${part === 'minor' ? minorHead(b, bp) : ''}
     <div class="tf-rows">
     ${(b.rows || []).map((r, i) => { const p = `${bp}.rows.${i}`; return `<div class="tf-r">
       <div class="tf-rf${r.screen === false ? ' tf-off' : ''}"><label class="tf-scr" title="תצוגה במסך">${fld(`${p}.screen`, 'check')} 📺</label>${fld(`${p}.label`, 'text', ' class="tf-w12" placeholder="שם"')}${fld(`${p}.note`, 'text', ' class="tf-w10" placeholder="הערה"')}
@@ -221,6 +236,11 @@ export async function openTefila(main, onBack) {
     data.yt.blocks = (data.yt.blocks || []).filter((b) => !mw.has(b.when));
     if (!data.minor.blocks.length) data.minor = defaults().minor;
   }
+  for (const b of data.minor.blocks || []) {
+    b.like = { shacharis: true, mincha: true, maariv: true, ...(b.like || {}) };
+    b.own = { shacharis: [], mincha: [], maariv: [], ...(b.own || {}) };
+    b.fri = b.fri || { mode: 'regular', time: null };
+  }
   for (const part of ['yt', 'minor', 'tishrei']) for (const b of data[part].blocks || []) for (const r of b.rows || []) if (r.screen === undefined) r.screen = true;
   render(main, onBack);
 }
@@ -253,7 +273,7 @@ function render(main, onBack) {
     const f = el.closest('[data-f]'); const ts = el.closest('[data-ts]');
     if (f && f.dataset.f) {
       const v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
-      set(f.dataset.f, v); touched(e.type === 'change' && ((el.tagName === 'SELECT' && /\.(when|season)$/.test(f.dataset.f)) || /\.screen$/.test(f.dataset.f)));
+      set(f.dataset.f, v); touched(e.type === 'change' && ((el.tagName === 'SELECT' && /\.(when|season|mode)$/.test(f.dataset.f)) || /\.(screen|like\.\w+)$/.test(f.dataset.f)));
     } else if (ts && el.dataset.k) {
       if (e.type === 'input' && el.tagName === 'SELECT') return;
       const full = tsChange(ts.dataset.ts, el.dataset.k, el.value); touched(full);

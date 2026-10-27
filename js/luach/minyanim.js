@@ -129,7 +129,7 @@ export function defaults() {
   };
 }
 const row = (label, times, o = {}) => ({ id: id(), label, note: '', kind: /שחרית|מנחה|מעריב|נדרי|סליחות/.test(label) ? 'tefila' : 'other', on: 'all', times: times.map((t) => (typeof t === 'string' ? F(t) : t)), ...o });
-const block = (title, when, rows) => ({ id: id(), title, when, rows });
+const block = (title, when, rows) => ({ id: id(), title, when, rows, like: { shacharis: true, mincha: true, maariv: true }, own: { shacharis: [], mincha: [], maariv: [] }, fri: { mode: 'regular', time: null } });
 function TISHREI_BLOCKS() {
   return [
     block('סליחות - יום א\'', 'selichos1', [row('סליחות', ['05:00'])]),
@@ -151,13 +151,13 @@ function TISHREI_BLOCKS() {
 const empty = (labels) => labels.map((l) => row(l, []));
 function MINOR_BLOCKS() {
   return [
-    block('חנוכה', 'chanuka', empty(['שחרית', 'מנחה', 'הדלקת נר חנוכה'])),
-    block('עשרה בטבת', 'asaraTeves', empty(['שחרית', 'מנחה'])),
-    block('תענית אסתר', 'taanisEsther', empty(['שחרית', 'מנחה', 'קריאת המגילה'])),
-    block('פורים', 'purim', empty(['קריאת המגילה (בלילה)', 'שחרית', 'קריאת המגילה', 'מנחה'])),
-    block('ל"ג בעומר', 'lagBaomer', empty(['שחרית', 'הדלקה'])),
-    block('י"ז בתמוז', 'tamuz17', empty(['שחרית', 'מנחה'])),
-    block('תשעה באב', 'tishaBav', empty(['מעריב ואיכה', 'שחרית', 'מנחה'])),
+    block('חנוכה', 'chanuka', empty(['הדלקת נר חנוכה'])),
+    block('עשרה בטבת', 'asaraTeves', []),
+    block('תענית אסתר', 'taanisEsther', empty(['קריאת המגילה (בלילה)'])),
+    block('פורים', 'purim', empty(['קריאת המגילה'])),
+    block('ל"ג בעומר', 'lagBaomer', empty(['הדלקה'])),
+    block('י"ז בתמוז', 'tamuz17', []),
+    block('תשעה באב', 'tishaBav', empty(['מעריב ואיכה', 'קינות'])),
   ];
 }
 function YT_BLOCKS() {
@@ -256,8 +256,28 @@ export function computeWeekday(data, n, loc) {
     if (g === 'mincha') out.last = m;
   }
   if (out.last != null) out.mincha = out.mincha.filter((x) => x.min <= out.last);
+  // ימי דפגרא ותעניות: א תפילה וואס איז נישט "כמו ימות החול" — אירע אייגענע שעות
+  const mb = minorBlockOn(data, n);
+  if (mb) {
+    out.minor = mb.title;
+    const like = mb.like || {};
+    for (const g of ['shacharis', 'mincha', 'maariv']) {
+      if (like[g] !== false) continue;
+      out[g] = (mb.own?.[g] || []).map((T) => ({ min: timeOf(T, zd), room: '', note: '' })).filter((x) => x.min != null).sort((a, b) => a.min - b.min);
+      if (g === 'mincha') out.last = null;
+    }
+    if (fri && mb.fri?.mode === 'custom') out.friMincha = timeOf(mb.fri.time, zd);
+  }
   out.shacharisNote = w.shacharisNote || ''; out.minchaNote = w.minchaNote || ''; out.maarivNote = w.maarivNote || '';
   return out;
+}
+/** דער בלאק פון ימי דפגרא ותעניות וואס איז אויף טאג n */
+export function minorBlockOn(data, n) {
+  const x = hdOf(n);
+  for (const b of data.minor?.blocks || []) {
+    for (const Y of [x.y, x.y + 1, x.y - 1]) if (daysOf(b.when, Y).includes(n)) return b;
+  }
+  return null;
 }
 const avosSeason = (n) => { const x = hdOf(n); return ['Iyar', 'Sivan', 'Tamuz', 'Av', 'Elul'].includes(x.m) || (x.m === 'Nisan' && x.d > 22); };
 /** שבת: fri = n פון ערב שבת. גיט [{ label, min, kind, note, day }] אין סדר, מיט הדלקת נרות פאראויס */
@@ -266,7 +286,10 @@ export function computeShabbos(data, fri, loc) {
   const rows = [{ label: 'הדלקת נרות', min: zf.candles, kind: 'zman', note: '', day: 'fri' }];
   for (const r of data.shabbos.rows || []) {
     if (r.season === 'avos' ? !avosSeason(fri + 1) : !inSeason(r.season, isoOf(r.day === 'sat' ? fri + 1 : fri), r)) continue;
-    rows.push({ label: r.label, min: timeOf(r.time, r.day === 'sat' ? zs : zf), kind: r.kind, note: r.note || '', day: r.day, screen: r.screen !== false });
+    let min = timeOf(r.time, r.day === 'sat' ? zs : zf);
+    // ער"ש וואס איז א יום דפגרא/תענית מיט אן אייגענער מנחה וקבלת שבת
+    if (r.day === 'fri' && r.kind === 'tefila' && /מנחה/.test(r.label)) { const mb = minorBlockOn(data, fri); if (mb?.fri?.mode === 'custom') min = timeOf(mb.fri.time, zf); }
+    rows.push({ label: r.label, min, kind: r.kind, note: r.note || '', day: r.day, screen: r.screen !== false });
   }
   return rows; // אין דעם סדר וואס מ'האט באשטימט
 }
