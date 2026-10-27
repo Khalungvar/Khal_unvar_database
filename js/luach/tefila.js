@@ -116,7 +116,7 @@ function condHtml(r, g, p) {
 function weekdayHtml() {
   const w = data.weekday;
   const groups = GROUPS.map(([g, title]) => `<section class="tf-grp">
-    <h3>${title}${g === 'shacharis' ? ` <small>הערה: ${fld('weekday.shacharisNote', 'text', ' class="tf-w12"')}</small>` : ''}</h3>
+    <h3>${title} <small>הערה: ${fld(`weekday.${g}Note`, 'text', ' class="tf-w12"')}</small></h3>
     <table class="tf-t"><thead><tr><th>שעה</th><th>חדר</th><th>הערה</th><th>עונה</th><th title="המניין מוצג רק אם הוא לפני / אחרי זמן מסוים">תלוי</th>${g === 'shacharis' ? '<th>גם בער"ש</th>' : ''}<th></th></tr></thead><tbody>
     ${(w[g] || []).map((r, i) => { const p = `weekday.${g}.${i}`; return `<tr>
       <td>${tsHtml(r.time, `${p}.time`)}</td><td>${fld(`${p}.room`, 'text', ' class="tf-w8"')}</td><td>${fld(`${p}.note`, 'text', ' class="tf-w10"')}</td>

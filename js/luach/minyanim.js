@@ -60,7 +60,7 @@ export function condOf(r, g) {
 export function defaults() {
   return {
     weekday: {
-      shacharisNote: 'הודו +10 מינוט', maarivAfter: 50, defaultRoom: '',
+      shacharisNote: 'הודו +10 מינוט', minchaNote: '', maarivNote: '', maarivAfter: 50, defaultRoom: '',
       // מנין כ"ק אדמו"ר שליט"א — באזונדער: א זמן מיט עיגול, און א "שטילע צייט" ארום אים ווען קיין אנדער מנין טאר נישט זיין
       rebbe: {
         shacharis: { on: true, time: F('07:30'), room: "חדר א'", note: '', before: 0, after: 0, fri: true },
@@ -224,7 +224,7 @@ export function computeWeekday(data, n, loc) {
     if (g === 'mincha') out.last = m;
   }
   if (out.last != null) out.mincha = out.mincha.filter((x) => x.min <= out.last);
-  out.shacharisNote = w.shacharisNote || '';
+  out.shacharisNote = w.shacharisNote || ''; out.minchaNote = w.minchaNote || ''; out.maarivNote = w.maarivNote || '';
   return out;
 }
 const avosSeason = (n) => { const x = hdOf(n); return ['Iyar', 'Sivan', 'Tamuz', 'Av', 'Elul'].includes(x.m) || (x.m === 'Nisan' && x.d > 22); };
