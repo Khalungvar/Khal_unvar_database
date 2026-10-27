@@ -378,11 +378,59 @@ export function computeSpecial(data, n, loc) {
           if (r.on === 'last') return ds[ds.length - 1] === n;
           const i = Number(r.on);
           return i < 0 ? ds[0] + i === n : ds[i] === n;
-        }).map((r) => ({ label: r.label, note: r.note, kind: r.kind, screen: r.screen !== false, disp: r.disp || null, mins: ((r.fri?.on && dowOf(n) === 5 ? r.fri.times : r.times) || []).map((t) => timeOf(t, zd)).filter((m) => m != null) }));
-        if (rows.length) { out.push({ title: b.title, part, type: b.type || '', rows }); break; }
+        }).map((r) => ({ label: r.label, note: r.note, kind: r.kind, screen: r.screen !== false, disp: r.disp || null,
+          place: r.disp?.place || (isChag(part, b) ? 'shab' : 'weekday'),
+          mins: ((r.sat?.on && dowOf(n) === 6 ? r.sat.times : r.fri?.on && dowOf(n) === 5 ? r.fri.times : r.times) || []).map((t) => timeOf(t, zd)).filter((m) => m != null) }));
+        if (rows.length) { out.push({ title: b.title, part, when: b.when, type: isChag(part, b) ? 'chag' : (b.type || ''), rows }); break; }
       }
     }
   }
+  return out;
+}
+// ---------- שבת און יו"ט צוזאמען ----------
+export const TISHREI_CHAG = new Set(['rh', 'yk', 'sukkos', 'shmini']);
+const isChag = (part, b) => (part === 'yt' && b.type === 'chag') || (part === 'tishrei' && TISHREI_CHAG.has(b.when));
+/** איז טאג n א יו"ט (לויטן לוח, אדער א בלאק פון א חג) */
+export function chagOn(data, n) {
+  const x = hdOf(n);
+  for (const y of [x.y, x.y + 1]) { const d = yearDays(y).find((q) => q.n === n); if (d) { if (d.items.some((i) => i.yt)) return true; break; } }
+  for (const [part, list] of [['yt', data.yt?.blocks || []], ['tishrei', data.tishrei?.blocks || []]]) {
+    for (const b of list) { if (!isChag(part, b)) continue; for (const Y of [x.y, x.y + 1, x.y - 1]) if (daysOf(b.when, Y).includes(n)) return true; }
+  }
+  return false;
+}
+/** שבת/יו"ט: די שורות פאר "ערב" eve און דעם טאג eve+1. יעדע שורה: { label, kind, note, min, more, day (0 = ערב, 1 = דער טאג), screen, place }
+ *  כללים: שבת שחלה בערב יו"ט — שבת ביז נאך שחרית, דערנאך דער חג (מנחה ומעריב פון ערב החג) + "לא לפני" ר"ת;
+ *  יו"ט שחל בערב שבת — ער"ש לויט "כשחל בערב שבת", הדלקת נרות, שבת פון נאך מעריב; יו"ט שחל בשבת — נאר דער חג. */
+export function computeHoly(data, eve, loc) {
+  const d = eve + 1; const zE = dayZ(isoOf(eve), loc); const zD = dayZ(isoOf(d), loc);
+  const cE = chagOn(data, eve); const cD = chagOn(data, d); const satD = dowOf(d) === 6;
+  const shab = (rows) => rows.map((r) => ({ ...r, more: [], day: r.day === 'sat' ? 1 : 0, place: 'shab', screen: r.screen !== false }));
+  const spec = (k, day) => computeSpecial(data, k, loc).flatMap((bk) => bk.rows.map((r) => ({ label: r.label, kind: r.kind, note: r.note || '', min: r.mins[0] ?? null, more: r.mins.slice(1), day, screen: r.screen, place: r.place, chag: bk.type === 'chag' })));
+  // א געווענליכע שבת
+  if (satD && !cE && !cD && !chagOn(data, d + 1)) return shab(computeShabbos(data, eve, loc));
+  // שבת שחלה בערב יו"ט
+  if (satD && !cE && !cD) {
+    const rows = shab(computeShabbos(data, eve, loc));
+    const sh = rows.find((r) => r.day === 1 && /שחרית/.test(r.label));
+    const keep = rows.filter((r) => r.day === 0 || (sh && r.min != null && r.min <= sh.min) || r === sh);
+    const chagEve = spec(d, 1).filter((r) => r.chag);
+    return [...keep, ...chagEve, { label: 'הדלקת נרות יו"ט — לא לפני', kind: 'zman', note: '', min: zD.rt, more: [], day: 1, screen: true, place: 'shab' }];
+  }
+  const out = [];
+  // הדלקת נרות: ערב פון א וואכנטאג, אדער ערב שבת (אויך ווען ער"ש איז יו"ט — פון א נר הדולק)
+  if (dowOf(eve) === 5) out.push({ label: 'הדלקת נרות', kind: 'zman', note: '', min: zE.candles, more: [], day: 0, screen: true, place: 'shab' });
+  else if (dowOf(eve) === 6 && !cE && cD) out.push({ label: 'הדלקת נרות יו"ט — לא לפני', kind: 'zman', note: '', min: zE.rt, more: [], day: 0, screen: true, place: 'shab' });
+  else if (!cE && cD) out.push({ label: 'הדלקת נרות', kind: 'zman', note: '', min: zE.candles, more: [], day: 0, screen: true, place: 'shab' });
+  // פונעם ערב: אויב דער ערב איז אליין א יו"ט — נאר די אוונט-זאכן
+  const eveCut = cE ? zE.shkia - 90 : -Infinity;
+  out.push(...spec(eve, 0).filter((r) => (r.min ?? -Infinity) >= eveCut));
+  if (satD && !cD) {
+    // יו"ט שחל בערב שבת: שבת פון נאך מעריב (ער"ש: נאר וואס איז נאך קבלת שבת; שבת: אלעס)
+    const rows = shab(computeShabbos(data, eve, loc));
+    out.push(...rows.filter((r) => r.day === 1 || (r.kind !== 'tefila' && r.kind !== 'zman' && (r.min == null || r.min > zE.candles + 30))));
+  }
+  out.push(...spec(d, 1));
   return out;
 }
 export { nOf, isoOf };

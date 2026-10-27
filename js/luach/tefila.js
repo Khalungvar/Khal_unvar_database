@@ -1,6 +1,6 @@
 // "זמני תפילות" — ניהול: ימות החול · שבת · יום טוב · תשרי. די דאטן: לשונית Minyanim (key = data, value = JSON).
 // דער חשבון (וואס קומט ארויס פאר א טאג) איז אין minyanim.js — דאס זעלבע וואס די תצוגה אין בית הכנסת ניצט.
-import { defaults, chagRows, computeShiurim, REF_DAYS, condOf, ANCHORS, BASES, ROUNDS, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
+import { defaults, chagRows, TISHREI_CHAG, computeShiurim, REF_DAYS, condOf, ANCHORS, BASES, ROUNDS, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
 import { hhmm } from './zmanim.js';
 import { hdOf, dowOf } from './engine.js';
 import { MONTH } from './mitzva.js';
@@ -227,11 +227,12 @@ function minorHead(b, bp) {
   </div>`;
 }
 // א שורה פון חג: אנדערע שעה ווען דער טאג פאלט אויס ערב שבת
-function friRowHtml(r, p) {
-  const on = !!r.fri?.on; const fp = `${p}.fri`;
-  return `<div class="tf-rf tf-frirow"><label class="tf-like"><input type="checkbox" data-f="${h(fp)}.on"${on ? ' checked' : ''}${canEdit() ? '' : ' disabled'}> 🕯 כשחל בערב שבת — שעה אחרת</label>
-    ${on ? `<div class="tf-times">${(r.fri.times || []).map((T, ti) => `<span class="tf-tm">${tsHtml(T, `${fp}.times.${ti}`)}${btn('delT', `${fp}.times.${ti}`, '✕', 'הסר שעה')}</span>`).join('')}${btn('addT', `${fp}.times`, '＋ שעה')}</div>` : ''}</div>`;
+function friRowHtml(r, p, key = 'fri', txt = '🕯 כשחל בערב שבת — שעה אחרת') {
+  const on = !!r[key]?.on; const fp = `${p}.${key}`;
+  return `<div class="tf-rf tf-frirow"><label class="tf-like"><input type="checkbox" data-f="${h(fp)}.on"${on ? ' checked' : ''}${canEdit() ? '' : ' disabled'}> ${txt}</label>
+    ${on ? `<div class="tf-times">${(r[key].times || []).map((T, ti) => `<span class="tf-tm">${tsHtml(T, `${fp}.times.${ti}`)}${btn('delT', `${fp}.times.${ti}`, '✕', 'הסר שעה')}</span>`).join('')}${btn('addT', `${fp}.times`, '＋ שעה')}</div>` : ''}</div>`;
 }
+const isChagBlock = (part, b) => (part === 'yt' && b.type === 'chag') || (part === 'tishrei' && TISHREI_CHAG.has(b.when));
 function minorFri(b, bp) {
   const fm = b.fri?.mode === 'custom';
   return `<div class="tf-minor tf-frib"><div class="tf-rf"><b>🕯 כשחל בערב שבת</b> — מנחה וקבלת שבת:
@@ -253,7 +254,7 @@ function blocksHtml(part) {
       <div class="tf-rf${r.screen === false ? ' tf-off' : ''}"><label class="tf-scr" title="תצוגה במסך">${fld(`${p}.screen`, 'check')} 📺</label>${fld(`${p}.label`, 'text', ' class="tf-w12" placeholder="שם"')}${fld(`${p}.note`, 'text', ' class="tf-w10" placeholder="הערה"')}
       ${sel(`${p}.on`, onOpts(r.on))}${sel(`${p}.kind`, [['tefila', 'תפילה'], ['other', 'אחר']])}<span class="spacer"></span><span class="tf-acts">${btn('up', p, '↑', 'למעלה')}${btn('down', p, '↓', 'למטה')}${btn('del', p, '🗑', 'מחק')}</span></div>
       <div class="tf-times">${(r.times || []).map((T, ti) => `<span class="tf-tm">${tsHtml(T, `${p}.times.${ti}`)}${btn('delT', `${p}.times.${ti}`, '✕', 'הסר שעה')}</span>`).join('')}${btn('addT', `${p}.times`, '＋ שעה')}<span class="spacer"></span>${r.screen === false ? '' : dispBtn(r, p)}</div>
-      ${part === 'yt' && b.type === 'chag' ? friRowHtml(r, p) : ''}
+      ${isChagBlock(part, b) ? friRowHtml(r, p) + friRowHtml(r, p, 'sat', '🕍 כשחל בשבת — שעה אחרת') : ''}
     </div>`; }).join('')}
     </div>
     ${part === 'minor' || (part === 'yt' && b.type === 'chm') ? minorFri(b, bp) : ''}
@@ -339,7 +340,9 @@ export async function openTefila(main, onBack, backLabel) {
   // חג מיט די אלטע ליידיקע שורות (שחרית/מנחה) → מנחה ומעריב · שחרית · מנחה ומעריב
   for (const b of data.yt.blocks || []) if (b.type === 'chag' && b.when !== 'erevPesachShabbos' && (b.rows || []).length && (b.rows || []).every((r) => !(r.times || []).length && /^(שחרית|מנחה ומעריב)$/.test(r.label)) && b.rows.some((r) => r.on === 1 || r.on === '1')) b.rows = chagRows();
   for (const b of data.yt.blocks || []) if (b.type === 'chag' && (b.rows || []).every((r) => !(r.times || []).length && /^(שחרית|מנחה)$/.test(r.label))) b.rows = chagRows();
-  for (const b of data.yt.blocks || []) if (b.type === 'chag') for (const r of b.rows || []) if (!r.fri || !Array.isArray(r.fri.times)) r.fri = { on: false, times: [] };
+  for (const b of [...(data.yt.blocks || []).filter((x) => x.type === 'chag'), ...(data.tishrei.blocks || []).filter((x) => TISHREI_CHAG.has(x.when))]) {
+    for (const r of b.rows || []) for (const k of ['fri', 'sat']) if (!r[k] || !Array.isArray(r[k].times)) r[k] = { on: false, times: [] };
+  }
   for (const b of data.yt.blocks || []) if (b.type === 'chag') for (const r of b.rows || []) if (!r.disp) r.disp = { ...dispDefault(r), place: 'shab' };
   if (!data.yt.blocks.some((b) => b.when === 'erevShvii')) { const i = data.yt.blocks.findIndex((b) => b.when === 'shviiPesach'); const nb = defaults().yt.blocks.find((b) => b.when === 'erevShvii'); data.yt.blocks.splice(i < 0 ? data.yt.blocks.length : i, 0, nb); }
   if (!data.shiurim) data.shiurim = defaults().shiurim;

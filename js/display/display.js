@@ -4,7 +4,7 @@ import { buildYear, isoOf, nOf, dowOf, hdOf, dafYomi, mitzvaYomis } from '../lua
 import { zmanim, hhmm, LOCATIONS } from '../luach/zmanim.js';
 import { MONTH } from '../luach/mitzva.js';
 import { hebrewNumber } from '../hebdate.js';
-import { defaults, computeWeekday, computeShabbos, computeSpecial, computeShiurim, partOfDay } from '../luach/minyanim.js';
+import { defaults, computeWeekday, computeShabbos, computeSpecial, computeShiurim, computeHoly, chagOn, partOfDay } from '../luach/minyanim.js';
 
 // ---------- דאטן: תצוגה מקדימה (פון "זמני תפילות" — localStorage), אנדערש ברירת מחדל ----------
 const QS = new URLSearchParams(location.search);
@@ -190,7 +190,7 @@ function render() {
   // מניינים
   // ---- דער לוח פון מניינים: וואכנטאג, אדער שבת/יו"ט (פון ערב שבת/יו"ט נאך דער לעצטער שחרית) ----
   // min = מינוט פון היינט האלבנאכט (נעכטן: -1440, מארגן: +1440)
-  const holy = (k) => dowOf(k) === 6 || !!dayOf(k)?.items.some((i) => i.yt);
+  const holy = (k) => dowOf(k) === 6 || chagOn(DATA, k);
   const zOf = (k) => zmanim(isoOf(k), LOC);
   const GN = { shacharis: 'שחרית', mincha: 'מנחה', maariv: 'מעריב' };
   function specials(k, off, place) {
@@ -217,20 +217,9 @@ function render() {
   }
   // שבת / יו"ט: שורות פאר די גרויסע קעסטל. eve = ערב (פרייטאג / ערב יו"ט), d = דער טאג
   function holyRows(eve) {
-    const d = eve + 1; const oe = (eve - n) * 1440; const od = (d - n) * 1440;
-    const hasChag = [eve, d].some((k) => specials(k, 0, 'shab').some((bk) => bk.type === 'chag'));
-    if (dowOf(d) === 6 && !dayOf(d)?.items.some((i) => i.yt) && !hasChag) {
-      return computeShabbos(DATA, eve, LOC).filter((r) => r.screen !== false).map((r) => ({ label: r.label, kind: r.kind, note: r.note, min: r.min == null ? null : r.min + (r.day === 'sat' ? od : oe) }));
-    }
-    const out = [];
-    if (!holy(eve)) out.push({ label: 'הדלקת נרות', kind: 'zman', min: zOf(eve).candles + oe });
-    // פונעם ערב: אויב דער ערב איז אליין א יו"ט (יום ב') — נאר די אוונט-זאכן (נאכן שקיעה בערך), כדי נישט צו איבערחזרן
-    const eveCut = holy(eve) ? zOf(eve).shkia - 90 + oe : -Infinity;
-    for (const [k, off] of [[eve, oe], [d, od]]) for (const bk of specials(k, off, 'shab')) for (const r of bk.rows) {
-      if (k === eve && (r.mins[0] ?? -Infinity) < eveCut) continue;
-      out.push({ label: r.label, kind: r.kind, note: r.note, min: r.mins[0] ?? null, more: r.mins.slice(1) });
-    }
-    return out;
+    const oe = (eve - n) * 1440; const od = (eve + 1 - n) * 1440;
+    return computeHoly(DATA, eve, LOC).filter((r) => r.screen !== false && r.place === 'shab')
+      .map((r) => { const off = r.day ? od : oe; return { label: r.label, kind: r.kind, note: r.note, min: r.min == null ? null : r.min + off, more: (r.more || []).map((m) => m + off) }; });
   }
   function holyBoard(eve) {
     const rows = holyRows(eve);
