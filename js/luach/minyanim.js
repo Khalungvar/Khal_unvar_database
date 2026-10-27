@@ -87,7 +87,7 @@ export function condOf(r, g) {
 export function defaults() {
   return {
     weekday: {
-      shacharisNote: 'הודו +10 מינוט', minchaNote: '', maarivNote: '', maarivAfter: 50, defaultRoom: '',
+      refDay: '0', shacharisNote: 'הודו +10 מינוט', minchaNote: '', maarivNote: '', maarivAfter: 50, defaultRoom: '',
       // מנין כ"ק אדמו"ר שליט"א — באזונדער: א זמן מיט עיגול, און א "שטילע צייט" ארום אים ווען קיין אנדער מנין טאר נישט זיין
       rebbe: {
         shacharis: { on: true, time: F('07:30'), room: "חדר א'", note: '', before: 0, after: 0, fri: true },
@@ -261,8 +261,22 @@ export function daysOf(when, Y) {
 
 // ---------- חשבון ----------
 /** ימות החול פאר טאג n: { shacharis:[..], mincha:[..], maariv:[..], last } — יעדער: { min, room, note, kahal } */
+/** זמני ימות החול זענען פאר דער גאנצער וואך: מען רעכנט לויט איין טאג (weekday.refDay) */
+export const REF_DAYS = [['0', 'יום א\''], ['1', 'יום ב\''], ['2', 'יום ג\''], ['3', 'יום ד\''], ['4', 'יום ה\''], ['5', 'יום ו\''], ['early', 'השקיעה המוקדמת בשבוע'], ['late', 'השקיעה המאוחרת בשבוע'], ['daily', 'כל יום לפי עצמו']];
+export function weekRefDay(data, n, loc) {
+  const ref = data.weekday?.refDay ?? '0';
+  if (ref === 'daily') return n;
+  const sun = n - dowOf(n === undefined ? 0 : n) + (dowOf(n) === 6 ? 7 : 0); // שבת → די קומענדיגע וואך
+  if (ref === 'early' || ref === 'late') {
+    const days = [0, 1, 2, 3, 4, 5].map((i) => sun + i);
+    const sk = days.map((k) => dayZ(isoOf(k), loc).shkia);
+    const v = ref === 'early' ? Math.min(...sk) : Math.max(...sk);
+    return days[sk.indexOf(v)];
+  }
+  return sun + Number(ref);
+}
 export function computeWeekday(data, n, loc) {
-  const w = data.weekday; const iso = isoOf(n); const zd = dayZ(iso, loc); const fri = dowOf(n) === 5;
+  const w = data.weekday; const iso = isoOf(n); const zd = dayZ(isoOf(weekRefDay(data, n, loc)), loc); const fri = dowOf(n) === 5;
   const ok = (r) => inSeason(r.season, iso, r) && (!fri || r.fri);
   const mk = (r) => ({ min: timeOf(r.time, zd), room: r.room || w.defaultRoom || '', note: r.note || '', kahal: !!r.kahal, last: !!r.last });
   const valid = (x) => {
