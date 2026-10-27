@@ -227,3 +227,8 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .mny .times.rbt i { font-style: normal; font-family: var(--serif); font-size: 26px; color: var(--muted); direction: rtl; }
 .mny .times.rbt i small { font-size: 18px; }
 .mny.pos-side .times.rbt i { font-size: 18px; } .mny.pos-side .grp.rb h3 { font-size: 18px; }
+.next { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.next .row1 { margin-top: 0; }
+.next .lbl { font-size: 32px; }
+.next .room { font-size: 36px; }
+.next .big { margin-top: 0; }
