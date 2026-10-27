@@ -97,7 +97,8 @@ function weekdayHtml() {
     </tbody></table>
     ${canEdit() ? `<div class="tf-add"><button type="button" class="btn" data-act="addW" data-p="${g}">➕ מניין ${title}</button> <button type="button" class="btn ghost" data-act="sortW" data-p="${g}">⇅ סדר לפי שעה</button></div>` : ''}
   </section>`).join('');
-  return `<p class="muted small">חדר ברירת מחדל (למניין בלי חדר): ${fld('weekday.defaultRoom', 'text', ' class="tf-w10"')} · קיץ = שעון קיץ</p>${groups}`;
+  return `<p class="muted small">חדר שיוצג במסך כשלמניין לא נכתב חדר (אפשר להשאיר ריק): ${fld('weekday.defaultRoom', 'text', ' class="tf-w10" placeholder="למשל: ביהמ&quot;ד"')}</p>
+    <p class="muted small">עונה: "קיץ" = כשהשעון בשעון קיץ (מאמצע מרץ עד תחילת נובמבר), "חורף" = שאר השנה.</p>${groups}`;
 }
 
 // ---------- שבת ----------
