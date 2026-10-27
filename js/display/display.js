@@ -4,7 +4,8 @@ import { buildYear, isoOf, nOf, dowOf, hdOf, dafYomi, mitzvaYomis, omerText } fr
 import { zmanim, hhmm, LOCATIONS } from '../luach/zmanim.js';
 import { MONTH } from '../luach/mitzva.js';
 import { hebrewNumber } from '../hebdate.js';
-import { normScreen } from './screenset.js';
+import { normScreen, currentByPlace, adUrl } from './screenset.js';
+import { printCss, weekdayPage, shabbosPage, fitPages } from '../luach/tfprint.js';
 import { defaults, computeWeekday, computeShabbos, computeSpecial, computeShiurim, computeHoly, chagOn, partOfDay } from '../luach/minyanim.js';
 
 // ---------- דאטן: תצוגה מקדימה (פון "זמני תפילות" — localStorage), אנדערש ברירת מחדל ----------
@@ -132,7 +133,8 @@ function mazelPages() {
 const entryHtml = (e) => (e.html ? `<div class="mz-e">${e.html}</div>` : `<div class="mz-e">${e.names.map((x) => `<div>${x}</div>`).join('')}<div class="for">${e.for}</div></div>`);
 
 // ---------- מודעה (8.5×11) — דעקט צו זמני שבת + שמחות. דוגמה: ?ad=1 ----------
-const AD = new URLSearchParams(location.search).get('ad');
+const AD_Q = new URLSearchParams(location.search).get('ad');
+let AD = null; let CUR = {}; // CUR = { place: item } — מודעות / תמונות / טעקסטן פון "תצוגת והגדרות המסך"
 
 // ---------- וואס איז היינט ----------
 const yc = new Map();
@@ -169,6 +171,8 @@ function additions(n, day) {
 
 function render() {
   const HID = SCR.hide || {};
+  CUR = currentByPlace(SCR, nowD());
+  AD = AD_Q ? { q: AD_Q } : CUR.right || null;
   const now = nowD();
   const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const n = nOf(iso); const dw = dowOf(n); const x = hdOf(n);
@@ -289,8 +293,9 @@ function render() {
   const isNew = (m) => CHG === 'after' && Math.round(((m.min % 1440) + 1440) % 1440) === 12 * 60 + 40;
   const timesHtml = (arr) => arr.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}${isNew(m) ? ' new' : ''}">${isNew(m) ? '<em>חדש</em>' : ''}${tm(((m.min % 1440) + 1440) % 1440)}${m.note === 'בערך' ? '<small style="font-size:20px"> בערך</small>' : ''}</span>`).join('');
 
-  const mnyHtml = (bd, pos) => `<div class="frame mny ${pos}${CHG === 'before' && pos === 'pos-main' ? ' has-chg' : ''}">
+  const mnyHtml = (bd, pos) => `<div class="frame mny ${pos}${(CHG === 'before' || CUR.notice) && pos === 'pos-main' ? ' has-chg' : ''}">
       <div class="ttl">${h(SCR.texts.tWeek)}${(() => { const k0 = swap ? wk : n; let s6 = k0; while (dowOf(s6) !== 6) s6 += 1; const p6 = dayOf(s6)?.parsha; return p6 ? ` לפרשת ${h(p6)}` : ''; })()}</div>
+      ${pos === 'pos-main' && CUR.notice ? `<div class="chg-note ntc">${esc2(CUR.notice.text)}</div>` : ''}
       ${bd.groups.map((g) => (g.rebbe
         ? `<div class="grp rb"><h3>${h(g.h)}</h3><div class="times rbt">${g.items.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}"><i>${m.lbl}</i> ${tm(((m.min % 1440) + 1440) % 1440)}</span>`).join('')}</div></div>`
         : `<div class="grp"><h3>${h(g.h)}${g.sub ? ` <small>${h(g.sub)}</small>` : ''}</h3><div class="times">${timesHtml(g.items)}</div></div>`)).join('')}
@@ -305,7 +310,8 @@ function render() {
     // נאר מיט א שעה, לויט דער שעה (הדלקת נרות / ער"ש / שבת)
     const rows = holyRows(eve).filter((r) => r.min != null).sort((a, b) => a.min - b.min);
     const dense = rows.length > (pos === 'pos-main' ? 8 : 7) ? ' dense' : '';
-    return `<div class="shab ${pos}${dense}" style="--n:${rows.length}">
+    return `<div class="shab ${pos}${dense}${pos === 'pos-main' && CUR.notice ? ' has-ntc' : ''}" style="--n:${rows.length}">
+      ${pos === 'pos-main' && CUR.notice ? `<div class="chg-note ntc">${esc2(CUR.notice.text)}</div>` : ''}
       <div class="sh-t"><small class="pre">${h(SCR.texts.tHoly)}</small>${h(chagTitle ? `ל${chagTitle}` : shab ? 'לשבת קודש' : `ל${ytName || 'יום טוב'}`)}<small>${ps ? `פרשת ${h(ps)}` : '&nbsp;'}</small></div>
       ${rows.map((r) => `<div class="sh-r${r.kind === 'tefila' ? ' big' : ''}${r.kind === 'tefila' && r.min != null && r.min < nowMin ? ' past' : ''}"><span>${h(r.label)}</span><b>${r.min == null ? '—' : [r.min, ...(r.more || [])].map((m) => tm(((m % 1440) + 1440) % 1440)).join(' · ')}</b></div>`).join('')}
     </div>`;
@@ -386,9 +392,11 @@ function render() {
   const shInner = `${shDaf.length ? `<div class="shiur sh-daf"><h4>${h(SCR.texts.tShDaf)}</h4>${shDaf.map(shRow).join('')}</div>` : ''}${shOth.length ? `<div class="shiur sh-oth"><h4>${h(SCR.texts.tShOth)}</h4>${shOth.map(shRow).join('')}</div>` : ''}`;
   const [main, bot] = html.split('<!--BOT-->');
   if (!$('#dyn')) {
-    $('#screen').innerHTML = '<div class="safe"><div id="dyn"></div><div id="shl"></div><div id="adlayer"></div></div><div id="dynb"></div>';
-    if (AD) $('#adlayer').innerHTML = `<div class="ad">${adHtml()}</div>`;
+    $('#screen').innerHTML = '<div class="safe"><div id="dyn"></div><div id="shl"></div><div id="adlayer"></div><div id="ovl"></div></div><div id="dynb"></div>';
   }
+  // די מודעה (רעכטס): נאר ווען זי טוישט זיך (א ווידעא הייבט זיך נישט אן פון אנפאנג)
+  const adKey = AD ? (AD.q || `${AD.id}|${AD.lib || AD.sys || ''}|${AD.text || ''}|${AD.fit || ''}`) : '';
+  if (adKey !== adLast) { adLast = adKey; $('#adlayer').innerHTML = AD ? `<div class="ad">${adHtml(AD)}</div>` : ''; fillSystem($('#adlayer')); }
   $('#dyn').innerHTML = main;
   updateShiurim(AD || HID.shiurim ? '' : shInner);
   // לוח המניינים (חול): די אותיות ווערן אזוי גרויס אז זיי פילן אויס די מסגרת
@@ -400,8 +408,70 @@ function render() {
     while (el.scrollWidth > el.clientWidth + 1 && fs > 14) { fs -= 1; el.style.fontSize = `${fs}px`; }
   }
   $('#dynb').innerHTML = bot;
+  updateOverlays();
 }
-let shLast = null;
+let shLast = null; let adLast = null; let ovLast = null;
+// ---------- תמונות / טעקסטן / דפים אויפן מסך (פון "תצוגת והגדרות המסך") ----------
+const esc2 = (x) => h(x).replace(/\n/g, '<br>');
+function itemHtml(it) {
+  if (it.type === 'media') {
+    const u = adUrl(it.item); const fit = it.fit === 'cover' ? 'cover' : 'contain';
+    return it.item.kind === 'video' ? `<video src="${h(u)}" autoplay muted loop playsinline style="object-fit:${fit}"></video>` : `<img src="${h(u)}" alt="" style="object-fit:${fit}">`;
+  }
+  if (it.type === 'system') return `<div class="ovs" data-sys="${h(it.sys || 'weekday')}"></div>`;
+  return `<div class="ovt" style="font-size:${Number(it.size) || 48}px;color:${h(it.color || '#0d2350')};background:${h(it.bg || 'transparent')};font-weight:${it.bold === false ? 500 : 800}">${esc2(it.text)}</div>`;
+}
+// א בלאט פון "הדפסת זמני התפילה" (ימות החול / שבת) — מתעדכן לבד כל וואך
+let pcssOn = false;
+function fillSystem(root) {
+  const boxes = root.querySelectorAll('.ovs');
+  if (!boxes.length) return;
+  if (!pcssOn) { const st = document.createElement('style'); st.textContent = printCss('Frank Ruhl Libre'); document.head.appendChild(st); pcssOn = true; }
+  const iso0 = (() => { const d = nowD(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+  const n0 = nOf(iso0); let f = n0; if (dowOf(n0) === 6) f = n0 - 1; else while (dowOf(f) !== 5) f += 1;
+  const ps = dayOf(f + 1)?.parsha || '';
+  boxes.forEach((b) => {
+    const pg = b.dataset.sys === 'shabbos' ? shabbosPage(DATA, f, `זמני שבת פרשת ${ps}`, LOC) : weekdayPage(DATA, f - 5, f, ps, LOC);
+    b.innerHTML = `<div class="ovs-in">${pg}</div>`;
+    const inn = b.firstChild; const k = Math.min(b.clientWidth / 816, b.clientHeight / 1056) || 0.5;
+    inn.style.transform = `scale(${k})`; inn.style.width = '816px'; inn.style.height = '1056px';
+    fitPages(inn);
+  });
+}
+const SLOT = { main: '#dyn .pos-main', next: '#dyn .next', side: '#dyn .pos-side', simchos: '#dyn .mzl', zmanim: '#dyn .zm:not(.zm-c)', mitzva: '#dyn .lrn-m:not(.lrn-d)', daf: '#dyn .lrn-d', shiurim: '#shl .lrn-s' };
+function updateOverlays() {
+  const L = $('#ovl'); if (!L) return;
+  const list = [];
+  for (const [p, it] of Object.entries(CUR)) {
+    if (p === 'right' || p === 'notice') continue;
+    if (p === 'free') it.forEach((x) => list.push([p, x])); else list.push([p, it]);
+  }
+  const key = list.map(([p, x]) => `${p}:${x.id}:${x.lib || x.sys || ''}:${x.text || ''}:${x.size || ''}:${x.color || ''}:${x.bg || ''}:${x.fit || ''}:${x.frame}:${JSON.stringify(x.box || {})}`).join('|');
+  if (key !== ovLast) {
+    ovLast = key;
+    L.innerHTML = list.map(([p, x]) => `<div class="ovi${x.frame !== false ? ' frame ovf' : ''}" data-p="${p}">${itemHtml(x)}</div>`).join('');
+    // פלאץ פאר די בלעטער (נאכן אריינשטעלן)
+    requestAnimationFrame(() => { place(); fillSystem(L); });
+  }
+  place();
+  function place() {
+    const R = L.getBoundingClientRect(); const k = R.width / (L.offsetWidth || 1920) || 1;
+    document.querySelectorAll('.ov-covered').forEach((e) => e.classList.remove('ov-covered'));
+    [...L.children].forEach((el, i) => {
+      const [p, x] = list[i] || [];
+      if (!p) return;
+      let r = null;
+      if (p === 'full') r = { x: 0, y: 0, w: 1920, h: 1080 };
+      else if (p === 'free') r = { x: Number(x.box?.x) || 660, y: Number(x.box?.y) || 300, w: Number(x.box?.w) || 600, h: Number(x.box?.h) || 400 };
+      else {
+        const t = document.querySelector(SLOT[p]);
+        if (t) { const b = t.getBoundingClientRect(); r = { x: (b.left - R.left) / k, y: (b.top - R.top) / k, w: b.width / k, h: b.height / k }; t.classList.add('ov-covered'); }
+      }
+      if (!r) { el.style.display = 'none'; return; }
+      Object.assign(el.style, { display: '', left: `${r.x}px`, top: `${r.y}px`, width: `${r.w}px`, height: `${r.h}px` });
+    });
+  }
+}
 function updateShiurim(inner) {
   const L = $('#shl'); if (!L) return;
   if (inner === shLast) return; shLast = inner;
@@ -442,9 +512,11 @@ function fitBoard(box, sel = '.grp h3, .times span, .times.rbt i', max = 1.6) {
   apply(best); boardCache.set(key, best); if (boardCache.size > 50) boardCache.clear();
 }
 // די מודעה ווערט נישט איבערגעצייכנט יעדע סעקונדע (א ווידעא וואלט זיך אנגעהויבן פון אנפאנג)
-function adHtml() {
-  if (AD === '1') return '<div class="ad-demo"><b>מודעה</b><span dir="ltr">8.5 × 11</span><small>כאן תופיע מודעה (תמונה או וידאו)<br>היא מכסה את זמני היום והלימוד</small></div>';
-  return /\.(mp4|webm|mov)(\?|$)/i.test(AD) ? `<video src="${h(AD)}" autoplay muted loop playsinline></video>` : `<img src="${h(AD)}" alt="">`;
+function adHtml(it) {
+  if (it && !it.q) return itemHtml(it);
+  const AQ = it?.q;
+  if (AQ === '1') return '<div class="ad-demo"><b>מודעה</b><span dir="ltr">8.5 × 11</span><small>כאן תופיע מודעה (תמונה או וידאו)<br>היא מכסה את זמני היום והלימוד</small></div>';
+  return /\.(mp4|webm|mov)(\?|$)/i.test(AQ) ? `<video src="${h(AQ)}" autoplay muted loop playsinline></video>` : `<img src="${h(AQ)}" alt="">`;
 }
 
 // שוליים פאר א מסך מיט א ראם (?safe=40 פיקסל; 0 = אן שוליים)

@@ -1,10 +1,10 @@
 // 📺 תצוגת והגדרות המסך: דער מסך (לעבעדיג, מיט א דאטום/שעה), און די הגדרות — טעקסטן, בילדער, באהאלטן משבצות, גיכקייטן, שוליים.
 // די הגדרות ליגן אינעם גיליון פון דער תצוגה (לשונית Screen); נאר נאך "💾 שמירה" גייען זיי צום מסך. יעדע שמירה = א נייע גירסא (ScreenHistory).
-import { otherSheet, ensureDriveScope, hasDriveScope, driveFolder, driveUploadLarge, driveDownload } from '../google.js';
+import { otherSheet, ensureDriveScope, hasDriveScope, driveFolder, driveUploadLarge, driveDownload, drivePublic } from '../google.js';
 import { CONFIG } from '../config.js';
 import { state, displayName } from '../data.js';
 import { escapeHtml as h, nowStamp, shrinkImage } from '../util.js';
-import { normScreen, screenDefaults } from '../display/screenset.js';
+import { normScreen, screenDefaults, PLACES, SYSTEM, adUrl } from '../display/screenset.js';
 import { versionStore, openVersions } from '../versions.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -122,6 +122,86 @@ function refreshPreview(main, now = false) {
   pvTimer = setTimeout(() => { const f = $('#sc-frame', main); if (f) f.src = previewSrc(); }, now ? 0 : 500);
 }
 
+// ---------- 🖼 תמונות, מודעות, טקסטים והודעות ----------
+const DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+const todayIso = () => localIso(new Date()).slice(0, 10);
+let dragI = null; // דער פריט וואס מ'שטעלט יעצט (מיקום חופשי)
+const uid = () => `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+const libThumb = (L) => (!L ? '❔' : L.kind === 'video' ? '<span class="sc-ico">🎬</span>' : `<img src="${h(adUrl(L))}" alt="" loading="lazy">`);
+const TYPE_NAME = { media: 'תמונה / וידאו', text: 'טקסט', system: 'דף מהמערכת', notice: 'הודעה בפס אדום' };
+function itemsHtml(ed) {
+  const dis = ed ? '' : ' disabled';
+  const f = (i, k, v, extra = '') => `<input data-k="items.${i}.${k}" value="${h(v ?? '')}"${dis}${extra}>`;
+  const sel = (i, k, v, opts, full = false) => `<select data-k="items.${i}.${k}"${full ? ' data-full="1"' : ''}${dis}>${opts.map(([a, b]) => `<option value="${h(a)}"${String(v) === String(a) ? ' selected' : ''}>${h(b)}</option>`).join('')}</select>`;
+  const rows = S.items.map((it, i) => {
+    const L = it.type === 'media' ? S.library.find((x) => x.id === it.lib) : null;
+    const thumb = it.type === 'media' ? libThumb(L) : it.type === 'system' ? '<span class="sc-ico">📄</span>' : it.type === 'notice' ? '<span class="sc-ico">📢</span>' : '<span class="sc-ico">T</span>';
+    return `<div class="sc-it${it.on === false ? ' off' : ''}${dragI === i ? ' drag' : ''}">
+      <div class="sc-th">${thumb}</div>
+      <div class="sc-itb">
+        <div class="sc-r1"><label class="sc-chk"><input type="checkbox" data-k="items.${i}.on"${it.on !== false ? ' checked' : ''}${dis}> פעיל</label>
+          <b>${h(TYPE_NAME[it.type] || '')}</b>${it.type === 'media' && L ? `<span class="muted small">${h(L.name || '')}</span>` : ''}
+          ${it.type === 'system' ? sel(i, 'sys', it.sys, SYSTEM) : ''}
+          <span class="spacer"></span>
+          ${ed ? `<button type="button" class="tf-mini" data-imv="${i}" data-d="-1" title="למעלה">↑</button><button type="button" class="tf-mini" data-imv="${i}" data-d="1" title="למטה">↓</button><button type="button" class="tf-mini" data-idel="${i}" title="מחק">🗑</button>` : ''}
+        </div>
+        ${it.type === 'text' || it.type === 'notice' ? `<textarea data-k="items.${i}.text" rows="2" placeholder="${it.type === 'notice' ? 'טקסט ההודעה' : 'הטקסט שיופיע על המסך'}"${dis}>${h(it.text || '')}</textarea>` : ''}
+        ${it.type === 'text' ? `<div class="sc-r1">גודל ${f(i, 'size', it.size, ' type="number" min="12" max="400" data-num="1" class="sc-num"')} צבע <input type="color" data-k="items.${i}.color" value="${h(it.color || '#0d2350')}"${dis}> רקע <input type="color" data-k="items.${i}.bg" value="${h(it.bg || '#ffffff')}"${dis}>
+          <label class="sc-chk"><input type="checkbox" data-k="items.${i}.bold"${it.bold !== false ? ' checked' : ''}${dis}> מודגש</label></div>` : ''}
+        ${it.type !== 'notice' ? `<div class="sc-r1">איפה: ${sel(i, 'place', it.place || 'right', PLACES, true)}
+          ${it.place === 'free' && ed ? `<button type="button" class="btn small-btn${dragI === i ? ' primary' : ''}" data-drag="${i}">${dragI === i ? '✔ סיום מיקום' : '✋ למקם על המסך'}</button>` : ''}
+          ${it.type === 'media' || it.type === 'system' ? `${sel(i, 'fit', it.fit || 'contain', [['contain', 'מוצג שלם'], ['cover', 'ממלא את המקום']])}` : ''}
+          <label class="sc-chk"><input type="checkbox" data-k="items.${i}.frame"${it.frame !== false ? ' checked' : ''}${dis}> מסגרת</label></div>` : ''}
+        <div class="sc-r1">מתאריך <input type="date" data-k="items.${i}.from" value="${h(it.from || '')}"${dis}> עד <input type="date" data-k="items.${i}.to" value="${h(it.to || '')}"${dis}>
+          <span class="sc-days">${DAYS.map((d, k) => `<label><input type="checkbox" data-iday="${i}" data-dw="${k}"${(it.days || []).includes(k) ? ' checked' : ''}${dis}>${d}</label>`).join('')}</span>
+          <span class="muted small">${(it.days || []).length ? '' : '(כל הימים)'}</span>
+          שניות ${f(i, 'sec', it.sec || '', ' type="number" min="0" max="600" data-num="1" class="sc-num" placeholder="ברירת מחדל"')}</div>
+      </div></div>`;
+  }).join('');
+  return `<section class="sc-card sc-items"><h3>🖼 תמונות, מודעות, טקסטים והודעות</h3>
+    ${ed ? `<div class="sc-add">
+      <label class="btn small-btn primary">📤 העלאת תמונה / וידאו<input type="file" accept="image/*,video/*" id="sc-up" hidden></label>
+      <button type="button" class="btn small-btn" data-add="lib">📚 מהמאגר (${S.library.length})</button>
+      <button type="button" class="btn small-btn" data-add="link">🔗 קישור לתמונה / וידאו</button>
+      <button type="button" class="btn small-btn" data-add="system">📄 דף מהמערכת</button>
+      <button type="button" class="btn small-btn" data-add="text">✏️ טקסט</button>
+      <button type="button" class="btn small-btn" data-add="notice">📢 הודעה בפס אדום</button>
+      <span id="sc-up-st" class="muted small"></span></div>` : ''}
+    ${rows || '<p class="muted">עדיין אין. מה שמוסיפים כאן מופיע על המסך בתאריכים שבוחרים — ואם יש כמה באותו מקום, הם מתחלפים.</p>'}
+    <div class="sc-r1 muted small">כשיש כמה באותו מקום — כל אחד מוצג ${num0('adSec', S.adSec)} שניות (אם לא נקבע אחרת). ריק בתאריכים = תמיד.</div>
+  </section>`;
+}
+const num0 = (path, val) => `<input type="number" data-k="${h(path)}" data-num="1" value="${h(val)}" min="3" max="600" class="sc-num"${canEdit() ? '' : ' disabled'}>`;
+function libDialog(main, onPick) {
+  const bg = document.createElement('div'); bg.className = 'tf-dlg-bg';
+  const draw = () => {
+    bg.innerHTML = `<div class="tf-dlg sc-lib"><h3>📚 מאגר התמונות והסרטונים</h3>
+      ${S.library.length ? `<div class="sc-libg">${S.library.map((L) => { const used = S.items.some((x) => x.lib === L.id); return `<div class="sc-libi">${libThumb(L)}<small>${h(L.name || '')}</small>
+        <button type="button" class="btn small-btn primary" data-pick="${h(L.id)}">➕ להוסיף למסך</button>
+        ${used ? '<span class="muted small">בשימוש</span>' : `<button type="button" class="btn small-btn ghost" data-ldel="${h(L.id)}">🗑 להסיר מהמאגר</button>`}</div>`; }).join('')}</div>` : '<p class="muted">המאגר ריק — מעלים תמונה או וידאו, והם נשמרים כאן לשימוש חוזר.</p>'}
+      <div class="vs-acts"><button type="button" class="btn ghost" data-x>סגירה</button></div></div>`;
+    bg.querySelector('[data-x]').onclick = () => bg.remove();
+    bg.querySelectorAll('[data-pick]').forEach((b) => { b.onclick = () => { bg.remove(); onPick(b.dataset.pick); }; });
+    bg.querySelectorAll('[data-ldel]').forEach((b) => { b.onclick = () => { if (!confirm('להסיר מהמאגר? (הקובץ נשאר ב-Drive)')) return; S.library = S.library.filter((x) => x.id !== b.dataset.ldel); draw(); render(main); }; });
+  };
+  draw(); document.body.appendChild(bg);
+  bg.addEventListener('click', (e) => { if (e.target === bg) bg.remove(); });
+}
+async function uploadMedia(file, main) {
+  const st = $('#sc-up-st', main);
+  try {
+    await ensureDriveScope();
+    const folder = await driveFolder('מודעות מסך');
+    const id = await driveUploadLarge(file, file.name, folder, (f) => { st.textContent = `מעלה… ${Math.round(f * 100)}%`; });
+    st.textContent = 'משתף לצפייה…';
+    await drivePublic(id);
+    const L = { id: uid(), name: file.name, kind: /^video\//.test(file.type) ? 'video' : 'image', driveId: id, at: nowStamp() };
+    S.library.push(L);
+    S.items.push({ id: uid(), type: 'media', lib: L.id, on: true, place: 'right', from: todayIso(), to: '', days: [], sec: 0, fit: L.kind === 'video' ? 'cover' : 'contain', frame: true });
+    st.textContent = ''; render(main); refreshPreview(main, true);
+  } catch (err) { st.textContent = ''; ui.toast?.(String(err.message || err), 'error'); }
+}
+
 function render(main) {
   const ed = canEdit(); const dis = ed ? '' : ' disabled';
   const inp = (path, val, extra = '') => `<input data-k="${h(path)}" value="${h(val ?? '')}"${dis}${extra}>`;
@@ -156,8 +236,9 @@ function render(main) {
         <span class="sc-mz">שמחות: <button type="button" class="btn small-btn" data-mz="-1">◀</button><b>${mzpage == null ? 'אוטומטי' : `עמוד ${mzpage + 1}`}</b><button type="button" class="btn small-btn" data-mz="1">▶</button>${mzpage != null ? '<button type="button" class="btn small-btn ghost" data-mz="0">אוטומטי</button>' : ''}</span>
         <a class="btn small-btn ghost" href="display.html" target="_blank" rel="noopener" title="המסך כמו שהוא בבית המדרש (הגרסה השמורה)">↗ מסך מלא</a>
       </div>
-      <div class="sc-frame-box"><iframe id="sc-frame" title="המסך" src="${previewSrc()}"></iframe></div>
+      <div class="sc-frame-box"><iframe id="sc-frame" title="המסך" src="${previewSrc()}"></iframe>${dragI != null ? '<div class="sc-dragl"><div class="sc-dragb"><span>✋ לגרור · להגדיל מהפינה</span><i class="sc-hdl"></i></div></div>' : ''}</div>
     </div>
+    ${itemsHtml(ed)}
     <div class="sc-grid">
       <section class="sc-card"><h3>✏️ טקסטים</h3>
         ${TEXTS.map(([k, l]) => `<label class="sc-row"><span>${h(l)}</span>${inp(`texts.${k}`, S.texts[k])}</label>`).join('')}
@@ -192,7 +273,12 @@ function render(main) {
   };
   main.onchange = (e) => {
     const el = e.target;
-    if (el.dataset.k && el.type === 'checkbox') { setK(el.dataset.k, el.dataset.inv ? !el.checked : el.checked); changed(false); }
+    if (el.dataset.k && el.type === 'checkbox') { setK(el.dataset.k, el.dataset.inv ? !el.checked : el.checked); changed(/^items\.\d+\.on$/.test(el.dataset.k)); }
+    else if (el.dataset.full) changed(true);
+    else if (el.dataset.iday != null) {
+      const it = S.items[Number(el.dataset.iday)]; const d = Number(el.dataset.dw); const set = new Set(it.days || []);
+      if (el.checked) set.add(d); else set.delete(d); it.days = [...set].sort(); changed(true);
+    }
   };
   $('#sc-back', main).onclick = () => { if (dirty() && !confirm('יש שינויים שלא נשמרו. לצאת בלי לשמור?')) return; window.removeEventListener('beforeunload', unload); back(); };
   const sv = $('#sc-save', main); if (sv) sv.onclick = () => save(main);
@@ -221,9 +307,53 @@ function render(main) {
   const tr = $('#sc-texts-reset', main); if (tr) tr.onclick = () => { if (!confirm('להחזיר את כל הטקסטים לברירת המחדל?')) return; S.texts = screenDefaults().texts; changed(true); };
   $$('[data-kdl]', main).forEach((b) => { b.onclick = () => kioskDownload(kiosk[Number(b.dataset.kdl)], b); });
   const kf = $('#sc-k-file', main); if (kf) kf.onchange = () => { if (kf.files[0]) kioskUpload(kf.files[0], main); };
+  const up = $('#sc-up', main); if (up) up.onchange = () => { if (up.files[0]) uploadMedia(up.files[0], main); };
+  $$('[data-add]', main).forEach((b) => { b.onclick = () => {
+    const a = b.dataset.add; const base = { id: uid(), on: true, from: todayIso(), to: '', days: [], sec: 0 };
+    if (a === 'lib') { libDialog(main, (lib) => { const L = S.library.find((x) => x.id === lib); S.items.push({ ...base, type: 'media', lib, place: 'right', fit: L?.kind === 'video' ? 'cover' : 'contain', frame: true }); changed(true); }); return; }
+    if (a === 'link') {
+      const u = (prompt('קישור לתמונה או לווידאו (https://…):') || '').trim(); if (!/^https:\/\//.test(u)) return;
+      const L = { id: uid(), name: u.split('/').pop().slice(0, 60), kind: /\.(mp4|webm|mov)(\?|$)/i.test(u) ? 'video' : 'image', url: u, at: nowStamp() };
+      S.library.push(L); S.items.push({ ...base, type: 'media', lib: L.id, place: 'right', fit: L.kind === 'video' ? 'cover' : 'contain', frame: true });
+    } else if (a === 'system') S.items.push({ ...base, type: 'system', sys: 'weekday', place: 'right', fit: 'contain', frame: true });
+    else if (a === 'text') S.items.push({ ...base, type: 'text', text: '', size: 64, color: '#0d2350', bg: '#ffffff', bold: true, place: 'free', box: { x: 660, y: 340, w: 600, h: 300 }, frame: true });
+    else if (a === 'notice') S.items.push({ ...base, type: 'notice', text: '' });
+    changed(true);
+  }; });
+  $$('[data-idel]', main).forEach((b) => { b.onclick = () => { if (!confirm('למחוק את הפריט מהמסך? (התמונה נשארת במאגר)')) return; S.items.splice(Number(b.dataset.idel), 1); dragI = null; changed(true); }; });
+  $$('[data-imv]', main).forEach((b) => { b.onclick = () => { const i = Number(b.dataset.imv); const j = i + Number(b.dataset.d); if (j < 0 || j >= S.items.length) return; [S.items[i], S.items[j]] = [S.items[j], S.items[i]]; changed(true); }; });
+  $$('[data-drag]', main).forEach((b) => { b.onclick = () => { const i = Number(b.dataset.drag); dragI = dragI === i ? null : i; render(main); if (dragI != null) $('.sc-pv', main).scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
   // דער מסך: 1920×1080, אויסגעשטעלט צו דער ברייט
   const box = $('.sc-frame-box', main); const fr = $('#sc-frame', main);
   const fit = () => { const k = box.clientWidth / 1920; fr.style.transform = `scale(${k})`; box.style.height = `${1080 * k}px`; };
-  fit(); window.removeEventListener('resize', onRs); onRs = fit; window.addEventListener('resize', onRs);
+  fit(); window.removeEventListener('resize', onRs); onRs = () => { fit(); placeDrag(); }; window.addEventListener('resize', onRs);
+  // מיקום חופשי: א ראם איבער דער תצוגה — גרירה און גרעסער מאכן (קאארדינאטן פונעם מסך 1920×1080, אינעווייניג פון די שוליים)
+  const dl = $('.sc-dragl', main);
+  function placeDrag() {
+    if (!dl || dragI == null) return;
+    const it = S.items[dragI]; if (!it) return;
+    const k = box.clientWidth / 1920; const sf = Math.max(0, Number(S.safe) || 0); const ss = 1 - (2 * sf) / 1080;
+    const b = it.box || (it.box = { x: 660, y: 340, w: 600, h: 300 });
+    const toScr = (x, y) => [(960 + (x - 960) * ss) * k, (sf + y * ss) * k];
+    const [l, t] = toScr(b.x, b.y); const [r, btm] = toScr(b.x + b.w, b.y + b.h);
+    const el = dl.firstChild; Object.assign(el.style, { left: `${l}px`, top: `${t}px`, width: `${r - l}px`, height: `${btm - t}px` });
+    dl._k = k; dl._ss = ss;
+  }
+  placeDrag();
+  if (dl) {
+    const el = dl.firstChild;
+    el.onpointerdown = (e) => {
+      e.preventDefault(); const it = S.items[dragI]; const b0 = { ...it.box }; const x0 = e.clientX; const y0 = e.clientY;
+      const resize = e.target.classList.contains('sc-hdl'); el.setPointerCapture(e.pointerId);
+      el.onpointermove = (ev) => {
+        const f = 1 / (dl._k * dl._ss); const dx = (ev.clientX - x0) * f; const dy = (ev.clientY - y0) * f;
+        // דער מסך איז פון רעכטס צו לינקס, אבער די קאארדינאטן — פון לינקס
+        if (resize) { it.box.w = Math.max(80, Math.round(b0.w - dx)); it.box.x = Math.round(b0.x + dx); it.box.h = Math.max(60, Math.round(b0.h + dy)); }
+        else { it.box.x = Math.round(Math.min(1900, Math.max(-100, b0.x + dx))); it.box.y = Math.round(Math.min(1060, Math.max(-100, b0.y + dy))); }
+        placeDrag();
+      };
+      el.onpointerup = () => { el.onpointermove = null; changed(false); };
+    };
+  }
 }
 let onRs = () => {};

@@ -320,3 +320,18 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .mzl .dots { bottom: 17px; } .mzl .dots i { width: 12px; height: 12px; margin: 0 5px; }
 .mzl .pg { bottom: 13px; left: 26px; }
 .mzl .list { padding-bottom: 32px; }
+
+/* פריטים פון "תצוגת והגדרות המסך": תמונות / טעקסטן / דפים — אויף א משבצת, איבערן גאנצן מסך, אדער פריי */
+#ovl { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
+.ovi { position: absolute; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.ovi.ovf { padding: 14px; }
+.ovi.ovf::before { z-index: 1; }
+.ovi img, .ovi video { width: 100%; height: 100%; display: block; object-fit: contain; border-radius: 8px; }
+.ovi video { background: #000; }
+.ovt { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; padding: 12px 18px; white-space: normal; font-family: var(--serif); line-height: 1.25; border-radius: 10px; box-sizing: border-box; }
+.ovs { width: 100%; height: 100%; position: relative; overflow: hidden; display: flex; justify-content: center; }
+.ovs-in { transform-origin: top center; flex: none; }
+.ad .ovt, .ad .ovs { height: 100%; }
+.ov-covered { visibility: hidden !important; }
+.chg-note.ntc { white-space: normal; line-height: 1.2; }
+.shab.has-ntc .chg-note { margin: 4px 10px 2px; font-size: 21px; }
