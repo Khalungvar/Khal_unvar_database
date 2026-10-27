@@ -196,3 +196,11 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .mny .times span.new { color: #0d6b3a; background: #e3f6e9; border-radius: 8px; outline: 2px solid #2e9e5b; margin: 2px 4px; }
 .mny .times span.new em { font-style: normal; font-family: var(--serif); font-size: 15px; font-weight: 900; color: #fff; background: #2e9e5b; border-radius: 6px; padding: 0 5px; margin-left: 4px; vertical-align: middle; }
 .mny.has-chg .grp { margin-top: 5px; } .mny.has-chg .times span { font-size: 28px; line-height: 1.12; } .mny.has-chg .grp h3 { font-size: 26px; }
+
+/* שבת-קעסטל: ווען פיל שורות — קלענער */
+.shab.dense .sh-r { font-size: calc(27px * 7 / var(--n)); line-height: 1.1; }
+.shab.dense .sh-r b { font-size: calc(31px * 7 / var(--n)); }
+.shab.dense .sh-r.big { margin: 1px -8px; }
+.shab.pos-main.dense .sh-r { font-size: calc(31px * 8 / var(--n)); } .shab.pos-main.dense .sh-r b { font-size: calc(35px * 8 / var(--n)); }
+.next .big.long .name { font-size: 58px; }
+.next .big.long .time { font-size: 80px; }

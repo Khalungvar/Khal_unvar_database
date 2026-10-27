@@ -160,7 +160,7 @@ function YT_BLOCKS() {
   const C = (t, w, rows) => ({ ...block(t, w, empty(rows)), type: 'chag' });
   return [
     E('ערב פסח', 'erevPesach'), C('פסח', 'pesach', ['שחרית', 'מנחה']),
-    { ...E('חול המועד פסח', 'cholPesach'), type: 'chm' }, E('ערב שביעי של פסח', 'erevShvii'), C('שביעי ואחרון של פסח', 'shviiPesach', ['שחרית', 'מנחה']),
+    { ...E('חול המועד פסח', 'cholPesach'), type: 'chm' }, C('שבת חול המועד פסח', 'shabbosChmPesach', ['שחרית', 'מנחה']), E('ערב שביעי של פסח', 'erevShvii'), C('שביעי ואחרון של פסח', 'shviiPesach', ['שחרית', 'מנחה']),
     E('ערב שבועות', 'erevShavuos'), C('שבועות', 'shavuos', ['שחרית', 'מנחה']),
   ];
 }
@@ -172,7 +172,7 @@ export const WHEN = {
     ['hoshana', 'הושענא רבה'], ['shmini', 'שמיני עצרת ושמחת תורה'], ['bereishis', 'שבת בראשית']],
   minor: [['chanuka', 'חנוכה'], ['asaraTeves', 'עשרה בטבת'], ['taanisEsther', 'תענית אסתר'], ['purim', 'פורים'], ['lagBaomer', 'ל"ג בעומר'],
     ['tamuz17', 'י"ז בתמוז'], ['tishaBav', 'תשעה באב']],
-  yt: [['erevPesach', 'ערב פסח'], ['pesach', 'פסח (ב\' ימים)'], ['cholPesach', 'חול המועד פסח'], ['erevShvii', 'ערב שביעי של פסח'], ['shviiPesach', 'שביעי ואחרון של פסח'], ['erevShavuos', 'ערב שבועות'], ['shavuos', 'שבועות']],
+  yt: [['erevPesach', 'ערב פסח'], ['pesach', 'פסח (ב\' ימים)'], ['cholPesach', 'חול המועד פסח'], ['shabbosChmPesach', 'שבת חול המועד פסח'], ['erevShvii', 'ערב שביעי של פסח'], ['shviiPesach', 'שביעי ואחרון של פסח'], ['erevShavuos', 'ערב שבועות'], ['shavuos', 'שבועות']],
 };
 const yc = new Map();
 const yearDays = (Y) => { if (!yc.has(Y)) yc.set(Y, buildYear(Y, {}, {})); return yc.get(Y).days; };
@@ -210,6 +210,7 @@ export function daysOf(when, Y) {
     case 'erevPesach': return findHol(Y, /^ערב פסח/);
     case 'pesach': { const p = at('Nisan', 15); return [p, p + 1]; }
     case 'cholPesach': return range(at('Nisan', 17), at('Nisan', 19)).filter((n) => dowOf(n) !== 6);
+    case 'shabbosChmPesach': return range(at('Nisan', 17), at('Nisan', 20)).filter((n) => dowOf(n) === 6);
     case 'erevShvii': return [at('Nisan', 20)];
     case 'shviiPesach': return [at('Nisan', 21), at('Nisan', 22)];
     case 'lagBaomer': return [at('Iyar', 18)];
@@ -317,7 +318,7 @@ export function computeSpecial(data, n, loc) {
           const i = Number(r.on);
           return i < 0 ? ds[0] + i === n : ds[i] === n;
         }).map((r) => ({ label: r.label, note: r.note, kind: r.kind, screen: r.screen !== false, disp: r.disp || null, mins: (r.times || []).map((t) => timeOf(t, zd)).filter((m) => m != null) }));
-        if (rows.length) { out.push({ title: b.title, rows }); break; }
+        if (rows.length) { out.push({ title: b.title, part, type: b.type || '', rows }); break; }
       }
     }
   }

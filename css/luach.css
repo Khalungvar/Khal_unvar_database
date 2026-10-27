@@ -256,3 +256,4 @@
 .tf-type { font-size: 13px; font-weight: 700; padding: 2px 10px; border-radius: 8px; display: inline-block; margin: 2px 0 4px; }
 .tf-type.erev { background: #eef3fb; color: #1f2f6b; } .tf-type.chag { background: #3a2410; color: #f3dc9a; }
 .tf-type.chm { background: #eaf5ec; color: #1d5e33; }
+.tf-pvb { border: 1px solid #c9a24c; background: #fffaf0; font-weight: 700; }

@@ -221,7 +221,7 @@ function blocksHtml(part) {
   ${bs.map((b, bi) => { const bp = `${part}.blocks.${bi}`; const ds = daysOf(b.when, Y); return `<section class="tf-blk">
     <div class="tf-bh">${fld(`${bp}.title`, 'text', ' class="tf-w16 tf-bt"')} ${sel(`${bp}.when`, WHEN[part])}
       <span class="muted small">${ds.length ? h(ds.length > 3 ? `${dateLabel(ds[0])} … ${dateLabel(ds[ds.length - 1])} (${ds.length} ימים)` : ds.map(dateLabel).join(' · ')) : '—'}</span>
-      <span class="spacer"></span>${btn('up', bp, '↑', 'למעלה')}${btn('down', bp, '↓', 'למטה')}${btn('del', bp, '🗑', 'מחק בלוק')}</div>
+      <span class="spacer"></span>${ds.length ? `<button type="button" class="tf-mini tf-pvb" data-act="pv" data-d="${isoOf(b.type === 'chag' ? ds[0] - 1 : ds[0])}" data-t="${b.type === 'chag' ? '15:00' : '11:00'}" title="לראות במסך">👁 תצוגה</button>` : ''}${btn('up', bp, '↑', 'למעלה')}${btn('down', bp, '↓', 'למטה')}${btn('del', bp, '🗑', 'מחק בלוק')}</div>
     ${part === 'yt' ? `<div class="tf-type ${b.type || 'erev'}">${b.type === 'chag' ? '🕯 חג — מוצג כמו שבת' : b.type === 'chm' ? '🌿 חול המועד' : '📅 ערב חג — מתנהג כמו ימות החול'}</div>` : ''}
     ${part === 'minor' || (part === 'yt' && b.type !== 'chag') ? minorHead(b, bp) : ''}
     <div class="tf-rows">
@@ -283,7 +283,7 @@ export async function openTefila(main, onBack) {
     const yo = WHEN.yt.map(([k]) => k); data.yt.blocks.sort((x, y) => yo.indexOf(x.when) - yo.indexOf(y.when));
   }
   // ערב חג / חג (אלטע דאטן אן type)
-  const chagW = new Set(['pesach', 'shviiPesach', 'shavuos']);
+  const chagW = new Set(['pesach', 'shviiPesach', 'shavuos', 'shabbosChmPesach']);
   for (const b of data.yt.blocks || []) { if (!b.type) b.type = chagW.has(b.when) ? 'chag' : 'erev'; if (b.when === 'cholPesach' && b.type === 'erev') b.type = 'chm'; }
   for (const b of data.yt.blocks || []) if (b.type === 'chag') for (const r of b.rows || []) if (!r.disp) r.disp = { ...dispDefault(r), place: 'shab' };
   if (!data.yt.blocks.some((b) => b.when === 'erevShvii')) { const i = data.yt.blocks.findIndex((b) => b.when === 'shviiPesach'); const nb = defaults().yt.blocks.find((b) => b.when === 'erevShvii'); data.yt.blocks.splice(i < 0 ? data.yt.blocks.length : i, 0, nb); }
@@ -303,6 +303,7 @@ function render(main, onBack) {
       <div class="lang-switch">${TABS.map(([k, l]) => `<button type="button" data-tab="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div>
       <span class="spacer"></span>
       ${canEdit() ? `<button type="button" class="btn primary" id="tf-save"${dirty ? '' : ' disabled'}>💾 שמירה</button>` : ''}
+      <button type="button" class="btn" data-act="pv" data-d="" title="לראות במסך את התאריך שבתצוגה המקדימה">👁 במסך</button>
       ${canEdit() ? '<button type="button" class="btn ghost" id="tf-reset" title="למלא מחדש מברירת המחדל (הלוח השנתי + התוכנה הישנה)">↺</button>' : ''}
     </div>
     ${row ? '' : '<p class="lx-warn">⚠ עדיין לא נשמר — מוצגים הזמנים מהלוח השנתי ומהתוכנה הישנה. לעבור, לתקן ולשמור.</p>'}
@@ -335,6 +336,12 @@ function render(main, onBack) {
     const act = b.dataset.act; const p = b.dataset.p || '';
     if (act === 'addW') { data.weekday[p].push({ id: newId(), time: { b: 'fixed', t: '' }, room: '', note: '', season: 'all', cond: null, kahal: false, fri: p === 'shacharis', last: false }); }
     else if (act === 'sortW') { const z = { neitz: 380, shkia: 1100, candles: 1082, rt: 1172, alos: 308, chatzos: 740 }; const k = (r) => (r.time?.b === 'fixed' ? (Number(String(r.time.t).replace(':', '.')) * 60 || 0) : (z[r.time?.b] || 0) + (r.time?.a || 0)); data.weekday[p].sort((a, c) => k(a) - k(c)); }
+    else if (act === 'pv') {
+      try { localStorage.setItem('tf-preview', JSON.stringify(data)); } catch { /* */ }
+      const d = b.dataset.d || prevIso; const t = b.dataset.t || new Date().toTimeString().slice(0, 5);
+      window.open(`display.html?preview=1&at=${d}T${t}`, 'tf-display');
+      return;
+    }
     else if (act === 'dispOpen') { dispOpen = p; rerender(); return; }
     else if (act === 'dispClose') { if (e.target !== b && b.classList.contains('tf-dlg-bg')) return; dispOpen = null; rerender(); return; }
     else if (act === 'condOpen') { condOpen = { p, g: b.dataset.g }; rerender(); return; }
