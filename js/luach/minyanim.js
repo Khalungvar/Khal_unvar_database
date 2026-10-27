@@ -53,9 +53,9 @@ const W = (time, o = {}) => ({ id: id(), time, room: '', note: '', season: 'all'
 const C = (dir, min, base) => ({ dir, min, base });
 /** אלטע "auto" → cond */
 export function condOf(r, g) {
-  if (r.cond !== undefined) return r.cond;
+  if (r.cond !== undefined) return r.cond == null ? null : [].concat(r.cond);
   if (!r.auto) return null;
-  return g === 'shacharis' ? C('after', 0, 'alos') : g === 'mincha' ? C('before', 0, 'shkia') : C('after', 50, 'shkia');
+  return [g === 'shacharis' ? C('after', 0, 'alos') : g === 'mincha' ? C('before', 0, 'shkia') : C('after', 50, 'shkia')];
 }
 export function defaults() {
   return {
@@ -200,9 +200,11 @@ export function computeWeekday(data, n, loc) {
   const ok = (r) => inSeason(r.season, iso) && (!fri || r.fri);
   const mk = (r) => ({ min: timeOf(r.time, zd), room: r.room || w.defaultRoom || '', note: r.note || '', kahal: !!r.kahal, last: !!r.last });
   const valid = (x) => {
-    if (x.min == null) return false; const c = x.cond; if (!c) return true;
-    const base = zd[c.base]; if (!Number.isFinite(base)) return true;
-    return c.dir === 'before' ? x.min <= base - (Number(c.min) || 0) : x.min >= base + (Number(c.min) || 0);
+    if (x.min == null) return false;
+    return (x.cond || []).every((c) => { // אלע תנאים מוזן זיין
+      const base = zd[c.base]; if (!Number.isFinite(base)) return true;
+      return c.dir === 'before' ? x.min <= base - (Number(c.min) || 0) : x.min >= base + (Number(c.min) || 0);
+    });
   };
   const out = {};
   for (const g of ['shacharis', 'mincha', 'maariv']) {

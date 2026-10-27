@@ -226,3 +226,4 @@
 .tf-cond { border: 1px dashed var(--line); background: transparent; border-radius: 8px; padding: 2px 8px; cursor: pointer; font-size: 12px; color: var(--muted); }
 .tf-cond.on { display: inline-flex; gap: 3px; align-items: center; border-style: solid; color: inherit; cursor: default; white-space: nowrap; background: #fffaf0; }
 .tf-cond.on select, .tf-cond.on input { padding: 2px 3px; font-size: 12px; }
+.tf-conds { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }

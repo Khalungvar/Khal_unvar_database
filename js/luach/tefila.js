@@ -85,13 +85,13 @@ const btn = (act, path, label, title = '') => (canEdit() ? `<button type="button
 
 // ---------- "תלוי": א קנעפל; ווען אן — {לפני/אחרי} {דק'} {זמן} ----------
 function condHtml(r, g, p) {
-  const c = condOf(r, g); const dis = canEdit() ? '' : ' disabled';
-  if (!c) return canEdit() ? `<button type="button" class="tf-cond" data-act="condOn" data-p="${h(p)}" data-g="${g}">תלוי</button>` : '';
-  return `<span class="tf-cond on">רק אם
-    <select data-f="${h(p)}.cond.dir"${dis}><option value="before"${c.dir === 'before' ? ' selected' : ''}>לפני</option><option value="after"${c.dir === 'after' ? ' selected' : ''}>אחרי</option></select>
-    <input type="number" min="0" class="tf-w4" data-f="${h(p)}.cond.min" value="${Number(c.min) || 0}"${dis}> דק'
-    <select data-f="${h(p)}.cond.base"${dis}>${BASES.filter(([k]) => k !== 'fixed').map(([k, l]) => `<option value="${k}"${k === c.base ? ' selected' : ''}>${h(l)}</option>`).join('')}</select>
-    ${btn('condOff', p, '✕', 'בלי תנאי')}</span>`;
+  const cs = condOf(r, g); const dis = canEdit() ? '' : ' disabled';
+  if (!cs || !cs.length) return canEdit() ? `<button type="button" class="tf-cond" data-act="condOn" data-p="${h(p)}" data-g="${g}">תלוי</button>` : '';
+  return `<div class="tf-conds">${cs.map((c, ci) => { const cp = `${p}.cond.${ci}`; return `<span class="tf-cond on">${ci ? 'וגם' : 'רק אם'}
+    <select data-f="${h(cp)}.dir"${dis}><option value="before"${c.dir === 'before' ? ' selected' : ''}>לפני</option><option value="after"${c.dir === 'after' ? ' selected' : ''}>אחרי</option></select>
+    <input type="number" min="0" class="tf-w4" data-f="${h(cp)}.min" value="${Number(c.min) || 0}"${dis}> דק'
+    <select data-f="${h(cp)}.base"${dis}>${BASES.filter(([k]) => k !== 'fixed').map(([k, l]) => `<option value="${k}"${k === c.base ? ' selected' : ''}>${h(l)}</option>`).join('')}</select>
+    ${btn('condDel', cp, '✕', 'הסר תנאי')}</span>`; }).join('')}${btn('condAdd', p, '＋', 'עוד תנאי')}</div>`;
 }
 
 // ---------- ימות החול ----------
@@ -189,6 +189,7 @@ export async function openTefila(main, onBack) {
   await load();
   const dr = defaults().weekday.rebbe;
   data.weekday.rebbe = { ...dr, ...(data.weekday.rebbe || {}) };
+  for (const g of ['shacharis', 'mincha', 'maariv']) for (const r of data.weekday[g] || []) { r.cond = condOf(r, g); delete r.auto; }
   render(main, onBack);
 }
 function render(main, onBack) {
@@ -231,8 +232,9 @@ function render(main, onBack) {
     const act = b.dataset.act; const p = b.dataset.p || '';
     if (act === 'addW') { data.weekday[p].push({ id: newId(), time: { b: 'fixed', t: '' }, room: '', note: '', season: 'all', cond: null, kahal: false, fri: p === 'shacharis', last: false }); }
     else if (act === 'sortW') { const z = { neitz: 380, shkia: 1100, candles: 1082, rt: 1172, alos: 308, chatzos: 740 }; const k = (r) => (r.time?.b === 'fixed' ? (Number(String(r.time.t).replace(':', '.')) * 60 || 0) : (z[r.time?.b] || 0) + (r.time?.a || 0)); data.weekday[p].sort((a, c) => k(a) - k(c)); }
-    else if (act === 'condOn') { const r = get(p); r.cond = b.dataset.g === 'shacharis' ? { dir: 'after', min: 0, base: 'alos' } : b.dataset.g === 'mincha' ? { dir: 'before', min: 0, base: 'shkia' } : { dir: 'after', min: 50, base: 'shkia' }; }
-    else if (act === 'condOff') { get(p).cond = null; }
+    else if (act === 'condOn') { const r = get(p); r.cond = [b.dataset.g === 'shacharis' ? { dir: 'after', min: 0, base: 'alos' } : b.dataset.g === 'mincha' ? { dir: 'before', min: 0, base: 'shkia' } : { dir: 'after', min: 50, base: 'shkia' }]; }
+    else if (act === 'condAdd') { const r = get(p); const g = p.split('.')[1]; r.cond = condOf(r, g) || []; r.cond.push({ dir: 'before', min: 0, base: 'shkia' }); }
+    else if (act === 'condDel') { const ks = p.split('.'); const ci = Number(ks.pop()); ks.pop(); const r = get(ks.join('.')); r.cond = condOf(r, ks[1]) || []; r.cond.splice(ci, 1); if (!r.cond.length) r.cond = null; }
     else if (act === 'addS') data.shabbos.rows.push({ id: newId(), label: '', day: 'sat', kind: 'tefila', season: 'all', time: { b: 'fixed', t: '' }, note: '' });
     else if (act === 'addB') data[p].blocks.push({ id: newId(), title: 'בלוק חדש', when: WHEN[p][0][0], rows: [] });
     else if (act === 'addR') get(p).push({ id: newId(), label: '', note: '', kind: 'tefila', on: 'all', times: [{ b: 'fixed', t: '' }] });
