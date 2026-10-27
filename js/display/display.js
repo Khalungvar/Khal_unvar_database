@@ -205,7 +205,7 @@ function render() {
   const mnyHtml = (bd, pos) => `<div class="frame mny ${pos}${CHG === 'before' && pos === 'pos-main' ? ' has-chg' : ''}">
       <div class="ttl">זמני התפילות${swap ? ` <small>${h(YDAY[dowOf(wk)])}</small>` : ''}</div>
       ${bd.groups.map((g) => `<div class="grp"><h3>${h(g.h)}${g.sub ? ` <small>${h(g.sub)}</small>` : ''}</h3><div class="times">${timesHtml(g.items)}</div></div>`).join('')}
-      ${CHG === 'before' && pos === 'pos-main' ? '<div class="chg-note">⚠ שימו לב: <b>מיום ראשון</b> ט\' כסלו — מנחה <b>12:40</b> במקום <b>1:45</b></div>' : ''}
+      ${CHG === 'before' && pos === 'pos-main' ? '<div class="chg-note">⚠ <b>מיום ראשון</b> ט\' כסלו: מנחה <b>12:40</b> במקום <b>1:45</b></div>' : ''}
     </div>`;
   function shabHtml(eve, d, pos) {
     const ze = zOf(eve); const zd = zOf(d); const shab = dowOf(d) === 6;
