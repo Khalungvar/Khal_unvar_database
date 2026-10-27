@@ -6,7 +6,7 @@ import { MONTH } from '../luach/mitzva.js';
 import { hebrewNumber } from '../hebdate.js';
 import { normScreen, currentByPlace, adUrl, themeCss } from './screenset.js';
 import { printCss, weekdayPage, shabbosPage, fitPages } from '../luach/tfprint.js';
-import { defaults, computeWeekday, computeShabbos, computeSpecial, computeShiurim, computeHoly, chagOn, partOfDay } from '../luach/minyanim.js';
+import { defaults, computeWeekday, computeShabbos, computeSpecial, computeShiurim, computeHoly, chagOn, partOfDay, minorBlockOn } from '../luach/minyanim.js';
 
 // ---------- דאטן: תצוגה מקדימה (פון "זמני תפילות" — localStorage), אנדערש ברירת מחדל ----------
 const QS = new URLSearchParams(location.search);
@@ -169,6 +169,80 @@ function additions(n, day) {
   return out;
 }
 
+// ---------- שינוי אין די זמני ימות החול ----------
+const GN0 = { shacharis: 'שחרית', mincha: 'מנחה', maariv: 'מעריב' };
+const DNAME = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+/** דער "שליסל" פון א מנין: א שעה וואס רוקט זיך לויט דער שקיעה — דער כלל (אז עס זאל נישט ווערן "חדש" יעדע וואך) */
+function chgKey(m) { return !SCR.chg?.shift && m.spec ? `R${m.spec}` : `t${Math.round(((m.min % 1440) + 1440) % 1440)}`; }
+/** { 'מנחה|key': min } פאר א טאג */
+function sigOf(k) {
+  const w = computeWeekday(DATA, k, LOC); const out = {};
+  for (const g of ['shacharis', 'mincha', 'maariv']) for (const m of w[g] || []) out[`${GN0[g]}|${chgKey(m)}`] = m.min;
+  return out;
+}
+const sigEq = (a, b) => { const ka = Object.keys(a); return ka.length === Object.keys(b).length && ka.every((x) => x in b); };
+function chgText(from, to) {
+  // { G: { add: [min], rem: [min] } } → "מנחה 12:40 במקום 1:45" (נאר ביטול — אן הודעה)
+  const by = {};
+  for (const [x, m] of Object.entries(to)) if (!(x in from)) (by[x.split('|')[0]] ||= { add: [], rem: [] }).add.push(m);
+  for (const [x, m] of Object.entries(from)) if (!(x in to)) (by[x.split('|')[0]] ||= { add: [], rem: [] }).rem.push(m);
+  const t = (m) => `<b>${hhmm(((m % 1440) + 1440) % 1440)}</b>`;
+  return Object.entries(by).filter(([, v]) => v.add.length).map(([g, v]) => {
+    // יעדע נייע שעה — מיט דער נאענטסטער אלטער (ביז 90 מינוט) = "במקום"; אנדערש "נוסף"
+    const rem = [...v.rem]; const sw = []; const add = [];
+    for (const m of v.add.sort((a, b) => a - b)) {
+      let bi = -1; rem.forEach((r, i) => { if (Math.abs(r - m) <= 90 && (bi < 0 || Math.abs(r - m) < Math.abs(rem[bi] - m))) bi = i; });
+      if (bi >= 0) sw.push(`${t(m)} במקום ${t(rem.splice(bi, 1)[0])}`); else add.push(t(m));
+    }
+    return `${g} ${[...sw, ...(add.length ? [`נוסף ${add.join(', ')}`] : [])].join(', ')}`;
+  }).join(' · ');
+}
+const isNormal = (k, holy) => dowOf(k) <= 4 && !holy(k) && !holy(k + 1) && !minorBlockOn(DATA, k) && !minorBlockOn(DATA, k + 1);
+/** d0 = דער טאג פונעם לוח (null = שבת/יו"ט). גיט { note, newKeys } */
+let chgMemo = null;
+function changesFor(d0, n, holy) {
+  // איינמאל פער מינוט (אדער ווען די דאטן טוישן זיך)
+  const mk = Math.floor(Date.now() / 60000);
+  if (chgMemo && chgMemo.d0 === d0 && chgMemo.n === n && chgMemo.D === DATA && chgMemo.S === SCR && chgMemo.mk === mk) return chgMemo.v;
+  const v = changesCalc(d0, n, holy); chgMemo = { d0, n, D: DATA, S: SCR, mk, v }; return v;
+}
+function changesCalc(d0, n, holy) {
+  const C = SCR.chg || {}; const out = { note: '', newKeys: new Set() };
+  if (C.on === false || d0 == null || !LIVE && !PREVIEW) return out;
+  const before = Math.max(0, Number(C.before) || 0); const after = Math.max(0, Number(C.after) || 0);
+  const prevNormal = (k) => { let j = k - 1; while (j > k - 15 && !isNormal(j, holy)) j -= 1; return isNormal(j, holy) ? j : null; };
+  let ref = d0; if (!isNormal(ref, holy)) ref = prevNormal(ref);
+  if (ref == null) return out;
+  const cur = sigOf(ref);
+  // פאראויס: דער ערשטער געווענליכער טאג מיט אנדערע זמנים
+  for (let k = d0 + 1; k <= d0 + before; k += 1) {
+    if (!isNormal(k, holy)) continue;
+    const sg = sigOf(k); if (sigEq(sg, cur)) continue;
+    const txt = chgText(cur, sg);
+    if (txt) { const x = hdOf(k); out.note = `<b>מיום ${DNAME[dowOf(k)]}</b> ${hebrewNumber(x.d)} ${MONTH[x.m] || x.m}: ${txt}`; }
+    break;
+  }
+  // "חדש": א שינוי לויטן קאלענדאר (חורף/זומער) אין די לעצטע טעג
+  const curK = sigOf(d0);
+  for (let k = ref; k > d0 - after; k -= 1) {
+    if (!isNormal(k, holy)) continue;
+    const p = prevNormal(k); if (p == null) break;
+    const a = sigOf(k); const b = sigOf(p);
+    for (const x of Object.keys(a)) if (!(x in b) && x in curK) out.newKeys.add(x);
+  }
+  // "חדש": א שינוי פון א גבאי (געזען אויף דעם מחשב) — נאר אויפן אמת'ן מסך
+  if (!PREVIEW && !SCRPV && !OFFSET) {
+    let st = null; try { st = JSON.parse(localStorage.getItem('disp-chg') || 'null'); } catch { /* */ }
+    st = st && st.base ? st : { base: { day: ref, sig: cur }, seen: {} };
+    const then = st.base.sig; const nowSig = sigOf(st.base.day);
+    if (!sigEq(then, nowSig)) for (const x of Object.keys(nowSig)) if (!(x in then)) st.seen[x] = n;
+    st.base = { day: ref, sig: cur };
+    for (const [x, since] of Object.entries(st.seen)) { if (since <= n - Math.max(1, after) || !(x in curK)) delete st.seen[x]; else out.newKeys.add(x); }
+    try { localStorage.setItem('disp-chg', JSON.stringify(st)); } catch { /* */ }
+  }
+  return out;
+}
+
 function render() {
   const HID = SCR.hide || {};
   // פארבן (נאר ווען זיי טוישן זיך)
@@ -233,17 +307,17 @@ function render() {
     const notes = { shacharis: w.shacharisNote, mincha: w.minchaNote, maariv: w.maarivNote };
     // מנחה/מעריב פון מנין כ"ק — באזונדער, פאר דער שורה פון מעריב
     const groups = ['shacharis', 'mincha', 'maariv'].map((g) => ({ h: GN[g], sub: notes[g] ? `(${notes[g]})` : '',
-      items: w[g].filter((m) => g === 'shacharis' || !m.rebbe).map((m) => ({ ...m, k: GN[g], min: m.min + off })) }));
+      items: w[g].filter((m) => g === 'shacharis' || !m.rebbe).map((m) => ({ ...m, k: GN[g], key: chgKey(m), min: m.min + off })) }));
     const rbM = w.mincha.find((m) => m.rebbe); const rbA = w.maariv.find((m) => m.rebbe);
     if (rbM || rbA) {
       groups.splice(2, 0, { h: SCR.texts.tRebbe, rebbe: true, items: [
-        ...(rbM ? [{ ...rbM, k: 'מנחה', lbl: 'מנחה', min: rbM.min + off }] : []),
-        ...(rbA ? [{ ...rbA, k: 'מעריב', lbl: 'מעריב <small>(בערך)</small>', min: rbA.min + off }] : [])] });
+        ...(rbM ? [{ ...rbM, k: 'מנחה', key: chgKey(rbM), lbl: 'מנחה', min: rbM.min + off }] : []),
+        ...(rbA ? [{ ...rbA, k: 'מעריב', key: chgKey(rbA), lbl: 'מעריב <small>(בערך)</small>', min: rbA.min + off }] : [])] });
     }
     for (const bk of specials(k, off, 'weekday')) {
       for (const r of bk.rows) groups.push({ h: r.label, sub: r.note ? `(${r.note})` : '', special: true, items: r.mins.map((m) => ({ min: m, k: r.label, room: '' })) });
     }
-    return { holy: false, last: w.last == null ? null : w.last + off, groups };
+    return { holy: false, k, last: w.last == null ? null : w.last + off, groups };
   }
   // שבת / יו"ט: שורות פאר די גרויסע קעסטל. eve = ערב (פרייטאג / ערב יו"ט), d = דער טאג
   function holyRows(eve) {
@@ -291,18 +365,18 @@ function render() {
   const cdText = `${String(Math.floor(cd / 3600)).padStart(2, '0')}:${String(Math.floor((cd % 3600) / 60)).padStart(2, '0')}:${String(Math.floor(cd % 60)).padStart(2, '0')}`;
   const tm = (min) => hhmm(min);
   const pair = (a, b) => `<span class="pr">${tm(b)}<i>גר"א</i></span><span class="pr">${tm(a)}<i>מג"א</i></span>`;
-  // דוגמה (?chg=before / ?chg=after): הודעה לפני א שינוי, און "חדש" נאכן שינוי
-  const CHG = new URLSearchParams(location.search).get('chg');
-  const isNew = (m) => CHG === 'after' && Math.round(((m.min % 1440) + 1440) % 1440) === 12 * 60 + 40;
+  // שינוי אין די זמני ימות החול: "מיום ... במקום ..." פאראויס, און "חדש" נאכן שינוי (הגדרות המסך → chg)
+  const chg = changesFor(swap ? null : board.k, n, holy);
+  const isNew = (m) => !!(m.key && chg.newKeys.has(`${m.k}|${m.key}`));
   const timesHtml = (arr) => arr.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}${isNew(m) ? ' new' : ''}">${isNew(m) ? '<em>חדש</em>' : ''}${tm(((m.min % 1440) + 1440) % 1440)}${m.note === 'בערך' ? '<small style="font-size:20px"> בערך</small>' : ''}</span>`).join('');
 
-  const mnyHtml = (bd, pos) => `<div class="frame mny ${pos}${(CHG === 'before' || CUR.notice) && pos === 'pos-main' ? ' has-chg' : ''}">
+  const mnyHtml = (bd, pos) => `<div class="frame mny ${pos}${(chg.note || CUR.notice) && pos === 'pos-main' ? ' has-chg' : ''}">
       <div class="ttl">${h(SCR.texts.tWeek)}${(() => { const k0 = swap ? wk : n; let s6 = k0; while (dowOf(s6) !== 6) s6 += 1; const p6 = dayOf(s6)?.parsha; return p6 ? ` לפרשת ${h(p6)}` : ''; })()}</div>
       ${pos === 'pos-main' && CUR.notice ? `<div class="chg-note ntc">${esc2(CUR.notice.text)}</div>` : ''}
       ${bd.groups.map((g) => (g.rebbe
-        ? `<div class="grp rb"><h3>${h(g.h)}</h3><div class="times rbt">${g.items.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}"><i>${m.lbl}</i> ${tm(((m.min % 1440) + 1440) % 1440)}</span>`).join('')}</div></div>`
+        ? `<div class="grp rb"><h3>${h(g.h)}</h3><div class="times rbt">${g.items.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}${isNew(m) ? ' new' : ''}">${isNew(m) ? '<em>חדש</em>' : ''}<i>${m.lbl}</i> ${tm(((m.min % 1440) + 1440) % 1440)}</span>`).join('')}</div></div>`
         : `<div class="grp"><h3>${h(g.h)}${g.sub ? ` <small>${h(g.sub)}</small>` : ''}</h3><div class="times">${timesHtml(g.items)}</div></div>`)).join('')}
-      ${CHG === 'before' && pos === 'pos-main' ? '<div class="chg-note">⚠ <b>מיום ראשון</b> ט\' כסלו: מנחה <b>12:40</b> במקום <b>1:45</b></div>' : ''}
+      ${chg.note && pos === 'pos-main' ? `<div class="chg-note">⚠ ${chg.note}</div>` : ''}
     </div>`;
   function shabHtml(eve, d, pos) {
     const shab = dowOf(d) === 6;

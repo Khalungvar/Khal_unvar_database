@@ -190,7 +190,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .zm.zm-c .lc small { display: block; font-size: 13px; font-weight: 700; line-height: 1.1; }
 
 /* שינוי זמן: הודעה מראש + "חדש" */
-.chg-note { margin: 8px 20px 0; text-align: center; font-family: var(--serif); font-size: 23px; white-space: nowrap; font-weight: 700; color: #fff;
+.chg-note { margin: 8px 20px 0; text-align: center; font-family: var(--serif); font-size: 23px; white-space: normal; line-height: 1.25; font-weight: 700; color: #fff;
   background: linear-gradient(180deg, #b0241f, #7f1512); border: 2px solid var(--gold); border-radius: 10px; padding: 3px 10px 5px; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
 .chg-note b { color: #ffe39a; font-family: 'Frank Ruhl Libre', var(--serif); }
 .mny .times span.new { color: #0d6b3a; background: #e3f6e9; border-radius: 8px; outline: 2px solid #2e9e5b; margin: 2px 4px; }

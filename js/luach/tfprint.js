@@ -250,7 +250,7 @@ export function buildSpecial(data, part, whens, Y, loc) {
         } else parts.push(kind(label, r.note, g.p.mins.filter((m) => m != null)));
       }
     }
-    if (parts.length) out.push({ head: b.title, parts });
+    if (parts.length) out.push({ head: b.title, parts, n: ds[0], days: ds, when: b.when });
   }
   return { sections: out, pasuk, psrc };
 }

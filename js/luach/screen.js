@@ -262,6 +262,13 @@ function render(main) {
         <label class="sc-row"><span>מוצאי שבת/יו"ט — דקות אחרי מעריב עד שלוח ימות החול חוזר</span>${num('revertMin', S.revertMin, 0, 240)}</label>
         <label class="sc-chk">${chk('countdown', S.countdown)} שעון ספירה לאחור ב"המנין הבא"</label>
       </section>
+      <section class="sc-card"><h3>🔔 שינוי בזמני ימות החול</h3>
+        <label class="sc-chk">${chk('chg.on', S.chg.on)} להודיע לבד כשזמן משתנה (מנין חדש / שעה אחרת)</label>
+        <label class="sc-row"><span>הודעה מראש "מיום … במקום …" — כמה ימים לפני</span>${num('chg.before', S.chg.before, 0, 30)}</label>
+        <label class="sc-row"><span>"חדש" ליד השעה — כמה ימים אחרי השינוי</span>${num('chg.after', S.chg.after, 0, 30)}</label>
+        <label class="sc-chk">${chk('chg.shift', S.chg.shift)} גם כשהשעה זזה לבד לפי השקיעה (כל שבוע)</label>
+        <p class="muted small">ביטול מנין — בלי הודעה. שינוי של גבאי נכנס מהרגע שהוא נשמר; מעבר חורף/קיץ — לפי התאריך.</p>
+      </section>
       <section class="sc-card"><h3>🖥 המסך</h3>
         <label class="sc-row"><span>שוליים לטלוויזיה (פיקסלים, 0–120)</span>${num('safe', S.safe, 0, 120)}</label>
         <p class="muted small">אם הטלוויזיה חותכת את הקצוות — להגדיל. אם רואים את כל המסגרות עד הסוף — אפשר להקטין עד 0.</p>

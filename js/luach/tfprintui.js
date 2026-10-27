@@ -1,7 +1,7 @@
 // 🖨 הדפסת זמני התפילה: בוחרים סוג (ימות החול / שבת / יו"ט / ימי דפגרא ותעניות / תשרי), תאריכים, גודל וגופן → מדפיסים / PDF / JPG
 import { printCss, weekdayPage, shabbosPage, specialPage, buildSpecial, fitPages, GROUPS, SIZES } from './tfprint.js';
 import { tefilaData } from './tefila.js';
-import { daysOf } from './minyanim.js';
+import { daysOf, computeHoly, chagOn } from './minyanim.js';
 import { buildYear, hdOf, isoOf, nOf, dowOf } from './engine.js';
 import { LOCATIONS } from './zmanim.js';
 import { hebrewNumber, todayIso, toHebrew, monthHe } from '../hebdate.js';
@@ -12,7 +12,7 @@ import { escapeHtml as h } from '../util.js';
 const LOC = LOCATIONS.bp;
 const $ = (s, r = document) => r.querySelector(s);
 const TYPES = [['weekday', 'ימות החול'], ['shabbos', 'שבת'], ['yt', 'יו"ט'], ['minor', 'ימי דפגרא ותעניות'], ['tishrei', 'תשרי']];
-const st = { type: 'weekday', mode: 'parsha', fri: null, from: '', to: '', grp: '', size: 'letter', font: '', title: '', pasuk: '', psrc: '' };
+const st = { type: 'weekday', mode: 'parsha', fri: null, from: '', to: '', grp: '', shab: true, size: 'letter', font: '', title: '', pasuk: '', psrc: '' };
 const lsGet = (k) => { try { return localStorage.getItem(k) || ''; } catch { return ''; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* */ } };
 
@@ -70,7 +70,31 @@ function pagesHtml() {
   st.grp = o.v;
   const g = GROUPS[st.type].find(([k]) => k === o.key);
   const b = buildSpecial(data, st.type, g[2], o.Y, LOC);
-  return specialPage({ title: st.title || g[3], pasuk: st.pasuk || b.pasuk, psrc: st.psrc || b.psrc, sections: b.sections, cols: st.type === 'tishrei' ? 2 : 1 }, st.size);
+  const sections = st.shab && st.type !== 'minor' ? withShabbos(b.sections) : b.sections;
+  return specialPage({ title: st.title || g[3], pasuk: st.pasuk || b.pasuk, psrc: st.psrc || b.psrc, sections, cols: st.type === 'tishrei' ? 2 : 1 }, st.size);
+}
+
+/** שבת וואס רירט אן יו"ט (ערב יו"ט / נאך יו"ט) און האט נישט קיין אייגענעם בלאק — צולייגן די זמני שבת אין סדר */
+function shabbosNear(sections) {
+  const all = sections.flatMap((x) => x.days || []); if (!all.length) return [];
+  const covered = new Set(sections.filter((x) => /shabbos|shuva/i.test(x.when || '')).flatMap((x) => x.days || [])); const out = [];
+  for (let S = Math.min(...all) - 1; S <= Math.max(...all) + 1; S += 1) {
+    if (dowOf(S) !== 6 || covered.has(S) || chagOn(data, S)) continue; // יו"ט בשבת: די שורות פון חג ("כשחל בשבת")
+    const eveYT = chagOn(data, S + 1); const afterYT = chagOn(data, S - 1);
+    if (!eveYT && !afterYT) continue;
+    const rows = computeHoly(data, S - 1, LOC).filter((r) => (r.shab || /הדלקת נרות/.test(r.label)) && (r.min != null || r.note))
+      .map((r, i) => ({ r, i })).sort((a, b) => (a.r.day - b.r.day) || ((a.r.min ?? Infinity) - (b.r.min ?? Infinity)) || (a.i - b.i)).map((x) => x.r);
+    if (!rows.length) continue;
+    const dd = dayOf(S); const p = dd?.parsha || '';
+    out.push({ n: S, days: [S], head: p ? `שבת קודש פרשת ${p}` : (dd?.items.find((i) => i.kind === 'hol')?.text || 'שבת קודש'), note: eveYT ? 'ערב יו"ט' : afterYT ? 'אחר יו"ט' : '',
+      parts: rows.map((r) => (r.min == null ? { k: 'text', label: r.label, note: r.note } : { k: 'dots', label: r.label, note: r.note, mins: [r.min, ...(r.more || [])] })) });
+  }
+  return out;
+}
+function withShabbos(sections) {
+  const out = [...sections];
+  for (const s of shabbosNear(sections)) { const i = out.findIndex((x) => (x.n ?? -Infinity) >= s.n); out.splice(i < 0 ? out.length : i, 0, s); }
+  return out;
 }
 
 function render(main) {
@@ -85,7 +109,8 @@ function render(main) {
     <div class="tp-ctl">
       ${special ? `<label>מתי: ${sel('tp-grp', occ.map((o) => [o.v, `${o.label} (${dateHe(o.first)})`]), st.grp)}</label>
         <label>כותרת: <input id="tp-title" value="${h(st.title)}" placeholder="${h((GROUPS[st.type].find(([k]) => k === (st.grp || occ[0]?.v || '').split('|')[0]) || [])[3] || '')}"></label>
-        <label>פסוק: <input id="tp-pasuk" class="tp-wide" value="${h(st.pasuk)}" placeholder="(מהבלוק, אם יש)"></label>`
+        <label>פסוק: <input id="tp-pasuk" class="tp-wide" value="${h(st.pasuk)}" placeholder="(מהבלוק, אם יש)"></label>
+        ${st.type !== 'minor' ? `<label title="שבת שחלה בערב יו״ט או אחרי יו״ט — נכנסת לבד לדף"><input type="checkbox" id="tp-shab"${st.shab ? ' checked' : ''}> כולל זמני שבת</label>` : ''}`
     : `<span class="lang-switch"><button type="button" data-mode="parsha" class="${st.mode === 'parsha' ? 'on' : ''}">לפי פרשה</button><button type="button" data-mode="range" class="${st.mode === 'range' ? 'on' : ''}">מיום עד יום</button></span>
         ${st.mode === 'parsha' ? sel('tp-fri', fridays().map((f) => [f, `פרשת ${parshaOf(f + 1)} — ${dateHe(f + 1)}`]), st.fri)
     : `<label>מ- <input type="date" id="tp-from" value="${h(st.from)}"></label><label>עד <input type="date" id="tp-to" value="${h(st.to)}"></label><span class="muted small">דף לכל שבוע</span>`}`}
@@ -117,6 +142,7 @@ function render(main) {
   on('tp-grp', (v) => { st.grp = v; st.title = ''; st.pasuk = ''; });
   on('tp-title', (v) => { st.title = v; }); on('tp-pasuk', (v) => { st.pasuk = v; });
   on('tp-size', (v) => { st.size = v; });
+  const sb = $('#tp-shab', main); if (sb) sb.onchange = () => { st.shab = sb.checked; render(main); };
   on('tp-font', (v) => { st.font = v; lsSet('tp-font', v); });
   const pages = () => [...prev.querySelectorAll('.tp-page')];
   const name = () => (st.type === 'weekday' || st.type === 'shabbos' ? `זמני ${st.type === 'weekday' ? 'ימות החול' : 'שבת'} - פרשת ${parshaOf(st.fri + 1)}` : `זמני התפילה - ${(occurrences(st.type).find((o) => o.v === st.grp) || {}).label || ''}`);

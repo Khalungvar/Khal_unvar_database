@@ -28,6 +28,8 @@ export function screenDefaults() {
     // באהאלטן משבצות
     hide: { day: false, clock: false, logo: false, next: false, side: false, simchos: false, zmanim: false, mitzva: false, daf: false, shiurim: false, bottom: false },
     notice: { on: false, text: '', from: '', to: '' }, // א הודעה אויבן אויף לוח התפילות
+    // שינוי אין די זמני ימות החול: before = וויפיל טעג פאראויס ווייזן "מיום ... במקום ..."; after = וויפיל טעג "חדש"; shift = אויך א שעה וואס רוקט זיך לויט דער שקיעה
+    chg: { on: true, before: 7, after: 7, shift: false },
     // פארבן: theme = פארן גאנצן מסך (ליידיג = די געווענליכע); boxes = פאר א געוויסער משבצת { bg, text, title }
     theme: {}, boxes: {},
   };
@@ -39,6 +41,7 @@ export function normScreen(s) {
   o.notice = { ...d.notice, ...(o.notice || {}) };
   o.texts = { ...d.texts, ...(o.texts || {}) };
   o.hide = { ...d.hide, ...(o.hide || {}) };
+  o.chg = { ...d.chg, ...(o.chg || {}) };
   o.theme = { ...(o.theme || {}) }; o.boxes = { ...(o.boxes || {}) };
   o.library = Array.isArray(o.library) ? o.library : [];
   o.items = (Array.isArray(o.items) ? o.items : []).map((a) => ({ on: true, from: '', to: '', days: [], sec: 0, fit: 'contain', frame: a.place !== 'free', ...a }));

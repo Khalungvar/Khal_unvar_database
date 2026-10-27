@@ -285,10 +285,12 @@ export function weekZ(data, n, loc) {
   for (const k of Object.keys(out)) if (typeof out[k] === 'number') out[k] = zs.reduce((a, z) => a + z[k], 0) / zs.length;
   return out;
 }
+/** א שעה וואס רוקט זיך (לויט שקיעה א.א.וו.) — דער כלל; א פעסטע שעה — '' */
+const specOf = (T) => (T && T.b && T.b !== 'fixed' && !T.t ? `${T.b}${Number(T.a) || 0}/${T.r || 1}${T.m || ''}` : '');
 export function computeWeekday(data, n, loc) {
   const w = data.weekday; const iso = isoOf(n); const zd = weekZ(data, n, loc); const fri = dowOf(n) === 5;
   const ok = (r) => inSeason(r.season, iso, r) && (!fri || r.fri);
-  const mk = (r) => ({ min: timeOf(r.time, zd), room: r.room || w.defaultRoom || '', note: r.note || '', kahal: !!r.kahal, last: !!r.last });
+  const mk = (r) => ({ min: timeOf(r.time, zd), room: r.room || w.defaultRoom || '', note: r.note || '', kahal: !!r.kahal, last: !!r.last, spec: specOf(r.time) });
   const valid = (x) => {
     if (x.min == null) return false;
     return (x.cond || []).every((c) => { // אלע תנאים מוזן זיין
@@ -309,7 +311,7 @@ export function computeWeekday(data, n, loc) {
     const m = timeOf(r.time, zd); if (m == null) continue;
     const b = Number(r.before) || 0; const a = Number(r.after) || 0;
     out[g] = out[g].filter((x) => !(x.min >= m - b && x.min <= m + a));
-    out[g].push({ min: m, room: r.room || w.defaultRoom || '', note: r.note || '', kahal: true, rebbe: true });
+    out[g].push({ min: m, room: r.room || w.defaultRoom || '', note: r.note || '', kahal: true, rebbe: true, spec: specOf(r.time) });
     out[g].sort((x, y) => x.min - y.min);
     if (g === 'mincha') out.last = m;
   }
@@ -405,7 +407,7 @@ export function chagOn(data, n) {
 export function computeHoly(data, eve, loc) {
   const d = eve + 1; const zE = dayZ(isoOf(eve), loc); const zD = dayZ(isoOf(d), loc);
   const cE = chagOn(data, eve); const cD = chagOn(data, d); const satD = dowOf(d) === 6;
-  const shab = (rows) => rows.map((r) => ({ ...r, more: [], day: r.day === 'sat' ? 1 : 0, place: 'shab', screen: r.screen !== false }));
+  const shab = (rows) => rows.map((r) => ({ ...r, more: [], day: r.day === 'sat' ? 1 : 0, place: 'shab', screen: r.screen !== false, shab: true }));
   const spec = (k, day) => computeSpecial(data, k, loc).flatMap((bk) => bk.rows.map((r) => ({ label: r.label, kind: r.kind, note: r.note || '', min: r.mins[0] ?? null, more: r.mins.slice(1), day, screen: r.screen, place: r.place, chag: bk.type === 'chag' })));
   // א געווענליכע שבת
   if (satD && !cE && !cD && !chagOn(data, d + 1)) return shab(computeShabbos(data, eve, loc));
