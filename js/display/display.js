@@ -146,8 +146,15 @@ function render() {
   function weekdayBoard(k, off) {
     const w = computeWeekday(DATA, k, LOC);
     const notes = { shacharis: w.shacharisNote, mincha: w.minchaNote, maariv: w.maarivNote };
+    // מנחה/מעריב פון מנין כ"ק — באזונדער, פאר דער שורה פון מעריב
     const groups = ['shacharis', 'mincha', 'maariv'].map((g) => ({ h: GN[g], sub: notes[g] ? `(${notes[g]})` : '',
-      items: w[g].map((m) => ({ ...m, k: GN[g], min: m.min + off })) }));
+      items: w[g].filter((m) => g === 'shacharis' || !m.rebbe).map((m) => ({ ...m, k: GN[g], min: m.min + off })) }));
+    const rbM = w.mincha.find((m) => m.rebbe); const rbA = w.maariv.find((m) => m.rebbe);
+    if (rbM || rbA) {
+      groups.splice(2, 0, { h: 'מנחה מעריב מנין כ"ק אדמו"ר שליט"א', rebbe: true, items: [
+        ...(rbM ? [{ ...rbM, k: 'מנחה', lbl: 'מנחה', min: rbM.min + off }] : []),
+        ...(rbA ? [{ ...rbA, k: 'מעריב', lbl: 'מעריב <small>(בערך)</small>', min: rbA.min + off }] : [])] });
+    }
     for (const bk of specials(k, off, 'weekday')) {
       for (const r of bk.rows) groups.push({ h: r.label, sub: r.note ? `(${r.note})` : '', special: true, items: r.mins.map((m) => ({ min: m, k: r.label, room: '' })) });
     }
@@ -206,7 +213,9 @@ function render() {
 
   const mnyHtml = (bd, pos) => `<div class="frame mny ${pos}${CHG === 'before' && pos === 'pos-main' ? ' has-chg' : ''}">
       <div class="ttl">זמני התפילות ימות החול${(() => { const k0 = swap ? wk : n; let s6 = k0; while (dowOf(s6) !== 6) s6 += 1; const p6 = dayOf(s6)?.parsha; return p6 ? ` לפרשת ${h(p6)}` : ''; })()}</div>
-      ${bd.groups.map((g) => `<div class="grp"><h3>${h(g.h)}${g.sub ? ` <small>${h(g.sub)}</small>` : ''}</h3><div class="times">${timesHtml(g.items)}</div></div>`).join('')}
+      ${bd.groups.map((g) => (g.rebbe
+        ? `<div class="grp rb"><h3>${h(g.h)}</h3><div class="times rbt">${g.items.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}"><i>${m.lbl}</i> ${tm(((m.min % 1440) + 1440) % 1440)}</span>`).join('')}</div></div>`
+        : `<div class="grp"><h3>${h(g.h)}${g.sub ? ` <small>${h(g.sub)}</small>` : ''}</h3><div class="times">${timesHtml(g.items)}</div></div>`)).join('')}
       ${CHG === 'before' && pos === 'pos-main' ? '<div class="chg-note">⚠ <b>מיום ראשון</b> ט\' כסלו: מנחה <b>12:40</b> במקום <b>1:45</b></div>' : ''}
     </div>`;
   function shabHtml(eve, d, pos) {
@@ -247,7 +256,7 @@ function render() {
       <div class="room">${next.room ? h(next.room) : '&nbsp;'}</div>` : '<div class="big"><span class="name">לילה טוב</span></div>'}
     </div>
 
-    ${lastMincha != null ? `<div class="last">מנחה מנין אחרון: <b>${tm(lastMincha)}</b></div>`
+    ${false ? ''
       : ''}
 
     ${AD ? `
