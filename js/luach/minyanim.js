@@ -210,8 +210,7 @@ export function computeWeekday(data, n, loc) {
   for (const g of ['shacharis', 'mincha', 'maariv']) {
     out[g] = (w[g] || []).filter(ok).map((r) => ({ ...mk(r), cond: condOf(r, g) })).filter(valid).sort((a, b) => a.min - b.min);
   }
-  const lastRow = (w.mincha || []).find((r) => r.last && inSeason(r.season, iso));
-  out.last = lastRow ? timeOf(lastRow.time, zd) : null;
+  out.last = null; // מנחה מנין אחרון = מנין כ"ק
   // מנין כ"ק: צולייגן, און אראפנעמען אנדערע מניינים אין דער "שטילער צייט" פאר/נאך אים
   const rb = w.rebbe || defaults().weekday.rebbe;
   for (const g of ['shacharis', 'mincha', 'maariv']) {
@@ -222,7 +221,7 @@ export function computeWeekday(data, n, loc) {
     out[g] = out[g].filter((x) => !(x.min >= m - b && x.min <= m + a));
     out[g].push({ min: m, room: r.room || w.defaultRoom || '', note: r.note || '', kahal: true, rebbe: true });
     out[g].sort((x, y) => x.min - y.min);
-    if (g === 'mincha' && r.last) out.last = m;
+    if (g === 'mincha') out.last = m;
   }
   if (out.last != null) out.mincha = out.mincha.filter((x) => x.min <= out.last);
   out.shacharisNote = w.shacharisNote || '';
