@@ -1,0 +1,105 @@
+/* תצוגת בית הכנסת — 1920×1080, קלאסיש: טונקל-בלוי מיט גאלד */
+:root {
+  --navy: #0f2140; --navy2: #17305a; --gold: #c9a24c; --gold2: #f3dc9a; --gold3: #8a6a2a;
+  --paper: #fbf5e6; --ink: #1d1a14; --muted: #6b5a3a;
+  --serif: 'Livorna', 'Frank Ruhl Libre', 'David Libre', serif;
+  --body: 'PFT_Vilna', 'Frank Ruhl Libre', 'David Libre', serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+#stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+#screen {
+  width: 1920px; height: 1080px; position: relative; direction: rtl; color: var(--ink); font-family: var(--body);
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.06), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.018) 0 2px, transparent 2px 14px),
+    linear-gradient(180deg, var(--navy2), var(--navy) 60%, #0a1830);
+  transform-origin: center center; overflow: hidden;
+}
+
+/* גאלדענע ראמען */
+.frame { position: absolute; background: var(--paper); border-radius: 18px;
+  box-shadow: 0 0 0 3px var(--gold3), 0 0 0 7px var(--gold), 0 0 0 9px var(--gold3), 0 10px 30px rgba(0,0,0,.45); }
+.frame::before { content: ''; position: absolute; inset: 8px; border: 1.5px solid rgba(138,106,42,.55); border-radius: 12px; pointer-events: none; }
+.ttl { font-family: var(--serif); font-weight: 900; text-align: center; color: var(--paper);
+  background: linear-gradient(180deg, #1c3a6b, var(--navy)); border-bottom: 3px solid var(--gold);
+  border-radius: 14px 14px 0 0; padding: 8px 0 10px; letter-spacing: .5px; }
+
+/* אויבן */
+.top { position: absolute; top: 18px; left: 40px; right: 40px; height: 120px; display: flex; align-items: center; justify-content: space-between; color: var(--gold2); }
+.top .logo { position: absolute; left: 50%; top: -6px; transform: translateX(-50%); text-align: center; }
+.top .logo img { height: 84px; filter: drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
+.top .logo b { display: block; font-family: var(--serif); font-weight: 900; font-size: 38px; color: var(--gold2); line-height: 1; margin-top: -4px; text-shadow: 0 2px 4px rgba(0,0,0,.6); }
+.top .day { font-family: var(--serif); font-weight: 900; font-size: 54px; line-height: 1.05; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+.top .day small { display: block; font-size: 34px; font-weight: 700; color: #e9d9ad; }
+.top .clock { direction: ltr; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 92px; line-height: 1; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.6); }
+.top .clock span { font-size: 40px; color: var(--gold2); margin-left: 10px; }
+.top .clock small { display: block; font-size: 26px; color: #e9d9ad; text-align: center; letter-spacing: 1px; }
+
+/* רעכטס: זמני היום */
+.zm { top: 165px; right: 40px; width: 560px; height: 620px; }
+.zm .ttl { font-size: 40px; }
+.zm table { width: calc(100% - 44px); margin: 8px 22px 0; border-collapse: collapse; font-size: 31px; }
+.zm td { padding: 1px 4px; border-bottom: 1px dashed rgba(138,106,42,.45); }
+.zm td:last-child { text-align: left; direction: ltr; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; color: var(--navy); }
+.zm tr.hl td { color: #8b1a1a; font-weight: 700; }
+.zm tr.hl td:last-child { color: #8b1a1a; }
+.zm .note { margin: 6px 22px 0; text-align: center; font-family: var(--serif); font-weight: 700; font-size: 32px; color: var(--navy); }
+
+/* רעכטס אונטן: מצוה יומית + דף יומי */
+.lrn { top: 815px; right: 40px; width: 560px; height: 150px; display: flex; }
+.lrn > div { flex: 1; padding: 12px 18px; text-align: center; }
+.lrn > div + div { border-right: 2px solid rgba(138,106,42,.45); }
+.lrn h4 { margin: 0; font-family: var(--serif); font-size: 28px; color: var(--muted); font-weight: 700; }
+.lrn p { margin: 6px 0 0; font-family: var(--serif); font-weight: 900; font-size: 40px; color: var(--navy); line-height: 1.1; }
+.lrn p small { display: block; font-size: 28px; font-weight: 700; color: var(--ink); margin-top: 4px; }
+
+/* מיטן: דער קומענדיגער מנין */
+.next { top: 165px; left: 660px; width: 600px; height: 440px; text-align: center; }
+.next .lbl { margin-top: 20px; font-family: var(--serif); font-weight: 700; font-size: 38px; color: var(--muted); }
+.next .lbl::before, .next .lbl::after { content: ' ❧ '; color: var(--gold); }
+.next .name { font-family: var(--serif); font-weight: 900; font-size: 120px; line-height: 1.05; color: var(--navy); margin-top: 6px; }
+.next .time { font-family: 'Frank Ruhl Libre', serif; font-weight: 900; font-size: 110px; line-height: 1; color: var(--navy); direction: ltr; }
+.next .room { font-family: var(--serif); font-weight: 700; font-size: 34px; color: var(--muted); margin-top: 4px; }
+.next .cd { display: inline-block; margin-top: 10px; direction: ltr; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 44px; color: #8b1a1a;
+  border: 2px solid rgba(139,26,26,.35); border-radius: 40px; padding: 2px 26px; background: #fff8ec; }
+.last { position: absolute; top: 628px; left: 660px; width: 600px; height: 74px; display: flex; align-items: center; justify-content: center; gap: 18px;
+  background: linear-gradient(180deg, #1c3a6b, var(--navy)); border: 3px solid var(--gold); border-radius: 40px; color: var(--gold2);
+  font-family: var(--serif); font-weight: 900; font-size: 40px; box-shadow: 0 8px 20px rgba(0,0,0,.4); }
+.last b { color: #fff; font-family: 'Frank Ruhl Libre', serif; direction: ltr; }
+
+/* מיטן אונטן: מזל טוב */
+.mzl { top: 728px; left: 660px; width: 600px; height: 237px; text-align: center; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 0%, #fff7dc, var(--paper) 70%); }
+.mzl .ttl { font-size: 34px; padding: 4px 0 6px; background: linear-gradient(180deg, #7a1f1f, #4e1010); }
+.mzl .body { padding: 12px 26px 0; font-family: var(--serif); font-size: 31px; line-height: 1.25; color: var(--ink); transition: opacity .8s; }
+.mzl .body b { color: var(--navy); }
+.mzl .dots { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; }
+.mzl .dots i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: rgba(138,106,42,.35); margin: 0 4px; }
+.mzl .dots i.on { background: var(--gold3); }
+
+/* לינקס: לוח המניינים */
+.mny { top: 165px; left: 40px; width: 580px; height: 800px; }
+.mny .ttl { font-size: 40px; }
+.mny .grp { margin: 10px 18px 0; }
+.mny .grp h3 { margin: 0; font-family: var(--serif); font-weight: 900; font-size: 36px; color: var(--paper); text-align: center;
+  background: linear-gradient(90deg, transparent, var(--navy) 18%, var(--navy) 82%, transparent); border-radius: 6px; padding: 2px 0 4px; }
+.mny .grp h3 small { font-size: 22px; font-weight: 700; color: var(--gold2); }
+.mny .times { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 0; padding: 8px 0 4px; direction: rtl; }
+.mny .times span { font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 38px; color: var(--ink); padding: 0 14px; direction: ltr; position: relative; }
+.mny .times span + span::before { content: '•'; position: absolute; right: -6px; color: var(--gold3); }
+.mny .times span.past { color: #b7aa8c; }
+.mny .times span.nx { color: #8b1a1a; text-decoration: underline; text-decoration-color: var(--gold); text-underline-offset: 6px; }
+.mny .shab { margin: 14px 18px 0; border-top: 3px double var(--gold3); padding-top: 8px; text-align: center; }
+.mny .shab h3 { margin: 0; font-family: var(--serif); font-weight: 900; font-size: 34px; color: var(--navy); }
+.mny .shab p { margin: 6px 0 0; font-size: 33px; font-family: var(--serif); }
+.mny .shab p b { font-family: 'Frank Ruhl Libre', serif; direction: ltr; display: inline-block; color: var(--navy); }
+
+/* אונטן */
+.bottom { position: absolute; bottom: 0; left: 0; right: 0; height: 96px; display: flex; align-items: center; justify-content: space-between; padding: 0 50px;
+  background: linear-gradient(180deg, #3a2a10, #22170a); border-top: 4px solid var(--gold); color: var(--gold2); }
+.bottom .hd { font-family: var(--serif); font-weight: 900; font-size: 56px; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+.bottom .kol { font-family: var(--serif); font-weight: 900; font-size: 34px; text-align: center; line-height: 1.05; }
+.bottom .kol b { display: block; direction: ltr; font-family: 'Frank Ruhl Libre', serif; font-size: 34px; color: #fff; letter-spacing: 2px; }
+.bottom .greg { direction: ltr; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 40px; color: #e9d9ad; }
+.sample { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); background: #c0392b; color: #fff; font: 700 16px Arial; padding: 2px 10px; border-radius: 0 0 6px 6px; z-index: 5; }
