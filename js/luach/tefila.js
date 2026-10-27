@@ -14,7 +14,7 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 let ui = {};
 export function initTefila(helpers) { ui = helpers; }
 
-const TABS = [['weekday', 'ימות החול'], ['shabbos', 'שבת'], ['yt', 'יום טוב'], ['tishrei', 'תשרי']];
+const TABS = [['weekday', 'ימות החול'], ['shabbos', 'שבת'], ['minor', 'ימי דפגרא ותעניות'], ['yt', 'ערב יו"ט ויו"ט'], ['tishrei', 'תשרי']];
 const GROUPS = [['shacharis', 'שחרית'], ['mincha', 'מנחה'], ['maariv', 'מעריב']];
 const DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 let data = null; let row = 0; let dirty = false; let tab = 'weekday'; let prevIso = todayIso(); let saving = false;
@@ -162,7 +162,7 @@ const ON = [['all', 'כל ימי הבלוק'], ['-1', 'ערב (יום לפני)'
 function upcomingYear(part) {
   const x = hdOf(nOf(todayIso()));
   if (part === 'tishrei') return daysOf('bereishis', x.y)[0] >= nOf(todayIso()) ? x.y : x.y + 1;
-  return daysOf('tishaBav', x.y)[0] >= nOf(todayIso()) ? x.y : x.y + 1;
+  return daysOf(part === 'minor' ? 'tishaBav' : 'shavuos', x.y).slice(-1)[0] >= nOf(todayIso()) ? x.y : x.y + 1;
 }
 const dateLabel = (n) => { const x = hdOf(n); return `${DAYS[dowOf(n)]}' ${hebrewNumber(x.d)} ${MONTH[x.m] || ''}`.trim(); };
 function blocksHtml(part) {
@@ -214,7 +214,14 @@ export async function openTefila(main, onBack) {
   for (const g of ['shacharis', 'mincha', 'maariv']) for (const r of data.weekday[g] || []) { r.cond = condOf(r, g); delete r.auto; }
   // תצוגה במסך — ברירת מחדל: פעיל
   for (const r of data.shabbos.rows || []) if (r.screen === undefined) r.screen = true;
-  for (const part of ['yt', 'tishrei']) for (const b of data[part].blocks || []) for (const r of b.rows || []) if (r.screen === undefined) r.screen = true;
+  // ימי דפגרא ותעניות — אפגעטיילט פון יו"ט (אלטע דאטן)
+  if (!data.minor) {
+    const mw = new Set(WHEN.minor.map(([k]) => k));
+    data.minor = { blocks: (data.yt.blocks || []).filter((b) => mw.has(b.when)) };
+    data.yt.blocks = (data.yt.blocks || []).filter((b) => !mw.has(b.when));
+    if (!data.minor.blocks.length) data.minor = defaults().minor;
+  }
+  for (const part of ['yt', 'minor', 'tishrei']) for (const b of data[part].blocks || []) for (const r of b.rows || []) if (r.screen === undefined) r.screen = true;
   render(main, onBack);
 }
 function render(main, onBack) {

@@ -123,6 +123,7 @@ export function defaults() {
         { id: id(), label: 'מלוה מלכה', day: 'sat', kind: 'other', season: 'all', time: null, note: '' },
       ],
     },
+    minor: { blocks: MINOR_BLOCKS() },
     yt: { blocks: YT_BLOCKS() },
     tishrei: { blocks: TISHREI_BLOCKS() },
   };
@@ -148,21 +149,25 @@ function TISHREI_BLOCKS() {
   ];
 }
 const empty = (labels) => labels.map((l) => row(l, []));
-function YT_BLOCKS() {
+function MINOR_BLOCKS() {
   return [
     block('חנוכה', 'chanuka', empty(['שחרית', 'מנחה', 'הדלקת נר חנוכה'])),
     block('עשרה בטבת', 'asaraTeves', empty(['שחרית', 'מנחה'])),
     block('תענית אסתר', 'taanisEsther', empty(['שחרית', 'מנחה', 'קריאת המגילה'])),
     block('פורים', 'purim', empty(['קריאת המגילה (בלילה)', 'שחרית', 'קריאת המגילה', 'מנחה'])),
+    block('ל"ג בעומר', 'lagBaomer', empty(['שחרית', 'הדלקה'])),
+    block('י"ז בתמוז', 'tamuz17', empty(['שחרית', 'מנחה'])),
+    block('תשעה באב', 'tishaBav', empty(['מעריב ואיכה', 'שחרית', 'מנחה'])),
+  ];
+}
+function YT_BLOCKS() {
+  return [
     block('ערב פסח', 'erevPesach', empty(['שחרית', 'סוף זמן אכילת חמץ', 'סוף זמן שריפת חמץ', 'מנחה'])),
     block('פסח', 'pesach', empty(['שחרית', 'מנחה'])),
     block('חול המועד פסח', 'cholPesach', empty(['שחרית', 'מנחה'])),
     block('שביעי ואחרון של פסח', 'shviiPesach', empty(['שחרית', 'מנחה'])),
-    block('ל"ג בעומר', 'lagBaomer', empty(['שחרית', 'הדלקה'])),
     block('ערב שבועות', 'erevShavuos', empty(['שחרית', 'מנחה'])),
     block('שבועות', 'shavuos', empty(['שחרית', 'מנחה'])),
-    block('י"ז בתמוז', 'tamuz17', empty(['שחרית', 'מנחה'])),
-    block('תשעה באב', 'tishaBav', empty(['מעריב ואיכה', 'שחרית', 'מנחה'])),
   ];
 }
 
@@ -171,9 +176,9 @@ export const WHEN = {
   tishrei: [['selichos1', 'סליחות - יום א\''], ['selichos', 'סליחות - שאר הימים'], ['erevRH', 'ערב ראש השנה'], ['rh', 'ראש השנה'], ['aseres', 'עשרת ימי תשובה'],
     ['yud3', 'י"ג מדות'], ['shuva', 'שבת תשובה'], ['erevYK', 'ערב יום הכיפורים'], ['yk', 'יום הכיפורים'], ['sukkos', 'חג הסוכות'], ['cholSukkos', 'חול המועד סוכות'],
     ['hoshana', 'הושענא רבה'], ['shmini', 'שמיני עצרת ושמחת תורה'], ['bereishis', 'שבת בראשית']],
-  yt: [['chanuka', 'חנוכה'], ['asaraTeves', 'עשרה בטבת'], ['taanisEsther', 'תענית אסתר'], ['purim', 'פורים'], ['erevPesach', 'ערב פסח'], ['pesach', 'פסח (ב\' ימים)'],
-    ['cholPesach', 'חול המועד פסח'], ['shviiPesach', 'שביעי ואחרון של פסח'], ['lagBaomer', 'ל"ג בעומר'], ['erevShavuos', 'ערב שבועות'], ['shavuos', 'שבועות'],
+  minor: [['chanuka', 'חנוכה'], ['asaraTeves', 'עשרה בטבת'], ['taanisEsther', 'תענית אסתר'], ['purim', 'פורים'], ['lagBaomer', 'ל"ג בעומר'],
     ['tamuz17', 'י"ז בתמוז'], ['tishaBav', 'תשעה באב']],
+  yt: [['erevPesach', 'ערב פסח'], ['pesach', 'פסח (ב\' ימים)'], ['cholPesach', 'חול המועד פסח'], ['shviiPesach', 'שביעי ואחרון של פסח'], ['erevShavuos', 'ערב שבועות'], ['shavuos', 'שבועות']],
 };
 const yc = new Map();
 const yearDays = (Y) => { if (!yc.has(Y)) yc.set(Y, buildYear(Y, {}, {})); return yc.get(Y).days; };
@@ -269,7 +274,7 @@ export function computeShabbos(data, fri, loc) {
 export function computeSpecial(data, n, loc) {
   const zd = dayZ(isoOf(n), loc); const out = [];
   const x = hdOf(n);
-  for (const part of ['tishrei', 'yt']) {
+  for (const part of ['tishrei', 'yt', 'minor']) {
     for (const b of data[part]?.blocks || []) {
       for (const Y of [x.y, x.y + 1, x.y - 1]) {
         const ds = daysOf(b.when, Y);
