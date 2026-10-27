@@ -329,7 +329,7 @@ function render() {
       <img class="head" src="img/display/simcha-head.jpg" alt="שהשמחה במעונם">
       <div class="wk">${parsha ? `פרשת ${h(parsha)}` : ''}</div>
       <div class="list">${mzList.map(entryHtml).join('')}</div>
-      ${pages > 1 ? `<div class="pg">${mzIx + 1} מתוך ${pages}</div>` : ''}
+      ${pages > 1 ? `<div class="dots">${Array.from({ length: pages }, (_, i) => `<i class="${i === mzIx ? 'on' : ''}"></i>`).join('')}</div><div class="pg">${mzIx + 1} מתוך ${pages}</div>` : ''}
     </div>
 
     ${AD ? '' : `
