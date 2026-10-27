@@ -129,7 +129,7 @@ export function defaults() {
   };
 }
 const row = (label, times, o = {}) => ({ id: id(), label, note: '', kind: /שחרית|מנחה|מעריב|נדרי|סליחות/.test(label) ? 'tefila' : 'other', on: 'all', times: times.map((t) => (typeof t === 'string' ? F(t) : t)), ...o });
-const block = (title, when, rows) => ({ id: id(), title, when, rows, like: { maarivEve: true, shacharis: true, mincha: true, maarivMid: true, maariv: true }, own: { maarivEve: [], shacharis: [], mincha: [], maarivMid: [], maariv: [] }, fri: { mode: 'regular', time: null } });
+const block = (title, when, rows) => ({ id: id(), title, when, rows, like: { minchaEve: true, maarivEve: true, shacharis: true, mincha: true, maarivMid: true, maariv: true }, own: { minchaEve: [], maarivEve: [], shacharis: [], mincha: [], maarivMid: [], maariv: [] }, fri: { mode: 'regular', time: null } });
 function TISHREI_BLOCKS() {
   return [
     block('סליחות - יום א\'', 'selichos1', [row('סליחות', ['05:00'])]),
@@ -264,6 +264,8 @@ export function computeWeekday(data, n, loc) {
     }
     if (fri && mb.fri?.mode === 'custom') out.friMincha = timeOf(mb.fri.time, zd);
   }
+  // "מנחה ערב": די מנחה פונעם טאג פאר א יום דפגרא/תענית
+  if (!mb && nb && (nb.like || {}).minchaEve === false) { out.mincha = own(nb, 'minchaEve'); out.last = null; }
   // מעריב פון היינט ביינאכט: ערב (פאר'ן ערשטן טאג) · אמצע (צווישן טעג פון א לענגערן בלאק) · מוצאי (נאכן לעצטן טאג)
   const eveG = !mb && nb ? 'maarivEve' : mb && nb === mb ? 'maarivMid' : mb ? 'maariv' : null;
   const eb = eveG === 'maarivEve' ? nb : mb;

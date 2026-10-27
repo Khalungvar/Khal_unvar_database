@@ -16,7 +16,7 @@ export function initTefila(helpers) { ui = helpers; }
 
 const TABS = [['weekday', 'ימות החול'], ['shabbos', 'שבת'], ['minor', 'ימי דפגרא ותעניות'], ['yt', 'ערב יו"ט ויו"ט'], ['tishrei', 'תשרי']];
 const GROUPS = [['shacharis', 'שחרית'], ['mincha', 'מנחה'], ['maariv', 'מעריב']];
-const MGROUPS = [['maarivEve', 'מעריב ערב'], ['shacharis', 'שחרית'], ['mincha', 'מנחה'], ['maarivMid', 'מעריב לילות האמצע'], ['maariv', 'מעריב מוצאי']];
+const MGROUPS = [['minchaEve', 'מנחה ערב'], ['maarivEve', 'מעריב ערב'], ['shacharis', 'שחרית'], ['mincha', 'מנחה'], ['maarivMid', 'מעריב לילות האמצע'], ['maariv', 'מעריב מוצאי']];
 const DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 let data = null; let row = 0; let dirty = false; let tab = 'weekday'; let prevIso = todayIso(); let saving = false;
 const canEdit = () => !!(state.isAllowed || state.isAdmin);
@@ -273,8 +273,8 @@ export async function openTefila(main, onBack) {
     if (!data.minor.blocks.length) data.minor = defaults().minor;
   }
   for (const b of data.minor.blocks || []) {
-    b.like = { maarivEve: true, shacharis: true, mincha: true, maarivMid: true, maariv: true, ...(b.like || {}) };
-    b.own = { maarivEve: [], shacharis: [], mincha: [], maarivMid: [], maariv: [], ...(b.own || {}) };
+    b.like = { minchaEve: true, maarivEve: true, shacharis: true, mincha: true, maarivMid: true, maariv: true, ...(b.like || {}) };
+    b.own = { minchaEve: [], maarivEve: [], shacharis: [], mincha: [], maarivMid: [], maariv: [], ...(b.own || {}) };
     b.fri = b.fri || { mode: 'regular', time: null };
   }
   for (const part of ['yt', 'minor', 'tishrei']) for (const b of data[part].blocks || []) for (const r of b.rows || []) if (r.screen === undefined) r.screen = true;

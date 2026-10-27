@@ -1,9 +1,9 @@
 // אתר פון א מוסד — 👔 אנשי צוות ואברכים: צוויי באזונדערע רשימות אין איין כפתור.
 // אנשי צוות: תפקיד, טלפון, מייל (לאגאין), פון ווען, פעיל/לשעבר, סארט שכר (אן סכומים); 💰 → משכורות (נאר מיט הרשאה).
 // אברכים: וועמען זיי לערנען מיט (פון די חברותות), און שעות (כניסה/יציאה).
-import { downloadXlsx } from '../excel.js?v=438';
-import { currentZman } from './school.js?v=438';
-import { historyDialog } from './me.js?v=438';
+import { downloadXlsx } from '../excel.js?v=439';
+import { currentZman } from './school.js?v=439';
+import { historyDialog } from './me.js?v=439';
 
 let X = null;
 export function initTeam(ctx) { X = ctx; }
