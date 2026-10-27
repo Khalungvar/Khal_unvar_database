@@ -162,7 +162,12 @@ function render() {
     }
     const out = [];
     if (!holy(eve)) out.push({ label: 'הדלקת נרות', kind: 'zman', min: zOf(eve).candles + oe });
-    for (const [k, off] of [[eve, oe], [d, od]]) for (const bk of specials(k, off, 'shab')) for (const r of bk.rows) out.push({ label: r.label, kind: r.kind, note: r.note, min: r.mins[0] ?? null, more: r.mins.slice(1) });
+    // פונעם ערב: אויב דער ערב איז אליין א יו"ט (יום ב') — נאר די אוונט-זאכן (נאכן שקיעה בערך), כדי נישט צו איבערחזרן
+    const eveCut = holy(eve) ? zOf(eve).shkia - 90 + oe : -Infinity;
+    for (const [k, off] of [[eve, oe], [d, od]]) for (const bk of specials(k, off, 'shab')) for (const r of bk.rows) {
+      if (k === eve && (r.mins[0] ?? -Infinity) < eveCut) continue;
+      out.push({ label: r.label, kind: r.kind, note: r.note, min: r.mins[0] ?? null, more: r.mins.slice(1) });
+    }
     return out;
   }
   function holyBoard(eve) {

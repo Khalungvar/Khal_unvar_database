@@ -155,11 +155,10 @@ function MINOR_BLOCKS() {
     .map(([t, w]) => block(t, w, []));
 }
 // א חג: מנחה ומעריב (ערב) · שחרית · מנחה ומעריב — פאר יעדן טאג פון חג
-export function chagRows(when) {
-  const days = when === 'shabbosChmPesach' ? 1 : 2;
-  const rows = [{ ...row('מנחה ומעריב', []), on: -1 }];
-  for (let i = 0; i < days; i += 1) rows.push({ ...row('שחרית', []), on: i }, { ...row('מנחה ומעריב', []), on: i });
-  return rows.map((r) => ({ ...r, screen: true, disp: { place: 'shab', from: { mode: 'dayStart', days: 1 }, to: { mode: 'pass', min: 0 } } }));
+export function chagRows() {
+  // ערב (מנחה ומעריב) · שחרית · מנחה ומעריב — "כל ימי הבלוק"; ווען א טאג איז אנדערש, מען צעטיילט
+  const rows = [{ ...row('מנחה ומעריב', []), on: -1 }, { ...row('שחרית', []), on: 'all' }, { ...row('מנחה ומעריב', []), on: 'all' }];
+  return rows.map((r) => ({ ...r, screen: true, fri: { on: false, times: [] }, disp: { place: 'shab', from: { mode: 'dayStart', days: 1 }, to: { mode: 'pass', min: 0 } } }));
 }
 function YT_BLOCKS() {
   // type: 'erev' = ערב חג (ווי א וואכנטאג, מיט די V פון ימי דפגרא) · 'chag' = חג (ווי שבת)

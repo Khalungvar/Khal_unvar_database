@@ -293,7 +293,8 @@ export async function openTefila(main, onBack) {
   const chagW = new Set(['pesach', 'shviiPesach', 'shavuos', 'shabbosChmPesach', 'erevPesachShabbos']);
   for (const b of data.yt.blocks || []) { if (!b.type) b.type = chagW.has(b.when) ? 'chag' : 'erev'; if (b.when === 'cholPesach' && b.type === 'erev') b.type = 'chm'; }
   // חג מיט די אלטע ליידיקע שורות (שחרית/מנחה) → מנחה ומעריב · שחרית · מנחה ומעריב
-  for (const b of data.yt.blocks || []) if (b.type === 'chag' && (b.rows || []).every((r) => !(r.times || []).length && /^(שחרית|מנחה)$/.test(r.label))) b.rows = chagRows(b.when);
+  for (const b of data.yt.blocks || []) if (b.type === 'chag' && b.when !== 'erevPesachShabbos' && (b.rows || []).length && (b.rows || []).every((r) => !(r.times || []).length && /^(שחרית|מנחה ומעריב)$/.test(r.label)) && b.rows.some((r) => r.on === 1 || r.on === '1')) b.rows = chagRows();
+  for (const b of data.yt.blocks || []) if (b.type === 'chag' && (b.rows || []).every((r) => !(r.times || []).length && /^(שחרית|מנחה)$/.test(r.label))) b.rows = chagRows();
   for (const b of data.yt.blocks || []) if (b.type === 'chag') for (const r of b.rows || []) if (!r.fri || !Array.isArray(r.fri.times)) r.fri = { on: false, times: [] };
   for (const b of data.yt.blocks || []) if (b.type === 'chag') for (const r of b.rows || []) if (!r.disp) r.disp = { ...dispDefault(r), place: 'shab' };
   if (!data.yt.blocks.some((b) => b.when === 'erevShvii')) { const i = data.yt.blocks.findIndex((b) => b.when === 'shviiPesach'); const nb = defaults().yt.blocks.find((b) => b.when === 'erevShvii'); data.yt.blocks.splice(i < 0 ? data.yt.blocks.length : i, 0, nb); }
