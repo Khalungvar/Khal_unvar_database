@@ -257,14 +257,14 @@ function pageHtml(list, fontPt, cols = 1, pageNo = 0, opt = {}) {
     ${full ? `<img class="sg-bg sg-bg-full" src="${h(bgU)}" alt="">` : ''}
     <div class="sg-inner">
     ${full ? '' : `<img class="sg-bg" src="${h(bgU)}" alt="">`}
-    <div class="sg-parsha">${h(issueTitle(cur.week))}</div>
+    <div class="sg-parsha" style="${layoutCss(LAY).parsha}">${h(issueTitle(cur.week))}</div>
     ${bodyHtml(list, fontPt, cols, opt)}</div>
     ${pageNo ? `<div class="sg-pageno">${h(t('lobbySimchos'))} ${h(issueTitle(cur.week))} ${h(t('sgPageNo', { n: pageNo }))}</div>` : ''}</div>`;
 }
 
 /** דער אינהאלט: איין שפאלט, צוויי שפאלטן (CSS), אדער צוויי שפאלטן מיט א באשטימטן צוטייל (opt.split) — מיט "spread" פולט מען אויס דעם בלאט */
 function bodyHtml(list, pt, cols, opt) {
-  const st = `style="font-size:${pt}pt"`;
+  const st = `style="font-size:${pt}pt;${layoutCss(LAY).body}"`;
   if (cols > 1 && opt.grid) {
     // שורות פון צוויי; ווען ס'בלייבט איינס אין דער לעצטער שורה — אין דער מיט
     return `<div class="sg-body sg-grid${list.length % 2 ? ' sg-odd' : ''}" ${st}>${list.map(simchaHtml).join('')}</div>`;
@@ -379,6 +379,29 @@ function bgSrc(week) {
   const v = (bgSet || {})[`bg:${week}`] || (bgSet || {}).bg;
   return (v && imageOf(v)) || DEF_BG;
 }
+// ---------- מיקומים (לויטן רקע): אזור השמחות + קעסטל פון דער פרשה — אינטשעס אויפן גאנצן האלבן בלאט ----------
+const SC = 0.909; // .sg-inner
+const toIn = (x, c) => c + (x - c) / SC; // בלאט → sg-inner
+export const LAYOUT_DEF = { body: { x: 0.905, y: 2.587, w: 3.69, h: 4.872 }, parsha: { x: 1.45, y: 1.80, w: 2.6, h: 0.42, size: 14, border: true, color: '#1f2f6b', bg: true } };
+const layKey = (week) => ((bgSet || {})[`bg:${week}`] ? `layout:${week}` : 'layout');
+function layoutFor(week) {
+  const v = (bgSet || {})[layKey(week)];
+  if (!v) return null;
+  try { const L = JSON.parse(v); return { body: { ...LAYOUT_DEF.body, ...(L.body || {}) }, parsha: { ...LAYOUT_DEF.parsha, ...(L.parsha || {}) } }; } catch { return null; }
+}
+/** אינליין-סטיילס פאר די מיקומים (אינעווייניג פון sg-inner) */
+function layoutCss(L) {
+  if (!L) return { body: '', parsha: '' };
+  const b = L.body; const p = L.parsha;
+  const bx = toIn(b.x, 2.75); const by = toIn(b.y, 4.25); const bw = b.w / SC; const bh = b.h / SC;
+  const px = toIn(p.x, 2.75); const py = toIn(p.y, 4.25); const pw = p.w / SC; const ph = p.h / SC;
+  return {
+    body: `top:${by.toFixed(3)}in;left:${bx.toFixed(3)}in;width:${bw.toFixed(3)}in;height:${bh.toFixed(3)}in;right:auto;bottom:auto;`,
+    parsha: `top:${py.toFixed(3)}in;left:${px.toFixed(3)}in;width:${pw.toFixed(3)}in;height:${ph.toFixed(3)}in;transform:none;min-width:0;padding:0;display:flex;align-items:center;justify-content:center;font-size:${(Number(p.size) || 14) / SC}pt;color:${p.color || '#1f2f6b'};border:${p.border ? `1px solid ${p.color || '#1f2f6b'}` : '0'};background:${p.bg ? 'rgba(255,255,255,.85)' : 'transparent'};`,
+  };
+}
+let LAY = null; // דער אקטיווער אויסלייג פארן פאגינירן/צייכענען (null = רעגולער)
+
 async function setBg(key, value) {
   const rows = await bgSheet().read('SimchaSettings!A1:A200');
   let row = rows.findIndex((r, i) => i > 0 && String(r[0]) === key) + 1;
@@ -396,6 +419,7 @@ function bgDialog() {
       <label class="btn small-btn">📤 רקע רק לגליון הזה (${h(weekLabel(cur.week))})<input type="file" accept="image/*,application/pdf,.pdf" data-bgk="bg:${h(cur.week)}" hidden></label>
       ${own ? '<button type="button" class="btn small-btn ghost" data-bgx="own">↺ הגליון הזה — חזרה לרקע הקבוע</button>' : ''}
       ${(bgSet || {}).bg ? '<button type="button" class="btn small-btn ghost" data-bgx="bg">↺ הרקע הקבוע — חזרה לרקע הרגיל של האתר</button>' : ''}
+      <button type="button" class="btn small-btn" data-lay>📐 מיקום השמחות והפרשה</button>
       <p class="muted small">אפשר להעלות <b>PDF</b> (העמוד הראשון נהפך לתמונה באיכות הדפסה, 300 DPI) או תמונה בגודל 5.5×8.5 אינטש (למשל 1650×2550 פיקסלים). נשמר ב-Drive. הרקע ממלא את כל חצי העמוד — השוליים לפי הרקע עצמו.</p>
       <p class="muted small" data-st></p>
     </div></div>
@@ -417,9 +441,63 @@ function bgDialog() {
       await setBg(inp.dataset.bgk, v); close(); renderSimchos(); ui.toast(t('saved'));
     } catch (err) { st.textContent = ''; ui.toast(ui.friendlyError(err), 'error'); }
   }; });
+  bg.querySelector('[data-lay]').onclick = () => { close(); layoutEditor(); };
   bg.querySelectorAll('[data-bgx]').forEach((b) => { b.onclick = async () => {
     try { await setBg(b.dataset.bgx === 'own' ? `bg:${cur.week}` : 'bg', ''); close(); renderSimchos(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
   }; });
+}
+
+// ---------- 📐 עורך: גוררים / מגדילים את אזור השמחות ואת הפרשה על הדף ----------
+function layoutEditor() {
+  const key = layKey(cur.week);
+  const L = JSON.parse(JSON.stringify(layoutFor(cur.week) || LAYOUT_DEF));
+  const list = simchosOf(cur.week);
+  const bg = document.createElement('div'); bg.className = 'tf-dlg-bg';
+  const K = 72; // פיקסל פער אינטש אינעם עורך
+  bg.innerHTML = `<div class="tf-dlg sg-lay"><h3>📐 מיקום השמחות והפרשה ${key === 'layout' ? '(לכל הגליונות)' : '(לגליון הזה בלבד)'}</h3>
+    <div class="sg-lay-wrap"><div class="sg-lay-page"><div class="sg-lay-pv"></div>
+      <div class="sg-box" data-b="parsha"><span>פרשה</span><i></i></div><div class="sg-box" data-b="body"><span>אזור השמחות</span><i></i></div></div>
+    <div class="sg-lay-side">
+      <p class="muted small">גוררים את המלבנים למקום המתאים ברקע; מגדילים מהעיגול בפינה.</p>
+      <b>הפרשה</b>
+      <label>גודל אות <input type="number" min="6" max="40" step="0.5" data-p="size" value="${L.parsha.size}"></label>
+      <label>צבע <input type="color" data-p="color" value="${h(L.parsha.color)}"></label>
+      <label><input type="checkbox" data-p="border"${L.parsha.border ? ' checked' : ''}> מסגרת</label>
+      <label><input type="checkbox" data-p="bg"${L.parsha.bg ? ' checked' : ''}> רקע לבן</label>
+      <div class="vs-acts"><button type="button" class="btn primary" data-save>💾 שמירה</button><button type="button" class="btn ghost" data-def>↺ ברירת מחדל</button><button type="button" class="btn ghost" data-x>ביטול</button></div>
+    </div></div></div>`;
+  document.body.appendChild(bg);
+  const pv = bg.querySelector('.sg-lay-pv'); const pageEl = bg.querySelector('.sg-lay-page');
+  const draw = () => {
+    LAY = L;
+    const pages = list.length ? finalize(paginate(list)) : [{ list: [], cols: 1, pt: MAX_PT }];
+    pv.innerHTML = pageHtml(pages[0].list, pages[0].pt, pages[0].cols, 0, pages[0]);
+    LAY = layoutFor(cur.week);
+    bg.querySelectorAll('.sg-box').forEach((el) => { const r = L[el.dataset.b]; Object.assign(el.style, { left: `${r.x * K}px`, top: `${r.y * K}px`, width: `${r.w * K}px`, height: `${r.h * K}px` }); });
+  };
+  pageEl.style.width = `${5.5 * K}px`; pageEl.style.height = `${8.5 * K}px`;
+  pv.style.transform = `scale(${K / 96})`;
+  draw();
+  bg.querySelectorAll('.sg-box').forEach((el) => {
+    el.onpointerdown = (e) => {
+      e.preventDefault(); const r = L[el.dataset.b]; const r0 = { ...r }; const x0 = e.clientX; const y0 = e.clientY;
+      const rs = e.target.tagName === 'I'; el.setPointerCapture(e.pointerId);
+      el.onpointermove = (ev) => {
+        const dx = (ev.clientX - x0) / K; const dy = (ev.clientY - y0) / K; const q = (v) => Math.round(v * 100) / 100;
+        if (rs) { r.w = q(Math.max(0.3, r0.w + dx)); r.h = q(Math.max(0.2, r0.h + dy)); } else { r.x = q(Math.min(5.3, Math.max(-0.2, r0.x + dx))); r.y = q(Math.min(8.3, Math.max(-0.2, r0.y + dy))); }
+        Object.assign(el.style, { left: `${r.x * K}px`, top: `${r.y * K}px`, width: `${r.w * K}px`, height: `${r.h * K}px` });
+      };
+      el.onpointerup = () => { el.onpointermove = null; draw(); };
+    };
+  });
+  bg.querySelectorAll('[data-p]').forEach((inp) => { inp.oninput = () => { const k = inp.dataset.p; L.parsha[k] = inp.type === 'checkbox' ? inp.checked : inp.type === 'number' ? Number(inp.value) : inp.value; draw(); }; });
+  const close = () => { bg.remove(); LAY = layoutFor(cur.week); };
+  bg.querySelector('[data-x]').onclick = close;
+  bg.querySelector('[data-def]').onclick = async () => { if (!confirm('להחזיר את המיקומים לברירת המחדל?')) return; try { await setBg(key, ''); close(); renderSimchos(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); } };
+  bg.querySelector('[data-save]').onclick = async (e) => {
+    e.target.disabled = true;
+    try { await setBg(key, JSON.stringify(L)); close(); renderSimchos(); ui.toast(t('saved')); } catch (err) { e.target.disabled = false; ui.toast(ui.friendlyError(err), 'error'); }
+  };
 }
 
 export function openSimchos() {
@@ -470,6 +548,7 @@ export function renderSimchos() {
           </div></div>`).join('') : `<p class="muted">${h(t('sgNone'))}</p>`}</div>
       <div class="sg-preview-wrap"><div class="sg-preview" id="sg-preview"></div><p class="muted small" id="sg-layout"></p></div>
     </div>`;
+  LAY = layoutFor(cur.week);
   lastPages = list.length ? finalize(paginate(list)) : [{ list: [], cols: 1, pt: MAX_PT }];
   $('#sg-preview', main).innerHTML = pagesHtml(lastPages);
   $('#sg-preview', main).style.setProperty('--pages', lastPages.length);
