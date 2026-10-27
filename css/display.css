@@ -338,3 +338,4 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .ttl { background: linear-gradient(180deg, var(--navy2), var(--navy)); }
 .mzl .head { width: 300px; height: 38px; margin: 14px auto 2px; object-fit: contain; }
 .ovi.clr, .ovi.clr.frame { background: transparent !important; box-shadow: none !important; } .ovi.clr.frame::before { display: none; }
+.ad.clr { background: transparent !important; box-shadow: none !important; }

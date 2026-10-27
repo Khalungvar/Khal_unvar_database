@@ -50,7 +50,7 @@ export function adUrl(item) {
   if (!item) return '';
   if (item.url) return item.url;
   if (!item.driveId) return '';
-  return item.kind === 'video' ? `https://drive.google.com/uc?export=download&id=${encodeURIComponent(item.driveId)}` : `https://lh3.googleusercontent.com/d/${encodeURIComponent(item.driveId)}=w1600`;
+  return item.kind === 'video' ? `https://drive.google.com/uc?export=download&id=${encodeURIComponent(item.driveId)}` : `https://lh3.googleusercontent.com/d/${encodeURIComponent(item.driveId)}${item.png || /\.png$/i.test(item.name || '') ? '=s0' : '=w1600'}`; // PNG: דער אריגינאל (מיט דער שקיפות)
 }
 
 const isoD = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

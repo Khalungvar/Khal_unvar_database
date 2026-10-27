@@ -399,7 +399,7 @@ function render() {
   }
   // די מודעה (רעכטס): נאר ווען זי טוישט זיך (א ווידעא הייבט זיך נישט אן פון אנפאנג)
   const adKey = AD ? (AD.q || `${AD.id}|${AD.lib || AD.sys || ''}|${AD.text || ''}|${AD.fit || ''}`) : '';
-  if (adKey !== adLast) { adLast = adKey; $('#adlayer').innerHTML = AD ? `<div class="ad">${adHtml(AD)}</div>` : ''; fillSystem($('#adlayer')); }
+  if (adKey !== adLast) { adLast = adKey; $('#adlayer').innerHTML = AD ? `<div class="ad${AD.clear ? ' clr' : ''}">${adHtml(AD)}</div>` : ''; fillSystem($('#adlayer')); }
   $('#dyn').innerHTML = main;
   updateShiurim(AD || HID.shiurim ? '' : shInner);
   // לוח המניינים (חול): די אותיות ווערן אזוי גרויס אז זיי פילן אויס די מסגרת
@@ -419,7 +419,7 @@ const esc2 = (x) => h(x).replace(/\n/g, '<br>');
 function itemHtml(it) {
   if (it.type === 'media') {
     const u = adUrl(it.item); const fit = it.fit === 'cover' ? 'cover' : 'contain';
-    return it.item.kind === 'video' ? `<video src="${h(u)}" autoplay muted loop playsinline style="object-fit:${fit}"></video>` : `<img src="${h(u)}" alt="" style="object-fit:${fit}">`;
+    return it.item.kind === 'video' ? `<video src="${h(u)}" autoplay muted loop playsinline style="object-fit:${fit}"></video>` : `<img src="${h(u)}" alt="" style="object-fit:${fit}${it.clear ? ';background:transparent;border-radius:0' : ''}">`;
   }
   if (it.type === 'system') return `<div class="ovs" data-sys="${h(it.sys || 'weekday')}"></div>`;
   return `<div class="ovt" style="font-size:${Number(it.size) || 48}px;color:${h(it.color || '#0d2350')};background:${it.clear ? 'transparent' : h(it.bg || 'transparent')};text-shadow:${it.clear ? '0 2px 6px rgba(0,0,0,.45)' : 'none'};font-weight:${it.bold === false ? 500 : 800}">${esc2(it.text)}</div>`;

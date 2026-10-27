@@ -152,6 +152,7 @@ function itemsHtml(ed) {
         ${it.type !== 'notice' ? `<div class="sc-r1">איפה: ${sel(i, 'place', it.place || 'right', PLACES, true)}
           ${it.place === 'free' && ed ? `<button type="button" class="btn small-btn${dragI === i ? ' primary' : ''}" data-drag="${i}">${dragI === i ? '✔ סיום מיקום' : '✋ למקם על המסך'}</button>` : ''}
           ${it.type === 'media' || it.type === 'system' ? `${sel(i, 'fit', it.fit || 'contain', [['contain', 'מוצג שלם'], ['cover', 'ממלא את המקום']])}` : ''}
+          ${it.type === 'media' ? `<label class="sc-chk" title="תמונת PNG עם שקיפות — רואים את המסך מאחוריה"><input type="checkbox" data-k="items.${i}.clear"${it.clear ? ' checked' : ''}${dis}> רקע שקוף</label>` : ''}
           <label class="sc-chk"><input type="checkbox" data-k="items.${i}.frame"${it.frame !== false ? ' checked' : ''}${dis}> מסגרת</label></div>` : ''}
         <div class="sc-r1">מתאריך <input type="date" data-k="items.${i}.from" value="${h(it.from || '')}"${dis}> עד <input type="date" data-k="items.${i}.to" value="${h(it.to || '')}"${dis}>
           <span class="sc-days">${DAYS.map((d, k) => `<label><input type="checkbox" data-iday="${i}" data-dw="${k}"${(it.days || []).includes(k) ? ' checked' : ''}${dis}>${d}</label>`).join('')}</span>
@@ -196,7 +197,7 @@ async function uploadMedia(file, main) {
     const id = await driveUploadLarge(file, file.name, folder, (f) => { st.textContent = `מעלה… ${Math.round(f * 100)}%`; });
     st.textContent = 'משתף לצפייה…';
     await drivePublic(id);
-    const L = { id: uid(), name: file.name, kind: /^video\//.test(file.type) ? 'video' : 'image', driveId: id, at: nowStamp() };
+    const L = { id: uid(), name: file.name, kind: /^video\//.test(file.type) ? 'video' : 'image', png: file.type === 'image/png', driveId: id, at: nowStamp() };
     S.library.push(L);
     S.items.push({ id: uid(), type: 'media', lib: L.id, on: true, place: 'right', from: todayIso(), to: '', days: [], sec: 0, fit: L.kind === 'video' ? 'cover' : 'contain', frame: true });
     st.textContent = ''; render(main); refreshPreview(main, true);
