@@ -102,21 +102,27 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
   background: linear-gradient(180deg, #1c3a6b, var(--navy)); border: 3px solid var(--gold); border-radius: 40px; color: var(--gold2);
   font-family: var(--serif); font-weight: 900; font-size: 36px; box-shadow: 0 8px 20px rgba(0,0,0,.4); }
 .last b { color: #fff; font-family: 'Frank Ruhl Libre', serif; direction: ltr; }
-.shab { top: 246px; left: 725px; width: 470px; height: 296px; }
-.shab .ttl { font-size: 28px; padding: 4px 0 6px; }
-.shab table { width: calc(100% - 36px); margin: 4px 18px 0; border-collapse: collapse; font-family: var(--serif); font-size: 26px; line-height: 1.18; }
-.shab td { padding: 0 4px; border-bottom: 1px dashed rgba(138,106,42,.45); }
-.shab td small { font-size: 18px; color: var(--muted); }
-.shab td + td { direction: ltr; text-align: left; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; color: var(--navy); white-space: nowrap; }
-.shab tr.hl td { color: #8b1a1a; font-weight: 700; }
+/* שבת קודש — אנדערש: טונקל בורדא מיט גאלד, גרויסע אותיות */
+.shab { position: absolute; top: 246px; left: 725px; width: 470px; height: 372px; border-radius: 18px; padding: 8px 22px 0; color: #f6e7c0;
+  background: radial-gradient(ellipse at 50% 0%, #7a2230, #4a1019 75%);
+  box-shadow: 0 0 0 3px var(--gold3), 0 0 0 7px var(--gold), 0 0 0 9px var(--gold3), 0 10px 30px rgba(0,0,0,.45); }
+.shab::before { content: ''; position: absolute; inset: 8px; border: 1.5px solid rgba(243,220,154,.45); border-radius: 12px; pointer-events: none; }
+.sh-t { text-align: center; font-family: var(--serif); font-weight: 900; font-size: 40px; line-height: 1; color: var(--gold2); text-shadow: 0 2px 4px rgba(0,0,0,.5); margin-top: 6px; }
+.sh-t small { display: block; font-size: 24px; font-weight: 700; color: #f6e7c0; margin: 2px 0 4px; }
+.sh-r { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--serif); font-size: 28px; font-weight: 700; line-height: 1.18; padding: 0 6px; }
+.sh-r b { font-family: 'Frank Ruhl Libre', serif; font-size: 33px; color: #fff; direction: ltr; white-space: nowrap; }
+.sh-r b.sm { font-size: 27px; }
+.sh-r .pr { width: auto; } .sh-r .pr i { color: #e0c78a; }
+.sh-r.big { margin: 3px -8px; padding: 1px 14px 3px; border-radius: 10px; background: linear-gradient(180deg, #f3dc9a, #c9a24c); color: #3a0d14; font-size: 31px; font-weight: 900; }
+.sh-r.big b { color: #3a0d14; font-size: 38px; }
 
 /* מזל טוב — אין דעם זעלבן סטיל ווי די אנדערע, מיט דער כותרת פונעם גליון */
-.mzl { top: 582px; left: 725px; width: 470px; height: 348px; text-align: center; overflow: hidden; }
-.mzl .head { display: block; width: 330px; margin: 12px auto 0; mix-blend-mode: multiply; }
+.mzl { top: 658px; left: 725px; width: 470px; height: 272px; text-align: center; overflow: hidden; }
+.mzl .head { display: block; width: 300px; margin: 12px auto 0; mix-blend-mode: multiply; }
 .mzl .wk { display: inline-block; margin-top: 2px; padding: 0 22px 2px; border: 1.5px solid var(--navy); border-radius: 12px; background: #fff;
   color: var(--navy); font-family: var(--serif); font-weight: 700; font-size: 22px; }
 .mzl .list { display: flex; flex-direction: column; gap: 8px; padding: 8px 20px 0; }
-.mzl .mz-e { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(60,40,10,.25); padding: 5px 12px; font-family: var(--serif); font-size: 23px; line-height: 1.12; color: #111; }
+.mzl .mz-e { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(60,40,10,.25); padding: 6px 14px; font-family: var(--serif); font-size: 25px; line-height: 1.15; color: #111; }
 .mzl .mz-e b { color: var(--navy); }
 .mzl .dots { position: absolute; bottom: 12px; left: 0; right: 0; }
 .mzl .dots i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: rgba(138,106,42,.35); margin: 0 4px; }

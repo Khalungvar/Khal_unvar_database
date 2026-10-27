@@ -39,7 +39,7 @@ const MAZEL = [
   { names: ['הרה"ח ר\' <b>פלוני לוי</b> הי"ו'], for: 'לרגל הולדת בנו בשעטו"מ' },
   { names: ['הרה"ח ר\' <b>אלמוני גרין</b> הי"ו'], for: 'לרגל שמחת האפשערן של בנו <b>אברהם</b> ני"ו בשעטו"מ' },
 ];
-const PER = 2;
+const PER = 1; // אין דעם שמאלן טור — איינס אויפאמאל
 const entryHtml = (e) => `<div class="mz-e">${e.names.map((x) => `<div>${x}</div>`).join('')}<div class="for">${e.for}</div></div>`;
 
 // ---------- שיעורים (פון BZS) ----------
@@ -164,17 +164,14 @@ function render() {
     <div class="last">מנחה מנין אחרון: <b>${tm(lastMincha)}</b></div>
 
     ${AD ? `<div class="ad">${AD === '1' ? '<div class="ad-demo"><b>מודעה</b><span dir="ltr">8.5 × 11</span><small>כאן תופיע מודעה (קמפיין וכו\')<br>היא מכסה את זמני השבת והשמחות</small></div>' : `<img src="${h(AD)}" alt="">`}</div>` : `
-    <div class="frame shab">
-      <div class="ttl">זמני שבת קודש${parsha ? ` · פרשת ${h(parsha)}` : ''}</div>
-      <table>
-        <tr class="hl"><td>הדלקת נרות</td><td>${tm(zFri.candles)}</td></tr>
-        <tr><td>מנחה ערב שבת</td><td>${tm(resolve(SHABBOS.minchaErev, zFri))}</td></tr>
-        <tr><td>שחרית</td><td>${h(SHABBOS.shacharis.t)}</td></tr>
-        <tr><td>סוף זמן ק"ש</td><td>${pair(zSat.alos + 3 * ((zSat.tzeis - zSat.alos) / 12), zSat.neitz + 3 * ((zSat.shkia - zSat.neitz) / 12))}</td></tr>
-        <tr><td>שקיעת החמה</td><td>${tm(zSat.shkia)}</td></tr>
-        <tr class="hl"><td>מוצאי שבת קודש</td><td>${tm(zSat.motzei)}</td></tr>
-        ${Math.round(zSat.shkia + 72) !== Math.round(zSat.motzei) ? `<tr><td>רבינו תם</td><td>${tm(zSat.shkia + 72)}</td></tr>` : ''}
-      </table>
+    <div class="shab">
+      <div class="sh-t">שבת קודש<small>${parsha ? `פרשת ${h(parsha)}` : ''}</small></div>
+      <div class="sh-r big"><span>הדלקת נרות</span><b>${tm(zFri.candles)}</b></div>
+      <div class="sh-r"><span>מנחה ערב שבת</span><b>${tm(resolve(SHABBOS.minchaErev, zFri))}</b></div>
+      <div class="sh-r"><span>שחרית</span><b>${h(SHABBOS.shacharis.t)}</b></div>
+      <div class="sh-r"><span>סוף זמן ק"ש</span><b class="sm">${pair(zSat.alos + 3 * ((zSat.tzeis - zSat.alos) / 12), zSat.neitz + 3 * ((zSat.shkia - zSat.neitz) / 12))}</b></div>
+      <div class="sh-r"><span>שקיעת החמה</span><b>${tm(zSat.shkia)}</b></div>
+      <div class="sh-r big"><span>מוצאי שבת קודש</span><b>${tm(zSat.motzei)}</b></div>
     </div>
 
     <div class="frame mzl">
