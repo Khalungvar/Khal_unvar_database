@@ -329,7 +329,7 @@ function render() {
       <img class="head" src="img/display/simcha-head.jpg" alt="שהשמחה במעונם">
       <div class="wk">${parsha ? `פרשת ${h(parsha)}` : ''}</div>
       <div class="list">${mzList.map(entryHtml).join('')}</div>
-      ${pages > 1 ? `<div class="dots">${Array.from({ length: pages }, (_, i) => `<i class="${i === mzIx ? 'on' : ''}"></i>`).join('')}</div>` : ''}
+      ${pages > 1 ? `<div class="pg">${mzIx + 1} מתוך ${pages}</div>` : ''}
     </div>
 
     ${AD ? '' : `
@@ -358,7 +358,7 @@ function render() {
     </div>`;
   // שיעורי תורה: אין אן אייגענעם שיכט (נישט איבערגעצייכנט יעדע סעקונדע) — ווען עס גייט נישט אריין, פארט עס פאמעלעך ארויף אין א קרייז
   const shDaf = SHI.filter((x) => x.type === 'daf'); const shOth = SHI.filter((x) => x.type !== 'daf');
-  const shRow = (x) => `<div class="${x === nextShiur ? 'nx' : x.min != null && x.min < nowMin ? 'ps' : 'ln'}">${shLine(x).replace(/^<div[^>]*>|<\/div>$/g, '')}</div>`;
+  const shRow = (x) => `<div class="ln">${shLine(x).replace(/^<div[^>]*>|<\/div>$/g, '')}</div>`;
   const shInner = `${shDaf.length ? `<div class="shiur sh-daf"><h4>שיעורי דף היומי בבית מדרשינו:</h4>${shDaf.map(shRow).join('')}</div>` : ''}${shOth.length ? `<div class="shiur sh-oth"><h4>שיעורים הנלמדים בביהמ"ד:</h4>${shOth.map(shRow).join('')}</div>` : ''}`;
   const [main, bot] = html.split('<!--BOT-->');
   if (!$('#dyn')) {

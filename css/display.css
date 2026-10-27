@@ -314,3 +314,5 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 /* שמחות פונעם גיליון (דער זעלבער טעקסט ווי אין גליון) */
 .mzl .mz-e .sg-note, .mzl .mz-e .sg-after { font-size: 17px; color: #444; }
 .mzl .mz-e .sg-for { margin-top: 1px; }
+/* שמחות: "1 מתוך 3" אנשטאט די פינטלעך */
+.mzl .pg { position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); font-family: var(--serif); font-size: 16px; font-weight: 700; color: #7a5a1c; background: #fff; border: 1.5px solid rgba(138,106,42,.6); border-radius: 10px; padding: 0 12px; line-height: 1.35; white-space: nowrap; }
