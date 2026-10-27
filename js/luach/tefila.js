@@ -227,7 +227,7 @@ function blocksHtml(part) {
   ${bs.map((b, bi) => { const bp = `${part}.blocks.${bi}`; let ds = daysOf(b.when, Y); let nextY = 0; if (!ds.length) { for (let y = Y + 1; y < Y + 40; y += 1) { const d2 = daysOf(b.when, y); if (d2.length) { ds = d2; nextY = y; break; } } } return `<section class="tf-blk">
     <div class="tf-bh">${fld(`${bp}.title`, 'text', ' class="tf-w16 tf-bt"')} ${sel(`${bp}.when`, WHEN[part])}
       <span class="muted small">${ds.length ? h(ds.length > 3 ? `${dateLabel(ds[0])} … ${dateLabel(ds[ds.length - 1])} (${ds.length} ימים)` : ds.map(dateLabel).join(' · ')) + (nextY ? ` (הפעם הבאה: ${hebrewNumber(nextY % 1000)})` : '') : '—'}</span>
-      <span class="spacer"></span>${ds.length ? `<button type="button" class="tf-mini tf-pvb" data-act="pv" data-d="${isoOf(b.type === 'chag' ? ds[0] - 1 : ds[0])}" data-t="${b.type === 'chag' ? '15:00' : '11:00'}" title="לראות במסך">👁 תצוגה</button>` : ''}${btn('up', bp, '↑', 'למעלה')}${btn('down', bp, '↓', 'למטה')}${btn('del', bp, '🗑', 'מחק בלוק')}</div>
+      <span class="spacer"></span>${ds.length ? `<button type="button" class="tf-mini tf-pvb" data-act="pvSide" data-d="${isoOf(ds[0])}" title="להציג את היום הזה בתצוגה המקדימה בצד">👁 תצוגה</button>` : ''}${btn('up', bp, '↑', 'למעלה')}${btn('down', bp, '↓', 'למטה')}${btn('del', bp, '🗑', 'מחק בלוק')}</div>
     ${part === 'yt' ? `<div class="tf-type ${b.type || 'erev'}">${b.type === 'chag' ? '🕯 חג — מוצג כמו שבת' : b.type === 'chm' ? '🌿 חול המועד' : '📅 ערב חג — מתנהג כמו ימות החול'}</div>` : ''}
     ${part === 'minor' || (part === 'yt' && b.type !== 'chag') ? minorHead(b, bp) : ''}
     <div class="tf-rows">
@@ -346,6 +346,7 @@ function render(main, onBack) {
     const act = b.dataset.act; const p = b.dataset.p || '';
     if (act === 'addW') { data.weekday[p].push({ id: newId(), time: { b: 'fixed', t: '' }, room: '', note: '', season: 'all', cond: null, kahal: false, fri: p === 'shacharis', last: false }); }
     else if (act === 'sortW') { const z = { neitz: 380, shkia: 1100, candles: 1082, rt: 1172, alos: 308, chatzos: 740 }; const k = (r) => (r.time?.b === 'fixed' ? (Number(String(r.time.t).replace(':', '.')) * 60 || 0) : (z[r.time?.b] || 0) + (r.time?.a || 0)); data.weekday[p].sort((a, c) => k(a) - k(c)); }
+    else if (act === 'pvSide') { prevIso = b.dataset.d; $('.tf-side', main).innerHTML = previewHtml(); bindDate(); $('.tf-side', main).classList.add('flash'); setTimeout(() => $('.tf-side', main)?.classList.remove('flash'), 600); return; }
     else if (act === 'pv') {
       try { localStorage.setItem('tf-preview', JSON.stringify(data)); } catch { /* */ }
       const d = b.dataset.d || prevIso; const t = b.dataset.t || new Date().toTimeString().slice(0, 5);
