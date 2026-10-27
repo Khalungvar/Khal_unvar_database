@@ -308,7 +308,9 @@ function previewHtml() {
 }
 
 // ---------- דער בלאט ----------
-export async function openTefila(main, onBack) {
+let BACK = 'זמנים ולוחות';
+export async function openTefila(main, onBack, backLabel) {
+  if (backLabel) BACK = backLabel;
   main.innerHTML = '<p class="muted">…</p>';
   await load();
   const dr = defaults().weekday.rebbe;
@@ -352,8 +354,8 @@ export async function openTefila(main, onBack) {
 function render(main, onBack) {
   const body = tab === 'weekday' ? weekdayHtml() : tab === 'shabbos' ? shabbosHtml() : tab === 'shiurim' ? shiurimHtml() : blocksHtml(tab);
   main.innerHTML = `<div class="lx-bar">
-      <button type="button" class="btn ghost" id="tf-back">← זמנים ולוחות</button>
-      <b class="lx-title">🕍 זמני תפילות ביהמ"ד בארא פארק</b>
+      <button type="button" class="btn ghost" id="tf-back">← ${h(BACK)}</button>
+      <b class="lx-title">🕰 זמני התפילות והשיעורים</b>
       <div class="lang-switch">${TABS.map(([k, l]) => `<button type="button" data-tab="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div>
       <span class="spacer"></span>
       ${canEdit() ? `<button type="button" class="btn primary" id="tf-save"${dirty ? '' : ' disabled'}>💾 שמירה</button>` : ''}

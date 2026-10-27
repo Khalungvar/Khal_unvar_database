@@ -281,12 +281,31 @@ function renderHub(main) {
   }; });
 }
 
+// "זמני תפילות ביהמ"ד בארא פארק": 3 קנעפלעך — מסך · דרוקן · די זמנים און שיעורים
+function renderTefilaHub(main) {
+  const tile = (k, icon, title, sub, soon) => `<button type="button" class="lobby-tile lx-hubt" data-tf="${k}"${soon ? ' data-soon="1"' : ''}>
+    <span class="lobby-icon">${icon}</span><b>${h(title)}</b><span class="muted small">${h(soon ? t('soon') : sub)}</span></button>`;
+  main.innerHTML = `<div class="lx-bar"><button type="button" class="btn ghost" id="tfh-back">← ${h(t('hubTitle'))}</button></div>
+    <h2 class="lx-hubh">🕍 ${h(t('hTefila'))}</h2>
+    <div class="lx-hub">
+      ${tile('tfScreen', '📺', t('tfScreen'), t('tfScreenSub'), true)}
+      ${tile('tfPrint', '🖨', t('tfPrint'), t('tfPrintSub'), true)}
+      ${tile('tfTimes', '🕰', t('tfTimes'), t('hTefilaSub'))}
+    </div>`;
+  $('#tfh-back', main).onclick = () => { mode = 'hub'; renderLuach(); };
+  $$('[data-tf]', main).forEach((b) => { b.onclick = () => {
+    if (b.dataset.soon) { ui.toast?.(t('soon')); return; }
+    mode = b.dataset.tf; renderLuach();
+  }; });
+}
+
 export async function renderLuach() {
   const main = $('#luach-main');
   if (!main) return;
   if (mode === 'hub') { renderHub(main); return; }
   if (mode === 'mitzva') { openMitzva(main, () => { mode = 'hub'; renderLuach(); }); return; }
-  if (mode === 'tefila') { openTefila(main, () => { mode = 'hub'; renderLuach(); }); return; }
+  if (mode === 'tefila') { renderTefilaHub(main); return; }
+  if (mode === 'tfTimes') { openTefila(main, () => { mode = 'tefila'; renderLuach(); }, t('hTefila')); return; }
   if (!year) [year, pageIx] = currentYearAndPage();
   if (!main.firstChild) main.innerHTML = `<p class="muted">…</p>`;
   await loadData();
@@ -483,6 +502,9 @@ const TX = {
   hint: ['לחיצה על יום — להוסיף או להסתיר שורה. בארא פארק: לפי טבלת chaitables (ובלעדיה מחושב). ירושלים: מחושב, הדלקה 40 דקות, מנהגי ארץ ישראל.', 'קליקט אויף א טאג — צולייגן אדער באהאלטן א שורה.', 'Click a day to add or hide a line.'],
   place: ['מיקום', 'ארט', 'Location'],
   hubTitle: ['זמנים ולוחות', 'זמנים און לוחות', 'Zmanim & Calendars'], hTefila: ['זמני תפילות ביהמ"ד בארא פארק', 'זמני תפילות ביהמ"ד בארא פארק', 'Davening times – Boro Park shul'], hTefilaSub: ['ימות החול · שבת · ימי דפגרא · יו"ט · תשרי', 'וואכנטאג · שבת · ימי דפגרא · יו"ט · תשרי', 'Weekday · Shabbos · Minor days · Yom Tov · Tishrei'],
+  tfScreen: ['תצוגת והגדרות המסך', 'מסך און הגדרות', 'Screen display & settings'], tfScreenSub: ['הגדרות המסך בבית המדרש', 'הגדרות פונעם מסך אין בית המדרש', 'Beis medrash screen settings'],
+  tfPrint: ['הדפסת זמני התפילה', 'דרוקן זמני התפילה', 'Print davening times'], tfPrintSub: ['בחירת ימים או שבועות', 'אויסקלייבן טעג אדער וואכן', 'Choose days or weeks'],
+  tfTimes: ['זמני התפילות והשיעורים', 'זמני התפילות און שיעורים', 'Davening & shiur times'],
   hCal: ['לוח שנה אונגוואר', 'לוח שנה אונגוואר', 'Ungvar yearly calendar'], hCalSub: ['זמנים · דף יומי · מצוה יומית', 'זמנים · דף יומי · מצוה יומית', 'Zmanim · Daf Yomi · Mitzva'],
   hMitzva: ['לוח מצוה יומית', 'לוח מצוה יומית', 'Mitzva Yomis calendar'], hMitzvaSub: ['שבועי · חודשי · מחזור · קונטרס', 'וועכנטליך · חודש · מחזור · קונטרס', 'Weekly · monthly · cycle · booklet'], soon: ['בקרוב', 'באלד', 'Coming soon'],
   hBooklet: ['חוברת מצוה יומית', 'חוברת מצוה יומית', 'Mitzva Yomis booklet'], hBookletSub: ['גליון חודשי מתוך ספר מצות המלך', 'חודש\'ליכער גליון פון ספר מצות המלך', 'Monthly booklet from Sefer Mitzvos Hamelech'],
