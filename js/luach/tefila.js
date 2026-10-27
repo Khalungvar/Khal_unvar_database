@@ -160,7 +160,8 @@ function shabbosHtml() {
 }
 
 // ---------- יום טוב / תשרי: בלאקן ----------
-const ON = [['all', 'כל ימי הבלוק'], ['-1', 'ערב (יום לפני)'], ['0', 'יום א\''], ['1', 'יום ב\''], ['wed', 'רביעי (ליל ד\')']];
+const ON = [['all', 'כל ימי הבלוק'], ['-1', 'ערב'], ...['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח'].map((l, i) => [String(i), `יום ${l}'`]), ['fri', 'ערב שבת']];
+const onOpts = (v) => (v === 'wed' ? [...ON, ['wed', 'רביעי']] : ON);
 function upcomingYear(part) {
   const x = hdOf(nOf(todayIso()));
   if (part === 'tishrei') return daysOf('bereishis', x.y)[0] >= nOf(todayIso()) ? x.y : x.y + 1;
@@ -199,7 +200,7 @@ function blocksHtml(part) {
     <div class="tf-rows">
     ${(b.rows || []).map((r, i) => { const p = `${bp}.rows.${i}`; return `<div class="tf-r">
       <div class="tf-rf${r.screen === false ? ' tf-off' : ''}"><label class="tf-scr" title="תצוגה במסך">${fld(`${p}.screen`, 'check')} 📺</label>${fld(`${p}.label`, 'text', ' class="tf-w12" placeholder="שם"')}${fld(`${p}.note`, 'text', ' class="tf-w10" placeholder="הערה"')}
-      ${sel(`${p}.on`, ON)}${sel(`${p}.kind`, [['tefila', 'תפילה'], ['other', 'אחר']])}<span class="spacer"></span><span class="tf-acts">${btn('up', p, '↑', 'למעלה')}${btn('down', p, '↓', 'למטה')}${btn('del', p, '🗑', 'מחק')}</span></div>
+      ${sel(`${p}.on`, onOpts(r.on))}${sel(`${p}.kind`, [['tefila', 'תפילה'], ['other', 'אחר']])}<span class="spacer"></span><span class="tf-acts">${btn('up', p, '↑', 'למעלה')}${btn('down', p, '↓', 'למטה')}${btn('del', p, '🗑', 'מחק')}</span></div>
       <div class="tf-times">${(r.times || []).map((T, ti) => `<span class="tf-tm">${tsHtml(T, `${p}.times.${ti}`)}${btn('delT', `${p}.times.${ti}`, '✕', 'הסר שעה')}</span>`).join('')}${btn('addT', `${p}.times`, '＋ שעה')}</div>
     </div>`; }).join('')}
     </div>
