@@ -196,3 +196,4 @@ fieldset { border: 1px solid #e8dcc4; border-radius: 10px; margin: 8px 0; }
   #ms-splash .sp-gate { transition: opacity .4s; }
   #ms-splash.sp-open .sp-l, #ms-splash.sp-open .sp-r { transform: none; opacity: 0; }
 }
+.he-hint { display: block; font-size: 11.5px; color: #7a6a40; margin-top: 2px; }

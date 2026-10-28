@@ -1,9 +1,10 @@
 // אתר פון א מוסד — 👔 אנשי צוות ואברכים: צוויי באזונדערע רשימות אין איין כפתור.
 // אנשי צוות: תפקיד, טלפון, מייל (לאגאין), פון ווען, פעיל/לשעבר, סארט שכר (אן סכומים); 💰 → משכורות (נאר מיט הרשאה).
 // אברכים: וועמען זיי לערנען מיט (פון די חברותות), און שעות (כניסה/יציאה).
-import { downloadXlsx } from '../excel.js?v=493';
-import { currentZman } from './school.js?v=493';
-import { historyDialog } from './me.js?v=493';
+import { downloadXlsx } from '../excel.js?v=494';
+import { currentZman } from './school.js?v=494';
+import { historyDialog } from './me.js?v=494';
+import { heDate } from './brand.js?v=494';
 
 let X = null;
 export function initTeam(ctx) { X = ctx; }
@@ -41,7 +42,7 @@ function staffList(body, box) {
       <span class="spacer"></span>${X.can('people_edit') ? '<button type="button" class="btn primary" id="tm-add">➕ איש צוות</button>' : ''}<button type="button" class="btn" id="tm-xl">⬇ Excel</button></div>
     ${list.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>שם</th><th>תפקיד</th><th>טלפון</th><th>מייל</th><th>מ-</th><th>שכר</th><th></th></tr></thead><tbody>
       ${list.map((p) => { const t = tOf(p.contact_id); return `<tr><td><a href="#" data-open="${h(p.contact_id)}"><b>${h(X.nameOf(p))}</b></a></td><td>${h(t.role || '')}</td>
-        <td dir="ltr" class="small">${h(p.il_phone || X.phoneOf(p))}</td><td dir="ltr" class="small">${h(t.email || p.email_1 || '')}</td><td class="small">${h(t.start_date || '')}${t.end_date ? ` – ${h(t.end_date)}` : ''}</td>
+        <td dir="ltr" class="small">${h(p.il_phone || X.phoneOf(p))}</td><td dir="ltr" class="small">${h(t.email || p.email_1 || '')}</td><td class="small">${h(heDate(t.start_date))}${t.end_date ? ` – ${h(heDate(t.end_date))}` : ''}</td>
         <td class="small">${h(PAY_TYPES[t.pay_type || ''])}${t.pay_type === 'schedule' ? `<div class="muted">${h(schedText(t.schedule))}</div>` : ''}</td>
         <td class="ms-acts">${X.can('staff_list') ? `<button type="button" class="btn small-btn" data-ed="${h(p.contact_id)}" title="עריכה">✎</button>` : ''}
           ${fin ? `<button type="button" class="btn small-btn" data-pay="${h(p.contact_id)}" title="משכורת">💰</button>` : ''}

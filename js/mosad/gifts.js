@@ -2,10 +2,10 @@
 // מיט אן איש קשר → אינעם הויפט-גיליון (ווייזט זיך אויך אינעם הויפט-אתר, און דער נדבן באקומט "תורמים ← דער מוסד");
 // אן איש קשר → נאר אינעם גיליון פונעם מוסד. קבלה פון אמעריקע: מיטן EIN פון קהל אונגוואר, אין דער זעלבער סעריע ווי אינעם הויפט-אתר.
 // א קבלה פון ארץ ישראל (סעיף 46) גייט נישט פון דא — מ'שרייבט נאר איר נומער.
-import { letterhead, LH_CSS } from './brand.js?v=493';
-import { CURRENCIES, isForeign, fmtCur, amountLabel, usdRate, toUsd } from '../fx.js?v=493';
-import { downloadXlsx } from '../excel.js?v=493';
-import { isoToHebrewText, todayIso } from '../hebdate.js?v=493';
+import { letterhead, LH_CSS } from './brand.js?v=494';
+import { CURRENCIES, isForeign, fmtCur, amountLabel, usdRate, toUsd } from '../fx.js?v=494';
+import { downloadXlsx } from '../excel.js?v=494';
+import { isoToHebrewText, todayIso } from '../hebdate.js?v=494';
 
 let X = null;
 export function initGifts(ctx) { X = ctx; }
@@ -55,7 +55,7 @@ export function renderGifts(box) {
     <p class="muted small">נדבה עם איש קשר מופיעה גם באתר הכללי (ובכרטיס של התורם). קבלה אמריקאית 🧾 — עם ה-EIN של קהל אונגוואר, באותה סדרה של האתר הכללי. קבלה ישראלית — מוציאים במשרד, וכותבים כאן את המספר שלה.</p>
     ${rows.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>תאריך</th><th>תורם</th><th>סכום</th><th>אמצעי</th><th>הקדשה</th><th>קבלה 🇺🇸</th><th>קבלה 🇮🇱</th><th></th></tr></thead><tbody>
       ${rows.slice(0, 500).map((x) => `<tr>
-        <td class="small">${h(x.date)}<div class="muted small">${h(x.date ? isoToHebrewText(x.date) : '')}</div></td>
+        <td class="small">${h(x.date ? isoToHebrewText(x.date) : '')}<div class="muted small" dir="ltr">${h(x.date)}</div></td>
         <td>${x.contact_id ? `<a href="#" data-open="${h(x.contact_id)}"><b>${h(donorOf(x))}</b></a>` : `<b>${h(donorOf(x))}</b> <span class="ms-kind">בלי איש קשר</span>`}</td>
         <td class="num" dir="ltr">${h(amountLabel(x))}</td>
         <td class="small">${h([x.payment_method, x.check_number ? `#${x.check_number}` : '', x.card_last4 ? `****${x.card_last4}` : ''].filter(Boolean).join(' '))}</td>

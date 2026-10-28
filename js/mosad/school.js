@@ -1,7 +1,7 @@
 // אתר פון א מוסד — די ישיבה: תלמידים, בוגרים, הורים, שכר לימוד און קבלות (אלעס אינעם גיליון פונעם מוסד, דורכן שומר).
-import { letterhead, LH_CSS } from './brand.js?v=493';
-import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=493';
-import { downloadXlsx } from '../excel.js?v=493';
+import { letterhead, LH_CSS, heDate } from './brand.js?v=494';
+import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=494';
+import { downloadXlsx } from '../excel.js?v=494';
 
 let X = null; // די כלים פון app.js: { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render }
 export function initSchool(ctx) { X = ctx; }
@@ -285,14 +285,14 @@ export function renderTuition(box) {
       inp.onkeydown = (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); } };
     });
     X.$('#sc-xl', box).onclick = () => downloadXlsx(`${X.st.mosad?.name || 'ישיבה'} - תשלומים`, ['תאריך', 'תלמיד', 'משלם', 'סכום', 'אמצעי', "מס' צ'ק", 'כרטיס', 'עבור', 'קבלה', 'הערה'],
-      pays.map((p) => [d10(p.date), nm(p.contact_id), nm(p.payer_id), Number(p.amount || 0), p.method, p.check_number, p.card_last4 ? `****${p.card_last4}` : '', p.for_text, p.receipt_no, p.note]), { rtl: true });
+      pays.map((p) => [heDate(p.date), nm(p.contact_id), nm(p.payer_id), Number(p.amount || 0), p.method, p.check_number, p.card_last4 ? `****${p.card_last4}` : '', p.for_text, p.receipt_no, p.note]), { rtl: true });
     wireRows(box);
   });
 }
 function paymentsTable(pays) {
   const { h } = X;
   return `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>תאריך</th><th>תלמיד</th><th>משלם</th><th>סכום</th><th>אמצעי</th><th>קבלה</th><th></th></tr></thead>
-    <tbody>${pays.map((p) => `<tr><td class="small">${h(d10(p.date))}</td><td>${h(nm(p.contact_id))}</td><td class="small">${h(nm(p.payer_id))}</td>
+    <tbody>${pays.map((p) => `<tr><td class="small">${h(heDate(p.date))}</td><td>${h(nm(p.contact_id))}</td><td class="small">${h(nm(p.payer_id))}</td>
       <td class="num" dir="ltr">${money(p.amount)}</td><td class="small">${h([p.method, p.check_number ? `#${p.check_number}` : '', p.card_last4 ? `****${p.card_last4}` : ''].filter(Boolean).join(' '))}</td>
       <td dir="ltr" class="small">${h(p.receipt_no || '')}</td>
       <td class="ms-acts"><button type="button" class="btn small-btn" data-receipt="${h(p.payment_id)}" title="${p.receipt_no ? 'הדפסת הקבלה שוב' : 'הפקת קבלה'}">🧾</button>

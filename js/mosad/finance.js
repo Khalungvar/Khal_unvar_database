@@ -1,12 +1,13 @@
 // אתר פון א מוסד — 💰 משכורות והוצאות (הרשאה "finance"):
 // 💵 משכורות (₪: גלובלי / שעות קבועות / רישום יומי / גלובלי + שעות, תוספות און ניכויים, תשלומים, וויפיל מ'איז נאך שולדיג),
 // 🧾 הוצאות (₪/$, קאטעגאריעס, צילום קבלה), 📥 הכנסות ותמיכה, ⚖️ חובות פתוחים, 📊 מאזן חודשי — יעדער מטבע באזונדער.
-import { downloadXlsx } from '../excel.js?v=493';
-import { todayIso, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=493';
-import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=493';
-import { historyDialog } from './me.js?v=493';
-import { PAY_TYPES, schedText } from './team.js?v=493';
-import { usdRate } from '../fx.js?v=493';
+import { downloadXlsx } from '../excel.js?v=494';
+import { todayIso, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=494';
+import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=494';
+import { historyDialog } from './me.js?v=494';
+import { PAY_TYPES, schedText } from './team.js?v=494';
+import { usdRate } from '../fx.js?v=494';
+import { heDate } from './brand.js?v=494';
 
 let X = null;
 export function initFinance(ctx) { X = ctx; }
@@ -158,7 +159,7 @@ export async function payDialog(id, rer = null) {
     <h3>💸 תשלום</h3>
     <form class="ms-bar" id="pd-pay" autocomplete="off"><input name="date" type="date" value="${h(todayIso())}"><input name="amount" type="number" min="0" step="1" dir="ltr" placeholder="₪" style="width:90px">
       <select name="method">${METHODS.map((m) => `<option>${h(m)}</option>`).join('')}</select><label class="check"><input type="checkbox" name="advance"> מקדמה</label><input name="note" placeholder="הערה"><button type="submit" class="btn primary">הוסף תשלום</button></form>
-    ${pays.length ? `<table class="ms-table"><tbody>${pays.map((x) => `<tr><td>${h(x.date)}</td><td class="num">${cur(x.amount)}</td><td class="small">${h(x.method)}${x.advance === 'true' || x.advance === 'TRUE' ? ' · מקדמה' : ''}</td><td class="small">${h(x.note)}</td><td><button type="button" class="linkish" data-dp="${h(x.pay_id)}">🗑</button></td></tr>`).join('')}</tbody></table>` : ''}
+    ${pays.length ? `<table class="ms-table"><tbody>${pays.map((x) => `<tr><td>${h(heDate(x.date))}</td><td class="num">${cur(x.amount)}</td><td class="small">${h(x.method)}${x.advance === 'true' || x.advance === 'TRUE' ? ' · מקדמה' : ''}</td><td class="small">${h(x.note)}</td><td><button type="button" class="linkish" data-dp="${h(x.pay_id)}">🗑</button></td></tr>`).join('')}</tbody></table>` : ''}
     <div class="actions"><button type="button" class="btn" id="pd-hx">📜 היסטוריה</button><button type="button" class="btn" id="pd-print">🖨 דף לחודש</button><span class="spacer"></span><button type="button" class="btn" data-x>סגירה</button></div>`, 'ms-wide');
   X.$$('[data-x]', d).forEach((b) => { b.onclick = () => d.close(); });
   const after = async () => { await load(); d.close(); payDialog(id, rer); rer?.(); };
@@ -178,7 +179,7 @@ export async function payDialog(id, rer = null) {
       <tr><th>שעות</th><td>${mp.mins ? hhmm(mp.mins) : '—'}</td></tr><tr><th>גלובלי</th><td>${cur(mp.global)}</td></tr><tr><th>שעות × ${cur(mp.rate)}</th><td>${cur(mp.hoursPay)}</td></tr>
       ${its.filter((x) => x.month === mo).map((x) => `<tr><th>${x.kind === 'minus' ? 'ניכוי' : 'תוספת'}: ${h(x.note)}</th><td>${x.kind === 'minus' ? '−' : '+'}${cur(x.amount)}</td></tr>`).join('')}
       <tr><th>סה"כ לחודש</th><td><b>${cur(mp.total)}</b></td></tr>
-      ${mPays.map((x) => `<tr><th>שולם ${h(x.date)} (${h(x.method)}${x.advance === 'TRUE' ? ', מקדמה' : ''})</th><td>${cur(x.amount)}</td></tr>`).join('')}
+      ${mPays.map((x) => `<tr><th>שולם ${h(heDate(x.date))} (${h(x.method)}${x.advance === 'TRUE' ? ', מקדמה' : ''})</th><td>${cur(x.amount)}</td></tr>`).join('')}
       <tr><th>נשאר לתשלום (סה"כ עד היום)</th><td><b>${cur(owed(id))}</b></td></tr></tbody></table>
       <h3 style="margin-top:14px">כל החודשים</h3><table><thead><tr><th>חודש</th><th>לחודש</th><th>שולם</th></tr></thead><tbody>
       ${months.map((m2) => `<tr><td>${h(monthName(m2))}</td><td class="c">${cur(monthPay(id, m2).total)}</td><td class="c">${cur(paidIn(id, m2))}</td></tr>`).join('')}</tbody></table>`);
@@ -198,7 +199,7 @@ function expTab(body, rer) {
       <label class="check"><input type="checkbox" id="ex-open"${F.expF.open ? ' checked' : ''}> רק שלא שולמו</label>
       <span class="spacer"></span><b>${cur(tot('ILS'))}</b> · <b>${cur(tot('USD'), 'USD')}</b></div>
     ${list.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>תאריך</th><th>קטגוריה</th><th>למי</th><th>סכום</th><th>על חשבון</th><th>שולם</th><th>מי שילם</th><th>📎</th><th></th></tr></thead><tbody>
-      ${list.map((x) => `<tr><td class="small">${h(x.date)}</td><td>${h(x.category)}</td><td>${h(x.paid_to)}</td><td class="num">${cur(x.amount, x.currency)}</td>
+      ${list.map((x) => `<tr><td class="small">${h(heDate(x.date))}</td><td>${h(x.category)}</td><td>${h(x.paid_to)}</td><td class="num">${cur(x.amount, x.currency)}</td>
         <td class="small">${h(chargedTxt(x))}</td><td>${isPaidV(x.is_paid) ? '✓' : '<span class="ms-owe">לא</span>'}</td><td class="small">${h(x.paid_by_id || x.paid_by ? nameOf(x.paid_by_id, x.paid_by) : 'הישיבה')}</td>
         <td>${x.receipt_file ? `<button type="button" class="linkish" data-file="${h(x.receipt_file)}">📎</button>` : ''}</td>
         <td><button type="button" class="btn small-btn" data-ed="${h(x.exp_id)}">✎</button></td></tr>`).join('')}</tbody></table></div>`
@@ -211,7 +212,7 @@ function expTab(body, rer) {
   X.$$('[data-ed]', body).forEach((b) => { b.onclick = () => expDialog(F.d.expenses.find((x) => x.exp_id === b.dataset.ed), rer); });
   X.$$('[data-file]', body).forEach((b) => { b.onclick = () => openFile(b.dataset.file); });
   X.$('#ex-xl', body).onclick = () => downloadXlsx(`הוצאות ${F.month}`, ['תאריך', 'קטגוריה', 'למי', 'סכום', 'מטבע', 'על חשבון', 'שולם', 'מי שילם', 'אמצעי', 'הערה'],
-    list.map((x) => [x.date, x.category, x.paid_to, Number(x.amount || 0), x.currency || 'ILS', chargedTxt(x), isPaidV(x.is_paid) ? 'כן' : 'לא', nameOf(x.paid_by_id, x.paid_by) || 'הישיבה', x.method, x.note]), { rtl: true });
+    list.map((x) => [heDate(x.date), x.category, x.paid_to, Number(x.amount || 0), x.currency || 'ILS', chargedTxt(x), isPaidV(x.is_paid) ? 'כן' : 'לא', nameOf(x.paid_by_id, x.paid_by) || 'הישיבה', x.method, x.note]), { rtl: true });
 }
 const chargedTxt = (x) => (x.charged_type === 'person' ? `${nameOf(x.charged_id, x.charged_to)} (צריך להחזיר)` : x.charged_type === 'org' ? x.charged_to : 'הישיבה');
 async function openFile(id) {
@@ -314,7 +315,7 @@ function incTab(body, rer) {
       <tr><td>💝 נדבות${a.gConv ? ` <span class="muted small">(כולל ${cur(a.gConv, 'USD')} שהומרו לפי שער יום הנדבה)</span>` : ''}</td><td class="num">${cur(a.gIls)}${a.gUsd ? ` · ${cur(a.gUsd, 'USD')} <span class="muted small">(אין שער)</span>` : ''}</td></tr></tbody></table>
     <h3>הכנסות ותמיכות</h3>
     ${list.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>תאריך</th><th>קטגוריה</th><th>ממי</th><th>סכום</th><th>הלוואה</th><th>הערה</th><th></th></tr></thead><tbody>
-      ${list.map((x) => `<tr><td class="small">${h(x.date)}</td><td>${h(x.category)}</td><td>${h(nameOf(x.source_id, x.source))}</td><td class="num">${cur(x.amount, x.currency)}</td>
+      ${list.map((x) => `<tr><td class="small">${h(heDate(x.date))}</td><td>${h(x.category)}</td><td>${h(nameOf(x.source_id, x.source))}</td><td class="num">${cur(x.amount, x.currency)}</td>
         <td>${x.is_loan === 'TRUE' ? '✓ (צריך להחזיר)' : ''}</td><td class="small">${h(x.note)}</td><td><button type="button" class="btn small-btn" data-ed="${h(x.inc_id)}">✎</button></td></tr>`).join('')}</tbody></table></div>`
     : '<p class="muted ms-empty">אין בחודש הזה.</p>'}`;
   wireMonth(body, rer);
@@ -322,7 +323,7 @@ function incTab(body, rer) {
   X.$('#in-cats', body).onclick = () => catsDialog('inc_cats', 'קטגוריות של הכנסות ותמיכות', rer);
   X.$$('[data-ed]', body).forEach((b) => { b.onclick = () => incDialog(F.d.incomes.find((x) => x.inc_id === b.dataset.ed), rer); });
   X.$('#in-xl', body).onclick = () => downloadXlsx(`הכנסות ${F.month}`, ['תאריך', 'קטגוריה', 'ממי', 'סכום', 'מטבע', 'הלוואה', 'הערה'],
-    list.map((x) => [x.date, x.category, nameOf(x.source_id, x.source), Number(x.amount || 0), x.currency || 'ILS', x.is_loan === 'TRUE' ? 'כן' : '', x.note]), { rtl: true });
+    list.map((x) => [heDate(x.date), x.category, nameOf(x.source_id, x.source), Number(x.amount || 0), x.currency || 'ILS', x.is_loan === 'TRUE' ? 'כן' : '', x.note]), { rtl: true });
 }
 function incDialog(x0, rer) {
   const { h, S } = X;
@@ -380,7 +381,7 @@ function debtTab(body, rer) {
   const list = all.filter((x) => (F.debtsClosed ? x.left <= 0.009 : x.left > 0.009));
   const sum = (dir, c) => all.filter((x) => x.dir === dir && x.currency === c && x.left > 0).reduce((s, x) => s + x.left, 0);
   const table = (dir) => { const l = list.filter((x) => x.dir === dir); return l.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>מי</th><th>על מה</th><th>תאריך</th><th>סכום</th><th>הוחזר</th><th>נשאר</th><th></th></tr></thead><tbody>
-    ${l.map((x) => `<tr><td><b>${h(x.who)}</b></td><td class="small">${h(x.reason)}</td><td class="small">${h(x.date)}</td><td class="num">${cur(x.amount, x.currency)}</td><td class="num">${x.repaid ? cur(x.repaid, x.currency) : ''}</td>
+    ${l.map((x) => `<tr><td><b>${h(x.who)}</b></td><td class="small">${h(x.reason)}</td><td class="small">${h(heDate(x.date))}</td><td class="num">${cur(x.amount, x.currency)}</td><td class="num">${x.repaid ? cur(x.repaid, x.currency) : ''}</td>
       <td class="num ${x.left > 0 ? 'ms-owe' : ''}">${cur(x.left, x.currency)}</td>
       <td class="ms-acts">${x.readOnly === 'sal' ? `<button type="button" class="btn small-btn" data-sal="${h(x.cid)}">💵 משכורות</button>` : x.readOnly === 'tu' ? '<span class="muted small">בכפתור שכר לימוד</span>' : `<button type="button" class="btn small-btn" data-rep="${h(x.key)}">↩ החזר</button>${x.debt ? `<button type="button" class="btn small-btn" data-ded="${h(x.debt.debt_id)}">✎</button>` : ''}`}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted small">אין.</p>'; };
   body.innerHTML = `<div class="ms-bar"><div class="seg"><button type="button" data-c="0" class="${F.debtsClosed ? '' : 'on'}">פתוחים</button><button type="button" data-c="1" class="${F.debtsClosed ? 'on' : ''}">סגורים</button></div>
@@ -423,7 +424,7 @@ function repDialog(debt, rer) {
   if (!debt) return;
   const reps = F.d.repayments.filter((r) => r.debt_key === debt.key);
   const d = X.dialog(`<h2>↩ החזר — ${h(debt.who)}</h2><p>${h(debt.reason)} · ${cur(debt.amount, debt.currency)} · נשאר <b>${cur(debt.left, debt.currency)}</b></p>
-    ${reps.length ? `<table class="ms-table"><tbody>${reps.map((r) => `<tr><td>${h(r.date)}</td><td class="num">${cur(r.amount, r.currency)}</td><td class="small">${h(r.note)}</td><td><button type="button" class="linkish" data-dr="${h(r.rep_id)}">🗑</button></td></tr>`).join('')}</tbody></table>` : ''}
+    ${reps.length ? `<table class="ms-table"><tbody>${reps.map((r) => `<tr><td>${h(heDate(r.date))}</td><td class="num">${cur(r.amount, r.currency)}</td><td class="small">${h(r.note)}</td><td><button type="button" class="linkish" data-dr="${h(r.rep_id)}">🗑</button></td></tr>`).join('')}</tbody></table>` : ''}
     <form class="ms-bar" autocomplete="off"><input name="date" type="date" value="${h(todayIso())}"><input name="amount" type="number" min="0" step="0.01" dir="ltr" value="${h(debt.left > 0 ? debt.left : '')}" style="width:110px"> ${debt.currency === 'USD' ? '$' : '₪'}<input name="note" placeholder="הערה"><button type="submit" class="btn primary">הוסף החזר</button></form>
     <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>סגירה</button></div>`);
   X.$$('[data-x]', d).forEach((b) => { b.onclick = () => d.close(); });

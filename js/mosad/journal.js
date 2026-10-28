@@ -1,11 +1,11 @@
 // אתר פון א מוסד — יומנים: 🤝 חברותות, ✅ השתתפות (מיט ⏱ כניסה/יציאה פון אברכים), 🏥 ביטוח בריאות, 📞 יומן מיט טעלעפאנען.
 // אלעס ווערט געדרוקט ווי די דפים פון דער ישיבה: צוויי זיילן מיט נומערירטע נעמען, "פרשת ...", טעג א–ה.
 // דער לוח (פרשיות) — לויט די הגדרות פונעם מוסד (ארץ ישראל / חוץ לארץ).
-import { downloadXlsx } from '../excel.js?v=493';
-import { todayIso, isoToHebrewText, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=493';
-import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=493';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=493';
-import { letterhead } from './brand.js?v=493';
+import { downloadXlsx } from '../excel.js?v=494';
+import { todayIso, isoToHebrewText, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=494';
+import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=494';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=494';
+import { letterhead, heShort } from './brand.js?v=494';
 
 let X = null;
 export function initJournal(ctx) { X = ctx; }
@@ -22,7 +22,7 @@ const pad = (n) => String(n).padStart(2, '0');
 const isoAdd = (iso, n) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const sundayOf = (iso) => { const d = new Date(`${iso}T12:00:00Z`); return isoAdd(iso, -d.getUTCDay()); };
 const weekTitle = (sun) => shabbatTitle(shabbatOfWeek(sun), il());
-const fmtDay = (iso) => `${Number(iso.slice(8, 10))}.${Number(iso.slice(5, 7))}`;
+const fmtDay = (iso) => heShort(iso); // עברי: "כ"ה חשון"
 const first = (id) => X.S(X.pById(id)?.first_name_he || X.pById(id)?.first_name_en);
 const last = (id) => X.S(X.pById(id)?.last_name_he || X.pById(id)?.last_name_en);
 const full = (id) => { const p = X.pById(id); return p ? X.nameOf(p) : ''; };
@@ -231,7 +231,7 @@ function weekBar(sun) {
   const { h } = X;
   return `<div class="ms-bar">
       <button type="button" class="btn" id="ja-prev">→ שבוע קודם</button>
-      <b>${h(weekTitle(sun))}</b> <span class="muted small">${h(fmtDay(sun))}–${h(fmtDay(isoAdd(sun, 5)))} · ${h(isoToHebrewText(sun))}</span>
+      <b>${h(weekTitle(sun))}</b> <span class="muted small">${h(fmtDay(sun))} – ${h(fmtDay(isoAdd(sun, 5)))}</span>
       <button type="button" class="btn" id="ja-next">שבוע הבא ←</button>
       <button type="button" class="linkish" id="ja-now">השבוע</button>
       <span class="spacer"></span>`;
@@ -387,7 +387,7 @@ async function renderPerson(body) {
     const cnt = Object.fromEntries(ss.map((s) => [s.key, { v: 0, x: 0, l: 0 }]));
     Object.values(got).forEach((o) => Object.entries(o).forEach(([k, arr]) => arr.forEach((v) => { if (cnt[k] && cnt[k][v] !== undefined) cnt[k][v] += 1; })));
     const pct = (c) => { const t = c.v + c.x + c.l; return t ? Math.round(((c.v + c.l * 0.5) / t) * 100) : ''; };
-    const dLabel = (d) => `${DAYS[new Date(`${d}T12:00:00Z`).getUTCDay()]}' ${isoToHebrewText(d)} · ${fmtDay(d)}`;
+    const dLabel = (d) => `${DAYS[new Date(`${d}T12:00:00Z`).getUTCDay()]}' ${isoToHebrewText(d)}`;
     const sumRow = ss.map((s) => { const c = cnt[s.key]; const p = pct(c); return `✓${c.v} ✗${c.x} ⏰${c.l}${p !== '' ? ` · ${p}%` : ''}`; });
     const table = `<table class="ms-table"><thead><tr><th>תאריך</th>${ss.map((s) => `<th class="c">${h(s.name)}</th>`).join('')}</tr></thead><tbody>
       ${dates.map((d) => `<tr><td>${h(dLabel(d))}</td>${ss.map((s) => `<td class="c">${h(cell(d, s))}</td>`).join('')}</tr>`).join('')}
