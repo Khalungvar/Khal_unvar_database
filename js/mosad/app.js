@@ -1,12 +1,13 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=489';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=489';
-import { initGifts, renderGifts } from './gifts.js?v=489';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=489';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=489';
-import { initTeam, renderTeam } from './team.js?v=489';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=489';
+import { letterhead } from './brand.js?v=490';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=490';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=490';
+import { initGifts, renderGifts } from './gifts.js?v=490';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=490';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=490';
+import { initTeam, renderTeam } from './team.js?v=490';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=490';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -68,7 +69,7 @@ const ROLE_NAMES = { owner: 'בעלים', admin: 'מנהל', staff: 'צוות' }
 const MARITAL = [['', '—'], ['בחור', 'בחור'], ['נשוי', 'נשוי'], ['גרוש', 'גרוש'], ['אלמן', 'אלמן']];
 
 const st = { me: null, mosad: null, people: [], relations: [], enrollments: [], tab: 'home', kind: 'all', q: '', logo: '' };
-const logoSrc = () => st.logo || st.mosad?.logo || '../img/favicon.png';
+const logoSrc = () => st.logo || st.mosad?.logo || letterhead(KEY)?.logo || '../img/favicon.png';
 const can = (p) => st.me && (st.me.role === 'owner' || st.me.role === 'admin' || st.me.perms.includes(p));
 const isAdmin = () => st.me && (st.me.role === 'owner' || st.me.role === 'admin');
 
