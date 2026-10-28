@@ -2357,3 +2357,77 @@ function staffDupReport() {
   Object.keys(byPh).forEach(function (k) { const u = byPh[k].filter(function (x, i, a) { return a.indexOf(x) === i; }); if (u.length > 1) Logger.log('PHONE ' + k + ': ' + u.map(show).join(' | ')); });
   Logger.log('staff/avreich/team ids: ' + Object.keys(ids).length);
 }
+/** פונעם עדיטאר: די 5 צוות-מענטשן וואס זענען אריין צוויי מאל ביים אימפארט (#5534–#5539) → איינס */
+function staffDupFix() {
+  const M = mosadOf('yeshiva'); const me = { email: M.owners[0], role: 'owner', perms: PERMS.slice(), name: '' }; CUR = { M: M, me: me };
+  const pairs = [[5528, 5534], [5529, 5535], [5530, 5536], [5531, 5537], [5533, 5539]];
+  makeBackup('main', main(), 'לפני איחוד צוות כפול'); makeBackup(M.key, M.book, 'לפני איחוד צוות כפול');
+  const ss = main();
+  const cs = ss.getSheetByName('Contacts');
+  const repoint = function (sh, cols, keep, drop) {
+    if (!sh) return 0;
+    let n = 0;
+    objs(sh).forEach(function (r) {
+      const o = {};
+      cols.forEach(function (c) { if (S(r[c]) === String(drop)) o[c] = keep; });
+      if (Object.keys(o).length) { setCells(sh, r._row, o); n++; }
+    });
+    return n;
+  };
+  const MAIN_COLS = { Donations: ['contact_id'], Occasions: ['contact_id'], OrgNotes: ['contact_id'], Receipts: ['contact_id'], Enrollments: ['contact_id', 'parent_id'], Tuition: ['contact_id', 'payer_id'], Photos: ['contact_id'] };
+  const MOSAD_COLS = { Chavrusas: ['contact_id', 'partner_id'], Attendance: ['contact_id'], Hours: ['contact_id'], Insurance: ['contact_id'], Enrollments: ['contact_id', 'parent_id'], Tuition: ['contact_id', 'payer_id'],
+    Receipts: ['contact_id', 'payer_id'], PayInfo: ['contact_id'], PayItems: ['contact_id'], PayPayments: ['contact_id'], Tasks: ['contact_id'], Expenses: ['charged_id', 'paid_by_id'], Incomes: ['source_id'], Debts: ['person_id'] };
+  const keeps = [];
+  pairs.forEach(function (pr) {
+    const keep = pr[0], drop = pr[1];
+    const all = objs(cs);
+    const k = all.filter(function (c) { return S(c.contact_id) === String(keep); })[0];
+    const d = all.filter(function (c) { return S(c.contact_id) === String(drop); })[0];
+    if (!k || !d || S(d.deleted_at)) { Logger.log('skip ' + keep + '/' + drop + ' (missing or already deleted)'); return; }
+    const nm = function (c) { return skel(S(c.first_name_he) + ' ' + S(c.last_name_he)); };
+    if (nm(k) !== nm(d)) { Logger.log('skip ' + keep + '/' + drop + ' — names differ'); return; }
+    const set = {};
+    C_FIELDS.forEach(function (f) { if (!S(k[f]) && S(d[f])) set[f] = d[f]; });
+    if (Object.keys(set).length) { set.updated_at = now(); set.updated_by = me.email + ' @merge'; setCells(cs, k._row, set); }
+    setCells(cs, d._row, { deleted_at: now(), deleted_by: me.email + ' (merged into #' + keep + ')' });
+    // טעלעפאנען
+    const ps = ss.getSheetByName('Phones'); const pall = objs(ps);
+    const pk = pall.filter(function (p) { return S(p.contact_id) === String(keep); })[0];
+    const pd = pall.filter(function (p) { return S(p.contact_id) === String(drop); })[0];
+    if (pd) {
+      const ph = {}; headOf(ps).forEach(function (f) { if (f !== 'contact_id' && S(pd[f]) && !/ERROR/.test(S(pd[f])) && (!pk || !S(pk[f]))) ph[f] = "'" + S(pd[f]).replace(/^'/, ''); });
+      if (Object.keys(ph).length) { if (pk) setCells(ps, pk._row, ph); else { ph.contact_id = keep; appendObj(ps, ph); } }
+    }
+    // קשרים
+    const rs = ss.getSheetByName('Relations');
+    objs(rs).filter(function (r) { return S(r.contact_id_a) === String(drop) || S(r.contact_id_b) === String(drop); }).reverse().forEach(function (r) { delRow(rs, r._row); });
+    let n = 0;
+    Object.keys(MAIN_COLS).forEach(function (t) { n += repoint(ss.getSheetByName(t), MAIN_COLS[t], keep, drop); });
+    Object.keys(MOSAD_COLS).forEach(function (t) { n += repoint(M.book.getSheetByName(t), MOSAD_COLS[t], keep, drop); });
+    // People / Team אינעם מוסד
+    const pe = M.book.getSheetByName('People'); const pa = objs(pe);
+    const ek = pa.filter(function (p) { return S(p.contact_id) === String(keep); })[0];
+    const ed = pa.filter(function (p) { return S(p.contact_id) === String(drop); })[0];
+    if (ed) {
+      if (ek) { const kinds = S(ek.kind).split(',').concat(S(ed.kind).split(',')).map(S).filter(function (x, i, a) { return x && a.indexOf(x) === i; }); setCells(pe, ek._row, { kind: kinds.join(','), status: 'active' }); delRow(pe, ed._row); }
+      else setCells(pe, ed._row, { contact_id: keep });
+    }
+    const tm = M.book.getSheetByName('Team'); const ta = objs(tm);
+    const tk = ta.filter(function (x) { return S(x.contact_id) === String(keep); })[0];
+    const td = ta.filter(function (x) { return S(x.contact_id) === String(drop); })[0];
+    if (td) {
+      if (tk) { const o = {}; TABS.Team.forEach(function (f) { if (f !== 'contact_id' && !S(tk[f]) && S(td[f])) o[f] = td[f]; }); if (Object.keys(o).length) setCells(tm, tk._row, o); delRow(tm, td._row); }
+      else setCells(tm, td._row, { contact_id: keep });
+    }
+    histRows(me, M, keep, [['contact', 'merge', '', 'merged #' + drop + ' into #' + keep]]);
+    histRows(me, M, drop, [['contact', 'merge', '', 'merged into #' + keep + ' (trash)']]);
+    keeps.push(String(keep));
+    Logger.log('merged #' + drop + ' → #' + keep + ' (' + n + ' rows repointed)');
+  });
+  // קלמן וויס: דער טעלעפאן איז געווען #ERROR! (פון א "+" אינעם אימפארט)
+  const ps2 = ss.getSheetByName('Phones');
+  const w = objs(ps2).filter(function (p) { return S(p.contact_id) === '5533'; })[0];
+  if (w && (/ERROR/.test(S(w.mobile)) || !S(w.mobile))) { setCells(ps2, w._row, { mobile: "'+44 7878 514768" }); Logger.log('fixed phone #5533'); }
+  try { syncYeshivaTags(M, keeps, me.email); } catch (err) { Logger.log('tags: ' + err); }
+  dropCaches(M, true, true, true);
+}
