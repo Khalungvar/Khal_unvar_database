@@ -1,10 +1,10 @@
 // אתר פון א מוסד — יומנים: 🤝 חברותות, ✅ השתתפות (מיט ⏱ כניסה/יציאה פון אברכים), 🏥 ביטוח בריאות, 📞 יומן מיט טעלעפאנען.
 // אלעס ווערט געדרוקט ווי די דפים פון דער ישיבה: צוויי זיילן מיט נומערירטע נעמען, "פרשת ...", טעג א–ה.
 // דער לוח (פרשיות) — לויט די הגדרות פונעם מוסד (ארץ ישראל / חוץ לארץ).
-import { downloadXlsx } from '../excel.js?v=491';
-import { todayIso, isoToHebrewText, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=491';
-import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=491';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=491';
+import { downloadXlsx } from '../excel.js?v=492';
+import { todayIso, isoToHebrewText, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=492';
+import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=492';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=492';
 
 let X = null;
 export function initJournal(ctx) { X = ctx; }
@@ -195,7 +195,9 @@ async function attRows(week) {
   return J.att[week];
 }
 const parseMarks = (s) => { try { return JSON.parse(s || '{}') || {}; } catch { return {}; } };
-const slotKeys = (seder) => (seder.days || []).flatMap((d) => (Number(seder.slots) > 1 ? [String(d), `${d}b`] : [String(d)]));
+// משבצות פאר א טאג: 1 אדער 2 (תחילה וסוף) — לויט slotsBy (פאר יעדן טאג), אנדערש slots
+const slotsOn = (seder, d) => (Number(seder.slotsBy?.[d] ?? seder.slots) > 1 ? 2 : 1);
+const slotKeys = (seder) => (seder.days || []).flatMap((d) => (slotsOn(seder, d) > 1 ? [String(d), `${d}b`] : [String(d)]));
 
 async function renderWeek(body, seder) {
   const { h } = X;
@@ -207,8 +209,8 @@ async function renderWeek(body, seder) {
   const ids = students(isoAdd(sun, 4));
   const marks = {};
   ids.forEach((id) => { marks[id] = parseMarks(rows.find((r) => r.seder === seder.key && String(r.contact_id) === String(id))?.marks); });
-  const two = Number(seder.slots) > 1;
   const days = seder.days || [];
+  const two = days.some((d) => slotsOn(seder, d) > 1);
   const keys = slotKeys(seder);
   const edit = X.can('attendance');
   body.innerHTML = `${weekBar(sun)}
@@ -217,10 +219,10 @@ async function renderWeek(body, seder) {
       <button type="button" class="btn" id="ja-full">🖨 עם הסימונים</button>
       <button type="button" class="btn" id="ja-xl">⬇ Excel</button>
     </div>
-    <p class="muted small">לחיצה על משבצת: ✓ נוכח → ✗ חסר → ⏰ איחור → ריק.${two ? ' שתי משבצות ליום: תחילת הסדר וסוף הסדר.' : ''} אפשר גם "✓ לכולם" ביום.</p>
+    <p class="muted small">לחיצה על משבצת: ✓ נוכח → ✗ חסר → ⏰ איחור → ריק.${two ? ' 1 / 2 = תחילת הסדר וסוף הסדר.' : ''} אפשר גם "✓ לכולם" ביום.</p>
     <div class="ms-wrap"><table class="ms-table ja-table"><thead>
-      <tr><th rowspan="${two ? 2 : 1}">#</th><th rowspan="${two ? 2 : 1}">שם</th><th rowspan="${two ? 2 : 1}">משפחה</th>${days.map((d) => `<th colspan="${two ? 2 : 1}" class="c">${DAYS[d]}<div class="muted small">${fmtDay(isoAdd(sun, d))}</div>${edit ? `<button type="button" class="linkish small" data-all="${d}">✓ לכולם</button>` : ''}</th>`).join('')}</tr>
-      ${two ? `<tr>${days.map(() => '<th class="c small">1</th><th class="c small">2</th>').join('')}</tr>` : ''}
+      <tr><th rowspan="${two ? 2 : 1}">#</th><th rowspan="${two ? 2 : 1}">שם</th><th rowspan="${two ? 2 : 1}">משפחה</th>${days.map((d) => `<th colspan="${slotsOn(seder, d)}"${two && slotsOn(seder, d) < 2 ? ' rowspan="2"' : ''} class="c">${DAYS[d]}<div class="muted small">${fmtDay(isoAdd(sun, d))}</div>${edit ? `<button type="button" class="linkish small" data-all="${d}">✓ לכולם</button>` : ''}</th>`).join('')}</tr>
+      ${two ? `<tr>${days.filter((d) => slotsOn(seder, d) > 1).map(() => '<th class="c small">1</th><th class="c small">2</th>').join('')}</tr>` : ''}
     </thead><tbody>${ids.map((id, i) => `<tr><td class="num">${i + 1}</td><td>${h(first(id))}</td><td><b>${h(last(id))}</b></td>
       ${keys.map((k) => `<td class="c"><button type="button" class="ja-cell m-${marks[id][k] || 'e'}" data-id="${h(id)}" data-k="${k}"${edit ? '' : ' disabled'}>${MARK_TXT[marks[id][k]] || ''}</button></td>`).join('')}</tr>`).join('')}
     </tbody></table></div>`;
@@ -242,12 +244,12 @@ async function renderWeek(body, seder) {
     } catch (err) { saveBtn.disabled = false; X.toast(X.msg(err), 'err'); }
   });
   const sheet = (filled) => {
-    const headRow = `<tr><th class="n">#</th><th>שם</th><th>משפחה</th>${days.map((d) => `<th class="c" colspan="${two ? 2 : 1}">${DAYS[d]}</th>`).join('')}</tr>`;
+    const headRow = `<tr><th class="n">#</th><th>שם</th><th>משפחה</th>${days.map((d) => `<th class="c" colspan="${slotsOn(seder, d)}">${DAYS[d]}</th>`).join('')}</tr>`;
     printWin(`השתתפות ${seder.name}`, h(weekTitle(sun)), twoCols(ids, headRow, (id) => `<td>${h(first(id))}</td><td>${h(last(id))}</td>${keys.map((k) => `<td class="c">${filled ? MARK_TXT[marks[id][k]] || '' : ''}</td>`).join('')}`));
   };
   X.$('#ja-blank', body).onclick = () => sheet(false);
   X.$('#ja-full', body).onclick = () => sheet(true);
-  X.$('#ja-xl', body).onclick = () => downloadXlsx(`השתתפות ${seder.name} - ${weekTitle(sun)}`, ['#', 'שם', 'משפחה', ...keys.map((k) => `${DAYS[Number(k[0])]}${two ? (k.endsWith('b') ? ' 2' : ' 1') : ''}`)],
+  X.$('#ja-xl', body).onclick = () => downloadXlsx(`השתתפות ${seder.name} - ${weekTitle(sun)}`, ['#', 'שם', 'משפחה', ...keys.map((k) => `${DAYS[Number(k[0])]}${slotsOn(seder, Number(k[0])) > 1 ? (k.endsWith('b') ? ' 2' : ' 1') : ''}`)],
     ids.map((id, i) => [i + 1, first(id), last(id), ...keys.map((k) => MARK_TXT[marks[id][k]] || '')]), { rtl: true });
 }
 
@@ -445,7 +447,7 @@ export function settingsHtml() {
     <form class="ms-set" autocomplete="off">
       <label>לוח (פרשת השבוע) <select name="calendar"><option value="il"${il() ? ' selected' : ''}>ארץ ישראל</option><option value="chul"${il() ? '' : ' selected'}>חוץ לארץ</option></select></label>
       <label>תעריף לשעה לאברכים (לא חובה) <input name="avreich_rate" type="number" min="0" step="0.5" dir="ltr" value="${h(s.avreich_rate || '')}"></label>
-      <table class="ms-table ms-sedarim"><thead><tr><th>סדר</th><th>השתתפות</th><th>משבצות ליום</th><th>חברותות</th><th>ימים</th><th></th></tr></thead><tbody>
+      <table class="ms-table ms-sedarim"><thead><tr><th>סדר</th><th>השתתפות</th><th>חברותות</th><th>ימים · משבצות (1 / 2 = תחילה וסוף)</th><th></th></tr></thead><tbody>
         ${(s.sedarim || []).map((x, i) => sederRow(x, i)).join('')}
       </tbody></table>
       <div class="actions"><button type="button" class="btn" id="ms-sed-add">➕ סדר</button><span class="spacer"></span><button type="submit" class="btn primary">💾 שמירת ההגדרות</button></div>
@@ -455,16 +457,20 @@ function sederRow(x, i) {
   const { h } = X;
   return `<tr data-i="${i}"><td><input name="name" value="${h(x.name || '')}"><input type="hidden" name="key" value="${h(x.key || '')}"></td>
     <td class="c"><input type="checkbox" name="att"${x.att ? ' checked' : ''}></td>
-    <td><select name="slots"><option value="1"${Number(x.slots) > 1 ? '' : ' selected'}>1</option><option value="2"${Number(x.slots) > 1 ? ' selected' : ''}>2 (תחילה וסוף)</option></select></td>
     <td class="c"><input type="checkbox" name="chav"${x.chav ? ' checked' : ''}></td>
-    <td class="ms-days">${DAYS.slice(0, 6).map((d, j) => `<label class="check"><input type="checkbox" name="d${j}"${(x.days || []).includes(j) ? ' checked' : ''}>${d}</label>`).join('')}</td>
+    <td class="ms-days">${DAYS.slice(0, 6).map((d, j) => { const n = (x.days || []).includes(j) ? slotsOn(x, j) : 0; return `<label class="ms-dsel">${d} <select name="d${j}">${[[0, '—'], [1, '1'], [2, '2']].map(([v, l]) => `<option value="${v}"${v === n ? ' selected' : ''}>${l}</option>`).join('')}</select></label>`; }).join('')}
+      <button type="button" class="linkish small" data-same title="כל הימים כמו יום א'">= הכל כמו א'</button></td>
     <td><button type="button" class="linkish" data-del>🗑</button></td></tr>`;
 }
 export function wireSettings(root) {
   const form = X.$('.ms-set', root);
   if (!form) return;
   const tb = X.$('.ms-sedarim tbody', form);
-  const wireDel = () => X.$$('[data-del]', tb).forEach((b) => { b.onclick = () => b.closest('tr').remove(); });
+  const wireDel = () => {
+    X.$$('[data-del]', tb).forEach((b) => { b.onclick = () => b.closest('tr').remove(); });
+    // "= הכל כמו א'": כל הימים וואס זענען אנגעצייכנט — אזויפיל משבצות ווי זונטאג
+    X.$$('[data-same]', tb).forEach((b) => { b.onclick = () => { const tr = b.closest('tr'); const v0 = tr.querySelector('[name=d0]').value; [1, 2, 3, 4, 5].forEach((j) => { const sl = tr.querySelector(`[name=d${j}]`); if (sl.value !== '0') sl.value = v0; }); }; });
+  };
   wireDel();
   X.$('#ms-sed-add', form).onclick = () => { tb.insertAdjacentHTML('beforeend', sederRow({ name: '', att: true, slots: 1, chav: false, days: [0, 1, 2, 3, 4] }, tb.children.length)); wireDel(); };
   form.onsubmit = async (e) => {
@@ -472,7 +478,10 @@ export function wireSettings(root) {
     const list = X.$$('tr', tb).map((tr, i) => {
       const v = (n) => tr.querySelector(`[name=${n}]`);
       const name = X.S(v('name').value);
-      return name ? { key: X.S(v('key').value) || `s${Date.now().toString(36)}${i}`, name, att: v('att').checked, chav: v('chav').checked, slots: Number(v('slots').value), days: [0, 1, 2, 3, 4, 5].filter((j) => v(`d${j}`).checked) } : null;
+      const per = [0, 1, 2, 3, 4, 5].map((j) => Number(v(`d${j}`).value) || 0);
+      const days = [0, 1, 2, 3, 4, 5].filter((j) => per[j] > 0);
+      const slotsBy = Object.fromEntries(days.map((j) => [j, per[j]]));
+      return name ? { key: X.S(v('key').value) || `s${Date.now().toString(36)}${i}`, name, att: v('att').checked, chav: v('chav').checked, slots: Math.max(1, ...days.map((j) => per[j])), slotsBy, days } : null;
     }).filter(Boolean);
     if (!list.length) { X.toast('צריך לפחות סדר אחד.', 'err'); return; }
     try {

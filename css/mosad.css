@@ -109,6 +109,8 @@ fieldset { border: 1px solid #e8dcc4; border-radius: 10px; margin: 8px 0; }
 .ms-set > label { display: flex; gap: 8px; align-items: center; }
 .ms-days { display: flex; gap: 6px; flex-wrap: wrap; }
 .ms-days label.check { display: inline-flex; gap: 2px; align-items: center; margin: 0; width: auto; }
+.ms-days label.ms-dsel { display: inline-flex; gap: 3px; align-items: center; margin: 0; width: auto; white-space: nowrap; }
+.ms-days label.ms-dsel select { width: auto; padding: 2px 4px; min-width: 2.6em; }
 .ms-sedarim input[name=name] { min-width: 150px; }
 @media (prefers-color-scheme: dark) {
   .ja-cell { background: #2a2420; border-color: #4a3c34; color: inherit; }
