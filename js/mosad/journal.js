@@ -1,10 +1,10 @@
 // אתר פון א מוסד — יומנים: 🤝 חברותות, ✅ השתתפות (מיט ⏱ כניסה/יציאה פון אברכים), 🏥 ביטוח בריאות, 📞 יומן מיט טעלעפאנען.
 // אלעס ווערט געדרוקט ווי די דפים פון דער ישיבה: צוויי זיילן מיט נומערירטע נעמען, "פרשת ...", טעג א–ה.
 // דער לוח (פרשיות) — לויט די הגדרות פונעם מוסד (ארץ ישראל / חוץ לארץ).
-import { downloadXlsx } from '../excel.js?v=487';
-import { todayIso, isoToHebrewText, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=487';
-import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=487';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=487';
+import { downloadXlsx } from '../excel.js?v=488';
+import { todayIso, isoToHebrewText, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=488';
+import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=488';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=488';
 
 let X = null;
 export function initJournal(ctx) { X = ctx; }
@@ -353,7 +353,14 @@ export async function renderIns(box) {
     wait(box);
     try { await needSchool(); J.ins = (await X.call(X.KEY, 'ins')).insurance; } catch (err) { fail(box, err); return; }
   }
-  const ids = students();
+  // זמן: דער זמן ווען ער האט אנגעהויבן (פונעם רישום, אדער לויטן "מ-" דאטום)
+  const zs = zmanim().filter((z) => z.start).sort((a, b) => b.start.localeCompare(a.start));
+  const iso = (v) => (typeof v === 'number' || /^\d{5}$/.test(String(v || '')) ? new Date(Date.UTC(1899, 11, 30) + Number(v) * 86400000).toISOString().slice(0, 10) : String(v || '').slice(0, 10));
+  const zOf = (e) => e.zman || (iso(e.start_date) && (zs.find((z) => z.start <= iso(e.start_date)) || {}).label) || '';
+  const act = activeStudents();
+  const zAll = [...new Set(act.map(zOf).filter(Boolean))].sort((a, b) => (zs.findIndex((z) => z.label === a) - zs.findIndex((z) => z.label === b)));
+  if (J.insZ && !zAll.includes(J.insZ)) J.insZ = '';
+  const ids = act.filter((e) => !J.insZ || zOf(e) === J.insZ).map((e) => e.contact_id).filter((id) => X.pById(id));
   const insOf = (id) => J.ins.find((r) => String(r.contact_id) === String(id)) || {};
   const parentMail = (id) => { const f = X.fatherOf(X.pById(id) || {}); return X.S(f?.email_1) || X.S(X.pById(id)?.email_1); };
   const soon = (d) => d && d <= new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
@@ -366,6 +373,7 @@ export async function renderIns(box) {
     <div class="ms-bar">
       <div class="seg"><button type="button" data-f="" class="${f ? '' : 'on'}">הכל</button><button type="button" data-f="_need" class="${f === '_need' ? 'on' : ''}">⚠ לטיפול (${ids.filter((id) => needs(insOf(id))).length})</button>
         ${KUPOT.filter((k) => counts[k]).map((k) => `<button type="button" data-f="${h(k)}" class="${f === k ? 'on' : ''}">${h(k)} (${counts[k]})</button>`).join('')}</div>
+      <label class="small">זמן <select id="ji-z"><option value="">כל הזמנים</option>${zAll.map((z) => `<option${z === J.insZ ? ' selected' : ''}>${h(z)}</option>`).join('')}</select></label>
       <span class="spacer"></span>
       <button type="button" class="btn" id="ji-print">🖨 הדפסה</button><button type="button" class="btn" id="ji-xl">⬇ Excel</button>
     </div>
@@ -377,10 +385,11 @@ export async function renderIns(box) {
         <td>${X.can('insurance') ? `<button type="button" class="btn small-btn" data-ed="${h(id)}">✎</button>` : ''}</td></tr>`; }).join('')}
     </tbody></table></div>`;
   X.$$('[data-f]', box).forEach((b) => { b.onclick = () => { J.insFilter = b.dataset.f; renderIns(box); }; });
+  X.$('#ji-z', box).onchange = (e) => { J.insZ = e.target.value; renderIns(box); };
   X.$$('[data-ed]', box).forEach((b) => { b.onclick = () => insDialog(b.dataset.ed, insOf(b.dataset.ed), box); });
   const cols = (id) => { const r = insOf(id); return [first(id), last(id), X.pById(id)?.il_phone || '', r.member_no || r.policy_no || '', parentMail(id), r.kupah === 'ביטוח פרטי' ? r.company || r.kupah : r.kupah || '', stat(r)]; };
   X.$('#ji-xl', box).onclick = () => downloadXlsx('ביטוח בריאות', ['#', 'שם', 'משפחה', 'טלפון', 'מספר חבר', 'אימייל הורים', 'קופה', 'הערות'], list.map((id, i) => [i + 1, ...cols(id)]), { rtl: true });
-  X.$('#ji-print', box).onclick = () => printWin('ביטוח בריאות', h(todayIso()), `<table><thead><tr><th class="n">#</th><th>שם</th><th>משפחה</th><th>טלפון</th><th>מספר חבר</th><th>אימייל הורים</th><th>קופה</th><th>הערות</th></tr></thead><tbody>
+  X.$('#ji-print', box).onclick = () => printWin(`ביטוח בריאות${J.insZ ? ` — ${J.insZ}` : ''}`, h(todayIso()), `<table><thead><tr><th class="n">#</th><th>שם</th><th>משפחה</th><th>טלפון</th><th>מספר חבר</th><th>אימייל הורים</th><th>קופה</th><th>הערות</th></tr></thead><tbody>
     ${list.map((id, i) => `<tr><td class="n">${i + 1}</td>${cols(id).map((c, j) => `<td${[2, 3, 4].includes(j) ? ' dir="ltr"' : ''}>${h(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`, { landscape: true });
 }
 function insDialog(id, r, box) {
