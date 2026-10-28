@@ -2334,3 +2334,26 @@ function regTestCleanup() {
   const x = regDevMe_(); CUR = { M: x.M, me: x.me };
   appRows(x.M).filter(function (a) { return isT(a.test) && !S(a.contact_id); }).reverse().forEach(function (a) { ACTIONS.regDelete(x.M, x.me, { app_id: a.app_id }); Logger.log('deleted ' + a.app_id); });
 }
+/** פונעם עדיטאר: ווער פון צוות / אברכים איז צוויי מאל (לויט נאמען, אדער טעלעפאן) */
+function staffDupReport() {
+  const M = mosadOf('yeshiva');
+  const ppl = objs(M.book.getSheetByName('People')).filter(function (p) { return S(p.status) !== 'removed'; });
+  const team = objs(M.book.getSheetByName('Team'));
+  const cs = {}; objs(main().getSheetByName('Contacts')).forEach(function (c) { cs[S(c.contact_id)] = c; });
+  const ph = {}; objs(main().getSheetByName('Phones')).forEach(function (p) { ph[S(p.contact_id)] = p; });
+  const ids = {}; ppl.forEach(function (p) { if (/staff|avreich/.test(S(p.kind))) ids[S(p.contact_id)] = S(p.kind); });
+  team.forEach(function (t) { if (S(t.contact_id)) ids[S(t.contact_id)] = (ids[S(t.contact_id)] || '') + ' team'; });
+  const norm = function (s) { return skel(S(s).replace(/["'״׳]/g, '')); };
+  const byName = {}; const byPh = {};
+  Object.keys(ids).forEach(function (id) {
+    const c = cs[id] || {};
+    const k = norm(S(c.first_name_he) + ' ' + S(c.last_name_he)) || norm(S(c.first_name_en) + ' ' + S(c.last_name_en));
+    (byName[k] = byName[k] || []).push(id);
+    const p = ph[id] || {};
+    ['mobile', 'home_phone'].forEach(function (f) { const d = S(p[f]).replace(/\D/g, '').slice(-9); if (d.length >= 7) (byPh[d] = byPh[d] || []).push(id); });
+  });
+  const show = function (id) { const c = cs[id] || {}; return '#' + id + ' ' + [c.title_he, c.first_name_he, c.last_name_he].map(S).filter(Boolean).join(' ') + ' [' + ids[id] + ']' + (S(c.deleted_at) ? ' (deleted)' : '') + ' tel:' + S((ph[id] || {}).mobile); };
+  Object.keys(byName).forEach(function (k) { if (byName[k].length > 1) Logger.log('NAME: ' + byName[k].map(show).join(' | ')); });
+  Object.keys(byPh).forEach(function (k) { const u = byPh[k].filter(function (x, i, a) { return a.indexOf(x) === i; }); if (u.length > 1) Logger.log('PHONE ' + k + ': ' + u.map(show).join(' | ')); });
+  Logger.log('staff/avreich/team ids: ' + Object.keys(ids).length);
+}
