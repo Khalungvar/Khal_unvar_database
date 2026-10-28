@@ -958,13 +958,24 @@ const ACTIONS = {
   // ---------- 🛏 פנימייה: די רשימה פון חדרים (Settings: rooms), און דער חדר פון יעדן רישום ----------
   roomsSave: function (M, me, req) {
     need(me, 'dorm');
-    const list = [].concat(req.rooms || []).slice(0, 500).map(function (r) { return { name: S(r.name).slice(0, 40), beds: Math.max(0, Math.min(50, Number(r.beds) || 0)), note: S(r.note).slice(0, 120) }; }).filter(function (r) { return r.name; });
-    const sh = M.book.getSheetByName('Settings');
-    const ex = objs(sh).filter(function (x) { return S(x.key) === 'rooms'; })[0];
-    const v = JSON.stringify(list);
-    if (ex) setCells(sh, ex._row, { value: v, updated_at: now(), updated_by: me.email });
-    else appendObj(sh, { key: 'rooms', value: v, updated_at: now(), updated_by: me.email });
+    const list = [].concat(req.rooms || []).slice(0, 500).map(function (r, i) { return { id: S(r.id).slice(0, 24) || ('r' + i), name: S(r.name).slice(0, 40), desc: S(r.desc || r.note).slice(0, 120), beds: Math.max(0, Math.min(50, Number(r.beds) || 0)), wing: ['A', 'B', 'C'].indexOf(S(r.wing)) >= 0 ? S(r.wing) : 'A', kind: S(r.kind) === 'service' ? 'service' : 'room' }; }).filter(function (r) { return r.name || r.desc; });
+    putSetting(M, me, 'rooms', JSON.stringify(list));
     logIt(M, me, 'rooms', '', list.length + ' rooms');
+    return { ok: true, settings: settingsOf(M) };
+  },
+  // דער שיבוץ פון א זמן: { beds: { roomId: [contact_id|''] }, out: [contact_id] }
+  dormSave: function (M, me, req) {
+    need(me, 'dorm');
+    const z = S(req.zman).slice(0, 40);
+    if (!z) throw new Error('חסר זמן');
+    const d = req.doc || {};
+    const beds = {};
+    Object.keys(d.beds || {}).slice(0, 500).forEach(function (k) { beds[S(k).slice(0, 24)] = [].concat(d.beds[k] || []).slice(0, 50).map(function (x) { return S(x).replace(/\D/g, '').slice(0, 10); }); });
+    const out = [].concat(d.out || []).slice(0, 500).map(function (x) { return S(x).replace(/\D/g, '').slice(0, 10); }).filter(String);
+    const v = JSON.stringify({ beds: beds, out: out });
+    if (v.length > 45000) throw new Error('גדול מדי');
+    putSetting(M, me, 'dorm:' + z, v);
+    logIt(M, me, 'dorm', '', z);
     return { ok: true, settings: settingsOf(M) };
   },
   roomSet: function (M, me, req) {
@@ -1630,6 +1641,12 @@ const DEFAULT_SEDARIM = [
   { key: 'achar', name: 'אחה"צ', att: true, chav: true, slots: 2, days: [0, 1, 2, 3, 4] },
   { key: 'shlishi', name: 'סדר שלישי', att: true, chav: true, slots: 2, days: [0, 1, 2, 3, 4] },
 ];
+function putSetting(M, me, key, v) {
+  const sh = M.book.getSheetByName('Settings');
+  const ex = objs(sh).filter(function (x) { return S(x.key) === key; })[0];
+  if (ex) setCells(sh, ex._row, { value: v, updated_at: now(), updated_by: me.email });
+  else appendObj(sh, { key: key, value: v, updated_at: now(), updated_by: me.email });
+}
 function settingsOf(M) {
   // calendar: 'il' = לוח ארץ ישראל (פרשיות), 'chul' = חוץ לארץ
   const o = { sedarim: DEFAULT_SEDARIM, avreich_rate: '', calendar: 'il',
