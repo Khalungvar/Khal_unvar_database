@@ -1,12 +1,13 @@
 // אתר פון א מוסד — 👔 אנשי צוות ואברכים: צוויי באזונדערע רשימות אין איין כפתור.
 // אנשי צוות: תפקיד, טלפון, מייל (לאגאין), פון ווען, פעיל/לשעבר, סארט שכר (אן סכומים); 💰 → משכורות (נאר מיט הרשאה).
 // אברכים: וועמען זיי לערנען מיט (פון די חברותות), און שעות (כניסה/יציאה).
-import { downloadXlsx } from '../excel.js?v=492';
-import { currentZman } from './school.js?v=492';
-import { historyDialog } from './me.js?v=492';
+import { downloadXlsx } from '../excel.js?v=493';
+import { currentZman } from './school.js?v=493';
+import { historyDialog } from './me.js?v=493';
 
 let X = null;
 export function initTeam(ctx) { X = ctx; }
+const PAY_VIA = { '': '—', us: 'דרכנו', parents: 'ישירות מההורים' };
 const T = { tab: 'staff', team: null, chav: null, past: false };
 export const PAY_TYPES = { '': '—', global: 'גלובלי (סכום קבוע לחודש)', schedule: 'שעות קבועות (מערכת)', log: 'רישום יומי (כניסה/יציאה)', mixed: 'גלובלי + שעות (רישום יומי)' };
 const DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו'];
@@ -85,7 +86,7 @@ function teamDialog(id, t, box) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const schedule = DAYS.map((_, j) => (el[`sd${j}`].checked && el[`sf${j}`].value && el[`st${j}`].value ? { d: j, from: el[`sf${j}`].value, to: el[`st${j}`].value } : null)).filter(Boolean);
-    const row = { contact_id: id, role: S(el.role.value), email: S(el.email.value).toLowerCase(), start_date: el.start_date.value, end_date: el.end_date.value, active: el.active.checked, pay_type: el.pay_type.value, schedule: JSON.stringify(schedule), note: S(el.note.value) };
+    const row = { contact_id: id, role: S(el.role.value), email: S(el.email.value).toLowerCase(), start_date: el.start_date.value, end_date: el.end_date.value, active: el.active.checked, pay_type: el.pay_type.value, schedule: JSON.stringify(schedule), note: S(el.note.value), pay_via: t.pay_via || '' };
     try { await X.call(X.KEY, 'teamSave', { team: row }); await loadTeam(); d.close(); renderTeam(box); X.toast('נשמר.'); } catch (err) { X.toast(X.msg(err), 'err'); }
   };
 }
@@ -99,19 +100,31 @@ async function avList(body) {
     try { T.chav = { zman, rows: X.can('chavrusas') ? (await X.call(X.KEY, 'chav', { zman })).rows : [] }; } catch { T.chav = { zman, rows: [] }; }
   }
   const sed = (k) => (X.st.settings?.sedarim || []).find((s) => s.key === k)?.name || k;
+  if (!T.team) { try { await loadTeam(); } catch { T.team = []; } }
+  const viaOf = (id) => ((T.team || []).find((t) => String(t.contact_id) === String(id)) || {}).pay_via || '';
   const withOf = (aid) => T.chav.rows.filter((r) => String(r.partner_id) === String(aid)).map((r) => `${X.pById(r.contact_id) ? X.nameOf(X.pById(r.contact_id)) : `#${r.contact_id}`} (${sed(r.seder)})`);
   body.innerHTML = `<div class="ms-bar"><span class="muted small">חברותות — ${h(zman)}</span><span class="spacer"></span>
       ${X.can('people_edit') ? '<button type="button" class="btn primary" id="av-add">➕ אברך</button>' : ''}
       ${X.can('attendance') ? '<button type="button" class="btn" id="av-hours">⏱ כניסה ויציאה</button>' : ''}
       ${X.can('chavrusas') ? '<button type="button" class="btn" id="av-chav">🤝 חברותות</button>' : ''}<button type="button" class="btn" id="av-xl">⬇ Excel</button></div>
-    ${av.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>#</th><th>האברך</th><th>טלפון</th><th>חברותא</th>${X.can('people_edit') ? '<th></th>' : ''}</tr></thead><tbody>
+    ${av.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>#</th><th>האברך</th><th>טלפון</th><th>חברותא</th><th>התשלום</th>${X.can('people_edit') ? '<th></th>' : ''}</tr></thead><tbody>
       ${av.map((p, i) => `<tr><td class="num">${i + 1}</td><td><a href="#" data-open="${h(p.contact_id)}"><b>${h(X.nameOf(p))}</b></a></td><td dir="ltr" class="small">${h(p.il_phone || X.phoneOf(p))}</td>
-        <td class="small">${h(withOf(p.contact_id).join(', '))}</td>${X.can('people_edit') ? `<td class="ms-acts"><button type="button" class="btn small-btn" data-rm="${h(p.contact_id)}" title="הוצאה מהרשימה">🗑</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`
+        <td class="small">${h(withOf(p.contact_id).join(', '))}</td>
+        <td>${X.can('staff_list') ? `<select class="av-pay" data-id="${h(p.contact_id)}">${Object.entries(PAY_VIA).map(([k, v]) => `<option value="${k}"${k === viaOf(p.contact_id) ? ' selected' : ''}>${h(v)}</option>`).join('')}</select>` : h(PAY_VIA[viaOf(p.contact_id)])}</td>${X.can('people_edit') ? `<td class="ms-acts"><button type="button" class="btn small-btn" data-rm="${h(p.contact_id)}" title="הוצאה מהרשימה">🗑</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`
     : '<p class="muted ms-empty">אין עדיין אברכים. ➕ אברך — מוסיף מהמאגר הכללי (או חדש), מסוג "אברך".</p>'}`;
   X.$('#av-add', body)?.addEventListener('click', () => X.addDialog('avreich'));
   X.$('#av-hours', body)?.addEventListener('click', () => X.go('attendance', '_hours'));
   X.$('#av-chav', body)?.addEventListener('click', () => X.go('chavrusas'));
   X.$$('[data-open]', body).forEach((a) => { a.onclick = (e) => { e.preventDefault(); X.personDialog(X.pById(a.dataset.open)); }; });
   X.$$('[data-rm]', body).forEach((b) => { b.onclick = () => X.unlinkDialog(X.pById(b.dataset.rm), 'avreich', 'הוצאה מרשימת האברכים', loadTeam); });
-  X.$('#av-xl', body).onclick = () => downloadXlsx('אברכים', ['#', 'האברך', 'טלפון', 'חברותא'], av.map((p, i) => [i + 1, X.nameOf(p), p.il_phone || X.phoneOf(p), withOf(p.contact_id).join(', ')]), { rtl: true });
+  X.$('#av-xl', body).onclick = () => downloadXlsx('אברכים', ['#', 'האברך', 'טלפון', 'חברותא', 'התשלום'], av.map((p, i) => [i + 1, X.nameOf(p), p.il_phone || X.phoneOf(p), withOf(p.contact_id).join(', '), PAY_VIA[viaOf(p.contact_id)]]), { rtl: true });
+  // התשלום: דורך אונז / גלייך פון די עלטערן — אין Team (מיט די אנדערע פעלדער וואס זענען שוין דא)
+  X.$$('.av-pay', body).forEach((sel) => {
+    sel.onchange = async () => {
+      const id = sel.dataset.id; const ex = (T.team || []).find((t) => String(t.contact_id) === String(id)) || {};
+      sel.disabled = true;
+      try { await X.call(X.KEY, 'teamSave', { team: { ...ex, contact_id: id, active: ex.active !== 'FALSE', pay_via: sel.value } }); await loadTeam(); X.toast('נשמר.'); } catch (err) { X.toast(X.msg(err), 'err'); }
+      sel.disabled = false;
+    };
+  });
 }

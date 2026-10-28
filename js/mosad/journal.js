@@ -1,10 +1,11 @@
 // אתר פון א מוסד — יומנים: 🤝 חברותות, ✅ השתתפות (מיט ⏱ כניסה/יציאה פון אברכים), 🏥 ביטוח בריאות, 📞 יומן מיט טעלעפאנען.
 // אלעס ווערט געדרוקט ווי די דפים פון דער ישיבה: צוויי זיילן מיט נומערירטע נעמען, "פרשת ...", טעג א–ה.
 // דער לוח (פרשיות) — לויט די הגדרות פונעם מוסד (ארץ ישראל / חוץ לארץ).
-import { downloadXlsx } from '../excel.js?v=492';
-import { todayIso, isoToHebrewText, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=492';
-import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=492';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=492';
+import { downloadXlsx } from '../excel.js?v=493';
+import { todayIso, isoToHebrewText, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=493';
+import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=493';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=493';
+import { letterhead } from './brand.js?v=493';
 
 let X = null;
 export function initJournal(ctx) { X = ctx; }
@@ -30,42 +31,93 @@ async function needSchool() { if (!schoolLoaded()) await loadSchool(); }
 function students(day) { return activeStudents(day).map((e) => e.contact_id).filter((id) => X.pById(id)); }
 const avreichim = () => X.st.people.filter((p) => (p.kinds || [p.kind]).includes('avreich')).sort((a, b) => X.S(a.last_name_he).localeCompare(X.S(b.last_name_he), 'he'));
 
-/** א בלאט צום דרוקן (A4), מיטן לאגא און א קעפל */
+// ---------- דרוקן: א שיין בלאט (A4) מיטן בלאנק / לאגא ----------
+const PRINT_CSS = `
+  @page { size: A4 var(--orient); margin: 9mm; }
+  body { font-family: 'Heebo', Arial, sans-serif; margin: 0; color: #1d1a14; }
+  .bar { padding: 8px 10px; background: #f6f1e4; border-bottom: 1px solid #e2d6b8; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; font-size: 14px; }
+  .bar button { font: inherit; padding: 5px 14px; border-radius: 8px; border: 1px solid #b89a5a; background: #fff; cursor: pointer; }
+  .bar button.pr { background: #7a2020; color: #fff; border-color: #7a2020; }
+  .bar select { font: inherit; padding: 3px 6px; }
+  .page { padding: 6mm 8mm; }
+  .lh { text-align: center; margin-bottom: 2mm; } .lh img { max-width: 100%; max-height: 30mm; }
+  .hd { display: flex; align-items: center; gap: 12px; }
+  .hd img { height: 46px; }
+  .ttl { text-align: center; margin: 1mm 0 4mm; padding-bottom: 2mm; border-bottom: 2px solid #b8913c; }
+  .ttl h1 { font-family: 'Frank Ruhl Libre', serif; font-size: 25px; margin: 0; font-weight: 900; color: #2a2560; }
+  .ttl .sub { font-size: 13px; color: #6b6150; margin-top: 2px; }
+  .cols { display: flex; gap: 6mm; align-items: flex-start; }
+  .cols > table { flex: 1; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th, td { border: 1px solid #c9bfa8; padding: 3px 6px; height: 18px; }
+  th { background: #f1ead8; font-weight: 700; color: #3a3220; border-bottom: 2px solid #b8913c; }
+  tbody tr:nth-child(even) td { background: #faf7ef; }
+  td.n, th.n { width: 24px; text-align: center; color: #8a7d62; font-size: 11px; }
+  td.nm { font-weight: 500; white-space: nowrap; }
+  td.c, th.c { min-width: 22px; text-align: center; }
+  td.t, th.t { width: 44px; text-align: center; }
+  .muted { color: #6b6150; font-size: 11px; }
+  .foot { margin-top: 4mm; font-size: 10px; color: #8a7d62; text-align: left; }
+  @media print { .bar { display: none; } .page { padding: 0; } tbody tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; } th { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }`;
+function printHead(title, sub) {
+  const lh = letterhead(X.KEY); const logo = X.st.logo || X.st.mosad?.logo || '';
+  return `${lh ? `<div class="lh"><img src="${lh.top}" alt=""></div>` : logo ? `<div class="hd"><img src="${logo}" alt=""></div>` : ''}
+    <div class="ttl"><h1>${X.h(title)}</h1>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
+}
+function printDoc(w, title, inner, { landscape = false, bar = '', script = '' } = {}) {
+  w.document.write(`<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>${X.h(title)}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>:root { --orient: ${landscape ? 'landscape' : 'portrait'}; } ${PRINT_CSS.replace('var(--orient)', landscape ? 'landscape' : 'portrait')}</style></head><body>
+    <div class="bar"><button class="pr" onclick="window.print()">🖨 הדפסה</button>${bar}<button onclick="window.close()">סגירה</button></div>
+    <div class="page">${inner}<div class="foot">${X.h(isoToHebrewText(todayIso()))}</div></div>${script}</body></html>`);
+  w.document.close();
+}
+/** א בלאט צום דרוקן (A4), מיטן בלאנק / לאגא און א קעפל */
 export function printWin(title, sub, body, { landscape = false } = {}) {
   const w = window.open('', '_blank');
   if (!w) { X.toast('הדפדפן חסם חלון חדש — אפשר חלונות קופצים לאתר הזה.', 'err'); return; }
-  const logo = X.st.logo || X.st.mosad?.logo || '';
-  w.document.write(`<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>${X.h(title)}</title>
-    <style>
-      @page { size: A4 ${landscape ? 'landscape' : 'portrait'}; margin: 10mm; }
-      body { font-family: Arial, 'Heebo', sans-serif; margin: 0; color: #111; }
-      .bar { padding: 8px; background: #f3efe6; display: flex; gap: 10px; justify-content: center; }
-      .bar button { font-size: 15px; padding: 5px 14px; }
-      .page { padding: 6mm; }
-      .hd { display: flex; align-items: center; gap: 12px; border-bottom: 2px solid #333; padding-bottom: 6px; margin-bottom: 8px; }
-      .hd img { height: 46px; }
-      .hd h1 { font-size: 22px; margin: 0; flex: 1; text-align: center; }
-      .hd .sub { font-size: 14px; min-width: 160px; text-align: left; }
-      .cols { display: flex; gap: 8mm; align-items: flex-start; }
-      .cols > table { flex: 1; }
-      table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
-      th, td { border: 1px solid #555; padding: 2px 4px; height: 17px; }
-      th { background: #eee; font-weight: bold; }
-      td.n { width: 22px; text-align: center; color: #555; }
-      td.c, th.c { width: 26px; text-align: center; }
-      td.t, th.t { width: 44px; text-align: center; }
-      .muted { color: #666; font-size: 11px; }
-      @media print { .bar { display: none; } .page { padding: 0; } }
-    </style></head><body>
-    <div class="bar"><button onclick="window.print()">🖨 הדפסה</button><button onclick="window.close()">סגירה</button></div>
-    <div class="page"><div class="hd">${logo ? `<img src="${logo}" alt="">` : ''}<h1>${X.h(title)}</h1><div class="sub">${sub}</div></div>${body}</div></body></html>`);
-  w.document.close();
+  printDoc(w, title, `${printHead(title, sub)}${body}`, { landscape });
 }
-/** א רשימה אין צוויי זיילן (ווי אין די דפים): cols(row, i) גיט די <td>-ס פאר יעדן */
-function twoCols(ids, headHtml, rowHtml) {
-  const half = Math.ceil(ids.length / 2);
-  const tbl = (part, off) => `<table><thead>${headHtml}</thead><tbody>${part.map((id, i) => `<tr><td class="n">${off + i + 1}</td>${rowHtml(id, off + i)}</tr>`).join('')}</tbody></table>`;
-  return `<div class="cols">${tbl(ids.slice(0, half), 0)}${tbl(ids.slice(half), half)}</div>`;
+/** סדר א-ב: משפחה, דערנאך דער ערשטער נאמען */
+const sortIds = (ids) => [...ids].sort((a, b) => last(a).localeCompare(last(b), 'he') || first(a).localeCompare(first(b), 'he'));
+/**
+ * א רשימה פון מענטשן צום דרוקן: # · שם (איין שפאלט, א-ב) · די שפאלטן.
+ * cols: [{ t: כותרת, c: 'c'|'t'|'', ltr }] · rows: [{ id, cells: [טעקסט] }] · head: (נישט מוז) שורות פון א קעפל [[{ t, cs, rs, c }]]
+ * אינעם פענצטער: "בלי מי שאצלו ... ריק" און "שני טורים בדף".
+ */
+export function printList(title, sub, { cols, rows, head = null, landscape = false, twoUp = false }) {
+  const w = window.open('', '_blank');
+  if (!w) { X.toast('הדפדפן חסם חלון חדש — אפשר חלונות קופצים לאתר הזה.', 'err'); return; }
+  const byId = Object.fromEntries(rows.map((r) => [String(r.id), r]));
+  const ordered = sortIds(rows.map((r) => r.id)).map((id) => byId[String(id)]);
+  const hr = head || [cols.map((c) => ({ t: c.t, c: c.c || '' }))];
+  const D = { cols: cols.map((c) => ({ c: c.c || '', ltr: !!c.ltr })), head: hr, rows: ordered.map((r) => ({ n: [first(r.id), last(r.id)].filter(Boolean).join(' '), v: r.cells.map((x) => String(x ?? '')) })) };
+  const opts = cols.map((c, i) => `<option value="${i}">${X.h(c.t)}</option>`).join('');
+  const bar = `<label>בלי מי שאצלו <select id="pf"><option value="-1">— (כולם)</option>${opts}</select> ריק</label>
+    <label><input type="checkbox" id="p2"${twoUp ? ' checked' : ''}> שני טורים בדף</label>`;
+  const script = `<script>
+    const D = ${JSON.stringify(D).replace(/</g, '\\u003c')};
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    function headHtml() {
+      const n = D.head.length;
+      return D.head.map((row, i) => '<tr>' + (i === 0 ? '<th class="n" rowspan="' + n + '">#</th><th rowspan="' + n + '">שם</th>' : '')
+        + row.map((h) => '<th class="' + (h.c || 'c') + '"' + (h.cs > 1 ? ' colspan="' + h.cs + '"' : '') + (h.rs > 1 ? ' rowspan="' + h.rs + '"' : '') + '>' + esc(h.t) + '</th>').join('') + '</tr>').join('');
+    }
+    function tbl(list, off) {
+      return '<table><thead>' + headHtml() + '</thead><tbody>' + list.map((r, i) => '<tr><td class="n">' + (off + i + 1) + '</td><td class="nm">' + esc(r.n) + '</td>'
+        + r.v.map((v, j) => '<td class="' + D.cols[j].c + '"' + (D.cols[j].ltr ? ' dir="ltr"' : '') + '>' + esc(v) + '</td>').join('') + '</tr>').join('') + '</tbody></table>';
+    }
+    function draw() {
+      const f = Number(document.getElementById('pf').value); const two = document.getElementById('p2').checked;
+      const list = f < 0 ? D.rows : D.rows.filter((r) => String(r.v[f] || '').trim());
+      const half = Math.ceil(list.length / 2);
+      document.getElementById('pl').innerHTML = two && list.length > 1 ? '<div class="cols">' + tbl(list.slice(0, half), 0) + tbl(list.slice(half), half) + '</div>' : tbl(list, 0);
+      document.getElementById('pc').textContent = list.length + ' / ' + D.rows.length;
+    }
+    document.getElementById('pf').onchange = draw; document.getElementById('p2').onchange = draw; draw();
+  <\/script>`;
+  printDoc(w, title, `${printHead(title, sub)}<div id="pl"></div><div class="muted" id="pc"></div>`, { landscape, bar, script });
 }
 const wait = (box) => { box.innerHTML = '<p class="muted">טוען…</p>'; };
 const fail = (box, err) => { box.innerHTML = `<p class="ms-note err">${X.h(X.msg(err))}</p>`; };
@@ -138,8 +190,7 @@ export async function renderChav(box) {
       dirty.clear(); X.toast('נשמר.');
     } catch (err) { saveBtn.disabled = false; X.toast(X.msg(err), 'err'); }
   });
-  X.$('#jc-print', box).onclick = () => printWin(`חברותות ${seder.name}`, h(J.zman),
-    twoCols(ids, '<tr><th class="n">#</th><th>שם</th><th>משפחה</th><th>חברותא</th></tr>', (id) => `<td>${h(first(id))}</td><td>${h(last(id))}</td><td>${h(partnerTxt(rowOf(id)))}</td>`));
+  X.$('#jc-print', box).onclick = () => printList(`חברותות ${seder.name}`, h(J.zman), { cols: [{ t: 'חברותא' }], rows: ids.map((id) => ({ id, cells: [partnerTxt(rowOf(id))] })), twoUp: true });
   X.$('#jc-xl', box).onclick = () => downloadXlsx(`חברותות ${seder.name} - ${J.zman}`, ['#', 'שם', 'משפחה', 'חברותא'], ids.map((id, i) => [i + 1, first(id), last(id), partnerTxt(rowOf(id))]), { rtl: true });
   X.$('#jc-av', box).onclick = () => {
     // די אברכים מיט וועמען זיי לערנען (פון אלע סדרים אין דעם זמן)
@@ -163,7 +214,7 @@ export async function renderAtt(box) {
   const ss = sedarim().filter((s) => s.att);
   if (!J.week) J.week = sundayOf(todayIso());
   if (!J.month) J.month = todayIso().slice(0, 7);
-  const tabs = [...ss.map((s) => [s.key, s.name]), ['_hours', '⏱ אברכים — כניסה ויציאה'], ['_sum', '📊 סיכום חודשי']];
+  const tabs = [...ss.map((s) => [s.key, s.name]), ['_hours', '⏱ אברכים — כניסה ויציאה'], ['_sum', '📊 סיכום חודשי'], ['_person', '👤 לפי בחור']];
   if (!tabs.some(([k]) => k === J.seder)) J.seder = tabs[0][0];
   try { await needSchool(); } catch (err) { fail(box, err); return; }
   const head = `<h2 class="ms-h">✅ השתתפות</h2>
@@ -173,6 +224,7 @@ export async function renderAtt(box) {
   X.$$('[data-tab]', box).forEach((b) => { b.onclick = () => { if (J.dirty && !window.confirm('יש שינויים שלא נשמרו. לעבור בלי לשמור?')) return; J.dirty = false; J.seder = b.dataset.tab; renderAtt(box); }; });
   if (J.seder === '_hours') return renderHours(body);
   if (J.seder === '_sum') return renderSum(body);
+  if (J.seder === '_person') return renderPerson(body);
   return renderWeek(body, ss.find((s) => s.key === J.seder));
 }
 function weekBar(sun) {
@@ -244,8 +296,10 @@ async function renderWeek(body, seder) {
     } catch (err) { saveBtn.disabled = false; X.toast(X.msg(err), 'err'); }
   });
   const sheet = (filled) => {
-    const headRow = `<tr><th class="n">#</th><th>שם</th><th>משפחה</th>${days.map((d) => `<th class="c" colspan="${slotsOn(seder, d)}">${DAYS[d]}</th>`).join('')}</tr>`;
-    printWin(`השתתפות ${seder.name}`, h(weekTitle(sun)), twoCols(ids, headRow, (id) => `<td>${h(first(id))}</td><td>${h(last(id))}</td>${keys.map((k) => `<td class="c">${filled ? MARK_TXT[marks[id][k]] || '' : ''}</td>`).join('')}`));
+    const head = [days.map((d) => ({ t: `${DAYS[d]} ${fmtDay(isoAdd(sun, d))}`, cs: slotsOn(seder, d), rs: two && slotsOn(seder, d) < 2 ? 2 : 1 }))];
+    if (two) head.push(days.filter((d) => slotsOn(seder, d) > 1).flatMap(() => [{ t: '1' }, { t: '2' }]));
+    printList(`השתתפות ${seder.name}`, h(weekTitle(sun)), { head, cols: keys.map((k) => ({ t: `${DAYS[Number(k[0])]}${slotsOn(seder, Number(k[0])) > 1 ? (k.endsWith('b') ? ' 2' : ' 1') : ''}`, c: 'c' })),
+      rows: ids.map((id) => ({ id, cells: keys.map((k) => (filled ? MARK_TXT[marks[id][k]] || '' : '')) })), twoUp: keys.length <= 6 });
   };
   X.$('#ja-blank', body).onclick = () => sheet(false);
   X.$('#ja-full', body).onclick = () => sheet(true);
@@ -283,10 +337,71 @@ async function renderSum(body) {
     </tbody></table></div>`;
   X.$('#js-mo', body).onchange = (e) => { if (e.target.value) { J.month = e.target.value; renderSum(body); } };
   const title = `סיכום השתתפות ${monthHe(toHebrew(`${mo}-15`).m)} ${yearLabel(toHebrew(`${mo}-15`).y)}`;
-  X.$('#js-print', body).onclick = () => printWin(title, h(mo), `<table><thead><tr><th class="n">#</th><th>שם</th>${ss.map((s) => `<th>${h(s.name)} ✓/✗/⏰</th>`).join('')}</tr></thead><tbody>
-    ${ids.map((id, i) => `<tr><td class="n">${i + 1}</td><td>${h(full(id))}</td>${ss.map((s) => { const c = cnt[id][s.key]; return `<td class="c">${c.v}/${c.x}/${c.l}</td>`; }).join('')}</tr>`).join('')}</tbody></table>`);
+  X.$('#js-print', body).onclick = () => printList(title, h(mo), { cols: ss.map((s) => ({ t: `${s.name} ✓/✗/⏰ · %`, c: 'c' })),
+    rows: ids.map((id) => ({ id, cells: ss.map((s) => { const c = cnt[id][s.key]; const p = pct(c); return c.v + c.x + c.l ? `${c.v}/${c.x}/${c.l}${p !== '' ? ` · ${p}%` : ''}` : ''; }) })) });
   X.$('#js-xl', body).onclick = () => downloadXlsx(title, ['#', 'שם', ...ss.flatMap((s) => [`${s.name} ✓`, `${s.name} ✗`, `${s.name} ⏰`, `${s.name} %`])],
     ids.map((id, i) => [i + 1, full(id), ...ss.flatMap((s) => { const c = cnt[id][s.key]; return [c.v, c.x, c.l, pct(c)]; })]), { rtl: true });
+}
+
+// ---------- 👤 לפי בחור: מתאריך עד תאריך ----------
+async function renderPerson(body) {
+  const { h } = X;
+  const ss = sedarim().filter((s) => s.att);
+  if (!J.pFrom) J.pFrom = `${todayIso().slice(0, 7)}-01`;
+  if (!J.pTo) J.pTo = todayIso();
+  const studs = X.st.people.filter((p) => (p.kinds || [p.kind]).includes('student')).sort((a, b) => X.S(a.last_name_he).localeCompare(X.S(b.last_name_he), 'he') || X.S(a.first_name_he).localeCompare(X.S(b.first_name_he), 'he'));
+  const label = (p) => `${X.nameOf(p)} (#${p.contact_id})`;
+  body.innerHTML = `<div class="ms-bar">
+      <label>בחור <input id="jp-who" list="jp-dl" style="min-width:16em" value="${h(J.pId && X.pById(J.pId) ? label(X.pById(J.pId)) : '')}" placeholder="שם…"></label>
+      <datalist id="jp-dl">${studs.map((p) => `<option value="${h(label(p))}">`).join('')}</datalist>
+      <label>מתאריך <input type="date" id="jp-from" value="${h(J.pFrom)}"></label>
+      <label>עד <input type="date" id="jp-to" value="${h(J.pTo)}"></label>
+      <button type="button" class="btn primary" id="jp-go">הצג</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="jp-print" disabled>🖨 הדפסה</button><button type="button" class="btn" id="jp-xl" disabled>⬇ Excel</button>
+    </div><div id="jp-out"><p class="muted">בוחרים בחור ותאריכים, ולוחצים "הצג".</p></div>`;
+  const out = X.$('#jp-out', body);
+  const go = async () => {
+    const m = X.S(X.$('#jp-who', body).value).match(/\(#(\d+)\)$/);
+    if (!m) { X.toast('בחר בחור מהרשימה.', 'err'); return; }
+    J.pId = m[1]; J.pFrom = X.$('#jp-from', body).value; J.pTo = X.$('#jp-to', body).value;
+    if (!J.pFrom || !J.pTo || J.pTo < J.pFrom) { X.toast('תאריכים לא תקינים.', 'err'); return; }
+    out.innerHTML = '<p class="muted">טוען…</p>';
+    let rows;
+    try { rows = (await X.call(X.KEY, 'att', { from: sundayOf(J.pFrom), to: J.pTo })).rows; } catch (err) { fail(out, err); return; }
+    // תאריך → סדר → [1, 2]
+    const got = {};
+    rows.filter((r) => String(r.contact_id) === String(J.pId)).forEach((r) => {
+      Object.entries(parseMarks(r.marks)).forEach(([k, v]) => {
+        const day = isoAdd(r.week, Number(k[0]));
+        if (day < J.pFrom || day > J.pTo) return;
+        ((got[day] ||= {})[r.seder] ||= [])[k.endsWith('b') ? 1 : 0] = v;
+      });
+    });
+    const dates = [];
+    for (let d = J.pFrom; d <= J.pTo && dates.length < 400; d = isoAdd(d, 1)) {
+      const dw = new Date(`${d}T12:00:00Z`).getUTCDay();
+      if (ss.some((s) => (s.days || []).includes(dw)) || got[d]) dates.push(d);
+    }
+    const cell = (d, s) => { const dw = new Date(`${d}T12:00:00Z`).getUTCDay(); if (!(s.days || []).includes(dw)) return '—'; const a = got[d]?.[s.key] || []; return slotsOn(s, dw) > 1 ? `${MARK_TXT[a[0]] || '·'} ${MARK_TXT[a[1]] || '·'}` : MARK_TXT[a[0]] || ''; };
+    const cnt = Object.fromEntries(ss.map((s) => [s.key, { v: 0, x: 0, l: 0 }]));
+    Object.values(got).forEach((o) => Object.entries(o).forEach(([k, arr]) => arr.forEach((v) => { if (cnt[k] && cnt[k][v] !== undefined) cnt[k][v] += 1; })));
+    const pct = (c) => { const t = c.v + c.x + c.l; return t ? Math.round(((c.v + c.l * 0.5) / t) * 100) : ''; };
+    const dLabel = (d) => `${DAYS[new Date(`${d}T12:00:00Z`).getUTCDay()]}' ${isoToHebrewText(d)} · ${fmtDay(d)}`;
+    const sumRow = ss.map((s) => { const c = cnt[s.key]; const p = pct(c); return `✓${c.v} ✗${c.x} ⏰${c.l}${p !== '' ? ` · ${p}%` : ''}`; });
+    const table = `<table class="ms-table"><thead><tr><th>תאריך</th>${ss.map((s) => `<th class="c">${h(s.name)}</th>`).join('')}</tr></thead><tbody>
+      ${dates.map((d) => `<tr><td>${h(dLabel(d))}</td>${ss.map((s) => `<td class="c">${h(cell(d, s))}</td>`).join('')}</tr>`).join('')}
+      <tr><td><b>סה"כ</b></td>${sumRow.map((x) => `<td class="c"><b>${h(x)}</b></td>`).join('')}</tr></tbody></table>`;
+    out.innerHTML = `<p><b>${h(full(J.pId))}</b> · ${h(isoToHebrewText(J.pFrom))} – ${h(isoToHebrewText(J.pTo))}</p><div class="ms-wrap">${table}</div>
+      <p class="muted small">✓ נוכח · ✗ חסר · ⏰ איחור · · = לא סומן · — אין סדר ביום הזה. אחוז: איחור = חצי.</p>`;
+    const title = `השתתפות — ${full(J.pId)}`;
+    const sub = `${isoToHebrewText(J.pFrom)} – ${isoToHebrewText(J.pTo)}`;
+    const pb = X.$('#jp-print', body); const xb = X.$('#jp-xl', body); pb.disabled = false; xb.disabled = false;
+    pb.onclick = () => printWin(title, h(sub), table.replace('class="ms-table"', ''));
+    xb.onclick = () => downloadXlsx(title, ['תאריך', ...ss.map((s) => s.name)], [...dates.map((d) => [dLabel(d), ...ss.map((s) => cell(d, s))]), ['סה"כ', ...sumRow]], { rtl: true });
+  };
+  X.$('#jp-go', body).onclick = go;
+  if (J.pId) go();
 }
 
 // ---------- ⏱ אברכים: כניסה / יציאה ----------
@@ -338,11 +453,14 @@ async function renderHours(body) {
     const [y, m] = mo.split('-').map(Number);
     let hr;
     try { hr = (await X.call(X.KEY, 'hours', { from: `${mo}-01`, to: new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10) })).hours; } catch (err) { X.toast(X.msg(err), 'err'); return; }
+    // התשלום: "ישירות מההורים" — נישט דורך אונז (קיין סכום)
+    const via = {}; try { (await X.call(X.KEY, 'team')).team.forEach((t) => { via[t.contact_id] = t.pay_via; }); } catch { /* */ }
+    const pays = (p) => via[p.contact_id] !== 'parents';
     const per = av.map((p) => { const mine = hr.filter((r) => String(r.contact_id) === String(p.contact_id)); const t = mine.reduce((s, r) => s + mins(r.time_in, r.time_out), 0); return { p, days: mine.length, t }; });
     const title = `אברכים — שעות ${monthHe(toHebrew(`${mo}-15`).m)} ${yearLabel(toHebrew(`${mo}-15`).y)}`;
-    downloadXlsx(title, ['האברך', 'ימים', 'שעות', ...(rate ? ['לתשלום'] : [])], per.map((x) => [X.nameOf(x.p), x.days, Math.round((x.t / 60) * 100) / 100, ...(rate ? [Math.round((x.t / 60) * rate * 100) / 100] : [])]), { rtl: true });
+    downloadXlsx(title, ['האברך', 'ימים', 'שעות', ...(rate ? ['לתשלום'] : [])], per.map((x) => [X.nameOf(x.p), x.days, Math.round((x.t / 60) * 100) / 100, ...(rate ? [pays(x.p) ? Math.round((x.t / 60) * rate * 100) / 100 : 'מההורים'] : [])]), { rtl: true });
     printWin(title, h(mo), `<table><thead><tr><th class="n">#</th><th>האברך</th><th>ימים</th><th>שעות</th>${rate ? '<th>לתשלום</th>' : ''}</tr></thead><tbody>
-      ${per.map((x, i) => `<tr><td class="n">${i + 1}</td><td>${h(X.nameOf(x.p))}</td><td class="c">${x.days}</td><td class="c">${hhmm(x.t)}</td>${rate ? `<td class="c">${Math.round((x.t / 60) * rate)}</td>` : ''}</tr>`).join('')}</tbody></table>`);
+      ${per.map((x, i) => `<tr><td class="n">${i + 1}</td><td>${h(X.nameOf(x.p))}</td><td class="c">${x.days}</td><td class="c">${hhmm(x.t)}</td>${rate ? `<td class="c">${pays(x.p) ? Math.round((x.t / 60) * rate) : 'מההורים'}</td>` : ''}</tr>`).join('')}</tbody></table>`);
   };
 }
 
@@ -391,8 +509,9 @@ export async function renderIns(box) {
   X.$$('[data-ed]', box).forEach((b) => { b.onclick = () => insDialog(b.dataset.ed, insOf(b.dataset.ed), box); });
   const cols = (id) => { const r = insOf(id); return [first(id), last(id), X.pById(id)?.il_phone || '', r.member_no || r.policy_no || '', parentMail(id), r.kupah === 'ביטוח פרטי' ? r.company || r.kupah : r.kupah || '', stat(r)]; };
   X.$('#ji-xl', box).onclick = () => downloadXlsx('ביטוח בריאות', ['#', 'שם', 'משפחה', 'טלפון', 'מספר חבר', 'אימייל הורים', 'קופה', 'הערות'], list.map((id, i) => [i + 1, ...cols(id)]), { rtl: true });
-  X.$('#ji-print', box).onclick = () => printWin(`ביטוח בריאות${J.insZ ? ` — ${J.insZ}` : ''}`, h(todayIso()), `<table><thead><tr><th class="n">#</th><th>שם</th><th>משפחה</th><th>טלפון</th><th>מספר חבר</th><th>אימייל הורים</th><th>קופה</th><th>הערות</th></tr></thead><tbody>
-    ${list.map((id, i) => `<tr><td class="n">${i + 1}</td>${cols(id).map((c, j) => `<td${[2, 3, 4].includes(j) ? ' dir="ltr"' : ''}>${h(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`, { landscape: true });
+  X.$('#ji-print', box).onclick = () => printList(`ביטוח בריאות${J.insZ ? ` — ${J.insZ}` : ''}`, h(isoToHebrewText(todayIso())), {
+    cols: [{ t: 'טלפון', ltr: true }, { t: 'מספר חבר', ltr: true }, { t: 'אימייל הורים', ltr: true }, { t: 'קופה' }, { t: 'הערות' }],
+    rows: list.map((id) => ({ id, cells: cols(id).slice(2) })), landscape: true });
 }
 function insDialog(id, r, box) {
   const { h, S } = X;
@@ -433,8 +552,7 @@ export function printPhones() {
   const { h } = X;
   const ids = students();
   const t = toHebrew(todayIso());
-  printWin(`יומן עם טלפונים ${monthHe(t.m)} ${yearLabel(t.y).replace(/^תש/, '')}`, '',
-    twoCols(ids, '<tr><th class="n">#</th><th>שם</th><th>משפחה</th><th>טלפון</th></tr>', (id) => `<td>${h(first(id))}</td><td>${h(last(id))}</td><td dir="ltr">${h(X.pById(id)?.il_phone || '')}</td>`));
+  printList(`יומן עם טלפונים ${monthHe(t.m)} ${yearLabel(t.y).replace(/^תש/, '')}`, '', { cols: [{ t: 'טלפון', ltr: true }], rows: ids.map((id) => ({ id, cells: [X.pById(id)?.il_phone || ''] })), twoUp: true });
 }
 
 // =====================================================================

@@ -32,7 +32,7 @@ const TABS = {
   Attendance: ['week', 'seder', 'contact_id', 'marks', 'note', 'updated_at', 'updated_by'],
   Hours: ['date', 'contact_id', 'time_in', 'time_out', 'note', 'updated_at', 'updated_by'],
   Insurance: ['contact_id', 'kupah', 'member_no', 'company', 'policy_no', 'expires', 'passport', 'debt', 'left_date', 'status', 'note', 'updated_at', 'updated_by'],
-  Team: ['contact_id', 'email', 'role', 'start_date', 'end_date', 'active', 'pay_type', 'schedule', 'note', 'updated_at', 'updated_by'],
+  Team: ['contact_id', 'email', 'role', 'start_date', 'end_date', 'active', 'pay_type', 'schedule', 'note', 'updated_at', 'updated_by', 'pay_via'], // pay_via: us = דורך אונז, parents = גלייך פון די עלטערן (אברכים)
   PayInfo: ['contact_id', 'id_number', 'bank_last4', 'global_amount', 'hourly_rate', 'note', 'updated_at', 'updated_by'],
   PayItems: ['item_id', 'contact_id', 'month', 'kind', 'amount', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
   PayPayments: ['pay_id', 'contact_id', 'date', 'amount', 'method', 'advance', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
@@ -1098,7 +1098,7 @@ const ACTIONS = {
     try {
       const sh = M.book.getSheetByName('Team');
       const o = { email: em, role: S(t.role), start_date: S(t.start_date), end_date: S(t.end_date), active: t.active === false || S(t.active) === 'FALSE' ? 'FALSE' : 'TRUE',
-        pay_type: ['global', 'schedule', 'log', 'mixed'].indexOf(S(t.pay_type)) >= 0 ? S(t.pay_type) : '', schedule: typeof t.schedule === 'string' ? t.schedule : JSON.stringify(t.schedule || []), note: S(t.note), updated_at: now(), updated_by: me.email };
+        pay_type: ['global', 'schedule', 'log', 'mixed'].indexOf(S(t.pay_type)) >= 0 ? S(t.pay_type) : '', schedule: typeof t.schedule === 'string' ? t.schedule : JSON.stringify(t.schedule || []), note: S(t.note), pay_via: ['us', 'parents'].indexOf(S(t.pay_via)) >= 0 ? S(t.pay_via) : '', updated_at: now(), updated_by: me.email };
       const ex = objs(sh).filter(function (x) { return S(x.contact_id) === S(t.contact_id); })[0];
       if (ex) setCells(sh, ex._row, o); else { o.contact_id = Number(t.contact_id) || t.contact_id; appendObj(sh, o); }
       return { ok: true };
