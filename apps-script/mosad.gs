@@ -2009,10 +2009,12 @@ function regPeriod(conf) {
   if (!conf) return '';
   return conf.period_open === false ? S(conf.period_next) || S(conf.period) : S(conf.period);
 }
+const isT = function (v) { return S(v).toUpperCase() === 'TRUE'; };
+const BOOLS = { test: 1, portal_edit: 1, under_age_ack: 1, parent_visible: 1 };
 function appRows(M) { return objs(M.book.getSheetByName('Applicants')).filter(function (a) { return S(a.app_id); }); }
 function appView(a, docs) {
   const o = {};
-  TABS.Applicants.forEach(function (k) { o[k] = S(a[k]); });
+  TABS.Applicants.forEach(function (k) { o[k] = BOOLS[k] ? (isT(a[k]) ? 'TRUE' : '') : S(a[k]); });
   if (!docs) { o.passport_file = o.passport_file ? '1' : ''; o.birth_file = o.birth_file ? '1' : ''; }
   return o;
 }
@@ -2137,11 +2139,11 @@ const PUBLIC = {
   pubPortal: function (M, req) {
     const a = appByToken(M, req.t);
     const c = regConf(M);
-    const log = objs(M.book.getSheetByName('AppLog')).filter(function (l) { return S(l.app_id) === S(a.app_id) && S(l.parent_visible) === 'TRUE'; })
+    const log = objs(M.book.getSheetByName('AppLog')).filter(function (l) { return S(l.app_id) === S(a.app_id) && isT(l.parent_visible); })
       .map(function (l) { return { at: S(l.at), kind: S(l.kind), subject: S(l.subject), text: S(l.text), status: S(l.to_status) }; });
     const v = {};
-    ['app_id', 'created_at', 'period', 'status', 'lang', 'first_name', 'last_name', 'photo_state', 'passport_state', 'birth_state', 'portal_edit'].forEach(function (k) { v[k] = S(a[k]); });
-    if (S(a.portal_edit) === 'TRUE') APP_EDIT.forEach(function (k) { v[k] = S(a[k]).replace(/^'/, ''); });
+    ['app_id', 'created_at', 'period', 'status', 'lang', 'first_name', 'last_name', 'photo_state', 'passport_state', 'birth_state', 'portal_edit'].forEach(function (k) { v[k] = BOOLS[k] ? (isT(a[k]) ? 'TRUE' : '') : S(a[k]); });
+    if (isT(a.portal_edit)) APP_EDIT.forEach(function (k) { v[k] = S(a[k]).replace(/^'/, ''); });
     return { app: v, log: log, conf: c.conf, texts: c.texts };
   },
   pubPortalUpload: function (M, req) {
@@ -2158,7 +2160,7 @@ const PUBLIC = {
   },
   pubPortalEdit: function (M, req) {
     const a = appByToken(M, req.t);
-    if (S(a.portal_edit) !== 'TRUE') throw new Error('no-edit');
+    if (!isT(a.portal_edit)) throw new Error('no-edit');
     const d = req.data || {};
     const o = {};
     APP_EDIT.forEach(function (k) { if (k in d) o[k] = S(d[k]).slice(0, k === 'notes' ? 3000 : 300); });
@@ -2182,7 +2184,7 @@ const REG_ACTIONS = {
     need(me, 'reg');
     const docs = isAdminRole(me) || me.perms.indexOf('reg_docs') >= 0;
     const c = regConf(M);
-    const log = objs(M.book.getSheetByName('AppLog')).filter(function (l) { return S(l.app_id); }).map(function (l) { const o = {}; TABS.AppLog.forEach(function (k) { o[k] = S(l[k]); }); return o; });
+    const log = objs(M.book.getSheetByName('AppLog')).filter(function (l) { return S(l.app_id); }).map(function (l) { const o = {}; TABS.AppLog.forEach(function (k) { o[k] = BOOLS[k] ? (isT(l[k]) ? 'TRUE' : '') : S(l[k]); }); return o; });
     return { apps: appRows(M).map(function (a) { return appView(a, docs); }), log: log, conf: c.conf, texts: c.texts, docs: docs, mailer: !!outboxSheet() };
   },
   regSettings: function (M, me, req) {
@@ -2314,7 +2316,7 @@ function regFormTestOff() { const x = regDevMe_(); const c = regConf(x.M).conf |
 /** א פולער דורכלויף אויף די "בדיקה" בקשות: סטאטוס, הודעה, הערה, מסמך, טעקע, העברה (dry) */
 function regTestAdmin() {
   const x = regDevMe_(); CUR = { M: x.M, me: x.me };
-  const tests = appRows(x.M).filter(function (a) { return S(a.test) === 'TRUE'; });
+  const tests = appRows(x.M).filter(function (a) { return isT(a.test); });
   Logger.log('test apps: ' + tests.map(function (a) { return a.app_id; }).join(','));
   tests.forEach(function (a, i) {
     const r1 = ACTIONS.regStatus(x.M, x.me, { app_id: a.app_id, status: i === 0 ? 'accepted' : 'exam', notify: { text: 'בדיקה — הודעה להורים', subject: 'בדיקה', email: 'בדיקה {link}', send: false } });
@@ -2330,5 +2332,5 @@ function regTestAdmin() {
 }
 function regTestCleanup() {
   const x = regDevMe_(); CUR = { M: x.M, me: x.me };
-  appRows(x.M).filter(function (a) { return S(a.test) === 'TRUE' && !S(a.contact_id); }).reverse().forEach(function (a) { ACTIONS.regDelete(x.M, x.me, { app_id: a.app_id }); Logger.log('deleted ' + a.app_id); });
+  appRows(x.M).filter(function (a) { return isT(a.test) && !S(a.contact_id); }).reverse().forEach(function (a) { ACTIONS.regDelete(x.M, x.me, { app_id: a.app_id }); Logger.log('deleted ' + a.app_id); });
 }

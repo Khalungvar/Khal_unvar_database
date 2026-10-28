@@ -93,7 +93,12 @@ function normPhone(v) {
   }
   return /^\+\d{9,15}$/.test(d) ? d : null;
 }
-const pretty = (e164) => (e164.startsWith('+1') && e164.length === 12 ? `+1 ${e164.slice(2, 5)}-${e164.slice(5, 8)}-${e164.slice(8)}` : e164.replace(/^(\+\d{2,3})(\d)/, '$1 $2'));
+const CC = ['972', '44', '32', '33', '41', '43', '31', '49', '61', '54', '52', '27', '36', '39', '34', '1', '7'];
+const pretty = (e164) => {
+  if (e164.startsWith('+1') && e164.length === 12) return `+1 ${e164.slice(2, 5)}-${e164.slice(5, 8)}-${e164.slice(8)}`;
+  const cc = CC.find((c) => e164.startsWith(`+${c}`));
+  return cc ? `+${cc} ${e164.slice(cc.length + 1)}` : e164;
+};
 
 // ---------- דאטום: עברי אדער לועזי ----------
 function dateHtml(name, kind) {
