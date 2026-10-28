@@ -3,10 +3,10 @@
 // די בילד פון א מבנה: Settings "dormimg:<id>" (נאר דורך "dormImg" — נישט מיט די אלגעמיינע הגדרות)
 // א זמן: Settings "dorm:<זמן>" = { b: מבנה, beds: { bedId: contact_id }, apts: [{ id, name, beds, ids: [contact_id|''] }] }
 // אן אלטער זמן בלייבט מיט זיין מבנה — אויך ווען מ'מאכט שפעטער א נייעם (א נייער בנין).
-import { downloadXlsx } from '../excel.js?v=498';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=498';
-import { heDate } from './brand.js?v=498';
-import { todayIso } from '../hebdate.js?v=498';
+import { downloadXlsx } from '../excel.js?v=499';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=499';
+import { heDate, letterhead } from './brand.js?v=499';
+import { todayIso } from '../hebdate.js?v=499';
 
 let X = null;
 export function initDorm(ctx) { X = ctx; }
@@ -355,28 +355,53 @@ async function saveBuild(btn, rerender) {
   } catch (err) { btn.disabled = false; X.toast(X.msg(err), 'err'); }
 }
 
-// ---------- 🖨 די מאפע אויף איין A4 ----------
+// ---------- 🖨 PDF / A4: בלאט 1 — די מאפע, בלאט 2 — די דירות (מיטן בלאנק אויף יעדן בלאט) ----------
 function printMap(doc, b, img, none) {
   const { h } = X;
-  const bedP = (x) => { const c = doc.beds[x.id]; return `<div class="pb${c ? ' full' : ''}" style="right:${100 - x.x - x.w}%;top:${x.y}%;width:${x.w}%;height:${x.h}%"><span>${c ? h(nameOf(c)) : ''}</span></div>`; };
+  const w = window.open('', '_blank');
+  if (!w) { X.toast('הדפדפן חסם חלון חדש — אפשר חלונות קופצים לאתר הזה.', 'err'); return; }
+  const lh = letterhead(X.KEY); const logo = X.st.logo || X.st.mosad?.logo || '';
+  const title = `פנימייה — ${D.zman}`; const sub = heDate(todayIso());
+  const bedP = (x) => { const c = doc.beds[x.id]; return `<div class="pb" style="right:${100 - x.x - x.w}%;top:${x.y}%;width:${x.w}%;height:${x.h}%"><span>${c ? h(nameOf(c)) : ''}</span></div>`; };
   const lblP = (l) => `<div class="pl${l.svc ? ' svc' : ''}" style="left:${l.x}%;top:${l.y}%">${h(l.t)}</div>`;
-  const css = `<style>
-    .pw { display: flex; gap: 5mm; align-items: flex-start; }
-    .pm { position: relative; height: 205mm; aspect-ratio: ${b?.ar || 0.5}; flex: none; }
+  const sheet = (t, inner) => `<section class="sh"><div class="top">${lh ? `<img src="${lh.top}" alt="">` : logo ? `<img src="${logo}" alt="" style="height:22mm">` : ''}</div>
+    <div class="ttl"><h1>${h(t)}</h1><div class="sub">${h(sub)}</div></div><div class="mid">${inner}</div><div class="bot">${lh ? `<img src="${lh.bottom}" alt="">` : ''}</div></section>`;
+  const map = `<div class="pm">${img ? `<img src="${img}" alt="">` : ''}${(b?.labels || []).map(lblP).join('')}${(b?.beds || []).map(bedP).join('')}</div>`;
+  const apt = (a) => `<div class="pa"><b>${h(a.name)} <small>(${(a.ids || []).filter(Boolean).length}/${a.beds})</small></b>${Array.from({ length: Math.max(Number(a.beds) || 0, (a.ids || []).length) }, (_, i) => `<div>${a.ids?.[i] ? h(nameOf(a.ids[i])) : '&nbsp;'}</div>`).join('')}</div>`;
+  const page2 = `${doc.apts.length ? `<h3>🏠 דירות</h3><div class="pas">${doc.apts.map(apt).join('')}</div>` : ''}
+    ${none.length ? `<h3>לא משובצים (${none.length})</h3><div class="pn">${none.map((id) => `<div>${h(nameOf(id))}</div>`).join('')}</div>` : ''}`;
+  w.document.write(`<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>${h(title)}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+    @page { size: A4 portrait; margin: 8mm; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; }
+    body { font-family: 'Heebo', Arial, sans-serif; margin: 0; color: #1d1a14; background: #eee; }
+    .bar { padding: 8px; background: #f6f1e4; border-bottom: 1px solid #e2d6b8; display: flex; gap: 10px; justify-content: center; font-size: 14px; }
+    .bar button { font: inherit; padding: 5px 14px; border-radius: 8px; border: 1px solid #b89a5a; background: #fff; cursor: pointer; }
+    .bar button.pr { background: #7a2020; color: #fff; border-color: #7a2020; }
+    .sh { width: 194mm; height: 280mm; margin: 6mm auto; background: #fff; display: flex; flex-direction: column; overflow: hidden; break-after: page; }
+    .sh:last-child { break-after: auto; }
+    .top { text-align: center; } .top img { max-width: 100%; max-height: 31mm; }
+    .ttl { text-align: center; margin: 1mm 0 3mm; padding-bottom: 1.5mm; border-bottom: 2px solid #b8913c; }
+    .ttl h1 { font-family: 'Frank Ruhl Libre', serif; font-size: 22px; margin: 0; font-weight: 900; color: #2a2560; }
+    .ttl .sub { font-size: 12px; color: #6b6150; }
+    .mid { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: stretch; }
+    .bot img { width: 100%; display: block; }
+    .pm { position: relative; height: 100%; aspect-ratio: ${b?.ar || 0.5}; margin: 0 auto; }
     .pm img { position: absolute; inset: 0; width: 100%; height: 100%; }
     .pb { position: absolute; border: 1px solid #8a7444; border-radius: 3px; background: #fff; display: flex; align-items: center; justify-content: center; text-align: center; overflow: hidden; }
-    .pb span { font-size: 7.6pt; line-height: 1.05; padding: 0 1px; font-weight: 500; }
-    .pl { position: absolute; transform: translate(-50%, -50%); font-size: 7.5pt; font-weight: 700; color: #2a2560; text-align: center; white-space: nowrap; }
+    .pb span { font-size: 8pt; line-height: 1.05; padding: 0 1px; font-weight: 500; }
+    .pl { position: absolute; transform: translate(-50%, -50%); font-size: 8pt; font-weight: 700; color: #2a2560; text-align: center; white-space: nowrap; }
     .pl.svc { color: #555; font-weight: 500; white-space: normal; max-width: 30mm; }
-    .ps { flex: 1; font-size: 9.5pt; }
-    .ps h3 { font-family: 'Frank Ruhl Libre', serif; font-size: 12pt; margin: 0 0 1.5mm; border-bottom: 1.5px solid #b8913c; }
-    .pa { border: 1px solid #c9bfa8; border-radius: 4px; margin-bottom: 2.5mm; break-inside: avoid; }
-    .pa b { display: block; background: #f1ead8; padding: 1px 4px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .pa div { padding: 0.5px 4px; border-top: 1px solid #eee; min-height: 3.6mm; }
-    .pn { columns: 1; }
-    @media print { .pb, .pm img { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }</style>`;
-  const apts = doc.apts.map((a) => `<div class="pa"><b>${h(a.name)} (${(a.ids || []).filter(Boolean).length}/${a.beds})</b>${Array.from({ length: Math.max(Number(a.beds) || 0, (a.ids || []).length) }, (_, i) => `<div>${a.ids?.[i] ? h(nameOf(a.ids[i])) : '&nbsp;'}</div>`).join('')}</div>`).join('');
-  const body = `${css}<div class="pw"><div class="pm">${img ? `<img src="${img}" alt="">` : ''}${(b?.labels || []).map(lblP).join('')}${(b?.beds || []).map(bedP).join('')}</div>
-    <div class="ps">${apts ? `<h3>🏠 דירות</h3>${apts}` : ''}${none.length ? `<h3>לא משובצים (${none.length})</h3><div class="pn">${none.map((id) => `<div>${h(nameOf(id))}</div>`).join('')}</div>` : ''}</div></div>`;
-  X.printWin(`פנימייה — ${D.zman}`, h(heDate(todayIso())), body);
+    h3 { font-family: 'Frank Ruhl Libre', serif; font-size: 14pt; margin: 2mm 0 2mm; border-bottom: 1.5px solid #b8913c; }
+    .pas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; align-items: start; font-size: 10pt; }
+    .pa { border: 1px solid #c9bfa8; border-radius: 4px; }
+    .pa b { display: block; background: #f1ead8; padding: 1px 5px; }
+    .pa div { padding: 1px 5px; border-top: 1px solid #eee; min-height: 5mm; }
+    .pn { columns: 3; font-size: 10pt; } .pn div { padding: 0.5mm 0; break-inside: avoid; }
+    @media print { body { background: #fff; } .bar { display: none; } .sh { margin: 0; } }
+    </style></head><body>
+    <div class="bar"><button class="pr" onclick="window.print()">🖨 הדפסה / PDF</button><button onclick="window.close()">סגירה</button></div>
+    ${sheet(title, map)}${page2.trim() ? sheet(`${title} — דירות`, page2) : ''}</body></html>`);
+  w.document.close();
 }
