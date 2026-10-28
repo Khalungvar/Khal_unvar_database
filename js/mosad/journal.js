@@ -62,7 +62,7 @@ const PRINT_CSS = `
   /* 📏 כווץ לעמוד A4 אחד */
   body.fit .page { padding: 0; margin: 0 auto; box-sizing: border-box; font-size: var(--fz); }
   body.fit table { font-size: var(--fz); }
-  body.fit th, body.fit td { padding: 1px var(--pad); height: auto; }
+  body.fit th, body.fit td { padding: var(--padv) var(--pad); height: auto; line-height: var(--lnh, 1.15); }
   body.fit td.n, body.fit th.n { font-size: calc(var(--fz) * .85); width: auto; }
   body.fit .lh img { max-height: var(--lhh); }
   body.fit .hd img { height: calc(var(--lhh) * .5); }
@@ -90,15 +90,15 @@ function printDoc(w, title, inner, { landscape = false, bar = '', script = '' } 
 function fitScript(landscape) {
   return `<script>(function () {
     const cb = document.getElementById('fit1'); const pg = document.querySelector('.page'); const R = document.documentElement.style;
-    const MM = 96 / 25.4; const H = ${landscape ? 192 : 279} * MM - 2; const W = ${landscape ? 279 : 192} * MM;
+    const MM = 96 / 25.4; const H = (${landscape ? 192 : 279} - 8) * MM; const W = ${landscape ? 279 : 192} * MM;
     function apply() {
       document.body.classList.toggle('fit', cb.checked);
       const note = document.getElementById('fitn');
-      if (!cb.checked) { ['--fz', '--lhh', '--pad'].forEach((k) => R.removeProperty(k)); pg.style.width = ''; note.textContent = ''; return; }
+      if (!cb.checked) { ['--fz', '--lhh', '--pad', '--padv', '--lnh'].forEach((k) => R.removeProperty(k)); pg.style.width = ''; note.textContent = ''; return; }
       pg.style.width = W + 'px';
       let fz = 9.5;
       for (let i = 0; i < 40; i += 1) {
-        R.setProperty('--fz', fz + 'pt'); R.setProperty('--lhh', Math.max(10, 30 * fz / 9.5) + 'mm'); R.setProperty('--pad', (fz >= 8 ? 4 : fz >= 6.5 ? 2 : 1) + 'px');
+        R.setProperty('--fz', fz + 'pt'); R.setProperty('--lhh', Math.max(12, 30 * (fz - 3.5) / 6) + 'mm'); R.setProperty('--lnh', fz < 7 ? '1.05' : '1.15'); R.setProperty('--pad', (fz >= 8 ? 4 : fz >= 6.5 ? 2 : 1) + 'px'); R.setProperty('--padv', (fz >= 8 ? 1 : 0) + 'px');
         if ((pg.scrollHeight <= H && pg.scrollWidth <= W + 1) || fz <= 5.5) break;
         fz = Math.max(5.5, Math.round((fz - 0.25) * 100) / 100);
       }
