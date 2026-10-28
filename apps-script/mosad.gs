@@ -179,6 +179,7 @@ function doPost(e) {
   try {
     const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (req.action === 'brand') return out(brandOf(req.mosad)); // פארן לאגאין: נאר נאמען + לאגא
+    if (PUBLIC[req.action]) { const PM = mosadOf(req.mosad); if (!PM) return out({ error: 'no-mosad' }); return out(PUBLIC[req.action](PM, req)); } // דער טופס רישום (אן לאגאין)
     const email = whoIs(req.token);
     if (!email) return out({ error: 'not-signed-in' });
     if (req.action === 'touch') return out(touchAll()); // דער הויפט-אתר האט געשריבן — פריש לאדן
@@ -1687,7 +1688,7 @@ function settingsOf(M) {
     if (k === 'sedarim' || k === 'exp_cats' || k === 'inc_cats') { try { const v = JSON.parse(S(x.value)); if (v && v.length) o[k] = v; } catch (err) { /* */ } }
     else if (k === 'rooms') { try { const v = JSON.parse(S(x.value)); if (Array.isArray(v)) o.rooms = v; } catch (err) { /* */ } }
     else if (k === 'dorm_bld') { try { const v = JSON.parse(S(x.value)); if (Array.isArray(v)) o.dorm_bld = v; } catch (err) { /* */ } }
-    else if (k && k.indexOf('dormimg:') !== 0) o[k] = S(x.value);
+    else if (k && k.indexOf('dormimg:') !== 0 && k !== 'reg' && k.indexOf('reg_txt:') !== 0) o[k] = S(x.value);
   });
   return o;
 }
@@ -1974,3 +1975,334 @@ function yeshivaTagsFix() {
   const r = syncYeshivaTags(M, null, M.owners[0] || 'owner');
   Logger.log('changed: ' + r.changed + ', ⚠ removed: ' + r.ok);
 }
+
+// =====================================================================================
+// 📝 רישום לישיבה: מועמדים (Applicants), היסטאריע (AppLog), א טופס פארן עולם (pub*), און א אזור אישי פאר די עלטערן.
+// א מועמד איז נישט קיין "מענטש" אינעם מאגר — ביז מ'לייגט אים אריבער ("העבר לתלמידים", נאך "נתקבל").
+// =====================================================================================
+TABS.Applicants = ['app_id', 'token', 'created_at', 'period', 'status', 'lang', 'first_name', 'last_name', 'birth_date', 'birth_heb', 'home_phone',
+  'engaged', 'wedding_date', 'wedding_heb', 'father_name', 'mother_family', 'father_phone', 'mother_phone', 'email', 'community', 'address', 'city', 'state', 'zip', 'country',
+  'yeshiva_ketana', 'yeshiva_gedola', 'yeshiva_other', 'staff1_name', 'staff1_phone', 'staff2_name', 'staff2_phone', 'staff3_name', 'staff3_phone', 'notes',
+  'under_age_ack', 'consents_at', 'consents_ver', 'photo_file', 'passport_file', 'birth_file', 'photo_state', 'passport_state', 'birth_state',
+  'pay_reg', 'pay_visa', 'portal_edit', 'folder_id', 'contact_id', 'parent_id', 'enroll_id', 'transferred_at', 'test', 'updated_at', 'updated_by'];
+TABS.AppLog = ['at', 'app_id', 'by', 'kind', 'from_status', 'to_status', 'subject', 'text', 'parent_visible', 'email_state'];
+PERMS.push('reg', 'reg_docs');
+PPL_ACTS.regTransfer = 1; NAMES_ACTS.regTransfer = 1; READS.regList = 1; READS.regFile = 1; BIG.token = true;
+
+const APP_EDIT = ['first_name', 'last_name', 'birth_date', 'birth_heb', 'home_phone', 'engaged', 'wedding_date', 'wedding_heb', 'father_name', 'mother_family', 'father_phone',
+  'mother_phone', 'email', 'community', 'address', 'city', 'state', 'zip', 'country', 'yeshiva_ketana', 'yeshiva_gedola', 'yeshiva_other',
+  'staff1_name', 'staff1_phone', 'staff2_name', 'staff2_phone', 'staff3_name', 'staff3_phone', 'notes'];
+const APP_DOCS = { photo: 'תמונה', passport: 'דרכון', birth: 'תעודת לידה' };
+const REG_REQUIRED = ['first_name', 'last_name', 'birth_date', 'home_phone', 'engaged', 'father_name', 'mother_family', 'father_phone', 'mother_phone', 'email', 'community', 'address', 'city', 'country', 'yeshiva_ketana', 'yeshiva_gedola'];
+const OUTBOX_NAME = 'Beis Sheurim Outbox';
+
+function regConf(M) {
+  const o = {};
+  objs(M.book.getSheetByName('Settings')).forEach(function (x) {
+    const k = S(x.key);
+    if (k === 'reg' || k.indexOf('reg_txt:') === 0) { try { o[k] = JSON.parse(S(x.value)); } catch (err) { /* */ } }
+  });
+  return { conf: o.reg || null, texts: { he: o['reg_txt:he'] || null, yi: o['reg_txt:yi'] || null, en: o['reg_txt:en'] || null } };
+}
+/** צו וועלכן זמן גייט א נייע בקשה */
+function regPeriod(conf) {
+  if (!conf) return '';
+  return conf.period_open === false ? S(conf.period_next) || S(conf.period) : S(conf.period);
+}
+function appRows(M) { return objs(M.book.getSheetByName('Applicants')).filter(function (a) { return S(a.app_id); }); }
+function appView(a, docs) {
+  const o = {};
+  TABS.Applicants.forEach(function (k) { o[k] = S(a[k]); });
+  if (!docs) { o.passport_file = o.passport_file ? '1' : ''; o.birth_file = o.birth_file ? '1' : ''; }
+  return o;
+}
+function appFolder(M, a) {
+  if (S(a.folder_id)) { try { return DriveApp.getFolderById(S(a.folder_id)); } catch (err) { /* */ } }
+  const f = folderPath(['מוסדות אונגוואר', S(M.name) || M.key, 'רישום']).createFolder(S(a.app_id) + ' ' + S(a.first_name) + ' ' + S(a.last_name));
+  return f;
+}
+/** א טעקע (data:…;base64) → דרייב. kind: photo / passport / birth */
+function appSaveFile(M, a, kind, data) {
+  if (!APP_DOCS[kind]) throw new Error('bad-kind');
+  const m = S(data).match(/^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,(.+)$/);
+  if (!m) throw new Error('bad-file');
+  if (m[2].length > (kind === 'photo' ? 2000000 : 5600000)) throw new Error('file-big');
+  const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' }[m[1]];
+  const folder = appFolder(M, a);
+  const file = folder.createFile(Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], APP_DOCS[kind] + '.' + ext));
+  const old = S(a[kind + '_file']);
+  if (old) { try { DriveApp.getFileById(old).setTrashed(true); } catch (err) { /* */ } }
+  return { file: file.getId(), folder: folder.getId() };
+}
+function appLog(M, o) {
+  const sh = M.book.getSheetByName('AppLog');
+  const head = headOf(sh);
+  sh.appendRow(head.map(function (h) { return o[h] === undefined ? '' : o[h]; }));
+}
+function appLink(a) { return 'https://ungvar.org/yeshiva/register/?t=' + S(a.token); }
+
+// ---------- מיילים: דורך "Beis Sheurim Outbox" (א גיליון וואס דער סקריפט אינעם חשבון פון דער ישיבה שיקט) ----------
+function outboxSheet() {
+  const props = PropertiesService.getScriptProperties();
+  let id = props.getProperty('outbox_id');
+  if (id) { try { return SpreadsheetApp.openById(id).getSheetByName('outbox'); } catch (err) { props.deleteProperty('outbox_id'); } }
+  const it = DriveApp.searchFiles('title = "' + OUTBOX_NAME + '" and trashed = false');
+  while (it.hasNext()) {
+    const f = it.next();
+    try { const ss = SpreadsheetApp.openById(f.getId()); const sh = ss.getSheetByName('outbox'); if (sh) { props.setProperty('outbox_id', f.getId()); return sh; } } catch (err) { /* */ }
+  }
+  return null;
+}
+/** 'queued' / 'no-mailer' / 'no-email' */
+function mailQueue(to, subject, text, html) {
+  to = S(to);
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return 'no-email';
+  const sh = outboxSheet();
+  if (!sh) return 'no-mailer';
+  sh.appendRow([Utilities.getUuid(), new Date(), to, S(subject).slice(0, 200), S(html), S(text), '', 'pending', '', '']);
+  return 'queued';
+}
+const htmlOf = function (t, rtl) {
+  return '<div dir="' + (rtl ? 'rtl' : 'ltr') + '" style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6">' + S(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>')
+    .replace(/(https:\/\/ungvar\.org\/yeshiva\/register\/\?t=[a-f0-9]+)/g, '<a href="$1">$1</a>') + '</div>';
+};
+function mailApp(a, subject, text) {
+  const rtl = S(a.lang) !== 'en';
+  const body = S(text).replace(/\{name\}/g, S(a.first_name) + ' ' + S(a.last_name)).replace(/\{link\}/g, appLink(a)).replace(/\{id\}/g, S(a.app_id));
+  const subj = S(subject).replace(/\{name\}/g, S(a.first_name) + ' ' + S(a.last_name)).replace(/\{id\}/g, S(a.app_id));
+  return mailQueue(a.email, subj, body, htmlOf(body, rtl));
+}
+const REG_MAIL_DEFAULT = {
+  he: ['ישיבת בית שערים — טופס ההרשמה התקבל (#{id})', 'שלום,\n\nטופס ההרשמה של {name} התקבל בהצלחה (מספר פנייה {id}).\nהנהלת הישיבה תעבור על הפרטים ותעדכן אתכם בהמשך התהליך. קבלת הטופס אינה מהווה אישור קבלה לישיבה.\n\nלמעקב אחר מצב ההרשמה ולהשלמת מסמכים:\n{link}\n\nבברכה,\nהנהלת ישיבת בית שערים'],
+  yi: ['ישיבת בית שערים — די אפליקאציע איז אנגעקומען (#{id})', 'שלום,\n\nדי אפליקאציע פון {name} איז אנגעקומען (נומער {id}).\nהנהלת הישיבה וועט דורכקוקן די פרטים און אייך לאזן וויסן. דאס איז נאך נישט קיין אננעמען אין ישיבה.\n\nצו זען וואו די אפליקאציע האלט און צולייגן דאקומענטן:\n{link}\n\nבברכה,\nהנהלת ישיבת בית שערים'],
+  en: ['Yeshiva Beis Sheurim — application received (#{id})', 'Hello,\n\nThe application for {name} was received (reference #{id}).\nThe Yeshiva will review it and update you. Receiving the form is not an acceptance to the Yeshiva.\n\nTo follow the application and upload documents:\n{link}\n\nRegards,\nYeshiva Beis Sheurim'],
+};
+
+// ---------- פארן עולם (אן לאגאין) ----------
+const PUBLIC = {
+  pubRegInfo: function (M) {
+    const c = regConf(M);
+    const conf = c.conf || {};
+    return { on: conf.form_on === true, period: regPeriod(conf), conf: c.conf, texts: c.texts, name: M.name };
+  },
+  pubRegSubmit: function (M, req) {
+    const c = regConf(M);
+    const conf = c.conf || {};
+    if (conf.form_on !== true) throw new Error('reg-closed');
+    if (S(req.website)) return { ok: true, app_id: '0' }; // א "הוניג-טאפ" פאר ראבאטן
+    const cache = CacheService.getScriptCache();
+    const n = Number(cache.get('regsub:' + M.key) || 0);
+    if (n > 40) throw new Error('too-many');
+    cache.put('regsub:' + M.key, String(n + 1), 3600);
+    const d = req.data || {};
+    const miss = REG_REQUIRED.filter(function (k) { return !S(d[k]); });
+    if (miss.length) throw new Error('missing:' + miss.join(','));
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(S(d.email))) throw new Error('bad-email');
+    if (S(d.engaged) === 'yes' && !S(d.wedding_date)) throw new Error('missing:wedding_date');
+    const staffN = [1, 2, 3].filter(function (i) { return S(d['staff' + i + '_name']) && S(d['staff' + i + '_phone']); }).length;
+    if (staffN < 2) throw new Error('need-staff');
+    if (!req.consents) throw new Error('need-consents');
+    const files = req.files || {};
+    if (!S(files.photo)) throw new Error('need-photo');
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    let a;
+    try {
+      const sh = M.book.getSheetByName('Applicants');
+      let mx = 1000; appRows(M).forEach(function (x) { const v = Number(x.app_id); if (isFinite(v) && v > mx) mx = v; });
+      a = { app_id: mx + 1, token: (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, ''), created_at: now(), period: regPeriod(conf), status: 'received',
+        lang: ['he', 'yi', 'en'].indexOf(S(req.lang)) >= 0 ? S(req.lang) : 'he', consents_at: now(), consents_ver: S(req.consents).slice(0, 60), test: req.test ? 'TRUE' : '',
+        under_age_ack: d.under_age_ack ? 'TRUE' : '', pay_reg: '', updated_at: now(), updated_by: 'form' };
+      APP_EDIT.forEach(function (k) { if (k in d) a[k] = S(d[k]).slice(0, k === 'notes' ? 3000 : 300); });
+      ['home_phone', 'father_phone', 'mother_phone', 'staff1_phone', 'staff2_phone', 'staff3_phone'].forEach(function (k) { if (a[k]) a[k] = "'" + a[k]; });
+      appendObj(sh, a);
+    } finally { lock.releaseLock(); }
+    // טעקעס
+    const sh2 = M.book.getSheetByName('Applicants');
+    const row = appRows(M).filter(function (x) { return S(x.app_id) === S(a.app_id); })[0];
+    const set = {};
+    ['photo', 'passport', 'birth'].forEach(function (k) {
+      if (!S(files[k])) return;
+      const r = appSaveFile(M, row, k, files[k]);
+      set[k + '_file'] = r.file; set[k + '_state'] = 'pending'; set.folder_id = r.folder; row.folder_id = r.folder;
+    });
+    if (Object.keys(set).length) setCells(sh2, row._row, set);
+    const lang = a.lang;
+    const tm = (conf.mail_received && conf.mail_received[lang]) || null;
+    const subj = tm ? tm.subject : REG_MAIL_DEFAULT[lang][0];
+    const body = tm ? tm.body : REG_MAIL_DEFAULT[lang][1];
+    const st = mailApp(a, subj, body);
+    appLog(M, { at: now(), app_id: a.app_id, by: 'form', kind: 'submit', to_status: 'received', subject: subj, text: '', parent_visible: '', email_state: st });
+    return { ok: true, app_id: String(a.app_id), token: a.token };
+  },
+  pubPortal: function (M, req) {
+    const a = appByToken(M, req.t);
+    const c = regConf(M);
+    const log = objs(M.book.getSheetByName('AppLog')).filter(function (l) { return S(l.app_id) === S(a.app_id) && S(l.parent_visible) === 'TRUE'; })
+      .map(function (l) { return { at: S(l.at), kind: S(l.kind), subject: S(l.subject), text: S(l.text), status: S(l.to_status) }; });
+    const v = {};
+    ['app_id', 'created_at', 'period', 'status', 'lang', 'first_name', 'last_name', 'photo_state', 'passport_state', 'birth_state', 'portal_edit'].forEach(function (k) { v[k] = S(a[k]); });
+    if (S(a.portal_edit) === 'TRUE') APP_EDIT.forEach(function (k) { v[k] = S(a[k]).replace(/^'/, ''); });
+    return { app: v, log: log, conf: c.conf, texts: c.texts };
+  },
+  pubPortalUpload: function (M, req) {
+    const a = appByToken(M, req.t);
+    const kind = S(req.kind);
+    if (!APP_DOCS[kind]) throw new Error('bad-kind');
+    if (S(a[kind + '_state']) === 'ok') throw new Error('already-ok');
+    const r = appSaveFile(M, a, kind, req.data);
+    const sh = M.book.getSheetByName('Applicants');
+    const o = { folder_id: r.folder, updated_at: now(), updated_by: 'parent' }; o[kind + '_file'] = r.file; o[kind + '_state'] = 'pending';
+    setCells(sh, a._row, o);
+    appLog(M, { at: now(), app_id: a.app_id, by: 'parent', kind: 'upload', text: APP_DOCS[kind], parent_visible: '' });
+    return { ok: true };
+  },
+  pubPortalEdit: function (M, req) {
+    const a = appByToken(M, req.t);
+    if (S(a.portal_edit) !== 'TRUE') throw new Error('no-edit');
+    const d = req.data || {};
+    const o = {};
+    APP_EDIT.forEach(function (k) { if (k in d) o[k] = S(d[k]).slice(0, k === 'notes' ? 3000 : 300); });
+    o.updated_at = now(); o.updated_by = 'parent';
+    setCells(M.book.getSheetByName('Applicants'), a._row, o);
+    appLog(M, { at: now(), app_id: a.app_id, by: 'parent', kind: 'edit', text: Object.keys(o).filter(function (k) { return APP_EDIT.indexOf(k) >= 0; }).join(','), parent_visible: '' });
+    return { ok: true };
+  },
+};
+function appByToken(M, t) {
+  t = S(t);
+  if (t.length < 40) throw new Error('bad-link');
+  const a = appRows(M).filter(function (x) { return S(x.token) === t; })[0];
+  if (!a) throw new Error('bad-link');
+  return a;
+}
+
+// ---------- פאר דער הנהלה ----------
+const REG_ACTIONS = {
+  regList: function (M, me) {
+    need(me, 'reg');
+    const docs = isAdminRole(me) || me.perms.indexOf('reg_docs') >= 0;
+    const c = regConf(M);
+    const log = objs(M.book.getSheetByName('AppLog')).filter(function (l) { return S(l.app_id); }).map(function (l) { const o = {}; TABS.AppLog.forEach(function (k) { o[k] = S(l[k]); }); return o; });
+    return { apps: appRows(M).map(function (a) { return appView(a, docs); }), log: log, conf: c.conf, texts: c.texts, docs: docs, mailer: !!outboxSheet() };
+  },
+  regSettings: function (M, me, req) {
+    need(me, 'reg');
+    if (req.conf) { const v = JSON.stringify(req.conf); if (v.length > 45000) throw new Error('גדול מדי'); putSetting(M, me, 'reg', v); }
+    if (req.texts) ['he', 'yi', 'en'].forEach(function (l) { if (req.texts[l]) { const v = JSON.stringify(req.texts[l]); if (v.length > 45000) throw new Error('גדול מדי'); putSetting(M, me, 'reg_txt:' + l, v); } });
+    logIt(M, me, 'regSettings', '', '');
+    const c = regConf(M);
+    return { ok: true, conf: c.conf, texts: c.texts };
+  },
+  regEdit: function (M, me, req) {
+    need(me, 'reg');
+    const a = appRows(M).filter(function (x) { return S(x.app_id) === S(req.app_id); })[0];
+    if (!a) throw new Error('not-found');
+    const d = req.data || {};
+    const o = {};
+    APP_EDIT.concat(['period', 'portal_edit', 'pay_reg', 'pay_visa']).forEach(function (k) { if (k in d) o[k] = S(d[k]).slice(0, 3000); });
+    ['home_phone', 'father_phone', 'mother_phone', 'staff1_phone', 'staff2_phone', 'staff3_phone'].forEach(function (k) { if (o[k]) o[k] = "'" + o[k]; });
+    o.updated_at = now(); o.updated_by = me.email;
+    setCells(M.book.getSheetByName('Applicants'), a._row, o);
+    if ('period' in o && S(o.period) !== S(a.period)) appLog(M, { at: now(), app_id: a.app_id, by: me.email, kind: 'period', from_status: S(a.period), to_status: o.period });
+    return { ok: true };
+  },
+  /** א סטאטוס, מיט (נישט מוז) א מעלדונג פאר די עלטערן; send = אויך אין אימעיל */
+  regStatus: function (M, me, req) {
+    need(me, 'reg');
+    const a = appRows(M).filter(function (x) { return S(x.app_id) === S(req.app_id); })[0];
+    if (!a) throw new Error('not-found');
+    const st = S(req.status).slice(0, 40);
+    if (!st) throw new Error('bad-status');
+    setCells(M.book.getSheetByName('Applicants'), a._row, { status: st, updated_at: now(), updated_by: me.email });
+    const n = req.notify || {};
+    const vis = !!S(n.text);
+    const es = vis && n.send ? mailApp(a, n.subject, n.email || n.text) : '';
+    appLog(M, { at: now(), app_id: a.app_id, by: me.email, kind: 'status', from_status: S(a.status), to_status: st, subject: S(n.subject).slice(0, 200), text: S(n.text).slice(0, 5000), parent_visible: vis ? 'TRUE' : '', email_state: es });
+    return { ok: true, email_state: es };
+  },
+  regMsg: function (M, me, req) {
+    need(me, 'reg');
+    const a = appRows(M).filter(function (x) { return S(x.app_id) === S(req.app_id); })[0];
+    if (!a) throw new Error('not-found');
+    const note = !!req.note;
+    const es = !note && req.send ? mailApp(a, req.subject, req.email || req.text) : '';
+    appLog(M, { at: now(), app_id: a.app_id, by: me.email, kind: note ? 'note' : 'msg', subject: S(req.subject).slice(0, 200), text: S(req.text).slice(0, 5000), parent_visible: note ? '' : 'TRUE', email_state: es });
+    return { ok: true, email_state: es };
+  },
+  regDoc: function (M, me, req) {
+    need(me, 'reg');
+    const a = appRows(M).filter(function (x) { return S(x.app_id) === S(req.app_id); })[0];
+    if (!a) throw new Error('not-found');
+    const kind = S(req.kind);
+    if (!APP_DOCS[kind]) throw new Error('bad-kind');
+    const o = { updated_at: now(), updated_by: me.email };
+    if (req.data) {
+      if (kind !== 'photo' && !isAdminRole(me) && me.perms.indexOf('reg_docs') < 0) throw new Error('no-permission');
+      const r = appSaveFile(M, a, kind, req.data); o[kind + '_file'] = r.file; o.folder_id = r.folder; o[kind + '_state'] = S(req.state) || 'ok';
+    } else o[kind + '_state'] = S(req.state);
+    setCells(M.book.getSheetByName('Applicants'), a._row, o);
+    appLog(M, { at: now(), app_id: a.app_id, by: me.email, kind: 'doc', subject: APP_DOCS[kind], text: o[kind + '_state'] });
+    return { ok: true };
+  },
+  regFile: function (M, me, req) {
+    need(me, 'reg');
+    const kind = S(req.kind);
+    if (kind !== 'photo' && !isAdminRole(me) && me.perms.indexOf('reg_docs') < 0) throw new Error('no-permission');
+    const ids = [].concat(req.app_ids || [req.app_id]).map(S).slice(0, 25);
+    const out5 = {};
+    appRows(M).forEach(function (a) {
+      if (ids.indexOf(S(a.app_id)) < 0 || !S(a[kind + '_file'])) return;
+      try { const b = DriveApp.getFileById(S(a[kind + '_file'])).getBlob(); out5[S(a.app_id)] = 'data:' + b.getContentType() + ';base64,' + Utilities.base64Encode(b.getBytes()); } catch (err) { /* */ }
+    });
+    return { files: out5 };
+  },
+  regDelete: function (M, me, req) {
+    if (!isAdminRole(me)) throw new Error('no-permission');
+    const a = appRows(M).filter(function (x) { return S(x.app_id) === S(req.app_id); })[0];
+    if (!a) throw new Error('not-found');
+    if (S(a.contact_id)) throw new Error('transferred');
+    if (S(a.folder_id)) { try { DriveApp.getFolderById(S(a.folder_id)).setTrashed(true); } catch (err) { /* */ } }
+    delRow(M.book.getSheetByName('Applicants'), a._row);
+    appLog(M, { at: now(), app_id: a.app_id, by: me.email, kind: 'delete', text: S(a.first_name) + ' ' + S(a.last_name) });
+    return { ok: true };
+  },
+  /** "העבר לתלמידים": dry = נאר זוכן ווער ס'איז שוין דא אינעם מאגר */
+  regTransfer: function (M, me, req) {
+    need(me, 'reg'); need(me, 'people_edit');
+    const a = appRows(M).filter(function (x) { return S(x.app_id) === S(req.app_id); })[0];
+    if (!a) throw new Error('not-found');
+    if (S(a.contact_id)) throw new Error('already-transferred');
+    const nameQ = function (q) { return q ? ACTIONS.find(M, me, { q: q }).found : []; };
+    const phoneQ = function (p) { const d = S(p).replace(/\D/g, ''); return d.length >= 7 ? ACTIONS.find(M, me, { q: '', phone: d }).found : []; };
+    if (req.dry) {
+      const uniq = function (list) { const seen = {}; return list.filter(function (x) { if (seen[x.contact_id]) return false; seen[x.contact_id] = true; return true; }); };
+      return { student: uniq(nameQ(S(a.first_name) + ' ' + S(a.last_name))),
+        parent: uniq(phoneQ(a.father_phone).concat(phoneQ(a.home_phone), phoneQ(a.mother_phone), nameQ(S(a.father_name) + ' ' + S(a.last_name)))) };
+    }
+    if (S(a.status) !== 'accepted' && S(a.status) !== 'tuition_ok') throw new Error('not-accepted');
+    const ph = function (v) { return S(v).replace(/^'/, ''); };
+    const addr = { address: S(a.address), city: S(a.city), state: S(a.state), zip: S(a.zip), country: S(a.country) };
+    // הורה
+    let pid = S(req.parent_id);
+    if (pid) ACTIONS.link(M, me, { contact_id: pid, kind: 'parent' });
+    else {
+      const c = { first_name_he: S(a.father_name), last_name_he: S(a.last_name) }; Object.keys(addr).forEach(function (k) { if (addr[k]) c[k] = addr[k]; });
+      pid = S(ACTIONS.save(M, me, { contact: c, phones: { mobile: ph(a.father_phone), home_phone: ph(a.home_phone), email_1: S(a.email) }, kind: 'parent' }).contact_id);
+    }
+    // דער בחור
+    let sid = S(req.student_id);
+    if (sid) { ACTIONS.link(M, me, { contact_id: sid, kind: 'student' }); ACTIONS.save(M, me, { contact_id: sid, contact: {}, phones: {}, rel: { type: 'זון פון', to: pid } }); }
+    else {
+      const c2 = { first_name_he: S(a.first_name), last_name_he: S(a.last_name) }; Object.keys(addr).forEach(function (k) { if (addr[k]) c2[k] = addr[k]; });
+      sid = S(ACTIONS.save(M, me, { contact: c2, phones: { home_phone: ph(a.home_phone) }, kind: 'student', rel: { type: 'זון פון', to: pid } }).contact_id);
+    }
+    const note = [S(a.community) && 'קהילה: ' + S(a.community), S(a.yeshiva_ketana) && 'ישיבה קטנה: ' + S(a.yeshiva_ketana), S(a.yeshiva_gedola) && 'לומד כיום: ' + S(a.yeshiva_gedola),
+      S(a.mother_family) && 'שם משפחת האם: ' + S(a.mother_family), ph(a.mother_phone) && 'טל׳ האם: ' + ph(a.mother_phone), 'רישום #' + S(a.app_id)].filter(Boolean).join(' · ');
+    const en = ACTIONS.enrollSave(M, me, { enroll: { contact_id: sid, parent_id: pid, zman: S(req.zman) || S(a.period), start_date: S(req.start_date), status: 'לומד', note: note } });
+    try { syncYeshivaTags(M, [sid, pid], me.email); } catch (err) { /* */ }
+    setCells(M.book.getSheetByName('Applicants'), a._row, { contact_id: sid, parent_id: pid, enroll_id: en.enroll_id, transferred_at: now(), updated_at: now(), updated_by: me.email });
+    appLog(M, { at: now(), app_id: a.app_id, by: me.email, kind: 'transfer', text: 'תלמיד #' + sid + ' · הורה #' + pid + ' · רישום ' + en.enroll_id });
+    return { ok: true, contact_id: sid, parent_id: pid, enroll_id: en.enroll_id };
+  },
+};
+Object.keys(REG_ACTIONS).forEach(function (k) { ACTIONS[k] = REG_ACTIONS[k]; });

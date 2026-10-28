@@ -1,11 +1,11 @@
 // אתר פון א מוסד — יומנים: 🤝 חברותות, ✅ השתתפות (מיט ⏱ כניסה/יציאה פון אברכים), 🏥 ביטוח בריאות, 📞 יומן מיט טעלעפאנען.
 // אלעס ווערט געדרוקט ווי די דפים פון דער ישיבה: צוויי זיילן מיט נומערירטע נעמען, "פרשת ...", טעג א–ה.
 // דער לוח (פרשיות) — לויט די הגדרות פונעם מוסד (ארץ ישראל / חוץ לארץ).
-import { downloadXlsx } from '../excel.js?v=499';
-import { todayIso, isoToHebrewText, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=499';
-import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=499';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=499';
-import { letterhead, heShort } from './brand.js?v=499';
+import { downloadXlsx } from '../excel.js?v=500';
+import { todayIso, isoToHebrewText, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=500';
+import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=500';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=500';
+import { letterhead, heShort } from './brand.js?v=500';
 
 let X = null;
 export function initJournal(ctx) { X = ctx; }
@@ -58,7 +58,20 @@ const PRINT_CSS = `
   td.t, th.t { width: 44px; text-align: center; }
   .muted { color: #6b6150; font-size: 11px; }
   .foot { margin-top: 4mm; font-size: 10px; color: #8a7d62; text-align: left; }
-  @media print { .bar { display: none; } .page { padding: 0; } tbody tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; } th { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }`;
+  @media print { .bar { display: none; } .page { padding: 0; } tbody tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; } th { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  /* 📏 כווץ לעמוד A4 אחד */
+  body.fit .page { padding: 0; margin: 0 auto; box-sizing: border-box; font-size: var(--fz); }
+  body.fit table { font-size: var(--fz); }
+  body.fit th, body.fit td { padding: 1px var(--pad); height: auto; }
+  body.fit td.n, body.fit th.n { font-size: calc(var(--fz) * .85); width: auto; }
+  body.fit .lh img { max-height: var(--lhh); }
+  body.fit .hd img { height: calc(var(--lhh) * .5); }
+  body.fit .ttl { margin: 0 0 1.5mm; padding-bottom: 1mm; }
+  body.fit .ttl h1 { font-size: calc(var(--fz) * 2); }
+  body.fit .ttl .sub, body.fit .muted { font-size: calc(var(--fz) * .9); }
+  body.fit .foot { margin-top: 1mm; font-size: calc(var(--fz) * .8); }
+  body.fit .cols { gap: 3mm; }
+  @media print { body.fit .page { width: auto !important; } }`;
 function printHead(title, sub) {
   const lh = letterhead(X.KEY); const logo = X.st.logo || X.st.mosad?.logo || '';
   return `${lh ? `<div class="lh"><img src="${lh.top}" alt=""></div>` : logo ? `<div class="hd"><img src="${logo}" alt=""></div>` : ''}
@@ -69,9 +82,30 @@ function printDoc(w, title, inner, { landscape = false, bar = '', script = '' } 
     <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
     <style>:root { --orient: ${landscape ? 'landscape' : 'portrait'}; } ${PRINT_CSS.replace('var(--orient)', landscape ? 'landscape' : 'portrait')}</style></head><body>
-    <div class="bar"><button class="pr" onclick="window.print()">🖨 הדפסה</button>${bar}<button onclick="window.close()">סגירה</button></div>
-    <div class="page">${inner}<div class="foot">${X.h(isoToHebrewText(todayIso()))}</div></div>${script}</body></html>`);
+    <div class="bar"><button class="pr" onclick="window.print()">🖨 הדפסה</button>${bar}<label><input type="checkbox" id="fit1"> 📏 כווץ לעמוד A4 אחד</label><span id="fitn" class="muted"></span><button onclick="window.close()">סגירה</button></div>
+    <div class="page">${inner}<div class="foot">${X.h(isoToHebrewText(todayIso()))}</div></div>${script}${fitScript(landscape)}</body></html>`);
   w.document.close();
+}
+/** "כווץ לעמוד A4 אחד": מקטין את הבלאנק ואת האותיות (עד 5.5) עד שהכל נכנס; אם גם אז לא — ממשיך לעמוד שני */
+function fitScript(landscape) {
+  return `<script>(function () {
+    const cb = document.getElementById('fit1'); const pg = document.querySelector('.page'); const R = document.documentElement.style;
+    const MM = 96 / 25.4; const H = ${landscape ? 192 : 279} * MM - 2; const W = ${landscape ? 279 : 192} * MM;
+    function apply() {
+      document.body.classList.toggle('fit', cb.checked);
+      const note = document.getElementById('fitn');
+      if (!cb.checked) { ['--fz', '--lhh', '--pad'].forEach((k) => R.removeProperty(k)); pg.style.width = ''; note.textContent = ''; return; }
+      pg.style.width = W + 'px';
+      let fz = 9.5;
+      for (let i = 0; i < 40; i += 1) {
+        R.setProperty('--fz', fz + 'pt'); R.setProperty('--lhh', Math.max(10, 30 * fz / 9.5) + 'mm'); R.setProperty('--pad', (fz >= 8 ? 4 : fz >= 6.5 ? 2 : 1) + 'px');
+        if ((pg.scrollHeight <= H && pg.scrollWidth <= W + 1) || fz <= 5.5) break;
+        fz = Math.max(5.5, Math.round((fz - 0.25) * 100) / 100);
+      }
+      note.textContent = pg.scrollHeight <= H ? ' (' + fz + ')' : ' (גם בגודל 5.5 לא נכנס — ימשיך לעמוד שני)';
+    }
+    cb.onchange = apply; window.__refit = () => { if (cb.checked) apply(); };
+  })();<\/script>`;
 }
 /** א בלאט צום דרוקן (A4), מיטן בלאנק / לאגא און א קעפל */
 export function printWin(title, sub, body, { landscape = false } = {}) {
@@ -114,6 +148,7 @@ export function printList(title, sub, { cols, rows, head = null, landscape = fal
       const half = Math.ceil(list.length / 2);
       document.getElementById('pl').innerHTML = two && list.length > 1 ? '<div class="cols">' + tbl(list.slice(0, half), 0) + tbl(list.slice(half), half) + '</div>' : tbl(list, 0);
       document.getElementById('pc').textContent = list.length + ' / ' + D.rows.length;
+      if (window.__refit) window.__refit();
     }
     document.getElementById('pf').onchange = draw; document.getElementById('p2').onchange = draw; draw();
   <\/script>`;

@@ -59,14 +59,14 @@ function underCap(kind, cap) {
  * הצעות לכתובת: [{ prediction, text }].
  * מחזיר 'cap' כשהגענו לתקרה היומית, ו-'error' כשמשהו נכשל (הפרטים ב-placesError()).
  */
-export async function suggest(input) {
+export async function suggest(input, regions = ['us']) {
   if (!placesEnabled() || input.trim().length < 3) return [];
   if (!underCap('autocomplete', CONFIG.PLACES_DAILY_AUTOCOMPLETE)) return 'cap';
   try {
     const { AutocompleteSuggestion, AutocompleteSessionToken } = await lib();
     if (!sessionToken) sessionToken = new AutocompleteSessionToken();
     const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
-      input, sessionToken, includedRegionCodes: ['us'],
+      input, sessionToken, ...(regions && regions.length ? { includedRegionCodes: regions.slice(0, 15) } : {}),
     });
     return (suggestions || [])
       .map((s) => s.placePrediction)

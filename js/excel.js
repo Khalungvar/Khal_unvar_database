@@ -88,22 +88,33 @@ function cell(ref, v, style) {
  * מאכט א .xlsx און לאדט אים אראפ.
  * headers = ['נאמען', ...], rows = [[...], ...] (טעקסט / נומערן). numbers = אינדעקסן פון קאלומס מיט געלט.
  */
-export function downloadXlsx(filename, headers, rows, { sheet = 'Sheet1', rtl = true } = {}) {
+export function downloadXlsx(filename, headers, rows, { sheet = 'Sheet1', rtl = true, images = null } = {}) {
   const all = [headers, ...rows];
   const widths = headers.map((_, j) => Math.min(60, Math.max(8, ...all.map((r) => String(r[j] ?? '').length + 2))));
+  // בילדער (למשל א פאטא פון יעדן): images = { col, data: [{ bytes, w, h } | null] } — לויט די שורות
+  const pics = images ? images.data.map((p, i) => (p ? { ...p, row: i + 1 } : null)).filter(Boolean) : [];
+  const PH = 72; // הויך פון א בילד (פונקטן)
+  if (pics.length) widths[images.col] = Math.max(widths[images.col], Math.ceil(Math.max(...pics.map((p) => p.w * PH / p.h)) / 5.6) + 2);
+  const picRows = new Set(pics.map((p) => p.row));
   const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <sheetViews><sheetView workbookViewId="0"${rtl ? ' rightToLeft="1"' : ''}><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
 <cols>${widths.map((w, j) => `<col min="${j + 1}" max="${j + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>
-<sheetData>${all.map((r, i) => `<row r="${i + 1}">${r.map((v, j) => cell(`${colName(j)}${i + 1}`, v, i === 0 ? 1 : 0)).join('')}</row>`).join('')}</sheetData>
-<autoFilter ref="A1:${colName(Math.max(0, headers.length - 1))}${all.length}"/>
-</worksheet>`;
+<sheetData>${all.map((r, i) => `<row r="${i + 1}"${picRows.has(i) ? ` ht="${PH + 4}" customHeight="1"` : ''}>${r.map((v, j) => cell(`${colName(j)}${i + 1}`, v, i === 0 ? 1 : 0)).join('')}</row>`).join('')}</sheetData>
+<autoFilter ref="A1:${colName(Math.max(0, headers.length - 1))}${all.length}"/>${pics.length ? '<drawing r:id="rId1"/>' : ''}
+</worksheet>`.replace('<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">', `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"${pics.length ? ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"' : ''}>`);
+  const EMU = 12700; // א פונקט
+  const drawing = pics.length ? `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+${pics.map((p, k) => { const cy = PH * EMU; const cx = Math.round(p.w * PH / p.h) * EMU; return `<xdr:oneCellAnchor><xdr:from><xdr:col>${images.col}</xdr:col><xdr:colOff>19050</xdr:colOff><xdr:row>${p.row}</xdr:row><xdr:rowOff>19050</xdr:rowOff></xdr:from><xdr:ext cx="${cx}" cy="${cy}"/>
+<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${k + 2}" name="Picture ${k + 1}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId${k + 1}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`; }).join('\n')}
+</xdr:wsDr>` : '';
   const safeSheet = xml(String(sheet).replace(/[\\/?*[\]:]/g, ' ').slice(0, 31) || 'Sheet1');
   const files = [
     { name: '[Content_Types].xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-<Default Extension="xml" ContentType="application/xml"/>
+<Default Extension="xml" ContentType="application/xml"/>${pics.length ? '<Default Extension="jpeg" ContentType="image/jpeg"/><Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>' : ''}
 <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
 <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
 <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
@@ -134,6 +145,14 @@ export function downloadXlsx(filename, headers, rows, { sheet = 'Sheet1', rtl = 
 </styleSheet>` },
     { name: 'xl/worksheets/sheet1.xml', data: sheetXml },
   ];
+  if (pics.length) {
+    files.push({ name: 'xl/worksheets/_rels/sheet1.xml.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>` });
+    files.push({ name: 'xl/drawings/drawing1.xml', data: drawing });
+    files.push({ name: 'xl/drawings/_rels/drawing1.xml.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${pics.map((p, k) => `<Relationship Id="rId${k + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image${k + 1}.jpeg"/>`).join('')}</Relationships>` });
+    pics.forEach((p, k) => files.push({ name: `xl/media/image${k + 1}.jpeg`, data: p.bytes }));
+  }
   const blob = zip(files);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);

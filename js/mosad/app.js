@@ -1,14 +1,16 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { letterhead, hebrewDateHints } from './brand.js?v=499';
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=499';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=499';
-import { initGifts, renderGifts } from './gifts.js?v=499';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab } from './journal.js?v=499';
-import { initDorm, renderDorm } from './dorm.js?v=499';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=499';
-import { initTeam, renderTeam } from './team.js?v=499';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=499';
+import { letterhead, hebrewDateHints } from './brand.js?v=500';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=500';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=500';
+import { initGifts, renderGifts } from './gifts.js?v=500';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab } from './journal.js?v=500';
+import { initDorm, renderDorm } from './dorm.js?v=500';
+import { initReg, renderReg } from './reg.js?v=500';
+import { initSortTables } from '../sorttables.js?v=500';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=500';
+import { initTeam, renderTeam } from './team.js?v=500';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=500';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -64,8 +66,9 @@ const TILES = [
   { k: 'alumni', ic: '🚪', t: 'בוגרי הישיבה', sub: 'וההורים שלהם' },
   { k: 'parents', ic: '👪', t: 'הורי התלמידים', sub: 'תלמידי הישיבה ובוגרים' },
   { k: 'dorm', ic: '🛏', t: 'פנימייה', sub: 'חדרים ושיבוץ' },
+  { k: 'reg', ic: '📝', t: 'רישום לישיבה', sub: 'מועמדים וטופס הרשמה' },
 ];
-const PERM_NAMES = { ...Object.fromEntries(TILES.map((x) => [x.k, x.t])), people_edit: 'הוספה ועדכון אנשי קשר' };
+const PERM_NAMES = { ...Object.fromEntries(TILES.map((x) => [x.k, x.t])), people_edit: 'הוספה ועדכון אנשי קשר', reg_docs: 'רישום — צפייה בדרכון ובתעודת לידה' };
 
 const ROLE_NAMES = { owner: 'בעלים', admin: 'מנהל', staff: 'צוות' };
 const MARITAL = [['', '—'], ['בחור', 'בחור'], ['נשוי', 'נשוי'], ['גרוש', 'גרוש'], ['אלמן', 'אלמן']];
@@ -220,6 +223,7 @@ function render(fromPop) {
   else if (st.tab === 'staff_list') renderTeam(box);
   else if (st.tab === 'finance') renderFinance(box);
   else if (st.tab === 'dorm') renderDorm(box);
+  else if (st.tab === 'reg') renderReg(box);
   else if (st.tab === 'me') renderMe(box);
   else if (st.tab === 'log') renderLog(box);
   else renderSoon(box, view);
@@ -562,6 +566,8 @@ initMe(ctx);
 initTeam(ctx);
 initFinance(ctx);
 initDorm(ctx);
+initReg(ctx);
+initSortTables();
 (async () => {
   loginView();
   brand(KEY).then((b) => { if (b?.logo) { st.logo = b.logo; if (!st.me) { const im = $('.ms-logo'); if (im) im.src = b.logo; } } });
