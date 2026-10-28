@@ -209,7 +209,7 @@ fieldset { border: 1px solid #e8dcc4; border-radius: 10px; margin: 8px 0; }
 .dm-noimg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #999; }
 .dm-pb { position: absolute; border: 1.5px solid #b8a06a; border-radius: 4px; background: #fffdf8; display: flex; align-items: center; justify-content: center; text-align: center; overflow: hidden; container-type: size; }
 .dm-pb.full { background: #f6efdc; }
-.dm-pb .dm-chip { border: 0; background: none; padding: 0 2px; font-size: clamp(8px, 1.9cqw + 1.1cqh, 12.5px); line-height: 1.1; border-radius: 0; }
+.dm-pb .dm-chip { border: 0; background: none; padding: 0 2px; font-size: clamp(9px, 10cqw, 13px); line-height: 1.1; border-radius: 0; }
 .dm-pb.dm-drop { cursor: pointer; }
 .dm-pl { position: absolute; transform: translate(-50%, -50%); font-size: 12px; font-weight: 700; color: #2a2560; white-space: nowrap; pointer-events: none; text-align: center; }
 .dm-pl.svc { color: #555; font-weight: 500; white-space: normal; max-width: 34%; line-height: 1.15; }
