@@ -173,7 +173,7 @@ function dropCaches(M, ppl, names, don) {
   if (ks.length) unstore(M, ks);
 }
 // אקציעס וואס לייענען נאר; יעדע אנדערע (א שרייבונג) מעקט אויס דעם cache פון די מענטשן
-const READS = { batch: 1, me: 1, people: 1, find: 1, school: 1, whereIs: 1, gifts: 1, chav: 1, att: 1, hours: 1, ins: 1, team: 1, clock: 0, users: 1, tasks: 1, log: 1, history: 1, fin: 1, fileGet: 1, backups: 1, staff: 1 };
+const READS = { dormImg: 1, batch: 1, me: 1, people: 1, find: 1, school: 1, whereIs: 1, gifts: 1, chav: 1, att: 1, hours: 1, ins: 1, team: 1, clock: 0, users: 1, tasks: 1, log: 1, history: 1, fin: 1, fileGet: 1, backups: 1, staff: 1 };
 
 function doPost(e) {
   try {
@@ -963,20 +963,50 @@ const ACTIONS = {
     logIt(M, me, 'rooms', '', list.length + ' rooms');
     return { ok: true, settings: settingsOf(M) };
   },
-  // דער שיבוץ פון א זמן: { beds: { roomId: [contact_id|''] }, out: [contact_id] }
+  // דער שיבוץ פון א זמן: { b: מבנה, beds: { bedId: contact_id }, apts: [{ id, name, beds, ids: [contact_id|''] }] }
   dormSave: function (M, me, req) {
     need(me, 'dorm');
     const z = S(req.zman).slice(0, 40);
     if (!z) throw new Error('חסר זמן');
     const d = req.doc || {};
+    const num = function (x) { return S(x).replace(/\D/g, '').slice(0, 10); };
     const beds = {};
-    Object.keys(d.beds || {}).slice(0, 500).forEach(function (k) { beds[S(k).slice(0, 24)] = [].concat(d.beds[k] || []).slice(0, 50).map(function (x) { return S(x).replace(/\D/g, '').slice(0, 10); }); });
-    const out = [].concat(d.out || []).slice(0, 500).map(function (x) { return S(x).replace(/\D/g, '').slice(0, 10); }).filter(String);
-    const v = JSON.stringify({ beds: beds, out: out });
+    Object.keys(d.beds || {}).slice(0, 800).forEach(function (k) { const v = num(d.beds[k]); if (v) beds[S(k).slice(0, 24)] = v; });
+    const apts = [].concat(d.apts || []).slice(0, 100).map(function (a) { return { id: S(a.id).slice(0, 24), name: S(a.name).slice(0, 80), beds: Math.max(0, Math.min(50, Number(a.beds) || 0)), ids: [].concat(a.ids || []).slice(0, 50).map(num) }; });
+    const v = JSON.stringify({ b: S(d.b).slice(0, 24), beds: beds, apts: apts });
     if (v.length > 45000) throw new Error('גדול מדי');
     putSetting(M, me, 'dorm:' + z, v);
     logIt(M, me, 'dorm', '', z);
     return { ok: true, settings: settingsOf(M) };
+  },
+  // די מבנים (בילד + מיטות + כיתובים) — אלע צוזאמען
+  dormBld: function (M, me, req) {
+    need(me, 'dorm');
+    const n = function (x) { return Math.round(Math.max(0, Math.min(100, Number(x) || 0)) * 100) / 100; };
+    const list = [].concat(req.buildings || []).slice(0, 30).map(function (b) {
+      return { id: S(b.id).slice(0, 24), name: S(b.name).slice(0, 80), ar: Math.max(0.05, Math.min(20, Number(b.ar) || 0.5)),
+        beds: [].concat(b.beds || []).slice(0, 400).map(function (x) { return { id: S(x.id).slice(0, 24), x: n(x.x), y: n(x.y), w: n(x.w), h: n(x.h), room: S(x.room).slice(0, 40) }; }),
+        labels: [].concat(b.labels || []).slice(0, 200).map(function (x) { return { id: S(x.id).slice(0, 24), t: S(x.t).slice(0, 60), x: n(x.x), y: n(x.y), svc: !!x.svc }; }) };
+    }).filter(function (b) { return b.id; });
+    const v = JSON.stringify(list);
+    if (v.length > 45000) throw new Error('גדול מדי');
+    putSetting(M, me, 'dorm_bld', v);
+    logIt(M, me, 'dorm', '', 'buildings ' + list.length);
+    return { ok: true, settings: settingsOf(M) };
+  },
+  dormImgSave: function (M, me, req) {
+    need(me, 'dorm');
+    const bid = S(req.bid).slice(0, 24); const data = S(req.data);
+    if (!bid || !/^data:image\/(webp|png|jpeg);base64,/.test(data) || data.length > 45000) throw new Error('תמונה לא תקינה');
+    putSetting(M, me, 'dormimg:' + bid, data);
+    logIt(M, me, 'dorm', '', 'image ' + bid);
+    return { ok: true };
+  },
+  dormImg: function (M, me, req) {
+    if (!isAdminRole(me) && me.perms.indexOf('dorm') < 0) throw new Error('no-permission');
+    const k = 'dormimg:' + S(req.bid);
+    const r = objs(M.book.getSheetByName('Settings')).filter(function (x) { return S(x.key) === k; })[0];
+    return { data: r ? S(r.value) : '' };
   },
   roomSet: function (M, me, req) {
     need(me, 'dorm');
@@ -1656,7 +1686,8 @@ function settingsOf(M) {
     const k = S(x.key);
     if (k === 'sedarim' || k === 'exp_cats' || k === 'inc_cats') { try { const v = JSON.parse(S(x.value)); if (v && v.length) o[k] = v; } catch (err) { /* */ } }
     else if (k === 'rooms') { try { const v = JSON.parse(S(x.value)); if (Array.isArray(v)) o.rooms = v; } catch (err) { /* */ } }
-    else if (k) o[k] = S(x.value);
+    else if (k === 'dorm_bld') { try { const v = JSON.parse(S(x.value)); if (Array.isArray(v)) o.dorm_bld = v; } catch (err) { /* */ } }
+    else if (k && k.indexOf('dormimg:') !== 0) o[k] = S(x.value);
   });
   return o;
 }

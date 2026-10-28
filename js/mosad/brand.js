@@ -1,4 +1,4 @@
-import { toHebrew, hebrewNumber, monthHe, isoToHebrewText } from '../hebdate.js?v=496';
+import { toHebrew, hebrewNumber, monthHe, isoToHebrewText } from '../hebdate.js?v=497';
 // נייר מכתבים (בלאנק) פון א מוסד: א בילד פאר אויבן און פאר אונטן — פאר קבלות און מכתבים.
 const LH = {
   yeshiva: { top: 'img/mosad/yeshiva/letterhead-top.png', bottom: 'img/mosad/yeshiva/letterhead-bottom.png', logo: 'img/mosad/yeshiva/logo.png' },

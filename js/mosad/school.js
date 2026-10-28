@@ -1,7 +1,7 @@
 // אתר פון א מוסד — די ישיבה: תלמידים, בוגרים, הורים, שכר לימוד און קבלות (אלעס אינעם גיליון פונעם מוסד, דורכן שומר).
-import { letterhead, LH_CSS, heDate } from './brand.js?v=496';
-import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=496';
-import { downloadXlsx } from '../excel.js?v=496';
+import { letterhead, LH_CSS, heDate } from './brand.js?v=497';
+import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=497';
+import { downloadXlsx } from '../excel.js?v=497';
 
 let X = null; // די כלים פון app.js: { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render }
 export function initSchool(ctx) { X = ctx; }
@@ -581,7 +581,7 @@ async function printReceipt(paymentId, win = null) {
   w.document.open();
   w.document.write(`<!doctype html><html lang="he"><head><meta charset="utf-8"><title>${h(r.receipt.receipt_no)}</title>
     <style>
-      @page { size: letter; margin: 0.6in; }
+      @page { size: A4; margin: 12mm; }
       body { font-family: Georgia, 'Times New Roman', serif; color: #222; margin: 0; }
       .bar { font-family: sans-serif; padding: 10px; background: #f3efe6; display: flex; gap: 10px; justify-content: center; }
       .bar button { font-size: 16px; padding: 6px 16px; }

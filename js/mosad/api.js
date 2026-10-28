@@ -1,6 +1,6 @@
 // אתר פון א מוסד (למשל ישיבה): לאגאין מיט גוגל (נאר "ווער ביסטו" — קיין צוטריט צום גיליון),
 // און אלע ידיעות דורכן "שומר" (Apps Script mosad.gs), וואס גיט נאר וואס מ'מעג.
-import { CONFIG } from '../config.js?v=496';
+import { CONFIG } from '../config.js?v=497';
 
 const STORE = 'khal-mosad-auth';
 const SCOPE = 'openid email profile';
@@ -82,7 +82,7 @@ async function rawCall(mosad, action, body = {}) {
 // ---------- אלעס אויף איינמאל: ביים אריינקומען ווערט אלעס געלאדן מיט איין קריאה ----------
 // יעדער כפתור באקומט דאן זיינע ידיעות גלייך (דאס ערשטע מאל). נאך א שרייבונג / יעדע 5 מינוט —
 // ווערט ווידער געלאדן (ברקע) נאר וואס מ'האט נאך נישט גענוצט; א גענוצטע ידיעה גילט נאך 2 מינוט. נאר אין זכרון (נישט אויפן קאמפיוטער).
-const READS = new Set(['me', 'people', 'school', 'gifts', 'fin', 'team', 'tasks', 'ins', 'users', 'staff', 'chav', 'att', 'hours']);
+const READS = new Set(['dormImg', 'me', 'people', 'school', 'gifts', 'fin', 'team', 'tasks', 'ins', 'users', 'staff', 'chav', 'att', 'hours']);
 const PRE = new Map();
 const used = new Set();
 const keyOf = (action, body) => `${action}|${JSON.stringify(body || {})}`;
