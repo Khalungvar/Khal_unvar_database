@@ -6,7 +6,7 @@ export const CONFIG = {
   // עוזר התמונות (Apps Script בחשבון הדאטבייס) — עדיין לא בשימוש עד שהקוד בצד האתר ייבנה
   // SMS און טעלעפאן: דער "מוח" (Apps Script sms.gs) און דער Worker (Cloudflare). ליידיג = נאך נישט פארבונדן.
   SMS_URL: 'https://script.google.com/macros/s/AKfycbzK63Qd9P3Gb-255-gVFGvqkF_NddBjJ9i5yHKrnaK_E8PwLsB_7WDO6Lh2iyqO1vPZ/exec',
-  SMS_WORKER_URL: '',
+  SMS_WORKER_URL: 'https://ungvar-sms.8510089.workers.dev',
   // דער "שומר" פאר די אתרים פון די מוסדות (Apps Script mosad.gs בחשבון הדאטאבייס). ליידיג = נאך נישט פארבונדן.
   // ארגונים מיט אן אייגענעם אתר (תלמידים, שכר לימוד וכו' זענען דארט, נישט דא)
   MOSAD_SITES: { 'ישיבת בית שערים (ירושלים)': 'yeshiva/' },

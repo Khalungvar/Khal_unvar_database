@@ -122,6 +122,6 @@ export default {
       return json({ ok: true });
     }
 
-    return new Response('Mosdos Ungvar · ok', { headers: { 'Content-Type': 'text/plain' } });
+    return new Response('Mosdos Ungvar · ok', { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
   },
 };
