@@ -1780,8 +1780,8 @@ function perfBatch() {
 }
 
 // ---------- תגיות פון דער ישיבה אינעם הויפט-מאגר (עץ התגיות: 2 > o:<org> > 40 תלמיד / 41 הורה / 42 צוות) ----------
-const Y_NODE = { student: '40', parent: '41', staff: '42' };
-/** וואס די תגיות פון יעדן מענטש אין דער ישיבה דארפן זיין, לויט די ידיעות פון דער ישיבה: { id: { student: 'a'|'f', parent, staff } } */
+const Y_NODE = { student: '40', parent: '41', staff: '42', avreich: '115' }; // 115 = צוות אברכים
+/** וואס די תגיות פון יעדן מענטש אין דער ישיבה דארפן זיין, לויט די ידיעות פון דער ישיבה: { id: { student: 'a'|'f', parent, staff, avreich } } */
 function yeshivaExpected(M) {
   const t = Utilities.formatDate(new Date(), 'Asia/Jerusalem', 'yyyy-MM-dd');
   const en = objs(M.book.getSheetByName('Enrollments')).filter(function (e) { return S(e.enroll_id); });
@@ -1792,10 +1792,10 @@ function yeshivaExpected(M) {
   const team = objs(M.book.getSheetByName('Team'));
   peopleRows(M).forEach(function (p) {
     const kinds = S(p.kind).split(',').map(S);
-    if (kinds.indexOf('staff') >= 0) {
-      const tm = team.filter(function (x) { return S(x.contact_id) === S(p.contact_id); })[0];
-      set(p.contact_id, 'staff', !tm || S(tm.active) !== 'FALSE');
-    }
+    const tm = team.filter(function (x) { return S(x.contact_id) === S(p.contact_id); })[0];
+    const on = !tm || S(tm.active) !== 'FALSE';
+    if (kinds.indexOf('staff') >= 0) set(p.contact_id, 'staff', on);
+    if (kinds.indexOf('avreich') >= 0) set(p.contact_id, 'avreich', on);
   });
   return exp;
 }
