@@ -2,9 +2,10 @@
 // מיט אן איש קשר → אינעם הויפט-גיליון (ווייזט זיך אויך אינעם הויפט-אתר, און דער נדבן באקומט "תורמים ← דער מוסד");
 // אן איש קשר → נאר אינעם גיליון פונעם מוסד. קבלה פון אמעריקע: מיטן EIN פון קהל אונגוואר, אין דער זעלבער סעריע ווי אינעם הויפט-אתר.
 // א קבלה פון ארץ ישראל (סעיף 46) גייט נישט פון דא — מ'שרייבט נאר איר נומער.
-import { CURRENCIES, isForeign, fmtCur, amountLabel, usdRate, toUsd } from '../fx.js?v=488';
-import { downloadXlsx } from '../excel.js?v=488';
-import { isoToHebrewText, todayIso } from '../hebdate.js?v=488';
+import { letterhead, LH_CSS } from './brand.js?v=489';
+import { CURRENCIES, isForeign, fmtCur, amountLabel, usdRate, toUsd } from '../fx.js?v=489';
+import { downloadXlsx } from '../excel.js?v=489';
+import { isoToHebrewText, todayIso } from '../hebdate.js?v=489';
 
 let X = null;
 export function initGifts(ctx) { X = ctx; }
@@ -220,6 +221,7 @@ async function printUsReceipt(id, win = null) {
   const tax = String(det.tax_text || um.tax_text || TAX_DEFAULT).replace(/\{NAME\}/g, entity || '').replace(/\{EIN\}/g, ein || '—');
   const method = [gift.payment_method, gift.check_number ? `#${gift.check_number}` : '', gift.card_last4 ? `****${gift.card_last4}` : ''].filter(Boolean).join(' ');
   const logo = det.logo || X.st.logo || '';
+  const LHD = letterhead(X.KEY);
   w.document.open();
   w.document.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Receipt ${h(r.receipt.receipt_no)}</title>
     <style>
@@ -242,13 +244,15 @@ async function printUsReceipt(id, win = null) {
       .sig { margin-top: 34px; display: flex; justify-content: space-between; font-size: 13px; }
       .sig div { border-top: 1px solid #555; padding-top: 4px; min-width: 2.4in; text-align: center; }
       .copy { color: #a33; font: bold 13px sans-serif; }
+      ${LH_CSS}
       @media print { .bar { display: none; } .doc { margin: 0 auto; } }
     </style></head><body>
     <div class="bar"><button onclick="window.print()">🖨 Print · הדפסה</button><button onclick="window.close()">Close · סגירה</button></div>
     <div class="doc">
-      <div class="top">${logo ? `<img src="${logo}" alt="">` : ''}<div>
+      ${LHD ? `<div class="lh-top"><img src="${LHD.top}" alt=""><div class="addr">${[legal, addrSrc.address, addrSrc.city_state_zip, ein ? `EIN: ${ein}` : ''].filter(Boolean).map(h).join(' · ')}</div></div>`
+    : `<div class="top">${logo ? `<img src="${logo}" alt="">` : ''}<div>
         <div class="he">${h(he)}</div><div class="en">${h(legal)}</div>
-        <div class="addr">${[addrSrc.address, addrSrc.city_state_zip, addrSrc.phone ? `Tel: ${addrSrc.phone}` : '', ein ? `EIN: ${ein}` : ''].filter(Boolean).map(h).join(' · ')}</div></div></div>
+        <div class="addr">${[addrSrc.address, addrSrc.city_state_zip, addrSrc.phone ? `Tel: ${addrSrc.phone}` : '', ein ? `EIN: ${ein}` : ''].filter(Boolean).map(h).join(' · ')}</div></div></div>`}
       <div class="tag">OFFICIAL RECEIPT${r.receipt.copy ? ' <span class="copy">(COPY)</span>' : ''}</div>
       <table>
         <tr><td class="l">Receipt #</td><td><b>${h(r.receipt.receipt_no)}</b></td></tr>
@@ -262,6 +266,7 @@ async function printUsReceipt(id, win = null) {
       </table>
       <div class="note">${h(tax)}${det.receipt_note ? ` ${h(det.receipt_note)}` : ''}</div>
       <div class="sig"><span></span><div>${h(det.signer_name || um.signer_name || '')}${(det.signer_title || um.signer_title) ? `, ${h(det.signer_title || um.signer_title)}` : ''}<br><small>${h(legal)}</small></div></div>
+      ${LHD ? `<div class="lh-bot"><img src="${LHD.bottom}" alt=""></div>` : ''}
     </div></body></html>`);
   w.document.close();
 }

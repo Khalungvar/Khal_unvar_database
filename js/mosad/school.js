@@ -1,6 +1,7 @@
 // אתר פון א מוסד — די ישיבה: תלמידים, בוגרים, הורים, שכר לימוד און קבלות (אלעס אינעם גיליון פונעם מוסד, דורכן שומר).
-import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=488';
-import { downloadXlsx } from '../excel.js?v=488';
+import { letterhead, LH_CSS } from './brand.js?v=489';
+import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=489';
+import { downloadXlsx } from '../excel.js?v=489';
 
 let X = null; // די כלים פון app.js: { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render }
 export function initSchool(ctx) { X = ctx; }
@@ -599,13 +600,15 @@ async function printReceipt(paymentId, win = null) {
       .sig { margin-top: 34px; display: flex; justify-content: space-between; font-size: 13px; }
       .sig div { border-top: 1px solid #555; padding-top: 4px; min-width: 2.4in; text-align: center; }
       .copy { color: #a33; font: bold 13px sans-serif; }
+      ${LH_CSS}
       @media print { .bar { display: none; } .doc { margin: 0 auto; } }
     </style></head><body>
     <div class="bar"><button onclick="window.print()">🖨 הדפסה</button><button onclick="window.close()">סגירה</button></div>
     <div class="doc">
-      <div class="top">${o.logo ? `<img src="${o.logo}" alt="">` : ''}<div>
+      ${letterhead(X.KEY) ? `<div class="lh-top"><img src="${letterhead(X.KEY).top}" alt="">${[o.address, o.city_state_zip, o.ein ? `EIN: ${o.ein}` : ''].some(Boolean) ? `<div class="addr">${[legal, o.address, o.city_state_zip, o.ein ? `EIN: ${o.ein}` : ''].filter(Boolean).map(h).join(' · ')}</div>` : ''}</div>`
+    : `<div class="top">${o.logo ? `<img src="${o.logo}" alt="">` : ''}<div>
         <div class="he">${h(he)}</div><div class="en">${h(legal)}</div>
-        <div class="addr">${[o.address, o.city_state_zip, o.phone ? `Tel: ${o.phone}` : '', o.email, o.ein ? `EIN: ${o.ein}` : ''].filter(Boolean).map(h).join(' · ')}</div></div></div>
+        <div class="addr">${[o.address, o.city_state_zip, o.phone ? `Tel: ${o.phone}` : '', o.email, o.ein ? `EIN: ${o.ein}` : ''].filter(Boolean).map(h).join(' · ')}</div></div></div>`}
       <div class="tag">TUITION RECEIPT · קבלה${r.receipt.copy ? ' <span class="copy">(COPY · העתק)</span>' : ''}</div>
       <table>
         <tr><td class="l">Receipt # · מס' קבלה</td><td dir="ltr"><b>${h(r.receipt.receipt_no)}</b></td></tr>
@@ -618,6 +621,7 @@ async function printReceipt(paymentId, win = null) {
       </table>
       <div class="note">Tuition payment. This is not a tax-deductible charitable contribution.${o.receipt_note ? ` ${h(o.receipt_note)}` : ''}</div>
       <div class="sig"><span></span><div>${h(o.signer_name || '')}${o.signer_title ? `, ${h(o.signer_title)}` : ''}<br><small>${h(legal)}</small></div></div>
+      ${letterhead(X.KEY) ? `<div class="lh-bot"><img src="${letterhead(X.KEY).bottom}" alt=""></div>` : ''}
     </div></body></html>`);
   w.document.close();
 }
