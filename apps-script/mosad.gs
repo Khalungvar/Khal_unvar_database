@@ -2306,3 +2306,29 @@ const REG_ACTIONS = {
   },
 };
 Object.keys(REG_ACTIONS).forEach(function (k) { ACTIONS[k] = REG_ACTIONS[k]; });
+
+// ---------- פונעם עדיטאר: בדיקות פון רישום (נאר פאר'ן בעל הבית) ----------
+function regDevMe_() { const M = mosadOf('yeshiva'); return { M: M, me: { email: M.owners[0], role: 'owner', perms: PERMS.slice(), name: '' } }; }
+function regFormTestOn() { const x = regDevMe_(); const c = regConf(x.M).conf || {}; c.form_on = true; putSetting(x.M, x.me, 'reg', JSON.stringify(c)); Logger.log('form_on = true'); }
+function regFormTestOff() { const x = regDevMe_(); const c = regConf(x.M).conf || {}; c.form_on = false; putSetting(x.M, x.me, 'reg', JSON.stringify(c)); Logger.log('form_on = false'); }
+/** א פולער דורכלויף אויף די "בדיקה" בקשות: סטאטוס, הודעה, הערה, מסמך, טעקע, העברה (dry) */
+function regTestAdmin() {
+  const x = regDevMe_(); CUR = { M: x.M, me: x.me };
+  const tests = appRows(x.M).filter(function (a) { return S(a.test) === 'TRUE'; });
+  Logger.log('test apps: ' + tests.map(function (a) { return a.app_id; }).join(','));
+  tests.forEach(function (a, i) {
+    const r1 = ACTIONS.regStatus(x.M, x.me, { app_id: a.app_id, status: i === 0 ? 'accepted' : 'exam', notify: { text: 'בדיקה — הודעה להורים', subject: 'בדיקה', email: 'בדיקה {link}', send: false } });
+    const r2 = ACTIONS.regMsg(x.M, x.me, { app_id: a.app_id, text: 'הערה פנימית — בדיקה', note: true });
+    const r3 = ACTIONS.regDoc(x.M, x.me, { app_id: a.app_id, kind: 'photo', state: 'ok' });
+    const r4 = ACTIONS.regFile(x.M, x.me, { kind: 'photo', app_ids: [a.app_id] });
+    const r5 = ACTIONS.regTransfer(x.M, x.me, { app_id: a.app_id, dry: true });
+    const r6 = ACTIONS.regEdit(x.M, x.me, { app_id: a.app_id, data: { notes: S(a.notes) + ' ✓' } });
+    Logger.log(JSON.stringify({ app: a.app_id, status: r1, note: r2, doc: r3, photo: Object.keys(r4.files).length, dry: { p: r5.parent.length, s: r5.student.length }, edit: r6 }));
+  });
+  const l = ACTIONS.regList(x.M, x.me, {});
+  Logger.log('list: ' + l.apps.length + ' apps, ' + l.log.length + ' log, mailer=' + l.mailer);
+}
+function regTestCleanup() {
+  const x = regDevMe_(); CUR = { M: x.M, me: x.me };
+  appRows(x.M).filter(function (a) { return S(a.test) === 'TRUE' && !S(a.contact_id); }).reverse().forEach(function (a) { ACTIONS.regDelete(x.M, x.me, { app_id: a.app_id }); Logger.log('deleted ' + a.app_id); });
+}

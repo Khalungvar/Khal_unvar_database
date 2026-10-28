@@ -248,5 +248,6 @@ export function fill(t, conf, extra = {}) {
   const map = { reg_usd: a.reg_usd, visa_usd: a.visa_usd, tuition_ils: a.tuition_ils, ins_ils: a.ins_ils, ins_usd: a.ins_usd, min_age: conf.min_age,
     phone_status: conf.phone_status, phone_tuition: conf.phone_tuition, email: conf.email,
     examiner_name: ex.name, examiner_phone: ex.phone, exam_place: ex.place, exam_notes: ex.notes, ...extra };
-  return String(t ?? '').replace(/\{(\w+)\}/g, (m, k) => (k in map && map[k] !== undefined ? String(map[k]) : m));
+  const ltr = { phone_status: 1, phone_tuition: 1, examiner_phone: 1, email: 1 }; // טעלעפאנען — לינקס-צו-רעכטס אינעם טעקסט
+  return String(t ?? '').replace(/\{(\w+)\}/g, (m, k) => (k in map && map[k] !== undefined && map[k] !== '' ? (ltr[k] ? `\u2066${map[k]}\u2069` : String(map[k])) : (k in map ? '' : m)));
 }
