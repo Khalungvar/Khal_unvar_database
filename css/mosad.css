@@ -322,3 +322,4 @@ td.ltr, .ltr { direction: ltr; text-align: end; }
 .rf-link { word-break: break-all; }
 .rf-status { font-size: 1.15em; font-weight: 600; color: #2a2560; }
 .rf-msg { border-bottom: 1px solid #efe5cf; padding: 6px 0; } .rf-msg p { margin: 2px 0; }
+.rg-grid.rg-grid2 { grid-template-columns: 1fr 1fr; }

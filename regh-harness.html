@@ -1,0 +1,25 @@
+<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8">
+<link rel="stylesheet" href="/css/style.css"><link rel="stylesheet" href="/css/mosad.css"></head>
+<body class="ms-body"><main id="ms-main" style="max-width:1200px;margin:auto;padding:10px"></main><div id="ms-toast"></div>
+<script type="module">
+const v = '?v=500';
+const { initReg, renderReg } = await import('/js/mosad/reg.js' + v);
+const { initSchool } = await import('/js/mosad/school.js' + v);
+const h = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const apps = [
+ { app_id: '1001', token: 'abc', created_at: '2026-10-28 04:10', period: 'זמן קיץ פ"ז', status: 'accepted', lang: 'he', first_name: 'בדיקה', last_name: 'טעסט', birth_date: '2004-09-30', birth_heb: 'ט"ו תשרי תשס"ה', home_phone: "'+17185551234", engaged: 'no', father_name: 'יעקב', mother_family: 'בדיקה', father_phone: '+442088028894', mother_phone: '+972527111111', email: 'test@example.com', community: 'בדיקה', address: '1 Test St', city: 'Brooklyn', state: 'NY', zip: '11219', country: 'USA', yeshiva_ketana: 'א', yeshiva_gedola: 'ב', staff1_name: 'מנהל', staff1_phone: '+18455551111', staff2_name: 'מ"ש', staff2_phone: '+18455552222', notes: 'בקשת בדיקה', photo_file: 'x', photo_state: 'ok', passport_file: '1', passport_state: 'pending', birth_state: '', test: 'TRUE', updated_at: '2026-10-28 04:24' },
+ { app_id: '1002', token: 'def', created_at: '2026-10-28 04:15', period: 'זמן קיץ פ"ז', status: 'exam', lang: 'en', first_name: 'Test', last_name: 'Englishman', birth_date: '2010-05-01', home_phone: '+442088028894', engaged: 'yes', wedding_date: '2027-01-10', father_name: 'Moshe', mother_family: 'Test', father_phone: '+447947830410', email: 'test2@example.com', community: 'Test', address: '5 Test Road', city: 'London', country: 'United Kingdom', under_age_ack: 'TRUE', photo_file: 'y', photo_state: 'ok', test: 'TRUE', updated_at: '2026-10-28 04:24' },
+];
+const log = [{ at: '2026-10-28 04:10', app_id: '1001', by: 'form', kind: 'submit', to_status: 'received', email_state: 'no-mailer' }, { at: '2026-10-28 04:24', app_id: '1001', by: 'k@x.com', kind: 'status', from_status: 'received', to_status: 'accepted', text: 'בדיקה — הודעה להורים', parent_visible: 'TRUE' }, { at: '2026-10-28 04:24', app_id: '1001', by: 'k@x.com', kind: 'note', text: 'הערה פנימית' }];
+const calls = [];
+const ctx = { st: { me: { role: 'owner', perms: [] }, settings: {} }, KEY: 'yeshiva', h, $, $$, S: (v) => String(v ?? '').trim(), can: () => true,
+  call: async (k, a, b) => { calls.push([a, b]); if (a === 'regList') return { apps, log, conf: null, texts: { he: null, yi: null, en: null }, docs: true, mailer: false };
+    if (a === 'regFile') return { files: {} }; if (a === 'regTransfer') return { parent: [{ contact_id: 5497, name: 'אביגדור פעלדמן', city: 'London' }], student: [] }; return { ok: true, conf: b?.conf, texts: b?.texts }; },
+  dialog: (html, cls = '') => { const d = document.createElement('dialog'); d.className = `sheet ms-dlg ${cls}`; d.innerHTML = html; document.body.append(d); d.showModal(); d.addEventListener('close', () => d.remove()); $$('[data-x]', d).forEach((b) => { b.onclick = () => d.close(); }); return d; },
+  toast: (m) => { console.log('TOAST', m); }, msg: (e) => e.message, pById: () => null, loadPeople: async () => {} };
+initSchool(ctx); initReg(ctx);
+window.__calls = calls; window.__box = $('#ms-main');
+await renderReg($('#ms-main'));
+window.__ready = true;
+</script></body></html>

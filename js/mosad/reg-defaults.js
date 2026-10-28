@@ -37,7 +37,7 @@ export const DEFAULT_CONF = {
       he: 'בסייעתא דשמיא, בנכם התקבל לישיבה. להסדרת שכר הלימוד יש ליצור קשר: {phone_tuition}.',
       yi: 'בסייעתא דשמיא, אייער זון איז אנגענומען געווארן אין ישיבה. צו מסדר זיין די שכר לימוד, ביטע פארבינדט זיך: {phone_tuition}.',
       en: 'With the help of Hashem, your son has been accepted to the Yeshiva. To arrange tuition, please contact: {phone_tuition}.' } },
-    { key: 'rejected', name: 'לא התקבל', color: '#a33', msg: {
+    { key: 'rejected', name: 'לא התקבל', color: '#aa3333', msg: {
       he: 'לצערנו, אין באפשרותנו לקבל את בנכם לישיבתנו.',
       yi: 'צום באדויערן קענען מיר נישט אננעמען אייער זון אין אונזער ישיבה.',
       en: 'Unfortunately, we are unable to accept your son to our Yeshiva.' } },

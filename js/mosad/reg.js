@@ -147,7 +147,7 @@ function renderCard(box, a, rer) {
           ${X.st.me?.role === 'owner' || X.st.me?.role === 'admin' ? `<button type="button" class="btn danger" id="rg-del"${a.contact_id ? ' disabled' : ''}>🗑 מחיקה</button>` : ''}
         </div>
         <form id="rg-form" class="rg-form2">
-          ${FIELDS.map(([t, fs]) => `<fieldset><legend>${h(t)}</legend><div class="rg-grid">${fs.map(field).join('')}</div></fieldset>`).join('')}
+          ${FIELDS.map(([t, fs]) => `<fieldset><legend>${h(t)}</legend><div class="rg-grid${t === 'אנשי צוות' ? ' rg-grid2' : ''}">${fs.map(field).join('')}</div></fieldset>`).join('')}
           <fieldset><legend>תשלומים</legend><div class="rg-grid">
             <label>דמי הרשמה (${h(c.amounts.reg_usd)}$)<select name="pay_reg">${[['', '—'], ['paid', 'שולם'], ['failed', 'נכשל'], ['waived', 'פטור']].map(([v, t]) => `<option value="${v}"${a.pay_reg === v ? ' selected' : ''}>${h(t)}</option>`).join('')}</select></label>
             <label>דמי ויזה (${h(c.amounts.visa_usd)}$)<select name="pay_visa">${[['', '—'], ['paid', 'שולם'], ['failed', 'נכשל'], ['waived', 'פטור']].map(([v, t]) => `<option value="${v}"${a.pay_visa === v ? ' selected' : ''}>${h(t)}</option>`).join('')}</select></label>
@@ -230,7 +230,7 @@ export async function fileData(f, isPhoto) {
   return cv.toDataURL('image/jpeg', 0.85);
 }
 
-const extraOf = (a) => ({ missing: missingDocs(a).join(', ') || '—' });
+const extraOf = (a) => ({ missing: missingDocs(a).join(', ') || '—', name: nm(a) });
 function sendRow(defaultOn = true) {
   const has = R.data.mailer;
   return `<label class="check"><input type="checkbox" class="rg-send"${has && defaultOn ? ' checked' : ''}${has ? '' : ' disabled'}> לשלוח גם במייל להורים</label>
