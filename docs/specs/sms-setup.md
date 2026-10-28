@@ -17,7 +17,9 @@
 - אחרי JOIN: `Khal Ungvar: You are subscribed to community updates. Msg frequency varies. Msg & data rates may apply. Reply HELP for help, STOP to opt out.`
 - STOP / START / HELP — טלניקס עונים לבד (Messaging Profile → Keywords). המערכת רק רושמת.
 
-## מה נשאר
+- **28.10 בערב:** סקריפט "Mosdos Ungvar SMS" בחשבון הדאטאבייס (פורסם כ-Web app, setup רץ, כל המאפיינים חוץ מ-GEMINI_API_KEY), Worker `https://ungvar-sms.8510089.workers.dev` עם 3 הסודות, Webhook בפרופיל ההודעות, TeXML App "Khal Ungvar Voice" (ID 3081014596631266845) עם שלושת המספרים. **שיחה ל-1-866-796-2646 נבדקה ועובדת.**
+
+## מה נשאר (הסעיפים 1–3 למטה כבר בוצעו, חוץ מ-GEMINI_API_KEY)
 
 ### 1. Apps Script "SMS" (בחשבון הדאטאבייס)
 1. פרויקט חדש בשם `Mosdos Ungvar SMS`, ומדביקים את `apps-script/sms.gs`.
