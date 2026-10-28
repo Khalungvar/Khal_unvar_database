@@ -37,7 +37,18 @@ const TABS = {
 const DEFAULT_CONFIG = {
   price_sms: '0.01', price_mms: '0.03', price_call: '0.03', quiet_from: '21', quiet_to: '8', friday_cutoff: '13',
   blocked_dates: '', erev_dates: '', zmanim_text: '', call_text: 'Welcome to Mosdos Ungvar.',
+  sms_brand: 'Khal Ungvar', // דער נאמען וואס הייבט אן יעדע מעסעדזש צום עולם — ווי אין דער Toll-Free Verification
 };
+// ---- טעקסטן צום עולם: ממש ווי אין דער Toll-Free Verification (Telnyx) און https://ungvar.org/sms.html ----
+function brandOf(cfg) { return String((cfg || config()).sms_brand || '').trim() || 'Khal Ungvar'; }
+/** יעדע מעסעדזש צום עולם הייבט זיך אן מיטן נאמען ("Khal Ungvar: ...") — די טעלעפאן־פירמעס פאדערן עס */
+function branded(text, cfg) {
+  const b = brandOf(cfg); const s = String(text || '').trim();
+  return s.toLowerCase().indexOf(b.toLowerCase()) === 0 ? s : b + ': ' + s;
+}
+function optInText(cfg) { return brandOf(cfg) + ': You are subscribed to community updates. Msg frequency varies. Msg & data rates may apply. Reply HELP for help, STOP to opt out.'; }
+function askNameText(cfg) { return brandOf(cfg) + ': Welcome! To complete your subscription, please reply with your full name. Msg & data rates may apply. Reply STOP to opt out.'; }
+function newLineNote(cfg) { return '\n\nThis is the new number of ' + brandOf(cfg) + '. Reply HELP for help, STOP to opt out.'; }
 
 // ====================================================================== אריינגאנג
 function doPost(e) {
@@ -234,6 +245,7 @@ function smsStatus(req) {
 const STOP_WORDS = ['stop', 'stopall', 'unsubscribe', 'cancel', 'end', 'quit', 'סטאפ', 'סטופ'];
 const START_WORDS = ['start', 'unstop', 'yes'];
 const JOIN_WORDS = ['join', 'subscribe'];
+const HELP_WORDS = ['help', 'info']; // Telnyx ענטפערט אליין (Messaging Profile → Keywords)
 function optRow(phone) {
   const d = last10(phone);
   const t = readTab('SmsOptIn');
@@ -257,7 +269,9 @@ function publicInbound(from, text) {
     setOpt(from, { status: 'out', source: 'stop', by: 'sms' });
     return { ok: true, handled: 'stop' };
   }
+  if (HELP_WORDS.indexOf(w) >= 0) return { ok: true, handled: 'help' };
   if (START_WORDS.indexOf(w) >= 0) {
+    // Telnyx שיקט אליין די באשטעטיגונג (Messaging Profile → Keywords) — מ'פארשרייבט נאר
     const r = optRow(from);
     setOpt(from, { status: 'in', source: r && r.source && r.source !== 'stop' ? r.source : 'start', by: 'sms' });
     return { ok: true, handled: 'start' };
@@ -265,9 +279,9 @@ function publicInbound(from, text) {
   if (JOIN_WORDS.indexOf(w) >= 0) {
     const c = contactsByPhone(from)[0];
     setOpt(from, { status: 'in', source: 'join', contact_id: c ? c.contact_id : '', name: c ? heName(c) : '', by: 'sms' });
-    if (c) { sendSms(line, from, 'Welcome to Mosdos Ungvar updates! Reply STOP to unsubscribe.', null, { line: 'broadcast', contact_id: c.contact_id }); return { ok: true, handled: 'join-known' }; }
+    if (c) { sendSms(line, from, optInText(), null, { line: 'broadcast', contact_id: c.contact_id }); return { ok: true, handled: 'join-known' }; }
     cache.put(k, '1', 21600);
-    sendSms(line, from, 'Welcome to Mosdos Ungvar updates! Please reply with your full name. Reply STOP to unsubscribe.', null, { line: 'broadcast' });
+    sendSms(line, from, askNameText(), null, { line: 'broadcast' });
     return { ok: true, handled: 'join' };
   }
   if (cache.get(k)) {
@@ -277,7 +291,7 @@ function publicInbound(from, text) {
     const m = matchName(name);
     setOpt(from, { status: 'in', source: 'join', name: name, contact_id: m.length === 1 ? m[0].contact_id : '' });
     if (m.length !== 1) notifyAdmins('sms_join', 'SMS JOIN: ' + name + ' · ' + fmtPhone(from), 'הצטרף ב-SMS: ' + name + ' · ' + fmtPhone(from) + (m.length ? ' (אפשר: ' + m.slice(0, 3).map(heName).join(' / ') + ')' : '') + ' — לחבר לאיש קשר באתר (SMS → הצטרפויות).');
-    sendSms(line, from, 'Thank you, ' + name + '! You are now subscribed.', null, { line: 'broadcast' });
+    sendSms(line, from, optInText(), null, { line: 'broadcast' });
     return { ok: true, handled: 'join-name' };
   }
   // אן ענטפער אויף א שליחה → דער גבאי וואס האט געשיקט (אין זיין תיבה אינעם אתר)
@@ -734,7 +748,7 @@ function segments(text) {
 }
 function unitPrice(job, cfg) {
   if (job.kind === 'call') return Number(cfg.price_call) || 0.03;
-  return (Number(cfg.price_sms) || 0.01) * segments(job.text);
+  return (Number(cfg.price_sms) || 0.01) * segments(branded(job.text, cfg));
 }
 function jobCreate(req, email) {
   const cfg = config();
@@ -778,7 +792,6 @@ function sendWindowOk(now, cfg) {
 }
 
 // ---------- דער זייגער: שיקן ----------
-const NEW_LINE_NOTE = '\n\nThis is the new number of Mosdos Ungvar. Reply STOP to unsubscribe.';
 function runJobs() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(1000)) return;
@@ -808,7 +821,7 @@ function runJobs() {
           const r = rec[cur];
           const d = last10(r.p);
           if (optOut[d]) { cur += 1; skipped += 1; continue; }
-          const text = j.kind === 'call' ? '' : String(j.text) + (seen[d] ? '' : NEW_LINE_NOTE);
+          const text = j.kind === 'call' ? '' : branded(j.text, cfg) + (seen[d] ? '' : newLineNote(cfg));
           const price = j.kind === 'call' ? unitPrice(j, cfg) : (Number(cfg.price_sms) || 0.01) * segments(text);
           if (have < price) { status = 'no_credits'; break; }
           cur += 1;
@@ -976,4 +989,21 @@ function testSms() {
   const P = PropertiesService.getScriptProperties();
   Logger.log('telnyx key: ' + Boolean(P.getProperty('TELNYX_API_KEY')) + ' · gemini: ' + Boolean(P.getProperty('GEMINI_API_KEY')) + ' · secret: ' + Boolean(P.getProperty('SHARED_SECRET')));
   Logger.log('contacts: ' + contacts().length + ' · config: ' + JSON.stringify(config()));
+}
+
+/**
+ * פעם אחת, בהתחלה: שומר את המספרים (הם לא סודיים, הם מופיעים גם ב-ungvar.org/sms.html)
+ * ויוצר סוד משותף לחיבור עם ה-Worker. את הסוד מעתיקים מהיומן (Execution log) ישר ל-Cloudflare — לא לצ'אט.
+ */
+function setupNumbersAndSecret() {
+  const P = PropertiesService.getScriptProperties();
+  P.setProperties({
+    TELNYX_GABBAI_NUMBER: '+18668300089',     // הגבאים
+    TELNYX_BROADCAST_NUMBER: '+18667962646',  // 1-866-7-ZMANIM — לקהילה, וזמנים בטלפון
+    TELNYX_VOICE_NUMBER: '+19292191653',      // מקומי — הודעות קוליות
+    SITE_URL: 'https://ungvar.org/',
+  });
+  if (!P.getProperty('SHARED_SECRET')) P.setProperty('SHARED_SECRET', (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, ''));
+  Logger.log('המספרים נשמרו.');
+  Logger.log('SHARED_SECRET (להעתיק ל-Cloudflare Worker → Settings → Variables and Secrets): ' + P.getProperty('SHARED_SECRET'));
 }

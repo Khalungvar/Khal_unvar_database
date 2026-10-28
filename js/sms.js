@@ -50,10 +50,13 @@ export async function loadSms(force = false) {
   return data;
 }
 const myCredits = () => Math.round((data?.credits || []).filter((r) => String(r.email).toLowerCase() === state.email).reduce((s, r) => s + (Number(r.delta) || 0), 0) * 10000) / 10000;
+// יעדע מעסעדזש צום עולם הייבט זיך אן מיטן נאמען ("Khal Ungvar: ...") — ווי אין sms.gs
+const brandOf = () => String(data?.config?.sms_brand || '').trim() || 'Khal Ungvar';
+const branded = (text) => { const b = brandOf(); const s = String(text || '').trim(); return s.toLowerCase().startsWith(b.toLowerCase()) ? s : `${b}: ${s}`; };
 const price = (kind, text) => {
   const c = data?.config || {};
   if (kind === 'call') return Number(c.price_call) || 0.03;
-  const s = String(text || '');
+  const s = branded(text);
   const seg = /[^\x00-\x7F]/.test(s) ? (s.length <= 70 ? 1 : Math.ceil(s.length / 67)) : (s.length <= 160 ? 1 : Math.ceil(s.length / 153));
   return (Number(c.price_sms) || 0.01) * Math.max(1, seg);
 };
@@ -164,7 +167,8 @@ function sendTab(body) {
     </div>
     <label class="mm-l">${h(t('smsTitle'))}<input id="sms-title" value="${h(draft.title)}" placeholder="${h(t('smsTitlePh'))}"></label>
     ${draft.kind === 'sms' ? `<label class="mm-l">${h(t('smsText'))}<textarea id="sms-text" rows="6" dir="auto">${h(draft.text)}</textarea></label>
-      <p class="muted small" id="sms-seg">${h(t('smsSegments', { c: draft.text.length, s: segCount(draft.text) }))}</p>`
+      <p class="muted small" id="sms-seg">${h(t('smsSegments', { c: branded(draft.text).length, s: segCount(branded(draft.text)) }))}</p>
+      <p class="muted small">${h(t('smsBrandHint', { b: brandOf() }))}</p>`
       : `<label class="mm-l">${h(t('smsRecording'))}<select id="sms-rec"><option value="">—</option>${recs.slice().reverse().map((r) => `<option value="${h(r.rec_id)}"${r.rec_id === draft.rec ? ' selected' : ''}>${h(r.name || r.rec_id)} · ${h(String(r.created_at).slice(0, 10))}</option>`).join('')}</select></label>`}
     <label class="mm-l">${h(t('smsWhen'))}<input type="datetime-local" id="sms-when" value="${h(draft.when)}"> <span class="muted small">${h(t('smsWhenHint'))}</span></label>
     ${blocked ? `<p class="drive-warn">⛔ ${h(blocked)} — ${h(t('smsWillWait'))}</p>` : ''}
@@ -176,7 +180,7 @@ function sendTab(body) {
   $('#sms-list', body).onchange = (e) => { draft.list = e.target.value; renderCalls(); };
   $('#sms-title', body).oninput = (e) => { draft.title = e.target.value; };
   const ta = $('#sms-text', body);
-  if (ta) ta.oninput = () => { draft.text = ta.value; $('#sms-seg', body).textContent = t('smsSegments', { c: ta.value.length, s: segCount(ta.value) }); };
+  if (ta) ta.oninput = () => { draft.text = ta.value; $('#sms-seg', body).textContent = t('smsSegments', { c: branded(ta.value).length, s: segCount(branded(ta.value)) }); };
   if (ta) ta.onchange = () => renderCalls();
   $('#sms-rec', body)?.addEventListener('change', (e) => { draft.rec = e.target.value; });
   $('#sms-when', body).onchange = (e) => { draft.when = e.target.value; renderCalls(); };
@@ -324,6 +328,7 @@ async function adminTab(body) {
   const users = allUsers();
   body.innerHTML = `<div class="sms-admin">
     <section><h3>💲 ${h(t('smsCfgTitle'))}</h3><div class="mm-grid">${fields.map(([k, l]) => `<label>${h(t(l))}<input data-cfg="${k}" value="${h(c[k] ?? '')}" dir="ltr"></label>`).join('')}</div>
+      <label class="mm-l">${h(t('smsCfgBrand'))}<input data-cfg="sms_brand" value="${h(c.sms_brand || 'Khal Ungvar')}" dir="ltr"></label>
       <label class="mm-l">${h(t('smsCfgCallText'))}<textarea data-cfg="call_text" rows="2" dir="ltr">${h(c.call_text || '')}</textarea></label>
       <label class="mm-l">${h(t('smsCfgZmanim'))}<textarea data-cfg="zmanim_text" rows="3" dir="ltr">${h(c.zmanim_text || '')}</textarea></label>
       <button type="button" class="btn primary" id="cfg-save">${h(t('saveBtn'))}</button>
