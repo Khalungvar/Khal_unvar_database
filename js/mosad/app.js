@@ -1,13 +1,14 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { letterhead, hebrewDateHints } from './brand.js?v=494';
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=494';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=494';
-import { initGifts, renderGifts } from './gifts.js?v=494';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, setAttTab } from './journal.js?v=494';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=494';
-import { initTeam, renderTeam } from './team.js?v=494';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=494';
+import { letterhead, hebrewDateHints } from './brand.js?v=495';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=495';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=495';
+import { initGifts, renderGifts } from './gifts.js?v=495';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab } from './journal.js?v=495';
+import { initDorm, renderDorm } from './dorm.js?v=495';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=495';
+import { initTeam, renderTeam } from './team.js?v=495';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=495';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -62,6 +63,7 @@ const TILES = [
   { k: 'finance', ic: '💰', t: 'משכורות והוצאות', sub: 'הכנסות, חובות, מאזן' },
   { k: 'alumni', ic: '🚪', t: 'בוגרי הישיבה', sub: 'וההורים שלהם' },
   { k: 'parents', ic: '👪', t: 'הורי התלמידים', sub: 'תלמידי הישיבה ובוגרים' },
+  { k: 'dorm', ic: '🛏', t: 'פנימייה', sub: 'חדרים ושיבוץ' },
 ];
 const PERM_NAMES = { ...Object.fromEntries(TILES.map((x) => [x.k, x.t])), people_edit: 'הוספה ועדכון אנשי קשר' };
 
@@ -217,6 +219,7 @@ function render(fromPop) {
   else if (st.tab === 'insurance') renderIns(box);
   else if (st.tab === 'staff_list') renderTeam(box);
   else if (st.tab === 'finance') renderFinance(box);
+  else if (st.tab === 'dorm') renderDorm(box);
   else if (st.tab === 'me') renderMe(box);
   else if (st.tab === 'log') renderLog(box);
   else renderSoon(box, view);
@@ -239,7 +242,7 @@ function renderHome(box) {
         <span class="muted small">${st.openTasks ? `📋 ${st.openTasks} משימות פתוחות` : '👤 אזור אישי'}</span></button>
     </div><div class="ms-tiles">${tiles.map((x) => `<button type="button" class="ms-tile${x.soon ? ' soon' : ''}" data-go="${x.k}">
       <span class="ms-ti">${x.ic}</span><b>${h(x.t)}</b>${x.sub ? `<span class="muted small">${h(x.sub)}</span>` : ''}${x.soon ? '<span class="ms-soon">בקרוב</span>' : ''}</button>`).join('')}
-      ${small.length ? `<div class="ms-more">${small.join('')}</div>` : ''}</div>
+      </div>${small.length ? `<div class="ms-more">${small.join('')}</div>` : ''}
     ${tiles.length ? '' : '<p class="ms-note">עדיין לא קיבלת הרשאה לאף כפתור. בקש מהמנהל.</p>'}</div>`;
   $$('[data-go]', box).forEach((b) => { b.onclick = () => { st.tab = b.dataset.go; st.kind = 'all'; render(); }; });
   $('#ms-logo', box)?.addEventListener('click', () => logoDialog());
@@ -550,7 +553,7 @@ const ctx = { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, pho
 initSchool(ctx);
 initGifts(ctx);
 Object.assign(ctx, {
-  printPhones: () => printPhones(), printWin: (...a) => printWin(...a), payDialog: (id) => payDialog(id),
+  printPhones: () => printPhones(), printWin: (...a) => printWin(...a), printList: (...a) => printList(...a), payDialog: (id) => payDialog(id),
   permName: (k) => PERM_NAMES[k] || k, roleName: (r) => ROLE_NAMES[r] || r,
   go: (tab, sub) => { st.tab = tab; if (tab === 'attendance' && sub) setAttTab(sub); render(); },
 });
@@ -558,6 +561,7 @@ initJournal(ctx);
 initMe(ctx);
 initTeam(ctx);
 initFinance(ctx);
+initDorm(ctx);
 (async () => {
   loginView();
   brand(KEY).then((b) => { if (b?.logo) { st.logo = b.logo; if (!st.me) { const im = $('.ms-logo'); if (im) im.src = b.logo; } } });

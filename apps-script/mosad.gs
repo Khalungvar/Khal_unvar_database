@@ -15,7 +15,7 @@ const MAIN_ID = '16gyhQ4W7p2DHjPMtdXldFynG1KUzDypGvTvYlS7cnJY';
 const CLIENT_ID = '73541082309-bb0bc3jv1dchtpgsr129m5bbertk79ua.apps.googleusercontent.com';
 const FIRST_CONTACT_ID = 2001;
 // יעדער כפתור אויפן ערשטן בלאט איז א הרשאה; people_edit = צולייגן / טוישן אנשי קשר (שרייבט אינעם הויפט-מאגר)
-const PERMS = ['students', 'alumni', 'staff_list', 'tuition', 'insurance', 'parents', 'chavrusas', 'attendance', 'donations', 'finance', 'people_edit'];
+const PERMS = ['students', 'alumni', 'staff_list', 'tuition', 'insurance', 'parents', 'chavrusas', 'attendance', 'donations', 'finance', 'people_edit', 'dorm'];
 // וואס דער מוסד מעג זען / טוישן אין א קאנטאקט
 const C_FIELDS = ['title_he', 'first_name_he', 'last_name_he', 'title_en', 'first_name_en', 'last_name_en', 'legal_first_name',
   'marital_status', 'wife_name_he', 'wife_name_en', 'address', 'city', 'state', 'zip', 'country', 'is_alive'];
@@ -955,6 +955,37 @@ const ACTIONS = {
     return { ok: true, settings: settingsOf(M) };
   },
 
+  // ---------- 🛏 פנימייה: די רשימה פון חדרים (Settings: rooms), און דער חדר פון יעדן רישום ----------
+  roomsSave: function (M, me, req) {
+    need(me, 'dorm');
+    const list = [].concat(req.rooms || []).slice(0, 500).map(function (r) { return { name: S(r.name).slice(0, 40), beds: Math.max(0, Math.min(50, Number(r.beds) || 0)), note: S(r.note).slice(0, 120) }; }).filter(function (r) { return r.name; });
+    const sh = M.book.getSheetByName('Settings');
+    const ex = objs(sh).filter(function (x) { return S(x.key) === 'rooms'; })[0];
+    const v = JSON.stringify(list);
+    if (ex) setCells(sh, ex._row, { value: v, updated_at: now(), updated_by: me.email });
+    else appendObj(sh, { key: 'rooms', value: v, updated_at: now(), updated_by: me.email });
+    logIt(M, me, 'rooms', '', list.length + ' rooms');
+    return { ok: true, settings: settingsOf(M) };
+  },
+  roomSet: function (M, me, req) {
+    need(me, 'dorm');
+    const rows = [].concat(req.rows || []).slice(0, 500);
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const sh = M.book.getSheetByName('Enrollments');
+      const all = objs(sh);
+      let n = 0;
+      rows.forEach(function (r) {
+        const e = all.filter(function (x) { return S(x.enroll_id) === S(r.enroll_id); })[0];
+        if (!e) return;
+        setCells(sh, e._row, { room: S(r.room).slice(0, 40), updated_at: now(), updated_by: me.email });
+        n++;
+      });
+      logIt(M, me, 'room', '', n + ' students');
+      return { ok: true, n: n };
+    } finally { lock.releaseLock(); }
+  },
+
   // ---------- 🤝 חברותות: א שורה פאר יעדן בחור אין א סדר (אין א זמן) — מיט וועמען ער לערנט (א מענטש, אדער טעקסט: "שיעור ...") ----------
   chav: function (M, me, req) {
     need(me, 'chavrusas');
@@ -1337,7 +1368,7 @@ const ACTIONS = {
 
   // ---------- ישיבה: רישום, שכר לימוד, קבלות ----------
   school: function (M, me) {
-    if (!isAdminRole(me) && !['students', 'alumni', 'parents', 'tuition', 'chavrusas', 'attendance', 'insurance', 'finance'].some(function (p) { return me.perms.indexOf(p) >= 0; })) throw new Error('no-permission');
+    if (!isAdminRole(me) && !['students', 'alumni', 'parents', 'tuition', 'chavrusas', 'attendance', 'insurance', 'finance', 'dorm'].some(function (p) { return me.perms.indexOf(p) >= 0; })) throw new Error('no-permission');
     const tu = isAdminRole(me) || me.perms.indexOf('tuition') >= 0 || me.perms.indexOf('finance') >= 0; // finance: נאר לייענען (חובות)
     const en = objs(M.book.getSheetByName('Enrollments')).filter(function (e) { return S(e.enroll_id); }).map(function (e) {
       const o = {};
@@ -1607,6 +1638,7 @@ function settingsOf(M) {
   objs(M.book.getSheetByName('Settings')).forEach(function (x) {
     const k = S(x.key);
     if (k === 'sedarim' || k === 'exp_cats' || k === 'inc_cats') { try { const v = JSON.parse(S(x.value)); if (v && v.length) o[k] = v; } catch (err) { /* */ } }
+    else if (k === 'rooms') { try { const v = JSON.parse(S(x.value)); if (Array.isArray(v)) o.rooms = v; } catch (err) { /* */ } }
     else if (k) o[k] = S(x.value);
   });
   return o;
