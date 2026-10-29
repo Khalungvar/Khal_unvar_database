@@ -3,7 +3,7 @@
 // די זמנים ווערן גערעכנט פונקט ווי אויף דער תצוגה אין בית הכנסת (luach/minyanim.js).
 import { buildYear, isoOf, nOf, dowOf, hdOf, mitzvaYomis } from './engine.js';
 import { zmanim, hhmm, LOCATIONS } from './zmanim.js';
-import { defaults, computeWeekday, computeHoly, chagOn, computeSpecial, daysOf } from './minyanim.js';
+import { defaults, computeWeekday, computeHoly, chagOn, computeSpecial, daysOf, rebbeAwayOn } from './minyanim.js';
 import { hebrewNumber, monthHe } from '../hebdate.js';
 
 const LOC = LOCATIONS.bp;
@@ -201,7 +201,7 @@ export function schedText(sched) {
   if (s.type === 'once') return `פעם אחת: ${String(s.at || '').replace('T', ' ')}`;
   return '';
 }
-export { isoOf, nOf, dowOf };
+export { isoOf, nOf, dowOf, rebbeAwayOn };
 /** שינוי חד־פעמי פאר דעם קומענדיגן מאל: { drop: [שורות], text: 'מוסטער אנשטאט', nobrand: bool } */
 export function modOf(v) {
   if (v && typeof v === 'object') return { drop: v.drop || [], text: v.text || '', nobrand: !!v.nobrand };

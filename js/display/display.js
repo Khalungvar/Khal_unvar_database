@@ -6,7 +6,8 @@ import { MONTH } from '../luach/mitzva.js';
 import { hebrewNumber } from '../hebdate.js';
 import { normScreen, currentByPlace, adUrl, themeCss } from './screenset.js';
 import { printCss, weekdayPage, shabbosPage, fitPages } from '../luach/tfprint.js';
-import { defaults, computeWeekday, computeShabbos, computeSpecial, computeShiurim, computeHoly, chagOn, partOfDay, minorBlockOn } from '../luach/minyanim.js';
+import { CONFIG } from '../config.js';
+import { defaults, computeWeekday, computeShabbos, computeSpecial, computeShiurim, computeHoly, chagOn, partOfDay, minorBlockOn, maarivNight, ptAround, PT } from '../luach/minyanim.js';
 
 // ---------- דאטן: תצוגה מקדימה (פון "זמני תפילות" — localStorage), אנדערש ברירת מחדל ----------
 const QS = new URLSearchParams(location.search);
@@ -47,6 +48,22 @@ async function pull() {
     try { localStorage.setItem('disp-data', js); } catch { /* */ }
   } catch { /* בלייבט מיט דעם וואס מ'האט */ }
 }
+// ✈ כ"ק אדמו"ר שליט"א נסע: לשונית RebbeAway — [from, to] (תאריכים)
+let AWAY = null;
+try { const j = JSON.parse(localStorage.getItem('disp-away') || 'null'); if (Array.isArray(j)) AWAY = j; } catch { /* */ }
+async function pullAway() {
+  if (PREVIEW) return;
+  try {
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=RebbeAway&headers=1&t=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) return;
+    const rows = parseCsv(await r.text());
+    if (!rows.length || rows[0][0] !== 'from') { AWAY = []; return; }
+    const dt = (v) => { const a = /^(\d{4})-(\d{2})-(\d{2})/.exec(v || ''); if (a) return a[0]; const b = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(v || ''); return b ? `${b[3]}-${b[1].padStart(2, '0')}-${b[2].padStart(2, '0')}` : ''; };
+    const list = rows.slice(1).map((x) => ({ from: dt(x[0]), to: dt(x[1]) })).filter((x) => x.from && x.to);
+    if (JSON.stringify(list) !== JSON.stringify(AWAY)) { AWAY = list; boardCache.clear(); }
+    try { localStorage.setItem('disp-away', JSON.stringify(AWAY)); } catch { /* */ }
+  } catch { /* */ }
+}
 // שמחות: לשונית Simchos — [simcha_id, html, until(ms)]; יעדע שמחה ווייזט זיך ביז "until"
 let SIMCHOS = null;
 try { const j = JSON.parse(localStorage.getItem('disp-simchos') || 'null'); if (Array.isArray(j)) SIMCHOS = j; } catch { /* */ }
@@ -82,6 +99,24 @@ async function pullScreen() {
 pull(); setInterval(pull, 60 * 1000);
 pullScreen(); setInterval(pullScreen, 60 * 1000);
 pullSimchos(); setInterval(pullSimchos, 60 * 1000);
+pullAway(); setInterval(pullAway, 60 * 1000);
+
+// ---------- כל 20 דקות: "אני מחובר" (סטטוס באתר) + גרסה חדשה של האתר → מרעננים לבד ----------
+// בלי אינטרנט — לא נוגעים בכלום (ממשיכים להציג מה שיש). מרעננים רק אחרי שהקובץ החדש נטען בהצלחה.
+const MYV = (document.querySelector('script[type=importmap]')?.textContent.match(/\?v=(\d+)/) || [])[1] || '';
+async function heartbeat() {
+  if (PREVIEW || OFFSET || SCRPV) return;
+  try {
+    if (CONFIG.SMS_URL) fetch(CONFIG.SMS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'display_ping', v: MYV }) }).catch(() => {});
+    const r = await fetch(`display.html?chk=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) return;
+    const v = ((await r.text()).match(/\?v=(\d+)/) || [])[1];
+    if (!v || !MYV || v === MYV) return;
+    const ok = await fetch(`js/display/display.js?v=${v}`, { cache: 'no-store' }).then((x) => x.ok).catch(() => false);
+    if (ok) location.reload();
+  } catch { /* בלי אינטרנט */ }
+}
+setTimeout(heartbeat, 60 * 1000); setInterval(heartbeat, 20 * 60 * 1000);
 // א פאלשע שעה (?at=2026-12-20T15:00) — צו זען א געוויסן טאג
 let OFFSET = 0;
 if (QS.get('at')) { const t = new Date(QS.get('at')); if (!Number.isNaN(t.getTime())) OFFSET = t.getTime() - Date.now(); }
@@ -200,7 +235,7 @@ function chgText(from, to) {
     return `${g} ${[...sw, ...(add.length ? [`נוסף ${add.join(', ')}`] : [])].join(', ')}`;
   }).join(' · ');
 }
-const isNormal = (k, holy) => dowOf(k) <= 4 && !holy(k) && !holy(k + 1) && !minorBlockOn(DATA, k) && !minorBlockOn(DATA, k + 1);
+const isNormal = (k, holy) => dowOf(k) <= 4 && !holy(k) && !holy(k + 1) && !minorBlockOn(DATA, k) && !minorBlockOn(DATA, k + 1) && !maarivNight(DATA, k);
 /** d0 = דער טאג פונעם לוח (null = שבת/יו"ט). גיט { note, newKeys } */
 let chgMemo = null;
 function changesFor(d0, n, holy) {
@@ -248,6 +283,7 @@ function changesCalc(d0, n, holy) {
 
 function render() {
   const HID = SCR.hide || {};
+  if (!PREVIEW && AWAY) DATA.rebbeAway = AWAY;
   // פארבן (נאר ווען זיי טוישן זיך)
   const tc = themeCss(SCR);
   if (tc !== thmLast) { thmLast = tc; let st = document.getElementById('thm'); if (!st) { st = document.createElement('style'); st.id = 'thm'; document.head.appendChild(st); } st.textContent = tc; }
@@ -302,25 +338,72 @@ function render() {
   const GN = { shacharis: 'שחרית', mincha: 'מנחה', maariv: 'מעריב' };
   function specials(k, off, place) {
     // שורות מיוחדות (ימי דפגרא / יו"ט / תשרי) פאר טאג k אין דעם ארט
-    return computeSpecial(DATA, k, LOC).map((bk) => ({ title: bk.title, type: bk.type, rows: bk.rows.filter((r) => r.screen && (r.disp?.place || (bk.type === 'chag' ? 'shab' : 'weekday')) === place) }))
+    return computeSpecial(DATA, k, LOC).filter((bk) => !(bk.part === 'minor' && PT.includes(bk.when))).map((bk) => ({ title: bk.title, type: bk.type, rows: bk.rows.filter((r) => r.screen && (r.disp?.place || (bk.type === 'chag' ? 'shab' : 'weekday')) === place) }))
       .filter((bk) => bk.rows.length).map((bk) => ({ ...bk, rows: bk.rows.map((r) => ({ ...r, mins: r.mins.map((m) => m + off) })) }));
   }
+  // לוח ימות החול: די גאנצע וואך די זעלבע (פון פרייטאג נאך דער לעצטער שחרית ביז פרייטאג נאך דער לעצטער שחרית), לויט דעם זונטאג.
+  // פרייטאג: שחרית פון פרייטאג; ערב חג: זיינע אייגענע שעות. מעריב מוצאי תענית / חנוכה — באזונדערע פסים.
+  // יעדער מנין: day = דער טאג וואס ער איז טאקע; skip = ער איז נישט היינט (חוץ מיום א' / מוצאי תענית / פרייטאג)
   function weekdayBoard(k, off) {
-    const w = computeWeekday(DATA, k, LOC);
-    const notes = { shacharis: w.shacharisNote, mincha: w.minchaNote, maariv: w.maarivNote };
-    // מנחה/מעריב פון מנין כ"ק — באזונדער, פאר דער שורה פון מעריב
-    const groups = ['shacharis', 'mincha', 'maariv'].map((g) => ({ h: GN[g], sub: notes[g] ? `(${notes[g]})` : '',
-      items: w[g].filter((m) => g === 'shacharis' || !m.rebbe).map((m) => ({ ...m, k: GN[g], key: chgKey(m), min: m.min + off })) }));
-    const rbM = w.mincha.find((m) => m.rebbe); const rbA = w.maariv.find((m) => m.rebbe);
+    const wP = computeWeekday(DATA, k, LOC, { plain: true });
+    const wD = computeWeekday(DATA, k, LOC, { ytOnly: true });
+    const dk = dowOf(k); const ov = wD.ov || {};
+    const pick = (g) => (g === 'shacharis' || ov[g] ? wD[g] : wP[g]);
+    const sun = k - dk + (dk === 6 ? 7 : 0);
+    const nights = [0, 1, 2, 3, 4].map((i) => ({ d: sun + i, mn: maarivNight(DATA, sun + i) })).filter((x) => x.mn);
+    const xNight = new Set(nights.map((x) => x.d));
+    const chN = nights.filter((x) => x.mn.chanuka);
+    const notes = { shacharis: wP.shacharisNote, mincha: wP.minchaNote, maariv: wP.maarivNote };
+    const skipOf = (g, m) => (m.xdays || []).includes(dk) || (g !== 'shacharis' && !ov[g] && dk === 5) || (g === 'maariv' && !ov.maariv && xNight.has(k));
+    const groups = ['shacharis', 'mincha', 'maariv'].map((g) => ({ g, h: g === 'maariv' && chN.length ? 'מעריב (לא בימי חנוכה)' : GN[g], sub: notes[g] ? `(${notes[g]})` : '',
+      items: pick(g).filter((m) => g === 'shacharis' || !m.rebbe).map((m) => ({ ...m, k: GN[g], key: chgKey(m), min: m.min + off, day: k, skip: skipOf(g, m) })) }));
+    // אלע וואכנטעג זענען חנוכה — קיין מעריב הרגיל
+    if (chN.length >= 5) groups.splice(2, 1);
+    const rbM = pick('mincha').find((m) => m.rebbe); const rbA = pick('maariv').find((m) => m.rebbe);
     if (rbM || rbA) {
       groups.splice(2, 0, { h: SCR.texts.tRebbe, rebbe: true, items: [
-        ...(rbM ? [{ ...rbM, k: 'מנחה', key: chgKey(rbM), lbl: 'מנחה', min: rbM.min + off }] : []),
-        ...(rbA ? [{ ...rbA, k: 'מעריב', key: chgKey(rbA), lbl: 'מעריב <small>(בערך)</small>', min: rbA.min + off }] : [])] });
+        ...(rbM ? [{ ...rbM, k: 'מנחה', key: chgKey(rbM), lbl: 'מנחה', min: rbM.min + off, day: k, skip: skipOf('mincha', rbM) }] : []),
+        ...(rbA ? [{ ...rbA, k: 'מעריב', key: chgKey(rbA), lbl: 'מעריב <small>(בערך)</small>', min: rbA.min + off, day: k, skip: skipOf('maariv', rbA) }] : [])] });
     }
+    // פסים: מעריב מוצאי תענית / מעריב בחנוכה — פונעם אנפאנג פון דער וואך, ביז א האלבע שעה נאכן לעצטן מנין
+    const extra = [];
+    const strip = (label, list) => {
+      const per = list.map((x) => ({ d: x.d, items: computeWeekday(DATA, x.d, LOC).maariv.map((m) => ({ ...m, k: label, min: m.min + (x.d - n) * 1440, day: x.d })) })).filter((x) => x.items.length);
+      if (!per.length) return;
+      const end = Math.max(...per.flatMap((x) => x.items.map((m) => m.min))) + 30;
+      if (end < nowMin) return;
+      per.forEach((x) => extra.push(...x.items));
+      const show = per.find((x) => Math.max(...x.items.map((m) => m.min)) + 30 >= nowMin) || per[per.length - 1];
+      groups.push({ h: label, sub: '', strip: true, items: show.items.map((m) => ({ ...m, skip: true })) });
+    };
+    nights.filter((x) => !x.mn.chanuka).forEach((x) => strip(x.mn.label, [x]));
+    if (chN.length) strip('מעריב בחנוכה', chN);
     for (const bk of specials(k, off, 'weekday')) {
-      for (const r of bk.rows) groups.push({ h: r.label, sub: r.note ? `(${r.note})` : '', special: true, items: r.mins.map((m) => ({ min: m, k: r.label, room: '' })) });
+      for (const r of bk.rows) groups.push({ h: r.label, sub: r.note ? `(${r.note})` : '', special: true, items: r.mins.map((m) => ({ min: m, k: r.label, room: '', day: k })) });
     }
-    return { holy: false, k, last: w.last == null ? null : w.last + off, groups };
+    const lastM = ov.mincha ? wD.last : wP.last;
+    return { holy: false, k, last: lastM == null ? null : lastM + off, groups, extra };
+  }
+  // די מניינים פון א לוח וואס זענען טאקע אויף זיין טאג (אדער שבת/יו"ט)
+  const dayItems = (bd) => [...bd.groups.flatMap((g) => g.items), ...(bd.extra || [])].filter((m) => !m.skip && (m.day == null || m.day === bd.k));
+  // פורים / תשעה באב: זמנים מיוחדים — אנשטאט זמני שבת (אדער אנשטאט ימות החול, ווען עס איז זונטאג), ביז א האלבע שעה נאכן לעצטן
+  function ptBox() {
+    const pa = ptAround(DATA, n); if (!pa) return null;
+    const { block: b, ds } = pa; const rows = [];
+    for (let k = ds[0] - 1; k <= ds[ds.length - 1]; k += 1) {
+      for (const bk of computeSpecial(DATA, k, LOC)) {
+        if (bk.when !== b.when) continue;
+        for (const r of bk.rows) if (r.screen && r.mins.length) rows.push({ label: r.label, note: r.note, kind: r.kind, min: r.mins[0] + (k - n) * 1440, more: r.mins.slice(1).map((m) => m + (k - n) * 1440) });
+      }
+    }
+    if (!rows.length) return null;
+    const end = Math.max(...rows.flatMap((r) => [r.min, ...r.more])) + 30;
+    if (nowMin > end) return null;
+    const sunCase = dowOf(ds[0]) === 0;
+    const wsun = ds[0] - dowOf(ds[0]);
+    const startOk = sunCase ? (n > ds[0] - 2 || (n === ds[0] - 2 && swap)) : (n > wsun - 1 || (n === wsun - 1 && !swap));
+    if (!startOk) return null;
+    return { title: b.title, d: ds[0], rows: rows.sort((a, c) => a.min - c.min) };
   }
   // שבת / יו"ט: שורות פאר די גרויסע קעסטל. eve = ערב (פרייטאג / ערב יו"ט), d = דער טאג
   function holyRows(eve) {
@@ -332,7 +415,7 @@ function render() {
     const rows = holyRows(eve);
     return { holy: true, rows, groups: [{ items: rows.filter((r) => r.kind === 'tefila' && r.min != null).map((r) => ({ min: r.min, k: r.label, room: '' })) }] };
   }
-  const hasFuture = (bd) => bd.groups.some((g) => g.items.some((m) => m.min >= nowMin));
+  const hasFuture = (bd) => dayItems(bd).some((m) => m.min >= nowMin);
   // שבת/יו"ט: פון ערב (נאך דער לעצטער שחרית) ביז נאך מעריב מוצאי — טוישן זיך די פלעצער:
   // די שבת-קעסטל ווערט גרויס אויפן ארט פון זמני התפילות, און זמני התפילות (וואכנטאג) ווערט קליין אויפן ארט פון שבת
   let hd = null;
@@ -352,11 +435,13 @@ function render() {
     : [weekdayBoard(n, 0), weekdayBoard(n + 1, 1440)].find(hasFuture) || weekdayBoard(n + 1, 1440);
   // שבת-קעסטל (ווען נישט געטוישט): די קומענדיגע שבת / יו"ט
   let nextEve = n; while (!holy(nextEve + 1) || holy(nextEve)) nextEve += 1;
-  const all = (swap ? hb : board).groups.flatMap((g) => g.items).sort((x, y) => x.min - y.min);
+  const PTB = ptBox();
+  const ptItems = PTB ? PTB.rows.filter((r) => r.kind === 'tefila').flatMap((r) => [r.min, ...r.more].map((m) => ({ min: m, k: r.label, room: '' }))) : [];
+  const all = [...dayItems(swap ? hb : board), ...ptItems].sort((x, y) => x.min - y.min);
   // דער קומענדיגער מנין — אויב נישט אויפן לוח (נאך דעם לעצטן מעריב), זוכן ווייטער: וואכנטאג / שבת / יו"ט
   const nextAny = () => {
     for (let k = n; k < n + 10; k += 1) {
-      const items = holy(k) ? holyBoard(k - 1).groups.flatMap((g) => g.items) : weekdayBoard(k, (k - n) * 1440).groups.flatMap((g) => g.items);
+      const items = holy(k) ? holyBoard(k - 1).groups.flatMap((g) => g.items) : dayItems(weekdayBoard(k, (k - n) * 1440));
       const f = items.filter((m) => m.min >= nowMin).sort((a, b) => a.min - b.min);
       if (f.length) return f[0];
     }
@@ -371,7 +456,8 @@ function render() {
   // שינוי אין די זמני ימות החול: "מיום ... במקום ..." פאראויס, און "חדש" נאכן שינוי (הגדרות המסך → chg)
   const chg = changesFor(swap ? null : board.k, n, holy);
   const isNew = (m) => !!(m.key && chg.newKeys.has(`${m.k}|${m.key}`));
-  const timesHtml = (arr) => arr.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}${isNew(m) ? ' new' : ''}">${isNew(m) ? '<em>חדש</em>' : ''}${tm(((m.min % 1440) + 1440) % 1440)}${m.note === 'בערך' ? '<small style="font-size:20px"> בערך</small>' : ''}${m.xn ? `<small style="font-size:18px"> (${m.xn})</small>` : ''}</span>`).join('');
+  const isNx = (m) => !!next && (m === next || (m.k === next.k && m.min === next.min));
+  const timesHtml = (arr) => arr.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${isNx(m) ? ' nx' : ''}${isNew(m) ? ' new' : ''}">${isNew(m) ? '<em>חדש</em>' : ''}${tm(((m.min % 1440) + 1440) % 1440)}${m.note === 'בערך' ? '<small style="font-size:20px"> בערך</small>' : ''}${m.xn ? `<small style="font-size:18px"> (${m.xn})</small>` : ''}</span>`).join('');
 
   const mnyHtml = (bd, pos) => `<div class="frame mny ${pos}${(chg.note || CUR.notice) && pos === 'pos-main' ? ' has-chg' : ''}">
       <div class="ttl">${h(SCR.texts.tWeek)}${(() => { const k0 = swap ? wk : n; let s6 = k0; while (dowOf(s6) !== 6) s6 += 1; const p6 = dayOf(s6)?.parsha; return p6 ? ` לפרשת ${h(p6)}` : ''; })()}</div>
@@ -397,6 +483,14 @@ function render() {
     </div>`;
   }
 
+  function ptHtml(pos) {
+    const P = PTB; const x0 = hdOf(P.d);
+    const dense = P.rows.length > 7 ? ' dense' : '';
+    return `<div class="shab pt ${pos}${dense}" style="--n:${P.rows.length}">
+      <div class="sh-t"><small class="pre">${h(SCR.texts.tHoly)}</small>${h(`ל${P.title}`)}<small>${h(`${YDAY[dowOf(P.d)]} ${hebrewNumber(x0.d)} ${MONTH[x0.m] || x0.m}`)}</small></div>
+      ${P.rows.map((r) => `<div class="sh-r${r.kind === 'tefila' ? ' big' : ''}${r.min < nowMin && !r.more.some((m) => m >= nowMin) ? ' past' : ''}"><span>${h(r.label)}</span><b>${[r.min, ...r.more].map((m) => tm(((m % 1440) + 1440) % 1440)).join(' · ')}</b></div>`).join('')}
+    </div>`;
+  }
   const hh = now.getHours() % 12 || 12; const ap = now.getHours() < 12 ? 'AM' : 'PM';
   const heDate = `${hebrewNumber(x.d)} ${MONTH[x.m] || x.m} ${hebrewNumber(x.y % 1000)}`;
   const mz = mitzvaYomis(iso); const daf = dafYomi(iso);
@@ -433,7 +527,7 @@ function render() {
       <div class="note">${adds.map((a, i) => (i ? `<span class="chg">${h(a)}</span>` : h(a))).join(' · ')}</div>
       ${omer ? `<div class="omer">${h(omer)}</div>` : ''}
       <div class="lc"><div><h4>${h(SCR.texts.tMitzva)}</h4><p>מצוה ${h(hebrewNumber(mz.n))}</p><small>${h(mz.text)}</small></div><div><h4>${h(SCR.texts.tDaf)}</h4><p>${h(daf.text)}</p></div></div>
-    </div>` : HID.side ? '' : swap ? mnyHtml(board, 'pos-side') : shabHtml(nextEve, nextEve + 1, 'pos-side')}
+    </div>` : HID.side ? '' : PTB ? ptHtml('pos-side') : swap ? mnyHtml(board, 'pos-side') : shabHtml(nextEve, nextEve + 1, 'pos-side')}
 
     ${HID.simchos ? '' : `<div class="frame mzl">
       <img class="head" src="${h(SCR.simchaHead || 'img/display/simcha-title.jpg')}" alt="שהשמחה במעונם">
@@ -481,7 +575,14 @@ function render() {
   updateShiurim(AD || HID.shiurim ? '' : shInner);
   // לוח המניינים (חול): די אותיות ווערן אזוי גרויס אז זיי פילן אויס די מסגרת
   for (const box of document.querySelectorAll('#dyn .mny')) fitBoard(box);
-  for (const box of document.querySelectorAll('#dyn .shab')) fitBoard(box, '.sh-r span, .sh-r b', 1);
+  for (const box of document.querySelectorAll('#dyn .shab')) {
+    fitBoard(box, '.sh-r > span, .sh-r > b', 1);
+    // א לאנגער נאמען: נאר ער ווערט קלענער, אז די שעה זאל נישט ווערן געדריקט
+    for (const sp of box.querySelectorAll('.sh-r > span')) {
+      let fs = parseFloat(sp.style.fontSize || getComputedStyle(sp).fontSize);
+      while (sp.scrollWidth > sp.clientWidth + 1 && fs > 12) { fs -= 1; sp.style.fontSize = `${fs}px`; }
+    }
+  }
   // .fit: גרויס ווי מעגליך, אבער אין איין שורה אין דער מסגרת
   for (const el of document.querySelectorAll('#dyn .fit')) {
     let fs = 40; el.style.fontSize = `${fs}px`;

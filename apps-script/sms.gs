@@ -60,6 +60,8 @@ const TEXTS = {
   new_line: { g: 'public', def: 'This is the new number of {brand}. Reply HELP for help, STOP to opt out.' },
   kw_invite: { g: 'public', def: '{brand}: Did you want to subscribe to our updates? If so, reply JOIN.' },
   auto_menu: { g: 'auto', def: '1 = לאשר · 2 = לבטל פעם אחת · 3 = להוריד שורה · 4 = הודעה מחליפה · 5 = שורת גבאי' },
+  auto_menu6: { g: 'auto', def: '6 = כ"ק אד"ש לא נמצא בבארא פארק' },
+  auto_away_fail: { g: 'auto', def: 'לא הצלחתי לרשום שכ"ק אד"ש לא נמצא. אנא רשמו באתר: זמני תפילות ← ✈ נסע.' },
   auto_rem1: { g: 'auto', def: 'תזכורת: "{title}" תישלח {when} ל-{count} אנשים (בערך {cost}). הקרדיטים שלך: {credits}.\n---\n{text}\n---\n{menu}' },
   auto_rem2: { g: 'auto', def: 'תזכורת אחרונה: "{title}" תישלח {when} רק אם תאשרו.\n---\n{text}\n---\n{menu}' },
   auto_now: { g: 'auto', def: 'ההודעה כרגע ("{title}", {when}):\n---\n{text}\n---\n{menu}' },
@@ -101,12 +103,24 @@ function doPost(e) {
       if (req.secret !== props.getProperty('SHARED_SECRET')) return out({ error: 'bad-secret' });
       return out(fromWorker(req));
     }
+    // התצוגה בבית הכנסת: "אני מחובר" (בלי כניסה) · והסטטוס לאתר
+    if (req.action === 'display_ping') return out(displayPing_(req));
+    if (req.action === 'display_status') return out(displayStatus_());
     const email = whoIs(req.token);
     if (!email || !allowed(email)) return out({ error: 'not-allowed' });
     return out(fromSite(req, email));
   } catch (err) {
     return out({ error: String(err && err.message || err).slice(0, 300) });
   }
+}
+function displayPing_(req) {
+  const v = String(req.v || '').replace(/[^\d]/g, '').slice(0, 8);
+  PropertiesService.getScriptProperties().setProperty('display_seen', JSON.stringify({ at: Date.now(), v: v }));
+  return { ok: true };
+}
+function displayStatus_() {
+  let s = null; try { s = JSON.parse(PropertiesService.getScriptProperties().getProperty('display_seen') || 'null'); } catch (e) { s = null; }
+  return { seen: s, now: Date.now() };
 }
 function out(obj) { return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON); }
 
@@ -1189,7 +1203,43 @@ function minyanimData() {
     const parts = rows.filter(function (x) { return /^data#\d+$/.test(x[0] || ''); }).sort(function (a, b) { return Number(a[0].split('#')[1]) - Number(b[0].split('#')[1]); });
     MINY = parts.length ? JSON.parse(parts.map(function (x) { return x[1] || ''; }).join('')) : {};
   } catch (e) { MINY = {}; }
+  MINY.rebbeAway = awayList_();
   return MINY;
+}
+// ✈ כ"ק אדמו"ר שליט"א נסע — לשונית RebbeAway אין דעם גיליון פון דער תצוגה: [from, to, by, at]
+function awayList_() {
+  try {
+    const r = UrlFetchApp.fetch('https://docs.google.com/spreadsheets/d/' + DISPLAY_SHEET + '/gviz/tq?tqx=out:csv&sheet=RebbeAway&headers=1&t=' + Date.now(), { muteHttpExceptions: true });
+    const rows = Utilities.parseCsv(r.getContentText());
+    if (!rows.length || rows[0][0] !== 'from') return [];
+    const dt = function (v) { const a = /^(\d{4})-(\d{2})-(\d{2})/.exec(v || ''); if (a) return a[0]; const b = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(v || ''); return b ? b[3] + '-' + ('0' + b[1]).slice(-2) + '-' + ('0' + b[2]).slice(-2) : ''; };
+    return rows.slice(1).map(function (x) { return { from: dt(x[0]), to: dt(x[1]) }; }).filter(function (x) { return x.from && x.to; });
+  } catch (e) { return []; }
+}
+/** שרייבט א נסיעה (ביז מוצאי שבת) אין דער לשונית; true = געלונגען */
+function awayAdd_(from, to, by) {
+  try {
+    const book = SpreadsheetApp.openById(DISPLAY_SHEET);
+    let sh = book.getSheetByName('RebbeAway');
+    if (!sh) { sh = book.insertSheet('RebbeAway'); sh.getRange(1, 1, 1, 4).setValues([['from', 'to', 'by', 'at']]); }
+    if (sh.getLastRow() < 1) sh.getRange(1, 1, 1, 4).setValues([['from', 'to', 'by', 'at']]);
+    sh.getRange(sh.getLastRow() + 1, 1, 1, 4).setNumberFormat('@').setValues([[from, to, by, stamp()]]);
+    MINY = null; Object.keys(VARS).forEach(function (k) { delete VARS[k]; });
+    const d = minyanimData(); // gviz קען זיין א רגע הינטערשטעליג
+    if (!d.rebbeAway.some(function (x) { return x.from === from && x.to === to; })) d.rebbeAway.push({ from: from, to: to });
+    return true;
+  } catch (e) { ev('error', { detail: 'rebbe away: ' + String(e && e.message || e) }); return false; }
+}
+/** ווען שבת פון דער הודעה ווערט אנדערש אויב כ"ק אד"ש איז נישט דא — מ'ווייזט "6" */
+function awaySat_(occ) { let n = LUACH.nOf(String(occ).slice(0, 10)); while (LUACH.dowOf(n) !== 6) n += 1; return n; }
+function awayDepends(a, occ) {
+  try {
+    const data = minyanimData(); const sat = awaySat_(occ);
+    if (LUACH.rebbeAwayOn(data, sat - 1)) return false;
+    const alt = Object.assign({}, data, { rebbeAway: (data.rebbeAway || []).concat([{ from: LUACH.isoOf(sat - 1), to: LUACH.isoOf(sat) }]) });
+    const b2 = LUACH.renderAuto(a.text, LUACH.autoVars(alt, String(occ).slice(0, 10)), a.line || '', a.occ_mod || '');
+    return b2 !== bodyOf(a, occ);
+  } catch (e) { return false; }
 }
 function autoRows() { return readTab('SmsAuto').rows; }
 function autoById(id) { return autoRows().filter(function (x) { return String(x.auto_id) === String(id); })[0] || null; }
@@ -1259,12 +1309,12 @@ function titleOf(a, occ) {
   const p = usesParsha ? varsAt(occ)['פרשה'] : '';
   return a.name + (p ? ', פרשת ' + p : '');
 }
-function menuText(cfg) { return txt_('auto_menu', null, cfg); }
+function menuText(cfg, a, occ) { return txt_('auto_menu', null, cfg) + (a && awayDepends(a, occ) ? ' · ' + txt_('auto_menu6', null, cfg) : ''); }
 /** ההודעה המלאה + דער תפריט (key = auto_rem1 / auto_rem2 / auto_now) */
 function menuMsg(key, a, occ, cfg) {
   const have = creditsOf(lower(a.owner_email)); const cost = costOf(a, occ, cfg);
   const full = fullOf(a, occ, cfg);
-  let msg = txt_(key, { title: titleOf(a, occ), name: a.name, when: whenText(occ), count: autoRecipList(a).length, cost: money_(cost), credits: money_(have), text: full, menu: menuText(cfg) }, cfg);
+  let msg = txt_(key, { title: titleOf(a, occ), name: a.name, when: whenText(occ), count: autoRecipList(a).length, cost: money_(cost), credits: money_(have), text: full, menu: menuText(cfg, a, occ) }, cfg);
   const parts = segments(full);
   if (parts >= 3) msg += '\n\n' + txt_('auto_long', { parts: parts }, cfg);
   if (have < cost) msg += '\n\n' + txt_('auto_nocredit', { missing: money_(cost - have), cost: money_(cost), credits: money_(have) }, cfg);
@@ -1495,6 +1545,13 @@ function autoAct(from, p, t, g, cfg, say1) {
   if (L === '3') { setWait('drop'); return say1(txt_('auto_drop_q', { numbered: numbered(lines()) }, cfg)); }
   if (L === '4') { setWait('text'); return say1(txt_('auto_text_q', null, cfg)); }
   if (L === '5') { setWait('line'); return say1(txt_('auto_line_q', null, cfg)); }
+  // 6: כ"ק אד"ש לא נמצא — נרשם ביז מוצאי שבת, און די הודעה ווערט איבערגערעכנט
+  if (L === '6' && awayDepends(a, occ)) {
+    const sat = awaySat_(occ); const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+    if (!awayAdd_(today < LUACH.isoOf(sat - 1) ? today : LUACH.isoOf(sat - 1), LUACH.isoOf(sat), 'SMS ' + (g.email || last10(from)))) return say1(txt_('auto_away_fail', null, cfg));
+    unapprove(); ev('auto_change', { g: g, name: a.name, detail: 'כ"ק אד"ש לא נמצא (6) עד ' + LUACH.isoOf(sat) });
+    return showNow();
+  }
   return null; // נישט פאר אונז
 }
 function numbered(ls) { return ls.map(function (l, i) { return (i + 1) + '. ' + l; }).join('\n'); }

@@ -324,6 +324,8 @@ export function otherSheet(id) {
     read: async (range) => (await authFetch(`${base}/values/${enc(range)}?valueRenderOption=UNFORMATTED_VALUE`)).values || [],
     write: (range, values) => authFetch(`${base}/values/${enc(range)}?valueInputOption=RAW`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values }) }),
     clear: (range) => authFetch(`${base}/values/${enc(range)}:clear`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }),
+    /** א נייע לשונית (ווען זי איז נאך נישטא) */
+    addTab: (title) => authFetch(`${base}:batchUpdate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requests: [{ addSheet: { properties: { title } } }] }) }),
   };
 }
 

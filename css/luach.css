@@ -335,3 +335,15 @@
 .sc-bx td { padding: 2px 4px; border-bottom: 1px solid #f0e6cc; }
 .sc-bx input.unset { opacity: .45; }
 .tf-camp { margin-top: 10px; padding-top: 8px; border-top: 1px solid #e2d6b8; line-height: 1.9; } .tf-cd { margin-inline-end: 6px; white-space: nowrap; }
+.tf-skl { font-size: .85em; white-space: nowrap; cursor: pointer; } .tf-sk { font-size: .85em; background: #fff7e0; border-radius: 6px; padding: 1px 6px; white-space: nowrap; } .tf-sk input[type=time] { width: 7.5em; }
+.aw-bar { display: flex; gap: 12px; align-items: center; justify-content: center; margin-top: 18px; }
+.aw-btn { font-size: .95em; }
+.aw-disp { text-align: center; margin-top: 8px; }
+.aw-dlg { max-width: 640px; }
+.aw-t { width: 100%; border-collapse: collapse; margin: 8px 0; } .aw-t td { padding: 4px 6px; border-bottom: 1px solid #eee3c8; }
+.aw-t tr.aw-past { opacity: .5; }
+.aw-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+.aw-hd { display: inline-flex; gap: 3px; } .aw-hd select { padding: 2px 4px; }
+.tf-away { white-space: nowrap; font-size: .9em; }
+.tf-help { background: #fffaf0; border: 1px solid #e2d6b8; border-radius: 12px; padding: 10px 18px; margin: 10px 0; line-height: 1.6; }
+.tf-help h3 { margin: 4px 0 8px; } .tf-help details { margin: 6px 0; } .tf-help summary { cursor: pointer; } .tf-help ul { margin: 4px 0 8px; padding-inline-start: 22px; }

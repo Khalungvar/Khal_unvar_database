@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="he" dir="rtl"><head><meta charset="utf-8"><title>Ungvar display</title>
+<style>html,body{margin:0;height:100%;background:#2a1709;color:#f3dc9a;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;font-size:42px;text-align:center}small{display:block;font-size:22px;color:#e9d9ad;margin-top:16px}</style></head>
+<body><div>מתחבר לתצוגה…<small id="s">בודק חיבור לאינטרנט</small></div>
+<script>
+// Opens the shul display only when the internet works; otherwise tries again every 20 seconds.
+const URL = 'https://ungvar.org/display.html';
+let n = 0;
+async function go() {
+  n += 1;
+  try {
+    await fetch(URL + '?chk=' + Date.now(), { mode: 'no-cors', cache: 'no-store' });
+    location.replace(URL);
+  } catch (e) {
+    document.getElementById('s').textContent = 'אין אינטרנט כרגע — מנסה שוב (' + n + ')';
+    setTimeout(go, 20000);
+  }
+}
+go();
+</script></body></html>

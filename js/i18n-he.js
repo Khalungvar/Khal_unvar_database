@@ -825,6 +825,8 @@ export const HE = {
   "csTfWait": "ממתין",
   "csTfBrand": "אפשר עכשיו לשנות את השם ל-Ungvar (למעלה: \"השם בתחילת ההודעה\").",
   "csTx_auto_menu": "התפריט לגבאי",
+  "csTx_auto_menu6": "תפריט: 6 = כ\"ק אד\"ש לא נמצא",
+  "csTx_auto_away_fail": "6 — לא הצליח לרשום",
   "csTx_auto_now": "ההודעה אחרי שינוי",
   "csTx_auto_ok_approved_short": "אושר אבל חסר קרדיט",
   "csTx_auto_cancel_q": "שאלת ביטול",

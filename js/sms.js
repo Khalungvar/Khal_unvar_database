@@ -620,7 +620,7 @@ const TXT_LABEL = {
   txt_opt_in: 'csTx_opt_in', txt_join_ask: 'csTx_join_ask', txt_join_again: 'csTx_join_again', txt_new_line: 'csTx_new_line',
   txt_auto_rem1: 'csTx_auto_rem1', txt_auto_rem2: 'csTx_auto_rem2', txt_auto_nocredit: 'csTx_auto_nocredit', txt_auto_missed: 'csTx_auto_missed',
   txt_auto_ok_approved: 'csTx_auto_ok_approved', txt_auto_ok_canceled: 'csTx_auto_ok_canceled',
-  txt_auto_menu: 'csTx_auto_menu', txt_auto_now: 'csTx_auto_now', txt_auto_ok_approved_short: 'csTx_auto_ok_approved_short', txt_auto_cancel_q: 'csTx_auto_cancel_q', txt_auto_kept: 'csTx_auto_kept',
+  txt_auto_menu: 'csTx_auto_menu', txt_auto_menu6: 'csTx_auto_menu6', txt_auto_away_fail: 'csTx_auto_away_fail', txt_auto_now: 'csTx_auto_now', txt_auto_ok_approved_short: 'csTx_auto_ok_approved_short', txt_auto_cancel_q: 'csTx_auto_cancel_q', txt_auto_kept: 'csTx_auto_kept',
   txt_auto_drop_q: 'csTx_auto_drop_q', txt_auto_text_q: 'csTx_auto_text_q', txt_auto_line_q: 'csTx_auto_line_q', txt_auto_nobrand_q: 'csTx_auto_nobrand_q', txt_auto_nobrand_ok: 'csTx_auto_nobrand_ok',
   txt_auto_nobrand_keep: 'csTx_auto_nobrand_keep', txt_auto_failed_credit: 'csTx_auto_failed_credit', txt_auto_skip: 'csTx_auto_skip',
 };

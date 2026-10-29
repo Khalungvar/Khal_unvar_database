@@ -17,7 +17,7 @@ export const SEASONS = [['all', 'כל השנה'], ['winter', 'שעון חורף'
 export const ANCHORS = [['dstStart', 'תחילת שעון קיץ'], ['dstEnd', 'תחילת שעון חורף'], ['afterPesach', 'אחרי פסח'], ['afterShavuos', 'אחרי שבועות'],
   ['rh', 'ראש השנה'], ['afterSukkos', 'אחרי סוכות'], ['chanuka', 'חנוכה'], ['purim', 'פורים']];
 
-const toMin = (t) => { const [a, b] = String(t || '').split(':').map(Number); return Number.isFinite(a) ? a * 60 + (b || 0) : null; };
+const toMin = (t) => { if (!String(t || '').trim()) return null; const [a, b] = String(t).split(':').map(Number); return Number.isFinite(a) ? a * 60 + (b || 0) : null; };
 export const F = (t) => ({ b: 'fixed', t });
 export const R = (b, a = 0, r = 1, m = 'n') => ({ b, a, r, m });
 
@@ -34,8 +34,10 @@ export function timeOf(T, zd) {
     return v.length ? (T.b === 'max' ? Math.max(...v) : Math.min(...v)) : null;
   }
   if (T.b === 'fixed' || T.t) return toMin(T.t);
-  const base = zd[T.b];
+  let base = zd[T.b];
   if (!Number.isFinite(base)) return null;
+  // "שעות שמדלגים עליהן": ווען דער זמן פאלט צווישן from און to — רעכנט מען פון to (למשל ר"ת 6:00–7:00 → 7:00)
+  if (T.sk) { const f = toMin(T.sk.from); const t = toMin(T.sk.to); if (f != null && t != null && base >= f && base < t) base = t; }
   const v = base + (Number(T.a) || 0); const r = Number(T.r) || 1;
   return T.m === 'u' ? Math.ceil(v / r) * r : T.m === 'd' ? Math.floor(v / r) * r : Math.round(v / r) * r;
 }
@@ -46,7 +48,7 @@ export function describe(T) {
   if (T.b === 'fixed') return T.t || '—';
   const name = (BASES.find(([k]) => k === T.b) || [, T.b])[1];
   const a = Number(T.a) || 0;
-  return `${name}${a ? ` ${a > 0 ? '+' : '−'}${Math.abs(a)} דק'` : ''}`;
+  return `${name}${a ? ` ${a > 0 ? '+' : '−'}${Math.abs(a)} דק'` : ''}${T.sk ? ` (בין ${T.sk.from}–${T.sk.to} → מ-${T.sk.to})` : ''}`;
 }
 /** קיץ = זומער-צייט (DST) אין ניו יארק */
 export function isSummer(iso) {
@@ -100,6 +102,10 @@ export function inCamp(iso, camp) {
   return f <= t ? x >= f && x <= t : x >= f || x <= t;
 }
 /** בזמן הקעמפ: null = נישט נוגע; 'drop' = נישט פארהאן; אדער א הערה "חוץ מיום א'" (די גאנצע וואך די זעלבע) */
+export function campDays(r, iso, camp) {
+  const off = (r.campOff || []).map(Number).filter((d) => d <= (r.fri ? 5 : 4));
+  return off.length && inCamp(iso, camp) ? off : [];
+}
 export function campEffect(r, iso, camp) {
   const off = (r.campOff || []).map(Number).filter((d) => d <= (r.fri ? 5 : 4));
   if (!off.length || !inCamp(iso, camp)) return null;
@@ -200,8 +206,39 @@ function TISHREI_BLOCKS() {
 }
 const empty = (labels) => labels.map((l) => row(l, []));
 function MINOR_BLOCKS() {
-  return [['חנוכה', 'chanuka'], ['עשרה בטבת', 'asaraTeves'], ['תענית אסתר', 'taanisEsther'], ['פורים', 'purim'], ['ל"ג בעומר', 'lagBaomer'], ['י"ז בתמוז', 'tamuz17'], ['תשעה באב', 'tishaBav']]
+  return [['חנוכה', 'chanuka'], ['עשרה בטבת', 'asaraTeves'], ['תענית אסתר', 'taanisEsther'], ['פורים', 'purim'], ['י"ז בתמוז', 'tamuz17'], ['תשעה באב', 'tishaBav']]
     .map(([t, w]) => block(t, w, []));
+}
+// די בלאקן פון data.minor זענען צוויי לשוניות: "חנוכה ותעניות" (נאר מעריב) און "פורים ותשעה באב" (זמנים מיוחדים — אנשטאט זמני שבת)
+export const MINOR1 = ['chanuka', 'asaraTeves', 'taanisEsther', 'tamuz17'];
+export const PT = ['purim', 'tishaBav'];
+const FASTS = ['asaraTeves', 'taanisEsther', 'tamuz17'];
+const blocksOf = (data, when) => (data.minor?.blocks || []).filter((b) => b.when === when);
+const realT = (arr) => (arr || []).filter((T) => T && (T.b !== 'fixed' || String(T.t || '').trim()));
+const dayIn = (when, n) => { const Y = hdOf(n).y; return [Y, Y + 1, Y - 1].some((y) => daysOf(when, y).includes(n)); };
+/** מעריב פון דער נאכט נאך טאג n (מוצאי תענית / חנוכה): { block, label, times:[T] } — דאן איז דער מעריב הרגיל בטל, נאר די מניינים פון דער הגדרה */
+export function maarivNight(data, n) {
+  const dw = dowOf(n); if (dw === 5 || dw === 6) return null; // ליל שבת / מוצאי שבת — שבת
+  for (const w of FASTS) {
+    if (!dayIn(w, n)) continue;
+    if (w === 'taanisEsther' && dayIn('purim', n + 1)) return null; // ממש ערב פורים: מעריב וקריאת המגילה — פון "פורים"
+    const b = blocksOf(data, w).find((x) => realT(x.own?.maariv).length);
+    if (b) return { block: b, label: `מעריב מוצאי ${b.title}`, times: realT(b.own.maariv) };
+  }
+  if (dayIn('chanuka', n + 1)) {
+    const b = blocksOf(data, 'chanuka').find((x) => realT(x.own?.maarivMid).length);
+    if (b) return { block: b, label: 'מעריב בחנוכה', times: realT(b.own.maarivMid), chanuka: true };
+  }
+  return null;
+}
+/** לשונית "פורים ותשעה באב": דער בלאק וואס איז פון ערב (on -1) ביז זיין לעצטן טאג ארום טאג n → { block, ds } */
+export function ptAround(data, n, span = 9) {
+  const x = hdOf(n);
+  for (const w of PT) for (const b of blocksOf(data, w)) {
+    if (!(b.rows || []).some((r) => (r.times || []).length)) continue;
+    for (const Y of [x.y, x.y + 1, x.y - 1]) { const ds = daysOf(w, Y); if (ds.length && ds[ds.length - 1] >= n - 1 && ds[0] - 1 <= n + span) return { block: b, ds }; }
+  }
+  return null;
 }
 // א חג: מנחה ומעריב (ערב) · שחרית · מנחה ומעריב — פאר יעדן טאג פון חג
 export function chagRows() {
@@ -229,8 +266,7 @@ export const WHEN = {
   tishrei: [['selichos1', 'סליחות - יום א\''], ['selichos', 'סליחות - שאר הימים'], ['erevRH', 'ערב ראש השנה'], ['rh', 'ראש השנה'], ['gedalia', 'צום גדליה'], ['aseres', 'עשרת ימי תשובה'],
     ['yud3', 'י"ג מדות'], ['shuva', 'שבת תשובה'], ['erevYK', 'ערב יום הכיפורים'], ['yk', 'יום הכיפורים'], ['sukkos', 'חג הסוכות'], ['cholSukkos', 'חול המועד סוכות'],
     ['hoshana', 'הושענא רבה'], ['shmini', 'שמיני עצרת ושמחת תורה'], ['bereishis', 'שבת בראשית']],
-  minor: [['chanuka', 'חנוכה'], ['asaraTeves', 'עשרה בטבת'], ['taanisEsther', 'תענית אסתר'], ['purim', 'פורים'], ['lagBaomer', 'ל"ג בעומר'],
-    ['tamuz17', 'י"ז בתמוז'], ['tishaBav', 'תשעה באב']],
+  minor: [['chanuka', 'חנוכה'], ['asaraTeves', 'עשרה בטבת'], ['taanisEsther', 'תענית אסתר'], ['purim', 'פורים'], ['tamuz17', 'י"ז בתמוז'], ['tishaBav', 'תשעה באב']],
   yt: [['erevPesach', 'ערב פסח'], ['erevPesachShabbos', 'ערב פסח שחל בשבת (ו\' + ש\')'], ['pesach', 'פסח (ב\' ימים)'], ['cholPesach', 'חול המועד פסח'], ['shabbosChmPesach', 'שבת חול המועד פסח'], ['erevShvii', 'ערב שביעי של פסח'], ['shviiPesach', 'שביעי ואחרון של פסח'], ['erevShavuos', 'ערב שבועות'], ['shavuos', 'שבועות']],
 };
 const yc = new Map();
@@ -309,11 +345,14 @@ export function weekZ(data, n, loc) {
   return out;
 }
 /** א שעה וואס רוקט זיך (לויט שקיעה א.א.וו.) — דער כלל; א פעסטע שעה — '' */
-const specOf = (T) => (T && (T.b === 'max' || T.b === 'min') ? `${T.b}(${specOf(T.x) || T.x?.t},${specOf(T.y) || T.y?.t})` : T && T.b && T.b !== 'fixed' && !T.t ? `${T.b}${Number(T.a) || 0}/${T.r || 1}${T.m || ''}` : '');
-export function computeWeekday(data, n, loc) {
-  const w = data.weekday; const iso = isoOf(n); const zd = weekZ(data, n, loc); const fri = dowOf(n) === 5;
+const specOf = (T) => (T && (T.b === 'max' || T.b === 'min') ? `${T.b}(${specOf(T.x) || T.x?.t},${specOf(T.y) || T.y?.t})` : T && T.b && T.b !== 'fixed' && !T.t ? `${T.b}${Number(T.a) || 0}/${T.r || 1}${T.m || ''}${T.sk ? `~${T.sk.from}-${T.sk.to}` : ''}` : '');
+/** opt.plain: די וואך אליין — אן פרייטאג און אן ימי דפגרא/ערב חג (פאר דער תצוגה). opt.ytOnly: נאר ערב חג (נישט חנוכה/תעניות/פורים) */
+export function computeWeekday(data, n, loc, opt = {}) {
+  const w = data.weekday; const zd = weekZ(data, n, loc); const fri = dowOf(n) === 5 && !opt.plain;
+  // עונה / קעמפ: לויט דעם זונטאג פון דער וואך (די גאנצע וואך די זעלבע); שבת → די קומענדיגע וואך
+  const iso = (w.refDay ?? '0') === 'daily' ? isoOf(n) : isoOf(n - dowOf(n) + (dowOf(n) === 6 ? 7 : 0));
   const ok = (r) => inSeason(r.season, iso, r) && (!fri || r.fri) && campEffect(r, iso, w.camp) !== 'drop';
-  const mk = (r) => ({ min: timeOf(r.time, zd), room: r.room || w.defaultRoom || '', note: r.note || '', kahal: !!r.kahal, last: !!r.last, spec: specOf(r.time), xn: campEffect(r, iso, w.camp) || '' });
+  const mk = (r) => ({ min: timeOf(r.time, zd), room: r.room || w.defaultRoom || '', note: r.note || '', kahal: !!r.kahal, last: !!r.last, spec: specOf(r.time), xn: campEffect(r, iso, w.camp) || '', xdays: campDays(r, iso, w.camp) });
   const valid = (x) => {
     if (x.min == null) return false;
     return (x.cond || []).every((c) => { // אלע תנאים מוזן זיין
@@ -339,47 +378,60 @@ export function computeWeekday(data, n, loc) {
     if (g === 'mincha') out.last = m;
   }
   if (out.last != null) out.mincha = out.mincha.filter((x) => x.min <= out.last);
+  out.ov = {}; out.shacharisNote = w.shacharisNote || ''; out.minchaNote = w.minchaNote || ''; out.maarivNote = w.maarivNote || '';
+  if (opt.plain) return out;
+  // חנוכה ותעניות: נאר דער מעריב (מוצאי תענית / חנוכה) — אנשטאט דעם מעריב הרגיל
+  const mn = opt.ytOnly ? null : maarivNight(data, n);
+  if (mn) { const zn = dayZ(isoOf(n), loc); out.maariv = mn.times.map((T) => ({ min: timeOf(T, zn), room: '', note: '' })).filter((x) => x.min != null).sort((a, b) => a.min - b.min); out.ov.maariv = true; out.maarivLabel = mn.label; }
   // ימי דפגרא ותעניות: א תפילה וואס איז נישט "כמו ימות החול" — אירע אייגענע שעות
   const own = (blk, g) => (blk.own?.[g] || []).map((T) => ({ min: timeOf(T, zd), room: '', note: '' })).filter((x) => x.min != null).sort((a, b) => a.min - b.min);
-  const mb = minorBlockOn(data, n); const nb = minorBlockOn(data, n + 1);
+  const mb = minorBlockOn(data, n, opt.ytOnly); const nb = minorBlockOn(data, n + 1, opt.ytOnly);
   if (mb) {
     out.minor = mb.title;
     const like = mb.like || {};
     for (const g of ['shacharis', 'mincha']) {
       if (like[g] !== false) continue;
-      out[g] = own(mb, g);
+      out[g] = own(mb, g); out.ov[g] = true;
       if (g === 'mincha') out.last = null;
     }
     if (fri && mb.fri?.mode === 'custom') out.friMincha = timeOf(mb.fri.time, zd);
   }
   // "מנחה ערב": די מנחה פונעם טאג פאר א יום דפגרא/תענית
-  if (!mb && nb && (nb.like || {}).minchaEve === false) { out.mincha = own(nb, 'minchaEve'); out.last = null; }
+  if (!mb && nb && (nb.like || {}).minchaEve === false) { out.mincha = own(nb, 'minchaEve'); out.last = null; out.ov.mincha = true; }
   // מעריב פון היינט ביינאכט: ערב (פאר'ן ערשטן טאג) · אמצע (צווישן טעג פון א לענגערן בלאק) · מוצאי (נאכן לעצטן טאג)
   const eveG = !mb && nb ? 'maarivEve' : mb && nb === mb ? 'maarivMid' : mb ? 'maariv' : null;
   const eb = eveG === 'maarivEve' ? nb : mb;
-  if (eveG && (eb.like || {})[eveG] === false) out.maariv = own(eb, eveG);
-  out.shacharisNote = w.shacharisNote || ''; out.minchaNote = w.minchaNote || ''; out.maarivNote = w.maarivNote || '';
+  if (eveG && !mn && (eb.like || {})[eveG] === false) { out.maariv = own(eb, eveG); out.ov.maariv = true; }
   return out;
 }
 /** דער בלאק פון ימי דפגרא ותעניות וואס איז אויף טאג n */
-export function minorBlockOn(data, n) {
+export function minorBlockOn(data, n, ytOnly = false, all = false) {
   const x = hdOf(n);
-  for (const b of [...(data.minor?.blocks || []), ...(data.yt?.blocks || []).filter((x) => x.type === 'erev')]) {
+  // חנוכה ותעניות האבן נאר א מעריב (maarivNight) — שחרית און מנחה ווי ימות החול
+  for (const b of [...(ytOnly ? [] : (data.minor?.blocks || []).filter((q) => all || !MINOR1.includes(q.when))), ...(data.yt?.blocks || []).filter((q) => q.type === 'erev')]) {
     for (const Y of [x.y, x.y + 1, x.y - 1]) if (daysOf(b.when, Y).includes(n)) return b;
   }
   return null;
 }
 const avosSeason = (n) => { const x = hdOf(n); return ['Iyar', 'Sivan', 'Tamuz', 'Av', 'Elul'].includes(x.m) || (x.m === 'Nisan' && x.d > 22); };
 /** שבת: fri = n פון ערב שבת. גיט [{ label, min, kind, note, day }] אין סדר, מיט הדלקת נרות פאראויס */
+/** כ"ק אד"ש איז נישט דא די שבת (data.rebbeAway = [{ from, to }] — פון "✈ נסע") */
+export function rebbeAwayOn(data, fri) {
+  const a = isoOf(fri); const b = isoOf(fri + 1);
+  return (data.rebbeAway || []).some((x) => x.from && x.to && x.from <= b && x.to >= a);
+}
 export function computeShabbos(data, fri, loc) {
   const zf = dayZ(isoOf(fri), loc); const zs = dayZ(isoOf(fri + 1), loc); const iso = isoOf(fri);
+  const away = rebbeAwayOn(data, fri);
   const rows = [{ label: 'הדלקת נרות', min: zf.candles, kind: 'zman', note: '', day: 'fri' }];
   for (const r of data.shabbos.rows || []) {
     if (r.season === 'avos' ? !avosSeason(fri + 1) : !inSeason(r.season, isoOf(r.day === 'sat' ? fri + 1 : fri), r)) continue;
+    if (away && r.away === 'hide') continue;
     let min = timeOf(r.time, r.day === 'sat' ? zs : zf);
+    if (away && r.away === 'shift' && min != null) min += Number(r.awayMin) || 0;
     // ער"ש וואס איז א יום דפגרא/תענית מיט אן אייגענער מנחה וקבלת שבת
     if (r.day === 'fri' && r.kind === 'tefila' && /מנחה/.test(r.label)) {
-      const mb = minorBlockOn(data, fri);
+      const mb = minorBlockOn(data, fri, false, true);
       if (mb?.fri?.mode === 'custom') min = timeOf(mb.fri.time, zf);
       else if (mb?.fri && min != null) min += (mb.fri.sign === '-' ? -1 : 1) * (Number(mb.fri.shift) || 0);
     }

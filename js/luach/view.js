@@ -14,6 +14,8 @@ import { initBooklet } from './booklet.js';
 import { initTefila, openTefila } from './tefila.js';
 import { openTfPrint } from './tfprintui.js';
 import { openScreen } from './screen.js';
+import { openAway, loadAway, awayStatus } from './away.js';
+import { CONFIG } from '../config.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -283,6 +285,20 @@ function renderHub(main) {
   }; });
 }
 
+// 📺 די תצוגה אין בית הכנסת: וויפל צייט צוריק זי האט זיך געמעלדן (יעדע 20 מינוט)
+async function dispStatus(el) {
+  if (!el || !CONFIG.SMS_URL) return;
+  try {
+    const r = await (await fetch(CONFIG.SMS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'display_status' }) })).json();
+    const s = r.seen;
+    if (!s || !s.at) { el.textContent = '📺 התצוגה בבית הכנסת עדיין לא דיווחה (אחרי ההתקנה היא מדווחת כל 20 דקות).'; return; }
+    const min = Math.round((r.now - s.at) / 60000);
+    const ago = min < 1 ? 'עכשיו' : min < 60 ? `לפני ${min} דקות` : min < 1440 ? `לפני ${Math.round(min / 60)} שעות` : `לפני ${Math.round(min / 1440)} ימים`;
+    const at = new Date(s.at).toLocaleString('he-IL', { weekday: 'long', hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'numeric' });
+    el.innerHTML = min <= 45 ? `📺 התצוגה: <b style="color:#1f7a3a">🟢 מחוברת</b> — דיווחה ${h(ago)}${s.v ? ` (גרסה ${h(s.v)})` : ''}`
+      : `📺 התצוגה: <b style="color:#b3261e">🔴 לא מחוברת</b> — דיווחה לאחרונה ${h(at)} (${h(ago)})${s.v ? ` · גרסה ${h(s.v)}` : ''}`;
+  } catch { /* */ }
+}
 // "זמני תפילות ביהמ"ד בארא פארק": 3 קנעפלעך — מסך · דרוקן · די זמנים און שיעורים
 function renderTefilaHub(main) {
   const tile = (k, icon, title, sub, soon) => `<button type="button" class="lobby-tile lx-hubt" data-tf="${k}"${soon ? ' data-soon="1"' : ''}>
@@ -293,8 +309,14 @@ function renderTefilaHub(main) {
       ${tile('tfScreen', '📺', t('tfScreen'), t('tfScreenSub'))}
       ${tile('tfPrint', '🖨', t('tfPrint'), t('tfPrintSub'))}
       ${tile('tfTimes', '🕰', t('tfTimes'), t('hTefilaSub'))}
-    </div>`;
+    </div>
+    <div class="aw-bar"><button type="button" class="btn ghost aw-btn" id="tfh-away">✈ כ”ק אדמו"ר שליט"א נסע</button><span class="muted small" id="tfh-away-st"></span></div>
+    <p class="aw-disp muted small" id="tfh-disp"></p>`;
   $('#tfh-back', main).onclick = () => { mode = 'hub'; renderLuach(); };
+  const st = (list) => { const e = $('#tfh-away-st', main); if (e) e.textContent = awayStatus(list); };
+  loadAway().then(st).catch(() => {});
+  $('#tfh-away', main).onclick = () => openAway(st);
+  dispStatus($('#tfh-disp', main));
   $$('[data-tf]', main).forEach((b) => { b.onclick = () => {
     if (b.dataset.soon) { ui.toast?.(t('soon')); return; }
     mode = b.dataset.tf; renderLuach();
