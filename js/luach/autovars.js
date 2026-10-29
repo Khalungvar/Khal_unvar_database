@@ -19,7 +19,7 @@ function dayOf(n) {
 }
 const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const fmt = (m) => (m == null || !Number.isFinite(m) ? '' : hhmm(((m % 1440) + 1440) % 1440));
-const list = (arr) => arr.map((x) => fmt(x.min)).filter(Boolean).join(' · ');
+const list = (arr) => arr.map((x) => (fmt(x.min) ? `${fmt(x.min)}${x.xn ? ` (${x.xn})` : ''}` : '')).filter(Boolean).join(' · ');
 
 /** שבת אדער יו"ט */
 export const holyOn = (data, n) => dowOf(n) === 6 || chagOn(data, n);

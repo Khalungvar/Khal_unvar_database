@@ -1,6 +1,6 @@
 // "זמני תפילות" — ניהול: ימות החול · שבת · יום טוב · תשרי. די דאטן: לשונית Minyanim (key = data, value = JSON).
 // דער חשבון (וואס קומט ארויס פאר א טאג) איז אין minyanim.js — דאס זעלבע וואס די תצוגה אין בית הכנסת ניצט.
-import { defaults, chagRows, TISHREI_CHAG, computeShiurim, REF_DAYS, condOf, ANCHORS, BASES, ROUNDS, COMBOS, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
+import { defaults, chagRows, TISHREI_CHAG, computeShiurim, REF_DAYS, condOf, ANCHORS, BASES, ROUNDS, COMBOS, HDOW, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
 import { hhmm } from './zmanim.js';
 import { hdOf, dowOf } from './engine.js';
 import { MONTH } from './mitzva.js';
@@ -114,8 +114,10 @@ let condOpen = null; // { p, g } — דער חלון פון "תלוי"
 const BASE_NAME = (k) => (BASES.find(([x]) => x === k) || [, k])[1];
 function condBtn(r, g, p) {
   const cs = condOf(r, g);
-  const txt = cs && cs.length ? cs.map((c) => `${Number(c.min) ? `${c.min} דק' ` : ''}${c.dir === 'before' ? 'לפני' : 'אחרי'} ${BASE_NAME(c.base)}`).join(' + ') : 'תלוי';
-  return `<button type="button" class="tf-cond${cs && cs.length ? ' set' : ''}" data-act="condOpen" data-p="${h(p)}" data-g="${g}"${canEdit() ? '' : ' disabled'}>${h(txt)}</button>`;
+  const off = p.startsWith('weekday.') ? (r.campOff || []) : [];
+  const parts = [...(cs || []).map((c) => `${Number(c.min) ? `${c.min} דק' ` : ''}${c.dir === 'before' ? 'לפני' : 'אחרי'} ${BASE_NAME(c.base)}`), ...(off.length ? [off.length >= (r.fri ? 6 : 5) ? 'לא בקעמפ' : `קעמפ: חוץ מ${off.length === 1 ? 'יום' : 'ימים'} ${off.map((d) => HDOW[d]).join(' ')}`] : [])];
+  const txt = parts.length ? parts.join(' + ') : 'תלוי';
+  return `<button type="button" class="tf-cond${parts.length ? ' set' : ''}" data-act="condOpen" data-p="${h(p)}" data-g="${g}"${canEdit() ? '' : ' disabled'}>${h(txt)}</button>`;
 }
 // ---------- תצוגה: איפה (מקום שבת / חול) און ממתי עד מתי ----------
 let dispOpen = null;
@@ -150,9 +152,15 @@ function condDialog() {
   return `<div class="tf-dlg-bg" data-act="condClose"><div class="tf-dlg">
     <h3>תלוי — ${h(GROUPS.find(([k]) => k === g)?.[1] || '')} ${h(tl)}</h3>
     <p class="muted small">המניין יוצג רק בימים שכל התנאים מתקיימים.</p>
-    ${condHtml(r, g, p)}
+    ${condHtml(r, g, p)}${p.startsWith('weekday.') ? campHtml(r, p) : ''}
     <div class="tf-add"><span class="spacer"></span><button type="button" class="btn primary" data-act="condClose">סגור</button></div>
   </div></div>`;
+}
+function campHtml(r, p) {
+  const off = (r.campOff || []).map(Number); const dis = canEdit() ? '' : ' disabled'; const days = r.fri ? 6 : 5;
+  return `<div class="tf-camp"><label><input type="checkbox" data-act="campTog" data-p="${h(p)}"${off.length ? '' : ' checked'}${dis}> <b>מתקיים בתקופת הקעמפ</b></label>
+    ${off.length ? `<div>בתקופת הקעמפ לא מתקיים בימים: ${HDOW.slice(0, days).map((t, d) => `<label class="tf-cd"><input type="checkbox" data-act="campDay" data-p="${h(p)}" data-d="${d}"${off.includes(d) ? ' checked' : ''}${dis}> ${t}</label>`).join(' ')}
+      <div class="muted small">${off.length >= days ? 'לא יוצג בכלל בתקופת הקעמפ.' : 'יוצג כל השבוע עם הערה קטנה "חוץ מ…".'}</div></div>` : ''}</div>`;
 }
 function condHtml(r, g, p) {
   const cs = condOf(r, g); const dis = canEdit() ? '' : ' disabled';
@@ -186,9 +194,13 @@ function weekdayHtml() {
     <p class="muted small">שעה עם עיגול (למשל: שקיעה +25, עיגול ל-5). מניין אחר שנופל בתוך "אין מנין אחר" לפני או אחרי — לא יוצג באותו יום.</p>
     <table class="tf-t"><thead><tr><th></th><th>פעיל</th><th>שעה</th><th>חדר</th><th>הערה</th><th>אין מנין אחר — לפניו</th><th>— אחריו</th><th></th></tr></thead><tbody>
     ${rb('shacharis', 'שחרית')}${rb('mincha', 'מנחה')}${rb('maariv', 'מעריב')}</tbody></table></section>`;
+  const MON = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'].map((t, i) => [i ? String(i) : '', t || '—']);
+  const DD = [['', '—'], ...Array.from({ length: 31 }, (x, i) => [String(i + 1), String(i + 1)])];
+  const camp = `<section class="tf-grp tf-rebbe"><h3>תקופת קעמפ</h3>
+    <p class="tf-rf">מ־${sel('weekday.camp.fromD', DD)} ${sel('weekday.camp.fromM', MON)} עד־${sel('weekday.camp.toD', DD)} ${sel('weekday.camp.toM', MON)} <span class="muted small">(כל שנה; מנין שלא מתקיים בקעמפ — בחלון "תלוי")</span></p></section>`;
   const ref = `<section class="tf-grp tf-rebbe"><h3>זמני ימות החול — לכל השבוע</h3>
     <p class="tf-rf">שעות שתלויות בשקיעה וכו' (מנין כ"ק, "תלוי") מחושבות לכל השבוע לפי: ${sel('weekday.refDay', REF_DAYS)}</p></section>`;
-  return `${ref}${rebbe}<p class="muted small">חדר שיוצג במסך כשלמניין לא נכתב חדר (אפשר להשאיר ריק): ${fld('weekday.defaultRoom', 'text', ' class="tf-w10" placeholder="למשל: ביהמ&quot;ד"')}</p>
+  return `${ref}${rebbe}${camp}<p class="muted small">חדר שיוצג במסך כשלמניין לא נכתב חדר (אפשר להשאיר ריק): ${fld('weekday.defaultRoom', 'text', ' class="tf-w10" placeholder="למשל: ביהמ&quot;ד"')}</p>
     <p class="muted small">שעון קיץ = מאמצע מרץ עד תחילת נובמבר · שעון חורף = שאר השנה.</p>${groups}`;
 }
 
@@ -306,7 +318,7 @@ function previewHtml() {
   }
   if (tab === 'weekday') {
     const w = computeWeekday(data, n);
-    body = dowOf(n) === 6 ? '<p class="muted">שבת — ראה "שבת"</p>' : GROUPS.map(([g, t]) => `<h4>${t}</h4><p class="tf-pv">${w[g].map((x) => `<span${x.kahal ? ' class="k"' : ''} title="${h(x.room)}">${tm(x.min)}</span>`).join(' · ') || '—'}</p>`).join('')
+    body = dowOf(n) === 6 ? '<p class="muted">שבת — ראה "שבת"</p>' : GROUPS.map(([g, t]) => `<h4>${t}</h4><p class="tf-pv">${w[g].map((x) => `<span${x.kahal ? ' class="k"' : ''} title="${h(x.room)}">${tm(x.min)}${x.xn ? ` <small>(${h(x.xn)})</small>` : ''}</span>`).join(' · ') || '—'}</p>`).join('')
       + (w.last != null ? `<p><b>מנחה מנין אחרון: ${tm(w.last)}</b></p>` : '');
   } else if (tab === 'shabbos') {
     let fri = n; while (dowOf(fri) !== 5) fri += 1;
@@ -328,6 +340,7 @@ async function prepare() {
 function normalize() {
   const dr = defaults().weekday.rebbe;
   data.weekday.rebbe = { ...dr, ...(data.weekday.rebbe || {}) };
+  data.weekday.camp = { ...defaults().weekday.camp, ...(data.weekday.camp || {}) };
   for (const g of ['shacharis', 'mincha', 'maariv']) for (const r of data.weekday[g] || []) { r.cond = condOf(r, g); delete r.auto; }
   // תצוגה במסך — ברירת מחדל: פעיל
   for (const r of data.shabbos.rows || []) if (r.screen === undefined) r.screen = true;
@@ -441,6 +454,8 @@ ${canEdit() ? '<button type="button" class="btn" id="tf-ver" title="לשמור �
     else if (act === 'dispClose') { if (e.target !== b && b.classList.contains('tf-dlg-bg')) return; dispOpen = null; rerender(); return; }
     else if (act === 'condOpen') { condOpen = { p, g: b.dataset.g }; rerender(); return; }
     else if (act === 'condClose') { if (e.target !== b && b.classList.contains('tf-dlg-bg')) return; condOpen = null; rerender(); return; }
+    else if (act === 'campTog') { const r = get(p); r.campOff = b.checked ? [] : Array.from({ length: r.fri ? 6 : 5 }, (x, i) => i); if (!r.campOff.length) delete r.campOff; }
+    else if (act === 'campDay') { const r = get(p); const d = Number(b.dataset.d); const s0 = new Set((r.campOff || []).map(Number)); if (b.checked) s0.add(d); else s0.delete(d); r.campOff = [...s0].sort(); if (!r.campOff.length) delete r.campOff; }
     else if (act === 'condOn') { const r = get(p); r.cond = [b.dataset.g === 'shacharis' ? { dir: 'after', min: 0, base: 'alos' } : b.dataset.g === 'mincha' ? { dir: 'before', min: 0, base: 'shkia' } : { dir: 'after', min: 50, base: 'shkia' }]; }
     else if (act === 'condAdd') { const r = get(p); const g = p.split('.')[1]; r.cond = condOf(r, g) || []; r.cond.push({ dir: 'before', min: 0, base: 'shkia' }); }
     else if (act === 'condDel') { const ks = p.split('.'); const ci = Number(ks.pop()); ks.pop(); const r = get(ks.join('.')); r.cond = condOf(r, ks[1]) || []; r.cond.splice(ci, 1); if (!r.cond.length) r.cond = null; }

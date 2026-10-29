@@ -1507,9 +1507,25 @@ function condOf(r, g) {
   if (!r.auto) return null;
   return [g === 'shacharis' ? C('after', 0, 'alos') : g === 'mincha' ? C('before', 0, 'shkia') : C('after', 50, 'shkia')];
 }
+// תקופת קעמפ (ימות החול): חודש/טאג לועזי, אן א יאר — יעדעס יאר די זעלבע. r.campOff = [טעג 0..5] ווען דער מנין איז נישט בזמן הקעמפ
+const HDOW = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'"];
+function inCamp(iso, camp) {
+  const c = camp || {}; const md = (m, d) => (Number(m) && Number(d) ? Number(m) * 100 + Number(d) : null);
+  const f = md(c.fromM, c.fromD); const t = md(c.toM, c.toD); if (f == null || t == null) return false;
+  const x = Number(iso.slice(5, 7)) * 100 + Number(iso.slice(8, 10));
+  return f <= t ? x >= f && x <= t : x >= f || x <= t;
+}
+/** בזמן הקעמפ: null = נישט נוגע; 'drop' = נישט פארהאן; אדער א הערה "חוץ מיום א'" (די גאנצע וואך די זעלבע) */
+function campEffect(r, iso, camp) {
+  const off = (r.campOff || []).map(Number).filter((d) => d <= (r.fri ? 5 : 4));
+  if (!off.length || !inCamp(iso, camp)) return null;
+  if (off.length >= (r.fri ? 6 : 5)) return 'drop';
+  return `חוץ מ${off.length === 1 ? 'יום' : 'ימים'} ${off.sort().map((d) => HDOW[d]).join(' ')}`;
+}
 function defaults() {
   return {
     weekday: {
+      camp: { fromM: '', fromD: '', toM: '', toD: '' },
       refDay: '0', shacharisNote: 'הודו +10 מינוט', minchaNote: '', maarivNote: '', maarivAfter: 50, defaultRoom: '',
       // מנין כ"ק אדמו"ר שליט"א — באזונדער: א זמן מיט עיגול, און א "שטילע צייט" ארום אים ווען קיין אנדער מנין טאר נישט זיין
       rebbe: {
@@ -1712,8 +1728,8 @@ function weekZ(data, n, loc) {
 const specOf = (T) => (T && (T.b === 'max' || T.b === 'min') ? `${T.b}(${specOf(T.x) || T.x?.t},${specOf(T.y) || T.y?.t})` : T && T.b && T.b !== 'fixed' && !T.t ? `${T.b}${Number(T.a) || 0}/${T.r || 1}${T.m || ''}` : '');
 function computeWeekday(data, n, loc) {
   const w = data.weekday; const iso = isoOf(n); const zd = weekZ(data, n, loc); const fri = dowOf(n) === 5;
-  const ok = (r) => inSeason(r.season, iso, r) && (!fri || r.fri);
-  const mk = (r) => ({ min: timeOf(r.time, zd), room: r.room || w.defaultRoom || '', note: r.note || '', kahal: !!r.kahal, last: !!r.last, spec: specOf(r.time) });
+  const ok = (r) => inSeason(r.season, iso, r) && (!fri || r.fri) && campEffect(r, iso, w.camp) !== 'drop';
+  const mk = (r) => ({ min: timeOf(r.time, zd), room: r.room || w.defaultRoom || '', note: r.note || '', kahal: !!r.kahal, last: !!r.last, spec: specOf(r.time), xn: campEffect(r, iso, w.camp) || '' });
   const valid = (x) => {
     if (x.min == null) return false;
     return (x.cond || []).every((c) => { // אלע תנאים מוזן זיין
@@ -1860,7 +1876,7 @@ function computeHoly(data, eve, loc) {
 }
 
 
-return { dayZ, timeOf, describe, isSummer, condOf, defaults, computeShiurim, chagRows, daysOf, weekRefDay, weekZ, computeWeekday, minorBlockOn, computeShabbos, computeSpecial, chagOn, computeHoly, BASES, COMBOS, ROUNDS, SEASONS, ANCHORS, F, R, partOfDay, WHEN, REF_DAYS, TISHREI_CHAG, nOf, isoOf };
+return { dayZ, timeOf, describe, isSummer, condOf, inCamp, campEffect, defaults, computeShiurim, chagRows, daysOf, weekRefDay, weekZ, computeWeekday, minorBlockOn, computeShabbos, computeSpecial, chagOn, computeHoly, BASES, COMBOS, ROUNDS, SEASONS, ANCHORS, F, R, HDOW, partOfDay, WHEN, REF_DAYS, TISHREI_CHAG, nOf, isoOf };
   })();
   __m["js/luach/autovars.js"] = (function () {
 // "הודעות אוטומטיות": די ערטער וואס פילן זיך אליין אויס ({הדלקת נרות}, {שחרית}, {מצוה יומית} ...)
@@ -1884,7 +1900,7 @@ function dayOf(n) {
 }
 const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const fmt = (m) => (m == null || !Number.isFinite(m) ? '' : hhmm(((m % 1440) + 1440) % 1440));
-const list = (arr) => arr.map((x) => fmt(x.min)).filter(Boolean).join(' · ');
+const list = (arr) => arr.map((x) => (fmt(x.min) ? `${fmt(x.min)}${x.xn ? ` (${x.xn})` : ''}` : '')).filter(Boolean).join(' · ');
 
 /** שבת אדער יו"ט */
 const holyOn = (data, n) => dowOf(n) === 6 || chagOn(data, n);

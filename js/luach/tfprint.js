@@ -119,7 +119,7 @@ export function weekdayPage(data, n, fri, parsha, loc, size = 'letter') {
   const sh = computeShabbos(data, fri, loc);
   // צעטיילט גלייך: 7 → 3,2,2
   const even = (a, per) => { const L = Math.max(1, Math.ceil(a.length / per)); const o = []; let i = 0; for (let k = 0; k < L; k += 1) { const c = Math.ceil((a.length - i) / (L - k)); o.push(a.slice(i, i + c)); i += c; } return o; };
-  const line = (items, per) => even(items, per).map((row) => `<div class="tp-line">${row.map((x) => `<span class="tp-num${x.rebbe ? ' tp-rb' : ''}">${tm(x.min)}</span>${x.ap ? '<span class="tp-ap">בערך</span>' : ''}`).join('<span class="tp-num dot">•</span>')}</div>`).join('');
+  const line = (items, per) => even(items, per).map((row) => `<div class="tp-line">${row.map((x) => `<span class="tp-num${x.rebbe ? ' tp-rb' : ''}">${tm(x.min)}</span>${x.ap ? '<span class="tp-ap">בערך</span>' : ''}${x.xn ? `<span class="tp-ap">${h(x.xn)}</span>` : ''}`).join('<span class="tp-num dot">•</span>')}</div>`).join('');
   const per = (g, a) => (g === 'mincha' ? (a.length > 9 ? 4 : 3) : g === 'maariv' ? (a.length > 4 ? 3 : 2) : (a.length > 9 ? 4 : 3));
   const rbM = w.mincha.find((x) => x.rebbe); const rbA = w.maariv.find((x) => x.rebbe);
   const mincha = w.mincha.filter((x) => !x.rebbe); const maariv = w.maariv.filter((x) => !x.rebbe);

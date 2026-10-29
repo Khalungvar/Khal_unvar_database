@@ -371,7 +371,7 @@ function render() {
   // שינוי אין די זמני ימות החול: "מיום ... במקום ..." פאראויס, און "חדש" נאכן שינוי (הגדרות המסך → chg)
   const chg = changesFor(swap ? null : board.k, n, holy);
   const isNew = (m) => !!(m.key && chg.newKeys.has(`${m.k}|${m.key}`));
-  const timesHtml = (arr) => arr.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}${isNew(m) ? ' new' : ''}">${isNew(m) ? '<em>חדש</em>' : ''}${tm(((m.min % 1440) + 1440) % 1440)}${m.note === 'בערך' ? '<small style="font-size:20px"> בערך</small>' : ''}</span>`).join('');
+  const timesHtml = (arr) => arr.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}${isNew(m) ? ' new' : ''}">${isNew(m) ? '<em>חדש</em>' : ''}${tm(((m.min % 1440) + 1440) % 1440)}${m.note === 'בערך' ? '<small style="font-size:20px"> בערך</small>' : ''}${m.xn ? `<small style="font-size:18px"> (${m.xn})</small>` : ''}</span>`).join('');
 
   const mnyHtml = (bd, pos) => `<div class="frame mny ${pos}${(chg.note || CUR.notice) && pos === 'pos-main' ? ' has-chg' : ''}">
       <div class="ttl">${h(SCR.texts.tWeek)}${(() => { const k0 = swap ? wk : n; let s6 = k0; while (dowOf(s6) !== 6) s6 += 1; const p6 = dayOf(s6)?.parsha; return p6 ? ` לפרשת ${h(p6)}` : ''; })()}</div>

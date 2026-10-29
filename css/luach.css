@@ -334,3 +334,4 @@
 .sc-bx { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .sc-bx td { padding: 2px 4px; border-bottom: 1px solid #f0e6cc; }
 .sc-bx input.unset { opacity: .45; }
+.tf-camp { margin-top: 10px; padding-top: 8px; border-top: 1px solid #e2d6b8; line-height: 1.9; } .tf-cd { margin-inline-end: 6px; white-space: nowrap; }
