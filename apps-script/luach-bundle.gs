@@ -1922,6 +1922,11 @@ function autoVars(rawData, iso) {
   const rb = (g) => fmt((wd[g] || []).find((x) => x.rebbe)?.min);
   out['מנחה כ"ק אדמו"ר'] = rb('mincha');
   out['מעריב כ"ק אדמו"ר'] = rb('maariv');
+  // דער קומענדיגער וואך: דער ערשטער וואכנטאג נאך דער קומענדיגער שבת
+  let s2 = eve + 1; while (dowOf(s2) !== 6) s2 += 1;
+  let nw = s2 + 1; while (holyOn(data, nw)) nw += 1;
+  const wd2 = computeWeekday(data, nw, LOC);
+  out['מנחה כ"ק אדמו"ר שבוע הבא'] = fmt((wd2.mincha || []).find((x) => x.rebbe)?.min);
   // ---- סליחות: דער ערשטער טאג פון היינט ביז א וואך מיט סליחות; אנדערש ריק (און די שורה פאלט אוועק) ----
   out['סליחות'] = '';
   for (let k = n; k < n + 8; k += 1) {
