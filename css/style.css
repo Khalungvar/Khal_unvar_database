@@ -1610,6 +1610,10 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .cs-back { margin-inline-end: 10px; }
 .cs-sec { margin: 14px 0; }
 .cs-recs { border-top: 1px solid var(--gold); padding-top: 10px; margin-top: 22px; }
+.cs-badge { background: var(--accent, #7a1219); color: #fff; border-radius: 999px; padding: 0 7px; font-size: .8em; margin-inline-start: 4px; }
+.cs-inb textarea { width: 100%; box-sizing: border-box; margin-top: 6px; }
+.cs-inb.off { opacity: .75; }
+.cs-conv { max-height: 320px; overflow-y: auto; }
 .cs-chat { border: 1px solid var(--gold); border-radius: 10px; padding: 6px 10px; margin: 6px 0; background: var(--surface); }
 .cs-chat summary { cursor: pointer; font-weight: 600; }
 .cs-msg { width: fit-content; max-width: 75%; margin: 6px 0; padding: 6px 10px; border-radius: 12px; white-space: pre-wrap; }

@@ -36,6 +36,8 @@ const TABS = {
   SmsEvents: ['at', 'kind', 'gabbai_email', 'phone', 'contact_id', 'name', 'text', 'detail'],
   SmsAuto: ['auto_id', 'name', 'owner_email', 'list_id', 'list_name', 'text', 'sched', 'active', 'line', 'occ_at', 'occ_state', 'rem1', 'rem2',
     'recipients', 'recips_at', 'last_job', 'created_at', 'created_by', 'updated_at'],
+  // תשובות מהציבור: א תיבה פאר אלע (נישט פאר איין גבאי — מ'ווייסט נישט אויף וועלכע מעסעדזש ער ענטפערט)
+  SmsInbox: ['at', 'phone', 'contact_id', 'name', 'text', 'status', 'done_by', 'done_at', 'context'],
 };
 const DEFAULT_CONFIG = {
   price_sms: '0.01', price_mms: '0.03', price_call: '0.03', quiet_from: '21', quiet_to: '8', friday_cutoff: '13',
@@ -359,14 +361,10 @@ function publicInbound(from, text) {
       return { ok: true, handled: 'join-name' };
     }
   }
-  // אן ענטפער אויף א שליחה → דער גבאי וואס האט געשיקט (אין זיין תיבה אינעם אתר)
+  // אן ענטפער → די געמיינזאמע תיבה "תשובות מהציבור" (פאר אלע מיט SMS)
   const lastJob = lastJobTo(from);
   const c = contactsByPhone(from)[0];
-  const who = c ? heName(c) : fmtPhone(from);
-  appendObj('Messages', {
-    msg_id: 'sms' + Date.now(), from_email: 'sms', to_email: lastJob ? lastJob.created_by : adminEmails()[0] || '', kind: 'sms_reply',
-    subject: 'SMS: ' + who, text: text.slice(0, 1000) + '\n— ' + fmtPhone(from) + (lastJob ? ' · ' + lastJob.title : ''), status: 'new', created_at: stamp(), created_by: 'sms',
-  });
+  appendObj('SmsInbox', { at: stamp(), phone: fmtPhone(from), contact_id: c ? c.contact_id : '', name: c ? heName(c) : '', text: text.slice(0, 1000), status: 'new', context: lastJob ? lastJob.title : '' });
   return { ok: true, handled: 'reply' };
 }
 function lastJobTo(phone) {
@@ -841,6 +839,8 @@ function fromSite(req, email) {
   if (a === 'rec_upload') return recUpload(req, email);
   if (a === 'recs') return { recs: readTab('SmsRecordings').rows };
   if (a === 'texts') return { texts: textsList() };
+  if (a === 'inbox_reply') return inboxReply(req, email);
+  if (a === 'inbox_done') return inboxDone(req.phone, email);
   if (a === 'auto_save') return autoSave(req, email);
   if (a === 'auto_delete') return autoDel(req.id, email);
   if (a === 'auto_approve') return autoApprove(req.id, email, !!req.now);
@@ -1374,6 +1374,28 @@ function autoSave(req, email) {
     appendObj('SmsAuto', Object.assign({ auto_id: id, created_at: stamp(), created_by: email, occ_at: '', occ_state: '' }, f));
     return { ok: true, auto_id: id };
   } finally { lock.releaseLock(); }
+}
+// ---------- תשובות מהציבור: ענטפערן פונעם אתר (פון די קרעדיטן פון דעם וואס ענטפערט) ----------
+function inboxReply(req, email) {
+  const p = last10(req.phone); const text = String(req.text || '').trim();
+  if (!p || !text) return { error: 'no-text' };
+  const o = optRow(p); if (o && String(o.status) === 'out') return { error: 'opted-out' };
+  const cfg = config(); const full = branded(text, cfg);
+  const cost = Math.round((Number(cfg.price_sms) || 0.01) * segments(full) * 10000) / 10000;
+  const have = creditsOf(email);
+  if (have < cost) return { error: 'no-credits', need: cost, have: have };
+  const c = contactsByPhone(p)[0];
+  const r = sendSms(PropertiesService.getScriptProperties().getProperty('TELNYX_BROADCAST_NUMBER'), p, full, null, { line: 'broadcast', email: email, contact_id: c ? c.contact_id : '', job_id: 'inbox' });
+  if (r.status !== 'sent') return { error: 'send-failed' };
+  appendObj('Credits', { at: stamp(), email: email, delta: -cost, kind: 'reply', ref: fmtPhone(p), note: '↩ ' + (c ? heName(c) : fmtPhone(p)), by: email });
+  inboxDone(p, email);
+  return { ok: true, credits: creditsOf(email) };
+}
+function inboxDone(phone, email) {
+  const p = last10(phone); if (!p) return { error: 'no-phone' };
+  readTab('SmsInbox').rows.filter(function (r) { return String(r.status) === 'new' && last10(r.phone) === p; })
+    .forEach(function (r) { setFields('SmsInbox', r._row, { status: 'done', done_by: email, done_at: stamp() }); });
+  return { ok: true };
 }
 // ---------- "מילה": ווער עס שיקט די מילה באקומט גלייך די מעסעדזש (אן קרעדיטן, איינמאל א טאג פאר יעדע מילה) ----------
 function kwNorm(v) { return String(v || '').trim().toLowerCase().replace(/[^\w֐-׿]/g, ''); }

@@ -33,7 +33,7 @@ async function call(action, body = {}) {
 }
 function errText(r) {
   const map = { 'no-credits': t('smsNoCredits', { need: money(r.need), have: money(r.have) }), 'not-allowed': t('smsNotAllowed'), 'no-recipients': t('smsNoRecipients'), 'no-stripe': t('smsNoStripe'), 'admin-only': t('adminOnly'),
-    'kw-empty': t('csAuKwEmpty'), 'kw-taken': t('csAuKwTaken', { w: (r.words || []).join(', ') }) };
+    'kw-empty': t('csAuKwEmpty'), 'opted-out': t('csInOptedOut'), 'kw-taken': t('csAuKwTaken', { w: (r.words || []).join(', ') }) };
   return map[r.error] || r.error;
 }
 const money = (n) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -42,12 +42,12 @@ const money = (n) => `$${(Number(n) || 0).toFixed(2)}`;
 export async function loadSms(force = false) {
   if (data && !force) return data;
   const get = async (name) => { try { return (await readTabs([name]))[name] || []; } catch { return []; } };
-  const [opt, jobs, credits, recs, cfg, autos] = await Promise.all(['SmsOptIn', 'SmsJobs', 'Credits', 'SmsRecordings', 'SmsConfig', 'SmsAuto'].map(get));
+  const [opt, jobs, credits, recs, cfg, autos, inbox] = await Promise.all(['SmsOptIn', 'SmsJobs', 'Credits', 'SmsRecordings', 'SmsConfig', 'SmsAuto', 'SmsInbox'].map(get));
   const objs = (rows) => { const [hd = [], ...b] = rows; return b.map((r, i) => ({ _row: i + 2, ...Object.fromEntries(hd.map((k, j) => [k, r[j] ?? ''])) })).filter((o) => Object.values(o).some((v, j) => j && v !== '')); };
   const optRows = objs(opt);
   data = {
     optHead: opt[0] || [], optRows, opt: new Map(optRows.map((o) => [last10(o.phone), o])),
-    jobs: objs(jobs), credits: objs(credits), recs: objs(recs), config: Object.fromEntries(objs(cfg).map((o) => [o.key, String(o.value)])), autos: objs(autos),
+    jobs: objs(jobs), credits: objs(credits), recs: objs(recs), config: Object.fromEntries(objs(cfg).map((o) => [o.key, String(o.value)])), autos: objs(autos), inbox: objs(inbox),
   };
   return data;
 }
@@ -139,7 +139,8 @@ const BIG = [
   [['calls', '📞', 'csCalls', 'csCallsSub'], ['track', '📋', 'csTrack', 'csTrackSub']],
 ];
 const WIDE = ['lists', '📇', 'csLists']; // מתחת די צוויי טורן, איבער דער גאנצער ברייט
-const SMALL = () => [['credits', '💳', 'csCredits'], ['perms', '✅', 'csPerms'], ['gabbai', '🤖', 'csGabbai'],
+const inboxNew = () => new Set((data?.inbox || []).filter((r) => String(r.status) === 'new').map((r) => last10(r.phone))).size;
+const SMALL = () => [['inbox', '📥', 'csInbox'], ['credits', '💳', 'csCredits'], ['perms', '✅', 'csPerms'], ['gabbai', '🤖', 'csGabbai'],
   ...(state.isAdmin ? [['admin', '⚙', 'csAdmin']] : [])];
 const viewTitle = (v) => { const all = [...BIG.flat(), WIDE, ...SMALL()]; const x = all.find(([k]) => k === v); return x ? `${x[1]} ${t(x[2])}` : ''; };
 
@@ -170,6 +171,7 @@ export async function renderCalls() {
   else if (view === 'lists') listsView(body);
   else if (view === 'gabbai') gabbaiView(body);
   else if (view === 'auto') autoView(body);
+  else if (view === 'inbox') inboxView(body);
   else adminTab(body);
 }
 
@@ -178,9 +180,65 @@ function homeView(body) {
   body.innerHTML = `<div class="cs-home">
     ${BIG.map((col) => `<div class="cs-col">${col.map(big).join('')}</div>`).join('')}
     <button type="button" class="cs-sm cs-wide" data-go="${WIDE[0]}"><span>${WIDE[1]}</span> ${h(t(WIDE[2]))}</button>
-    <div class="cs-small">${SMALL().map(([k, i, l]) => `<button type="button" class="cs-sm" data-go="${k}"><span>${i}</span> ${h(t(l))}</button>`).join('')}</div>
+    <div class="cs-small">${SMALL().map(([k, i, l]) => `<button type="button" class="cs-sm" data-go="${k}"><span>${i}</span> ${h(t(l))}${k === 'inbox' && inboxNew() ? ` <b class="cs-badge">${inboxNew()}</b>` : ''}</button>`).join('')}</div>
   </div>`;
   $$('[data-go]', body).forEach((b) => { b.onclick = () => { view = b.dataset.go; renderCalls(); }; });
+}
+/** תשובות מהציבור: א געמיינזאמע תיבה. יעדער מיט SMS זעט; ענטפערן = פון די אייגענע קרעדיטן */
+let inboxAll = false;
+async function inboxView(body) {
+  body.innerHTML = `<p class="muted">${h(t('loading'))}</p>`;
+  let log = [];
+  try { const rows = (await readTabs(['SmsLog'])).SmsLog || []; const [hd = [], ...b] = rows; log = b.map((r) => Object.fromEntries(hd.map((k, j) => [k, r[j] ?? '']))).filter((r) => String(r.line) === 'broadcast'); } catch { /* */ }
+  const users = Object.fromEntries(allUsers().map((u) => [u.email, u.name]));
+  const byPhone = {};
+  data.inbox.forEach((r) => { const p = last10(r.phone); if (p) (byPhone[p] = byPhone[p] || []).push(r); });
+  const threads = Object.entries(byPhone).map(([p, rows]) => {
+    const open = rows.some((r) => String(r.status) === 'new');
+    const lastAt = rows.reduce((m, r) => (String(r.at) > m ? String(r.at) : m), '');
+    return { p, rows, open, lastAt };
+  }).filter((x) => inboxAll || x.open).sort((a, b) => (b.open - a.open) || b.lastAt.localeCompare(a.lastAt));
+  const contactOf = (x) => { const id = x.rows.map((r) => r.contact_id).find((v) => String(v || '').trim()); return id ? state.contacts.find((c) => String(c.contact_id) === String(id)) : state.contacts.find((c) => [c.mobile, c.home_phone].some((v) => last10(v) === x.p)); };
+  const convo = (p) => log.filter((r) => last10(r.dir === 'in' ? r.from : r.to) === p).slice(-10);
+  const thread = (x) => {
+    const c = contactOf(x); const done = x.rows.filter((r) => String(r.status) === 'done').slice(-1)[0];
+    return `<section class="cs-sec cs-inb${x.open ? '' : ' off'}" data-p="${h(x.p)}">
+      <h3>${c ? h(nm(c)) : h(x.rows[0].name || '')} <span dir="ltr" class="muted small">${h(fmtPhone(x.p))}</span>
+        ${x.open ? '' : `<span class="muted small">✓ ${h(t('csInDoneBy', { n: users[String(done?.done_by).toLowerCase()] || done?.done_by || '' }))}</span>`}</h3>
+      ${x.rows.slice(-1)[0].context ? `<p class="muted small">${h(t('csInCtx'))}: ${h(x.rows.slice(-1)[0].context)}</p>` : ''}
+      <div class="cs-conv">${(convo(x.p).length ? convo(x.p) : x.rows.map((r) => ({ dir: 'in', at: r.at, text: r.text }))).map((m) => `<div class="cs-msg ${m.dir === 'in' ? 'in' : 'out'}" dir="auto">${h(m.text)}<div class="muted small" dir="ltr">${h(String(m.at).slice(5, 16))}${m.dir !== 'in' && m.gabbai_email ? ` · ${h(users[String(m.gabbai_email).toLowerCase()] || m.gabbai_email)}` : ''}</div></div>`).join('')}</div>
+      <textarea rows="2" dir="auto" placeholder="${h(t('csInReplyPh'))}"></textarea><p class="muted small" data-seg></p>
+      <div class="cs-acts"><button type="button" class="btn primary" data-a="send">↩ ${h(t('csInSend'))}</button>
+        ${x.open ? `<button type="button" class="btn" data-a="done">✓ ${h(t('csInDone'))}</button>` : ''}
+        ${c ? `<button type="button" class="linkish" data-card="${h(c.contact_id)}">${h(t('mxOpenCard'))}</button>` : ''}</div>
+    </section>`;
+  };
+  body.innerHTML = `<p class="muted small">${h(t('csInHint'))}</p>
+    <label class="chip-check"><input type="checkbox" id="inb-all"${inboxAll ? ' checked' : ''}> ${h(t('csInShowAll'))}</label>
+    ${threads.length ? threads.map(thread).join('') : `<p class="empty">${h(t('csInNone'))}</p>`}`;
+  $('#inb-all', body).onchange = (e) => { inboxAll = e.target.checked; inboxView(body); };
+  $$('[data-card]', body).forEach((b) => { b.onclick = () => ui.openCard(b.dataset.card); });
+  $$('.cs-inb', body).forEach((sec) => {
+    const ta = $('textarea', sec); const seg = $('[data-seg]', sec);
+    const price = () => (Number(data.config.price_sms) || 0.01) * segCount(branded(ta.value));
+    const paint = () => { paintSeg(seg, branded(ta.value)); if (ta.value.trim()) seg.textContent += ` · ${money(price())}`; };
+    ta.oninput = paint;
+    $$('[data-a]', sec).forEach((b) => {
+      b.onclick = async () => {
+        const p = sec.dataset.p;
+        try {
+          if (b.dataset.a === 'send') {
+            if (!ta.value.trim()) return;
+            if (!confirm(t('csInConfirm', { c: money(price()) }))) return;
+            b.disabled = true;
+            await call('inbox_reply', { phone: p, text: ta.value });
+            ui.toast(t('csInSent'));
+          } else await call('inbox_done', { phone: p });
+          await loadSms(true); renderCalls();
+        } catch (err) { b.disabled = false; ui.toast(ui.friendlyError(err), 'error'); }
+      };
+    });
+  });
 }
 function soonView(body, key) {
   body.innerHTML = `<div class="soon-box"><p>🚧 ${h(t('csSoon'))}</p><p class="muted small">${h(t(key))}</p></div>`;
