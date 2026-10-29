@@ -1901,11 +1901,14 @@ function autoVars(rawData, iso) {
   out['פרשה'] = d1?.parsha || '';
   out['שבת / יום טוב'] = dowOf(first) === 6 && !yt ? `שבת${d1?.parsha ? ` פרשת ${d1.parsha}` : ''}` : (yt || 'שבת');
   for (const r of computeHoly(data, eve, LOC)) {
-    if (r.min == null || !r.label) continue;
+    if (!r.label) continue;
+    if (r.min == null) { if (out[r.label] === undefined) out[r.label] = r.note || ''; continue; } // בלי שעה (למשל שולחן הטהור) — ריק
     let k = r.label; let i = 2;
-    while (out[k] !== undefined) { k = `${r.label} ${i}`; i += 1; }
+    while (out[k] !== undefined && out[k] !== '') { k = `${r.label} ${i}`; i += 1; }
     out[k] = [r.min, ...(r.more || [])].map(fmt).filter(Boolean).join(' · ');
   }
+  // יעדע שורה אין די שבת־הגדרות באקומט א שדה, אויך ווען זי איז נישט די וואך (סעזאן) — דאן ריק
+  for (const r of (data.shabbos?.rows || [])) if (r.label && out[r.label] === undefined) out[r.label] = '';
   // ---- וואכנטאג: די מניינים פון דעם טאג (אויב שבת/יו"ט — פונעם קומענדיגן וואכנטאג) ----
   let w = n; while (holyOn(data, w)) w += 1;
   const wd = computeWeekday(data, w, LOC);
