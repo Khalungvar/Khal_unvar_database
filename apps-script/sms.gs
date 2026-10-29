@@ -59,7 +59,7 @@ const TEXTS = {
   join_again: { g: 'public', def: '{brand}: Please include the word CONFIRM after your name, for example: John Doe CONFIRM' },
   new_line: { g: 'public', def: 'This is the new number of {brand}. Reply HELP for help, STOP to opt out.' },
   kw_invite: { g: 'public', def: '{brand}: Did you want to subscribe to our updates? If so, reply JOIN.' },
-  auto_rem1: { g: 'auto', def: 'תזכורת: ההודעה האוטומטית "{name}" תישלח {when} ל-{count} אנשים (בערך {cost}). הקרדיטים שלך: {credits}.\n---\n{text}\n---\nלאשר: 1 · לבטל הפעם: 2 · להוסיף שורה: כתבו "הודעה:" ואחריה הטקסט.' },
+  auto_rem1: { g: 'auto', def: 'תזכורת: ההודעה האוטומטית "{name}" תישלח {when} ל-{count} אנשים (בערך {cost}). הקרדיטים שלך: {credits}.\n---\n{text}\n---\nלאשר: 1 · לבטל הפעם: 2 · להוסיף שורה: כתבו "הודעה 1:" או "הודעה 2:" ואחריה הטקסט.' },
   auto_rem2: { g: 'auto', def: 'תזכורת אחרונה: "{name}" תישלח {when} רק אם תאשרו. 1 = לאשר, 2 = לבטל.' },
   auto_long: { g: 'auto', def: '⚠ הודעה ארוכה: {parts} חלקים, כל נמען יחויב כמו {parts} הודעות.' },
   auto_nocredit: { g: 'auto', def: 'שימו לב: "{name}" ({when}) צריכה בערך {cost} ויש לך {credits}. היא לא תישלח בלי מספיק קרדיט.' },
@@ -1302,10 +1302,10 @@ function autoReply(from, t, g) {
     const p = c.opts[Number(t) - 1]; if (!p) return null;
     return autoAct(from, p, c.cmd, c.line, g, cfg);
   }
-  const line = t.match(/^\s*(הודעה|שורה|line|message)\s*[:：]\s*([\s\S]+)$/i);
-  const cmd = line ? 'line' : /^[12]$/.test(t) ? t : '';
+  const line = t.match(/^\s*(?:הודעה|שורה|line|message)\s*([12])?\s*[:：]\s*([\s\S]+)$/i);
+  const cmd = line ? 'line' + (line[1] || '1') : /^[12]$/.test(t) ? t : '';
   if (!cmd || !list.length) return null;
-  const fit = list.filter(function (p) { return cmd === 'line' ? p.mode === 'approve' : true; });
+  const fit = list.filter(function (p) { return cmd.indexOf('line') === 0 ? p.mode === 'approve' : true; });
   if (!fit.length) return null;
   if (fit.length > 1) {
     cache.put(ck, JSON.stringify({ cmd: cmd, line: line ? line[2] : '', opts: fit }), 600); // 10 מינוט
@@ -1317,9 +1317,8 @@ function autoAct(from, p, cmd, lineText, g, cfg) {
   const a = autoById(p.id); if (!a) return null;
   const say1 = function (m) { replyGabbai(from, m); return { ok: true, handled: 'auto' }; };
   const drop = function () { pendSet(from, pendGet(from).filter(function (x) { return !(x.id === p.id && x.occ === p.occ); })); };
-  if (cmd === 'line') {
-    const l = String(lineText || '').trim().slice(0, 300);
-    setFields('SmsAuto', a._row, { line: l, updated_at: stamp() }); a.line = l;
+  if (cmd.indexOf('line') === 0) {
+    const l = setLine(a, Number(cmd.slice(4)) || 1, lineText); a.line = l;
     return say1(txt_('auto_ok_line', { name: a.name, text: branded(autoRender(a, a.occ_at), cfg) }, cfg));
   }
   if (p.mode === 'approve') {
@@ -1468,7 +1467,21 @@ function autoApprove(id, email, now) {
   return { ok: true };
 }
 function autoCancel(id, email) { const g = autoGuard(id, email); if (g.error) return g; setFields('SmsAuto', g.a._row, { occ_state: 'canceled', updated_at: stamp() }); return { ok: true }; }
-function autoLine(id, line, email) { const g = autoGuard(id, email); if (g.error) return g; setFields('SmsAuto', g.a._row, { line: String(line || '').slice(0, 300), updated_at: stamp() }); return { ok: true }; }
+/** שורת הגבאי: צוויי שורות (JSON) אדער איינע (טעקסט) */
+function lineParts_(v) {
+  if (Array.isArray(v)) return [String(v[0] || ''), String(v[1] || '')];
+  const s = String(v || '');
+  if (s.charAt(0) === '[') { try { const a = JSON.parse(s); if (Array.isArray(a)) return [String(a[0] || ''), String(a[1] || '')]; } catch (e) { /* */ } }
+  return [s, ''];
+}
+function lineStore_(parts) { const p = parts.map(function (x) { return String(x || '').trim().slice(0, 300); }); return p[1] ? JSON.stringify(p) : p[0]; }
+function setLine(a, idx, text) {
+  const parts = lineParts_(a.line); parts[idx === 2 ? 1 : 0] = String(text || '').trim();
+  const v = lineStore_(parts);
+  setFields('SmsAuto', a._row, { line: v, updated_at: stamp() });
+  return v;
+}
+function autoLine(id, line, email) { const g = autoGuard(id, email); if (g.error) return g; setFields('SmsAuto', g.a._row, { line: lineStore_(lineParts_(line)), updated_at: stamp() }); return { ok: true }; }
 function autoRecips(id, list, email) {
   const a = autoById(id); if (!a) return { error: 'not-found' };
   const rec = (list || []).map(function (r) { return { p: e164(r.phone), c: String(r.contact_id || ''), n: String(r.name || '').slice(0, 40) }; }).filter(function (r) { return r.p; });

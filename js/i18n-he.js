@@ -788,7 +788,7 @@ export const HE = {
   "csAuSendNow": "לשלוח עכשיו",
   "csAuSendNowQ": "המועד עבר. לשלוח עכשיו?",
   "csAuLine": "שורת הגבאי",
-  "csAuLineQ": "שורה לפעם הזאת ({הודעת הגבאי}). ריק = בלי:",
+  "csAuLineQ": "שורות לשליחה הקרובה בלבד. שורה ריקה לא תופיע בהודעה.",
   "csAuEdit": "עריכה",
   "csAuPause": "להשהות",
   "csAuResume": "להפעיל",

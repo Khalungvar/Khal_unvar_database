@@ -1950,13 +1950,21 @@ function autoVars(rawData, iso) {
 function varNames(data, iso) { return Object.keys(autoVars(data, iso)); }
 
 /** אויספילן א מוסטער: {שם} → ווערט; {הודעת הגבאי} → line. א נישט באקאנטער שם בלייבט ווי ער איז. */
+/** שורת הגבאי: 'טעקסט' (= שורה 1) אדער JSON '["שורה 1","שורה 2"]' → [l1, l2] */
+function lineParts(v) {
+  if (Array.isArray(v)) return [String(v[0] || ''), String(v[1] || '')];
+  const s = String(v || '');
+  if (s.startsWith('[')) { try { const a = JSON.parse(s); if (Array.isArray(a)) return [String(a[0] || ''), String(a[1] || '')]; } catch { /* */ } }
+  return [s, ''];
+}
 // א שורה וואו אלע ערטער זענען ריק (למשל {סליחות} רוב יאר, {פרקי אבות} ווינטער) — פאלט אוועק אינגאנצן
 function fillTemplate(text, vars, line = '') {
+  const L = lineParts(line);
   return String(text || '').split('\n').map((ln) => {
     let known = 0; let filled = 0;
     const out = ln.replace(/\{([^{}]+)\}/g, (all, k) => {
       const key = k.trim();
-      const v = key === 'הודעת הגבאי' ? (line || '') : vars[key];
+      const v = key === 'הודעת הגבאי' || key === 'הודעת הגבאי 1' ? L[0] : key === 'הודעת הגבאי 2' ? L[1] : vars[key];
       if (v === undefined) return all;
       known += 1; if (String(v).trim()) filled += 1;
       return v;
@@ -2002,7 +2010,7 @@ function schedText(sched) {
 }
 
 
-return { nextEve, autoVars, varNames, fillTemplate, nextOccurrence, schedText, holyOn, isoOf, nOf, dowOf };
+return { nextEve, autoVars, varNames, lineParts, fillTemplate, nextOccurrence, schedText, holyOn, isoOf, nOf, dowOf };
   })();
   return __m["js/luach/autovars.js"];
 })();

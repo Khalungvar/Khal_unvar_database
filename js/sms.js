@@ -7,7 +7,7 @@ import { t } from './i18n.js';
 import { escapeHtml as h, nowStamp, digits } from './util.js';
 import { evaluate, parseSaved, savedInScope, channel, openBuilder } from './lists.js';
 import { fromHebrew, toHebrew, todayIso } from './hebdate.js';
-import { autoVars, fillTemplate, nextOccurrence, schedText } from './luach/autovars.js';
+import { autoVars, fillTemplate, nextOccurrence, schedText, lineParts } from './luach/autovars.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -368,6 +368,21 @@ const KW_RESERVED = ['stop', 'stopall', 'unsubscribe', 'cancel', 'end', 'quit', 
 const kwWords = (v) => [...new Set((Array.isArray(v) ? v : String(v || '').split(/[,،\n]+/)).map((w) => String(w).trim().toLowerCase().replace(/[^\w\u0590-\u05FF]/g, '')).filter((w) => w && !KW_RESERVED.includes(w)))];
 const ST_BADGE = { '': ['⏳', 'csAuSt_wait'], approved: ['✓', 'csAuSt_ok'], canceled: ['✕', 'csAuSt_cancel'], missed: ['⚠', 'csAuSt_missed'], sent: ['📤', 'csAuSt_sent'] };
 
+/** שורת הגבאי 1 + 2 — נאר פאר דעם קומענדיגן מאל */
+function lineDialog(a) {
+  const [l1, l2] = lineParts(a.line);
+  const dlg = dialog(`<h3>✎ ${h(t('csAuLine'))} · ${h(a.name)}</h3>
+    <p class="muted small">${h(t('csAuLineQ'))}</p>
+    <label class="mm-l">{הודעת הגבאי 1}<textarea name="l1" rows="2" dir="auto">${h(l1)}</textarea></label>
+    <label class="mm-l">{הודעת הגבאי 2}<textarea name="l2" rows="2" dir="auto">${h(l2)}</textarea></label>
+    <div class="dialog-actions"><button type="button" class="btn primary" id="ln-save">${h(t('saveBtn'))}</button><button type="button" class="btn" data-x>${h(t('cancel'))}</button></div>`);
+  $('#ln-save', dlg).onclick = async () => {
+    try {
+      await call('auto_line', { id: a.auto_id, line: [$('[name=l1]', dlg).value, $('[name=l2]', dlg).value] });
+      dlg.close(); ui.toast(t('saved')); await loadSms(true); renderCalls();
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  };
+}
 async function autoView(body) {
   body.innerHTML = `<p class="muted">${h(t('loading'))}</p>`;
   const D = await loadMiny();
@@ -440,7 +455,7 @@ async function autoView(body) {
         if (act === 'approve') await call('auto_approve', { id: a.auto_id });
         else if (act === 'now') { if (!confirm(t('csAuSendNowQ'))) return; await call('auto_approve', { id: a.auto_id, now: true }); }
         else if (act === 'cancel') await call('auto_cancel', { id: a.auto_id });
-        else if (act === 'line') { const l = prompt(t('csAuLineQ'), a.line || ''); if (l === null) return; await call('auto_line', { id: a.auto_id, line: l }); }
+        else if (act === 'line') { lineDialog(a); return; }
         else if (act === 'toggle') await call('auto_save', { auto: { ...a, sched: schedOf(a), active: !/^(true|1)$/i.test(String(a.active)) } });
         else if (act === 'del') { if (!confirm(t('csAuDelQ', { n: a.name }))) return; await call('auto_delete', { id: a.auto_id }); }
         ui.toast(t('saved'));
@@ -455,7 +470,7 @@ function autoEditor(a, D) {
   const lists = phoneLists().length ? phoneLists() : savedInScope();
   const users = allUsers();
   const sample = autoVars(D, todayIso());
-  const names = [...Object.keys(sample), 'הודעת הגבאי'];
+  const names = [...Object.keys(sample), 'הודעת הגבאי 1', 'הודעת הגבאי 2'];
   const DAYSH = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי'];
   const dlg = dialog(`<h3>🔁 ${h(t(a ? 'csAuEdit' : 'csAuNew'))}</h3>
     <form class="cs-auf" onsubmit="return false">
@@ -492,7 +507,7 @@ function autoEditor(a, D) {
     $$('[data-t]', dlg).forEach((x) => { x.hidden = !x.dataset.t.split(' ').includes(f.type.value); });
     const kw = f.type.value === 'keyword';
     $('#au-list', dlg).hidden = kw;
-    const gl = $('[data-v="הודעת הגבאי"]', dlg); if (gl) gl.hidden = kw;
+    $$('[data-v^="הודעת הגבאי"]', dlg).forEach((x) => { x.hidden = kw; });
     const nx = kw ? '' : nextOccurrence(schedNow(), D, nyNow());
     $('#au-next', dlg).textContent = kw ? t('csAuKwHint') : nx ? `${t('csAuNext')}: ${nx}` : t('csAuNoNext');
     const vars = autoVars(D, (nx || nyNow()).slice(0, 10));
