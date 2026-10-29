@@ -53,7 +53,8 @@ export async function loadSms(force = false) {
 const myCredits = () => Math.round((data?.credits || []).filter((r) => String(r.email).toLowerCase() === state.email).reduce((s, r) => s + (Number(r.delta) || 0), 0) * 10000) / 10000;
 // יעדע מעסעדזש צום עולם הייבט זיך אן מיטן נאמען ("Khal Ungvar: ...") — ווי אין sms.gs
 const brandOf = () => String(data?.config?.sms_brand || '').trim() || 'Khal Ungvar';
-const branded = (text) => { const b = brandOf(); const s = String(text || '').trim(); return s.toLowerCase().startsWith(b.toLowerCase()) ? s : `${b}: ${s}`; };
+// א העברעאישע מעסעדזש: דער נאמען אויף א באזונדערער שורה, כדי דער טעלעפאן זאל נישט צעמישן די ריכטונג
+const branded = (text) => { const b = brandOf(); const s = String(text || '').trim(); return s.toLowerCase().startsWith(b.toLowerCase()) ? s : `${b}:${/[\u0590-\u05FF]/.test(s) ? '\n' : ' '}${s}`; };
 const price = (kind, text) => {
   const c = data?.config || {};
   if (kind === 'call') return Number(c.price_call) || 0.03;
@@ -62,6 +63,13 @@ const price = (kind, text) => {
   return (Number(c.price_sms) || 0.01) * Math.max(1, seg);
 };
 const segCount = (s) => (/[^\x00-\x7F]/.test(s) ? (s.length <= 70 ? 1 : Math.ceil(s.length / 67)) : (s.length <= 160 ? 1 : Math.ceil(s.length / 153)));
+/** דער ציילער אונטער א טעקסט: אותיות · חלקים; 2 = א גרויע באמערקונג, 3+ = א ווארענונג (אראנזש) */
+const paintSeg = (el, full) => {
+  if (!el) return;
+  const n = segCount(full);
+  el.textContent = t('smsSegments', { c: full.length, s: n }) + (n === 2 ? ` — ${t('smsSeg2')}` : n >= 3 ? ` — ⚠ ${t('smsSegLong', { n })}` : '');
+  el.className = n >= 3 ? 'small seg-warn' : 'muted small';
+};
 
 // ---------- וועמען מ'שיקט ----------
 const phonesOf = (c) => c._phones || state.phones.get(String(c.contact_id)) || {};
@@ -376,7 +384,7 @@ function autoEditor(a, D) {
         <p class="muted small" id="au-next"></p></fieldset>
       <label class="mm-l">${h(t('smsText'))}<textarea name="text" rows="5" dir="auto">${h(a?.text || '')}</textarea></label>
       <div class="cs-chips">${names.map((n) => `<button type="button" class="chip" data-v="${h(n)}">{${h(n)}}</button>`).join('')}</div>
-      <p class="muted small">${h(t('csAuPrevT'))}</p><div class="cs-prev" id="au-prev" dir="auto"></div>
+      <p class="muted small">${h(t('csAuPrevT'))}</p><div class="cs-prev" id="au-prev" dir="auto"></div><p class="muted small" id="au-seg"></p>
       <label class="chip-check"><input type="checkbox" name="active"${!a || /^(true|1)$/i.test(String(a.active)) ? ' checked' : ''}> ${h(t('csAuActive'))}</label>
     </form>
     <div class="dialog-actions"><button type="button" class="btn primary" id="au-save">${h(t('saveBtn'))}</button><button type="button" class="btn" data-x>${h(t('cancel'))}</button></div>`);
@@ -394,7 +402,8 @@ function autoEditor(a, D) {
     const nx = nextOccurrence(schedNow(), D, nyNow());
     $('#au-next', dlg).textContent = nx ? `${t('csAuNext')}: ${nx}` : t('csAuNoNext');
     const vars = autoVars(D, (nx || nyNow()).slice(0, 10));
-    $('#au-prev', dlg).textContent = branded(fillTemplate(f.text.value, vars, a?.line || ''));
+    const full = branded(fillTemplate(f.text.value, vars, a?.line || ''));
+    $('#au-prev', dlg).textContent = full; paintSeg($('#au-seg', dlg), full);
   };
   $('form', dlg).addEventListener('input', draw); $('form', dlg).addEventListener('change', draw);
   $$('[data-v]', dlg).forEach((b) => {
@@ -461,7 +470,7 @@ function sendTab(body, kind) {
     </div>
     <label class="mm-l">${h(t('smsTitle'))}<input id="sms-title" value="${h(draft.title)}" placeholder="${h(t('smsTitlePh'))}"></label>
     ${draft.kind === 'sms' ? `<label class="mm-l">${h(t('smsText'))}<textarea id="sms-text" rows="6" dir="auto">${h(draft.text)}</textarea></label>
-      <p class="muted small" id="sms-seg">${h(t('smsSegments', { c: branded(draft.text).length, s: segCount(branded(draft.text)) }))}</p>
+      <p class="muted small" id="sms-seg"></p>
       <p class="muted small">${h(t('smsBrandHint', { b: brandOf() }))}</p>`
       : `<label class="mm-l">${h(t('smsRecording'))}<select id="sms-rec"><option value="">—</option>${recs.slice().reverse().map((r) => `<option value="${h(r.rec_id)}"${r.rec_id === draft.rec ? ' selected' : ''}>${h(r.name || r.rec_id)} · ${h(String(r.created_at).slice(0, 10))}</option>`).join('')}</select></label>`}
     <label class="mm-l">${h(t('smsWhen'))}<input type="datetime-local" id="sms-when" value="${h(draft.when)}"> <span class="muted small">${h(t('smsWhenHint'))}</span></label>
@@ -473,7 +482,8 @@ function sendTab(body, kind) {
   $('#sms-list', body).onchange = (e) => { draft.list = e.target.value; renderCalls(); };
   $('#sms-title', body).oninput = (e) => { draft.title = e.target.value; };
   const ta = $('#sms-text', body);
-  if (ta) ta.oninput = () => { draft.text = ta.value; $('#sms-seg', body).textContent = t('smsSegments', { c: branded(ta.value).length, s: segCount(branded(ta.value)) }); };
+  if (ta) ta.oninput = () => { draft.text = ta.value; paintSeg($('#sms-seg', body), branded(ta.value)); };
+  paintSeg($('#sms-seg', body), branded(draft.text));
   if (ta) ta.onchange = () => renderCalls();
   $('#sms-rec', body)?.addEventListener('change', (e) => { draft.rec = e.target.value; });
   $('#sms-when', body).onchange = (e) => { draft.when = e.target.value; renderCalls(); };

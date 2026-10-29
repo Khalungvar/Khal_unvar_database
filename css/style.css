@@ -1617,6 +1617,7 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .cs-msg.out { background: #f3e9d2; margin-inline-start: auto; }
 .cs-auto h3 { margin: 0 0 4px; } .cs-auto.off { opacity: .6; }
 .cs-auto { background: var(--surface); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 14px; max-width: 760px; }
+.seg-warn { color: #b45309; font-weight: 600; }
 .cs-prev { background: #fff; border: 1px dashed var(--gold); border-radius: 10px; padding: 8px 10px; white-space: pre-wrap; margin: 6px 0; }
 .cs-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .cs-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }

@@ -47,7 +47,8 @@ function brandOf(cfg) { return String((cfg || config()).sms_brand || '').trim() 
 /** יעדע מעסעדזש צום עולם הייבט זיך אן מיטן נאמען ("Khal Ungvar: ...") — די טעלעפאן־פירמעס פאדערן עס */
 function branded(text, cfg) {
   const b = brandOf(cfg); const s = String(text || '').trim();
-  return s.toLowerCase().indexOf(b.toLowerCase()) === 0 ? s : b + ': ' + s;
+  // א העברעאישע מעסעדזש: דער נאמען אויף א באזונדערער שורה, כדי דער טעלעפאן זאל נישט צעמישן די ריכטונג
+  return s.toLowerCase().indexOf(b.toLowerCase()) === 0 ? s : b + ':' + (/[\u0590-\u05FF]/.test(s) ? '\n' : ' ') + s;
 }
 // ---- אלע טעקסטן פון אונזער זייט: מ'קען זיי טוישן אויפן אתר (Calls & SMS → ניהול → נוסחים). {brand} = דער נאמען ----
 const TEXTS = {
@@ -57,6 +58,7 @@ const TEXTS = {
   new_line: { g: 'public', def: 'This is the new number of {brand}. Reply HELP for help, STOP to opt out.' },
   auto_rem1: { g: 'auto', def: 'תזכורת: ההודעה האוטומטית "{name}" תישלח {when} ל-{count} אנשים (בערך {cost}). הקרדיטים שלך: {credits}.\n---\n{text}\n---\nלאשר: 1 · לבטל הפעם: 2 · להוסיף שורה: כתבו "הודעה:" ואחריה הטקסט.' },
   auto_rem2: { g: 'auto', def: 'תזכורת אחרונה: "{name}" תישלח {when} רק אם תאשרו. 1 = לאשר, 2 = לבטל.' },
+  auto_long: { g: 'auto', def: '⚠ הודעה ארוכה: {parts} חלקים, כל נמען יחויב כמו {parts} הודעות.' },
   auto_nocredit: { g: 'auto', def: 'שימו לב: "{name}" ({when}) צריכה בערך {cost} ויש לך {credits}. היא לא תישלח בלי מספיק קרדיט.' },
   auto_missed: { g: 'auto', def: '"{name}" לא נשלחה {when}, כי לא אושרה. אם תשיבו 1 — נשאל אם לשלוח עכשיו.' },
   auto_late_ask: { g: 'auto', def: 'המועד של "{name}" ({when}) עבר. לשלוח עכשיו? 1 = כן, 2 = לא' },
@@ -1242,6 +1244,8 @@ function autoTick(cfg) {
       if (h <= 24 && !a.rem1 && st === '') {
         const text = autoRender(a, occ); const cost = autoCost(a, text, cfg); const have = creditsOf(lower(a.owner_email));
         let msg = txt_('auto_rem1', { name: a.name, when: whenText(occ), count: autoRecipList(a).length, cost: money_(cost), credits: money_(have), text: branded(text, cfg) }, cfg);
+        const parts = segments(branded(text, cfg));
+        if (parts >= 3) msg += '\n\n' + txt_('auto_long', { parts: parts }, cfg);
         if (have < cost) msg += '\n\n' + txt_('auto_nocredit', { name: a.name, when: whenText(occ), cost: money_(cost), credits: money_(have) }, cfg);
         tellGabbai(a.owner_email, msg, a, { id: a.auto_id, occ: occ, mode: 'approve' });
         setFields('SmsAuto', a._row, { rem1: stamp() });
