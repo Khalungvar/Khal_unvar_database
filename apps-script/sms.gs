@@ -1388,16 +1388,23 @@ function kwMatch(w) {
   if (!w) return null;
   return autoRows().filter(function (a) { return isT(a.active) && schedOf(a).type === 'keyword' && kwWords(schedOf(a).words).indexOf(w) >= 0; })[0] || null;
 }
-/** שבת / יו"ט (לויט די הגדרות, ווי ביים שיקן) — דאן ענטפערט מען נישט */
+/** שבת / יו"ט — דאן ענטפערט מען נישט. פון ערב (friday_cutoff) ביז צאת הכוכבים (לויטן לוח) */
 function holyNow(now, cfg) {
   const d = Utilities.formatDate(now, TZ, 'yyyy-MM-dd');
   const hr = Number(Utilities.formatDate(now, TZ, 'H')) + Number(Utilities.formatDate(now, TZ, 'm')) / 60;
-  const dow = Number(Utilities.formatDate(now, TZ, 'u'));
   const cut = Number(cfg.friday_cutoff || 13);
-  if (dow === 6) return true;
-  if (dow === 5 && hr >= cut) return true;
   if (String(cfg.blocked_dates || '').split(',').indexOf(d) >= 0) return true;
-  if (String(cfg.erev_dates || '').split(',').indexOf(d) >= 0 && hr >= cut) return true;
+  let data = {}; try { data = minyanimData(); } catch (e) { /* בלי הנתונים — נאר שבת און יו"ט פונעם לוח */ }
+  const n = LUACH.nOf(d);
+  const holy = LUACH.holyOn(data, n); const holyNext = LUACH.holyOn(data, n + 1);
+  if (holy) {
+    if (holyNext) return true;
+    // דער לוח שרייבט 12 שעה ("7:06") — צאת הכוכבים איז שטענדיג נאכמיטאג
+    const m = /^(\d{1,2}):(\d{2})/.exec(String(LUACH.autoVars(data, d)['צאת הכוכבים'] || ''));
+    if (!m) return true;
+    return hr * 60 < ((Number(m[1]) % 12) + 12) * 60 + Number(m[2]);
+  }
+  if (holyNext || String(cfg.erev_dates || '').split(',').indexOf(d) >= 0) return hr >= cut;
   return false;
 }
 /** האט מען היינט שוין געשיקט צו דעם טעלעפאן מיט דעם צייכן (job_id)? */
