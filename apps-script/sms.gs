@@ -480,10 +480,18 @@ function aiParse(text, images) {
       if (r.getResponseCode() === 200) parts.push({ inline_data: { mime_type: r.getHeaders()['Content-Type'] || 'image/jpeg', data: Utilities.base64Encode(r.getContent()) } });
     } catch (e) { /* */ }
   });
-  const res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+  const req = {
     method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, muteHttpExceptions: true,
-    payload: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0.1, responseMimeType: 'application/json', maxOutputTokens: 2048 } }),
-  });
+    // די נייע מאדעלן "טראכטן" אויך מיט די טאקענס — דערפאר 4096 (ווי אינעם הילף-AI)
+    payload: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0.1, responseMimeType: 'application/json', maxOutputTokens: 4096 } }),
+  };
+  // Gemini ענטפערט אמאל "פארנומען" (429/500/503) — נאכאמאל פרובירן, ביז 3 מאל
+  let res = null;
+  for (let i = 0; i < 3; i += 1) {
+    res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', req);
+    if ([429, 500, 503].indexOf(res.getResponseCode()) < 0) break;
+    Utilities.sleep(2000 * (i + 1));
+  }
   if (res.getResponseCode() !== 200) throw new Error('AI ' + res.getResponseCode());
   const data = JSON.parse(res.getContentText());
   const txt = ((((data.candidates || [])[0] || {}).content || {}).parts || []).map(function (p) { return p.text || ''; }).join('');
