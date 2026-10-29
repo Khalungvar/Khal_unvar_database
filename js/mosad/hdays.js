@@ -3,7 +3,7 @@
 // ארץ ישראל / חוץ לארץ — לויט דער הגדרה פונעם מוסד (איין טאג יו"ט אין א"י).
 import { buildYear, hdOf, nOf } from '../luach/engine.js';
 import { LOCATIONS } from '../luach/zmanim.js';
-import { toHebrew, fromHebrew, monthHe, yearLabel } from '../hebdate.js?v=520';
+import { toHebrew, fromHebrew, monthHe, yearLabel } from '../hebdate.js?v=521';
 
 const cache = new Map();
 function dayRow(iso, il) {

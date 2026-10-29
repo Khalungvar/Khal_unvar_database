@@ -1,12 +1,12 @@
 // אתר פון א מוסד — יומנים: 🤝 חברותות, ✅ השתתפות (מיט ⏱ כניסה/יציאה פון אברכים), 🏥 ביטוח בריאות, 📞 יומן מיט טעלעפאנען.
 // אלעס ווערט געדרוקט ווי די דפים פון דער ישיבה: צוויי זיילן מיט נומערירטע נעמען, "פרשת ...", טעג א–ה.
 // דער לוח (פרשיות) — לויט די הגדרות פונעם מוסד (ארץ ישראל / חוץ לארץ).
-import { downloadXlsx } from '../excel.js?v=520';
-import { todayIso, isoToHebrewText, toHebrew, fromHebrew, monthHe, yearLabel } from '../hebdate.js?v=520';
-import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=520';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=520';
-import { letterhead, heShort } from './brand.js?v=520';
-import { dayInfo, rulesOf } from './hdays.js?v=520';
+import { downloadXlsx } from '../excel.js?v=521';
+import { todayIso, isoToHebrewText, toHebrew, fromHebrew, monthHe, yearLabel } from '../hebdate.js?v=521';
+import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=521';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=521';
+import { letterhead, heShort } from './brand.js?v=521';
+import { dayInfo, rulesOf } from './hdays.js?v=521';
 
 let X = null;
 export function initJournal(ctx) { X = ctx; }
@@ -48,7 +48,14 @@ const PRINT_CSS = `
   .ttl h1 { font-family: 'Frank Ruhl Libre', serif; font-size: 25px; margin: 0; font-weight: 900; color: #2a2560; }
   .ttl .sub { font-size: 13px; color: #6b6150; margin-top: 2px; }
   .cols { display: flex; gap: 6mm; align-items: flex-start; }
-  .cols > table { flex: 1; }
+  .cols > div { flex: 1; min-width: 0; }
+  #pl table { width: auto; max-width: none; font-size: var(--fz0, 12.5px); }
+  #pl td, #pl th { height: var(--rh, 18px); }
+  #pl td.nm, #pl td.tx { white-space: nowrap; }
+  #pl td.ek { width: var(--ekw, 17px); min-width: var(--ekw, 17px); padding-left: 1px; padding-right: 1px; }
+  #pl th.ek { padding-left: 2px; padding-right: 2px; }
+  .bar .cset { display: inline-flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .bar .cset label { white-space: nowrap; }
   table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
   th, td { border: 1px solid #c9bfa8; padding: 3px 6px; height: 18px; }
   th { background: #f1ead8; font-weight: 700; color: #3a3220; border-bottom: 2px solid #b8913c; }
@@ -64,7 +71,9 @@ const PRINT_CSS = `
   /* 📏 כווץ לעמוד A4 אחד */
   body.fit .page { padding: 0; margin: 0 auto; box-sizing: border-box; font-size: var(--fz); }
   body.fit table { font-size: var(--fz); }
-  body.fit th, body.fit td { padding: var(--padv) var(--pad); height: auto; line-height: var(--lnh, 1.15); }
+  body.fit th, body.fit td { padding: var(--padv) var(--pad); line-height: var(--lnh, 1.15); }
+  body.fit #pl table { font-size: var(--fz); }
+  body.fit th, body.fit td { height: auto; } body.fit #pl td { height: calc(var(--rh, 18px) * var(--fz-k, 1)); }
   body.fit td.n, body.fit th.n { font-size: calc(var(--fz) * .85); width: auto; }
   body.fit .lh img { max-height: var(--lhh); }
   body.fit .hd img { height: calc(var(--lhh) * .5); }
@@ -96,11 +105,11 @@ function fitScript(landscape) {
     function apply() {
       document.body.classList.toggle('fit', cb.checked);
       const note = document.getElementById('fitn');
-      if (!cb.checked) { ['--fz', '--lhh', '--pad', '--padv', '--lnh'].forEach((k) => R.removeProperty(k)); pg.style.width = ''; note.textContent = ''; return; }
+      if (!cb.checked) { ['--fz', '--lhh', '--pad', '--padv', '--lnh', '--fz-k'].forEach((k) => R.removeProperty(k)); pg.style.width = ''; note.textContent = ''; if (window.__cols) window.__cols(); return; }
       pg.style.width = W + 'px';
       let fz = 9.5;
       for (let i = 0; i < 40; i += 1) {
-        R.setProperty('--fz', fz + 'pt'); R.setProperty('--lhh', Math.max(12, 30 * (fz - 3.5) / 6) + 'mm'); R.setProperty('--lnh', fz < 7 ? '1.05' : '1.15'); R.setProperty('--pad', (fz >= 8 ? 4 : fz >= 6.5 ? 2 : 1) + 'px'); R.setProperty('--padv', (fz >= 8 ? 1 : 0) + 'px');
+        R.setProperty('--fz', fz + 'pt'); R.setProperty('--fz-k', String(Math.min(1, fz / 9.5))); if (window.__cols) window.__cols(); R.setProperty('--lhh', Math.max(12, 30 * (fz - 3.5) / 6) + 'mm'); R.setProperty('--lnh', fz < 7 ? '1.05' : '1.15'); R.setProperty('--pad', (fz >= 8 ? 4 : fz >= 6.5 ? 2 : 1) + 'px'); R.setProperty('--padv', (fz >= 8 ? 1 : 0) + 'px');
         if ((pg.scrollHeight <= H && pg.scrollWidth <= W + 1) || fz <= 5.5) break;
         fz = Math.max(5.5, Math.round((fz - 0.25) * 100) / 100);
       }
@@ -130,29 +139,70 @@ export function printList(title, sub, { cols, rows, head = null, landscape = fal
   const hr = head || [cols.map((c) => ({ t: c.t, c: c.c || '' }))];
   const D = { cols: cols.map((c) => ({ c: c.c || '', ltr: !!c.ltr })), head: hr, rows: ordered.map((r) => ({ n: [first(r.id), last(r.id)].filter(Boolean).join(' '), v: r.cells.map((x) => String(x ?? '')) })) };
   const opts = cols.map((c, i) => `<option value="${i}">${X.h(c.t)}</option>`).join('');
+  // עמודה ריקה (לסימון / לכתיבה ביד): משבצת mk, אדער קיין איין ווערט אין דער גאנצער שפאלט
+  D.cols.forEach((c, j) => { c.ek = /\bmk\b/.test(c.c) || D.rows.every((r) => !String(r.v[j] || '').trim()); });
+  D.key = `plset:${X.KEY}:${cols.map((c) => c.t).join('|')}`;
+  const sel = (id, lbl, o) => `<label>${lbl} <select id="${id}">${o.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></label>`;
   const bar = `<label>בלי מי שאצלו <select id="pf"><option value="-1">— (כולם)</option>${opts}</select> ריק</label>
-    <label><input type="checkbox" id="p2"${twoUp ? ' checked' : ''}> שני טורים בדף</label>`;
+    <label><input type="checkbox" id="p2"${twoUp ? ' checked' : ''}> שני טורים בדף</label>
+    ${D.cols.some((c) => c.ek) ? sel('pw', 'משבצת ריקה:', [['17', 'צרה'], ['30', 'בינונית'], ['48', 'רחבה']]) : ''}
+    ${sel('pz', 'אות:', [['11', 'קטנה'], ['12.5', 'רגילה'], ['14.5', 'גדולה']])}
+    ${sel('ph', 'שורה:', [['16', 'צפופה'], ['18', 'רגילה'], ['26', 'מרווחת לכתיבה']])}
+    ${cols.length > 1 ? `<span class="cset">עמודות: ${cols.map((c, i) => `<label><input type="checkbox" class="pv" value="${i}" checked> ${X.h(c.t)}</label>`).join('')}</span>` : ''}`;
   const script = `<script>
     const D = ${JSON.stringify(D).replace(/</g, '\\u003c')};
     const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const $ = (id) => document.getElementById(id); const R = document.documentElement.style;
+    let hid = new Set();
+    const ST = { load() { try { return JSON.parse(window.opener?.localStorage.getItem(D.key) || localStorage.getItem(D.key) || '{}') || {}; } catch (e) { return {}; } },
+      save(o) { const t = JSON.stringify(o); try { (window.opener || window).localStorage.setItem(D.key, t); } catch (e) { /* */ } } };
+    // ראשי עמודות (גם מיט כמה שורות / colspan): וועלכע דאטן־שפאלטן דעקט יעדע תא, כדי צו באהאלטן עמודות
     function headHtml() {
-      const n = D.head.length;
-      return D.head.map((row, i) => '<tr>' + (i === 0 ? '<th class="n" rowspan="' + n + '">#</th><th rowspan="' + n + '">שם</th>' : '')
-        + row.map((h) => '<th class="' + (h.c || 'c') + '"' + (h.cs > 1 ? ' colspan="' + h.cs + '"' : '') + (h.rs > 1 ? ' rowspan="' + h.rs + '"' : '') + '>' + esc(h.t) + '</th>').join('') + '</tr>').join('');
+      const n = D.head.length; const C = D.cols.length; const occ = D.head.map(() => new Array(C).fill(false));
+      return D.head.map((row, i) => { let col = 0; const cells = row.map((h) => {
+          while (col < C && occ[i][col]) col += 1;
+          const cs = h.cs > 1 ? h.cs : 1; const rs = h.rs > 1 ? h.rs : 1; const from = col;
+          for (let r = i; r < Math.min(n, i + rs); r += 1) for (let k = from; k < from + cs && k < C; k += 1) occ[r][k] = true;
+          col += cs;
+          let vis = 0; let allEk = true; for (let k = from; k < from + cs && k < C; k += 1) if (!hid.has(k)) { vis += 1; if (!D.cols[k].ek) allEk = false; }
+          if (!vis) return '';
+          return '<th class="' + (h.c || 'c') + (allEk && cs === 1 ? ' ek' : '') + '"' + (vis > 1 ? ' colspan="' + vis + '"' : '') + (rs > 1 ? ' rowspan="' + rs + '"' : '') + '>' + esc(h.t) + '</th>';
+        }).join('');
+        return '<tr>' + (i === 0 ? '<th class="n" rowspan="' + n + '">#</th><th rowspan="' + n + '">שם</th>' : '') + cells + '</tr>'; }).join('');
     }
     function tbl(list, off) {
       return '<table><thead>' + headHtml() + '</thead><tbody>' + list.map((r, i) => '<tr><td class="n">' + (off + i + 1) + '</td><td class="nm">' + esc(r.n) + '</td>'
-        + r.v.map((v, j) => '<td class="' + D.cols[j].c + '"' + (D.cols[j].ltr ? ' dir="ltr"' : '') + '>' + esc(v) + '</td>').join('') + '</tr>').join('') + '</tbody></table>';
+        + r.v.map((v, j) => (hid.has(j) ? '' : '<td class="' + D.cols[j].c + (D.cols[j].ek ? ' ek' : ' tx') + '"' + (D.cols[j].ltr ? ' dir="ltr"' : '') + '>' + esc(v) + '</td>')).join('') + '</tr>').join('') + '</tbody></table>';
     }
+    // דער רוחב פון די ריקע משבצות: פון 17px ביז דער גרייס וואס מ'האט אויסגעוועלט — לויט וויפל פלאץ עס בלייבט אין דער ברייט
+    window.__cols = function () {
+      const max = Number(($('pw') || {}).value || 17);
+      document.querySelectorAll('#pl table').forEach((t) => {
+        const k = D.cols.filter((c, j) => c.ek && !hid.has(j)).length; if (!k) return;
+        t.style.setProperty('--ekw', '17px');
+        const room = t.parentElement.clientWidth - t.offsetWidth;
+        t.style.setProperty('--ekw', Math.max(17, Math.min(max, 17 + Math.floor(room / k))) + 'px');
+      });
+    };
     function draw() {
-      const f = Number(document.getElementById('pf').value); const two = document.getElementById('p2').checked;
+      const f = Number($('pf').value); const two = $('p2').checked;
+      hid = new Set([...document.querySelectorAll('.pv')].filter((c) => !c.checked).map((c) => Number(c.value)));
+      R.setProperty('--fz0', $('pz').value + 'px'); R.setProperty('--rh', $('ph').value + 'px');
       const list = f < 0 ? D.rows : D.rows.filter((r) => String(r.v[f] || '').trim());
       const half = Math.ceil(list.length / 2);
-      document.getElementById('pl').innerHTML = two && list.length > 1 ? '<div class="cols">' + tbl(list.slice(0, half), 0) + tbl(list.slice(half), half) + '</div>' : tbl(list, 0);
-      document.getElementById('pc').textContent = list.length + ' / ' + D.rows.length;
+      $('pl').innerHTML = two && list.length > 1 ? '<div class="cols"><div>' + tbl(list.slice(0, half), 0) + '</div><div>' + tbl(list.slice(half), half) + '</div></div>' : tbl(list, 0);
+      $('pc').textContent = list.length + ' / ' + D.rows.length;
+      window.__cols();
       if (window.__refit) window.__refit();
     }
-    document.getElementById('pf').onchange = draw; document.getElementById('p2').onchange = draw; draw();
+    function store() { ST.save({ two: $('p2').checked, pw: ($('pw') || {}).value, pz: $('pz').value, ph: $('ph').value, hid: [...hid] }); }
+    (function init() { const o = ST.load();
+      if (typeof o.two === 'boolean') $('p2').checked = o.two;
+      if ($('pw')) $('pw').value = o.pw || '30'; $('pz').value = o.pz || '12.5'; $('ph').value = o.ph || '18';
+      (o.hid || []).forEach((i) => { const c = document.querySelector('.pv[value="' + i + '"]'); if (c) c.checked = false; }); })();
+    ['pf', 'p2', 'pw', 'pz', 'ph'].forEach((id) => { if ($(id)) $(id).onchange = () => { draw(); if (id !== 'pf') store(); }; });
+    document.querySelectorAll('.pv').forEach((c) => { c.onchange = () => { draw(); store(); }; });
+    draw();
   <\/script>`;
   printDoc(w, title, `${printHead(title, sub)}<div id="pl"></div><div class="muted" id="pc"></div>`, { landscape, bar, script });
 }
