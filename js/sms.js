@@ -209,14 +209,50 @@ function listsView(body) {
   $$('[data-send]', body).forEach((b) => { b.onclick = () => { draft.list = b.dataset.send; view = 'sms'; renderCalls(); }; });
 }
 
-/** די גבאים אין SMS: הצטרפויות (און שפעטער: די שמועסן, פעולות, וואס האט נישט געקלאפט) */
-function gabbaiView(body) {
+/** די גבאים אין SMS: הצטרפויות, וואס איז געטון געווארן, וואס האט נישט געקלאפט, און די שמועסן */
+let glog = null; // { events, log }
+async function loadGabbaiLog(force = false) {
+  if (glog && !force) return glog;
+  const get = async (name) => { try { return (await readTabs([name]))[name] || []; } catch { return []; } };
+  const [evs, log] = await Promise.all([get('SmsEvents'), get('SmsLog')]);
+  const objs = (rows) => { const [hd = [], ...b] = rows; return b.map((r) => Object.fromEntries(hd.map((k, j) => [k, r[j] ?? '']))); };
+  glog = { events: objs(evs).reverse(), log: objs(log).filter((r) => String(r.line) === 'gabbai') };
+  return glog;
+}
+async function gabbaiView(body) {
   const joins = data.optRows.filter((o) => String(o.source) === 'join' && String(o.status) === 'in' && !String(o.contact_id || '').trim());
-  body.innerHTML = `<section class="cs-sec"><h3>🙋 ${h(t('smsJoins'))} (${joins.length})</h3>
-      ${joins.length ? `<ul class="mx-plist">${joins.map((o) => `<li>${h(o.name)} <span dir="ltr" class="muted small">${h(o.phone)}</span>
-        <input class="join-pick" data-row="${o._row}" list="dl-sms-c" placeholder="${h(t('pickContact'))}"></li>`).join('')}</ul>
+  body.innerHTML = `<p class="muted">${h(t('loading'))}</p>`;
+  const L = await loadGabbaiLog(true);
+  const users = Object.fromEntries(allUsers().map((u) => [u.email, u.name]));
+  const who = (e) => users[String(e).toLowerCase()] || e || '';
+  const cName = (id) => { const c = id ? state.contacts.find((x) => String(x.contact_id) === String(id)) : null; return c ? nm(c) : ''; };
+  const KL = { fail: '❓', error: '⚠', canceled: '✕', unregistered: '🚫', action: '✓', join_phone: '📱', join_name: '🔎', join_review: '🙋' };
+  const evRow = (e) => `<tr><td dir="ltr" class="small muted">${h(String(e.at).slice(0, 16))}</td>
+      <td>${KL[e.kind] || ''} ${h(t(`csGbK_${e.kind}`))}</td>
+      <td>${h(who(e.gabbai_email)) || `<span dir="ltr">${h(e.phone)}</span>`}</td>
+      <td>${e.contact_id ? `<button type="button" class="linkish" data-card="${h(e.contact_id)}">${h(cName(e.contact_id) || e.name)}</button>` : h(e.name)}</td>
+      <td class="small">${e.text ? `<div dir="auto">“${h(e.text)}”</div>` : ''}<div class="muted" dir="auto">${h(e.detail)}</div></td></tr>`;
+  const table = (arr) => (arr.length ? `<table class="lapsed-table"><tbody>${arr.map(evRow).join('')}</tbody></table>` : `<p class="muted small">—</p>`);
+  const pick = (kinds, n = 60) => L.events.filter((e) => kinds.includes(String(e.kind))).slice(0, n);
+  const review = (phone) => L.events.find((e) => e.kind === 'join_review' && last10(e.phone) === last10(phone));
+  // שמועסן: לויט דעם טעלעפאן פונעם גבאי
+  const chats = {};
+  L.log.forEach((r) => { const p = last10(r.dir === 'in' ? r.from : r.to); if (p) (chats[p] = chats[p] || []).push(r); });
+  const fails = pick(['fail', 'error', 'canceled', 'unregistered']);
+  body.innerHTML = `
+    <section class="cs-sec"><h3>🙋 ${h(t('smsJoins'))} (${joins.length})</h3>
+      ${joins.length ? `<ul class="mx-plist">${joins.map((o) => { const r = review(o.phone); return `<li><b>${h(o.name)}</b> <span dir="ltr" class="muted small">${h(o.phone)}</span>
+        ${r ? `<div class="muted small" dir="auto">${h(r.detail)}</div>` : ''}
+        <input class="join-pick" data-row="${o._row}" list="dl-sms-c" placeholder="${h(t('pickContact'))}"></li>`; }).join('')}</ul>
         <datalist id="dl-sms-c">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>` : '<p class="muted small">—</p>'}</section>
-    <div id="cs-glog"></div>`;
+    <section class="cs-sec"><h3>⚠ ${h(t('csGbFail'))} (${fails.length})</h3>${table(fails)}</section>
+    <section class="cs-sec"><h3>✓ ${h(t('csGbActions'))}</h3>${table(pick(['action']))}</section>
+    <section class="cs-sec"><h3>📱 ${h(t('csGbAuto'))}</h3>${table(pick(['join_phone', 'join_name'], 40))}</section>
+    <section class="cs-sec"><h3>💬 ${h(t('csGbChats'))}</h3>
+      ${Object.keys(chats).length ? Object.entries(chats).map(([p, rows]) => `<details class="cs-chat"><summary><span dir="ltr">${h(fmtPhone(p))}</span> · ${rows.length}</summary>
+        ${rows.slice(-60).map((r) => `<div class="cs-msg ${r.dir === 'in' ? 'in' : 'out'}"><div dir="auto">${h(r.text)}</div><span class="muted small" dir="ltr">${h(String(r.at).slice(5, 16))}</span></div>`).join('')}</details>`).join('')
+    : '<p class="muted small">—</p>'}</section>`;
+  $$('[data-card]', body).forEach((b) => { b.onclick = () => ui.openCard(b.dataset.card); });
   $$('.join-pick', body).forEach((inp) => {
     inp.onchange = async () => {
       const c = state.contacts.find((x) => ui.pickerLabel(x) === inp.value.trim());

@@ -33,6 +33,7 @@ const TABS = {
   SmsOptIn: ['phone', 'status', 'source', 'contact_id', 'name', 'at', 'by'],
   SmsRecordings: ['rec_id', 'name', 'drive_id', 'mime', 'seconds', 'created_at', 'created_by', 'source'],
   SmsConfig: ['key', 'value'],
+  SmsEvents: ['at', 'kind', 'gabbai_email', 'phone', 'contact_id', 'name', 'text', 'detail'],
 };
 const DEFAULT_CONFIG = {
   price_sms: '0.01', price_mms: '0.03', price_call: '0.03', quiet_from: '21', quiet_to: '8', friday_cutoff: '13',
@@ -47,7 +48,8 @@ function branded(text, cfg) {
   return s.toLowerCase().indexOf(b.toLowerCase()) === 0 ? s : b + ': ' + s;
 }
 function optInText(cfg) { return brandOf(cfg) + ': You are subscribed to community updates. Msg frequency varies. Msg & data rates may apply. Reply HELP for help, STOP to opt out.'; }
-function askNameText(cfg) { return brandOf(cfg) + ': Welcome! To complete your subscription, please reply with your full name. Msg & data rates may apply. Reply STOP to opt out.'; }
+function askNameText(cfg) { return brandOf(cfg) + ': To complete your subscription, please reply with your full name followed by the word CONFIRM.\nExample: John Doe CONFIRM\nMsg & data rates may apply. Reply STOP to opt out.'; }
+function confirmAgainText(cfg) { return brandOf(cfg) + ': Please include the word CONFIRM after your name, for example: John Doe CONFIRM'; }
 function newLineNote(cfg) { return '\n\nThis is the new number of ' + brandOf(cfg) + '. Reply HELP for help, STOP to opt out.'; }
 
 // ====================================================================== אריינגאנג
@@ -137,6 +139,14 @@ function setFields(name, row, fields) {
 }
 function stamp() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'); }
 function today() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'); }
+/** א געשעעניש פאר "די גבאים אין SMS" (אויפן אתר): action / fail / error / canceled / unregistered / join_phone / join_name / join_review */
+function ev(kind, f) {
+  try {
+    f = f || {};
+    appendObj('SmsEvents', { at: stamp(), kind: kind, gabbai_email: f.g ? f.g.email : '', phone: f.phone ? fmtPhone(f.phone) : '', contact_id: f.contact_id || '',
+      name: f.name || '', text: String(f.text || '').slice(0, 500), detail: String(f.detail || '').slice(0, 500) });
+  } catch (e) { /* דער לאג טאר נישט שטערן */ }
+}
 function config() {
   const c = {};
   Object.keys(DEFAULT_CONFIG).forEach(function (k) { c[k] = DEFAULT_CONFIG[k]; });
@@ -277,22 +287,42 @@ function publicInbound(from, text) {
     return { ok: true, handled: 'start' };
   }
   if (JOIN_WORDS.indexOf(w) >= 0) {
+    // 1) דער נומער איז שוין ביי א קאנטאקט → גלייך
     const c = contactsByPhone(from)[0];
-    setOpt(from, { status: 'in', source: 'join', contact_id: c ? c.contact_id : '', name: c ? heName(c) : '', by: 'sms' });
-    if (c) { sendSms(line, from, optInText(), null, { line: 'broadcast', contact_id: c.contact_id }); return { ok: true, handled: 'join-known' }; }
-    cache.put(k, '1', 21600);
+    if (c) {
+      setOpt(from, { status: 'in', source: 'join', contact_id: c.contact_id, name: heName(c), by: 'sms' });
+      sendSms(line, from, optInText(), null, { line: 'broadcast', contact_id: c.contact_id });
+      ev('join_phone', { phone: from, contact_id: c.contact_id, name: heName(c), text: text });
+      return { ok: true, handled: 'join-known' };
+    }
+    // 2) נישט באקאנט: בעטן דעם נאמען + CONFIRM (ערשט דאן איז ער פארשריבן)
+    cache.put(k, 'ask', 21600);
     sendSms(line, from, askNameText(), null, { line: 'broadcast' });
     return { ok: true, handled: 'join' };
   }
-  if (cache.get(k)) {
-    // דער נאמען נאכן JOIN
-    cache.remove(k);
-    const name = text.trim().slice(0, 80);
-    const m = matchName(name);
-    setOpt(from, { status: 'in', source: 'join', name: name, contact_id: m.length === 1 ? m[0].contact_id : '' });
-    if (m.length !== 1) notifyAdmins('sms_join', 'SMS JOIN: ' + name + ' · ' + fmtPhone(from), 'הצטרף ב-SMS: ' + name + ' · ' + fmtPhone(from) + (m.length ? ' (אפשר: ' + m.slice(0, 3).map(heName).join(' / ') + ')' : '') + ' — לחבר לאיש קשר באתר (SMS → הצטרפויות).');
-    sendSms(line, from, optInText(), null, { line: 'broadcast' });
-    return { ok: true, handled: 'join-name' };
+  const jst = cache.get(k);
+  if (jst) {
+    const m = text.match(/^(.*?)\s*\bconfirm\b\.?\s*(.*)$/i);
+    if (!m) {
+      // אן CONFIRM: איינמאל דערקלערן; דערנאך ווארטן (א שטיקל ענטפער גייט צום גבאי)
+      if (jst === 'ask') { cache.put(k, 'again', 21600); sendSms(line, from, confirmAgainText(), null, { line: 'broadcast' }); return { ok: true, handled: 'join-again' }; }
+    } else {
+      cache.remove(k);
+      const name = (m[1] + ' ' + m[2]).replace(/\s+/g, ' ').trim().slice(0, 80);
+      setOpt(from, { status: 'in', source: 'join', name: name, contact_id: '', by: 'sms' });
+      sendSms(line, from, optInText(), null, { line: 'broadcast' });
+      // 3) זוכן לויטן נאמען (Gemini) — נישט פרעגן דעם מענטש
+      const r = joinMatch(name);
+      if (r.contact) {
+        setOpt(from, { contact_id: r.contact.contact_id });
+        ev('join_name', { phone: from, contact_id: r.contact.contact_id, name: name, text: text, detail: heName(r.contact) });
+      } else {
+        const opts = r.cands.slice(0, 4).map(function (c) { return heName(c) + (parentLine(c) ? ' (' + parentLine(c) + ')' : ''); }).join(' / ');
+        ev('join_review', { phone: from, name: name, text: text, detail: opts ? 'אפשרויות: ' + opts : 'לא נמצא באנשי הקשר' });
+        generalTask('📱 הצטרף לקבלת הודעות: ' + name + ' · ' + fmtPhone(from) + ' — לשייך לאיש קשר (Calls & SMS → הגבאים בהודעות)' + (opts ? '. אפשרויות: ' + opts : ''), '');
+      }
+      return { ok: true, handled: 'join-name' };
+    }
   }
   // אן ענטפער אויף א שליחה → דער גבאי וואס האט געשיקט (אין זיין תיבה אינעם אתר)
   const lastJob = lastJobTo(from);
@@ -413,6 +443,7 @@ function gabbaiInbound(from, text, media) {
     if (!cache.get(k)) {
       cache.put(k, '1', 21600);
       replyGabbai(from, say('notReg', lang0));
+      ev('unregistered', { phone: from, text: text });
       notifyAdmins('sms_unknown', 'SMS: ' + fmtPhone(from), 'א נישט רעגיסטרירטער נומער האט געשיקט צום גבאים-נומער: ' + fmtPhone(from) + '\n"' + text.slice(0, 300) + '"');
     }
     return { ok: true, handled: 'unregistered' };
@@ -423,8 +454,16 @@ function gabbaiInbound(from, text, media) {
   try {
     // 1) א באשטעטיגונג
     if (st.step === 'confirm') {
-      if (/^(1|yes|y|ok|כן|יא|יאָ|יע)$/i.test(t)) { stateClear(from); const res = execute(st.action, g, st.lang || lang); replyGabbai(from, res); return { ok: true }; }
-      if (/^(2|no|n|לא|ניין|נײן|ביטול)$/i.test(t)) { stateClear(from); replyGabbai(from, say('canceled', st.lang || lang)); return { ok: true }; }
+      if (/^(1|yes|y|ok|כן|יא|יאָ|יע)$/i.test(t)) {
+        stateClear(from); const res = execute(st.action, g, st.lang || lang); replyGabbai(from, res);
+        ev('action', { g: g, phone: from, contact_id: st.action.contact_id || '', text: st.text || '', detail: summary(st.action, 'he') + ' → ' + res });
+        return { ok: true };
+      }
+      if (/^(2|no|n|לא|ניין|נײן|ביטול)$/i.test(t)) {
+        stateClear(from); replyGabbai(from, say('canceled', st.lang || lang));
+        ev('canceled', { g: g, phone: from, contact_id: st.action.contact_id || '', text: st.text || '', detail: summary(st.action, 'he') });
+        return { ok: true };
+      }
     }
     // 2) א בחירה פון א ליסטע
     if (st.step === 'choose' && /^\d{1,2}$/.test(t)) {
@@ -450,16 +489,13 @@ function gabbaiInbound(from, text, media) {
     return parseAndAsk(from, t, img ? [img.url] : [], g, lang);
   } catch (err) {
     replyGabbai(from, say('error', lang) + ' ' + String(err && err.message || err).slice(0, 120));
+    ev('error', { g: g, phone: from, text: text, detail: String(err && err.message || err) });
     return { ok: false, error: String(err) };
   }
 }
 
 /** Gemini: וואס וויל דער גבאי? → { action, ... } */
 function aiParse(text, images) {
-  const P = PropertiesService.getScriptProperties();
-  const key = P.getProperty('GEMINI_API_KEY');
-  if (!key) throw new Error('no GEMINI_API_KEY');
-  const model = P.getProperty('GEMINI_MODEL') || 'gemini-flash-latest';
   const system = [
     'You read SMS messages from gabbaim (managers) of a Jewish community database (Khal Ungvar, Brooklyn). Messages are in Yiddish, Hebrew or English.',
     'Return ONLY JSON: {"lang":"yi|he|en","action":..., ...}. Actions:',
@@ -480,12 +516,19 @@ function aiParse(text, images) {
       if (r.getResponseCode() === 200) parts.push({ inline_data: { mime_type: r.getHeaders()['Content-Type'] || 'image/jpeg', data: Utilities.base64Encode(r.getContent()) } });
     } catch (e) { /* */ }
   });
+  return geminiJson(system, parts);
+}
+/** Gemini → JSON. ענטפערט אמאל "פארנומען" (429/500/503) — נאכאמאל פרובירן, ביז 3 מאל */
+function geminiJson(system, parts) {
+  const P = PropertiesService.getScriptProperties();
+  const key = P.getProperty('GEMINI_API_KEY');
+  if (!key) throw new Error('no GEMINI_API_KEY');
+  const model = P.getProperty('GEMINI_MODEL') || 'gemini-flash-latest';
   const req = {
     method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, muteHttpExceptions: true,
     // די נייע מאדעלן "טראכטן" אויך מיט די טאקענס — דערפאר 4096 (ווי אינעם הילף-AI)
     payload: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0.1, responseMimeType: 'application/json', maxOutputTokens: 4096 } }),
   };
-  // Gemini ענטפערט אמאל "פארנומען" (429/500/503) — נאכאמאל פרובירן, ביז 3 מאל
   let res = null;
   for (let i = 0; i < 3; i += 1) {
     res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', req);
@@ -497,20 +540,53 @@ function aiParse(text, images) {
   const txt = ((((data.candidates || [])[0] || {}).content || {}).parts || []).map(function (p) { return p.text || ''; }).join('');
   return JSON.parse(txt.replace(/^```json|```$/g, '').trim());
 }
+
+/** JOIN: געפינען דעם קאנטאקט לויטן נאמען וואס דער מענטש האט געשיקט (ענגליש אדער לשון קודש). → contact אדער null + קאנדידאטן */
+function joinMatch(name) {
+  const seen = {}; let cands = [];
+  const add = function (list) { list.forEach(function (c) { if (!seen[c.contact_id]) { seen[c.contact_id] = true; cands.push(c); } }); };
+  add(matchName(name));
+  let variants = null;
+  try {
+    variants = geminiJson('You convert a Jewish person\'s name (often Chassidic/Yiddish, may be written in English letters or Hebrew letters) into likely spellings. Return ONLY JSON: {"he":["first last" in Hebrew letters, up to 3 spellings],"en":["first last" in English letters, up to 3 spellings]}. Never invent extra people.',
+      [{ text: name }]);
+  } catch (e) { variants = null; }
+  if (variants) [].concat(variants.he || [], variants.en || []).forEach(function (v) { if (v) add(matchName(String(v))); });
+  if (cands.length > 12) cands = cands.slice(0, 12);
+  if (cands.length === 1) return { contact: cands[0], cands: cands };
+  if (cands.length > 1) {
+    try {
+      const list = cands.map(function (c) { return c.contact_id + ': ' + heName(c) + ' / ' + enName(c) + (parentLine(c) ? ' / ' + parentLine(c) : '') + (c.address ? ' / ' + c.address : ''); }).join('\n');
+      const pick = geminiJson('A person texted their name to join a synagogue\'s SMS list. Choose which contact from the list is that person. Answer ONLY JSON {"id":"<contact id>"} when exactly one contact clearly matches the full name (first AND last name), otherwise {"id":""}. Do not guess between similar people.',
+        [{ text: 'Name: ' + name + '\nContacts:\n' + list }]);
+      const c = cands.filter(function (x) { return String(x.contact_id) === String(pick && pick.id || ''); })[0];
+      if (c) return { contact: c, cands: cands };
+    } catch (e) { /* בלייבט פאר א גבאי */ }
+  }
+  return { contact: null, cands: cands };
+}
+/** א משימה אין דעם כללי'דיגן To Do (לשונית Tasks, assigned_to = all) */
+function generalTask(text, contactId) {
+  try {
+    appendObj('Tasks', { task_id: 'sms' + Date.now(), from_email: 'sms', text: text, contact_id: contactId || '', assigned_to: 'all', status: 'open',
+      done_at: '', done_by: '', remind_at: '', created_at: stamp(), created_by: 'sms' });
+  } catch (e) { /* */ }
+}
 function parseAndAsk(from, text, images, g, lang) {
   const a = aiParse(text, images);
   if (images && images.length) a.media = images[0];
+  a._text = String(text || '').slice(0, 500); a._from = from; a._g = g ? g.email : '';
   return ask(from, a, g, a.lang || lang);
 }
 
 /** פארן טון: געפינען וועמען (אדער פרעגן וועלכער) און בעטן א באשטעטיגונג */
 function ask(from, a, g, lang) {
   const act = a.action;
-  if (!act || act === 'unknown') { replyGabbai(from, say('noUnderstand', lang)); return { ok: true }; }
+  if (!act || act === 'unknown') { replyGabbai(from, say('noUnderstand', lang)); ev('fail', { g: g, phone: from, text: a._text, detail: 'לא הובן' }); return { ok: true }; }
   if (['update_contact', 'query', 'add_note', 'donation', 'photo'].indexOf(act) >= 0 && !a.contact_id) {
     const who = a.who || {};
     const m = matchName(who.name || '', who.hint || '');
-    if (!m.length) { stateClear(from); replyGabbai(from, say('notFound', lang) + ' ' + (who.name || '')); return { ok: true }; }
+    if (!m.length) { stateClear(from); replyGabbai(from, say('notFound', lang) + ' ' + (who.name || '')); ev('fail', { g: g, phone: from, text: a._text, detail: 'לא נמצא: ' + (who.name || '') }); return { ok: true }; }
     if (m.length > 1) {
       statePut(from, { step: 'choose', action: a, options: m.map(function (c) { return String(c.contact_id); }), lang: lang });
       replyGabbai(from, say('choose', lang) + '\n' + m.map(function (c, i) { return (i + 1) + '. ' + describe(c); }).join('\n'));
@@ -518,11 +594,11 @@ function ask(from, a, g, lang) {
     }
     a.contact_id = String(m[0].contact_id);
   }
-  if (act === 'query') { stateClear(from); replyGabbai(from, answerQuery(a, g, lang)); return { ok: true }; }
+  if (act === 'query') { stateClear(from); const ans = answerQuery(a, g, lang); replyGabbai(from, ans); ev('action', { g: g, phone: from, contact_id: a.contact_id || '', text: a._text, detail: 'שאלה → ' + ans }); return { ok: true }; }
   if (act === 'simcha' && !a.ids) {
     a.ids = (a.who || []).map(function (w) { const m = matchName(w.name || '', w.hint || ''); return m.length ? String(m[0].contact_id) : ''; });
   }
-  statePut(from, { step: 'confirm', action: a, lang: lang });
+  statePut(from, { step: 'confirm', action: a, lang: lang, text: a._text || '' });
   replyGabbai(from, summary(a, lang) + '\n' + say('confirm', lang));
   return { ok: true };
 }
