@@ -5,7 +5,7 @@ import { state, allUsers } from './data.js';
 import { readTabs, appendRows, updateRow, currentToken } from './google.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, nowStamp, digits } from './util.js';
-import { evaluate, parseSaved, savedInScope, channel } from './lists.js';
+import { evaluate, parseSaved, savedInScope, channel, openBuilder } from './lists.js';
 import { fromHebrew, toHebrew, todayIso } from './hebdate.js';
 
 let ui = null;
@@ -14,7 +14,7 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const last10 = (p) => { const d = digits(p); return d.length >= 10 ? d.slice(-10) : ''; };
 const fmtPhone = (p) => { const d = last10(p); return d ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : ''; };
 
-let tab = 'send';
+let view = 'home'; // home | sms | auto | calls | track | credits | perms | lists | gabbai | admin
 let data = null; // { opt: Map, optRows, jobs, credits, recs, config }
 let draft = { kind: 'sms', list: '', text: '', title: '', when: '', rec: '' };
 const OPT_HEAD = ['phone', 'status', 'source', 'contact_id', 'name', 'at', 'by'];
@@ -119,9 +119,19 @@ function blockedReason(iso) {
 
 // ---------- דער בלאט ----------
 export async function openCalls() {
+  view = 'home';
   document.body.classList.add('solo-mode');
   ui.showView('calls');
 }
+// די כפתורים פונעם הויפט־בלאט: [view, icon, label, sub]
+const BIG = [
+  [['sms', '💬', 'csSms', 'csSmsSub'], ['auto', '🔁', 'csAuto', 'csAutoSub']],
+  [['calls', '📞', 'csCalls', 'csCallsSub'], ['track', '📋', 'csTrack', 'csTrackSub']],
+];
+const SMALL = () => [['credits', '💳', 'csCredits'], ['perms', '✅', 'csPerms'], ['lists', '📇', 'csLists'], ['gabbai', '🤖', 'csGabbai'],
+  ...(state.isAdmin ? [['admin', '⚙', 'csAdmin']] : [])];
+const viewTitle = (v) => { const all = [...BIG.flat(), ...SMALL()]; const x = all.find(([k]) => k === v); return x ? `${x[1]} ${t(x[2])}` : ''; };
+
 export async function renderCalls() {
   const main = $('#calls-main');
   if (!main) return;
@@ -131,22 +141,94 @@ export async function renderCalls() {
   }
   if (!data) main.innerHTML = `<p class="muted">${h(t('loading'))}</p>`;
   await loadSms();
-  if (new URLSearchParams(location.search).get('credits') === 'ok') { ui.toast(t('smsPaidThanks')); history.replaceState(null, '', location.pathname); }
-  const tabs = [['send', '💬', 'smsTabSend'], ['jobs', '📋', 'smsTabJobs'], ['credits', '💳', 'smsTabCredits'], ['recs', '🎙', 'smsTabRecs'], ...(state.isAdmin ? [['admin', '⚙', 'smsTabAdmin']] : [])];
-  main.innerHTML = `<div class="camp-page-head"><h2>📞 Calls &amp; SMS</h2><span class="spacer"></span>
+  if (new URLSearchParams(location.search).get('credits') === 'ok') { ui.toast(t('smsPaidThanks')); history.replaceState(null, '', location.pathname); view = 'credits'; }
+  if (view === 'admin' && !state.isAdmin) view = 'home';
+  main.innerHTML = `<div class="camp-page-head">
+      ${view !== 'home' ? `<button type="button" class="btn cs-back" id="cs-back">→ ${h(t('csBack'))}</button>` : ''}
+      <h2>${view === 'home' ? '📞 Calls &amp; SMS' : h(viewTitle(view))}</h2><span class="spacer"></span>
       <span class="sms-credits">💳 ${h(t('smsMyCredits'))}: <b>${money(myCredits())}</b></span></div>
-    <nav class="adm-tabs">${tabs.map(([k, i, l]) => `<button type="button" data-tab="${k}" class="${tab === k ? 'on' : ''}">${i} ${h(t(l))}</button>`).join('')}</nav>
     <div id="sms-body"></div>`;
-  $$('[data-tab]', main).forEach((b) => { b.onclick = () => { tab = b.dataset.tab; renderCalls(); }; });
+  $('#cs-back', main)?.addEventListener('click', () => { view = 'home'; renderCalls(); });
   const body = $('#sms-body', main);
-  if (tab === 'send') sendTab(body);
-  else if (tab === 'jobs') jobsTab(body);
-  else if (tab === 'credits') creditsTab(body);
-  else if (tab === 'recs') recsTab(body);
+  if (view === 'home') homeView(body);
+  else if (view === 'sms') sendTab(body, 'sms');
+  else if (view === 'calls') { sendTab(body, 'call'); recsTab(body); }
+  else if (view === 'track') jobsTab(body);
+  else if (view === 'credits') creditsTab(body);
+  else if (view === 'perms') permsView(body);
+  else if (view === 'lists') listsView(body);
+  else if (view === 'gabbai') gabbaiView(body);
+  else if (view === 'auto') soonView(body, 'csAutoSoon');
   else adminTab(body);
 }
 
-function sendTab(body) {
+function homeView(body) {
+  const big = ([k, i, l, sub]) => `<button type="button" class="cs-big" data-go="${k}"><span class="cs-ic">${i}</span><b>${h(t(l))}</b><span class="muted small">${h(t(sub))}</span></button>`;
+  body.innerHTML = `<div class="cs-home">
+    ${BIG.map((col) => `<div class="cs-col">${col.map(big).join('')}</div>`).join('')}
+    <div class="cs-small">${SMALL().map(([k, i, l]) => `<button type="button" class="cs-sm" data-go="${k}"><span>${i}</span> ${h(t(l))}</button>`).join('')}</div>
+  </div>`;
+  $$('[data-go]', body).forEach((b) => { b.onclick = () => { view = b.dataset.go; renderCalls(); }; });
+}
+function soonView(body, key) {
+  body.innerHTML = `<div class="soon-box"><p>🚧 ${h(t('csSoon'))}</p><p class="muted small">${h(t(key))}</p></div>`;
+}
+
+/** הרשאות שליחה: ווער איז מסכים, ווער האט געזאגט STOP */
+function permsView(body) {
+  const rows = data.optRows.slice().sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  const ins = rows.filter((o) => String(o.status) === 'in');
+  const outs = rows.filter((o) => String(o.status) === 'out');
+  const srcName = (k) => t((SOURCES.find(([x]) => x === k) || [, k === 'stop' ? 'smsSrcStop' : k === 'start' ? 'smsSrcStart' : 'smsSrcOther'])[1]);
+  const who = (o) => { const c = o.contact_id ? state.contacts.find((x) => String(x.contact_id) === String(o.contact_id)) : null; return c ? nm(c) : (o.name || ''); };
+  const table = (arr) => (arr.length ? `<table class="lapsed-table"><tbody>${arr.map((o) => `<tr data-q="${h(`${who(o)} ${digits(o.phone)}`.toLowerCase())}">
+      <td>${h(who(o)) || '<span class="muted">—</span>'}${o.contact_id ? ` <button type="button" class="linkish small" data-card="${h(o.contact_id)}">${h(t('mxOpenCard'))}</button>` : ''}</td>
+      <td dir="ltr" class="small">${h(fmtPhone(o.phone) || o.phone)}</td><td class="small">${h(srcName(String(o.source)))}</td>
+      <td dir="ltr" class="muted small">${h(String(o.at).slice(0, 10))}</td></tr>`).join('')}</tbody></table>` : '<p class="muted small">—</p>');
+  body.innerHTML = `<p class="muted small">${h(t('csPermsHint'))}</p>
+    <input id="pm-q" class="cs-search" placeholder="${h(t('csSearch'))}">
+    <section class="cs-sec"><h3>✓ ${h(t('csPermsIn'))} (${ins.length})</h3>${table(ins)}</section>
+    <section class="cs-sec"><h3>⛔ ${h(t('smsOptOuts'))} (${outs.length})</h3>${table(outs)}</section>`;
+  $$('[data-card]', body).forEach((b) => { b.onclick = () => ui.openCard(b.dataset.card); });
+  $('#pm-q', body).oninput = (e) => { const q = e.target.value.trim().toLowerCase(); $$('tr[data-q]', body).forEach((tr) => { tr.hidden = q && !tr.dataset.q.includes(q); }); };
+}
+
+/** רשימות פאר הודעות און צלצולים (גרייטע רשימות מיטן ציל "טעלעפאנען") */
+function listsView(body) {
+  const mine = savedInScope().filter((l) => parseSaved(l).cr.meta?.firstTab === 'phones');
+  body.innerHTML = `<p class="muted small">${h(t('csListsHint'))}</p>
+    <button type="button" class="btn primary" id="cl-new">➕ ${h(t('csListNew'))}</button>
+    ${mine.length ? `<table class="lapsed-table"><tbody>${mine.map((l) => {
+    const sms = recipientsOf(l.list_id, 'sms').list.length; const calls = recipientsOf(l.list_id, 'call').list.length;
+    return `<tr><td>${l.visibility === 'private' ? '🔒 ' : ''}<b>${h(l.name)}</b></td><td class="small">💬 ${sms} · 📞 ${calls}</td>
+      <td><button type="button" class="linkish" data-open="${h(l.list_id)}">${h(t('csOpen'))}</button>
+        <button type="button" class="linkish" data-send="${h(l.list_id)}">💬 ${h(t('csSendTo'))}</button></td></tr>`;
+  }).join('')}</tbody></table>` : `<p class="empty">${h(t('csNoLists'))}</p>`}`;
+  $('#cl-new', body).onclick = () => openBuilder(null, { name: '', criteria: { v: 2, meta: { firstTab: 'phones' } } });
+  $$('[data-open]', body).forEach((b) => { b.onclick = () => openBuilder(state.savedLists.find((x) => String(x.list_id) === b.dataset.open)); });
+  $$('[data-send]', body).forEach((b) => { b.onclick = () => { draft.list = b.dataset.send; view = 'sms'; renderCalls(); }; });
+}
+
+/** די גבאים אין SMS: הצטרפויות (און שפעטער: די שמועסן, פעולות, וואס האט נישט געקלאפט) */
+function gabbaiView(body) {
+  const joins = data.optRows.filter((o) => String(o.source) === 'join' && String(o.status) === 'in' && !String(o.contact_id || '').trim());
+  body.innerHTML = `<section class="cs-sec"><h3>🙋 ${h(t('smsJoins'))} (${joins.length})</h3>
+      ${joins.length ? `<ul class="mx-plist">${joins.map((o) => `<li>${h(o.name)} <span dir="ltr" class="muted small">${h(o.phone)}</span>
+        <input class="join-pick" data-row="${o._row}" list="dl-sms-c" placeholder="${h(t('pickContact'))}"></li>`).join('')}</ul>
+        <datalist id="dl-sms-c">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>` : '<p class="muted small">—</p>'}</section>
+    <div id="cs-glog"></div>`;
+  $$('.join-pick', body).forEach((inp) => {
+    inp.onchange = async () => {
+      const c = state.contacts.find((x) => ui.pickerLabel(x) === inp.value.trim());
+      if (!c) return;
+      const o = data.optRows.find((x) => String(x._row) === inp.dataset.row);
+      try { await setConsent([{ phone: o.phone, contact_id: c.contact_id, name: o.name }], 'in', 'join'); renderCalls(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+    };
+  });
+}
+
+function sendTab(body, kind) {
+  draft.kind = kind;
   const lists = savedInScope().map((l) => [l.list_id, l.name, parseSaved(l).cr.meta?.firstTab]);
   if (!draft.list && lists.length) draft.list = String((lists.find((x) => x[2] === 'phones') || lists[0])[0]);
   const { list, st } = recipientsOf(draft.list, draft.kind);
@@ -155,7 +237,6 @@ function sendTab(body) {
   const blocked = blockedReason(draft.when);
   const recs = data.recs;
   body.innerHTML = `<div class="sms-send">
-    <div class="seg">${[['sms', '💬 SMS'], ['call', `📞 ${t('smsCall')}`]].map(([k, l]) => `<button type="button" data-kind="${k}" class="${draft.kind === k ? 'on' : ''}">${h(l)}</button>`).join('')}</div>
     <label class="mm-l">${h(t('smsList'))}<select id="sms-list">${lists.map(([id, n, ft]) => `<option value="${h(id)}"${String(id) === String(draft.list) ? ' selected' : ''}>${ft === 'phones' ? '📱 ' : ''}${h(n)}</option>`).join('')}</select></label>
     <div class="sms-stats">
       <span class="ok">✓ ${h(t('smsWillGet', { n: list.length }))}</span>
@@ -176,7 +257,6 @@ function sendTab(body) {
       ${myCredits() < est ? ` <span class="warn">⚠ ${h(t('smsNeedMore'))}</span>` : ''}</p>
     <button type="button" class="btn primary" id="sms-go"${list.length ? '' : ' disabled'}>${draft.kind === 'sms' ? '💬' : '📞'} ${h(t('smsSendBtn', { n: list.length }))}</button>
   </div>`;
-  $$('[data-kind]', body).forEach((b) => { b.onclick = () => { draft.kind = b.dataset.kind; renderCalls(); }; });
   $('#sms-list', body).onchange = (e) => { draft.list = e.target.value; renderCalls(); };
   $('#sms-title', body).oninput = (e) => { draft.title = e.target.value; };
   const ta = $('#sms-text', body);
@@ -199,7 +279,7 @@ function sendTab(body) {
       });
       ui.toast(t('smsQueued', { n: list.length }));
       draft = { ...draft, text: '', title: '', when: '' };
-      tab = 'jobs';
+      view = 'track';
       await loadSms(true);
       renderCalls();
       return r;
@@ -298,9 +378,12 @@ function creditsTab(body) {
   });
 }
 
-function recsTab(body) {
+function recsTab(outer) {
   const W = CONFIG.SMS_WORKER_URL || '';
-  body.innerHTML = `<div class="sms-buy"><h3>🎙 ${h(t('smsRecUpload'))}</h3>
+  const body = document.createElement('section');
+  body.className = 'cs-sec cs-recs';
+  outer.append(body);
+  body.innerHTML = `<h2>🎙 ${h(t('smsTabRecs'))}</h2><div class="sms-buy"><h3>🎙 ${h(t('smsRecUpload'))}</h3>
       <p class="muted small">${h(t('smsRecHint'))}</p>
       <input id="rec-name" placeholder="${h(t('smsRecName'))}"> <input type="file" id="rec-file" accept="audio/*"></div>
     ${data.recs.length ? `<table class="lapsed-table"><tbody>${data.recs.slice().reverse().map((r) => `<tr><td>${h(r.name || r.rec_id)}</td>
@@ -323,8 +406,6 @@ function recsTab(body) {
 async function adminTab(body) {
   const c = data.config;
   const fields = [['price_sms', 'smsCfgPriceSms'], ['price_call', 'smsCfgPriceCall'], ['quiet_to', 'smsCfgFrom'], ['quiet_from', 'smsCfgTo'], ['friday_cutoff', 'smsCfgFriday']];
-  const joins = data.optRows.filter((o) => String(o.source) === 'join' && !String(o.contact_id || '').trim());
-  const outs = data.optRows.filter((o) => String(o.status) === 'out');
   const users = allUsers();
   body.innerHTML = `<div class="sms-admin">
     <section><h3>💲 ${h(t('smsCfgTitle'))}</h3><div class="mm-grid">${fields.map(([k, l]) => `<label>${h(t(l))}<input data-cfg="${k}" value="${h(c[k] ?? '')}" dir="ltr"></label>`).join('')}</div>
@@ -339,11 +420,6 @@ async function adminTab(body) {
       <input type="number" id="cr-amt" step="0.01" placeholder="$" style="width:90px"> <input id="cr-note" placeholder="${h(t('smsCreditNote'))}">
       <button type="button" class="btn" id="cr-add">${h(t('smsAddCreditBtn'))}</button>
       <table class="lapsed-table small">${users.map((u) => `<tr><td>${h(u.name)}</td><td dir="ltr">${money(data.credits.filter((r) => String(r.email).toLowerCase() === u.email).reduce((s, r) => s + (Number(r.delta) || 0), 0))}</td></tr>`).join('')}</table></section>
-    <section><h3>🙋 ${h(t('smsJoins'))} (${joins.length})</h3>
-      ${joins.length ? `<ul class="mx-plist">${joins.map((o) => `<li>${h(o.name)} <span dir="ltr" class="muted small">${h(o.phone)}</span>
-        <input class="join-pick" data-row="${o._row}" list="dl-sms-c" placeholder="${h(t('pickContact'))}"></li>`).join('')}</ul>
-        <datalist id="dl-sms-c">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>` : '<p class="muted small">—</p>'}</section>
-    <section><h3>⛔ ${h(t('smsOptOuts'))} (${outs.length})</h3>${outs.length ? `<ul class="mx-plist">${outs.map((o) => `<li dir="ltr">${h(o.phone)} <span class="muted small">${h(o.name || '')} · ${h(String(o.at).slice(0, 10))}</span></li>`).join('')}</ul>` : '<p class="muted small">—</p>'}</section>
   </div>`;
   const vals = () => Object.fromEntries($$('[data-cfg]', body).map((el) => [el.dataset.cfg, el.value.trim()]));
   $('#cfg-save', body).onclick = async () => { try { await call('config_set', { values: vals() }); await loadSms(true); ui.toast(t('saved')); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); } };
@@ -356,14 +432,6 @@ async function adminTab(body) {
     if (!amount) return;
     try { await call('credit_add', { email: $('#cr-user', body).value, amount, note: $('#cr-note', body).value }); await loadSms(true); renderCalls(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
   };
-  $$('.join-pick', body).forEach((inp) => {
-    inp.onchange = async () => {
-      const c = state.contacts.find((x) => ui.pickerLabel(x) === inp.value.trim());
-      if (!c) return;
-      const o = data.optRows.find((x) => String(x._row) === inp.dataset.row);
-      try { await setConsent([{ phone: o.phone, contact_id: c.contact_id, name: o.name }], 'in', 'join'); renderCalls(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
-    };
-  });
   try {
     const [rep, bal] = await Promise.all([call('report'), call('balance').catch((e) => ({ error: e.message }))]);
     const warn = rep.avg_cost && rep.avg_cost >= (Number(c.price_sms) || 0.01) * 0.85;
