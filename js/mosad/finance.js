@@ -1,13 +1,14 @@
 // אתר פון א מוסד — 💰 משכורות והוצאות (הרשאה "finance"):
 // 💵 משכורות (₪: גלובלי / שעות קבועות / רישום יומי / גלובלי + שעות, תוספות און ניכויים, תשלומים, וויפיל מ'איז נאך שולדיג),
 // 🧾 הוצאות (₪/$, קאטעגאריעס, צילום קבלה), 📥 הכנסות ותמיכה, ⚖️ חובות פתוחים, 📊 מאזן חודשי — יעדער מטבע באזונדער.
-import { downloadXlsx } from '../excel.js?v=518';
-import { todayIso, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=518';
-import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=518';
-import { historyDialog } from './me.js?v=518';
-import { PAY_TYPES, schedText } from './team.js?v=518';
-import { usdRate } from '../fx.js?v=518';
-import { heDate } from './brand.js?v=518';
+import { downloadXlsx } from '../excel.js?v=519';
+import { todayIso, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=519';
+import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=519';
+import { historyDialog } from './me.js?v=519';
+import { PAY_TYPES, schedText } from './team.js?v=519';
+import { usdRate } from '../fx.js?v=519';
+import { heDate } from './brand.js?v=519';
+import { isWorkDay } from './hdays.js?v=519';
 
 let X = null;
 export function initFinance(ctx) { X = ctx; }
@@ -53,7 +54,7 @@ export function monthPay(id, mo) {
   const [y, m] = mo.split('-').map(Number);
   const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const inRange = (iso) => (!t.start_date || iso >= t.start_date) && (!t.end_date || iso <= t.end_date);
-  let mins = 0;
+  let mins = 0; let days = 0;
   if (t.pay_type === 'schedule') {
     let sched; try { sched = JSON.parse(t.schedule || '[]'); } catch { sched = []; }
     for (let dd = 1; dd <= last; dd += 1) {
@@ -61,15 +62,20 @@ export function monthPay(id, mo) {
       const wd = new Date(`${iso}T12:00:00Z`).getUTCDay();
       sched.filter((s) => s.d === wd).forEach((s) => { mins += minsOf(s.from, s.to); });
     }
+  } else if (t.pay_type === 'days') {
+    // לפי ימי עבודה: יעדער טאג אין דעם חודש — לויטן לוח העברי און די כללים פונעם עובד
+    const il = (X.st.settings?.calendar || 'il') !== 'chul';
+    for (let dd = 1; dd <= last; dd += 1) { const iso = `${mo}-${pad(dd)}`; if (inRange(iso) && isWorkDay(iso, t.schedule, il)) days += 1; }
   } else if (t.pay_type === 'log' || t.pay_type === 'mixed') {
     F.d.hours.filter((r) => String(r.contact_id) === String(id) && r.date.slice(0, 7) === mo).forEach((r) => { mins += minsOf(r.time_in, r.time_out); });
   }
   const global = t.pay_type === 'global' || t.pay_type === 'mixed' ? glob : 0;
-  const hoursPay = Math.round((mins / 60) * rate * 100) / 100;
+  // ביי "ימי עבודה" איז "לשעה" דער סכום ליום
+  const hoursPay = t.pay_type === 'days' ? Math.round(days * rate * 100) / 100 : Math.round((mins / 60) * rate * 100) / 100;
   const its = F.d.items.filter((x) => String(x.contact_id) === String(id) && x.month === mo);
   const plus = its.filter((x) => x.kind !== 'minus').reduce((s, x) => s + Number(x.amount || 0), 0);
   const minus = its.filter((x) => x.kind === 'minus').reduce((s, x) => s + Number(x.amount || 0), 0);
-  return { global, mins, rate, hoursPay, plus, minus, total: Math.round((global + hoursPay + plus - minus) * 100) / 100 };
+  return { global, mins, days, rate, hoursPay, plus, minus, total: Math.round((global + hoursPay + plus - minus) * 100) / 100 };
 }
 function paidIn(id, mo) { return F.d.payments.filter((p) => String(p.contact_id) === String(id) && (!mo || p.date.slice(0, 7) === mo)).reduce((s, p) => s + Number(p.amount || 0), 0); }
 /** וויפיל מ'איז נאך שולדיג (אלע חדשים ביז היינט, מינוס אלע תשלומים) */
@@ -112,7 +118,7 @@ function salTab(body, rer) {
       <div class="ms-stat owe"><span class="muted small">הישיבה חייבת (סה"כ)</span><b>${cur(sum('owe'))}</b></div></div>
     ${rows.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>איש צוות</th><th>סוג</th><th>שעות</th><th>גלובלי</th><th>שעות ₪</th><th>תוספות / ניכויים</th><th>לחודש</th><th>שולם</th><th>נשאר (סה"כ)</th><th></th></tr></thead><tbody>
       ${rows.map(({ t, p, paid, owe }) => `<tr><td><b>${h(nameOf(t.contact_id))}</b><div class="muted small">${h(t.role || '')}</div></td><td class="small">${h(PAY_TYPES[t.pay_type || ''])}</td>
-        <td class="num">${p.mins ? hhmm(p.mins) : ''}</td><td class="num">${p.global ? cur(p.global) : ''}</td><td class="num">${p.hoursPay ? cur(p.hoursPay) : ''}</td>
+        <td class="num">${t.pay_type === 'days' ? `${p.days} ימים` : p.mins ? hhmm(p.mins) : ''}</td><td class="num">${p.global ? cur(p.global) : ''}</td><td class="num">${p.hoursPay ? cur(p.hoursPay) : ''}</td>
         <td class="num small">${p.plus ? `+${cur(p.plus)}` : ''} ${p.minus ? `−${cur(p.minus)}` : ''}</td><td class="num"><b>${cur(p.total)}</b></td><td class="num">${paid ? cur(paid) : ''}</td>
         <td class="num ${owe > 0 ? 'ms-owe' : ''}">${cur(owe)}</td><td><button type="button" class="btn small-btn" data-pay="${h(t.contact_id)}">💰 פתח</button></td></tr>`).join('')}</tbody></table></div>`
     : '<p class="ms-note">אין עדיין אנשי צוות. מוסיפים ב"👔 אנשי צוות ואברכים", ובוחרים שם סוג שכר.</p>'}
@@ -120,7 +126,7 @@ function salTab(body, rer) {
   wireMonth(body, rer);
   X.$$('[data-pay]', body).forEach((b) => { b.onclick = () => payDialog(b.dataset.pay, rer); });
   const head = ['איש צוות', 'תפקיד', 'סוג', 'שעות', 'גלובלי', 'שעות ₪', 'תוספות', 'ניכויים', 'לחודש', 'שולם החודש', 'נשאר סה"כ'];
-  const data = rows.map(({ t, p, paid, owe }) => [nameOf(t.contact_id), t.role || '', PAY_TYPES[t.pay_type || ''], p.mins ? Math.round((p.mins / 60) * 100) / 100 : '', p.global, p.hoursPay, p.plus, p.minus, p.total, paid, owe]);
+  const data = rows.map(({ t, p, paid, owe }) => [nameOf(t.contact_id), t.role || '', PAY_TYPES[t.pay_type || ''], t.pay_type === 'days' ? `${p.days} ימים` : p.mins ? Math.round((p.mins / 60) * 100) / 100 : '', p.global, p.hoursPay, p.plus, p.minus, p.total, paid, owe]);
   X.$('#sl-xl', body).onclick = () => downloadXlsx(`משכורות ${F.month}`, head, data, { rtl: true });
   X.$('#sl-print', body).onclick = () => X.printWin(`משכורות — ${monthName(F.month)}`, '', `<table><thead><tr>${head.map((x) => `<th>${h(x)}</th>`).join('')}</tr></thead><tbody>
     ${data.map((r) => `<tr>${r.map((c, j) => `<td${j > 2 ? ' class="c"' : ''}>${h(typeof c === 'number' && j > 3 ? cur(c) : c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`, { landscape: true });
@@ -141,14 +147,15 @@ export async function payDialog(id, rer = null) {
     ${t.pay_type ? '' : '<p class="ms-note">לא נבחר סוג שכר — בוחרים ב"👔 אנשי צוות" (✎).</p>'}
     <form class="ms-form" id="pd-info" autocomplete="off"><div class="grid">
       <label>סכום גלובלי לחודש (₪)<input name="global_amount" type="number" min="0" step="1" dir="ltr" value="${h(inf.global_amount || '')}"></label>
-      <label>לשעה (₪)<input name="hourly_rate" type="number" min="0" step="0.5" dir="ltr" value="${h(inf.hourly_rate || '')}"></label>
+      <label>${t.pay_type === 'days' ? 'ליום עבודה (₪)' : 'לשעה (₪)'}<input name="hourly_rate" type="number" min="0" step="0.5" dir="ltr" value="${h(inf.hourly_rate || '')}"></label>
       <label>תעודת זהות<input name="id_number" dir="ltr" inputmode="numeric" value="${h(inf.id_number || '')}"></label>
       <label>4 ספרות אחרונות של החשבון<input name="bank_last4" dir="ltr" maxlength="4" inputmode="numeric" value="${h(inf.bank_last4 || '')}"></label>
       <label class="wide">הערה<input name="note" value="${h(inf.note || '')}"></label>
     </div><div class="actions"><span class="spacer"></span><button type="submit" class="btn">💾 שמירת פרטים</button></div></form>
     <h3>${h(monthName(mo))}</h3>
-    <div class="kv"><span>שעות</span><span>${p.mins ? hhmm(p.mins) : '—'}${t.pay_type === 'schedule' ? ` <span class="muted small">(${h(schedText(t.schedule))})</span>` : ''}</span></div>
-    <div class="kv"><span>גלובלי</span><span>${cur(p.global)}</span></div><div class="kv"><span>שעות × ${cur(p.rate)}</span><span>${cur(p.hoursPay)}</span></div>
+    ${t.pay_type === 'days' ? `<div class="kv"><span>ימי עבודה</span><span>${p.days} <span class="muted small">(${h(schedText(t.schedule))})</span></span></div>
+    <div class="kv"><span>ימים × ${cur(p.rate)}</span><span>${cur(p.hoursPay)}</span></div>` : `<div class="kv"><span>שעות</span><span>${p.mins ? hhmm(p.mins) : '—'}${t.pay_type === 'schedule' ? ` <span class="muted small">(${h(schedText(t.schedule))})</span>` : ''}</span></div>
+    <div class="kv"><span>גלובלי</span><span>${cur(p.global)}</span></div><div class="kv"><span>שעות × ${cur(p.rate)}</span><span>${cur(p.hoursPay)}</span></div>`}
     <div class="kv"><span>תוספות / ניכויים</span><span>+${cur(p.plus)} / −${cur(p.minus)}</span></div>
     <div class="kv"><span><b>לחודש</b></span><span><b>${cur(p.total)}</b></span></div><div class="kv"><span>שולם החודש</span><span>${cur(paidIn(id, mo))}</span></div>
     <div class="kv"><span><b>נשאר (סה"כ)</b></span><span class="${owed(id) > 0 ? 'ms-owe' : ''}"><b>${cur(owed(id))}</b></span></div>
@@ -176,7 +183,7 @@ export async function payDialog(id, rer = null) {
     const mPays = pays.filter((x) => x.date.slice(0, 7) === mo);
     X.printWin(`דף משכורת — ${nameOf(id)}`, h(monthName(mo)), `<table><tbody>
       <tr><th>תפקיד</th><td>${h(t.role || '')}</td></tr><tr><th>סוג שכר</th><td>${h(PAY_TYPES[t.pay_type || ''])}</td></tr>
-      <tr><th>שעות</th><td>${mp.mins ? hhmm(mp.mins) : '—'}</td></tr><tr><th>גלובלי</th><td>${cur(mp.global)}</td></tr><tr><th>שעות × ${cur(mp.rate)}</th><td>${cur(mp.hoursPay)}</td></tr>
+      ${t.pay_type === 'days' ? `<tr><th>ימי עבודה</th><td>${mp.days}</td></tr><tr><th>ימים × ${cur(mp.rate)}</th><td>${cur(mp.hoursPay)}</td></tr>` : `<tr><th>שעות</th><td>${mp.mins ? hhmm(mp.mins) : '—'}</td></tr><tr><th>גלובלי</th><td>${cur(mp.global)}</td></tr><tr><th>שעות × ${cur(mp.rate)}</th><td>${cur(mp.hoursPay)}</td></tr>`}
       ${its.filter((x) => x.month === mo).map((x) => `<tr><th>${x.kind === 'minus' ? 'ניכוי' : 'תוספת'}: ${h(x.note)}</th><td>${x.kind === 'minus' ? '−' : '+'}${cur(x.amount)}</td></tr>`).join('')}
       <tr><th>סה"כ לחודש</th><td><b>${cur(mp.total)}</b></td></tr>
       ${mPays.map((x) => `<tr><th>שולם ${h(heDate(x.date))} (${h(x.method)}${x.advance === 'TRUE' ? ', מקדמה' : ''})</th><td>${cur(x.amount)}</td></tr>`).join('')}

@@ -1,16 +1,16 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { letterhead, hebrewDateHints } from './brand.js?v=518';
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=518';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=518';
-import { initGifts, renderGifts } from './gifts.js?v=518';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab } from './journal.js?v=518';
-import { initDorm, renderDorm } from './dorm.js?v=518';
-import { initReg, renderReg } from './reg.js?v=518';
-import { initSortTables } from '../sorttables.js?v=518';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=518';
-import { initTeam, renderTeam } from './team.js?v=518';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=518';
+import { letterhead, hebrewDateHints } from './brand.js?v=519';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=519';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=519';
+import { initGifts, renderGifts } from './gifts.js?v=519';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab } from './journal.js?v=519';
+import { initDorm, renderDorm } from './dorm.js?v=519';
+import { initReg, renderReg } from './reg.js?v=519';
+import { initSortTables } from '../sorttables.js?v=519';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=519';
+import { initTeam, renderTeam } from './team.js?v=519';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=519';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -364,6 +364,7 @@ function personDialog(p) {
       ${row('מייל', `<a dir="ltr" href="mailto:${h(p.email_1)}">${h(p.email_1)}</a>`)}
       ${personSchool(p) || (e ? row('רישום', h([e.status, e.shiur, e.room ? `חדר ${e.room}` : '', e.start ? `מ-${e.start}` : '', e.end ? `עד ${e.end}` : ''].filter(Boolean).join(' · '))) : '')}
       ${p.il_phone ? row('טלפון בארץ', `<span dir="ltr">${h(p.il_phone)}</span>`) : ''}
+      ${p.abroad_phone ? row('טלפון בחו"ל', `<span dir="ltr">${h(p.abroad_phone)}</span>`) : ''}
       <p class="muted small">מס' איש קשר: ${h(p.contact_id)}</p>
     </section>
     <div class="actions">

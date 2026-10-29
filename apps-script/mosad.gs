@@ -22,7 +22,7 @@ const C_FIELDS = ['title_he', 'first_name_he', 'last_name_he', 'title_en', 'firs
 const P_FIELDS = ['mobile', 'home_phone', 'email_1'];
 const TABS = {
   Staff: ['email', 'name', 'role', 'perms', 'active', 'added_by', 'added_at', 'updated_by', 'updated_at'],
-  People: ['contact_id', 'kind', 'status', 'added_by', 'added_at', 'removed_by', 'removed_at', 'note', 'il_phone'],
+  People: ['contact_id', 'kind', 'status', 'added_by', 'added_at', 'removed_by', 'removed_at', 'note', 'il_phone', 'abroad_phone'],
   Log: ['at', 'by', 'action', 'contact_id', 'detail', 'entity', 'entity_id', 'changes'],
   Enrollments: ['enroll_id', 'contact_id', 'parent_id', 'status', 'start_date', 'end_date', 'zman', 'shiur', 'room', 'tuition_amount', 'tuition_period', 'month_amounts', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
   Tuition: ['payment_id', 'enroll_id', 'contact_id', 'payer_id', 'date', 'amount', 'method', 'check_number', 'card_last4', 'for_text', 'receipt_no', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
@@ -496,7 +496,7 @@ function linkedData(M) {
   const en = objs(M.book.getSheetByName('Enrollments')).filter(function (e) { return ids[S(e.contact_id)]; })
     .map(function (e) { return { contact_id: S(e.contact_id), status: S(e.status), start: S(e.start_date).slice(0, 10), end: S(e.end_date).slice(0, 10), shiur: S(e.shiur), room: S(e.room) }; });
   return {
-    people: contacts.map(function (c) { const v = contactView(c, phones[S(c.contact_id)]); v.kind = S(ids[S(c.contact_id)].kind); v.il_phone = S(ids[S(c.contact_id)].il_phone); return v; }),
+    people: contacts.map(function (c) { const v = contactView(c, phones[S(c.contact_id)]); v.kind = S(ids[S(c.contact_id)].kind); v.il_phone = S(ids[S(c.contact_id)].il_phone); v.abroad_phone = S(ids[S(c.contact_id)].abroad_phone); return v; }),
     relations: rel, enrollments: en,
   };
 }
@@ -768,8 +768,13 @@ const ACTIONS = {
     const sh = M.book.getSheetByName('People');
     const p = objs(sh).filter(function (x) { return S(x.contact_id) === S(req.contact_id) && S(x.status) !== 'removed'; })[0];
     if (!p) throw new Error('not-yours');
-    setCells(sh, p._row, { il_phone: S(req.il_phone) });
-    logIt(M, me, 'il-phone', S(req.contact_id), S(req.il_phone));
+    // il_phone = טלפון בארץ; abroad_phone = טלפון בחו"ל (נאר וואס מ'שיקט)
+    const o = {};
+    if (req.il_phone !== undefined) o.il_phone = S(req.il_phone).slice(0, 40);
+    if (req.abroad_phone !== undefined) o.abroad_phone = S(req.abroad_phone).slice(0, 40);
+    if (!Object.keys(o).length) throw new Error('bad-request');
+    setCells(sh, p._row, o);
+    logIt(M, me, o.abroad_phone !== undefined ? 'abroad-phone' : 'il-phone', S(req.contact_id), JSON.stringify(o));
     return { ok: true };
   },
 
@@ -1171,7 +1176,7 @@ const ACTIONS = {
     try {
       const sh = M.book.getSheetByName('Team');
       const o = { email: em, role: S(t.role), start_date: S(t.start_date), end_date: S(t.end_date), active: t.active === false || S(t.active) === 'FALSE' ? 'FALSE' : 'TRUE',
-        pay_type: ['global', 'schedule', 'log', 'mixed'].indexOf(S(t.pay_type)) >= 0 ? S(t.pay_type) : '', schedule: typeof t.schedule === 'string' ? t.schedule : JSON.stringify(t.schedule || []), note: S(t.note), pay_via: ['us', 'parents'].indexOf(S(t.pay_via)) >= 0 ? S(t.pay_via) : '', updated_at: now(), updated_by: me.email };
+        pay_type: ['global', 'schedule', 'log', 'mixed', 'days'].indexOf(S(t.pay_type)) >= 0 ? S(t.pay_type) : '', schedule: typeof t.schedule === 'string' ? t.schedule : JSON.stringify(t.schedule || []), note: S(t.note), pay_via: ['us', 'parents'].indexOf(S(t.pay_via)) >= 0 ? S(t.pay_via) : '', updated_at: now(), updated_by: me.email };
       const ex = objs(sh).filter(function (x) { return S(x.contact_id) === S(t.contact_id); })[0];
       if (ex) setCells(sh, ex._row, o); else { o.contact_id = Number(t.contact_id) || t.contact_id; appendObj(sh, o); }
       return { ok: true };

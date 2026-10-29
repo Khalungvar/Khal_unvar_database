@@ -1,7 +1,7 @@
 // אתר פון א מוסד — די ישיבה: תלמידים, בוגרים, הורים, שכר לימוד און קבלות (אלעס אינעם גיליון פונעם מוסד, דורכן שומר).
-import { letterhead, LH_CSS, heDate } from './brand.js?v=518';
-import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=518';
-import { downloadXlsx } from '../excel.js?v=518';
+import { letterhead, LH_CSS, heDate } from './brand.js?v=519';
+import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=519';
+import { downloadXlsx } from '../excel.js?v=519';
 
 let X = null; // די כלים פון app.js: { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render }
 export function initSchool(ctx) { X = ctx; }
@@ -154,7 +154,7 @@ export function renderStudents(box, which = 'active') {
     const shiurim = [...new Set(all.map((e) => e.shiur).filter(Boolean))].sort();
     const key = which === 'active' ? 'q' : 'aq';
     const rows = list0.filter((e) => (!sc.shiur || e.shiur === sc.shiur)
-      && match(sc[key] || '', [nm(e.contact_id), nm(e.parent_id), ph(e.contact_id), ph(e.parent_id), e.shiur, e.room, X.pById(e.contact_id)?.il_phone])).sort(byName);
+      && match(sc[key] || '', [nm(e.contact_id), nm(e.parent_id), ph(e.contact_id), ph(e.parent_id), e.shiur, e.room, X.pById(e.contact_id)?.il_phone, X.pById(e.contact_id)?.abroad_phone])).sort(byName);
     const act = which === 'active';
     box.innerHTML = `<h2 class="ms-h">${act ? '🎓 תלמידי הישיבה' : '🚪 בוגרי הישיבה והוריהם'} <span class="count-pill">${list0.length}</span></h2>
       <div class="ms-bar">
@@ -164,14 +164,15 @@ export function renderStudents(box, which = 'active') {
         <span class="spacer"></span>
         ${X.can('people_edit') ? '<button type="button" class="btn primary" id="sc-new">＋ רישום תלמיד</button>' : ''}
         <button type="button" class="btn" id="sc-xl">⬇ Excel</button>
-        ${act ? '<button type="button" class="btn" id="sc-phones">🖨 יומן טלפונים</button>' : ''}
+        ${act ? '<button type="button" class="btn" id="sc-phones">🖨 יומן טלפונים</button><button type="button" class="btn" id="sc-abroad">📒 אלפון חו"ל</button>' : ''}
         <button type="button" class="btn" id="sc-reload" title="רענון">⟳</button>
       </div>
       ${sc.asOf && act ? `<p class="muted small">מי שלמד ב-${h(isoToHebrewText(day))}</p>` : ''}
-      ${rows.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>תלמיד</th>${act ? '<th>טלפון בארץ</th>' : ''}<th>הורה</th><th>טלפון ההורה</th><th>שיעור</th><th>מ-</th><th>עד</th>${tu() ? '<th>יתרה</th>' : ''}<th></th></tr></thead><tbody>
+      ${rows.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>תלמיד</th>${act ? '<th>טלפון בארץ</th>' : ''}<th>טלפון בחו"ל</th><th>הורה</th><th>טלפון ההורה</th><th>שיעור</th><th>מ-</th><th>עד</th>${tu() ? '<th>יתרה</th>' : ''}<th></th></tr></thead><tbody>
         ${rows.map((e) => { const b = tu() ? balance(e) : 0; const p = X.pById(e.contact_id); return `<tr data-row="${h(e.enroll_id)}">
           <td><a href="#" data-open="${h(e.contact_id)}"><b>${h(nm(e.contact_id))}</b></a>${e.room ? `<div class="muted small">חדר ${h(e.room)}</div>` : ''}</td>
           ${act ? `<td dir="ltr" class="small">${h(p?.il_phone || '')}${p && (X.can('students') || X.can('people_edit')) ? ` <button type="button" class="linkish" data-il="${h(e.contact_id)}" title="טלפון בארץ">✎</button>` : ''}</td>` : ''}
+          <td dir="ltr" class="small">${h(p?.abroad_phone || '')}${p && (X.can('students') || X.can('people_edit')) ? ` <button type="button" class="linkish" data-ab="${h(e.contact_id)}" title="טלפון בחו&quot;ל">✎</button>` : ''}</td>
           <td>${e.parent_id ? `<a href="#" data-open="${h(e.parent_id)}">${h(nm(e.parent_id))}</a>` : '<span class="muted">—</span>'}</td>
           <td dir="ltr" class="small">${h(ph(e.parent_id))}</td>
           <td class="small">${h(e.shiur || '')}</td><td class="small">${h(dateText(e.start_date))}</td><td class="small">${h(dateText(e.end_date))}</td>
@@ -188,8 +189,8 @@ export function renderStudents(box, which = 'active') {
     X.$('#sc-phones', box)?.addEventListener('click', () => X.printPhones?.());
     X.$('#sc-reload', box).onclick = () => reload().then(() => X.toast('עודכן')).catch((err) => X.toast(X.msg(err), 'err'));
     X.$('#sc-xl', box).onclick = () => {
-      const head = ['תלמיד', 'טלפון בארץ', 'טלפון', 'הורה', 'טלפון ההורה', 'מייל ההורה', 'שיעור', 'חדר', 'סטטוס', 'מ-', 'עד', 'זמן', ...(tu() ? ['שכר לימוד', 'חיוב', 'שולם', 'יתרה'] : []), 'הערה'];
-      downloadXlsx(`${X.st.mosad?.name || 'ישיבה'} - ${act ? 'תלמידים' : 'בוגרים'}`, head, rows.map((e) => [nm(e.contact_id), act ? X.pById(e.contact_id)?.il_phone || '' : '', ph(e.contact_id), nm(e.parent_id), ph(e.parent_id), mail(e.parent_id),
+      const head = ['תלמיד', 'טלפון בארץ', 'טלפון בחו"ל', 'טלפון', 'הורה', 'טלפון ההורה', 'מייל ההורה', 'שיעור', 'חדר', 'סטטוס', 'מ-', 'עד', 'זמן', ...(tu() ? ['שכר לימוד', 'חיוב', 'שולם', 'יתרה'] : []), 'הערה'];
+      downloadXlsx(`${X.st.mosad?.name || 'ישיבה'} - ${act ? 'תלמידים' : 'בוגרים'}`, head, rows.map((e) => [nm(e.contact_id), act ? X.pById(e.contact_id)?.il_phone || '' : '', X.pById(e.contact_id)?.abroad_phone || '', ph(e.contact_id), nm(e.parent_id), ph(e.parent_id), mail(e.parent_id),
         e.shiur || '', e.room || '', ST[statusOn(e, day)], dateText(e.start_date), dateText(e.end_date), e.zman || '', ...(tu() ? [priceRanges(e).join('; '), charged(e), paid(e), balance(e)] : []), e.note || '']), { rtl: true });
     };
     X.$$('[data-il]', box).forEach((b) => {
@@ -199,6 +200,22 @@ export function renderStudents(box, which = 'active') {
         if (v === null) return;
         try { await X.call(X.KEY, 'ilPhone', { contact_id: p.contact_id, il_phone: v.trim() }); p.il_phone = v.trim(); renderStudents(box, which); X.toast('נשמר.'); } catch (err) { X.toast(X.msg(err), 'err'); }
       };
+    });
+    // 📞 טלפון בחו"ל — א באזונדער פעלד אינעם מוסד (ווערט נישט אויסגעמעקט ביי א שינוי אדער עזיבה)
+    X.$$('[data-ab]', box).forEach((b) => {
+      b.onclick = async () => {
+        const p = X.pById(b.dataset.ab);
+        const v = window.prompt(`טלפון בחו"ל של ${X.nameOf(p)}:`, p.abroad_phone || '');
+        if (v === null) return;
+        try { await X.call(X.KEY, 'ilPhone', { contact_id: p.contact_id, abroad_phone: v.trim() }); p.abroad_phone = v.trim(); renderStudents(box, which); X.toast('נשמר.'); } catch (err) { X.toast(X.msg(err), 'err'); }
+      };
+    });
+    // 📒 אלפון חו"ל: רק התלמידים הפעילים
+    X.$('#sc-abroad', box)?.addEventListener('click', () => {
+      const ids = list0.map((e) => e.contact_id).filter((id) => X.pById(id));
+      const title = `אלפון טלפונים בחו"ל — ${X.st.mosad?.name || ''}`.trim();
+      X.printList?.(title, isoToHebrewText(today()), { cols: [{ t: 'טלפון בחו"ל', ltr: true }], rows: ids.map((id) => ({ id, cells: [X.pById(id)?.abroad_phone || ''] })), twoUp: true });
+      downloadXlsx(title, ['תלמיד', 'טלפון בחו"ל', 'טלפון בארץ'], ids.map((id) => X.pById(id)).sort((a, b) => X.nameOf(a).localeCompare(X.nameOf(b), 'he')).map((p) => [X.nameOf(p), p.abroad_phone || '', p.il_phone || '']), { rtl: true });
     });
     wireRows(box);
   });

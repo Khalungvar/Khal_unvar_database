@@ -1,7 +1,7 @@
 // אתר פון א מוסד — 👤 אזור אישי (פרטים, ⏱ שעון נוכחות, 📋 משימות, 📜 הפעולות שלי, ✉️ מייל — שפעטער),
 // 📜 יומן פעולות (בעלים / מנהל), 📜 היסטוריה פון א רשומה, און 🗂 גיבויים.
-import { downloadXlsx } from '../excel.js?v=518';
-import { todayIso } from '../hebdate.js?v=518';
+import { downloadXlsx } from '../excel.js?v=519';
+import { todayIso } from '../hebdate.js?v=519';
 
 let X = null;
 export function initMe(ctx) { X = ctx; }
@@ -19,7 +19,7 @@ const ACT = { create: 'נוצר', update: 'עודכן', delete: 'נמחק' };
 const FIELD = {
   first_name_he: 'שם פרטי', last_name_he: 'משפחה', title_he: 'תואר', first_name_en: 'First', last_name_en: 'Last', address: 'כתובת', city: 'עיר', mobile: 'נייד', home_phone: 'טלפון',
   email_1: 'מייל', status: 'סטטוס', start_date: 'מ-', end_date: 'עד', shiur: 'שיעור', room: 'חדר', month_amounts: 'סכומים לחודש', tuition_amount: 'שכר לימוד', amount: 'סכום',
-  date: 'תאריך', method: 'אמצעי', check_number: "מס' צ'ק", card_last4: 'כרטיס', note: 'הערה', kupah: 'קופה', member_no: 'מספר חבר', debt: 'חוב', il_phone: 'טלפון בארץ',
+  date: 'תאריך', method: 'אמצעי', check_number: "מס' צ'ק", card_last4: 'כרטיס', note: 'הערה', kupah: 'קופה', member_no: 'מספר חבר', debt: 'חוב', il_phone: 'טלפון בארץ', abroad_phone: 'טלפון בחו"ל',
   marks: 'סימונים', partner_id: 'חברותא', partner_text: 'חברותא', time_in: 'כניסה', time_out: 'יציאה', role: 'תפקיד', pay_type: 'סוג שכר', active: 'פעיל', currency: 'מטבע',
   category: 'קטגוריה', paid_to: 'למי', is_paid: 'שולם', text: 'משימה', assigned_to: 'למי', due: 'עד', kind: 'סוג', amount_usd: 'בדולר', amount_orig: 'סכום מקורי', receipt_no: 'קבלה',
   global_amount: 'גלובלי', hourly_rate: 'לשעה', id_number: 'ת"ז', bank_last4: 'חשבון', contact_id: 'איש קשר', perms: 'הרשאות', email: 'מייל',

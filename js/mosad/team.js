@@ -1,18 +1,19 @@
 // אתר פון א מוסד — 👔 אנשי צוות ואברכים: צוויי באזונדערע רשימות אין איין כפתור.
 // אנשי צוות: תפקיד, טלפון, מייל (לאגאין), פון ווען, פעיל/לשעבר, סארט שכר (אן סכומים); 💰 → משכורות (נאר מיט הרשאה).
 // אברכים: וועמען זיי לערנען מיט (פון די חברותות), און שעות (כניסה/יציאה).
-import { downloadXlsx } from '../excel.js?v=518';
-import { currentZman } from './school.js?v=518';
-import { historyDialog } from './me.js?v=518';
-import { heDate } from './brand.js?v=518';
+import { downloadXlsx } from '../excel.js?v=519';
+import { currentZman } from './school.js?v=519';
+import { historyDialog } from './me.js?v=519';
+import { heDate } from './brand.js?v=519';
+import { rulesOf, rulesText } from './hdays.js?v=519';
 
 let X = null;
 export function initTeam(ctx) { X = ctx; }
 const PAY_VIA = { '': '—', us: 'דרכנו', parents: 'ישירות מההורים' };
 const T = { tab: 'staff', team: null, chav: null, past: false };
-export const PAY_TYPES = { '': '—', global: 'גלובלי (סכום קבוע לחודש)', schedule: 'שעות קבועות (מערכת)', log: 'רישום יומי (כניסה/יציאה)', mixed: 'גלובלי + שעות (רישום יומי)' };
+export const PAY_TYPES = { '': '—', global: 'גלובלי (סכום קבוע לחודש)', schedule: 'שעות קבועות (מערכת)', log: 'רישום יומי (כניסה/יציאה)', mixed: 'גלובלי + שעות (רישום יומי)', days: 'לפי ימי עבודה (לוח עברי)' };
 const DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו'];
-export const schedText = (s) => { let a; try { a = typeof s === 'string' ? JSON.parse(s || '[]') : s || []; } catch { a = []; } return a.map((x) => `${DAYS[x.d]} ${x.from}–${x.to}`).join(', '); };
+export const schedText = (s) => { let a; try { a = typeof s === 'string' ? JSON.parse(s || '[]') : s || []; } catch { a = []; } if (!Array.isArray(a)) return rulesText(a); return a.map((x) => `${DAYS[x.d]} ${x.from}–${x.to}`).join(', '); };
 
 export async function loadTeam() { T.team = (await X.call(X.KEY, 'team')).team; return T.team; }
 export function resetTeam() { T.team = null; }
@@ -43,7 +44,7 @@ function staffList(body, box) {
     ${list.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>שם</th><th>תפקיד</th><th>טלפון</th><th>מייל</th><th>מ-</th><th>שכר</th><th></th></tr></thead><tbody>
       ${list.map((p) => { const t = tOf(p.contact_id); return `<tr><td><a href="#" data-open="${h(p.contact_id)}"><b>${h(X.nameOf(p))}</b></a></td><td>${h(t.role || '')}</td>
         <td dir="ltr" class="small">${h(p.il_phone || X.phoneOf(p))}</td><td dir="ltr" class="small">${h(t.email || p.email_1 || '')}</td><td class="small">${h(heDate(t.start_date))}${t.end_date ? ` – ${h(heDate(t.end_date))}` : ''}</td>
-        <td class="small">${h(PAY_TYPES[t.pay_type || ''])}${t.pay_type === 'schedule' ? `<div class="muted">${h(schedText(t.schedule))}</div>` : ''}</td>
+        <td class="small">${h(PAY_TYPES[t.pay_type || ''])}${t.pay_type === 'schedule' || t.pay_type === 'days' ? `<div class="muted">${h(schedText(t.schedule))}</div>` : ''}</td>
         <td class="ms-acts">${X.can('staff_list') ? `<button type="button" class="btn small-btn" data-ed="${h(p.contact_id)}" title="עריכה">✎</button>` : ''}
           ${fin ? `<button type="button" class="btn small-btn" data-pay="${h(p.contact_id)}" title="משכורת">💰</button>` : ''}
           <button type="button" class="btn small-btn" data-hx="${h(p.contact_id)}" title="היסטוריה">📜</button>
@@ -64,6 +65,9 @@ function staffList(body, box) {
 function teamDialog(id, t, box) {
   const { h, S } = X;
   let sched; try { sched = JSON.parse(t.schedule || '[]'); } catch { sched = []; }
+  if (!Array.isArray(sched)) sched = [];
+  const rules = rulesOf(t.pay_type === 'days' ? t.schedule : null);
+  const HD = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
   const p = X.pById(id);
   const d = X.dialog(`<h2>👔 ${h(X.nameOf(p))}</h2>
     <form class="ms-form" autocomplete="off"><div class="grid">
@@ -78,16 +82,23 @@ function teamDialog(id, t, box) {
       ${DAYS.map((dn, j) => { const x = sched.find((s) => s.d === j) || {}; return `<div class="tm-day"><label class="check"><input type="checkbox" name="sd${j}"${x.from ? ' checked' : ''}> ${dn}</label>
         <input type="time" name="sf${j}" value="${h(x.from || '')}"> – <input type="time" name="st${j}" value="${h(x.to || '')}"></div>`; }).join('')}
     </fieldset>
+    <fieldset class="tm-days"${t.pay_type === 'days' ? '' : ' hidden'}><legend>ימי עבודה (לפי הלוח העברי)</legend>
+      <div class="tm-dows">${HD.map((dn, j) => `<label class="check"><input type="checkbox" name="wd${j}"${rules.dows.includes(j) ? ' checked' : ''}> ${dn}</label>`).join('')}</div>
+      <div class="tm-dows">${[['yt', 'עובד ביום טוב'], ['chm', 'עובד בחול המועד'], ['dpg', 'עובד בימי דפגרא (ר"ח, חנוכה, פורים…)'], ['fast', 'עובד בתעניות'], ['bein', 'עובד בבין הזמנים']].map(([k, l]) => `<label class="check"><input type="checkbox" name="r_${k}"${rules[k] ? ' checked' : ''}> ${l}</label>`).join('')}</div>
+      <p class="muted small">התשלום = מספר ימי העבודה בחודש × הסכום ליום (בכפתור 💰). בין הזמנים: ניסן, י' אב – סוף אב, י"א תשרי – סוף תשרי.</p>
+    </fieldset>
     <label class="wide">הערה<input name="note" value="${h(t.note || '')}"></label>
     <p class="muted small">סכומים (גלובלי, לשעה), תעודת זהות וחשבון — רק בכפתור 💰 משכורות.</p>
     <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>ביטול</button><button type="submit" class="btn primary">💾 שמירה</button></div></form>`);
   X.$$('[data-x]', d).forEach((b) => { b.onclick = () => d.close(); });
   const form = X.$('form', d); const el = form.elements;
-  el.pay_type.onchange = () => { X.$('.tm-sched', d).hidden = el.pay_type.value !== 'schedule'; };
+  el.pay_type.onchange = () => { X.$('.tm-sched', d).hidden = el.pay_type.value !== 'schedule'; X.$('.tm-days', d).hidden = el.pay_type.value !== 'days'; };
   form.onsubmit = async (e) => {
     e.preventDefault();
     const schedule = DAYS.map((_, j) => (el[`sd${j}`].checked && el[`sf${j}`].value && el[`st${j}`].value ? { d: j, from: el[`sf${j}`].value, to: el[`st${j}`].value } : null)).filter(Boolean);
-    const row = { contact_id: id, role: S(el.role.value), email: S(el.email.value).toLowerCase(), start_date: el.start_date.value, end_date: el.end_date.value, active: el.active.checked, pay_type: el.pay_type.value, schedule: JSON.stringify(schedule), note: S(el.note.value), pay_via: t.pay_via || '' };
+    const dayRules = { dows: HD.map((_, j) => j).filter((j) => el[`wd${j}`].checked), yt: el.r_yt.checked, chm: el.r_chm.checked, dpg: el.r_dpg.checked, fast: el.r_fast.checked, bein: el.r_bein.checked };
+    const row = { contact_id: id, role: S(el.role.value), email: S(el.email.value).toLowerCase(), start_date: el.start_date.value, end_date: el.end_date.value, active: el.active.checked, pay_type: el.pay_type.value,
+      schedule: JSON.stringify(el.pay_type.value === 'days' ? dayRules : schedule), note: S(el.note.value), pay_via: t.pay_via || '' };
     try { await X.call(X.KEY, 'teamSave', { team: row }); await loadTeam(); d.close(); renderTeam(box); X.toast('נשמר.'); } catch (err) { X.toast(X.msg(err), 'err'); }
   };
 }
