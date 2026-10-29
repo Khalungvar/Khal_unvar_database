@@ -1861,7 +1861,7 @@ return { dayZ, timeOf, describe, isSummer, condOf, defaults, computeShiurim, cha
 // די זמנים ווערן גערעכנט פונקט ווי אויף דער תצוגה אין בית הכנסת (luach/minyanim.js).
 const { buildYear, isoOf, nOf, dowOf, hdOf, mitzvaYomis } = __m["js/luach/engine.js"];
 const { zmanim, hhmm, LOCATIONS } = __m["js/luach/zmanim.js"];
-const { defaults, computeWeekday, computeHoly, chagOn } = __m["js/luach/minyanim.js"];
+const { defaults, computeWeekday, computeHoly, chagOn, computeSpecial } = __m["js/luach/minyanim.js"];
 const { hebrewNumber, monthHe } = __m["js/hebdate.js"];
 
 const LOC = LOCATIONS.bp;
@@ -1922,6 +1922,12 @@ function autoVars(rawData, iso) {
   const rb = (g) => fmt((wd[g] || []).find((x) => x.rebbe)?.min);
   out['מנחה כ"ק אדמו"ר'] = rb('mincha');
   out['מעריב כ"ק אדמו"ר'] = rb('maariv');
+  // ---- סליחות: דער ערשטער טאג פון היינט ביז א וואך מיט סליחות; אנדערש ריק (און די שורה פאלט אוועק) ----
+  out['סליחות'] = '';
+  for (let k = n; k < n + 8; k += 1) {
+    const mins = computeSpecial(data, k, LOC).flatMap((b) => b.rows).filter((r) => /סליחות/.test(r.label || '')).flatMap((r) => r.mins);
+    if (mins.length) { out['סליחות'] = [...new Set(mins)].sort((a, b) => a - b).map(fmt).filter(Boolean).join(' · '); break; }
+  }
   // ---- זמני היום ----
   const z = zmanim(iso, LOC);
   Object.assign(out, {
@@ -1944,12 +1950,19 @@ function autoVars(rawData, iso) {
 function varNames(data, iso) { return Object.keys(autoVars(data, iso)); }
 
 /** אויספילן א מוסטער: {שם} → ווערט; {הודעת הגבאי} → line. א נישט באקאנטער שם בלייבט ווי ער איז. */
+// א שורה וואו אלע ערטער זענען ריק (למשל {סליחות} רוב יאר, {פרקי אבות} ווינטער) — פאלט אוועק אינגאנצן
 function fillTemplate(text, vars, line = '') {
-  return String(text || '').replace(/\{([^{}]+)\}/g, (all, k) => {
-    const key = k.trim();
-    if (key === 'הודעת הגבאי') return line || '';
-    return vars[key] !== undefined ? vars[key] : all;
-  }).replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  return String(text || '').split('\n').map((ln) => {
+    let known = 0; let filled = 0;
+    const out = ln.replace(/\{([^{}]+)\}/g, (all, k) => {
+      const key = k.trim();
+      const v = key === 'הודעת הגבאי' ? (line || '') : vars[key];
+      if (v === undefined) return all;
+      known += 1; if (String(v).trim()) filled += 1;
+      return v;
+    });
+    return known && !filled ? null : out;
+  }).filter((ln) => ln !== null).join('\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 /** די קומענדיגע צייט (טעקסט 'yyyy-MM-dd HH:mm', ניו יארק) פון א "מתי" נאך now ('yyyy-MM-dd HH:mm'), אדער '' */
 function nextOccurrence(sched, rawData, now) {
