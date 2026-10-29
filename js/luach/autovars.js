@@ -3,7 +3,7 @@
 // די זמנים ווערן גערעכנט פונקט ווי אויף דער תצוגה אין בית הכנסת (luach/minyanim.js).
 import { buildYear, isoOf, nOf, dowOf, hdOf, mitzvaYomis } from './engine.js';
 import { zmanim, hhmm, LOCATIONS } from './zmanim.js';
-import { defaults, computeWeekday, computeHoly, chagOn, computeSpecial } from './minyanim.js';
+import { defaults, computeWeekday, computeHoly, chagOn, computeSpecial, daysOf } from './minyanim.js';
 import { hebrewNumber, monthHe } from '../hebdate.js';
 
 const LOC = LOCATIONS.bp;
@@ -90,7 +90,41 @@ export function autoVars(rawData, iso) {
   // ---- מצוה יומית ----
   const mz = mitzvaYomis(iso);
   out['מצוה יומית'] = mz ? `מצוה ${mz.num}: ${mz.text}` : '';
+  // ---- משבצת שבת ויו"ט: פונקט ווי די הילצערנע משבצת אויף דער תצוגה ----
+  out['משבצת שבת ויו"ט'] = holyBox(data, eve);
+  // ---- משבצת יומא דפגרא: דער קומענדיגער טאג פון א "יומא דפגרא" (חנוכה, פורים, תעניות ...) ----
+  out['משבצת יומא דפגרא'] = minorBox(data, n);
   return out;
+}
+const timesOf = (r) => [r.min, ...(r.more || [])].filter((m) => m != null).map(fmt).filter(Boolean).join(' · ');
+/** די משבצת פון שבת/יו"ט ווי אויף דער תצוגה: א כותרת + "שם: שעה" פאר יעדע שורה (נאר מיט א שעה, לויט דער שעה) */
+export function holyBox(data, eve) {
+  const d = eve + 1;
+  const shab = dowOf(d) === 6;
+  const ytName = (dayOf(d)?.items || []).find((i) => i.kind === 'hol' && i.yt)?.text || '';
+  const ps = shab ? (dayOf(d)?.parsha || '') : '';
+  const chagTitle = [d, eve].map((k) => computeSpecial(data, k, LOC)
+    .find((bk) => bk.type === 'chag' && bk.rows.some((r) => r.screen && (r.disp?.place || 'shab') === 'shab'))?.title).find(Boolean) || '';
+  const rows = computeHoly(data, eve, LOC).filter((r) => r.screen !== false && r.place === 'shab' && r.min != null)
+    .map((r) => ({ ...r, abs: r.min + (r.day ? 1440 : 0) })).sort((a, b) => a.abs - b.abs);
+  const title = chagTitle ? `ל${chagTitle}` : shab ? `לשבת קודש${ps ? ` פרשת ${ps}` : ''}` : `ל${ytName || 'יום טוב'}`;
+  return [title, ...rows.map((r) => `${r.label}: ${timesOf(r)}`)].join('\n');
+}
+/** דער ערשטער טאג פון א בלאק פון "ימי דפגרא" (data.minor) פון k און ווייטער (ביז 8 טעג) → { n, block } אדער null */
+export function nextMinor(data, k, span = 8) {
+  for (let n = k; n < k + span; n += 1) {
+    const Y = hdOf(n).y;
+    for (const b of data.minor?.blocks || []) {
+      for (const y of [Y, Y + 1, Y - 1]) { const ds = daysOf(b.when, y); if (ds.length && ds[0] === n) return { n, block: b }; }
+    }
+  }
+  return null;
+}
+export function minorBox(data, k) {
+  const m = nextMinor(data, k); if (!m) return '';
+  const rows = computeSpecial(data, m.n, LOC).filter((bk) => bk.part === 'minor' || bk.title === m.block.title).flatMap((bk) => bk.rows)
+    .filter((r) => r.screen && r.mins.length);
+  return [m.block.title, ...rows.map((r) => `${r.label}${r.note ? ` (${r.note})` : ''}: ${r.mins.map(fmt).join(' · ')}`)].join('\n');
 }
 
 /** די נעמען פון די ערטער (פאר די קנעפלעך) — פון א טאג וואס האט אלעס */
@@ -129,12 +163,21 @@ export function nextOccurrence(sched, rawData, now) {
     let ok = false;
     if (s.type === 'weekly') ok = dowOf(n) === Number(s.dow);
     else if (s.type === 'monthly') ok = Number(isoOf(n).slice(8, 10)) === Number(s.day);
-    else if (s.type === 'erev') {
+    else if (s.type === 'hmonthly') {
+      // א טאג אין חודש עברי; ל' אין א חודש פון כ"ט טעג → כ"ט
+      const h = hdOf(n); const want = Number(s.day) || 1;
+      ok = h.d === want || (want === 30 && h.d === 29 && hdOf(n + 1).d === 1);
+    } else if (s.type === 'erev') {
       const e = n + (Number(s.before) || 0); // דער ערב איז "before" טעג נאך דעם טאג פונעם שיקן
       if (!holyOn(data, e) && holyOn(data, e + 1)) {
-        const first = e + 1; const chag = chagOn(data, first);
-        ok = s.what === 'shabbos' ? dowOf(first) === 6 && !chag : s.what === 'yt' ? chag : true;
+        // די גאנצע קייט פון הייליגע טעג: שבת אן יו"ט → "ערב שבת"; מיט יו"ט → "ערב יום טוב" (די משבצת האט אלעס)
+        let k = e + 1; let hasShab = false; let hasChag = false;
+        while (holyOn(data, k)) { if (dowOf(k) === 6) hasShab = true; if (chagOn(data, k)) hasChag = true; k += 1; }
+        ok = s.what === 'shabbos' ? hasShab && !hasChag : s.what === 'yt' ? hasChag : true;
       }
+    } else if (s.type === 'erevMinor') {
+      // דער לעצטער וואכנטאג פאר א טאג פון "ימי דפגרא"
+      if (!holyOn(data, n)) { let k = n + 1; while (holyOn(data, k)) k += 1; ok = !!nextMinor(data, n + 1, k - n); } // דער טאג פון דפגרא קען זיין אויך אין שבת
     }
     if (!ok) continue;
     const at = `${isoOf(n)} ${time}`;
@@ -146,7 +189,10 @@ export function nextOccurrence(sched, rawData, now) {
 export function schedText(sched) {
   const s = sched || {}; const tm = s.time || '';
   if (s.type === 'weekly') return `כל יום ${DAYS[Number(s.dow)] || ''} ב-${tm}`;
-  if (s.type === 'monthly') return `כל חודש ב-${s.day} ב-${tm}`;
+  if (s.type === 'monthly') return `כל חודש לועזי ב-${s.day} ב-${tm}`;
+  if (s.type === 'hmonthly') return `כל חודש עברי ב-${hebrewNumber(Number(s.day) || 1)} ב-${tm}`;
+  if (s.type === 'erevMinor') return `ערב יומא דפגרא ב-${tm}`;
+  if (s.type === 'keyword') return `כשמישהו שולח: ${(s.words || []).join(', ')}`;
   if (s.type === 'erev') {
     const w = s.what === 'shabbos' ? 'שבת' : s.what === 'yt' ? 'יום טוב' : 'שבת ויום טוב';
     const b = Number(s.before) || 0;
@@ -156,3 +202,15 @@ export function schedText(sched) {
   return '';
 }
 export { isoOf, nOf, dowOf };
+/** שינוי חד־פעמי פאר דעם קומענדיגן מאל: { drop: [שורות], text: 'מוסטער אנשטאט', nobrand: bool } */
+export function modOf(v) {
+  if (v && typeof v === 'object') return { drop: v.drop || [], text: v.text || '', nobrand: !!v.nobrand };
+  try { const o = JSON.parse(String(v || '') || '{}'); return { drop: Array.isArray(o.drop) ? o.drop : [], text: String(o.text || ''), nobrand: !!o.nobrand }; } catch { return { drop: [], text: '', nobrand: false }; }
+}
+/** דער טעקסט וואס גייט ארויס (אן דעם נאמען): מוסטער (אדער דער טעקסט אנשטאט) + שורות הגבאי − די אראפגענומענע שורות */
+export function renderAuto(tpl, vars, line, mod) {
+  const m = modOf(mod);
+  let t = fillTemplate(m.text || tpl, vars, line);
+  if (m.drop.length) t = t.split('\n').filter((l) => !m.drop.includes(l.trim())).join('\n');
+  return t.trim();
+}

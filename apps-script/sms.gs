@@ -35,7 +35,7 @@ const TABS = {
   SmsConfig: ['key', 'value'],
   SmsEvents: ['at', 'kind', 'gabbai_email', 'phone', 'contact_id', 'name', 'text', 'detail'],
   SmsAuto: ['auto_id', 'name', 'owner_email', 'list_id', 'list_name', 'text', 'sched', 'active', 'line', 'occ_at', 'occ_state', 'rem1', 'rem2',
-    'recipients', 'recips_at', 'last_job', 'created_at', 'created_by', 'updated_at'],
+    'recipients', 'recips_at', 'last_job', 'created_at', 'created_by', 'updated_at', 'occ_mod'],
   // תשובות מהציבור: א תיבה פאר אלע (נישט פאר איין גבאי — מ'ווייסט נישט אויף וועלכע מעסעדזש ער ענטפערט)
   SmsInbox: ['at', 'phone', 'contact_id', 'name', 'text', 'status', 'done_by', 'done_at', 'context'],
 };
@@ -59,16 +59,26 @@ const TEXTS = {
   join_again: { g: 'public', def: '{brand}: Please include the word CONFIRM after your name, for example: John Doe CONFIRM' },
   new_line: { g: 'public', def: 'This is the new number of {brand}. Reply HELP for help, STOP to opt out.' },
   kw_invite: { g: 'public', def: '{brand}: Did you want to subscribe to our updates? If so, reply JOIN.' },
-  auto_rem1: { g: 'auto', def: 'תזכורת: ההודעה האוטומטית "{name}" תישלח {when} ל-{count} אנשים (בערך {cost}). הקרדיטים שלך: {credits}.\n---\n{text}\n---\nלאשר: 1 · לבטל הפעם: 2 · להוסיף שורה: כתבו "הודעה 1:" או "הודעה 2:" ואחריה הטקסט.' },
-  auto_rem2: { g: 'auto', def: 'תזכורת אחרונה: "{name}" תישלח {when} רק אם תאשרו. 1 = לאשר, 2 = לבטל.' },
+  auto_menu: { g: 'auto', def: '1 = לאשר · 2 = לבטל פעם אחת · 3 = להוריד שורה · 4 = הודעה מחליפה · 5 = שורת גבאי' },
+  auto_rem1: { g: 'auto', def: 'תזכורת: "{title}" תישלח {when} ל-{count} אנשים (בערך {cost}). הקרדיטים שלך: {credits}.\n---\n{text}\n---\n{menu}' },
+  auto_rem2: { g: 'auto', def: 'תזכורת אחרונה: "{title}" תישלח {when} רק אם תאשרו.\n---\n{text}\n---\n{menu}' },
+  auto_now: { g: 'auto', def: 'ההודעה כרגע ("{title}", {when}):\n---\n{text}\n---\n{menu}' },
   auto_long: { g: 'auto', def: '⚠ הודעה ארוכה: {parts} חלקים, כל נמען יחויב כמו {parts} הודעות.' },
-  auto_nocredit: { g: 'auto', def: 'שימו לב: "{name}" ({when}) צריכה בערך {cost} ויש לך {credits}. היא לא תישלח בלי מספיק קרדיט.' },
-  auto_missed: { g: 'auto', def: '"{name}" לא נשלחה {when}, כי לא אושרה. אם תשיבו 1 — נשאל אם לשלוח עכשיו.' },
-  auto_late_ask: { g: 'auto', def: 'המועד של "{name}" ({when}) עבר. לשלוח עכשיו? 1 = כן, 2 = לא' },
-  auto_ok_approved: { g: 'auto', def: 'אושר ✓ "{name}" תישלח {when}.' },
-  auto_ok_now: { g: 'auto', def: 'נשלח עכשיו ✓ "{name}".' },
-  auto_ok_canceled: { g: 'auto', def: 'בוטל ✓ "{name}" לא תישלח הפעם.' },
-  auto_ok_line: { g: 'auto', def: 'השורה נוספה ✓ ההודעה תהיה:\n{text}' },
+  auto_nocredit: { g: 'auto', def: 'שימו לב: חסרים {missing} בקרדיטים (צריך בערך {cost}, יש לך {credits}). לטעינה היכנסו לאתר ← קרדיטים.' },
+  auto_ok_approved: { g: 'auto', def: 'אושר ✓ {title}' },
+  auto_ok_approved_short: { g: 'auto', def: 'אושר ✓ {title}, אבל עדיין חסרים {missing} בקרדיטים. בלי טעינה היא לא תישלח.' },
+  auto_ok_canceled: { g: 'auto', def: 'בוטל ✓ {title}' },
+  auto_cancel_q: { g: 'auto', def: 'לבטל את "{title}" הפעם? 1 = כן, לבטל · 2 = לא' },
+  auto_kept: { g: 'auto', def: 'ההודעה נשארת מאושרת ✓ {title}' },
+  auto_drop_q: { g: 'auto', def: '{numbered}\n---\nאיזו שורה להוריד? לכמה שורות כתבו עם פסיק, למשל: 2,4 · 0 = חזרה' },
+  auto_text_q: { g: 'auto', def: 'אנא כתבו את הטקסט המלא לשליחה הזאת. 0 = חזרה' },
+  auto_line_q: { g: 'auto', def: 'אנא כתבו: 111 ואחריו שורת גבאי 1, או 222 ואחריו שורת גבאי 2. 0 = חזרה' },
+  auto_nobrand_q: { g: 'auto', def: 'ההודעה שלך תרד מ-{from} חלקים ל-{to} אם נוריד את המילה {brand}, רק הפעם.\n1 = לשלוח בלי {brand} · 2 = להשאיר עם {brand}' },
+  auto_nobrand_ok: { g: 'auto', def: 'יישלח בלי {brand} ✓ {title}' },
+  auto_nobrand_keep: { g: 'auto', def: 'נשאר עם {brand} ✓ {title}' },
+  auto_missed: { g: 'auto', def: '"{title}" לא נשלחה {when}, כי לא אושרה. לשליחה אנא היכנסו לאתר.' },
+  auto_failed_credit: { g: 'auto', def: '"{title}" לא נשלחה {when}, כי חסרים {missing} בקרדיטים. לטעינה ולשליחה אנא היכנסו לאתר.' },
+  auto_skip: { g: 'auto', def: '"{title}" לא תישלח {when}, כי {reason}.' },
 };
 /** א טעקסט: פון די הגדרות (txt_<key>) אדער דער ברירת מחדל; {x} → vars.x */
 function txt_(key, vars, cfg) {
@@ -334,6 +344,9 @@ function publicInbound(from, text) {
     sendSms(line, from, askNameText(), null, { line: 'broadcast' });
     return { ok: true, handled: 'join' };
   }
+  // א גבאי ענטפערט אויף א דערמאנונג פון א הודעה אוטומטית (1–5 / 0 / 111 / 222 / טעקסט)
+  const gb = gabbaiByPhone(from);
+  if (gb) { const ar = autoReply(from, text, gb); if (ar) return ar; }
   // א "מילה" פון א הודעה אוטומטית (למשל "זמנים") → גלייך דער ענטפער
   const kwA = kwMatch(w);
   if (kwA) return kwReply(from, kwA, line, text);
@@ -495,8 +508,6 @@ function gabbaiInbound(from, text, media) {
   const lang = text.trim() ? lang0 : (st.lang || 'yi');
   const t = text.trim();
   try {
-    // 0) אן ענטפער אויף א דערמאנונג פון א "הודעה אוטומטית" (1 / 2 / "הודעה: ...")
-    if (st.step !== 'confirm' && st.step !== 'choose') { const ar = autoReply(from, t, g); if (ar) return ar; }
     // 1) א באשטעטיגונג
     if (st.step === 'confirm') {
       if (/^(1|yes|y|ok|כן|יא|יאָ|יע)$/i.test(t)) {
@@ -846,6 +857,8 @@ function fromSite(req, email) {
   if (a === 'auto_approve') return autoApprove(req.id, email, !!req.now);
   if (a === 'auto_cancel') return autoCancel(req.id, email);
   if (a === 'auto_line') return autoLine(req.id, req.line, email);
+  if (a === 'auto_mod') return autoMod(req, email);
+  if (a === 'tf_status') return isAdmin(email) ? tfStatus() : { error: 'admin-only' };
   if (a === 'auto_recips') return autoRecips(req.id, req.recipients, email);
   if (a === 'config_set') {
     if (!isAdmin(email)) return { error: 'admin-only' };
@@ -887,7 +900,7 @@ function segments(text) {
 }
 function unitPrice(job, cfg) {
   if (job.kind === 'call') return Number(cfg.price_call) || 0.03;
-  return (Number(cfg.price_sms) || 0.01) * segments(branded(job.text, cfg));
+  return (Number(cfg.price_sms) || 0.01) * segments(job.nobrand || job.note === 'nobrand' ? String(job.text || '') : branded(job.text, cfg));
 }
 function jobCreate(req, email) {
   const cfg = config();
@@ -895,7 +908,7 @@ function jobCreate(req, email) {
   if (!rec.length) return { error: 'no-recipients' };
   if (req.kind === 'sms' && !String(req.text || '').trim()) return { error: 'no-text' };
   if (req.kind === 'call' && !req.recording_id) return { error: 'no-recording' };
-  const job = { kind: req.kind === 'call' ? 'call' : 'sms', text: String(req.text || '').slice(0, 1200) };
+  const job = { kind: req.kind === 'call' ? 'call' : 'sms', text: String(req.text || '').slice(0, 1200), nobrand: !!req.nobrand };
   const est = Math.round(rec.length * unitPrice(job, cfg) * 100) / 100;
   const have = creditsOf(email);
   if (have < est) return { error: 'no-credits', need: est, have: have };
@@ -903,7 +916,7 @@ function jobCreate(req, email) {
   appendObj('SmsJobs', {
     job_id: id, created_at: stamp(), created_by: email, kind: job.kind, title: String(req.title || '').slice(0, 80), list_name: String(req.list_name || '').slice(0, 80), org: req.org || '',
     text: job.text, recording_id: req.recording_id || '', send_at: req.send_at || stamp(), status: 'scheduled', total: rec.length, sent: 0, failed: 0, skipped: 0, cost: 0, credits: 0, cursor: 0,
-    recipients: JSON.stringify(rec), updated_at: stamp(),
+    recipients: JSON.stringify(rec), updated_at: stamp(), note: job.nobrand ? 'nobrand' : '',
   });
   return { ok: true, job_id: id, estimate: est };
 }
@@ -961,7 +974,7 @@ function runJobs() {
           const r = rec[cur];
           const d = last10(r.p);
           if (optOut[d]) { cur += 1; skipped += 1; continue; }
-          const text = j.kind === 'call' ? '' : branded(j.text, cfg) + (seen[d] ? '' : newLineNote(cfg));
+          const text = j.kind === 'call' ? '' : (j.note === 'nobrand' ? String(j.text) : branded(j.text, cfg)) + (seen[d] ? '' : newLineNote(cfg));
           const price = j.kind === 'call' ? unitPrice(j, cfg) : (Number(cfg.price_sms) || 0.01) * segments(text);
           if (have < price) { status = 'no_credits'; break; }
           cur += 1;
@@ -1182,10 +1195,7 @@ function autoRows() { return readTab('SmsAuto').rows; }
 function autoById(id) { return autoRows().filter(function (x) { return String(x.auto_id) === String(id); })[0] || null; }
 function schedOf(a) { try { return JSON.parse(a.sched || '{}'); } catch (e) { return {}; } }
 /** דער טעקסט פאר א געוויסער צייט (occ = 'yyyy-MM-dd HH:mm') */
-function autoRender(a, occ) {
-  const vars = LUACH.autoVars(minyanimData(), String(occ).slice(0, 10));
-  return LUACH.fillTemplate(a.text, vars, a.line || '');
-}
+function autoRender(a, occ) { return bodyOf(a, occ); }
 function autoRecipList(a) { try { return JSON.parse(a.recipients || '[]'); } catch (e) { return []; } }
 function autoCost(a, text, cfg) { return Math.round(autoRecipList(a).length * (Number(cfg.price_sms) || 0.01) * segments(branded(text, cfg)) * 100) / 100; }
 const money_ = function (n) { return '$' + (Number(n) || 0).toFixed(2); };
@@ -1198,149 +1208,296 @@ function gabbaiPhone(email) {
   for (let i = 0; i < s.length; i += 1) if (lower(s[i].gabbai_email) === lower(email) && last10(s[i].gabbai_phone)) return e164(s[i].gabbai_phone);
   return '';
 }
-/** א מעלדונג פאר'ן גבאי: SMS (פון זיינע קרעדיטן, ביז מינוס $1) + אימעיל */
-function tellGabbai(email, text, a, pend) {
+/** א מעלדונג פאר'ן גבאי: SMS פונעם נומער פון קהל (פון זיינע קרעדיטן, ביז מינוס $1) + אימעיל */
+function tellGabbai(email, text, a) {
   const cfg = config(); const P = PropertiesService.getScriptProperties();
   const phone = gabbaiPhone(email);
-  let viaSms = false;
+  let viaSms = false; let blocked = false;
   if (phone) {
+    const o = optRow(phone); blocked = !!(o && String(o.status) === 'out');
     const cost = (Number(cfg.price_sms) || 0.01) * segments(text);
-    if (creditsOf(lower(email)) - cost >= -1) {
-      const r = sendSms(P.getProperty('TELNYX_GABBAI_NUMBER'), phone, text, null, { line: 'gabbai', email: email });
+    if (!blocked && creditsOf(lower(email)) - cost >= -1) {
+      const r = sendSms(P.getProperty('TELNYX_BROADCAST_NUMBER'), phone, text, null, { line: 'broadcast', email: email, job_id: 'auto:' + (a ? a.auto_id : '') });
       if (r.status === 'sent') {
         viaSms = true;
         appendObj('Credits', { at: stamp(), email: lower(email), delta: -Math.round(cost * 10000) / 10000, kind: 'notify', ref: a ? a.auto_id : '', note: '🔔 ' + (a ? a.name : ''), by: 'system' });
       }
     }
-    if (pend) pendPut(phone, pend);
   }
-  try { MailApp.sendEmail({ to: email, subject: 'הודעה אוטומטית' + (a ? ': ' + a.name : ''), body: text, name: brandOf(cfg) }); } catch (e) { ev('error', { detail: 'mail: ' + String(e && e.message || e) }); }
+  const body = text + (blocked ? '\n\n(ה-SMS אליך חסום כי שלחת STOP למספר הקהילה. כדי לקבל שוב, שלחו START.)' : '');
+  try { MailApp.sendEmail({ to: email, subject: 'הודעה אוטומטית' + (a ? ': ' + a.name : ''), body: body, name: brandOf(cfg) }); } catch (e) { ev('error', { detail: 'mail: ' + String(e && e.message || e) }); }
   return viaSms;
 }
-// ממתינים פאר א גבאי (מערערע הודעות): [{ id, occ, mode: approve|missed|late, text }]
+// ---- מצב פון דעם גבאי (לויט זיין טעלעפאן): [{ id, occ, wait: ''|drop|text|line|cancel|nobrand }] ----
 function pendGet(phone) { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('autopend_' + last10(phone)) || '[]'); } catch (e) { return []; } }
 function pendSet(phone, list) { const P = PropertiesService.getScriptProperties(); if (list.length) P.setProperty('autopend_' + last10(phone), JSON.stringify(list.slice(-10))); else P.deleteProperty('autopend_' + last10(phone)); }
-function pendPut(phone, pend) { CacheService.getScriptCache().remove('autochoose:' + last10(phone)); pendSet(phone, pendGet(phone).filter(function (x) { return x.id !== pend.id; }).concat([pend])); }
+function pendPut(phone, item) {
+  if (!phone) return;
+  CacheService.getScriptCache().remove('autochoose:' + last10(phone));
+  pendSet(phone, pendGet(phone).filter(function (x) { return x.id !== item.id; }).concat([Object.assign({ at: stamp() }, item)]));
+}
+function pendDrop(phone, id) { if (phone) pendSet(phone, pendGet(phone).filter(function (x) { return x.id !== id; })); }
 function autoNext(a, now) { return LUACH.nextOccurrence(schedOf(a), minyanimData(), now); }
-function autoReset(a, occ) { setFields('SmsAuto', a._row, { occ_at: occ, occ_state: '', rem1: '', rem2: '', line: '', updated_at: stamp() }); }
+function autoReset(a, occ) { setFields('SmsAuto', a._row, { occ_at: occ, occ_state: '', rem1: '', rem2: '', line: '', occ_mod: '', updated_at: stamp() }); pendDrop(gabbaiPhone(a.owner_email), a.auto_id); }
+/** נייע קאלומען אין SmsAuto (ווען דער גיליון איז געמאכט געווארן פריער) */
+function ensureCols(name) {
+  const t = readHead(name); const miss = TABS[name].filter(function (h) { return t.head.indexOf(h) < 0; });
+  if (miss.length) t.sheet.getRange(1, t.sheet.getLastColumn() + 1, 1, miss.length).setValues([miss]);
+}
+function modOf_(a) { return LUACH.modOf(a.occ_mod || ''); }
+function setMod(a, mod) { const v = JSON.stringify(LUACH.modOf(mod)); setFields('SmsAuto', a._row, { occ_mod: v, updated_at: stamp() }); a.occ_mod = v; }
+// ---- דער טעקסט ----
+const VARS = {};
+function varsAt(occ) { const d = String(occ).slice(0, 10); if (!VARS[d]) VARS[d] = LUACH.autoVars(minyanimData(), d); return VARS[d]; }
+function bodyOf(a, occ) { return LUACH.renderAuto(a.text, varsAt(occ), a.line || '', a.occ_mod || ''); }
+function fullOf(a, occ, cfg) { const b = bodyOf(a, occ); return modOf_(a).nobrand ? b : branded(b, cfg); }
+function costOf(a, occ, cfg) { return Math.round(autoRecipList(a).length * (Number(cfg.price_sms) || 0.01) * segments(fullOf(a, occ, cfg)) * 100) / 100; }
+/** "זמני שבת, פרשת וירא" — מיט דער פרשה נאר ביי א הודעה פון שבת */
+function titleOf(a, occ) {
+  const sc = schedOf(a);
+  const usesParsha = (sc.type === 'erev' && sc.what === 'shabbos') || /\{פרשה\}|\{משבצת שבת/.test(a.text || '');
+  const p = usesParsha ? varsAt(occ)['פרשה'] : '';
+  return a.name + (p ? ', פרשת ' + p : '');
+}
+function menuText(cfg) { return txt_('auto_menu', null, cfg); }
+/** ההודעה המלאה + דער תפריט (key = auto_rem1 / auto_rem2 / auto_now) */
+function menuMsg(key, a, occ, cfg) {
+  const have = creditsOf(lower(a.owner_email)); const cost = costOf(a, occ, cfg);
+  const full = fullOf(a, occ, cfg);
+  let msg = txt_(key, { title: titleOf(a, occ), name: a.name, when: whenText(occ), count: autoRecipList(a).length, cost: money_(cost), credits: money_(have), text: full, menu: menuText(cfg) }, cfg);
+  const parts = segments(full);
+  if (parts >= 3) msg += '\n\n' + txt_('auto_long', { parts: parts }, cfg);
+  if (have < cost) msg += '\n\n' + txt_('auto_nocredit', { missing: money_(cost - have), cost: money_(cost), credits: money_(have) }, cfg);
+  return msg;
+}
+// ---- ווען מ'טאר שיקן א דערמאנונג: נישט שבת/יו"ט (מוצאי — פון צאת הכוכבים), נישט ביינאכט ----
+function remWindowOk(d, cfg) {
+  const hr = Number(Utilities.formatDate(d, TZ, 'H')) + Number(Utilities.formatDate(d, TZ, 'm')) / 60;
+  if (hr < Number(cfg.quiet_to || 8) || hr >= Number(cfg.quiet_from || 21)) return false;
+  return !holyNow(d, cfg);
+}
+const dOf = function (s) { return new Date(String(s).replace(' ', 'T') + ':00' + nyOffset_(s)); };
+/** דער UTC־אפסעט פון ניו יארק פאר א צייט (EST/EDT) */
+function nyOffset_(s) {
+  const guess = new Date(String(s).replace(' ', 'T') + ':00Z');
+  const o = Utilities.formatDate(guess, TZ, 'XXX'); // -04:00 / -05:00
+  return o === 'Z' ? '+00:00' : o;
+}
+const sOf = function (d) { return Utilities.formatDate(d, TZ, 'yyyy-MM-dd HH:mm'); };
+const addH = function (s, h) { return sOf(new Date(dOf(s).getTime() + h * 3600000)); };
+/** ווען די ערשטע דערמאנונג: 24 שעה פריער; אויב דאן איז שבת/יו"ט — אין ערב, נאך די הודעות פון ערב, פאר דעם סוף פון שליחה */
+function rem1Due(a, occ, cfg) {
+  let due = addH(occ, -24);
+  if (!holyNow(dOf(due), cfg)) return due;
+  const data = minyanimData();
+  let n = LUACH.nOf(due.slice(0, 10)); while (LUACH.holyOn(data, n) && n > 0) n -= 1; // דער ערב
+  const day = LUACH.isoOf(n);
+  const cut = Number(cfg.friday_cutoff || 13);
+  // נאך די אנדערע אויטאמאטישע הודעות פון יענעם טאג (+10 מינוט), ביז האלבע שעה פאר'ן סוף
+  let mins = 11 * 60;
+  autoRows().forEach(function (o) { const t = String(o.occ_at || ''); if (o.auto_id !== a.auto_id && t.slice(0, 10) === day) { const m = Number(t.slice(11, 13)) * 60 + Number(t.slice(14, 16)) + 10; if (m > mins) mins = m; } });
+  mins = Math.min(mins, cut * 60 - 30);
+  return day + ' ' + ('0' + Math.floor(mins / 60)).slice(-2) + ':' + ('0' + (mins % 60)).slice(-2);
+}
+/** די צווייטע: 3 שעה פריער; ביינאכט → 8:00 */
+function rem2Due(occ, cfg) {
+  const due = addH(occ, -3);
+  const qt = Number(cfg.quiet_to || 8);
+  const hr = Number(due.slice(11, 13));
+  if (hr < qt && due.slice(0, 10) === String(occ).slice(0, 10)) return due.slice(0, 11) + ('0' + qt).slice(-2) + ':00';
+  return due;
+}
+/** א צייט וואס מ'טאר נישט שיקן → די סיבה, אדער '' */
+function forbiddenWhy(occ, cfg) {
+  const d = dOf(occ);
+  if (holyNow(d, cfg)) { const dow = Number(Utilities.formatDate(d, TZ, 'u')); return dow === 6 || dow === 5 ? 'הוא בשבת' : 'הוא ביום טוב'; }
+  if (!sendWindowOk(d, cfg)) return 'בשעה הזאת אסור לשלוח';
+  return '';
+}
+/** ווען הייבט זיך אן דער קומענדיגער מחזור: כניסת שבת (פרייטאג, סוף השליחה) נאך דעם מועד — אדער פריער, ווען די ערשטע דערמאנונג פון דעם קומענדיגן מאל קומט פריער */
+function rollAt(a, occ, cfg) {
+  const cut = Number(cfg.friday_cutoff || 13);
+  let n = LUACH.nOf(String(occ).slice(0, 10));
+  const cutS = function (k) { return LUACH.isoOf(k) + ' ' + ('0' + cut).slice(-2) + ':00'; };
+  while (LUACH.dowOf(n) !== 5 || cutS(n) <= String(occ)) n += 1;
+  let at = cutS(n);
+  const nx = autoNext(a, String(occ));
+  if (nx) { const r1 = rem1Due(a, nx, cfg); if (r1 < at) at = r1; }
+  return at;
+}
 /** לויפט יעדע 5 מינוט (פון runJobs) */
 function autoTick(cfg) {
+  ensureCols('SmsAuto');
   const rows = autoRows().filter(function (a) { return isT(a.active) && schedOf(a).type !== 'keyword'; });
   if (!rows.length) return;
   const now = stamp(); const nowD = new Date();
-  const okWin = sendWindowOk(nowD, cfg);
-  const hoursTo = function (occ) { return (new Date(String(occ).replace(' ', 'T') + ':00') - new Date(now.replace(' ', 'T') + ':00')) / 3600000; };
+  const okRem = remWindowOk(nowD, cfg);
   rows.forEach(function (a) {
     let occ = String(a.occ_at || '');
     const st = String(a.occ_state || '');
-    // א נייער מאל
-    if (!occ || (occ <= now && ['sent', 'canceled', 'missed'].indexOf(st) >= 0)) {
+    const fin = ['sent', 'canceled', 'missed', 'skip'].indexOf(st) >= 0;
+    // א נייער מאל: גלייך (ערשטע מאל), אדער נאך דעם מחזור (כניסת שבת)
+    if (!occ || (occ <= now && fin && now >= rollAt(a, occ, cfg))) {
       const nx = autoNext(a, now);
       if (!nx) { setFields('SmsAuto', a._row, { active: 'FALSE', updated_at: stamp() }); return; }
-      autoReset(a, nx); a.occ_at = nx; a.occ_state = ''; a.rem1 = ''; a.rem2 = ''; a.line = ''; occ = nx;
+      autoReset(a, nx);
+      const why = forbiddenWhy(nx, cfg);
+      if (why) setFields('SmsAuto', a._row, { occ_state: 'skip', rem2: why });
       return;
     }
-    const h = hoursTo(occ);
-    if (h > 0) {
-      if (st === 'canceled') return;
-      // דערמאנונגען (נאר אין די ערלויבטע שעות)
-      if (!okWin) return;
-      if (h <= 24 && !a.rem1 && st === '') {
-        const text = autoRender(a, occ); const cost = autoCost(a, text, cfg); const have = creditsOf(lower(a.owner_email));
-        let msg = txt_('auto_rem1', { name: a.name, when: whenText(occ), count: autoRecipList(a).length, cost: money_(cost), credits: money_(have), text: branded(text, cfg) }, cfg);
-        const parts = segments(branded(text, cfg));
-        if (parts >= 3) msg += '\n\n' + txt_('auto_long', { parts: parts }, cfg);
-        if (have < cost) msg += '\n\n' + txt_('auto_nocredit', { name: a.name, when: whenText(occ), cost: money_(cost), credits: money_(have) }, cfg);
-        tellGabbai(a.owner_email, msg, a, { id: a.auto_id, occ: occ, mode: 'approve' });
+    if (st === 'skip') {
+      // די מעלדונג "לא תישלח" — ווען די ערשטע דערמאנונג וואלט געקומען
+      if (!a.rem1 && okRem && now >= rem1Due(a, occ, cfg)) {
+        tellGabbai(a.owner_email, txt_('auto_skip', { title: titleOf(a, occ), when: whenText(occ), reason: a.rem2 || '' }, cfg), a);
         setFields('SmsAuto', a._row, { rem1: stamp() });
+        ev('auto_skip', { name: a.name, detail: occ + ' · ' + (a.rem2 || '') });
+      }
+      return;
+    }
+    const phone = gabbaiPhone(a.owner_email);
+    if (occ > now) {
+      if (st === 'canceled' || !okRem) return;
+      if (!a.rem1 && now >= rem1Due(a, occ, cfg)) {
+        tellGabbai(a.owner_email, menuMsg('auto_rem1', a, occ, cfg), a);
+        pendPut(phone, { id: a.auto_id, occ: occ, wait: '' });
+        setFields('SmsAuto', a._row, { rem1: stamp(), rem2: now >= rem2Due(occ, cfg) ? stamp() : '' });
         ev('auto_rem', { name: a.name, detail: 'תזכורת ראשונה · ' + occ });
-      } else if (h <= 3 && !a.rem2 && st === '') {
-        tellGabbai(a.owner_email, txt_('auto_rem2', { name: a.name, when: whenText(occ) }, cfg), a, { id: a.auto_id, occ: occ, mode: 'approve' });
+      } else if (a.rem1 && !a.rem2 && st === '' && now >= rem2Due(occ, cfg)) {
+        tellGabbai(a.owner_email, menuMsg('auto_rem2', a, occ, cfg), a);
+        pendPut(phone, { id: a.auto_id, occ: occ, wait: '' }); // א פתוחה המתנה ענדיגט זיך
         setFields('SmsAuto', a._row, { rem2: stamp() });
         ev('auto_rem', { name: a.name, detail: 'תזכורת אחרונה · ' + occ });
       }
       return;
     }
     // די צייט איז דא
+    pendDrop(phone, a.auto_id);
     if (st === 'approved') {
       const r = autoSend(a, occ, cfg);
       setFields('SmsAuto', a._row, { occ_state: r.ok ? 'sent' : 'missed', last_job: r.job_id || '', updated_at: stamp() });
-      if (!r.ok) tellGabbai(a.owner_email, txt_('auto_nocredit', { name: a.name, when: whenText(occ), cost: money_(r.need), credits: money_(r.have) }, cfg), a, null);
+      if (!r.ok) {
+        const missing = money_((Number(r.need) || 0) - (Number(r.have) || 0));
+        tellGabbai(a.owner_email, txt_('auto_failed_credit', { title: titleOf(a, occ), when: whenText(occ), missing: missing }, cfg), a);
+        notifyAdmins('auto_nocredit', 'הודעה אוטומטית לא נשלחה: ' + a.name, '"' + titleOf(a, occ) + '" לא נשלחה ' + whenText(occ) + ', כי חסרים ' + missing + ' בקרדיטים של ' + userLabel(a.owner_email) + '.');
+        ev('auto_missed', { name: a.name, detail: occ + ' · קרדיטים' });
+      }
     } else if (st === '') {
       setFields('SmsAuto', a._row, { occ_state: 'missed', updated_at: stamp() });
-      tellGabbai(a.owner_email, txt_('auto_missed', { name: a.name, when: whenText(occ) }, cfg), a, { id: a.auto_id, occ: occ, mode: 'missed', text: autoRender(a, occ) });
+      tellGabbai(a.owner_email, txt_('auto_missed', { title: titleOf(a, occ), when: whenText(occ) }, cfg), a);
       ev('auto_missed', { name: a.name, detail: occ });
     }
   });
 }
+function userLabel(email) { return String(email || ''); }
 /** שאפן א שליחה (SmsJobs) — runJobs שיקט עס */
-function autoSend(a, occ, cfg, textOverride) {
-  const text = textOverride || autoRender(a, occ);
+function autoSend(a, occ, cfg) {
+  const text = bodyOf(a, occ);
   const rec = autoRecipList(a);
-  const res = jobCreate({ kind: 'sms', text: text, title: '🔁 ' + a.name, list_name: a.list_name, recipients: rec.map(function (r) { return { phone: r.p || r.phone, contact_id: r.c || r.contact_id, name: r.n || r.name }; }), send_at: stamp() }, lower(a.owner_email));
+  const res = jobCreate({ kind: 'sms', text: text, nobrand: modOf_(a).nobrand, title: '🔁 ' + a.name, list_name: a.list_name, recipients: rec.map(function (r) { return { phone: r.p || r.phone, contact_id: r.c || r.contact_id, name: r.n || r.name }; }), send_at: stamp() }, lower(a.owner_email));
   if (res.error) return { ok: false, need: res.need, have: res.have, error: res.error };
   ev('auto_sent', { name: a.name, detail: occ + ' · ' + rec.length });
   return { ok: true, job_id: res.job_id };
 }
-/** דער גבאי ענטפערט אויף א דערמאנונג. ווען עס ווארטן מער ווי איינס — פרעגן "וועלכע?" */
+/** א גבאי ענטפערט צום נומער פון קהל. null = נישט פאר אונז (ווייטער ווי געווענליך) */
 function autoReply(from, t, g) {
   const cfg = config(); const cache = CacheService.getScriptCache(); const ck = 'autochoose:' + last10(from);
-  // גילטיג: approve נאר פאר'ן זעלבן מאל וואס ווארט נאך; missed/late — ביז 24 שעה
-  const valid = function (p) {
-    const a = autoById(p.id); if (!a) return null;
-    if (p.mode === 'approve') return String(a.occ_at) === p.occ && String(a.occ_state) === '' ? a : null;
-    const age = (new Date(stamp().replace(' ', 'T') + ':00') - new Date(String(p.occ).replace(' ', 'T') + ':00')) / 3600000;
-    return age <= 24 ? a : null; // "לשלוח עכשיו" — נאר ביז 24 שעה נאכן מועד
-  };
-  let list = pendGet(from).filter(function (p) { return valid(p); });
+  // נאר וואס ווארט נאך: דער זעלבער מאל, פאר'ן מועד, נישט פארטיג
+  let list = pendGet(from).filter(function (p) {
+    const a = autoById(p.id);
+    return a && String(a.occ_at) === p.occ && p.occ > stamp() && ['', 'approved'].indexOf(String(a.occ_state)) >= 0;
+  });
   pendSet(from, list);
-  const say1 = function (m) { replyGabbai(from, m); return { ok: true, handled: 'auto' }; };
-  // א בחירה פון "וועלכע?"
+  if (!list.length) return null;
+  const say1 = function (m) { sendSms(PropertiesService.getScriptProperties().getProperty('TELNYX_BROADCAST_NUMBER'), from, m, null, { line: 'broadcast', email: g.email, job_id: 'auto' }); return { ok: true, handled: 'auto' }; };
+  // א בחירה פון "על איזו הודעה?"
   const ch = cache.get(ck);
   if (ch && /^\d{1,2}$/.test(t)) {
     const c = JSON.parse(ch); cache.remove(ck);
-    const p = c.opts[Number(t) - 1]; if (!p) return null;
-    return autoAct(from, p, c.cmd, c.line, g, cfg);
+    const p = c.opts[Number(t) - 1]; if (!p) return say1('לא הבנתי. ' + chooseText(c.opts));
+    return autoAct(from, p, c.t, g, cfg, say1);
   }
-  const line = t.match(/^\s*(?:הודעה|שורה|line|message)\s*([12])?\s*[:：]\s*([\s\S]+)$/i);
-  const cmd = line ? 'line' + (line[1] || '1') : /^[12]$/.test(t) ? t : '';
-  if (!cmd || !list.length) return null;
-  const fit = list.filter(function (p) { return cmd.indexOf('line') === 0 ? p.mode === 'approve' : true; });
-  if (!fit.length) return null;
-  if (fit.length > 1) {
-    cache.put(ck, JSON.stringify({ cmd: cmd, line: line ? line[2] : '', opts: fit }), 600); // 10 מינוט
-    return say1('על איזו הודעה?\n' + fit.map(function (p, i) { const a = autoById(p.id); return (i + 1) + '. ' + (a ? a.name : p.id) + ' (' + String(p.occ).slice(5, 16) + ')'; }).join('\n'));
+  // ווען איינס ווארט אויף אן ענטפער (3/4/5/2/בלי שם) — דאס איז עס
+  const waiting = list.filter(function (p) { return p.wait; }).sort(function (x, y) { return String(y.at).localeCompare(String(x.at)); })[0];
+  if (waiting) return autoAct(from, waiting, t, g, cfg, say1);
+  if (list.length > 1) {
+    cache.put(ck, JSON.stringify({ t: t, opts: list }), 600);
+    return say1(chooseText(list));
   }
-  return autoAct(from, fit[0], cmd, line ? line[2] : '', g, cfg);
+  return autoAct(from, list[0], t, g, cfg, say1);
 }
-function autoAct(from, p, cmd, lineText, g, cfg) {
+function chooseText(opts) {
+  return 'על איזו הודעה?\n' + opts.map(function (p, i) { const a = autoById(p.id); return (i + 1) + '. ' + (a ? a.name : p.id) + ' (' + String(p.occ).slice(5, 16) + ')'; }).join('\n');
+}
+/** די אקציעס פונעם תפריט */
+function autoAct(from, p, t, g, cfg, say1) {
   const a = autoById(p.id); if (!a) return null;
-  const say1 = function (m) { replyGabbai(from, m); return { ok: true, handled: 'auto' }; };
-  const drop = function () { pendSet(from, pendGet(from).filter(function (x) { return !(x.id === p.id && x.occ === p.occ); })); };
-  if (cmd.indexOf('line') === 0) {
-    const l = setLine(a, Number(cmd.slice(4)) || 1, lineText); a.line = l;
-    return say1(txt_('auto_ok_line', { name: a.name, text: branded(autoRender(a, a.occ_at), cfg) }, cfg));
+  const occ = a.occ_at; const title = titleOf(a, occ);
+  const setWait = function (w) { pendPut(from, { id: a.auto_id, occ: occ, wait: w }); };
+  const unapprove = function () { if (String(a.occ_state) === 'approved') { setFields('SmsAuto', a._row, { occ_state: '', updated_at: stamp() }); a.occ_state = ''; } };
+  const showNow = function () { setWait(''); return say1(menuMsg('auto_now', a, occ, cfg)); };
+  const lines = function () { return bodyOf(a, occ).split('\n').filter(function (l) { return l.trim(); }); };
+  const L = String(t || '').trim();
+  const lm = L.match(/^(111|222)\s*[:：-]?\s*([\s\S]*)$/);
+  // שורת גבאי — אין יעדן מצב
+  if (lm) {
+    setLine(a, lm[1] === '222' ? 2 : 1, lm[2]); a.line = autoById(a.auto_id).line;
+    unapprove(); ev('auto_change', { g: g, name: a.name, detail: 'שורת גבאי ' + (lm[1] === '222' ? 2 : 1) });
+    return showNow();
   }
-  if (p.mode === 'approve') {
-    drop();
-    if (cmd === '1') { setFields('SmsAuto', a._row, { occ_state: 'approved', updated_at: stamp() }); ev('auto_ok', { g: g, name: a.name, detail: 'אושר · ' + a.occ_at }); return say1(txt_('auto_ok_approved', { name: a.name, when: whenText(a.occ_at) }, cfg)); }
-    setFields('SmsAuto', a._row, { occ_state: 'canceled', updated_at: stamp() }); ev('auto_cancel', { g: g, name: a.name, detail: a.occ_at });
-    return say1(txt_('auto_ok_canceled', { name: a.name }, cfg));
+  if (L === '0') return showNow();
+  if (p.wait === 'drop') {
+    const idx = (L.match(/\d+/g) || []).map(Number);
+    const ls = lines(); const pick = idx.map(function (i) { return ls[i - 1]; }).filter(Boolean);
+    if (!pick.length) return say1('לא מצאתי את השורה. ' + txt_('auto_drop_q', { numbered: numbered(ls) }, cfg));
+    const m = modOf_(a); pick.forEach(function (l) { if (m.drop.indexOf(l.trim()) < 0) m.drop.push(l.trim()); });
+    setMod(a, m); unapprove(); ev('auto_change', { g: g, name: a.name, detail: 'הורדת שורות: ' + pick.join(' / ') });
+    return showNow();
   }
-  if (p.mode === 'missed') {
-    if (cmd === '2') { drop(); return say1(txt_('auto_ok_canceled', { name: a.name }, cfg)); }
-    pendPut(from, Object.assign({}, p, { mode: 'late' }));
-    return say1(txt_('auto_late_ask', { name: a.name, when: whenText(p.occ) }, cfg));
+  if (p.wait === 'text') {
+    const m = modOf_(a); m.text = L.slice(0, 1200); m.drop = [];
+    setMod(a, m); unapprove(); ev('auto_change', { g: g, name: a.name, detail: 'הודעה מחליפה' });
+    return showNow();
   }
-  if (p.mode === 'late') {
-    drop();
-    if (cmd === '2') return say1(txt_('auto_ok_canceled', { name: a.name }, cfg));
-    const r = autoSend(a, p.occ, cfg, p.text);
-    if (!r.ok) return say1(txt_('auto_nocredit', { name: a.name, when: whenText(p.occ), cost: money_(r.need), credits: money_(r.have) }, cfg));
-    return say1(txt_('auto_ok_now', { name: a.name }, cfg));
+  if (p.wait === 'line') return say1(txt_('auto_line_q', null, cfg));
+  if (p.wait === 'cancel') {
+    if (L === '1') return doCancel();
+    setWait(''); return say1(txt_('auto_kept', { title: title }, cfg));
   }
-  return null;
+  if (p.wait === 'nobrand') {
+    setWait('');
+    if (L === '1') { const m = modOf_(a); m.nobrand = true; setMod(a, m); ev('auto_change', { g: g, name: a.name, detail: 'בלי השם' }); return say1(txt_('auto_nobrand_ok', { title: title, brand: brandOf(cfg) }, cfg)); }
+    return say1(txt_('auto_nobrand_keep', { title: title, brand: brandOf(cfg) }, cfg));
+  }
+  function doCancel() {
+    setFields('SmsAuto', a._row, { occ_state: 'canceled', updated_at: stamp() }); pendDrop(from, a.auto_id);
+    ev('auto_cancel', { g: g, name: a.name, detail: occ });
+    return say1(txt_('auto_ok_canceled', { title: title }, cfg));
+  }
+  // דער תפריט
+  if (L === '1') {
+    if (String(a.occ_state) === 'approved') return { ok: true, handled: 'auto-noop' };
+    setFields('SmsAuto', a._row, { occ_state: 'approved', updated_at: stamp() }); a.occ_state = 'approved';
+    ev('auto_ok', { g: g, name: a.name, detail: 'אושר · ' + occ });
+    const have = creditsOf(lower(a.owner_email)); const cost = costOf(a, occ, cfg);
+    say1(have < cost ? txt_('auto_ok_approved_short', { title: title, missing: money_(cost - have) }, cfg) : txt_('auto_ok_approved', { title: title }, cfg));
+    // בלי דעם נאמען — ווען עס שפארט א חלק
+    const m = modOf_(a);
+    if (!m.nobrand) {
+      const b = bodyOf(a, occ); const withB = segments(branded(b, cfg)); const noB = segments(b);
+      if (noB < withB) { setWait('nobrand'); return say1(txt_('auto_nobrand_q', { from: withB, to: noB, brand: brandOf(cfg) }, cfg)); }
+    }
+    setWait(''); return { ok: true, handled: 'auto' };
+  }
+  if (L === '2') {
+    if (String(a.occ_state) === 'approved') { setWait('cancel'); return say1(txt_('auto_cancel_q', { title: title }, cfg)); }
+    return doCancel();
+  }
+  if (L === '3') { setWait('drop'); return say1(txt_('auto_drop_q', { numbered: numbered(lines()) }, cfg)); }
+  if (L === '4') { setWait('text'); return say1(txt_('auto_text_q', null, cfg)); }
+  if (L === '5') { setWait('line'); return say1(txt_('auto_line_q', null, cfg)); }
+  return null; // נישט פאר אונז
 }
+function numbered(ls) { return ls.map(function (l, i) { return (i + 1) + '. ' + l; }).join('\n'); }
 // ---- פונעם אתר ----
 function canAuto(a, email) { return isAdmin(email) || lower(a.owner_email) === email || lower(a.created_by) === email; }
 function autoSave(req, email) {
@@ -1458,15 +1615,27 @@ function autoGuard(id, email) { const a = autoById(id); if (!a) return { error: 
 function autoDel(id, email) { const g = autoGuard(id, email); if (g.error) return g; readHead('SmsAuto').sheet.deleteRow(g.a._row); return { ok: true }; }
 function autoApprove(id, email, now) {
   const g = autoGuard(id, email); if (g.error) return g; const a = g.a; const cfg = config();
-  if (now) { // נאכן מועד: שיקן יעצט
+  if (now) { // נאכן מועד (לא נשלחה): שיקן יעצט — ביז דער קומענדיגער מחזור
+    if (String(a.occ_state) !== 'missed') return { error: 'not-missed' };
     const r = autoSend(a, a.occ_at, cfg); if (!r.ok) return { error: r.error || 'no-credits', need: r.need, have: r.have };
+    setFields('SmsAuto', a._row, { occ_state: 'sent', last_job: r.job_id || '', updated_at: stamp() });
+    ev('auto_sent', { name: a.name, detail: 'נשלח מהאתר · ' + a.occ_at + ' · ' + email });
     return { ok: true, sent: true };
   }
   setFields('SmsAuto', a._row, { occ_state: 'approved', updated_at: stamp() });
   ev('auto_ok', { name: a.name, detail: 'אושר באתר · ' + a.occ_at + ' · ' + email });
   return { ok: true };
 }
-function autoCancel(id, email) { const g = autoGuard(id, email); if (g.error) return g; setFields('SmsAuto', g.a._row, { occ_state: 'canceled', updated_at: stamp() }); return { ok: true }; }
+function autoCancel(id, email) { const g = autoGuard(id, email); if (g.error) return g; setFields('SmsAuto', g.a._row, { occ_state: 'canceled', updated_at: stamp() }); pendDrop(gabbaiPhone(g.a.owner_email), g.a.auto_id); return { ok: true }; }
+/** שינוי חד־פעמי פונעם אתר: הורדת שורות, טקסט אנשטאט, שורות הגבאי. דער אישור פאלט אוועק */
+function autoMod(req, email) {
+  const g = autoGuard(req.id, email); if (g.error) return g; const a = g.a;
+  ensureCols('SmsAuto');
+  const m = LUACH.modOf({ drop: (req.drop || []).map(function (x) { return String(x).trim(); }).filter(String).slice(0, 40), text: String(req.text || '').slice(0, 1200), nobrand: !!req.nobrand });
+  setFields('SmsAuto', a._row, { occ_mod: JSON.stringify(m), line: lineStore_(lineParts_(req.line || '')), occ_state: String(a.occ_state) === 'approved' ? '' : a.occ_state, updated_at: stamp() });
+  ev('auto_change', { name: a.name, detail: 'שינוי חד־פעמי מהאתר · ' + email });
+  return { ok: true };
+}
 /** שורת הגבאי: צוויי שורות (JSON) אדער איינע (טעקסט) */
 function lineParts_(v) {
   if (Array.isArray(v)) return [String(v[0] || ''), String(v[1] || '')];
@@ -1489,6 +1658,15 @@ function autoRecips(id, list, email) {
   return { ok: true, n: rec.length };
 }
 
+/** דער אישור פון די Toll-Free נומערן ביי טעלניקס: [{ status, numbers, reason, updated }] */
+function tfStatus() {
+  const key = PropertiesService.getScriptProperties().getProperty('TELNYX_API_KEY');
+  if (!key) return { error: 'no-key' };
+  const r = UrlFetchApp.fetch('https://api.telnyx.com/v2/messaging_tollfree/verification/requests?page=1&page_size=20', { headers: { Authorization: 'Bearer ' + key }, muteHttpExceptions: true });
+  if (r.getResponseCode() !== 200) return { error: 'telnyx-' + r.getResponseCode() };
+  const j = JSON.parse(r.getContentText());
+  return { requests: (j.records || []).map(function (x) { return { status: x.verificationStatus || '', numbers: (x.phoneNumbers || []).map(function (p) { return p.phoneNumber; }), reason: x.reason || '', updated: x.updatedAt || x.createdAt || '' }; }) };
+}
 /** בדיקה פונעם עדיטאר: די {ערטער} פון היינט (ווי אויף דער תצוגה) + הרשאה פאר אימעיל */
 function testAuto() {
   const d = minyanimData();

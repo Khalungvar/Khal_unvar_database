@@ -7,7 +7,7 @@ import { t } from './i18n.js';
 import { escapeHtml as h, nowStamp, digits } from './util.js';
 import { evaluate, parseSaved, savedInScope, channel, openBuilder } from './lists.js';
 import { fromHebrew, toHebrew, todayIso } from './hebdate.js';
-import { autoVars, fillTemplate, nextOccurrence, schedText, lineParts } from './luach/autovars.js';
+import { autoVars, fillTemplate, nextOccurrence, schedText, lineParts, modOf, renderAuto } from './luach/autovars.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -366,7 +366,72 @@ const isKw = (sc) => sc?.type === 'keyword';
 /** די מילים: "זמנים, zmanim" → ['זמנים','zmanim'] (ווי kwWords אין sms.gs) */
 const KW_RESERVED = ['stop', 'stopall', 'unsubscribe', 'cancel', 'end', 'quit', 'סטאפ', 'סטופ', 'start', 'unstop', 'yes', 'join', 'subscribe', 'help', 'info', 'confirm'];
 const kwWords = (v) => [...new Set((Array.isArray(v) ? v : String(v || '').split(/[,،\n]+/)).map((w) => String(w).trim().toLowerCase().replace(/[^\w\u0590-\u05FF]/g, '')).filter((w) => w && !KW_RESERVED.includes(w)))];
-const ST_BADGE = { '': ['⏳', 'csAuSt_wait'], approved: ['✓', 'csAuSt_ok'], canceled: ['✕', 'csAuSt_cancel'], missed: ['⚠', 'csAuSt_missed'], sent: ['📤', 'csAuSt_sent'] };
+const ST_BADGE = { '': ['⏳', 'csAuSt_wait'], approved: ['✓', 'csAuSt_ok'], canceled: ['✕', 'csAuSt_cancel'], missed: ['⚠', 'csAuSt_missed'], sent: ['📤', 'csAuSt_sent'], skip: ['🚫', 'csAuSt_skip'] };
+// "מתי": די סארטן אויפן אתר → sched
+const UI_TYPES = [['weekly', 'csAuTWeekly'], ['eshab', 'csAuTEShab'], ['hmonthly', 'csAuTHMonthly'], ['monthly', 'csAuTMonthly'], ['eyt', 'csAuTEYt'], ['eminor', 'csAuTEMinor'], ['once', 'csAuTOnce'], ['keyword', 'csAuTKw']];
+const uiType = (sc) => (sc.type === 'erev' ? (sc.what === 'yt' ? 'eyt' : 'eshab') : sc.type === 'erevMinor' ? 'eminor' : sc.type || 'eshab');
+const BOX_HOLY = 'משבצת שבת ויו"ט'; const BOX_MINOR = 'משבצת יומא דפגרא';
+// די אלגעמיינע ערטער (פאר ערב יו"ט / יומא דפגרא — נאר די + די משבצת)
+const GENERAL = ['פרשה', 'פרשה הבאה', 'יום', 'תאריך עברי', 'תאריך לועזי', 'מצוה יומית', 'עלות השחר', 'נץ החמה', 'סוף זמן ק"ש מג"א', 'סוף זמן ק"ש גר"א', 'חצות', 'שקיעה', 'צאת הכוכבים'];
+const hebDay = (d) => ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט', 'י', 'יא', 'יב', 'יג', 'יד', 'טו', 'טז', 'יז', 'יח', 'יט', 'כ', 'כא', 'כב', 'כג', 'כד', 'כה', 'כו', 'כז', 'כח', 'כט', 'ל'][d] || String(d);
+/** א צייט וואס מ'טאר קיינמאל נישט שיקן → די סיבה (טעקסט), אדער '' */
+function alwaysForbidden(sc) {
+  const c = data?.config || {};
+  const qTo = Number(c.quiet_to) || 8; const qFrom = Number(c.quiet_from) || 21; const cut = Number(c.friday_cutoff) || 13;
+  const hm = (v) => { const m = /^(\d{1,2}):(\d{2})/.exec(String(v || '')); return m ? Number(m[1]) + Number(m[2]) / 60 : null; };
+  if (sc.type === 'keyword') return '';
+  if (sc.type === 'once') {
+    const at = String(sc.at || ''); if (!at) return '';
+    const d = new Date(`${at.slice(0, 10)}T12:00:00`); const hr = hm(at.slice(11));
+    if (d.getDay() === 6) return t('csAuBadShab');
+    if (hr != null && (hr < qTo || hr >= qFrom)) return t('csAuBadNight', { a: qTo, b: qFrom });
+    if (d.getDay() === 5 && hr != null && hr >= cut) return t('csAuBadErev', { c: cut });
+    return '';
+  }
+  const hr = hm(sc.time); if (hr == null) return '';
+  if (hr < qTo || hr >= qFrom) return t('csAuBadNight', { a: qTo, b: qFrom });
+  if ((sc.type === 'erev' || (sc.type === 'weekly' && Number(sc.dow) === 5)) && hr >= cut) return t('csAuBadErev', { c: cut });
+  return '';
+}
+/** דער טעקסט וואס גייט ארויס (מיט/אן דעם נאמען) */
+const fullText = (a, D, occ) => { const m = modOf(a.occ_mod); const b = renderAuto(a.text, autoVars(D, occ.slice(0, 10)), a.line || '', a.occ_mod); return m.nobrand ? b : branded(b); };
+/** שינוי חד־פעמי: הורדת שורות, טקסט אנשטאט, שורות הגבאי */
+function modDialog(a, D) {
+  const occ = String(a.occ_at || ''); if (!occ) return;
+  const vars = autoVars(D, occ.slice(0, 10));
+  const m = modOf(a.occ_mod); const [l1, l2] = lineParts(a.line);
+  const dlg = dialog(`<h3>✎ ${h(t('csAuMod'))} · ${h(a.name)}</h3>
+    <p class="muted small">${h(t('csAuModHint'))}</p>
+    <label class="mm-l">{הודעת הגבאי 1}<textarea name="l1" rows="2" dir="auto">${h(l1)}</textarea></label>
+    <label class="mm-l">{הודעת הגבאי 2}<textarea name="l2" rows="2" dir="auto">${h(l2)}</textarea></label>
+    <label class="mm-l">${h(t('csAuModText'))}<textarea name="txt" rows="5" dir="auto" placeholder="${h(t('csAuModTextPh'))}">${h(m.text)}</textarea></label>
+    <div class="mm-l"><span>${h(t('csAuModDrop'))}</span><div id="md-lines" class="cs-mdl"></div></div>
+    <p class="muted small">${h(t('csAuPrevT'))}</p><div class="cs-prev" id="md-prev" dir="auto"></div><p class="muted small" id="md-seg"></p>
+    <div class="dialog-actions"><button type="button" class="btn primary" id="md-save">${h(t('saveBtn'))}</button><button type="button" class="btn" data-x>${h(t('cancel'))}</button></div>`);
+  const drop = new Set(m.drop);
+  const val = (n) => $(`[name=${n}]`, dlg).value;
+  const draw = () => {
+    const line = [val('l1'), val('l2')];
+    const base = renderAuto(a.text, vars, line, { text: val('txt') });
+    const ls = base.split('\n').filter((x) => x.trim());
+    $('#md-lines', dlg).innerHTML = ls.map((l) => `<label class="chip-check"><input type="checkbox" data-l="${h(l.trim())}"${drop.has(l.trim()) ? ' checked' : ''}> <span dir="auto">${h(l)}</span></label>`).join('');
+    $$('[data-l]', dlg).forEach((x) => { x.onchange = () => { if (x.checked) drop.add(x.dataset.l); else drop.delete(x.dataset.l); paint(); }; });
+    paint();
+  };
+  const paint = () => {
+    const b = renderAuto(a.text, vars, [val('l1'), val('l2')], { text: val('txt'), drop: [...drop] });
+    const full = m.nobrand ? b : branded(b);
+    $('#md-prev', dlg).textContent = full; paintSeg($('#md-seg', dlg), full);
+  };
+  $$('textarea', dlg).forEach((x) => { x.oninput = draw; });
+  draw();
+  $('#md-save', dlg).onclick = async () => {
+    try {
+      await call('auto_mod', { id: a.auto_id, line: [val('l1'), val('l2')], text: val('txt'), drop: [...drop], nobrand: m.nobrand });
+      dlg.close(); ui.toast(t('csAuModSaved')); await loadSms(true); renderCalls();
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  };
+}
 
 /** שורת הגבאי 1 + 2 — נאר פאר דעם קומענדיגן מאל */
 function lineDialog(a) {
@@ -424,19 +489,22 @@ async function autoView(body) {
     if (isKw(schedOf(a))) return kwCard(a);
     const sc = schedOf(a); const occ = String(a.occ_at || '') || nextOccurrence(sc, D, now);
     const st = String(a.occ_state || ''); const [ic, lk] = ST_BADGE[st] || ['', ''];
-    const prev = occ ? fillTemplate(a.text, autoVars(D, occ.slice(0, 10)), a.line || '') : '';
+    const prev = occ ? fullText(a, D, occ) : '';
     const on = /^(true|1)$/i.test(String(a.active));
     const mine = canAuto(a);
-    const late = st === 'missed' && occ && (new Date(now.replace(' ', 'T')) - new Date(occ.replace(' ', 'T'))) / 3600000 <= 24;
+    const late = st === 'missed' && !!occ;
+    const md = modOf(a.occ_mod); const [gl1, gl2] = lineParts(a.line);
+    const modded = md.drop.length || md.text || md.nobrand || gl1 || gl2;
     return `<section class="cs-sec cs-auto${on ? '' : ' off'}" data-id="${h(a.auto_id)}">
       <h3>${h(a.name)} ${on ? '' : `<span class="muted small">⏸ ${h(t('csAuPaused'))}</span>`}</h3>
       <p class="small">🗓 ${h(schedText(sc))} · 📇 ${h(a.list_name)} (${recipsOf(a).length}) · 👤 ${h(userName(a.owner_email))}</p>
-      ${on && occ ? `<p><b>${h(t('csAuNext'))}:</b> <span dir="ltr">${h(occ)}</span> · ${ic} ${h(t(lk))}</p>
-        <div class="cs-prev" dir="auto">${h(branded(prev))}</div>` : ''}
+      ${on && occ ? `<p><b>${h(t('csAuNext'))}:</b> <span dir="ltr">${h(occ)}</span> · ${ic} ${h(t(lk))}${st === 'skip' && a.rem2 ? ` <span class="muted small">(${h(a.rem2)})</span>` : ''}</p>
+        ${modded && ['', 'approved'].includes(st) ? `<p class="small warn">✎ ${h(t('csAuModOn'))}${md.nobrand ? ` · ${h(t('csAuNoBrand'))}` : ''}</p>` : ''}
+        <div class="cs-prev" dir="auto">${h(prev)}</div>` : ''}
       ${mine ? `<div class="cs-acts">
         ${on && st === '' ? `<button type="button" class="btn primary" data-a="approve">✓ ${h(t('csAuApprove'))}</button><button type="button" class="btn" data-a="cancel">✕ ${h(t('csAuCancelOnce'))}</button>` : ''}
         ${late ? `<button type="button" class="btn primary" data-a="now">📤 ${h(t('csAuSendNow'))}</button>` : ''}
-        ${on && ['', 'approved'].includes(st) ? `<button type="button" class="btn" data-a="line">✎ ${h(t('csAuLine'))}</button>` : ''}
+        ${on && ['', 'approved'].includes(st) ? `<button type="button" class="btn" data-a="mod">✎ ${h(t('csAuMod'))}</button>` : ''}
         <button type="button" class="btn" data-a="edit">✏ ${h(t('csAuEdit'))}</button>
         <button type="button" class="btn" data-a="toggle">${on ? `⏸ ${h(t('csAuPause'))}` : `▶ ${h(t('csAuResume'))}`}</button>
         <button type="button" class="linkish danger" data-a="del">🗑 ${h(t('csAuDel'))}</button></div>` : ''}
@@ -455,7 +523,7 @@ async function autoView(body) {
         if (act === 'approve') await call('auto_approve', { id: a.auto_id });
         else if (act === 'now') { if (!confirm(t('csAuSendNowQ'))) return; await call('auto_approve', { id: a.auto_id, now: true }); }
         else if (act === 'cancel') await call('auto_cancel', { id: a.auto_id });
-        else if (act === 'line') { lineDialog(a); return; }
+        else if (act === 'mod') { modDialog(a, D); return; }
         else if (act === 'toggle') await call('auto_save', { auto: { ...a, sched: schedOf(a), active: !/^(true|1)$/i.test(String(a.active)) } });
         else if (act === 'del') { if (!confirm(t('csAuDelQ', { n: a.name }))) return; await call('auto_delete', { id: a.auto_id }); }
         ui.toast(t('saved'));
@@ -466,11 +534,13 @@ async function autoView(body) {
 }
 
 function autoEditor(a, D) {
-  const sc = a ? schedOf(a) : { type: 'erev', what: 'all', before: 0, time: '10:00' };
+  const sc = a ? schedOf(a) : { type: 'erev', what: 'shabbos', time: '10:00' };
   const lists = phoneLists().length ? phoneLists() : savedInScope();
   const users = allUsers();
   const sample = autoVars(D, todayIso());
   const names = [...Object.keys(sample), 'הודעת הגבאי 1', 'הודעת הגבאי 2'];
+  const chipsFor = (ut) => (ut === 'eyt' ? [BOX_HOLY, ...GENERAL] : ut === 'eminor' ? [BOX_MINOR, ...GENERAL] : names.filter((n) => n !== BOX_MINOR && !/^הודעת הגבאי/.test(n)))
+    .concat(ut === 'keyword' ? [] : ['הודעת הגבאי 1', 'הודעת הגבאי 2']);
   const DAYSH = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי'];
   const dlg = dialog(`<h3>🔁 ${h(t(a ? 'csAuEdit' : 'csAuNew'))}</h3>
     <form class="cs-auf" onsubmit="return false">
@@ -478,17 +548,16 @@ function autoEditor(a, D) {
       <label class="mm-l">${h(t('csAuOwner'))}<select name="owner">${users.map((u) => `<option value="${h(u.email)}"${u.email === String(a?.owner_email || state.email).toLowerCase() ? ' selected' : ''}>${h(u.name)}</option>`).join('')}</select></label>
       <label class="mm-l" id="au-list">${h(t('smsList'))}<select name="list">${lists.map((l) => `<option value="${h(l.list_id)}"${String(l.list_id) === String(a?.list_id) ? ' selected' : ''}>${h(l.name)}</option>`).join('')}</select></label>
       <fieldset class="cs-when"><legend>${h(t('csAuWhen'))}</legend>
-        <select name="type">${[['erev', 'csAuTErev'], ['weekly', 'csAuTWeekly'], ['monthly', 'csAuTMonthly'], ['once', 'csAuTOnce'], ['keyword', 'csAuTKw']].map(([k, l]) => `<option value="${k}"${sc.type === k ? ' selected' : ''}>${h(t(l))}</option>`).join('')}</select>
-        <span data-t="erev"><select name="before">${[0, 1, 2].map((n) => `<option value="${n}"${Number(sc.before || 0) === n ? ' selected' : ''}>${h(t(n ? 'csAuBefore' : 'csAuOnEve', { n }))}</option>`).join('')}</select>
-          <select name="what">${[['all', 'csAuWAll'], ['shabbos', 'csAuWShab'], ['yt', 'csAuWYt']].map(([k, l]) => `<option value="${k}"${(sc.what || 'all') === k ? ' selected' : ''}>${h(t(l))}</option>`).join('')}</select></span>
+        <select name="type">${UI_TYPES.map(([k, l]) => `<option value="${k}"${uiType(sc) === k ? ' selected' : ''}>${h(t(l))}</option>`).join('')}</select>
+        <span data-t="hmonthly">${h(t('csAuDay'))} <select name="hday">${Array.from({ length: 30 }, (_, i) => i + 1).map((d) => `<option value="${d}"${Number(sc.day) === d && sc.type === 'hmonthly' ? ' selected' : ''}>${hebDay(d)}</option>`).join('')}</select></span>
         <span data-t="weekly"><select name="dow">${DAYSH.map((d, i) => `<option value="${i}"${Number(sc.dow) === i ? ' selected' : ''}>${h(d)}</option>`).join('')}</select></span>
         <span data-t="monthly">${h(t('csAuDay'))} <input name="day" type="number" min="1" max="28" value="${h(sc.day || 1)}" style="width:60px"></span>
         <span data-t="keyword"><input name="words" dir="auto" value="${h(isKw(sc) ? kwWords(sc.words).join(', ') : '')}" placeholder="${h(t('csAuKwPh'))}" style="min-width:220px"></span>
         <span data-t="once"><input name="at" type="datetime-local" value="${h(String(sc.at || '').replace(' ', 'T'))}"></span>
-        <span data-t="erev weekly monthly">${h(t('csAuAt'))} <input name="time" type="time" value="${h(sc.time || '10:00')}"></span>
+        <span data-t="weekly eshab hmonthly monthly eyt eminor">${h(t('csAuAt'))} <input name="time" type="time" value="${h(sc.time || '10:00')}"></span>
         <p class="muted small" id="au-next"></p></fieldset>
       <label class="mm-l">${h(t('smsText'))}<textarea name="text" rows="5" dir="auto">${h(a?.text || '')}</textarea></label>
-      <div class="cs-chips">${names.map((n) => `<button type="button" class="chip" data-v="${h(n)}">{${h(n)}}</button>`).join('')}</div>
+      <div class="cs-chips">${[...new Set([...names, BOX_HOLY, BOX_MINOR])].map((n) => `<button type="button" class="chip${n.startsWith('משבצת') ? ' box' : ''}" data-v="${h(n)}"${n === BOX_HOLY ? ` title="${h(t('csAuBoxHolyT'))}"` : ''}>{${h(n)}}</button>`).join('')}</div>
       <p class="muted small">${h(t('csAuPrevT'))}</p><div class="cs-prev" id="au-prev" dir="auto"></div><p class="muted small" id="au-seg"></p>
       <label class="chip-check"><input type="checkbox" name="active"${!a || /^(true|1)$/i.test(String(a.active)) ? ' checked' : ''}> ${h(t('csAuActive'))}</label>
     </form>
@@ -497,7 +566,10 @@ function autoEditor(a, D) {
   const f = $('form', dlg).elements;
   const schedNow = () => {
     const type = f.type.value;
-    if (type === 'erev') return { type, what: f.what.value, before: Number(f.before.value), time: f.time.value };
+    if (type === 'eshab') return { type: 'erev', what: 'shabbos', time: f.time.value };
+    if (type === 'eyt') return { type: 'erev', what: 'yt', time: f.time.value };
+    if (type === 'eminor') return { type: 'erevMinor', time: f.time.value };
+    if (type === 'hmonthly') return { type, day: Number(f.hday.value) || 1, time: f.time.value };
     if (type === 'weekly') return { type, dow: Number(f.dow.value), time: f.time.value };
     if (type === 'monthly') return { type, day: Number(f.day.value) || 1, time: f.time.value };
     if (type === 'keyword') return { type, words: kwWords(f.words.value) };
@@ -507,9 +579,15 @@ function autoEditor(a, D) {
     $$('[data-t]', dlg).forEach((x) => { x.hidden = !x.dataset.t.split(' ').includes(f.type.value); });
     const kw = f.type.value === 'keyword';
     $('#au-list', dlg).hidden = kw;
-    $$('[data-v^="הודעת הגבאי"]', dlg).forEach((x) => { x.hidden = kw; });
-    const nx = kw ? '' : nextOccurrence(schedNow(), D, nyNow());
-    $('#au-next', dlg).textContent = kw ? t('csAuKwHint') : nx ? `${t('csAuNext')}: ${nx}` : t('csAuNoNext');
+    const show = new Set(chipsFor(f.type.value));
+    $$('[data-v]', dlg).forEach((x) => { x.hidden = !show.has(x.dataset.v); });
+    const sn = schedNow();
+    const bad = alwaysForbidden(sn);
+    const nx = kw || bad ? '' : nextOccurrence(sn, D, nyNow());
+    const nxEl = $('#au-next', dlg);
+    nxEl.textContent = bad ? `⚠ ${bad}` : kw ? t('csAuKwHint') : nx ? `${t('csAuNext')}: ${nx}` : t('csAuNoNext');
+    nxEl.className = bad ? 'small seg-warn' : 'muted small';
+    $('#au-save', dlg).disabled = !!bad;
     const vars = autoVars(D, (nx || nyNow()).slice(0, 10));
     const full = branded(fillTemplate(f.text.value, vars, a?.line || ''));
     $('#au-prev', dlg).textContent = full; paintSeg($('#au-seg', dlg), full);
@@ -524,6 +602,7 @@ function autoEditor(a, D) {
   draw();
   $('#au-save', dlg).onclick = async () => {
     if (!f.name.value.trim() || !f.text.value.trim()) { ui.toast(t('csAuMissing'), 'error'); return; }
+    if (alwaysForbidden(schedNow())) return;
     const kw = f.type.value === 'keyword';
     if (kw && !schedNow().words.length) { ui.toast(t('csAuKwEmpty'), 'error'); return; }
     const l = kw ? null : state.savedLists.find((x) => String(x.list_id) === f.list.value);
@@ -539,8 +618,11 @@ function autoEditor(a, D) {
 const TXT_LABEL = {
   txt_kw_invite: 'csTx_kw_invite', txt_auto_long: 'csTx_auto_long',
   txt_opt_in: 'csTx_opt_in', txt_join_ask: 'csTx_join_ask', txt_join_again: 'csTx_join_again', txt_new_line: 'csTx_new_line',
-  txt_auto_rem1: 'csTx_auto_rem1', txt_auto_rem2: 'csTx_auto_rem2', txt_auto_nocredit: 'csTx_auto_nocredit', txt_auto_missed: 'csTx_auto_missed', txt_auto_late_ask: 'csTx_auto_late_ask',
-  txt_auto_ok_approved: 'csTx_auto_ok_approved', txt_auto_ok_now: 'csTx_auto_ok_now', txt_auto_ok_canceled: 'csTx_auto_ok_canceled', txt_auto_ok_line: 'csTx_auto_ok_line',
+  txt_auto_rem1: 'csTx_auto_rem1', txt_auto_rem2: 'csTx_auto_rem2', txt_auto_nocredit: 'csTx_auto_nocredit', txt_auto_missed: 'csTx_auto_missed',
+  txt_auto_ok_approved: 'csTx_auto_ok_approved', txt_auto_ok_canceled: 'csTx_auto_ok_canceled',
+  txt_auto_menu: 'csTx_auto_menu', txt_auto_now: 'csTx_auto_now', txt_auto_ok_approved_short: 'csTx_auto_ok_approved_short', txt_auto_cancel_q: 'csTx_auto_cancel_q', txt_auto_kept: 'csTx_auto_kept',
+  txt_auto_drop_q: 'csTx_auto_drop_q', txt_auto_text_q: 'csTx_auto_text_q', txt_auto_line_q: 'csTx_auto_line_q', txt_auto_nobrand_q: 'csTx_auto_nobrand_q', txt_auto_nobrand_ok: 'csTx_auto_nobrand_ok',
+  txt_auto_nobrand_keep: 'csTx_auto_nobrand_keep', txt_auto_failed_credit: 'csTx_auto_failed_credit', txt_auto_skip: 'csTx_auto_skip',
 };
 async function textsDialog() {
   let list;
@@ -750,6 +832,7 @@ async function adminTab(body) {
       <button type="button" class="btn primary" id="cfg-save">${h(t('saveBtn'))}</button>
       <button type="button" class="btn" id="cfg-yt">📅 ${h(t('smsCfgYt'))}</button>
       <button type="button" class="btn" id="cfg-tx">📝 ${h(t('csTxTitle'))}</button></section>
+    <section><h3>✅ ${h(t('csTfTitle'))}</h3><div id="tf-status" class="muted">…</div></section>
     <section><h3>📊 ${h(t('smsReport'))}</h3><div id="sms-report" class="muted">…</div></section>
     <section><h3>➕ ${h(t('smsAddCredit'))}</h3>
       <select id="cr-user">${users.map((u) => `<option value="${h(u.email)}">${h(u.name)}</option>`).join('')}</select>
@@ -764,6 +847,15 @@ async function adminTab(body) {
     try { await call('config_set', { values: { blocked_dates: yt.join(','), erev_dates: erev.join(',') } }); await loadSms(true); ui.toast(t('smsCfgYtDone', { n: yt.length })); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
   };
   $('#cfg-tx', body).onclick = () => textsDialog();
+  // דער אישור פון די Toll-Free נומערן (טעלניקס)
+  call('tf_status').then((r) => {
+    const TF = { Verified: ['✓', 'ok', 'csTfOk'], Rejected: ['✕', 'warn', 'csTfRej'], 'Waiting For Customer': ['⚠', 'warn', 'csTfFix'] };
+    const el = $('#tf-status', body); if (!el) return;
+    el.innerHTML = (r.requests || []).length ? (r.requests || []).map((q) => { const [ic, cl, lk] = TF[q.status] || ['⏳', 'muted', 'csTfWait'];
+      return `<p class="${cl}">${ic} <b>${h(t(lk))}</b> · <span dir="ltr">${h(q.numbers.join(', '))}</span>${q.reason ? `<br><span class="small">${h(q.reason)}</span>` : ''}</p>`; }).join('')
+      + ((r.requests || []).some((q) => q.status === 'Verified') && /^khal ungvar$/i.test(String(data.config.sms_brand || 'Khal Ungvar')) ? `<p class="small">💡 ${h(t('csTfBrand'))}</p>` : '')
+      : `<p class="muted">—</p>`;
+  }).catch((err) => { const el = $('#tf-status', body); if (el) el.textContent = ui.friendlyError(err); });
   $('#cr-add', body).onclick = async () => {
     const amount = Number($('#cr-amt', body).value);
     if (!amount) return;
