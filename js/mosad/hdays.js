@@ -3,7 +3,7 @@
 // ארץ ישראל / חוץ לארץ — לויט דער הגדרה פונעם מוסד (איין טאג יו"ט אין א"י).
 import { buildYear, hdOf, nOf } from '../luach/engine.js';
 import { LOCATIONS } from '../luach/zmanim.js';
-import { toHebrew } from '../hebdate.js?v=519';
+import { toHebrew, fromHebrew, monthHe, yearLabel } from '../hebdate.js?v=520';
 
 const cache = new Map();
 function dayRow(iso, il) {
@@ -52,8 +52,12 @@ export function isWorkDay(iso, rules, il = true) {
   return true;
 }
 const HDAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
-export function rulesText(sched) {
-  const r = rulesOf(sched);
-  const extra = [['yt', 'יו"ט'], ['chm', 'חוה"מ'], ['dpg', 'דפגרא'], ['fast', 'תעניות'], ['bein', 'בין הזמנים']].map(([k, l]) => `${r[k] ? '' : 'בלי '}${l}`);
-  return `${r.dows.map((d) => HDAYS[d]).join(' ')} · ${extra.join(' · ')}`;
+export function rulesText(sched) { return `ימים: ${rulesOf(sched).dows.map((d) => HDAYS[d]).join(' ')}`; }
+/** דער חודש העברי פון א טאג: { label, from, to } */
+export function hebMonthOf(iso) {
+  const hd = toHebrew(iso); if (!hd) return null;
+  const from = fromHebrew(1, hd.m, hd.y);
+  const add = (x, n) => { const d = new Date(`${x}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  let to = from; while (toHebrew(add(to, 1))?.m === hd.m) to = add(to, 1);
+  return { label: `${monthHe(hd.m)} ${yearLabel(hd.y)}`, from, to };
 }

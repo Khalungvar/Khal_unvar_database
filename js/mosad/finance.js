@@ -1,14 +1,14 @@
 // אתר פון א מוסד — 💰 משכורות והוצאות (הרשאה "finance"):
 // 💵 משכורות (₪: גלובלי / שעות קבועות / רישום יומי / גלובלי + שעות, תוספות און ניכויים, תשלומים, וויפיל מ'איז נאך שולדיג),
 // 🧾 הוצאות (₪/$, קאטעגאריעס, צילום קבלה), 📥 הכנסות ותמיכה, ⚖️ חובות פתוחים, 📊 מאזן חודשי — יעדער מטבע באזונדער.
-import { downloadXlsx } from '../excel.js?v=519';
-import { todayIso, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=519';
-import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=519';
-import { historyDialog } from './me.js?v=519';
-import { PAY_TYPES, schedText } from './team.js?v=519';
-import { usdRate } from '../fx.js?v=519';
-import { heDate } from './brand.js?v=519';
-import { isWorkDay } from './hdays.js?v=519';
+import { downloadXlsx } from '../excel.js?v=520';
+import { todayIso, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=520';
+import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=520';
+import { historyDialog } from './me.js?v=520';
+import { PAY_TYPES, schedText } from './team.js?v=520';
+import { usdRate } from '../fx.js?v=520';
+import { heDate } from './brand.js?v=520';
+import { hebMonthOf } from './hdays.js?v=520';
 
 let X = null;
 export function initFinance(ctx) { X = ctx; }
@@ -22,7 +22,13 @@ const monthName = (mo) => { const x = toHebrew(`${mo}-15`); return x ? `${monthH
 const nameOf = (id, txt = '') => (id && X.pById(id) ? X.nameOf(X.pById(id)) : txt || (id ? `#${id}` : ''));
 
 async function load() {
-  const [d] = await Promise.all([X.call(X.KEY, 'fin'), schoolLoaded() ? null : loadSchool().catch(() => null)]);
+  const [d, w] = await Promise.all([X.call(X.KEY, 'fin'), X.call(X.KEY, 'att', { from: '2020-01-01', to: '2100-01-01' }).catch(() => ({ rows: [] })), schoolLoaded() ? null : loadSchool().catch(() => null)]);
+  // 🧹 ימי עבודה (פון "השתתפות"): { contact_id → [ISO טעג] }
+  d.workDays = {};
+  (w.rows || []).filter((r) => r.seder === '_work').forEach((r) => {
+    let m; try { m = JSON.parse(r.marks || '{}'); } catch { m = {}; }
+    Object.entries(m).forEach(([k, v]) => { if (v !== 'v') return; const dt = new Date(`${r.week}T12:00:00Z`); dt.setUTCDate(dt.getUTCDate() + Number(k[0])); (d.workDays[r.contact_id] ||= []).push(dt.toISOString().slice(0, 10)); });
+  });
   // נדבות אין דולר/אירו/ליש"ט → שקל, לויטן שער פונעם טאג פון דער נדבה
   const days = [...new Set(d.gifts.filter((x) => x.currency !== 'ILS' && x.usd).map((x) => x.date))];
   const rates = {};
@@ -63,9 +69,9 @@ export function monthPay(id, mo) {
       sched.filter((s) => s.d === wd).forEach((s) => { mins += minsOf(s.from, s.to); });
     }
   } else if (t.pay_type === 'days') {
-    // לפי ימי עבודה: יעדער טאג אין דעם חודש — לויטן לוח העברי און די כללים פונעם עובד
-    const il = (X.st.settings?.calendar || 'il') !== 'chul';
-    for (let dd = 1; dd <= last; dd += 1) { const iso = `${mo}-${pad(dd)}`; if (inRange(iso) && isWorkDay(iso, t.schedule, il)) days += 1; }
+    // לפי ימי עבודה: די מסומנע טעג אין דעם חודש העברי (פון "🧹 ימי עבודה")
+    const hm = hebMonthOf(`${mo}-15`);
+    days = (F.d.workDays?.[String(id)] || []).filter((x) => hm && x >= hm.from && x <= hm.to).length;
   } else if (t.pay_type === 'log' || t.pay_type === 'mixed') {
     F.d.hours.filter((r) => String(r.contact_id) === String(id) && r.date.slice(0, 7) === mo).forEach((r) => { mins += minsOf(r.time_in, r.time_out); });
   }
@@ -81,6 +87,13 @@ function paidIn(id, mo) { return F.d.payments.filter((p) => String(p.contact_id)
 /** וויפיל מ'איז נאך שולדיג (אלע חדשים ביז היינט, מינוס אלע תשלומים) */
 export function owed(id) {
   const t = teamOf(id);
+  if (t.pay_type === 'days') {
+    // אלע מסומנע טעג × סכום ליום, + תוספות − ניכויים (נישט לויט חדשים, כדי קיין חודש זאל נישט פעלן)
+    const rate = Number(infoOf(id).hourly_rate) || 0;
+    const its = F.d.items.filter((x) => String(x.contact_id) === String(id));
+    const e = (F.d.workDays?.[String(id)] || []).length * rate + its.reduce((s, x) => s + (x.kind === 'minus' ? -1 : 1) * Number(x.amount || 0), 0);
+    return Math.round((e - paidIn(id)) * 100) / 100;
+  }
   const earned = monthsRange(t, id).reduce((s, mo) => s + monthPay(id, mo).total, 0);
   return Math.round((earned - paidIn(id)) * 100) / 100;
 }

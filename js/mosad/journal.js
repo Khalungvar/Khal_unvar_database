@@ -1,11 +1,12 @@
 // אתר פון א מוסד — יומנים: 🤝 חברותות, ✅ השתתפות (מיט ⏱ כניסה/יציאה פון אברכים), 🏥 ביטוח בריאות, 📞 יומן מיט טעלעפאנען.
 // אלעס ווערט געדרוקט ווי די דפים פון דער ישיבה: צוויי זיילן מיט נומערירטע נעמען, "פרשת ...", טעג א–ה.
 // דער לוח (פרשיות) — לויט די הגדרות פונעם מוסד (ארץ ישראל / חוץ לארץ).
-import { downloadXlsx } from '../excel.js?v=519';
-import { todayIso, isoToHebrewText, toHebrew, fromHebrew, monthHe, yearLabel } from '../hebdate.js?v=519';
-import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=519';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=519';
-import { letterhead, heShort } from './brand.js?v=519';
+import { downloadXlsx } from '../excel.js?v=520';
+import { todayIso, isoToHebrewText, toHebrew, fromHebrew, monthHe, yearLabel } from '../hebdate.js?v=520';
+import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=520';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=520';
+import { letterhead, heShort } from './brand.js?v=520';
+import { dayInfo, rulesOf } from './hdays.js?v=520';
 
 let X = null;
 export function initJournal(ctx) { X = ctx; }
@@ -54,7 +55,8 @@ const PRINT_CSS = `
   tbody tr:nth-child(even) td { background: #faf7ef; }
   td.n, th.n { width: 24px; text-align: center; color: #8a7d62; font-size: 11px; }
   td.nm { font-weight: 500; white-space: nowrap; }
-  td.c, th.c { width: 17px; min-width: 17px; text-align: center; } /* מינימום 1.5 תווים למשבצת סימון */
+  td.c, th.c { min-width: 22px; text-align: center; }
+  td.mk, th.mk { width: 17px; min-width: 17px; } /* משבצת סימון ביומן השתתפות: מינימום 1.5 תווים */
   td.t, th.t { width: 44px; text-align: center; }
   .muted { color: #6b6150; font-size: 11px; }
   .foot { margin-top: 4mm; font-size: 10px; color: #8a7d62; text-align: left; }
@@ -250,7 +252,7 @@ export async function renderAtt(box) {
   if (!J.week) J.week = sundayOf(todayIso());
   if (!J.month) J.month = todayIso().slice(0, 7);
   const tabs = [...ss.map((s) => [s.key, s.name]), ['_hours', '⏱ אברכים — כניסה ויציאה'], ['_sum', '📊 סיכום חודשי'], ['_person', '👤 לפי בחור'],
-    ...(ss.some((s) => s.exam?.on) ? [['_exam', '📝 מבחנים']] : []), ['_stip', '💰 מלגות']];
+    ...(ss.some((s) => s.exam?.on) ? [['_exam', '📝 מבחנים']] : []), ['_stip', '💰 מלגות'], ['_work', '🧹 ימי עבודה']];
   if (!tabs.some(([k]) => k === J.seder)) J.seder = tabs[0][0];
   try { await needSchool(); } catch (err) { fail(box, err); return; }
   const head = `<h2 class="ms-h">✅ השתתפות</h2>
@@ -263,6 +265,7 @@ export async function renderAtt(box) {
   if (J.seder === '_person') return renderPerson(body);
   if (J.seder === '_exam') return renderExam(body);
   if (J.seder === '_stip') return renderStip(body);
+  if (J.seder === '_work') return renderWork(body);
   return renderWeek(body, ss.find((s) => s.key === J.seder));
 }
 function weekBar(sun) {
@@ -335,8 +338,8 @@ async function renderWeek(body, seder) {
   });
   const sheet = (filled) => {
     const head = [days.map((d) => ({ t: `${DAYS[d]} ${fmtDay(isoAdd(sun, d))}`, cs: slotsOn(seder, d), rs: two && slotsOn(seder, d) < 2 ? 2 : 1 }))];
-    if (two) head.push(days.filter((d) => slotsOn(seder, d) > 1).flatMap(() => [{ t: '1' }, { t: '2' }]));
-    printList(`השתתפות ${seder.name}`, h(weekTitle(sun)), { head, cols: keys.map((k) => ({ t: `${DAYS[Number(k[0])]}${slotsOn(seder, Number(k[0])) > 1 ? (k.endsWith('b') ? ' 2' : ' 1') : ''}`, c: 'c' })),
+    if (two) head.push(days.filter((d) => slotsOn(seder, d) > 1).flatMap(() => [{ t: '1', c: 'c mk' }, { t: '2', c: 'c mk' }]));
+    printList(`השתתפות ${seder.name}`, h(weekTitle(sun)), { head, cols: keys.map((k) => ({ t: `${DAYS[Number(k[0])]}${slotsOn(seder, Number(k[0])) > 1 ? (k.endsWith('b') ? ' 2' : ' 1') : ''}`, c: 'c mk' })),
       rows: ids.map((id) => ({ id, cells: keys.map((k) => (filled ? MARK_TXT[marks[id][k]] || '' : '')) })), twoUp: keys.length <= 6 });
   };
   X.$('#ja-blank', body).onclick = () => sheet(false);
@@ -409,7 +412,7 @@ async function renderPerson(body) {
     try { rows = (await X.call(X.KEY, 'att', { from: sundayOf(J.pFrom), to: J.pTo })).rows; } catch (err) { fail(out, err); return; }
     // תאריך → סדר → [1, 2]
     const got = {};
-    rows.filter((r) => String(r.contact_id) === String(J.pId) && !String(r.seder).endsWith(':exam')).forEach((r) => {
+    rows.filter((r) => String(r.contact_id) === String(J.pId) && !String(r.seder).endsWith(':exam') && r.seder !== '_work').forEach((r) => {
       Object.entries(parseMarks(r.marks)).forEach(([k, v]) => {
         const day = isoAdd(r.week, Number(k[0]));
         if (day < J.pFrom || day > J.pTo) return;
@@ -597,7 +600,13 @@ export function printPhones() {
 // 📝 מבחנים שבועיים (למשל סדר שלישי) — נשמר כ"השתתפות" מיט סדר "<key>:exam", marks = { s: ציון }
 // =====================================================================
 const examSed = () => sedarim().filter((s) => s.att && s.exam?.on);
-const examPass = (s, v) => { const x = String(v ?? '').trim(); if (!x) return null; if (Number.isFinite(Number(x))) return Number(x) >= (Number(s.exam?.min) || 0); return !/^(x|✗|לא|נכשל|-)$/i.test(x); };
+// מבחן: "fixed" = סכום קבוע לכל מבחן (כל ציון); "min" = רק מציון מינימלי ומעלה
+const examPass = (s, v) => {
+  const x = String(v ?? '').trim(); if (!x) return null;
+  if (/^(x|✗|לא|נכשל|-)$/i.test(x)) return false;
+  if (s.exam?.mode === 'fixed' || !Number.isFinite(Number(x))) return true;
+  return Number(x) >= (Number(s.exam?.min) || 0);
+};
 async function renderExam(body) {
   const { h } = X;
   const ss = examSed();
@@ -618,7 +627,7 @@ async function renderExam(body) {
       ${edit ? '<button type="button" class="btn primary" id="je-save" disabled>💾 שמירה</button>' : ''}
       <button type="button" class="btn" id="je-print">🖨 הדפסה</button>
     </div>
-    <p class="muted small">ציון (מספר), או "עבר" / "לא". עובר = ציון ${h(s.exam?.min || 0)} ומעלה${amt ? ` → ${amt} ₪ מלגה` : ''}. ריק = לא נבחן.</p>
+    <p class="muted small">ציון (מספר), או "עבר" / "לא". ${s.exam?.mode === 'fixed' ? `כל מבחן${amt ? ` → ${amt} ₪ מלגה` : ''} (סכום קבוע)` : `עובר = ציון ${h(s.exam?.min || 0)} ומעלה${amt ? ` → ${amt} ₪ מלגה` : ''}`}. ריק = לא נבחן.</p>
     <div class="ms-wrap"><table class="ms-table"><thead><tr><th>#</th><th>שם</th><th>משפחה</th><th class="c">ציון</th><th class="c"></th></tr></thead><tbody>
       ${ids.map((id, i) => { const v = val(id); const p = examPass(s, v); return `<tr><td class="num">${i + 1}</td><td>${h(first(id))}</td><td><b>${h(last(id))}</b></td>
         <td class="c"><input class="je-in" data-id="${h(id)}" value="${h(v)}" style="width:70px" dir="auto"${edit ? '' : ' disabled'}></td><td class="c je-st">${p === null ? '' : p ? '✓' : '✗'}</td></tr>`; }).join('')}
@@ -781,9 +790,77 @@ function stipNotes(mon, ids, D) {
       .ln { margin-right: 6mm !important; } .amt { margin-top: 3mm !important; font-size: 15pt; }
       .tl { text-align: center; color: #9a7b3c; margin: 3mm 0; letter-spacing: 1px; } .q { font-size: 11.5pt; text-align: center; }
       @media print { .bar { display: none; } .nt { margin: 0; } img { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }</style></head><body>
-    <div class="bar"><button onclick="window.print()">🖨 הדפסה</button> ${ids.length} פתקים <button onclick="window.close()">סגירה</button></div>
+    <div class="bar"><button onclick="window.print()">🖨 הדפסה</button> ${ids.length} פתקים · למעטפה עם חלון 11×23 ס"מ: מקפלים לשלושה, השם בשליש העליון מול החלון <button onclick="window.close()">סגירה</button></div>
     ${ids.map(page).join('')}</body></html>`);
   w.document.close();
+}
+
+// =====================================================================
+// 🧹 ימי עבודה: עובדים מיט "שכר לפי ימי עבודה" — מ'צייכנט יעדן טאג וואס ער האט געארבעט (סדר "_work")
+// דער חשבון — לפי חודש עברי: ימים × סכום ליום (💰 משכורות)
+// =====================================================================
+async function renderWork(body) {
+  const { h } = X;
+  const sun = J.week;
+  body.innerHTML = '<p class="muted">טוען…</p>';
+  let rows; let team;
+  try { [rows, team] = await Promise.all([attRows(sun), J.team ? J.team : X.call(X.KEY, 'team').then((r) => r.team)]); J.team = team; } catch (err) { fail(body, err); return; }
+  const workers = team.filter((t) => t.pay_type === 'days' && t.active !== 'FALSE' && X.pById(t.contact_id)).sort((a, b) => full(a.contact_id).localeCompare(full(b.contact_id), 'he'));
+  if (!workers.length) { body.innerHTML = '<p class="ms-note">אין עובדים עם "שכר לפי ימי עבודה". בוחרים את סוג השכר ב"👔 אנשי צוות" (✎).</p>'; return; }
+  const il = (X.st.settings?.calendar || 'il') !== 'chul';
+  const marks = {};
+  workers.forEach((t) => { marks[t.contact_id] = parseMarks(rows.find((r) => r.seder === '_work' && String(r.contact_id) === String(t.contact_id))?.marks); });
+  const dowsOf = (t) => rulesOf(t.schedule).dows;
+  const edit = X.can('attendance');
+  const D7 = [0, 1, 2, 3, 4, 5, 6];
+  body.innerHTML = `${weekBar(sun)}
+      ${edit ? '<button type="button" class="btn primary" id="jw-save" disabled>💾 שמירה</button>' : ''}
+      <select id="jw-mon" aria-label="חודש">${hebMonths().map((m) => `<option value="${h(m.key)}">${h(m.label)}</option>`).join('')}</select>
+      <button type="button" class="btn" id="jw-month">📊 סיכום חודש</button>
+    </div>
+    <p class="muted small">מסמנים ✓ בכל יום שהעובד עבד בפועל. "—" = לא יום עבודה שלו (אפשר לשנות ב"👔 אנשי צוות").</p>
+    <div class="ms-wrap"><table class="ms-table ja-table"><thead><tr><th>#</th><th>העובד</th>${D7.map((d) => { const x = dayInfo(isoAdd(sun, d), il); return `<th class="c">${DAYS[d]}<div class="muted small">${fmtDay(isoAdd(sun, d))}</div>${x.text ? `<div class="muted small">${h(x.text)}</div>` : ''}</th>`; }).join('')}<th class="c">ימים</th></tr></thead><tbody>
+      ${workers.map((t, i) => `<tr data-w="${h(t.contact_id)}"><td class="num">${i + 1}</td><td><b>${h(full(t.contact_id))}</b><div class="muted small">${h(t.role || '')}</div></td>
+        ${D7.map((d) => (dowsOf(t).includes(d) || marks[t.contact_id][d] ? `<td class="c"><button type="button" class="ja-cell m-${marks[t.contact_id][d] ? 'v' : 'e'}" data-id="${h(t.contact_id)}" data-k="${d}"${edit ? '' : ' disabled'}>${marks[t.contact_id][d] ? '✓' : ''}</button></td>` : '<td class="c muted">—</td>')).join('')}
+        <td class="c jw-n">${Object.values(marks[t.contact_id]).filter((v) => v === 'v').length}</td></tr>`).join('')}
+    </tbody></table></div>`;
+  wireWeek(body, () => renderWork(body));
+  const saveBtn = X.$('#jw-save', body); const changed = new Set();
+  X.$$('.ja-cell', body).forEach((b) => {
+    b.onclick = () => {
+      const m = marks[b.dataset.id]; const on = !m[b.dataset.k];
+      if (on) m[b.dataset.k] = 'v'; else delete m[b.dataset.k];
+      b.textContent = on ? '✓' : ''; b.className = `ja-cell m-${on ? 'v' : 'e'}`;
+      b.closest('tr').querySelector('.jw-n').textContent = Object.values(m).filter((v) => v === 'v').length;
+      changed.add(b.dataset.id); J.dirty = true; if (saveBtn) saveBtn.disabled = false;
+    };
+  });
+  saveBtn?.addEventListener('click', async () => {
+    saveBtn.disabled = true;
+    const out = [...changed].map((id) => ({ contact_id: id, marks: JSON.stringify(marks[id]) }));
+    try {
+      await X.call(X.KEY, 'attSave', { week: sun, seder: '_work', rows: out });
+      out.forEach((r) => { const ex = rows.find((x) => x.seder === '_work' && String(x.contact_id) === String(r.contact_id)); if (ex) ex.marks = r.marks; else rows.push({ week: sun, seder: '_work', ...r }); });
+      changed.clear(); J.dirty = false; X.toast('נשמר.');
+    } catch (err) { saveBtn.disabled = false; X.toast(X.msg(err), 'err'); }
+  });
+  X.$('#jw-month', body).onclick = () => workMonth(workers, hebMonths().find((m) => m.key === X.$('#jw-mon', body).value));
+}
+/** 📊 א חודש עברי: ימים מסומנים פאר יעדן עובד, און (מיט הרשאה "finance") דער סכום */
+async function workMonth(workers, mon) {
+  const { h } = X;
+  if (!mon) return;
+  let rows; let rates = {};
+  try { rows = (await X.call(X.KEY, 'att', { from: sundayOf(mon.from), to: mon.to })).rows.filter((r) => r.seder === '_work'); } catch (err) { X.toast(X.msg(err), 'err'); return; }
+  if (X.can('finance')) { try { (await X.call(X.KEY, 'fin')).payInfo.forEach((p) => { rates[p.contact_id] = Number(p.hourly_rate) || 0; }); } catch { rates = {}; } }
+  const daysOf = (id) => { const out = []; rows.filter((r) => String(r.contact_id) === String(id)).forEach((r) => Object.entries(parseMarks(r.marks)).forEach(([k, v]) => { const d = isoAdd(r.week, Number(k[0])); if (v === 'v' && d >= mon.from && d <= mon.to) out.push(d); })); return out.sort(); };
+  const fin = X.can('finance');
+  const data = workers.map((t) => { const ds = daysOf(t.contact_id); const r = rates[t.contact_id] || 0; return { t, ds, r, amt: ds.length * r }; });
+  const title = `ימי עבודה — ${mon.label}`;
+  printWin(title, `${h(isoToHebrewText(mon.from))} – ${h(isoToHebrewText(mon.to))}`, `<table><thead><tr><th class="n">#</th><th>העובד</th><th>ימים</th>${fin ? '<th>₪ ליום</th><th>לתשלום</th>' : ''}<th>התאריכים</th></tr></thead><tbody>
+    ${data.map((x, i) => `<tr><td class="n">${i + 1}</td><td class="nm">${h(full(x.t.contact_id))}</td><td style="text-align:center"><b>${x.ds.length}</b></td>${fin ? `<td style="text-align:center">${x.r || '—'}</td><td style="text-align:center"><b>${x.r ? `${x.amt} ₪` : '—'}</b></td>` : ''}<td class="small">${h(x.ds.map((d) => heShort(d)).join(', '))}</td></tr>`).join('')}
+    ${fin ? `<tr><th></th><th>סה"כ</th><th>${data.reduce((s, x) => s + x.ds.length, 0)}</th><th></th><th>${data.reduce((s, x) => s + x.amt, 0)} ₪</th><th></th></tr>` : ''}</tbody></table>`);
+  downloadXlsx(title, ['העובד', 'ימים', ...(fin ? ['₪ ליום', 'לתשלום'] : []), 'התאריכים'], data.map((x) => [full(x.t.contact_id), x.ds.length, ...(fin ? [x.r, x.amt] : []), x.ds.map((d) => heShort(d)).join(', ')]), { rtl: true });
 }
 
 // =====================================================================
@@ -800,13 +877,14 @@ export function settingsHtml() {
         ${(s.sedarim || []).map((x, i) => sederRow(x, i)).join('')}
       </tbody></table>
       <h4>💰 מלגות</h4>
-      <p class="muted small">סכום לכל השתתפות (✓) בסדר; "גם איחור" = ⏰ נחשב השתתפות. הנוסח בפתק — למשל "בסדר הלימוד לפני התפילה בימות החול". מבחן שבועי (למשל בסדר שלישי): ציון מינימלי וסכום לכל מבחן שעבר.</p>
-      <table class="ms-table ms-stip"><thead><tr><th>סדר</th><th>₪ להשתתפות</th><th>גם איחור</th><th>הנוסח בפתק</th><th>מבחן שבועי</th><th>ציון מינימלי</th><th>₪ למבחן</th></tr></thead><tbody>
+      <p class="muted small">סכום לכל השתתפות (✓) בסדר; "גם איחור" = ⏰ נחשב השתתפות. הנוסח בפתק — למשל "בסדר הלימוד לפני התפילה בימות החול". מבחן שבועי (למשל בסדר שלישי): סכום קבוע לכל מבחן, או רק מציון מינימלי ומעלה.</p>
+      <table class="ms-table ms-stip"><thead><tr><th>סדר</th><th>₪ להשתתפות</th><th>גם איחור</th><th>הנוסח בפתק</th><th>מבחן שבועי</th><th>חישוב</th><th>ציון מינימלי</th><th>₪ למבחן</th></tr></thead><tbody>
         ${(s.sedarim || []).map((x) => `<tr data-key="${h(x.key)}"><td>${h(x.name)}</td>
           <td><input name="stip" type="number" min="0" step="1" dir="ltr" style="width:70px" value="${h(x.stip || '')}"></td>
           <td class="c"><input type="checkbox" name="stipLate"${x.stipLate ? ' checked' : ''}></td>
           <td><input name="stipText" value="${h(x.stipText || '')}" placeholder="בסדר ${h(x.name)}"></td>
           <td class="c"><input type="checkbox" name="exOn"${x.exam?.on ? ' checked' : ''}></td>
+          <td><select name="exMode"><option value="min"${x.exam?.mode !== 'fixed' ? ' selected' : ''}>מציון מינימלי</option><option value="fixed"${x.exam?.mode === 'fixed' ? ' selected' : ''}>סכום קבוע לכל מבחן</option></select></td>
           <td><input name="exMin" type="number" min="0" max="100" dir="ltr" style="width:60px" value="${h(x.exam?.min || '')}"></td>
           <td><input name="exAmt" type="number" min="0" step="1" dir="ltr" style="width:70px" value="${h(x.exam?.amount || '')}"></td></tr>`).join('')}
       </tbody></table>
@@ -845,7 +923,7 @@ export function wireSettings(root) {
       // 💰 מלגות (פון דער טאבעלע אונטן)
       const st = X.$(`.ms-stip tr[data-key="${key}"]`, form); const g = (n) => st?.querySelector(`[name=${n}]`);
       const old = (X.st.settings?.sedarim || []).find((x) => x.key === key) || {};
-      const stip = st ? { stip: Number(g('stip').value) || 0, stipLate: g('stipLate').checked, stipText: X.S(g('stipText').value), exam: { on: g('exOn').checked, min: Number(g('exMin').value) || 0, amount: Number(g('exAmt').value) || 0 } }
+      const stip = st ? { stip: Number(g('stip').value) || 0, stipLate: g('stipLate').checked, stipText: X.S(g('stipText').value), exam: { on: g('exOn').checked, mode: g('exMode').value === 'fixed' ? 'fixed' : 'min', min: Number(g('exMin').value) || 0, amount: Number(g('exAmt').value) || 0 } }
         : { stip: old.stip || 0, stipLate: !!old.stipLate, stipText: old.stipText || '', exam: old.exam || { on: false, min: 0, amount: 0 } };
       return name ? { key, name, att: v('att').checked, chav: v('chav').checked, slots: Math.max(1, ...days.map((j) => per[j])), slotsBy, days, ...stip } : null;
     }).filter(Boolean);

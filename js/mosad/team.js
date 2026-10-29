@@ -1,11 +1,11 @@
 // אתר פון א מוסד — 👔 אנשי צוות ואברכים: צוויי באזונדערע רשימות אין איין כפתור.
 // אנשי צוות: תפקיד, טלפון, מייל (לאגאין), פון ווען, פעיל/לשעבר, סארט שכר (אן סכומים); 💰 → משכורות (נאר מיט הרשאה).
 // אברכים: וועמען זיי לערנען מיט (פון די חברותות), און שעות (כניסה/יציאה).
-import { downloadXlsx } from '../excel.js?v=519';
-import { currentZman } from './school.js?v=519';
-import { historyDialog } from './me.js?v=519';
-import { heDate } from './brand.js?v=519';
-import { rulesOf, rulesText } from './hdays.js?v=519';
+import { downloadXlsx } from '../excel.js?v=520';
+import { currentZman } from './school.js?v=520';
+import { historyDialog } from './me.js?v=520';
+import { heDate } from './brand.js?v=520';
+import { rulesOf, rulesText } from './hdays.js?v=520';
 
 let X = null;
 export function initTeam(ctx) { X = ctx; }
@@ -82,10 +82,9 @@ function teamDialog(id, t, box) {
       ${DAYS.map((dn, j) => { const x = sched.find((s) => s.d === j) || {}; return `<div class="tm-day"><label class="check"><input type="checkbox" name="sd${j}"${x.from ? ' checked' : ''}> ${dn}</label>
         <input type="time" name="sf${j}" value="${h(x.from || '')}"> – <input type="time" name="st${j}" value="${h(x.to || '')}"></div>`; }).join('')}
     </fieldset>
-    <fieldset class="tm-days"${t.pay_type === 'days' ? '' : ' hidden'}><legend>ימי עבודה (לפי הלוח העברי)</legend>
+    <fieldset class="tm-days"${t.pay_type === 'days' ? '' : ' hidden'}><legend>ימי עבודה</legend>
       <div class="tm-dows">${HD.map((dn, j) => `<label class="check"><input type="checkbox" name="wd${j}"${rules.dows.includes(j) ? ' checked' : ''}> ${dn}</label>`).join('')}</div>
-      <div class="tm-dows">${[['yt', 'עובד ביום טוב'], ['chm', 'עובד בחול המועד'], ['dpg', 'עובד בימי דפגרא (ר"ח, חנוכה, פורים…)'], ['fast', 'עובד בתעניות'], ['bein', 'עובד בבין הזמנים']].map(([k, l]) => `<label class="check"><input type="checkbox" name="r_${k}"${rules[k] ? ' checked' : ''}> ${l}</label>`).join('')}</div>
-      <p class="muted small">התשלום = מספר ימי העבודה בחודש × הסכום ליום (בכפתור 💰). בין הזמנים: ניסן, י' אב – סוף אב, י"א תשרי – סוף תשרי.</p>
+      <p class="muted small">הימים שבהם הוא עובד בדרך כלל — הם פתוחים לסימון ב"✅ השתתפות → 🧹 ימי עבודה". מסמנים כל יום שעבד בפועל. התשלום לחודש עברי = ימים מסומנים × הסכום ליום (בכפתור 💰).</p>
     </fieldset>
     <label class="wide">הערה<input name="note" value="${h(t.note || '')}"></label>
     <p class="muted small">סכומים (גלובלי, לשעה), תעודת זהות וחשבון — רק בכפתור 💰 משכורות.</p>
@@ -96,7 +95,7 @@ function teamDialog(id, t, box) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const schedule = DAYS.map((_, j) => (el[`sd${j}`].checked && el[`sf${j}`].value && el[`st${j}`].value ? { d: j, from: el[`sf${j}`].value, to: el[`st${j}`].value } : null)).filter(Boolean);
-    const dayRules = { dows: HD.map((_, j) => j).filter((j) => el[`wd${j}`].checked), yt: el.r_yt.checked, chm: el.r_chm.checked, dpg: el.r_dpg.checked, fast: el.r_fast.checked, bein: el.r_bein.checked };
+    const dayRules = { dows: HD.map((_, j) => j).filter((j) => el[`wd${j}`].checked) };
     const row = { contact_id: id, role: S(el.role.value), email: S(el.email.value).toLowerCase(), start_date: el.start_date.value, end_date: el.end_date.value, active: el.active.checked, pay_type: el.pay_type.value,
       schedule: JSON.stringify(el.pay_type.value === 'days' ? dayRules : schedule), note: S(el.note.value), pay_via: t.pay_via || '' };
     try { await X.call(X.KEY, 'teamSave', { team: row }); await loadTeam(); d.close(); renderTeam(box); X.toast('נשמר.'); } catch (err) { X.toast(X.msg(err), 'err'); }
