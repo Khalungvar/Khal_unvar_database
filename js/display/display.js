@@ -30,6 +30,7 @@ function parseCsv(t) {
   if (cur || row.length) { row.push(cur); rows.push(row); }
   return rows;
 }
+let dataLast = '';
 async function pull() {
   if (PREVIEW) return;
   try {
@@ -39,9 +40,11 @@ async function pull() {
     const parts = rows.filter((x) => /^data#\d+$/.test(x[0] || '')).sort((a, b) => Number(a[0].split('#')[1]) - Number(b[0].split('#')[1]));
     if (!parts.length) return;
     const j = JSON.parse(parts.map((x) => x[1] || '').join(''));
+    // נאר ווען עפעס האט זיך באמת געטוישט — אנדערש רעכנט מען יעדע מינוט איבער די גרייסן
+    const js = JSON.stringify(j);
     DATA = { ...defaults(), ...j }; LIVE = true;
-    try { localStorage.setItem('disp-data', JSON.stringify(j)); } catch { /* */ }
-    boardCache.clear(); shLast = null;
+    if (js !== dataLast) { dataLast = js; boardCache.clear(); shLast = null; }
+    try { localStorage.setItem('disp-data', js); } catch { /* */ }
   } catch { /* בלייבט מיט דעם וואס מ'האט */ }
 }
 // שמחות: לשונית Simchos — [simcha_id, html, until(ms)]; יעדע שמחה ווייזט זיך ביז "until"
@@ -574,13 +577,18 @@ const boardCache = new Map();
 function fitBoard(box, sel = '.grp h3, .times span, .times.rbt i', max = 1.6) {
   const els = [...box.querySelectorAll(sel)];
   const key = `${box.className}|${box.textContent}`;
-  const apply = (k) => els.forEach((e) => { e.style.fontSize = `${(Number(e.dataset.b) * k).toFixed(1)}px`; });
-  els.forEach((e) => { if (!e.dataset.b) e.dataset.b = parseFloat(getComputedStyle(e).fontSize); });
   const gaps = box.querySelectorAll('.grp');
+  // די אותיות און די אפשטאנדן צווישן די גרופעס — אלעמאל צוזאמען (אויך ווען עס קומט פונעם cache),
+  // אנדערש זעט מען יעדע מינוט אויף א סעקונדע אנדערע אפשטאנדן ("עס שפרינגט")
+  const apply = (k) => {
+    els.forEach((e) => { e.style.fontSize = `${(Number(e.dataset.b) * k).toFixed(1)}px`; });
+    gaps.forEach((g) => { g.style.marginTop = `${Math.round(8 * k)}px`; });
+  };
+  els.forEach((e) => { if (!e.dataset.b) e.dataset.b = parseFloat(getComputedStyle(e).fontSize); });
   if (boardCache.has(key)) { apply(boardCache.get(key)); return; }
   let best = 0.6;
   for (let k = max; k >= 0.5; k -= 0.04) {
-    apply(k); gaps.forEach((g) => { g.style.marginTop = `${Math.round(8 * k)}px`; });
+    apply(k);
     const br = box.getBoundingClientRect(); const sc = br.height / box.offsetHeight || 1;
     const bottom = Math.max(...[...box.children].map((c) => c.getBoundingClientRect().bottom));
     const tooWide = els.some((e) => e.closest('.times') && e.closest('.times').scrollWidth > e.closest('.times').clientWidth + 1);
