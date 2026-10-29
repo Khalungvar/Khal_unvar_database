@@ -1378,3 +1378,11 @@ function autoRecips(id, list, email) {
   setFields('SmsAuto', a._row, { recipients: JSON.stringify(rec), recips_at: stamp() });
   return { ok: true, n: rec.length };
 }
+
+/** בדיקה פונעם עדיטאר: די {ערטער} פון היינט (ווי אויף דער תצוגה) + הרשאה פאר אימעיל */
+function testAuto() {
+  const d = minyanimData();
+  Logger.log('זמני תפילות: ' + (Object.keys(d).length ? 'נטען' : 'לא נטען'));
+  Logger.log(JSON.stringify(LUACH.autoVars(d, today())));
+  Logger.log('מיילים שנשארו היום: ' + MailApp.getRemainingDailyQuota());
+}
