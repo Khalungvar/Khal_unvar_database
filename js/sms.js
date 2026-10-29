@@ -128,9 +128,10 @@ const BIG = [
   [['sms', '💬', 'csSms', 'csSmsSub'], ['auto', '🔁', 'csAuto', 'csAutoSub']],
   [['calls', '📞', 'csCalls', 'csCallsSub'], ['track', '📋', 'csTrack', 'csTrackSub']],
 ];
-const SMALL = () => [['credits', '💳', 'csCredits'], ['perms', '✅', 'csPerms'], ['lists', '📇', 'csLists'], ['gabbai', '🤖', 'csGabbai'],
+const WIDE = ['lists', '📇', 'csLists']; // מתחת די צוויי טורן, איבער דער גאנצער ברייט
+const SMALL = () => [['credits', '💳', 'csCredits'], ['perms', '✅', 'csPerms'], ['gabbai', '🤖', 'csGabbai'],
   ...(state.isAdmin ? [['admin', '⚙', 'csAdmin']] : [])];
-const viewTitle = (v) => { const all = [...BIG.flat(), ...SMALL()]; const x = all.find(([k]) => k === v); return x ? `${x[1]} ${t(x[2])}` : ''; };
+const viewTitle = (v) => { const all = [...BIG.flat(), WIDE, ...SMALL()]; const x = all.find(([k]) => k === v); return x ? `${x[1]} ${t(x[2])}` : ''; };
 
 export async function renderCalls() {
   const main = $('#calls-main');
@@ -166,6 +167,7 @@ function homeView(body) {
   const big = ([k, i, l, sub]) => `<button type="button" class="cs-big" data-go="${k}"><span class="cs-ic">${i}</span><b>${h(t(l))}</b><span class="muted small">${h(t(sub))}</span></button>`;
   body.innerHTML = `<div class="cs-home">
     ${BIG.map((col) => `<div class="cs-col">${col.map(big).join('')}</div>`).join('')}
+    <button type="button" class="cs-sm cs-wide" data-go="${WIDE[0]}"><span>${WIDE[1]}</span> ${h(t(WIDE[2]))}</button>
     <div class="cs-small">${SMALL().map(([k, i, l]) => `<button type="button" class="cs-sm" data-go="${k}"><span>${i}</span> ${h(t(l))}</button>`).join('')}</div>
   </div>`;
   $$('[data-go]', body).forEach((b) => { b.onclick = () => { view = b.dataset.go; renderCalls(); }; });
