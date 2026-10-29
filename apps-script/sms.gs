@@ -1007,3 +1007,16 @@ function setupNumbersAndSecret() {
   Logger.log('המספרים נשמרו.');
   Logger.log('SHARED_SECRET (להעתיק ל-Cloudflare Worker → Settings → Variables and Secrets): ' + P.getProperty('SHARED_SECRET'));
 }
+
+/** בדיקה: האם מפתח Gemini עובד (רושם רק "עובד" או את השגיאה — לא את המפתח) */
+function testGemini() {
+  const P = PropertiesService.getScriptProperties();
+  const key = P.getProperty('GEMINI_API_KEY');
+  if (!key) { Logger.log('אין GEMINI_API_KEY'); return; }
+  const model = P.getProperty('GEMINI_MODEL') || 'gemini-flash-latest';
+  const res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+    method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, muteHttpExceptions: true,
+    payload: JSON.stringify({ contents: [{ parts: [{ text: 'Reply with the single word OK.' }] }] }),
+  });
+  Logger.log(res.getResponseCode() < 300 ? 'Gemini עובד ✔' : 'שגיאה ' + res.getResponseCode() + ': ' + res.getContentText().slice(0, 300));
+}
