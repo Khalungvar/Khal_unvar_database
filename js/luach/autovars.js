@@ -41,6 +41,9 @@ export function autoVars(rawData, iso) {
   const d1 = dayOf(first);
   const yt = (d1?.items || []).find((i) => i.kind === 'hol' && i.yt)?.text || '';
   out['פרשה'] = d1?.parsha || '';
+  // די פרשה פון דער שבת נאך דער קומענדיגער שבת (למשל יעצט וירא → חיי שרה)
+  let s1 = eve + 1; while (dowOf(s1) !== 6) s1 += 1;
+  out['פרשה הבאה'] = dayOf(s1 + 7)?.parsha || '';
   out['שבת / יום טוב'] = dowOf(first) === 6 && !yt ? `שבת${d1?.parsha ? ` פרשת ${d1.parsha}` : ''}` : (yt || 'שבת');
   for (const r of computeHoly(data, eve, LOC)) {
     if (!r.label) continue;
