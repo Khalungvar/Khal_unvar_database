@@ -7,6 +7,7 @@ import { t } from './i18n.js';
 import { escapeHtml as h, nowStamp, digits } from './util.js';
 import { evaluate, parseSaved, savedInScope, channel, openBuilder } from './lists.js';
 import { fromHebrew, toHebrew, todayIso } from './hebdate.js';
+import { autoVars, fillTemplate, nextOccurrence, schedText } from './luach/autovars.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -40,12 +41,12 @@ const money = (n) => `$${(Number(n) || 0).toFixed(2)}`;
 export async function loadSms(force = false) {
   if (data && !force) return data;
   const get = async (name) => { try { return (await readTabs([name]))[name] || []; } catch { return []; } };
-  const [opt, jobs, credits, recs, cfg] = await Promise.all(['SmsOptIn', 'SmsJobs', 'Credits', 'SmsRecordings', 'SmsConfig'].map(get));
+  const [opt, jobs, credits, recs, cfg, autos] = await Promise.all(['SmsOptIn', 'SmsJobs', 'Credits', 'SmsRecordings', 'SmsConfig', 'SmsAuto'].map(get));
   const objs = (rows) => { const [hd = [], ...b] = rows; return b.map((r, i) => ({ _row: i + 2, ...Object.fromEntries(hd.map((k, j) => [k, r[j] ?? ''])) })).filter((o) => Object.values(o).some((v, j) => j && v !== '')); };
   const optRows = objs(opt);
   data = {
     optHead: opt[0] || [], optRows, opt: new Map(optRows.map((o) => [last10(o.phone), o])),
-    jobs: objs(jobs), credits: objs(credits), recs: objs(recs), config: Object.fromEntries(objs(cfg).map((o) => [o.key, String(o.value)])),
+    jobs: objs(jobs), credits: objs(credits), recs: objs(recs), config: Object.fromEntries(objs(cfg).map((o) => [o.key, String(o.value)])), autos: objs(autos),
   };
   return data;
 }
@@ -159,7 +160,7 @@ export async function renderCalls() {
   else if (view === 'perms') permsView(body);
   else if (view === 'lists') listsView(body);
   else if (view === 'gabbai') gabbaiView(body);
-  else if (view === 'auto') soonView(body, 'csAutoSoon');
+  else if (view === 'auto') autoView(body);
   else adminTab(body);
 }
 
@@ -263,6 +264,180 @@ async function gabbaiView(body) {
       try { await setConsent([{ phone: o.phone, contact_id: c.contact_id, name: o.name }], 'in', 'join'); renderCalls(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
     };
   });
+}
+
+// ---------- הודעות אוטומטיות ----------
+// די "זמני תפילות" (ווי אויף דער תצוגה) — פאר דער תצוגה מקדימה פון די {ערטער}
+const DISPLAY_SHEET = '1hhrsXNhDCK7OGXOClTPE8pxOJ3EjmTmndH0r_qrms70';
+let MINY = null;
+function parseCsv(tx) {
+  const rows = []; let row = []; let cur = ''; let q = false;
+  for (let i = 0; i < tx.length; i += 1) {
+    const c = tx[i];
+    if (q) { if (c === '"') { if (tx[i + 1] === '"') { cur += '"'; i += 1; } else q = false; } else cur += c; }
+    else if (c === '"') q = true; else if (c === ',') { row.push(cur); cur = ''; } else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; } else if (c !== '\r') cur += c;
+  }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+async function loadMiny() {
+  if (MINY) return MINY;
+  try {
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${DISPLAY_SHEET}/gviz/tq?tqx=out:csv&sheet=Minyanim&headers=1&t=${Date.now()}`, { cache: 'no-store' });
+    const parts = parseCsv(await r.text()).filter((x) => /^data#\d+$/.test(x[0] || '')).sort((a, b) => Number(a[0].split('#')[1]) - Number(b[0].split('#')[1]));
+    MINY = parts.length ? JSON.parse(parts.map((x) => x[1] || '').join('')) : {};
+  } catch { MINY = {}; }
+  return MINY;
+}
+const nyNow = () => { const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date()).map((x) => [x.type, x.value])); return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`; };
+const schedOf = (a) => { try { return JSON.parse(a.sched || '{}'); } catch { return {}; } };
+const recipsOf = (a) => { try { return JSON.parse(a.recipients || '[]'); } catch { return []; } };
+const canAuto = (a) => state.isAdmin || [a.owner_email, a.created_by].map((x) => String(x).toLowerCase()).includes(state.email);
+const userName = (e) => (allUsers().find((u) => u.email === String(e).toLowerCase()) || {}).name || e;
+const phoneLists = () => savedInScope().filter((l) => parseSaved(l).cr.meta?.firstTab === 'phones');
+const ST_BADGE = { '': ['⏳', 'csAuSt_wait'], approved: ['✓', 'csAuSt_ok'], canceled: ['✕', 'csAuSt_cancel'], missed: ['⚠', 'csAuSt_missed'], sent: ['📤', 'csAuSt_sent'] };
+
+async function autoView(body) {
+  body.innerHTML = `<p class="muted">${h(t('loading'))}</p>`;
+  const D = await loadMiny();
+  const now = nyNow();
+  const autos = data.autos || [];
+  // די רשימה טוישט זיך? — דערהיינטיקן די ליסטע פון טעלעפאנען (דער סערווער קען נישט רעכענען א רשימה)
+  autos.forEach((a) => {
+    if (!state.savedLists.some((l) => String(l.list_id) === String(a.list_id))) return;
+    const fresh = recipientsOf(a.list_id, 'sms').list;
+    const key = (arr) => arr.map((r) => last10(r.phone || r.p)).sort().join(',');
+    if (key(fresh) !== key(recipsOf(a))) call('auto_recips', { id: a.auto_id, recipients: fresh }).catch(() => {});
+  });
+  const card = (a) => {
+    const sc = schedOf(a); const occ = String(a.occ_at || '') || nextOccurrence(sc, D, now);
+    const st = String(a.occ_state || ''); const [ic, lk] = ST_BADGE[st] || ['', ''];
+    const prev = occ ? fillTemplate(a.text, autoVars(D, occ.slice(0, 10)), a.line || '') : '';
+    const on = /^(true|1)$/i.test(String(a.active));
+    const mine = canAuto(a);
+    const late = st === 'missed' && occ && (new Date(now.replace(' ', 'T')) - new Date(occ.replace(' ', 'T'))) / 3600000 <= 24;
+    return `<section class="cs-sec cs-auto${on ? '' : ' off'}" data-id="${h(a.auto_id)}">
+      <h3>${h(a.name)} ${on ? '' : `<span class="muted small">⏸ ${h(t('csAuPaused'))}</span>`}</h3>
+      <p class="small">🗓 ${h(schedText(sc))} · 📇 ${h(a.list_name)} (${recipsOf(a).length}) · 👤 ${h(userName(a.owner_email))}</p>
+      ${on && occ ? `<p><b>${h(t('csAuNext'))}:</b> <span dir="ltr">${h(occ)}</span> · ${ic} ${h(t(lk))}</p>
+        <div class="cs-prev" dir="auto">${h(branded(prev))}</div>` : ''}
+      ${mine ? `<div class="cs-acts">
+        ${on && st === '' ? `<button type="button" class="btn primary" data-a="approve">✓ ${h(t('csAuApprove'))}</button><button type="button" class="btn" data-a="cancel">✕ ${h(t('csAuCancelOnce'))}</button>` : ''}
+        ${late ? `<button type="button" class="btn primary" data-a="now">📤 ${h(t('csAuSendNow'))}</button>` : ''}
+        ${on && ['', 'approved'].includes(st) ? `<button type="button" class="btn" data-a="line">✎ ${h(t('csAuLine'))}</button>` : ''}
+        <button type="button" class="btn" data-a="edit">✏ ${h(t('csAuEdit'))}</button>
+        <button type="button" class="btn" data-a="toggle">${on ? `⏸ ${h(t('csAuPause'))}` : `▶ ${h(t('csAuResume'))}`}</button>
+        <button type="button" class="linkish danger" data-a="del">🗑 ${h(t('csAuDel'))}</button></div>` : ''}
+    </section>`;
+  };
+  body.innerHTML = `<p class="muted small">${h(t('csAuHint'))}</p>
+    <button type="button" class="btn primary" id="au-new">➕ ${h(t('csAuNew'))}</button>
+    ${autos.length ? autos.map(card).join('') : `<p class="empty">${h(t('csAuNone'))}</p>`}`;
+  $('#au-new', body).onclick = () => autoEditor(null, D);
+  $$('[data-a]', body).forEach((b) => {
+    b.onclick = async () => {
+      const a = autos.find((x) => String(x.auto_id) === b.closest('[data-id]').dataset.id);
+      const act = b.dataset.a;
+      try {
+        if (act === 'edit') { autoEditor(a, D); return; }
+        if (act === 'approve') await call('auto_approve', { id: a.auto_id });
+        else if (act === 'now') { if (!confirm(t('csAuSendNowQ'))) return; await call('auto_approve', { id: a.auto_id, now: true }); }
+        else if (act === 'cancel') await call('auto_cancel', { id: a.auto_id });
+        else if (act === 'line') { const l = prompt(t('csAuLineQ'), a.line || ''); if (l === null) return; await call('auto_line', { id: a.auto_id, line: l }); }
+        else if (act === 'toggle') await call('auto_save', { auto: { ...a, sched: schedOf(a), active: !/^(true|1)$/i.test(String(a.active)) } });
+        else if (act === 'del') { if (!confirm(t('csAuDelQ', { n: a.name }))) return; await call('auto_delete', { id: a.auto_id }); }
+        ui.toast(t('saved'));
+        await loadSms(true); renderCalls();
+      } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+    };
+  });
+}
+
+function autoEditor(a, D) {
+  const sc = a ? schedOf(a) : { type: 'erev', what: 'all', before: 0, time: '10:00' };
+  const lists = phoneLists().length ? phoneLists() : savedInScope();
+  const users = allUsers();
+  const sample = autoVars(D, todayIso());
+  const names = [...Object.keys(sample), 'הודעת הגבאי'];
+  const DAYSH = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי'];
+  const dlg = dialog(`<h3>🔁 ${h(t(a ? 'csAuEdit' : 'csAuNew'))}</h3>
+    <form class="cs-auf" onsubmit="return false">
+      <label class="mm-l">${h(t('csAuName'))}<input name="name" value="${h(a?.name || '')}" required></label>
+      <label class="mm-l">${h(t('csAuOwner'))}<select name="owner">${users.map((u) => `<option value="${h(u.email)}"${u.email === String(a?.owner_email || state.email).toLowerCase() ? ' selected' : ''}>${h(u.name)}</option>`).join('')}</select></label>
+      <label class="mm-l">${h(t('smsList'))}<select name="list">${lists.map((l) => `<option value="${h(l.list_id)}"${String(l.list_id) === String(a?.list_id) ? ' selected' : ''}>${h(l.name)}</option>`).join('')}</select></label>
+      <fieldset class="cs-when"><legend>${h(t('csAuWhen'))}</legend>
+        <select name="type">${[['erev', 'csAuTErev'], ['weekly', 'csAuTWeekly'], ['monthly', 'csAuTMonthly'], ['once', 'csAuTOnce']].map(([k, l]) => `<option value="${k}"${sc.type === k ? ' selected' : ''}>${h(t(l))}</option>`).join('')}</select>
+        <span data-t="erev"><select name="before">${[0, 1, 2].map((n) => `<option value="${n}"${Number(sc.before || 0) === n ? ' selected' : ''}>${h(t(n ? 'csAuBefore' : 'csAuOnEve', { n }))}</option>`).join('')}</select>
+          <select name="what">${[['all', 'csAuWAll'], ['shabbos', 'csAuWShab'], ['yt', 'csAuWYt']].map(([k, l]) => `<option value="${k}"${(sc.what || 'all') === k ? ' selected' : ''}>${h(t(l))}</option>`).join('')}</select></span>
+        <span data-t="weekly"><select name="dow">${DAYSH.map((d, i) => `<option value="${i}"${Number(sc.dow) === i ? ' selected' : ''}>${h(d)}</option>`).join('')}</select></span>
+        <span data-t="monthly">${h(t('csAuDay'))} <input name="day" type="number" min="1" max="28" value="${h(sc.day || 1)}" style="width:60px"></span>
+        <span data-t="once"><input name="at" type="datetime-local" value="${h(String(sc.at || '').replace(' ', 'T'))}"></span>
+        <span data-t="erev weekly monthly">${h(t('csAuAt'))} <input name="time" type="time" value="${h(sc.time || '10:00')}"></span>
+        <p class="muted small" id="au-next"></p></fieldset>
+      <label class="mm-l">${h(t('smsText'))}<textarea name="text" rows="5" dir="auto">${h(a?.text || '')}</textarea></label>
+      <div class="cs-chips">${names.map((n) => `<button type="button" class="chip" data-v="${h(n)}">{${h(n)}}</button>`).join('')}</div>
+      <p class="muted small">${h(t('csAuPrevT'))}</p><div class="cs-prev" id="au-prev" dir="auto"></div>
+      <label class="chip-check"><input type="checkbox" name="active"${!a || /^(true|1)$/i.test(String(a.active)) ? ' checked' : ''}> ${h(t('csAuActive'))}</label>
+    </form>
+    <div class="dialog-actions"><button type="button" class="btn primary" id="au-save">${h(t('saveBtn'))}</button><button type="button" class="btn" data-x>${h(t('cancel'))}</button></div>`);
+  dlg.classList.add('cs-audlg');
+  const f = $('form', dlg).elements;
+  const schedNow = () => {
+    const type = f.type.value;
+    if (type === 'erev') return { type, what: f.what.value, before: Number(f.before.value), time: f.time.value };
+    if (type === 'weekly') return { type, dow: Number(f.dow.value), time: f.time.value };
+    if (type === 'monthly') return { type, day: Number(f.day.value) || 1, time: f.time.value };
+    return { type, at: f.at.value.replace('T', ' ') };
+  };
+  const draw = () => {
+    $$('[data-t]', dlg).forEach((x) => { x.hidden = !x.dataset.t.split(' ').includes(f.type.value); });
+    const nx = nextOccurrence(schedNow(), D, nyNow());
+    $('#au-next', dlg).textContent = nx ? `${t('csAuNext')}: ${nx}` : t('csAuNoNext');
+    const vars = autoVars(D, (nx || nyNow()).slice(0, 10));
+    $('#au-prev', dlg).textContent = branded(fillTemplate(f.text.value, vars, a?.line || ''));
+  };
+  $('form', dlg).addEventListener('input', draw); $('form', dlg).addEventListener('change', draw);
+  $$('[data-v]', dlg).forEach((b) => {
+    b.onclick = () => {
+      const ta = f.text; const ins = `{${b.dataset.v}}`; const st = ta.selectionStart ?? ta.value.length;
+      ta.value = ta.value.slice(0, st) + ins + ta.value.slice(ta.selectionEnd ?? st); ta.focus(); ta.selectionStart = ta.selectionEnd = st + ins.length; draw();
+    };
+  });
+  draw();
+  $('#au-save', dlg).onclick = async () => {
+    if (!f.name.value.trim() || !f.text.value.trim()) { ui.toast(t('csAuMissing'), 'error'); return; }
+    const l = state.savedLists.find((x) => String(x.list_id) === f.list.value);
+    try {
+      await call('auto_save', { auto: { auto_id: a?.auto_id || '', name: f.name.value.trim(), owner_email: f.owner.value, list_id: f.list.value, list_name: l?.name || '',
+        text: f.text.value, sched: schedNow(), active: f.active.checked, recipients: l ? recipientsOf(l.list_id, 'sms').list : [] } });
+      dlg.close(); ui.toast(t('saved')); await loadSms(true); renderCalls();
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  };
+}
+
+// ---------- די נוסחים פון אונזער זייט (ניהול) ----------
+const TXT_LABEL = {
+  txt_opt_in: 'csTx_opt_in', txt_join_ask: 'csTx_join_ask', txt_join_again: 'csTx_join_again', txt_new_line: 'csTx_new_line',
+  txt_auto_rem1: 'csTx_auto_rem1', txt_auto_rem2: 'csTx_auto_rem2', txt_auto_nocredit: 'csTx_auto_nocredit', txt_auto_missed: 'csTx_auto_missed', txt_auto_late_ask: 'csTx_auto_late_ask',
+  txt_auto_ok_approved: 'csTx_auto_ok_approved', txt_auto_ok_now: 'csTx_auto_ok_now', txt_auto_ok_canceled: 'csTx_auto_ok_canceled', txt_auto_ok_line: 'csTx_auto_ok_line',
+};
+async function textsDialog() {
+  let list;
+  try { list = (await call('texts')).texts; } catch (err) { ui.toast(ui.friendlyError(err), 'error'); return; }
+  const grp = (g) => list.filter((x) => x.group === g);
+  const row = (x) => `<label class="mm-l cs-tx"><span>${h(TXT_LABEL[x.key] ? t(TXT_LABEL[x.key]) : x.key.replace(/^say_/, '').replace(/_(he|yi|en)$/, ''))}${x.lang ? ` <b class="muted small">${x.lang}</b>` : ''}</span>
+      <textarea data-k="${h(x.key)}" rows="${Math.min(6, Math.max(2, Math.ceil(x.def.length / 70)))}" dir="auto" placeholder="${h(x.def)}">${h(x.value)}</textarea></label>`;
+  const dlg = dialog(`<h3>📝 ${h(t('csTxTitle'))}</h3>
+    <p class="muted small">${h(t('csTxHint'))}</p>
+    <details open><summary>${h(t('csTxPublic'))}</summary><p class="warn small">⚠ ${h(t('csTxPublicWarn'))}</p>${grp('public').map(row).join('')}</details>
+    <details><summary>${h(t('csTxAuto'))}</summary><p class="muted small">${h(t('csTxVars'))}</p>${grp('auto').map(row).join('')}</details>
+    <details><summary>${h(t('csTxGabbai'))}</summary>${grp('gabbai').map(row).join('')}</details>
+    <div class="dialog-actions"><button type="button" class="btn primary" id="tx-save">${h(t('saveBtn'))}</button><button type="button" class="btn" data-x>${h(t('cancel'))}</button></div>`);
+  dlg.classList.add('cs-audlg');
+  $('#tx-save', dlg).onclick = async () => {
+    const values = Object.fromEntries($$('[data-k]', dlg).map((el) => [el.dataset.k, el.value.trim()]));
+    try { await call('config_set', { values }); dlg.close(); ui.toast(t('saved')); await loadSms(true); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  };
 }
 
 function sendTab(body, kind) {
@@ -451,7 +626,8 @@ async function adminTab(body) {
       <label class="mm-l">${h(t('smsCfgCallText'))}<textarea data-cfg="call_text" rows="2" dir="ltr">${h(c.call_text || '')}</textarea></label>
       <label class="mm-l">${h(t('smsCfgZmanim'))}<textarea data-cfg="zmanim_text" rows="3" dir="ltr">${h(c.zmanim_text || '')}</textarea></label>
       <button type="button" class="btn primary" id="cfg-save">${h(t('saveBtn'))}</button>
-      <button type="button" class="btn" id="cfg-yt">📅 ${h(t('smsCfgYt'))}</button></section>
+      <button type="button" class="btn" id="cfg-yt">📅 ${h(t('smsCfgYt'))}</button>
+      <button type="button" class="btn" id="cfg-tx">📝 ${h(t('csTxTitle'))}</button></section>
     <section><h3>📊 ${h(t('smsReport'))}</h3><div id="sms-report" class="muted">…</div></section>
     <section><h3>➕ ${h(t('smsAddCredit'))}</h3>
       <select id="cr-user">${users.map((u) => `<option value="${h(u.email)}">${h(u.name)}</option>`).join('')}</select>
@@ -465,6 +641,7 @@ async function adminTab(body) {
     const { yt, erev } = ytDates();
     try { await call('config_set', { values: { blocked_dates: yt.join(','), erev_dates: erev.join(',') } }); await loadSms(true); ui.toast(t('smsCfgYtDone', { n: yt.length })); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
   };
+  $('#cfg-tx', body).onclick = () => textsDialog();
   $('#cr-add', body).onclick = async () => {
     const amount = Number($('#cr-amt', body).value);
     if (!amount) return;
