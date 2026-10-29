@@ -56,6 +56,7 @@ const TEXTS = {
   join_ask: { g: 'public', def: '{brand}: To complete your subscription, please reply with your full name followed by the word CONFIRM.\nExample: John Doe CONFIRM\nMsg & data rates may apply. Reply STOP to opt out.' },
   join_again: { g: 'public', def: '{brand}: Please include the word CONFIRM after your name, for example: John Doe CONFIRM' },
   new_line: { g: 'public', def: 'This is the new number of {brand}. Reply HELP for help, STOP to opt out.' },
+  kw_invite: { g: 'public', def: '{brand}: Did you want to subscribe to our updates? If so, reply JOIN.' },
   auto_rem1: { g: 'auto', def: 'תזכורת: ההודעה האוטומטית "{name}" תישלח {when} ל-{count} אנשים (בערך {cost}). הקרדיטים שלך: {credits}.\n---\n{text}\n---\nלאשר: 1 · לבטל הפעם: 2 · להוסיף שורה: כתבו "הודעה:" ואחריה הטקסט.' },
   auto_rem2: { g: 'auto', def: 'תזכורת אחרונה: "{name}" תישלח {when} רק אם תאשרו. 1 = לאשר, 2 = לבטל.' },
   auto_long: { g: 'auto', def: '⚠ הודעה ארוכה: {parts} חלקים, כל נמען יחויב כמו {parts} הודעות.' },
@@ -331,6 +332,9 @@ function publicInbound(from, text) {
     sendSms(line, from, askNameText(), null, { line: 'broadcast' });
     return { ok: true, handled: 'join' };
   }
+  // א "מילה" פון א הודעה אוטומטית (למשל "זמנים") → גלייך דער ענטפער
+  const kwA = kwMatch(w);
+  if (kwA) return kwReply(from, kwA, line, text);
   const jst = cache.get(k);
   if (jst) {
     const m = text.match(/^(.*?)\s*\bconfirm\b\.?\s*(.*)$/i);
@@ -1221,7 +1225,7 @@ function autoNext(a, now) { return LUACH.nextOccurrence(schedOf(a), minyanimData
 function autoReset(a, occ) { setFields('SmsAuto', a._row, { occ_at: occ, occ_state: '', rem1: '', rem2: '', line: '', updated_at: stamp() }); }
 /** לויפט יעדע 5 מינוט (פון runJobs) */
 function autoTick(cfg) {
-  const rows = autoRows().filter(function (a) { return isT(a.active); });
+  const rows = autoRows().filter(function (a) { return isT(a.active) && schedOf(a).type !== 'keyword'; });
   if (!rows.length) return;
   const now = stamp(); const nowD = new Date();
   const okWin = sendWindowOk(nowD, cfg);
@@ -1346,6 +1350,15 @@ function autoSave(req, email) {
   try {
     const old = x.auto_id ? autoById(x.auto_id) : null;
     if (old && !canAuto(old, email)) return { error: 'not-allowed' };
+    if ((x.sched || {}).type === 'keyword') {
+      const words = kwWords(x.sched.words);
+      if (!words.length) return { error: 'kw-empty' };
+      const taken = autoRows().filter(function (o) { return String(o.auto_id) !== String(x.auto_id || '') && schedOf(o).type === 'keyword'; })
+        .reduce(function (acc, o) { return acc.concat(kwWords(schedOf(o).words)); }, []);
+      const dup = words.filter(function (w) { return taken.indexOf(w) >= 0; });
+      if (dup.length) return { error: 'kw-taken', words: dup };
+      x.sched = { type: 'keyword', words: words };
+    }
     const sched = JSON.stringify(x.sched || {});
     const f = {
       name: String(x.name || '').slice(0, 80), owner_email: lower(x.owner_email || email), list_id: String(x.list_id || ''), list_name: String(x.list_name || '').slice(0, 80),
@@ -1361,6 +1374,57 @@ function autoSave(req, email) {
     appendObj('SmsAuto', Object.assign({ auto_id: id, created_at: stamp(), created_by: email, occ_at: '', occ_state: '' }, f));
     return { ok: true, auto_id: id };
   } finally { lock.releaseLock(); }
+}
+// ---------- "מילה": ווער עס שיקט די מילה באקומט גלייך די מעסעדזש (אן קרעדיטן, איינמאל א טאג פאר יעדע מילה) ----------
+function kwNorm(v) { return String(v || '').trim().toLowerCase().replace(/[^\w֐-׿]/g, ''); }
+const KW_RESERVED = STOP_WORDS.concat(START_WORDS, JOIN_WORDS, HELP_WORDS, ['confirm']);
+function kwWords(v) {
+  const arr = Array.isArray(v) ? v : String(v || '').split(/[,،\n]+/);
+  const out = [];
+  arr.map(kwNorm).forEach(function (w) { if (w && KW_RESERVED.indexOf(w) < 0 && out.indexOf(w) < 0) out.push(w); });
+  return out;
+}
+function kwMatch(w) {
+  if (!w) return null;
+  return autoRows().filter(function (a) { return isT(a.active) && schedOf(a).type === 'keyword' && kwWords(schedOf(a).words).indexOf(w) >= 0; })[0] || null;
+}
+/** שבת / יו"ט (לויט די הגדרות, ווי ביים שיקן) — דאן ענטפערט מען נישט */
+function holyNow(now, cfg) {
+  const d = Utilities.formatDate(now, TZ, 'yyyy-MM-dd');
+  const hr = Number(Utilities.formatDate(now, TZ, 'H')) + Number(Utilities.formatDate(now, TZ, 'm')) / 60;
+  const dow = Number(Utilities.formatDate(now, TZ, 'u'));
+  const cut = Number(cfg.friday_cutoff || 13);
+  if (dow === 6) return true;
+  if (dow === 5 && hr >= cut) return true;
+  if (String(cfg.blocked_dates || '').split(',').indexOf(d) >= 0) return true;
+  if (String(cfg.erev_dates || '').split(',').indexOf(d) >= 0 && hr >= cut) return true;
+  return false;
+}
+/** האט מען היינט שוין געשיקט צו דעם טעלעפאן מיט דעם צייכן (job_id)? */
+function sentToday(phone, tag) {
+  const d = last10(phone); const day = today();
+  const log = readTab('SmsLog').rows;
+  for (let i = log.length - 1; i >= 0; i -= 1) {
+    const r = log[i];
+    if (String(r.at).slice(0, 10) < day) break;
+    if (r.dir === 'out' && String(r.job_id) === tag && last10(r.to) === d && String(r.status) !== 'error') return true;
+  }
+  return false;
+}
+function kwReply(from, a, line, inText) {
+  const cfg = config();
+  const c = contactsByPhone(from)[0];
+  const base = { phone: from, contact_id: c ? c.contact_id : '', name: a.name, text: inText };
+  if (holyNow(new Date(), cfg)) { ev('auto_kw', Object.assign(base, { detail: a.auto_id + ' holy' })); return { ok: true, handled: 'kw-holy' }; }
+  const r = optRow(from); const st = r ? String(r.status) : '';
+  if (st === 'out') return { ok: true, handled: 'kw-stopped' };
+  const subscribed = st === 'in';
+  const tag = subscribed ? 'kw:' + a.auto_id : 'kw:invite';
+  if (sentToday(from, tag)) { ev('auto_kw', Object.assign(base, { detail: a.auto_id + ' limit' })); return { ok: true, handled: 'kw-limit' }; }
+  const text = subscribed ? branded(LUACH.fillTemplate(a.text, LUACH.autoVars(minyanimData(), today()), ''), cfg) : txt_('kw_invite', null, cfg);
+  sendSms(line, from, text, null, { line: 'broadcast', contact_id: base.contact_id, job_id: tag });
+  ev('auto_kw', Object.assign(base, { detail: a.auto_id + (subscribed ? ' sent' : ' invite') }));
+  return { ok: true, handled: subscribed ? 'kw' : 'kw-invite' };
 }
 function autoGuard(id, email) { const a = autoById(id); if (!a) return { error: 'not-found' }; if (!canAuto(a, email)) return { error: 'not-allowed' }; return { a: a }; }
 function autoDel(id, email) { const g = autoGuard(id, email); if (g.error) return g; readHead('SmsAuto').sheet.deleteRow(g.a._row); return { ok: true }; }

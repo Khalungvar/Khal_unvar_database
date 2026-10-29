@@ -32,7 +32,8 @@ async function call(action, body = {}) {
   return r;
 }
 function errText(r) {
-  const map = { 'no-credits': t('smsNoCredits', { need: money(r.need), have: money(r.have) }), 'not-allowed': t('smsNotAllowed'), 'no-recipients': t('smsNoRecipients'), 'no-stripe': t('smsNoStripe'), 'admin-only': t('adminOnly') };
+  const map = { 'no-credits': t('smsNoCredits', { need: money(r.need), have: money(r.have) }), 'not-allowed': t('smsNotAllowed'), 'no-recipients': t('smsNoRecipients'), 'no-stripe': t('smsNoStripe'), 'admin-only': t('adminOnly'),
+    'kw-empty': t('csAuKwEmpty'), 'kw-taken': t('csAuKwTaken', { w: (r.words || []).join(', ') }) };
   return map[r.error] || r.error;
 }
 const money = (n) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -303,6 +304,10 @@ const recipsOf = (a) => { try { return JSON.parse(a.recipients || '[]'); } catch
 const canAuto = (a) => state.isAdmin || [a.owner_email, a.created_by].map((x) => String(x).toLowerCase()).includes(state.email);
 const userName = (e) => (allUsers().find((u) => u.email === String(e).toLowerCase()) || {}).name || e;
 const phoneLists = () => savedInScope().filter((l) => parseSaved(l).cr.meta?.firstTab === 'phones');
+const isKw = (sc) => sc?.type === 'keyword';
+/** די מילים: "זמנים, zmanim" → ['זמנים','zmanim'] (ווי kwWords אין sms.gs) */
+const KW_RESERVED = ['stop', 'stopall', 'unsubscribe', 'cancel', 'end', 'quit', 'סטאפ', 'סטופ', 'start', 'unstop', 'yes', 'join', 'subscribe', 'help', 'info', 'confirm'];
+const kwWords = (v) => [...new Set((Array.isArray(v) ? v : String(v || '').split(/[,،\n]+/)).map((w) => String(w).trim().toLowerCase().replace(/[^\w\u0590-\u05FF]/g, '')).filter((w) => w && !KW_RESERVED.includes(w)))];
 const ST_BADGE = { '': ['⏳', 'csAuSt_wait'], approved: ['✓', 'csAuSt_ok'], canceled: ['✕', 'csAuSt_cancel'], missed: ['⚠', 'csAuSt_missed'], sent: ['📤', 'csAuSt_sent'] };
 
 async function autoView(body) {
@@ -317,7 +322,33 @@ async function autoView(body) {
     const key = (arr) => arr.map((r) => last10(r.phone || r.p)).sort().join(',');
     if (key(fresh) !== key(recipsOf(a))) call('auto_recips', { id: a.auto_id, recipients: fresh }).catch(() => {});
   });
+  // "מילה": וויפיל מ'האט געענטפערט (פון SmsEvents)
+  const kwStat = {};
+  if (autos.some((a) => isKw(schedOf(a)))) {
+    const L = await loadGabbaiLog(true); const day = now.slice(0, 10); const mon = now.slice(0, 7);
+    L.events.filter((e) => e.kind === 'auto_kw').forEach((e) => {
+      const [id, res] = String(e.detail).split(' '); const s = (kwStat[id] = kwStat[id] || { day: 0, mon: 0, inv: 0 });
+      if (res === 'sent') { if (String(e.at).startsWith(day)) s.day += 1; if (String(e.at).startsWith(mon)) s.mon += 1; }
+      if (res === 'invite' && String(e.at).startsWith(mon)) s.inv += 1;
+    });
+  }
+  const kwCard = (a) => {
+    const sc = schedOf(a); const on = /^(true|1)$/i.test(String(a.active)); const mine = canAuto(a);
+    const s = kwStat[a.auto_id] || { day: 0, mon: 0, inv: 0 };
+    const prev = fillTemplate(a.text, autoVars(D, now.slice(0, 10)), '');
+    return `<section class="cs-sec cs-auto${on ? '' : ' off'}" data-id="${h(a.auto_id)}">
+      <h3>${h(a.name)} ${on ? '' : `<span class="muted small">⏸ ${h(t('csAuPaused'))}</span>`}</h3>
+      <p class="small">🔑 ${h(t('csAuKwWhen'))}: <b dir="auto">${h(kwWords(sc.words).join(', '))}</b> · 👤 ${h(userName(a.owner_email))}</p>
+      <p class="small muted">${h(t('csAuKwStat', { d: s.day, m: s.mon, i: s.inv }))}</p>
+      <div class="cs-prev" dir="auto">${h(branded(prev))}</div>
+      ${mine ? `<div class="cs-acts">
+        <button type="button" class="btn" data-a="edit">✏ ${h(t('csAuEdit'))}</button>
+        <button type="button" class="btn" data-a="toggle">${on ? `⏸ ${h(t('csAuPause'))}` : `▶ ${h(t('csAuResume'))}`}</button>
+        <button type="button" class="linkish danger" data-a="del">🗑 ${h(t('csAuDel'))}</button></div>` : ''}
+    </section>`;
+  };
   const card = (a) => {
+    if (isKw(schedOf(a))) return kwCard(a);
     const sc = schedOf(a); const occ = String(a.occ_at || '') || nextOccurrence(sc, D, now);
     const st = String(a.occ_state || ''); const [ic, lk] = ST_BADGE[st] || ['', ''];
     const prev = occ ? fillTemplate(a.text, autoVars(D, occ.slice(0, 10)), a.line || '') : '';
@@ -372,13 +403,14 @@ function autoEditor(a, D) {
     <form class="cs-auf" onsubmit="return false">
       <label class="mm-l">${h(t('csAuName'))}<input name="name" value="${h(a?.name || '')}" required></label>
       <label class="mm-l">${h(t('csAuOwner'))}<select name="owner">${users.map((u) => `<option value="${h(u.email)}"${u.email === String(a?.owner_email || state.email).toLowerCase() ? ' selected' : ''}>${h(u.name)}</option>`).join('')}</select></label>
-      <label class="mm-l">${h(t('smsList'))}<select name="list">${lists.map((l) => `<option value="${h(l.list_id)}"${String(l.list_id) === String(a?.list_id) ? ' selected' : ''}>${h(l.name)}</option>`).join('')}</select></label>
+      <label class="mm-l" id="au-list">${h(t('smsList'))}<select name="list">${lists.map((l) => `<option value="${h(l.list_id)}"${String(l.list_id) === String(a?.list_id) ? ' selected' : ''}>${h(l.name)}</option>`).join('')}</select></label>
       <fieldset class="cs-when"><legend>${h(t('csAuWhen'))}</legend>
-        <select name="type">${[['erev', 'csAuTErev'], ['weekly', 'csAuTWeekly'], ['monthly', 'csAuTMonthly'], ['once', 'csAuTOnce']].map(([k, l]) => `<option value="${k}"${sc.type === k ? ' selected' : ''}>${h(t(l))}</option>`).join('')}</select>
+        <select name="type">${[['erev', 'csAuTErev'], ['weekly', 'csAuTWeekly'], ['monthly', 'csAuTMonthly'], ['once', 'csAuTOnce'], ['keyword', 'csAuTKw']].map(([k, l]) => `<option value="${k}"${sc.type === k ? ' selected' : ''}>${h(t(l))}</option>`).join('')}</select>
         <span data-t="erev"><select name="before">${[0, 1, 2].map((n) => `<option value="${n}"${Number(sc.before || 0) === n ? ' selected' : ''}>${h(t(n ? 'csAuBefore' : 'csAuOnEve', { n }))}</option>`).join('')}</select>
           <select name="what">${[['all', 'csAuWAll'], ['shabbos', 'csAuWShab'], ['yt', 'csAuWYt']].map(([k, l]) => `<option value="${k}"${(sc.what || 'all') === k ? ' selected' : ''}>${h(t(l))}</option>`).join('')}</select></span>
         <span data-t="weekly"><select name="dow">${DAYSH.map((d, i) => `<option value="${i}"${Number(sc.dow) === i ? ' selected' : ''}>${h(d)}</option>`).join('')}</select></span>
         <span data-t="monthly">${h(t('csAuDay'))} <input name="day" type="number" min="1" max="28" value="${h(sc.day || 1)}" style="width:60px"></span>
+        <span data-t="keyword"><input name="words" dir="auto" value="${h(isKw(sc) ? kwWords(sc.words).join(', ') : '')}" placeholder="${h(t('csAuKwPh'))}" style="min-width:220px"></span>
         <span data-t="once"><input name="at" type="datetime-local" value="${h(String(sc.at || '').replace(' ', 'T'))}"></span>
         <span data-t="erev weekly monthly">${h(t('csAuAt'))} <input name="time" type="time" value="${h(sc.time || '10:00')}"></span>
         <p class="muted small" id="au-next"></p></fieldset>
@@ -395,12 +427,16 @@ function autoEditor(a, D) {
     if (type === 'erev') return { type, what: f.what.value, before: Number(f.before.value), time: f.time.value };
     if (type === 'weekly') return { type, dow: Number(f.dow.value), time: f.time.value };
     if (type === 'monthly') return { type, day: Number(f.day.value) || 1, time: f.time.value };
+    if (type === 'keyword') return { type, words: kwWords(f.words.value) };
     return { type, at: f.at.value.replace('T', ' ') };
   };
   const draw = () => {
     $$('[data-t]', dlg).forEach((x) => { x.hidden = !x.dataset.t.split(' ').includes(f.type.value); });
-    const nx = nextOccurrence(schedNow(), D, nyNow());
-    $('#au-next', dlg).textContent = nx ? `${t('csAuNext')}: ${nx}` : t('csAuNoNext');
+    const kw = f.type.value === 'keyword';
+    $('#au-list', dlg).hidden = kw;
+    const gl = $('[data-v="הודעת הגבאי"]', dlg); if (gl) gl.hidden = kw;
+    const nx = kw ? '' : nextOccurrence(schedNow(), D, nyNow());
+    $('#au-next', dlg).textContent = kw ? t('csAuKwHint') : nx ? `${t('csAuNext')}: ${nx}` : t('csAuNoNext');
     const vars = autoVars(D, (nx || nyNow()).slice(0, 10));
     const full = branded(fillTemplate(f.text.value, vars, a?.line || ''));
     $('#au-prev', dlg).textContent = full; paintSeg($('#au-seg', dlg), full);
@@ -415,9 +451,11 @@ function autoEditor(a, D) {
   draw();
   $('#au-save', dlg).onclick = async () => {
     if (!f.name.value.trim() || !f.text.value.trim()) { ui.toast(t('csAuMissing'), 'error'); return; }
-    const l = state.savedLists.find((x) => String(x.list_id) === f.list.value);
+    const kw = f.type.value === 'keyword';
+    if (kw && !schedNow().words.length) { ui.toast(t('csAuKwEmpty'), 'error'); return; }
+    const l = kw ? null : state.savedLists.find((x) => String(x.list_id) === f.list.value);
     try {
-      await call('auto_save', { auto: { auto_id: a?.auto_id || '', name: f.name.value.trim(), owner_email: f.owner.value, list_id: f.list.value, list_name: l?.name || '',
+      await call('auto_save', { auto: { auto_id: a?.auto_id || '', name: f.name.value.trim(), owner_email: f.owner.value, list_id: kw ? '' : f.list.value, list_name: l?.name || '',
         text: f.text.value, sched: schedNow(), active: f.active.checked, recipients: l ? recipientsOf(l.list_id, 'sms').list : [] } });
       dlg.close(); ui.toast(t('saved')); await loadSms(true); renderCalls();
     } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
@@ -426,6 +464,7 @@ function autoEditor(a, D) {
 
 // ---------- די נוסחים פון אונזער זייט (ניהול) ----------
 const TXT_LABEL = {
+  txt_kw_invite: 'csTx_kw_invite', txt_auto_long: 'csTx_auto_long',
   txt_opt_in: 'csTx_opt_in', txt_join_ask: 'csTx_join_ask', txt_join_again: 'csTx_join_again', txt_new_line: 'csTx_new_line',
   txt_auto_rem1: 'csTx_auto_rem1', txt_auto_rem2: 'csTx_auto_rem2', txt_auto_nocredit: 'csTx_auto_nocredit', txt_auto_missed: 'csTx_auto_missed', txt_auto_late_ask: 'csTx_auto_late_ask',
   txt_auto_ok_approved: 'csTx_auto_ok_approved', txt_auto_ok_now: 'csTx_auto_ok_now', txt_auto_ok_canceled: 'csTx_auto_ok_canceled', txt_auto_ok_line: 'csTx_auto_ok_line',
