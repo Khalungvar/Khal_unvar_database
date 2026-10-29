@@ -205,6 +205,8 @@
 .tf-w4 { width: 4em; } .tf-w8 { width: 8em; } .tf-w10 { width: 10em; } .tf-w12 { width: 12em; } .tf-w16 { width: 16em; }
 .tf-ts { display: inline-flex; gap: 3px; align-items: center; white-space: nowrap; }
 .tf-ts input[type=number] { width: 4.2em; }
+.tf-combo { flex-wrap: wrap; white-space: normal; padding: 2px 4px; border: 1px dashed #c9b27a; border-radius: 6px; }
+.tf-combo > .tf-ts { border: 0; padding: 0; }
 .tf-times { display: flex; flex-wrap: wrap; gap: 4px 8px; }
 .tf-tm { display: inline-flex; gap: 2px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 1px 3px; }
 .tf-mini { border: 0; background: transparent; cursor: pointer; padding: 2px 4px; font-size: 13px; border-radius: 6px; }

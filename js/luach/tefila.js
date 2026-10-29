@@ -1,6 +1,6 @@
 // "זמני תפילות" — ניהול: ימות החול · שבת · יום טוב · תשרי. די דאטן: לשונית Minyanim (key = data, value = JSON).
 // דער חשבון (וואס קומט ארויס פאר א טאג) איז אין minyanim.js — דאס זעלבע וואס די תצוגה אין בית הכנסת ניצט.
-import { defaults, chagRows, TISHREI_CHAG, computeShiurim, REF_DAYS, condOf, ANCHORS, BASES, ROUNDS, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
+import { defaults, chagRows, TISHREI_CHAG, computeShiurim, REF_DAYS, condOf, ANCHORS, BASES, ROUNDS, COMBOS, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
 import { hhmm } from './zmanim.js';
 import { hdOf, dowOf } from './engine.js';
 import { MONTH } from './mitzva.js';
@@ -74,8 +74,10 @@ let uid = 0; const newId = () => `m${Date.now().toString(36)}${(uid += 1)}`;
 // ---------- א זמן: באזע + שעה / ±מינוט + עיגול ----------
 function tsHtml(T, path, allowNone = false) {
   const b = T ? T.b : 'none'; const dis = canEdit() ? '' : ' disabled';
-  const opts = [...(allowNone ? [['none', '—']] : []), ...BASES].map(([k, l]) => `<option value="${k}"${k === b ? ' selected' : ''}>${h(l)}</option>`).join('');
+  const combo = T && (T.b === 'max' || T.b === 'min');
+  const opts = [...(allowNone ? [['none', '—']] : []), ...BASES, ...(path.endsWith('.x') || path.endsWith('.y') ? [] : COMBOS)].map(([k, l]) => `<option value="${k}"${k === b ? ' selected' : ''}>${h(l)}</option>`).join('');
   const rk = T && T.b !== 'fixed' ? `${T.r || 1}${T.m || 'n'}` : '1n';
+  if (combo) return `<span class="tf-ts tf-combo" data-ts="${h(path)}"><select data-k="b"${dis}>${opts}</select>${tsHtml(T.x, `${path}.x`)}<span class="muted">או</span>${tsHtml(T.y, `${path}.y`)}</span>`;
   return `<span class="tf-ts" data-ts="${h(path)}"><select data-k="b"${dis}>${opts}</select>${
     !T ? '' : T.b === 'fixed' ? `<input type="time" data-k="t" value="${h(T.t || '')}"${dis}>`
       : `<select data-k="sg" class="tf-sg" title="+ אחרי / − לפני"${dis}><option value="+"${(Number(T.a) || 0) >= 0 && !T._neg ? ' selected' : ''}>+</option><option value="-"${(Number(T.a) || 0) < 0 || T._neg ? ' selected' : ''}>−</option></select><input type="number" min="0" data-k="a" value="${Math.abs(Number(T.a) || 0)}" step="1" title="דקות"${dis}><select data-k="r"${dis}>${ROUNDS.map(([k, l]) => `<option value="${k}"${k === rk ? ' selected' : ''}>${h(l)}</option>`).join('')}</select>`}</span>`;
@@ -85,6 +87,7 @@ function tsChange(path, k, v) {
   if (k === 'b') {
     const meta = T ? Object.fromEntries(['room', 'meg', 'ez', 'rb'].filter((x) => T[x] != null).map((x) => [x, T[x]])) : {};
     if (v === 'none') T = null;
+    else if (v === 'max' || v === 'min') T = T && (T.b === 'max' || T.b === 'min') ? { ...T, b: v } : { b: v, x: T && T.b ? { b: T.b, t: T.t, a: T.a, r: T.r, m: T.m } : { b: 'fixed', t: '05:30' }, y: { b: 'alos', a: 5, r: 1, m: 'n' }, ...meta };
     else if (v === 'fixed') T = { b: 'fixed', t: T?.t || '', ...meta };
     else T = { b: v, a: T && T.b !== 'fixed' ? T.a || 0 : 0, r: T?.r || 1, m: T?.m || 'n', ...meta };
     set(path, T); return true; // צייכן איבער (אנדערע פעלדער)
@@ -425,7 +428,7 @@ ${canEdit() ? '<button type="button" class="btn" id="tf-ver" title="לשמור �
     const b = e.target.closest('[data-act]'); if (!b) return;
     const act = b.dataset.act; const p = b.dataset.p || '';
     if (act === 'addW') { data.weekday[p].push({ id: newId(), time: { b: 'fixed', t: '' }, room: '', note: '', season: 'all', cond: null, kahal: false, fri: p === 'shacharis', last: false }); }
-    else if (act === 'sortW') { const z = { neitz: 380, shkia: 1100, candles: 1082, rt: 1172, alos: 308, chatzos: 740 }; const k = (r) => (r.time?.b === 'fixed' ? (Number(String(r.time.t).replace(':', '.')) * 60 || 0) : (z[r.time?.b] || 0) + (r.time?.a || 0)); data.weekday[p].sort((a, c) => k(a) - k(c)); }
+    else if (act === 'sortW') { const z = { neitz: 380, shkia: 1100, candles: 1082, rt: 1172, alos: 308, chatzos: 740 }; const k = (r0) => { const r = { time: r0.time?.x && (r0.time.b === 'max' || r0.time.b === 'min') ? r0.time.x : r0.time }; return (r.time?.b === 'fixed' ? (Number(String(r.time.t).replace(':', '.')) * 60 || 0) : (z[r.time?.b] || 0) + (r.time?.a || 0)); }; data.weekday[p].sort((a, c) => k(a) - k(c)); }
     else if (act === 'addSh') data.shiurim.rows.push({ id: newId(), type: b.dataset.t, title: '', who: '', room: '', time: { b: 'fixed', t: '' }, days: [0, 1, 2, 3, 4, 5], note: '', season: 'all', screen: true });
     else if (act === 'pvSide') { prevIso = b.dataset.d; $('.tf-side', main).innerHTML = previewHtml(); bindDate(); $('.tf-side', main).classList.add('flash'); setTimeout(() => $('.tf-side', main)?.classList.remove('flash'), 600); return; }
     else if (act === 'pv') {

@@ -1425,6 +1425,8 @@ const BASES = [
   ['fixed', 'שעה קבועה'], ['alos', 'עלות השחר'], ['neitz', 'נץ החמה'], ['chatzos', 'חצות'],
   ['shkia', 'שקיעה'], ['candles', 'הדלקת נרות'], ['rt', 'ר"ת'],
 ];
+// "המאוחר / המוקדם מבין": { b: 'max'|'min', x: T, y: T } — למשל 5:30 אדער עלות +5, דאס שפעטערע
+const COMBOS = [['max', 'המאוחר מבין'], ['min', 'המוקדם מבין']];
 const ROUNDS = [['1n', 'בלי עיגול'], ['5n', 'עיגול ל-5 (קרוב)'], ['5u', 'עיגול ל-5 (למאוחר)'], ['5d', 'עיגול ל-5 (למוקדם)'], ['10n', 'עיגול ל-10'], ['15n', 'רבע שעה 00/15/30/45 (קרוב)'], ['15u', 'רבע שעה 00/15/30/45 (למאוחר)'], ['15d', 'רבע שעה 00/15/30/45 (למוקדם)']];
 const SEASONS = [['all', 'כל השנה'], ['winter', 'שעון חורף'], ['summer', 'שעון קיץ'], ['custom', 'מ... עד...']];
 // נקודות אין יאר פאר "מ... עד..." (פון דעם טאג אן, אריינגערעכנט)
@@ -1443,6 +1445,10 @@ function dayZ(iso, loc) {
 /** מינוט, אדער null */
 function timeOf(T, zd) {
   if (!T) return null;
+  if (T.b === 'max' || T.b === 'min') {
+    const v = [timeOf(T.x, zd), timeOf(T.y, zd)].filter((m) => m != null);
+    return v.length ? (T.b === 'max' ? Math.max(...v) : Math.min(...v)) : null;
+  }
   if (T.b === 'fixed' || T.t) return toMin(T.t);
   const base = zd[T.b];
   if (!Number.isFinite(base)) return null;
@@ -1452,6 +1458,7 @@ function timeOf(T, zd) {
 /** א קורצע באשרייבונג: "שקיעה +25 (5)" */
 function describe(T) {
   if (!T) return '—';
+  if (T.b === 'max' || T.b === 'min') return `${describe(T.x)} / ${describe(T.y)} (${T.b === 'max' ? 'המאוחר' : 'המוקדם'})`;
   if (T.b === 'fixed') return T.t || '—';
   const name = (BASES.find(([k]) => k === T.b) || [, T.b])[1];
   const a = Number(T.a) || 0;
@@ -1702,7 +1709,7 @@ function weekZ(data, n, loc) {
   return out;
 }
 /** א שעה וואס רוקט זיך (לויט שקיעה א.א.וו.) — דער כלל; א פעסטע שעה — '' */
-const specOf = (T) => (T && T.b && T.b !== 'fixed' && !T.t ? `${T.b}${Number(T.a) || 0}/${T.r || 1}${T.m || ''}` : '');
+const specOf = (T) => (T && (T.b === 'max' || T.b === 'min') ? `${T.b}(${specOf(T.x) || T.x?.t},${specOf(T.y) || T.y?.t})` : T && T.b && T.b !== 'fixed' && !T.t ? `${T.b}${Number(T.a) || 0}/${T.r || 1}${T.m || ''}` : '');
 function computeWeekday(data, n, loc) {
   const w = data.weekday; const iso = isoOf(n); const zd = weekZ(data, n, loc); const fri = dowOf(n) === 5;
   const ok = (r) => inSeason(r.season, iso, r) && (!fri || r.fri);
@@ -1853,7 +1860,7 @@ function computeHoly(data, eve, loc) {
 }
 
 
-return { dayZ, timeOf, describe, isSummer, condOf, defaults, computeShiurim, chagRows, daysOf, weekRefDay, weekZ, computeWeekday, minorBlockOn, computeShabbos, computeSpecial, chagOn, computeHoly, BASES, ROUNDS, SEASONS, ANCHORS, F, R, partOfDay, WHEN, REF_DAYS, TISHREI_CHAG, nOf, isoOf };
+return { dayZ, timeOf, describe, isSummer, condOf, defaults, computeShiurim, chagRows, daysOf, weekRefDay, weekZ, computeWeekday, minorBlockOn, computeShabbos, computeSpecial, chagOn, computeHoly, BASES, COMBOS, ROUNDS, SEASONS, ANCHORS, F, R, partOfDay, WHEN, REF_DAYS, TISHREI_CHAG, nOf, isoOf };
   })();
   __m["js/luach/autovars.js"] = (function () {
 // "הודעות אוטומטיות": די ערטער וואס פילן זיך אליין אויס ({הדלקת נרות}, {שחרית}, {מצוה יומית} ...)
