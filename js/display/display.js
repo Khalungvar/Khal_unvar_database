@@ -260,7 +260,7 @@ function changesCalc(d0, n, holy) {
     if (!isNormal(k, holy)) continue;
     const sg = sigOf(k); if (sigEq(sg, cur)) continue;
     const txt = chgText(cur, sg);
-    if (txt) { const x = hdOf(k); out.note = `<b>מיום ${DNAME[dowOf(k)]}</b> ${hebrewNumber(x.d)} ${MONTH[x.m] || x.m}: ${txt}`; }
+    if (txt) { let s6 = k; while (dowOf(s6) !== 6) s6 += 1; const p6 = dayOf(s6)?.parsha; const x = hdOf(k); out.note = `<b>מיום ${DNAME[dowOf(k)]}</b> ${p6 ? `פרשת ${p6}` : `${hebrewNumber(x.d)} ${MONTH[x.m] || x.m}`}: ${txt}`; }
     break;
   }
   // "חדש": א שינוי לויטן קאלענדאר (חורף/זומער) אין די לעצטע טעג
@@ -484,11 +484,15 @@ function render() {
   const isNx = (m) => !!next && (m === next || (m.k === next.k && m.min === next.min));
   const timesHtml = (arr) => arr.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${isNx(m) ? ' nx' : ''}${isNew(m) ? ' new' : ''}">${isNew(m) ? '<em>חדש</em>' : ''}${tm(((m.min % 1440) + 1440) % 1440)}${m.note === 'בערך' ? '<small style="font-size:20px"> בערך</small>' : ''}${m.xn ? `<small style="font-size:18px"> (${m.xn})</small>` : ''}</span>`).join('');
 
-  const mnyHtml = (bd, pos) => `<div class="frame mny ${pos}${(chg.note || CUR.notice) && pos === 'pos-main' ? ' has-chg' : ''}">
+  // לוח ימות החול (גרויס): דריי טורים — שחרית / מנחה / מעריב, מנין כ"ק אונטער מנחה און מעריב
+  const c3Of = (bd, pos) => pos === 'pos-main' && bd.groups.some((g) => g.g === 'shacharis');
+  const gCls = (g) => (g.rebbe ? 'g-rb' : g.g ? `g-${g.g}` : 'g-x');
+  const actOf = (g) => g.items.some((m) => isNx(m));
+  const mnyHtml = (bd, pos) => `<div class="frame mny ${pos}${(chg.note || CUR.notice) && pos === 'pos-main' ? ' has-chg' : ''}${c3Of(bd, pos) ? ` c3${bd.groups.some((g) => g.rebbe) ? '' : ' no-rb'}${bd.groups.some((g) => g.g === 'maariv') ? '' : ' no-ma'}` : ''}">
       <div class="ttl">${h(SCR.texts.tWeek)}${(() => { const k0 = swap ? wk : n; let s6 = k0; while (dowOf(s6) !== 6) s6 += 1; const p6 = dayOf(s6)?.parsha; return p6 ? ` - פרשת ${h(p6)}` : ''; })()}</div>
       ${bd.groups.map((g) => (g.rebbe
-        ? `<div class="grp rb"><h3>${h(g.h)}</h3><div class="times rbt">${g.items.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}${isNew(m) ? ' new' : ''}">${isNew(m) ? '<em>חדש</em>' : ''}<i>${m.lbl}</i> ${tm(((m.min % 1440) + 1440) % 1440)}</span>`).join('')}</div></div>`
-        : `<div class="grp"><h3>${h(g.h)}${g.sub ? ` <small>${h(g.sub)}</small>` : ''}</h3><div class="times">${timesHtml(g.items)}</div></div>`)).join('')}
+        ? `<div class="grp rb ${gCls(g)}${actOf(g) ? ' act' : ''}"><h3>${h(g.h)}</h3><div class="times rbt">${g.items.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}${isNew(m) ? ' new' : ''}">${isNew(m) ? '<em>חדש</em>' : ''}<i>${m.lbl}</i> ${tm(((m.min % 1440) + 1440) % 1440)}</span>`).join('')}</div></div>`
+        : `<div class="grp ${gCls(g)}${actOf(g) ? ' act' : ''}"><h3>${h(g.h)}${g.sub ? ` <small>${h(g.sub)}</small>` : ''}</h3>${g.sub ? `<div class="gsub">${h(g.sub)}</div>` : ''}<div class="times">${timesHtml(g.items)}</div></div>`)).join('')}
       ${pos === 'pos-main' && (chg.note || CUR.notice) ? `<div class="bnotes">${CUR.notice ? `<div class="chg-note ntc">${esc2(CUR.notice.text)}</div>` : ''}${chg.note ? `<div class="chg-note">⚠ ${chg.note}</div>` : ''}</div>` : ''}
     </div>`;
   function shabHtml(eve, d, pos) {
@@ -626,7 +630,7 @@ function render() {
   }
   updateShiurim(AD || HID.shiurim ? '' : shInner);
   // לוח המניינים (חול): די אותיות ווערן אזוי גרויס אז זיי פילן אויס די מסגרת
-  for (const box of document.querySelectorAll('#dyn .mny')) fitBoard(box);
+  for (const box of document.querySelectorAll('#dyn .mny')) (box.classList.contains('c3') ? fitC3 : fitBoard)(box);
   // דער רויטער פאס: אין איין שורה — ווען צו לאנג, ווערט דער טעקסט קלענער
   for (const nt of document.querySelectorAll('#dyn .bnotes .chg-note')) { let f = parseFloat(getComputedStyle(nt).fontSize); while (nt.scrollWidth > nt.clientWidth + 1 && f > 11) { f -= 0.5; nt.style.fontSize = `${f}px`; } }
   for (const box of document.querySelectorAll('#dyn .shab')) {
@@ -744,6 +748,25 @@ function updateShiurim(inner) {
   }
 }
 const boardCache = new Map();
+/** דריי טורים: איין גרייס פאר אלע זמנים — וויפיל ס'גייט אריין אינעם לענגסטן טור (געווענליך שחרית) */
+function fitC3(box) {
+  const sp = [...box.querySelectorAll('.times span')]; const lb = [...box.querySelectorAll('.times.rbt i')];
+  const key = `c3|${box.className}|${box.textContent}`;
+  const set = (f) => { sp.forEach((e) => { e.style.fontSize = `${f}px`; }); lb.forEach((e) => { e.style.fontSize = `${Math.round(f * 0.68)}px`; }); };
+  if (boardCache.has(key)) { set(boardCache.get(key)); return; }
+  const over = () => {
+    const bb = box.getBoundingClientRect(); const pad = parseFloat(getComputedStyle(box).paddingBottom) * (bb.height / box.offsetHeight || 1);
+    if ([...box.children].some((c) => !c.classList.contains('bnotes') && c.getBoundingClientRect().bottom > bb.bottom - pad + 1)) return true;
+    return [...box.querySelectorAll('.grp')].some((g) => {
+      const last = [...g.querySelectorAll('.times span')].pop(); if (!last) return false;
+      const gb = g.getBoundingClientRect(); const lr = last.getBoundingClientRect(); const tm = last.closest('.times');
+      return lr.bottom > gb.bottom - 4 || (tm && tm.scrollWidth > tm.clientWidth + 1);
+    });
+  };
+  let f = 46; set(f);
+  while (over() && f > 16) { f -= 1; set(f); }
+  boardCache.set(key, f); if (boardCache.size > 50) boardCache.clear();
+}
 function fitBoard(box, sel = '.times span, .times.rbt i', max = 1.6) {
   const els = [...box.querySelectorAll(sel)];
   const key = `${box.className}|${box.textContent}`;
