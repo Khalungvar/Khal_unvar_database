@@ -544,9 +544,9 @@ function render() {
   const html = `
     ${PREVIEW ? '<div class="sample">תצוגה מקדימה — לא נשמר</div>' : !LIVE ? '<div class="sample">דוגמה — זמני ברירת מחדל</div>' : ''}
     <div class="top">
-      ${HID.day ? '<div class="day"></div>' : `<div class="day">${h(dw === 6 && nowMin > z.motzei ? 'מוצאי שבת קודש' : YDAY[dw])}${parsha ? `<small>פרשת ${h(parsha)}</small>` : ''}${holAll ? `<small class="sp">${h(holAll)}</small>` : ''}</div>`}
+      ${HID.day ? '<div class="day"></div>' : `<div class="day">${h(dw === 6 && nowMin > z.motzei ? 'מוצאי שבת קודש' : YDAY[dw])}${parsha ? `<small>פרשת ${h(parsha)}</small>` : ''}<small class="hd">${h(heDate)}</small>${holAll ? `<small class="sp">${h(holAll)}</small>` : ''}</div>`}
       ${HID.logo ? '<div class="logo"></div>' : `<div class="logo"><img src="${h(SCR.logo || 'img/logo.png')}" alt=""><b>${h(SCR.texts.title)}</b><i>${h(SCR.texts.sub)}</i></div>`}
-      ${HID.clock ? '<div class="clock"></div>' : `<div class="clock">${hh}:${String(now.getMinutes()).padStart(2, '0')}<span>${String(now.getSeconds()).padStart(2, '0')} ${ap}</span></div>`}
+      ${HID.clock ? '<div class="clock"></div>' : `<div class="clock">${hh}:${String(now.getMinutes()).padStart(2, '0')}<span>${String(now.getSeconds()).padStart(2, '0')} ${ap}</span><small class="greg">${now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</small></div>`}
     </div>
 
     ${PER ? perHtml() : swap ? shabHtml(hd - 1, hd, 'pos-main') : mnyHtml(board, 'pos-main')}
@@ -598,9 +598,7 @@ function render() {
     </div>`}`}
 <!--BOT-->
     ${HID.bottom ? '' : `<div class="bottom">
-      <div class="hd">${h(heDate)}</div>
       <div class="kol">${h(SCR.texts.kolText)} <b>${h(SCR.texts.kolPhone)}</b></div>
-      <div class="greg">${now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
     </div>`}`;
   // שיעורי תורה: אין אן אייגענעם שיכט (נישט איבערגעצייכנט יעדע סעקונדע) — ווען עס גייט נישט אריין, פארט עס פאמעלעך ארויף אין א קרייז
   const shDaf = SHI.filter((x) => x.type === 'daf'); const shOth = SHI.filter((x) => x.type !== 'daf');

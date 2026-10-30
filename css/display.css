@@ -409,3 +409,13 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 
 /* שהשמחה במעונם: א שטיק נאמען וואס ווערט נישט צעבראכן */
 .mzl .nb { white-space: nowrap; }
+
+/* אויבן: רעכטס — טאג, פרשה, העברעישע דאטום, באשרייבונג; לינקס — דער זייגער (קלענער) מיט דער ענגלישער דאטום. אונטן — פריי פאר אנדערע זאכן */
+.top .day { font-size: 44px; line-height: 1; }
+.top .day small { font-size: 27px; line-height: 1.1; }
+.top .day small.hd { color: #fff; font-weight: 900; }
+.top .day small.sp { font-size: 30px; }
+.top .clock { font-size: 80px; }
+.top .clock span { font-size: 34px; }
+.top .clock small.greg { display: block; font-size: 30px; font-weight: 700; color: #e9d9ad; text-align: left; letter-spacing: .5px; margin-top: 4px; }
+.bottom { justify-content: center; }
