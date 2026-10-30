@@ -381,3 +381,6 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .per .pd-r b em { font-style: normal; white-space: nowrap; unicode-bidi: isolate; }
 .per .pd-r b em:not(:last-child):not(.dn)::after { content: ' ·'; color: var(--gold3); }
 .per .pd-r b em.dn { margin-left: .5em; }
+
+/* לוח המניינים של ימות החול: רקע ווייס, ווי "המנין הבא" */
+.frame.mny { background: #fff; }
