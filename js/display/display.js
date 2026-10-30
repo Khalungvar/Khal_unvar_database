@@ -637,7 +637,7 @@ function render() {
       const fs = parseFloat(getComputedStyle(sp).fontSize) * 1.12;
       sp.dataset.b = fs; bb.dataset.b = Math.round(fs * 0.81 * 10) / 10;
     }
-    fitBoard(box, '.sh-r > span, .sh-r > b', 1.15);
+    fitBoard(box, '.sh-r > span, .sh-r > b', 1.35);
     for (const t of box.querySelectorAll('.sh-t.one')) { let f = parseFloat(getComputedStyle(t).fontSize); while (t.scrollWidth > t.clientWidth + 1 && f > 12) { f -= 1; t.style.fontSize = `${f}px`; } }
     // א לאנגער נאמען: נאר ער ווערט קלענער, אז די שעה זאל נישט ווערן געדריקט
     for (const sp of box.querySelectorAll('.sh-r > span')) {
