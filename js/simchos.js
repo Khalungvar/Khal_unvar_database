@@ -238,7 +238,7 @@ export function simchaHtml(s) {
 
 // ---------- דער בלאט ----------
 const SCALE = 0.909; // די שוליים (sg-inner)
-const MAX_PT = Math.round((11 / SCALE) * 100) / 100;
+const MAX_PT = Math.round((12 / SCALE) * 100) / 100; // 12 נקודות
 const fontKey = 'sg-font';
 const defFont = () => customFontNames().find((n) => !/bold/i.test(n)) || 'Frank Ruhl Libre';
 const getFont = () => { let f = ''; try { f = localStorage.getItem(fontKey) || ''; } catch { /* */ } return f && (f === 'Frank Ruhl Libre' || customFontNames().includes(f)) ? f : defFont(); };
@@ -276,8 +276,8 @@ function bodyHtml(list, pt, cols, opt) {
   return `<div class="sg-body${cols > 1 ? ' sg-cols' : ''}${cols === 1 && opt.spread ? ' sg-spread' : ''}" ${st}>${list.map(simchaHtml).join('')}</div>`;
 }
 
-// ---------- אויסלייג: איין/צוויי שפאלטן, קלענערער שריפט (ביז 2.5 נקודות), און דערנאך א צווייטער בלאט ----------
-const MIN_PT = Math.round(((11 - 2.5) / SCALE) * 100) / 100;
+// ---------- אויסלייג: איין/צוויי שפאלטן, קלענערער שריפט (פון 12 ביז 10 נקודות), און דערנאך א צווייטער בלאט ----------
+const MIN_PT = Math.round((10 / SCALE) * 100) / 100;
 const colsKey = 'sg-cols';
 const getCols = () => { try { return localStorage.getItem(colsKey) || 'auto'; } catch { return 'auto'; } };
 const setCols = (v) => { try { localStorage.setItem(colsKey, v); } catch { /* */ } };

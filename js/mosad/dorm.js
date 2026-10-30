@@ -3,10 +3,10 @@
 // די בילד פון א מבנה: Settings "dormimg:<id>" (נאר דורך "dormImg" — נישט מיט די אלגעמיינע הגדרות)
 // א זמן: Settings "dorm:<זמן>" = { b: מבנה, beds: { bedId: contact_id }, apts: [{ id, name, beds, ids: [contact_id|''] }] }
 // אן אלטער זמן בלייבט מיט זיין מבנה — אויך ווען מ'מאכט שפעטער א נייעם (א נייער בנין).
-import { downloadXlsx } from '../excel.js?v=530';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=530';
-import { heDate, letterhead } from './brand.js?v=530';
-import { todayIso } from '../hebdate.js?v=530';
+import { downloadXlsx } from '../excel.js?v=531';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=531';
+import { heDate, letterhead } from './brand.js?v=531';
+import { todayIso } from '../hebdate.js?v=531';
 
 let X = null;
 export function initDorm(ctx) { X = ctx; }
