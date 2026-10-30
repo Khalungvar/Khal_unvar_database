@@ -628,7 +628,7 @@ export function computeSpecial(data, n, loc) {
           return i < 0 ? ds[0] + i === n : ds[i] === n;
         }).map((r) => ({ label: r.label, note: r.note, kind: r.kind, screen: r.screen !== false, disp: r.disp || null,
           place: r.disp?.place || (isChag(part, b) ? 'shab' : 'weekday'),
-          ...((r.sat?.on && dowOf(n) === 6 && r.sat.label) ? { label: r.sat.label } : (r.fri?.on && dowOf(n) === 5) ? { label: r.fri.label || (/מנחה/.test(r.label || '') ? 'מנחה וקבלת שבת' : r.label) } : {}),
+          ...((r.sat?.on && dowOf(n) === 6 && r.sat.label) ? { label: r.sat.label } : (r.fri?.on && dowOf(n) === 5 && r.fri.label) ? { label: r.fri.label } : friMincha(data, n, r.label) ? { label: 'מנחה וקבלת שבת' } : {}),
           mins: ((r.sat?.on && dowOf(n) === 6 ? r.sat.times : r.fri?.on && dowOf(n) === 5 ? r.fri.times : r.times) || []).map((t) => timeOf(t, zd)).filter((m) => m != null) }));
         if (rows.length) { out.push({ title: b.title, part, when: b.when, type: isChag(part, b) ? 'chag' : (b.type || ''), rows }); break; }
       }
@@ -636,6 +636,8 @@ export function computeSpecial(data, n, loc) {
   }
   return out;
 }
+/** א חג וואס פאלט אויס ערב שבת: די "מנחה" פון יענעם טאג איז "מנחה וקבלת שבת" */
+export const friMincha = (data, n, label) => dowOf(n) === 5 && /מנחה/.test(label || '') && chagOn(data, n);
 // ---------- שבת און יו"ט צוזאמען ----------
 export const TISHREI_CHAG = new Set(['rh1', 'rh2', 'yk', 'sukkos1', 'sukkos2', 'shmini', 'simchas']);
 const isChag = (part, b) => (part === 'yt' && b.type === 'chag') || ((part === 'tishrei' || part === 'pesach') && CHAG_DAYS.has(b.when));

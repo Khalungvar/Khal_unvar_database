@@ -2,7 +2,7 @@
 // ימות החול: ווי דער אלטער ZMANIM1 (מסגרת, פסים שווארצע). שבת: ווי דער בלאט "זמני שבת פרשת נח".
 // יו"ט / ימי דפגרא / תשרי: ווי דער בלאט פון פורים — חלקים מיט א קעפל: שורות מיט פינטלעך, א פאס פון תיבות, א טבלה פון מנינים.
 import { hhmm } from './zmanim.js';
-import { computeWeekday, computeShabbos, daysOf, dayZ, timeOf, eventsBetween } from './minyanim.js';
+import { computeWeekday, computeShabbos, daysOf, dayZ, timeOf, eventsBetween, friMincha } from './minyanim.js';
 import { dowOf, isoOf } from './engine.js';
 
 const h = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -241,7 +241,8 @@ export function buildSpecial(data, part, whens, Y, loc) {
       const grp = [];
       for (const p of per) { const key = p.mins.join(','); const g = grp.find((x) => x.key === key); if (g) g.days.push(p.n); else grp.push({ key, days: [p.n], p }); }
       for (const g of grp) {
-        const label = grp.length > 1 ? `${r.label} - ${g.days.map((n) => DOWN[dowOf(n)]).join(', ')}` : r.label;
+        const base = g.days.every((n) => friMincha(data, n, r.label)) ? ((r.fri?.on && r.fri.label) || 'מנחה וקבלת שבת') : r.label;
+        const label = grp.length > 1 ? `${base} - ${g.days.map((n) => DOWN[dowOf(n)]).join(', ')}` : base;
         if (r.table) {
           let k = 0; const L = 'אבגדהוזחטיכלמנ';
           const rows = g.p.Ts.map((T, i) => ({ min: g.p.mins[i], room: T.room || '', meg: hm(T.meg), ezras: !!T.ez, rebbe: !!T.rb })).filter((x) => x.min != null)

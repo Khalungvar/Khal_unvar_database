@@ -1,6 +1,6 @@
 // פסח און תשרי: א לוח פון טעג (data.pesach / data.tishrei) → "חלקים" פאר דער תצוגה (V "כאן התצוגה מתחלקת")
 // און פאר די אויטאמאטישע הודעות (V "כאן ההודעה מתחלקת"). יעדער טאג: זיינע שורות + "כמו ביום חול" + "כמו שבת רגילה" + שולחן הטהור ודרשות.
-import { daysOf, timeOf, dayZ, computeWeekday, computeShabbos, eventsBetween, chagOn, isoOf, nOf } from './minyanim.js';
+import { daysOf, timeOf, dayZ, computeWeekday, computeShabbos, eventsBetween, chagOn, friMincha, isoOf, nOf } from './minyanim.js';
 import { hdOf, dowOf, buildYear } from './engine.js';
 import { hebrewNumber, monthHe } from '../hebdate.js';
 
@@ -52,7 +52,7 @@ export function periodSections(data, part, Y, loc) {
       const per = rowDays(r, ds).map((n) => {
         const v = r.sat?.on && dowOf(n) === 6 ? r.sat : r.fri?.on && dowOf(n) === 5 ? r.fri : null;
         const z = dayZ(isoOf(n), loc);
-        return { n, label: (v && v.label) || '', mins: ((v ? v.times : r.times) || []).map((T) => timeOf(T, z)).filter((m) => m != null).sort((a, x) => a - x) };
+        return { n, label: (v && v.label) || (friMincha(data, n, r.label) ? 'מנחה וקבלת שבת' : ''), mins: ((v ? v.times : r.times) || []).map((T) => timeOf(T, z)).filter((m) => m != null).sort((a, x) => a - x) };
       }).filter((p) => p.mins.length);
       if (per.length) lines.push({ label: per.find((p) => p.label)?.label || r.label, kind: r.kind || 'tefila', note: r.note || '', screen: r.screen !== false, per });
     }

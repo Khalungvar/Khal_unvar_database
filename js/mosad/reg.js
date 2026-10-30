@@ -1,10 +1,10 @@
 // אתר פון א מוסד — 📝 רישום לישיבה: מועמדים, כרטיס מועמד, סטטוסים, הודעות, מסמכים, העברה לתלמידים, הגדרות וייצוא.
 // א מועמד איז נישט קיין "מענטש" אינעם מאגר ביז מ'דרוקט "העבר לתלמידים" (נאר נאך "נתקבל").
-import { downloadXlsx } from '../excel.js?v=525';
-import { heDate, hebrewDateHints } from './brand.js?v=525';
-import { todayIso } from '../hebdate.js?v=525';
-import { zmanim, currentZman } from './school.js?v=525';
-import { mergeConf, mergeTexts, fill, DEFAULT_CONF } from './reg-defaults.js?v=525';
+import { downloadXlsx } from '../excel.js?v=526';
+import { heDate, hebrewDateHints } from './brand.js?v=526';
+import { todayIso } from '../hebdate.js?v=526';
+import { zmanim, currentZman } from './school.js?v=526';
+import { mergeConf, mergeTexts, fill, DEFAULT_CONF } from './reg-defaults.js?v=526';
 
 let X = null;
 export function initReg(ctx) { X = ctx; }
