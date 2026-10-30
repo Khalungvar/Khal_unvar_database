@@ -430,3 +430,6 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .mny.pos-side .grp { padding-top: 19px; }
 .per .pd-h { margin-bottom: 9px; }
 .mny .times span, .mny.has-chg .times span { line-height: 1.26; }
+
+/* the display shows no mouse pointer */
+html, body, * { cursor: none !important; }
