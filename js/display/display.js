@@ -485,12 +485,11 @@ function render() {
   const timesHtml = (arr) => arr.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${isNx(m) ? ' nx' : ''}${isNew(m) ? ' new' : ''}">${isNew(m) ? '<em>חדש</em>' : ''}${tm(((m.min % 1440) + 1440) % 1440)}${m.note === 'בערך' ? '<small style="font-size:20px"> בערך</small>' : ''}${m.xn ? `<small style="font-size:18px"> (${m.xn})</small>` : ''}</span>`).join('');
 
   const mnyHtml = (bd, pos) => `<div class="frame mny ${pos}${(chg.note || CUR.notice) && pos === 'pos-main' ? ' has-chg' : ''}">
-      <div class="ttl">${h(SCR.texts.tWeek)}${(() => { const k0 = swap ? wk : n; let s6 = k0; while (dowOf(s6) !== 6) s6 += 1; const p6 = dayOf(s6)?.parsha; return p6 ? ` לפרשת ${h(p6)}` : ''; })()}</div>
-      ${pos === 'pos-main' && CUR.notice ? `<div class="chg-note ntc">${esc2(CUR.notice.text)}</div>` : ''}
+      <div class="ttl">${h(SCR.texts.tWeek)}${(() => { const k0 = swap ? wk : n; let s6 = k0; while (dowOf(s6) !== 6) s6 += 1; const p6 = dayOf(s6)?.parsha; return p6 ? ` - פרשת ${h(p6)}` : ''; })()}</div>
       ${bd.groups.map((g) => (g.rebbe
         ? `<div class="grp rb"><h3>${h(g.h)}</h3><div class="times rbt">${g.items.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}${isNew(m) ? ' new' : ''}">${isNew(m) ? '<em>חדש</em>' : ''}<i>${m.lbl}</i> ${tm(((m.min % 1440) + 1440) % 1440)}</span>`).join('')}</div></div>`
         : `<div class="grp"><h3>${h(g.h)}${g.sub ? ` <small>${h(g.sub)}</small>` : ''}</h3><div class="times">${timesHtml(g.items)}</div></div>`)).join('')}
-      ${chg.note && pos === 'pos-main' ? `<div class="chg-note">⚠ ${chg.note}</div>` : ''}
+      ${pos === 'pos-main' && (chg.note || CUR.notice) ? `<div class="bnotes">${CUR.notice ? `<div class="chg-note ntc">${esc2(CUR.notice.text)}</div>` : ''}${chg.note ? `<div class="chg-note">⚠ ${chg.note}</div>` : ''}</div>` : ''}
     </div>`;
   function shabHtml(eve, d, pos) {
     const shab = dowOf(d) === 6;
@@ -507,11 +506,13 @@ function render() {
     const dense = rows.length > (pos === 'pos-main' ? 8 : 7) ? ' dense' : '';
     return `<div class="shab ${pos}${dense}${pos === 'pos-main' && CUR.notice ? ' has-ntc' : ''}" style="--n:${rows.length}">
       ${pos === 'pos-main' && CUR.notice ? `<div class="chg-note ntc">${esc2(CUR.notice.text)}</div>` : ''}
-      <div class="sh-t"><small class="pre">${h(SCR.texts.tHoly)}</small>${h(chagTitle ? `ל${chagTitle}` : shab ? 'לשבת קודש' : `ל${ytName || 'יום טוב'}`)}<small>${E.only ? '&nbsp;' : ps ? `פרשת ${h(ps)}` : '&nbsp;'}</small></div>
+      <div class="sh-t one">${h(`${SCR.texts.tHoly} ${chagTitle ? `ל${chagTitle}` : shab ? 'לשבת קודש' : `ל${ytName || 'יום טוב'}`}${!E.only && ps ? ` - פרשת ${ps}` : ''}`)}</div>
       ${rows.map((r) => (r.sep ? '<div class="sh-sep"></div>' : `<div class="sh-r${r.kind === 'tefila' ? ' big' : ''}${(r.kind === 'tefila' || r.kind === 'event') && r.min != null && r.min < nowMin ? ' past' : ''}"><span>${h(r.label)}</span><b>${r.min == null ? '—' : [r.min, ...(r.more || [])].map((m) => tm(((m % 1440) + 1440) % 1440)).join(' · ')}</b></div>`)).join('')}
     </div>`;
   }
   // פסח / תשרי: אלע טעג פונעם חלק, אין דריי שפאלטן (פון רעכטס צו לינקס)
+  // א העברעישע צאל מיט גרשיים: מ"ב, ט"ו; איין אות — ב'
+  const gersh = (t) => { const x = String(t || '').replace(/["'״׳]/g, ''); return x.length > 1 ? `${x.slice(0, -1)}"${x.slice(-1)}` : x ? `${x}'` : ''; };
   const DNS = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", 'ש"ק'];
   function perHtml() {
     const secs = PER.seg.secs.map((sc) => ({ ...sc, ls: sc.lines.filter((l) => l.screen !== false) })).filter((sc) => sc.ls.length);
@@ -533,7 +534,7 @@ function render() {
     const P = PTB; const x0 = hdOf(P.d);
     const dense = P.rows.length > 7 ? ' dense' : '';
     return `<div class="shab pt ${pos}${dense}" style="--n:${P.rows.length}">
-      <div class="sh-t"><small class="pre">${h(SCR.texts.tHoly)}</small>${h(`ל${P.title}`)}<small>${h(`${YDAY[dowOf(P.d)]} ${hebrewNumber(x0.d)} ${MONTH[x0.m] || x0.m}`)}</small></div>
+      <div class="sh-t one">${h(`${SCR.texts.tHoly} ל${P.title} - ${YDAY[dowOf(P.d)]} ${hebrewNumber(x0.d)} ${MONTH[x0.m] || x0.m}`)}</div>
       ${P.rows.map((r) => `<div class="sh-r${r.kind === 'tefila' ? ' big' : ''}${r.min < nowMin && !r.more.some((m) => m >= nowMin) ? ' past' : ''}"><span>${h(r.label)}</span><b>${[r.min, ...r.more].map((m) => tm(((m % 1440) + 1440) % 1440)).join(' · ')}</b></div>`).join('')}
     </div>`;
   }
@@ -549,7 +550,7 @@ function render() {
     ${PREVIEW ? '<div class="sample">תצוגה מקדימה — לא נשמר</div>' : !LIVE ? '<div class="sample">דוגמה — זמני ברירת מחדל</div>' : ''}
     <div class="top">
       ${HID.day ? '<div class="day"></div>' : `<div class="day">${h(dw === 6 && nowMin > z.motzei ? 'מוצאי שבת קודש' : YDAY[dw])}${parsha ? ` פרשת ${h(parsha)}` : ''}<small class="hd">${h(heDate)}${holAll ? ` - ${h(holAll)}` : ''}</small></div>`}
-      ${HID.logo ? '<div class="logo"></div>' : `<div class="logo"><img src="${h(SCR.logo || 'img/logo.png')}" alt=""><b>${h(SCR.texts.title)}</b><i>${h(SCR.texts.sub)}</i></div>`}
+      ${HID.logo ? '<div class="logo"></div>' : `<div class="logo"><img src="${h(SCR.logo || 'img/logo.png')}" alt=""><b>${h(SCR.texts.title)}</b>${SCR.texts.sub2 ? `<i class="s2">${h(SCR.texts.sub2)}</i>` : ''}<i>${h(SCR.texts.sub)}</i></div>`}
       ${HID.clock ? '<div class="clock"></div>' : `<div class="clock">${hh}:${String(now.getMinutes()).padStart(2, '0')}<span>:${String(now.getSeconds()).padStart(2, '0')} ${ap}</span><small class="greg">${now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</small></div>`}
     </div>
 
@@ -597,8 +598,8 @@ function render() {
       <div class="l2 fit">${h(mz.text)}</div>
     </div>`}
     ${HID.daf ? '' : `<div class="frame lrn-m lrn-d">
-      <div class="l1"><span>${h(SCR.texts.tDaf)}</span></div>
-      <div class="l2 fit">${h(daf.text)}</div>
+      <div class="l1"><span>${h(SCR.texts.tDaf)}:</span></div>
+      <div class="l2 fit">${h(`${daf.masechta} ${gersh(daf.daf)}`)}</div>
     </div>`}`}
 <!--BOT-->
     ${HID.bottom ? '' : `<div class="bottom">
@@ -626,8 +627,18 @@ function render() {
   updateShiurim(AD || HID.shiurim ? '' : shInner);
   // לוח המניינים (חול): די אותיות ווערן אזוי גרויס אז זיי פילן אויס די מסגרת
   for (const box of document.querySelectorAll('#dyn .mny')) fitBoard(box);
+  // דער רויטער פאס: אין איין שורה — ווען צו לאנג, ווערט דער טעקסט קלענער
+  for (const nt of document.querySelectorAll('#dyn .bnotes .chg-note')) { let f = parseFloat(getComputedStyle(nt).fontSize); while (nt.scrollWidth > nt.clientWidth + 1 && f > 11) { f -= 0.5; nt.style.fontSize = `${f}px`; } }
   for (const box of document.querySelectorAll('#dyn .shab')) {
-    fitBoard(box, '.sh-r > span, .sh-r > b', 1);
+    // די שעה (לועזישע ציפערן) זאל אויסזען אזוי הויך ווי די העברעישע ווערטער: ~0.81 פונעם נאמען
+    for (const r of box.querySelectorAll('.sh-r')) {
+      const sp = r.querySelector(':scope > span'); const bb = r.querySelector(':scope > b');
+      if (!sp || !bb || sp.dataset.b) continue;
+      const fs = parseFloat(getComputedStyle(sp).fontSize) * 1.12;
+      sp.dataset.b = fs; bb.dataset.b = Math.round(fs * 0.81 * 10) / 10;
+    }
+    fitBoard(box, '.sh-r > span, .sh-r > b', 1.15);
+    for (const t of box.querySelectorAll('.sh-t.one')) { let f = parseFloat(getComputedStyle(t).fontSize); while (t.scrollWidth > t.clientWidth + 1 && f > 12) { f -= 1; t.style.fontSize = `${f}px`; } }
     // א לאנגער נאמען: נאר ער ווערט קלענער, אז די שעה זאל נישט ווערן געדריקט
     for (const sp of box.querySelectorAll('.sh-r > span')) {
       let fs = parseFloat(sp.style.fontSize || getComputedStyle(sp).fontSize);
@@ -638,6 +649,13 @@ function render() {
   for (const el of document.querySelectorAll('#dyn .fit')) {
     let fs = 40; el.style.fontSize = `${fs}px`;
     while (el.scrollWidth > el.clientWidth + 1 && fs > 14) { fs -= 1; el.style.fontSize = `${fs}px`; }
+  }
+  // מצוה יומית: די אויבערשטע שורה ("מצוה יומית: מצוה פ"ח") אין דער זעלבער גרייס ווי דער נאמען פון דער מצוה
+  for (const box of document.querySelectorAll('#dyn .lrn-m:not(.lrn-d)')) {
+    const a = box.querySelector('.l1'); const b2 = box.querySelector('.l2'); if (!a || !b2) continue;
+    let fs = parseFloat(b2.style.fontSize) || 40; a.style.fontSize = `${fs}px`;
+    while (a.scrollWidth > a.clientWidth + 1 && fs > 14) { fs -= 1; a.style.fontSize = `${fs}px`; }
+    b2.style.fontSize = `${fs}px`;
   }
   $('#dynb').innerHTML = bot;
   updateOverlays();
@@ -742,9 +760,10 @@ function fitBoard(box, sel = '.times span, .times.rbt i', max = 1.6) {
   for (let k = max; k >= 0.5; k -= 0.04) {
     apply(k);
     const br = box.getBoundingClientRect(); const sc = br.height / box.offsetHeight || 1;
-    const bottom = Math.max(...[...box.children].map((c) => c.getBoundingClientRect().bottom));
+    const bottom = Math.max(...[...box.children].filter((c) => !c.classList.contains('bnotes')).map((c) => c.getBoundingClientRect().bottom));
+    const room = box.querySelector(':scope > .bnotes') ? 30 : 16; // דער רויטער פאס זיצט אויפן אונטערשטן ראם — לאזט אים פלאץ
     const tooWide = els.some((e) => e.closest('.times') && e.closest('.times').scrollWidth > e.closest('.times').clientWidth + 1);
-    if (bottom <= br.bottom - 16 * sc && !tooWide) { best = k; break; }
+    if (bottom <= br.bottom - room * sc && !tooWide) { best = k; break; }
   }
   apply(best); boardCache.set(key, best); if (boardCache.size > 50) boardCache.clear();
 }
