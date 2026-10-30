@@ -420,3 +420,6 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .top .clock small.greg { display: block; font-size: 30px; font-weight: 700; color: #e9d9ad; text-align: left; letter-spacing: .5px; margin-top: 4px; }
 .bottom { justify-content: center; }
 .top .day { font-size: 40px; white-space: nowrap; }
+.top .day { color: #fff; }
+.top .day small.hd { color: #e9d9ad; font-weight: 700; white-space: nowrap; }
+.top .clock span { color: #fff; margin-left: 0; }
