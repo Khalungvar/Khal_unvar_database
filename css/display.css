@@ -530,3 +530,5 @@ html, body, * { cursor: none !important; }
 /* לאגא: "נתייסד" און "בנשיאות" נענטער (אפשטאנד 65% קלענער) */
 .top .logo i { line-height: 1; }
 .top .logo i.s2 + i { margin-top: -3px; }
+/* דער גאלדענער פאס פון אונטן גייט ארויף 25px צוזאמען מיט אלעס */
+.bottom { height: calc(1080px - var(--safe, 0px) - 979px * var(--safe-s, 1) + 25px * var(--safe-s, 1)); padding-bottom: calc(var(--safe, 0px) + 25px * var(--safe-s, 1)); }
