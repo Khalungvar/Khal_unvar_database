@@ -780,7 +780,10 @@ function enlarge(root) {
   const lh = cs.map((s, i) => (s.lineHeight === 'normal' ? fs[i] * 1.2 : parseFloat(s.lineHeight)));
   const mp = cs.map((s) => [s.marginTop, s.marginBottom, s.paddingTop, s.paddingBottom].map((v) => parseFloat(v) || 0));
   const idx = new Map(els.map((e, i) => [e, i]));
-  els.forEach((e, i) => { if (fs[i]) e.style.setProperty('font-size', `${(fs[i] * ENL_K).toFixed(2)}px`, 'important'); });
+  // זמני היום: 10% קלענער ווי די אנדערע (די כותרת בלייבט ווי ביי אלע)
+  const kOf = (e) => (e.closest('.zm') && !e.closest('.ttl') ? ENL_K * 0.9 : ENL_K);
+  const kk = els.map(kOf);
+  els.forEach((e, i) => { if (fs[i]) e.style.setProperty('font-size', `${(fs[i] * kk[i]).toFixed(2)}px`, 'important'); });
   // וואס דארף זיין אין איין שורה — קלענער ביז עס גייט אריין אין דער ברייט
   for (const el of root.querySelectorAll('.fit, .sh-t.one, .chg-note, .pd-h, .lrn-m .l1, .sh-r > span, .ttl, .grp h3')) {
     let f = parseFloat(el.style.fontSize); while (f > 11 && el.scrollWidth > el.clientWidth + 1) { f -= 0.5; el.style.setProperty('font-size', `${f}px`, 'important'); }
@@ -793,7 +796,7 @@ function enlarge(root) {
   }
   const squeeze = (kids, k) => kids.forEach((e) => {
     const i = idx.get(e); const m = mp[i];
-    e.style.setProperty('line-height', `${(lh[i] * ENL_K * k).toFixed(2)}px`, 'important');
+    e.style.setProperty('line-height', `${(lh[i] * kk[i] * k).toFixed(2)}px`, 'important');
     ['margin-top', 'margin-bottom', 'padding-top', 'padding-bottom'].forEach((p, j) => { if (m[j]) e.style.setProperty(p, `${(m[j] * k).toFixed(2)}px`, 'important'); });
   });
   const over = (f) => {
