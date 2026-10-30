@@ -35,6 +35,7 @@ import { applyTips } from './tour.js';
 import { initMerge, openMerge } from './merge.js';
 import { loadFonts } from './fonts.js';
 import { initFeedback, openFeedbackCount } from './feedback.js';
+import { initUpdateCheck } from './update.js';
 import { strictMember, tagsOf as tagEntries } from './tags.js';
 import { initSms, openCalls, renderCalls, smsCardHtml, wireSmsCard } from './sms.js';
 import { workCardHtml, workFormHtml, wireWorkForm, readWorkForm, workSearchText } from './work.js';
@@ -2024,6 +2025,7 @@ function start() {
   initLuach({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard, openCompose });
   initBooks({ showView, toast, friendlyError, contactById, fullNameHe, receiptFor: (d) => printForDonation(d), cancelDoc: (c) => cancelDoc(c), quickSale: (org, done) => openQuickReceipt(org, done, { sale: true }) });
   initSimchos({ showView, contactById, fullNameHe, pickerLabel, toast, friendlyError, refreshAll, openCard, openForm });
+  initUpdateCheck();
   initSchool({
     showView, contactById, fullNameHe, pickerLabel, openCard, toast, friendlyError, refreshAll,
     openOrgContacts: (org) => {
