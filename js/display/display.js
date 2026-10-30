@@ -498,7 +498,7 @@ function render() {
   const timesHtml = (arr) => arr.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${isNx(m) ? ' nx' : ''}${isNew(m) ? ' new' : ''}">${isNew(m) ? '<em>חדש</em>' : ''}${tm(((m.min % 1440) + 1440) % 1440)}${m.note === 'בערך' ? '<small style="font-size:20px"> בערך</small>' : ''}${m.xn ? `<small style="font-size:18px"> (${m.xn})</small>` : ''}</span>`).join('');
 
   // לוח ימות החול (גרויס): דריי טורים — שחרית / מנחה / מעריב, מנין כ"ק אונטער מנחה און מעריב
-  const c3Of = (bd, pos) => pos === 'pos-main' && bd.groups.some((g) => g.g === 'shacharis');
+  const c3Of = (bd, pos) => bd.groups.some((g) => g.g === 'shacharis');
   const gCls = (g) => (g.rebbe ? 'g-rb' : g.g ? `g-${g.g}` : 'g-x');
   const actOf = (g) => g.items.some((m) => isNx(m));
   const mnyHtml = (bd, pos) => `<div class="frame mny ${pos}${(chg.note || CUR.notice) && pos === 'pos-main' ? ' has-chg' : ''}${c3Of(bd, pos) ? ` c3${bd.groups.some((g) => g.rebbe) ? '' : ' no-rb'}${bd.groups.some((g) => g.g === 'maariv') ? '' : ' no-ma'}` : ''}">
@@ -676,7 +676,9 @@ function render() {
     while (a.scrollWidth > a.clientWidth + 1 && fs > 14) { fs -= 1; a.style.fontSize = `${fs}px`; }
     b2.style.fontSize = `${fs}px`;
   }
+  enlarge($('#dyn'));
   $('#dynb').innerHTML = bot;
+  enlarge($('#dynb'));
   updateOverlays();
 }
 let shLast = null; let adLast = null; let ovLast = null; let thmLast = null;
@@ -749,7 +751,8 @@ function updateShiurim(inner) {
   const v = L.querySelector('.shv'); const inn = L.querySelector('.shin');
   // גרויס ווי מעגליך: די לענגסטע שורה פילט אויס די ברייט
   const rows = [...inn.querySelectorAll('.shiur > div')];
-  let fs = 30; const setFs = () => rows.forEach((r) => { r.style.fontSize = `${fs}px`; });
+  for (const e of L.querySelectorAll('.ttl, h4')) e.style.fontSize = `${(parseFloat(getComputedStyle(e).fontSize) * ENL_K).toFixed(2)}px`;
+  let fs = 36; const setFs = () => rows.forEach((r) => { r.style.fontSize = `${fs}px`; });
   setFs();
   while (fs > 16 && rows.some((r) => r.scrollWidth > r.clientWidth + 1)) { fs -= 1; setFs(); }
   // ווען עס גייט נישט אריין: קרייז ארויף
@@ -761,6 +764,55 @@ function updateShiurim(inner) {
     inn.style.setProperty('--sh', `${step}px`);
     inn.style.animation = `shscroll ${Math.round(step / Math.max(4, Number(SCR.shiurSpeed) || 18))}s linear infinite`;
   }
+}
+/** אלע אותיות 20% גרעסער; ווען עס גייט נישט אריין אין דער מסגרת — ווערן די אפשטאנדן צווישן די שורות קלענער (נישט די אותיות).
+ *  אויסגערעכנט איינמאל פאר יעדן אינהאלט (cache), נאכדעם נאר איבערגעשטעלט. */
+const ENL = new Map(); const ENL_K = 1.2;
+function enlarge(root) {
+  if (!root) return;
+  const key = root.innerHTML.replace(/<div class="clock">[\s\S]*?<\/div>(?=\s*<\/div>|\s*$|\s*<)/, '').replace(/<div class="cd">[^<]*<\/div>/, '');
+  // דער קליינער 3-טורים קעסטל האט שוין זיין אייגענע גרייס (פול אויסגעפילט)
+  const els = [...root.querySelectorAll('*')].filter((e) => !e.closest('.mny.pos-side'));
+  const rec = ENL.get(key);
+  if (rec && rec.length === els.length) { els.forEach((e, i) => { e.style.cssText = rec[i]; }); return; }
+  const cs = els.map((e) => getComputedStyle(e));
+  const fs = cs.map((s) => parseFloat(s.fontSize) || 0);
+  const lh = cs.map((s, i) => (s.lineHeight === 'normal' ? fs[i] * 1.2 : parseFloat(s.lineHeight)));
+  const mp = cs.map((s) => [s.marginTop, s.marginBottom, s.paddingTop, s.paddingBottom].map((v) => parseFloat(v) || 0));
+  const idx = new Map(els.map((e, i) => [e, i]));
+  els.forEach((e, i) => { if (fs[i]) e.style.setProperty('font-size', `${(fs[i] * ENL_K).toFixed(2)}px`, 'important'); });
+  // וואס דארף זיין אין איין שורה — קלענער ביז עס גייט אריין אין דער ברייט
+  for (const el of root.querySelectorAll('.fit, .sh-t.one, .chg-note, .pd-h, .lrn-m .l1, .sh-r > span, .ttl, .grp h3')) {
+    let f = parseFloat(el.style.fontSize); while (f > 11 && el.scrollWidth > el.clientWidth + 1) { f -= 0.5; el.style.setProperty('font-size', `${f}px`, 'important'); }
+  }
+  const squeeze = (kids, k) => kids.forEach((e) => {
+    const i = idx.get(e); const m = mp[i];
+    e.style.setProperty('line-height', `${(lh[i] * ENL_K * k).toFixed(2)}px`, 'important');
+    ['margin-top', 'margin-bottom', 'padding-top', 'padding-bottom'].forEach((p, j) => { if (m[j]) e.style.setProperty(p, `${(m[j] * k).toFixed(2)}px`, 'important'); });
+  });
+  const over = (f) => {
+    const r = f.getBoundingClientRect();
+    return [...f.querySelectorAll('*')].some((x) => {
+      if (x.closest('.cd')) return false;
+      const q = x.getBoundingClientRect();
+      return q.height > 0 && (q.bottom > r.bottom - 6 || q.top < r.top - 2 || (getComputedStyle(x).overflow !== 'visible' && x.scrollHeight > x.clientHeight + 1));
+    });
+  };
+  for (const f of root.querySelectorAll('.frame:not(.mzl):not(.lrn-s):not(.mny.pos-side), .shab')) {
+    const kids = [...f.querySelectorAll('*')].filter((e) => idx.has(e)); const kmin = f.matches('.lrn-m') ? 0.85 : 0.6;
+    let k = 1; while (over(f) && k > kmin) { k -= 0.03; squeeze(kids, k); }
+  }
+  // דער לאגא: נישט אריינגיין אין דער קעסטל אונטער אים
+  const logo = root.querySelector('.top .logo');
+  if (logo) {
+    const below = [...root.querySelectorAll('.frame, .shab')].map((f) => f.getBoundingClientRect()).filter((r) => r.left < 960 && r.right > 960 && r.top > 120);
+    if (below.length) {
+      const top = Math.min(...below.map((r) => r.top)); const kids = [...logo.querySelectorAll('*')];
+      const bot = () => Math.max(...kids.map((x) => x.getBoundingClientRect().bottom));
+      let k = 1; while (bot() > top - 4 && k > 0.5) { k -= 0.03; squeeze(kids, k); }
+    }
+  }
+  ENL.set(key, els.map((e) => e.style.cssText)); if (ENL.size > 40) ENL.clear();
 }
 const boardCache = new Map();
 /** דריי טורים: איין גרייס פאר אלע זמנים — וויפיל ס'גייט אריין אינעם לענגסטן טור (געווענליך שחרית) */

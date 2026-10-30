@@ -22,7 +22,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 }
 
 /* גאלדענע ראמען */
-.frame { position: absolute; background: var(--paper); border-radius: 18px;
+.frame { position: absolute; background: var(--paperbg); border-radius: 18px;
   box-shadow: 0 0 0 3px var(--gold3), 0 0 0 7px var(--gold), 0 0 0 9px var(--gold3), 0 10px 30px rgba(0,0,0,.45); }
 .frame::before { content: ''; position: absolute; inset: 8px; border: 1.5px solid rgba(138,106,42,.55); border-radius: 12px; pointer-events: none; }
 .ttl { font-family: var(--serif); font-weight: 900; text-align: center; color: var(--paper);
@@ -521,7 +521,7 @@ html, body, * { cursor: none !important; }
 .mny.c3 .bnotes { left: 14px; right: 14px; }
 .mny.c3.has-chg { padding-bottom: 26px; }
 /* דער רעקע: בעזש; דער טור מיטן קומענדיגן מנין — ווייס; מנין כ"ק — אלעמאל ווייס */
-.frame.mny.c3 { background: var(--paper); }
+.frame.mny.c3 { background: var(--paperbg); }
 .mny.c3 .grp.g-rb, .mny.c3 .grp.act { background: #fff; box-shadow: inset 0 0 0 1px rgba(138,106,42,.25), 0 2px 6px rgba(60,40,10,.18); }
 .shab.pos-main .sh-r.big > span { font-size: 36px; }
 .shab.pos-main.dense .sh-r.big > span { font-size: calc(35px * 8 / var(--n)); }
@@ -534,3 +534,14 @@ html, body, * { cursor: none !important; }
 .bottom { height: calc(1080px - var(--safe, 0px) - 979px * var(--safe-s, 1) + 25px * var(--safe-s, 1)); padding-bottom: calc(var(--safe, 0px) + 25px * var(--safe-s, 1)); }
 /* בהירות כללית 120% */
 #screen { filter: brightness(1.2); }
+/* 3 טורים אין דער קליינער קעסטל */
+.mny.c3.pos-side { padding: 0 10px 8px; column-gap: 8px; }
+.mny.c3.pos-side > .ttl { margin: 0 -10px; }
+.mny.c3.pos-side .grp { margin: 16px 0 0 !important; padding: 15px 2px 3px; }
+.mny.c3.pos-side .grp h3 { font-size: 19px; }
+.mny.c3.pos-side .g-rb h3 { font-size: 16px; }
+.mny.c3.pos-side .gsub { font-size: 12px; margin: -3px 0 0; }
+.mny.c3.pos-side .times span { line-height: 1.0; }
+.mny.c3.pos-side .grp:not(.g-rb):not(.g-x) .times { padding-top: 1px; }
+/* בייזש: 8% טונקלער (נאך די 120% בהירות) */
+:root { --paperbg: #c1bcb1; }
