@@ -425,3 +425,4 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .top .clock span { color: #fff; margin-left: 0; }
 .top .day { font-size: 54px; }
 .top .day small.hd { font-size: 32px; margin-top: 2px; }
+.top .day small.hd { font-size: 40px; }
