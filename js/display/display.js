@@ -785,17 +785,25 @@ function enlarge(root) {
   for (const el of root.querySelectorAll('.fit, .sh-t.one, .chg-note, .pd-h, .lrn-m .l1, .sh-r > span, .ttl, .grp h3')) {
     let f = parseFloat(el.style.fontSize); while (f > 11 && el.scrollWidth > el.clientWidth + 1) { f -= 0.5; el.style.setProperty('font-size', `${f}px`, 'important'); }
   }
+  // דער רבי'ס שורה (מנחה / מעריב) — אין איין שורה
+  for (const rb of root.querySelectorAll('.times.rbt')) {
+    const ch = [...rb.children]; if (ch.length < 2) continue;
+    const wrapped = () => { const t = ch.map((c) => c.getBoundingClientRect().top); return Math.max(...t) - Math.min(...t) > 4; };
+    let g = 1; while (wrapped() && g > 0.6) { g -= 0.03; ch.forEach((c) => { const i = idx.get(c); if (i != null && fs[i]) c.style.setProperty('font-size', `${(fs[i] * ENL_K * g).toFixed(2)}px`, 'important'); c.querySelectorAll('*').forEach((d) => { const j = idx.get(d); if (j != null && fs[j]) d.style.setProperty('font-size', `${(fs[j] * ENL_K * g).toFixed(2)}px`, 'important'); }); }); }
+  }
   const squeeze = (kids, k) => kids.forEach((e) => {
     const i = idx.get(e); const m = mp[i];
     e.style.setProperty('line-height', `${(lh[i] * ENL_K * k).toFixed(2)}px`, 'important');
     ['margin-top', 'margin-bottom', 'padding-top', 'padding-bottom'].forEach((p, j) => { if (m[j]) e.style.setProperty(p, `${(m[j] * k).toFixed(2)}px`, 'important'); });
   });
   const over = (f) => {
-    const r = f.getBoundingClientRect();
+    const r = f.getBoundingClientRect(); const sc = r.height / (f.offsetHeight || 1);
     return [...f.querySelectorAll('*')].some((x) => {
-      if (x.closest('.cd')) return false;
+      if (x.closest('.cd, .bnotes')) return false; // דער ציילער און די רויטע הודעה זיצן מיט כוונה אויפן ראנד
       const q = x.getBoundingClientRect();
-      return q.height > 0 && (q.bottom > r.bottom - 6 || q.top < r.top - 2 || (getComputedStyle(x).overflow !== 'visible' && x.scrollHeight > x.clientHeight + 1));
+      const gp = x.parentElement?.closest('.grp'); // אויך אין יעדן טור (שחרית/מנחה/מעריב) באזונדער
+      if (gp && q.height > 0 && q.bottom > gp.getBoundingClientRect().bottom - 3 * sc) return true;
+      return q.height > 0 && (q.bottom > r.bottom - 6 * sc || q.top < r.top - 2 * sc || (getComputedStyle(x).overflow !== 'visible' && x.scrollHeight > x.clientHeight + 1));
     });
   };
   for (const f of root.querySelectorAll('.frame:not(.mzl):not(.lrn-s):not(.mny.pos-side), .shab')) {
@@ -805,11 +813,12 @@ function enlarge(root) {
   // דער לאגא: נישט אריינגיין אין דער קעסטל אונטער אים
   const logo = root.querySelector('.top .logo');
   if (logo) {
-    const below = [...root.querySelectorAll('.frame, .shab')].map((f) => f.getBoundingClientRect()).filter((r) => r.left < 960 && r.right > 960 && r.top > 120);
+    const sr = $('#screen').getBoundingClientRect(); const cx = sr.left + sr.width / 2; const ty = sr.top + sr.height * 0.11;
+    const below = [...root.querySelectorAll('.frame, .shab')].map((f) => f.getBoundingClientRect()).filter((r) => r.left < cx && r.right > cx && r.top > ty);
     if (below.length) {
       const top = Math.min(...below.map((r) => r.top)); const kids = [...logo.querySelectorAll('*')];
-      const bot = () => Math.max(...kids.map((x) => x.getBoundingClientRect().bottom));
-      let k = 1; while (bot() > top - 4 && k > 0.5) { k -= 0.03; squeeze(kids, k); }
+      const bot = () => Math.max(...kids.map((x) => x.getBoundingClientRect().bottom)); const scr = $('#screen'); const sc = scr.getBoundingClientRect().width / (scr.offsetWidth || 1);
+      let k = 1; while (bot() > top - 4 * sc && k > 0.5) { k -= 0.03; squeeze(kids, k); }
     }
   }
   ENL.set(key, els.map((e) => e.style.cssText)); if (ENL.size > 40) ENL.clear();
@@ -822,12 +831,12 @@ function fitC3(box) {
   const set = (f) => { sp.forEach((e) => { e.style.fontSize = `${f}px`; }); lb.forEach((e) => { e.style.fontSize = `${Math.round(f * 0.68)}px`; }); };
   if (boardCache.has(key)) { set(boardCache.get(key)); return; }
   const over = () => {
-    const bb = box.getBoundingClientRect(); const pad = parseFloat(getComputedStyle(box).paddingBottom) * (bb.height / box.offsetHeight || 1);
+    const bb = box.getBoundingClientRect(); const sc = bb.height / box.offsetHeight || 1; const pad = parseFloat(getComputedStyle(box).paddingBottom) * sc;
     if ([...box.children].some((c) => !c.classList.contains('bnotes') && c.getBoundingClientRect().bottom > bb.bottom - pad + 1)) return true;
     return [...box.querySelectorAll('.grp')].some((g) => {
       const last = [...g.querySelectorAll('.times span')].pop(); if (!last) return false;
       const gb = g.getBoundingClientRect(); const lr = last.getBoundingClientRect(); const tm = last.closest('.times');
-      return lr.bottom > gb.bottom - 4 || (tm && tm.scrollWidth > tm.clientWidth + 1);
+      return lr.bottom > gb.bottom - 4 * sc || (tm && tm.scrollWidth > tm.clientWidth + 1);
     });
   };
   let f = 46; set(f);
