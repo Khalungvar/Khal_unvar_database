@@ -522,7 +522,7 @@ function render() {
       return `<div class="pd-r${l.kind === 'tefila' ? ' t' : l.kind === 'event' ? ' e' : ''}${past ? ' past' : ''}"><span>${h(l.label)}${l.note ? ` <small>(${h(l.note)})</small>` : ''}</span><b>${times}</b></div>`;
     };
     const title = PER.part === 'pesach' ? 'זמני התפילות לחג הפסח' : 'זמני התפילות לימי תשרי';
-    return `<div class="frame per"><div class="ttl">${h(title)}</div><div class="pcols">${secs.map((sc) => `<div class="pd"><div class="pd-h">${h(sc.title)} <small>${h(sc.dates)}</small></div>${sc.ls.map(line).join('')}</div>`).join('')}</div></div>`;
+    return `<div class="frame per"><div class="ttl">${h(title)}</div><div class="pcols">${secs.map((sc) => `<div class="pd"><div class="pd-h">${h(sc.title)}${sc.b?.when === 'yud3' && dowOf(sc.ds[0]) === 5 ? ' - פרייטאג' : ''}</div>${sc.ls.map(line).join('')}</div>`).join('')}</div></div>`;
   }
 
   function ptHtml(pos) {
@@ -618,6 +618,8 @@ function render() {
   for (const box of document.querySelectorAll('#dyn .per .pcols')) {
     let fs = 34; box.style.fontSize = `${fs}px`;
     while ((box.scrollWidth > box.clientWidth + 2 || box.scrollHeight > box.clientHeight + 2) && fs > 12) { fs -= 1; box.style.fontSize = `${fs}px`; }
+    // א לאנגער נאמען פון א טאג: נאר די כותרת ווערט קלענער, אין איין שורה
+    for (const hd of box.querySelectorAll('.pd-h')) { let f = parseFloat(getComputedStyle(hd).fontSize); while (hd.scrollWidth > hd.clientWidth + 1 && f > 12) { f -= 1; hd.style.fontSize = `${f}px`; } }
   }
   updateShiurim(AD || HID.shiurim ? '' : shInner);
   // לוח המניינים (חול): די אותיות ווערן אזוי גרויס אז זיי פילן אויס די מסגרת
@@ -722,7 +724,7 @@ function updateShiurim(inner) {
   }
 }
 const boardCache = new Map();
-function fitBoard(box, sel = '.grp h3, .times span, .times.rbt i', max = 1.6) {
+function fitBoard(box, sel = '.times span, .times.rbt i', max = 1.6) {
   const els = [...box.querySelectorAll(sel)];
   const key = `${box.className}|${box.textContent}`;
   const gaps = box.querySelectorAll('.grp');

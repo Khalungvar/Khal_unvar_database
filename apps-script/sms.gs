@@ -861,6 +861,7 @@ function fromSite(req, email) {
     return { ok: true, credits: creditsOf(lower(req.email)) };
   }
   if (a === 'checkout') return stripeCheckout(req, email);
+  if (a === 'screen_simchos') return screenSimchos_(req.rows);
   if (a === 'rec_upload') return recUpload(req, email);
   if (a === 'recs') return { recs: readTab('SmsRecordings').rows };
   if (a === 'texts') return { texts: textsList() };
@@ -1215,6 +1216,18 @@ function awayList_() {
     const dt = function (v) { const a = /^(\d{4})-(\d{2})-(\d{2})/.exec(v || ''); if (a) return a[0]; const b = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(v || ''); return b ? b[3] + '-' + ('0' + b[1]).slice(-2) + '-' + ('0' + b[2]).slice(-2) : ''; };
     return rows.slice(1).map(function (x) { return { from: dt(x[0]), to: dt(x[1]) }; }).filter(function (x) { return x.from && x.to; });
   } catch (e) { return []; }
+}
+/** שהשמחה במעונם → דער מסך: די לשונית Simchos אין גיליון פון דער תצוגה (דער סקריפט שרייבט — די גבאים דארפן נישט קיין רשות אויפן גיליון) */
+function screenSimchos_(rows) {
+  if (!Array.isArray(rows) || rows.length > 190) return { error: 'bad-rows' };
+  const vals = rows.map(function (r) { return [0, 1, 2, 3].map(function (i) { return String((r || [])[i] == null ? '' : r[i]).slice(0, 8000); }); });
+  const book = SpreadsheetApp.openById(DISPLAY_SHEET);
+  let sh = book.getSheetByName('Simchos');
+  if (!sh) sh = book.insertSheet('Simchos');
+  sh.getRange(1, 1, 1, 4).setValues([['simcha_id', 'html', 'until', 'updated_at']]);
+  sh.getRange(2, 1, 199, 4).clearContent();
+  if (vals.length) sh.getRange(2, 1, vals.length, 4).setNumberFormat('@').setValues(vals);
+  return { ok: true, n: vals.length };
 }
 /** שרייבט א נסיעה (ביז מוצאי שבת) אין דער לשונית; true = געלונגען */
 function awayAdd_(from, to, by) {

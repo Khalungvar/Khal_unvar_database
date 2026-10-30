@@ -10,7 +10,7 @@ import { toHebrew, monthHe, hebrewNumber, todayIso, fromHebrew } from './hebdate
 import { parashaOf, shabbatOfWeek, shabbatTitle } from './parasha.js';
 import { customFontNames } from './fonts.js';
 import { htmlToJpeg, jpegsToPdf } from './pdf.js';
-import { otherSheet } from './google.js';
+import { otherSheet, currentToken } from './google.js';
 import { CONFIG } from './config.js';
 import { nowStamp, shrinkImage } from './util.js';
 import { storeImage, fetchImages, imageOf, isDrv } from './images.js';
@@ -690,10 +690,11 @@ export async function syncScreen() {
       .filter((x) => Number.isFinite(x.from) && x.from + SCREEN_DAYS * 864e5 > now)
       .sort((a, b) => a.from - b.from)
       .map(({ s, from }) => [String(s.simcha_id), simchaHtml(s), String(from + SCREEN_DAYS * 864e5), nowStamp()]);
-    const sh = otherSheet(CONFIG.DISPLAY_SHEET_ID);
-    await sh.clear('Simchos!A2:D200');
-    if (rows.length) await sh.write(`Simchos!A2:D${rows.length + 1}`, rows);
-  } catch (err) { ui?.toast?.(t('sgScreenFail'), 'error'); }
+    // דורך דעם SMS סקריפט (ער שרייבט אין גיליון פון דער תצוגה) — אזוי דארף א גבאי נישט קיין רשות אויפן גיליון
+    const res = await fetch(CONFIG.SMS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'screen_simchos', rows, token: currentToken() }) });
+    const r = await res.json();
+    if (r.error || !r.ok) throw new Error(r.error || 'screen');
+  } catch (err) { console.warn('screen simchos', err); ui?.toast?.(t('sgScreenFail'), 'error'); }
 }
 
 // ---------- אויסמעקן: אויך וואס די שמחה האט אריינגעלייגט אין די כרטיסן (קשרים, הערה נאכן נאמען) ----------
