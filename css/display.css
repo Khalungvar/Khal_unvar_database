@@ -15,6 +15,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
     repeating-linear-gradient(45deg, rgba(255,255,255,.018) 0 2px, transparent 2px 14px),
     linear-gradient(180deg, var(--navy2), var(--navy) 60%, #0a1830);
   transform-origin: center center; overflow: hidden;
+  flex: none; /* אויף א מסך שמאלער פון 1920 זאל ער זיך נישט צוזאמענדריקן (אנדערש פאלן די קעסטלעך איינס אויפן צווייטן) */
 }
 
 /* גאלדענע ראמען */
