@@ -435,6 +435,9 @@ function render() {
     const rows = holyRows(eve);
     return { holy: true, rows, groups: [{ items: rows.filter((r) => (r.kind === 'tefila' || r.kind === 'event') && r.min != null).map((r) => ({ min: r.min, k: r.label, room: '' })) }] };
   }
+  // שחרית: בלייבט "המנין הבא" נאך X מינוט נאכן אנהייב (הודו +10 מינוט — לויט דער הערה פון שחרית; אן הערה: 10)
+  const SH_GRACE = (() => { const t = String(DATA?.weekday?.shacharisNote || ''); const mm = /\+\s*(\d+)/.exec(t); return mm ? Math.min(60, Number(mm[1])) : 10; })();
+  const grace = (m) => (/שחרית/.test(m?.k || '') ? SH_GRACE : 0);
   const hasFuture = (bd) => dayItems(bd).some((m) => m.min >= nowMin);
   // שבת/יו"ט: פון ערב (נאך דער לעצטער שחרית) ביז נאך מעריב מוצאי — טוישן זיך די פלעצער:
   // די שבת-קעסטל ווערט גרויס אויפן ארט פון זמני התפילות, און זמני התפילות (וואכנטאג) ווערט קליין אויפן ארט פון שבת
@@ -446,7 +449,7 @@ function render() {
     if (!holyBoard(n - 1).groups.some((g) => g.items.some((m) => m.min + rv >= nowMin))) hd = holy(n + 1) ? n + 1 : null;
   } else if (holy(n + 1)) {
     const lastSh = Math.max(0, ...computeWeekday(DATA, n, LOC).shacharis.map((m) => m.min));
-    if (nowMin > lastSh) hd = n + 1;
+    if (nowMin > lastSh + SH_GRACE) hd = n + 1;
   }
   const swap = hd != null;
   const hb = swap ? holyBoard(hd - 1) : null;
@@ -477,12 +480,12 @@ function render() {
   const nextAny = () => {
     for (let k = n; k < n + 10; k += 1) {
       const items = holy(k) ? holyBoard(k - 1).groups.flatMap((g) => g.items) : dayItems(weekdayBoard(k, (k - n) * 1440));
-      const f = items.filter((m) => m.min >= nowMin).sort((a, b) => a.min - b.min);
+      const f = items.filter((m) => m.min + grace(m) >= nowMin).sort((a, b) => a.min - b.min);
       if (f.length) return f[0];
     }
     return null;
   };
-  const next = all.find((m) => m.min >= nowMin) || nextAny();
+  const next = all.find((m) => m.min + grace(m) >= nowMin) || nextAny();
   const lastMincha = swap ? null : board.last;
   const cd = next ? Math.max(0, (next.min - nowMin) * 60) : 0;
   const cdText = `${String(Math.floor(cd / 3600)).padStart(2, '0')}:${String(Math.floor((cd % 3600) / 60)).padStart(2, '0')}:${String(Math.floor(cd % 60)).padStart(2, '0')}`;
