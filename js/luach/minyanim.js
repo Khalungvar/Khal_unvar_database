@@ -177,10 +177,11 @@ function SHIURIM_DEF() {
 /** חלק היום: לפנות בוקר / בבוקר / בצהריים / בערב / בלילה */
 export const partOfDay = (m) => (m < 360 ? 'לפנות בוקר' : m < 720 ? 'בבוקר' : m < 1020 ? 'בצהריים' : m < 1260 ? 'בערב' : 'בלילה');
 /** די שיעורים פון טאג n: [{ type, title, who, room, note, min }] לויט דער שעה */
-export function computeShiurim(data, n, loc) {
+/** allDays: אלע שיעורים וואס זענען אנגעצייכנט "אויפן מסך", אן א חילוק וועלכער טאג (דער מסך — א רשימה וואס לויפט אלעמאל) */
+export function computeShiurim(data, n, loc, allDays = false) {
   const iso = isoOf(n); const zd = dayZ(iso, loc); const dw = dowOf(n);
-  return (data.shiurim?.rows || []).filter((r) => r.screen !== false && (r.days || []).includes(dw) && inSeason(r.season, iso, r))
-    .map((r) => ({ type: r.type, title: r.title, who: r.who, room: r.room, note: r.note, min: timeOf(r.time, zd) }))
+  return (data.shiurim?.rows || []).filter((r) => r.screen !== false && (allDays || (r.days || []).includes(dw)) && inSeason(r.season, iso, r))
+    .map((r) => ({ id: r.id, type: r.type, title: r.title, who: r.who, room: r.room, note: r.note, min: timeOf(r.time, zd) }))
     .sort((a, b) => (a.min ?? 9999) - (b.min ?? 9999));
 }
 const row = (label, times, o = {}) => ({ id: id(), label, note: '', kind: /שחרית|מנחה|מעריב|נדרי|סליחות/.test(label) ? 'tefila' : 'other', on: 'all', times: times.map((t) => (typeof t === 'string' ? F(t) : t)), ...o });

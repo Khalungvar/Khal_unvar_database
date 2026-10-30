@@ -326,8 +326,10 @@ function render() {
   const omerT = omerDay?.items.find((i) => i.kind === 'omer')?.text || '';
   const omerK = omerT ? Array.from({ length: 49 }, (_, i) => i + 1).find((k) => omerText(k) === omerT) : 0;
   const omer = omerK ? `יום ${hebrewNumber(omerK)} לעומר` : '';
-  const SHI = computeShiurim(DATA, n, LOC);
-  const nextShiur = SHI.find((x) => x.min != null && x.min >= nowMin) || null;
+  const SHI = computeShiurim(DATA, n, LOC, true); // אלע שיעורים פונעם מסך — אויך שבת
+  // "דער קומענדיגער" — נאר פון די שיעורים וואס זענען היינט
+  const shToday = new Set(computeShiurim(DATA, n, LOC).map((x) => x.id));
+  const nextShiur = SHI.find((x) => shToday.has(x.id) && x.min != null && x.min >= nowMin) || null;
   // {שעה} {חלק היום} - {שם השיעור} - {מגיד שיעור} - {מיקום}
   const shLine = (x) => {
     const t = x.min == null ? `<b>${h(x.note || '')}</b>` : `<b>${tm(x.min)}</b> <small>${partOfDay(x.min)}</small>`;
