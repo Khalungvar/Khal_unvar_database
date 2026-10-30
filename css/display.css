@@ -425,3 +425,8 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .top .day { font-size: 54px; }
 .top .day small.hd { font-size: 32px; margin-top: 2px; }
 .top .day small.hd { font-size: 40px; }
+/* א ביסל מער פלאץ צווישן דער כותרת און די זמנים */
+.mny .grp { padding-top: 27px; }
+.mny.pos-side .grp { padding-top: 19px; }
+.per .pd-h { margin-bottom: 9px; }
+.mny .times span, .mny.has-chg .times span { line-height: 1.26; }
