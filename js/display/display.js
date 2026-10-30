@@ -303,7 +303,9 @@ function render() {
   let sat = n; while (dowOf(sat) !== 6) sat += 1;
   if (sat === n && nowMin > z.shkia + 90) sat += 7; // מוצאי שבת: שוין די קומענדיגע וואך
   const fri = sat - 1;
-  const parsha = dayOf(sat)?.parsha || dayOf(sat)?.items.find((i) => i.kind === 'hol')?.text || '';
+  // נאר א אמת'ע פרשה באקומט "פרשת"; א שבת פון יו"ט/חוה"מ — זיין נאמען אליין (למשל "שבת חוה"מ"), אן "פרשת"
+  const parsha = dayOf(sat)?.parsha || '';
+  const parshaLbl = parsha ? `פרשת ${parsha}` : (dayOf(sat)?.items.find((i) => i.kind === 'hol')?.text || '');
   
   const zFri = zmanim(isoOf(fri), LOC); const zSat = zmanim(isoOf(sat), LOC);
 
@@ -573,7 +575,7 @@ function render() {
 
     ${HID.simchos ? '' : `<div class="frame mzl">
       <img class="head" src="${h(SCR.simchaHead || 'img/display/simcha-title.jpg')}" alt="שהשמחה במעונם">
-      <div class="wk">${parsha ? `פרשת ${h(parsha)}` : ''}</div>
+      <div class="wk">${h(parshaLbl)}</div>
       <div class="list">${mzList.map(entryHtml).join('')}</div>
       ${pages > 1 ? `<div class="dots">${Array.from({ length: pages }, (_, i) => `<i class="${i === mzIx ? 'on' : ''}"></i>`).join('')}</div><div class="pg">${mzIx + 1} מתוך ${pages}</div>` : ''}
     </div>`}
