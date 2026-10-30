@@ -142,7 +142,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .ad-demo small { font-size: 26px; text-align: center; margin-top: 20px; }
 
 /* אונטן */
-.safe { position: absolute; inset: 0; transform-origin: 50% 0; transform: translateY(var(--safe, 0px)) scale(var(--safe-s, 1)); }
+.safe { position: absolute; inset: 0; z-index: 1; transform-origin: 50% 0; transform: translateY(var(--safe, 0px)) scale(var(--safe-s, 1)); }
 .bottom { position: absolute; bottom: 0; left: 0; right: 0; height: calc(1080px - var(--safe, 0px) - 979px * var(--safe-s, 1)); display: flex; align-items: center; justify-content: space-between;
   padding: 43px calc(50px + var(--safe, 0px) * 1.6) var(--safe, 0px); color: var(--gold2);
   background: url('../img/display/molding.jpg') top center / 100% 43px no-repeat, url('../img/display/wood.jpg') 0 43px / 100% calc(100% - 43px) no-repeat, #2a1709; }

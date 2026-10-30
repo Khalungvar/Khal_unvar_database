@@ -2,10 +2,10 @@
 // מיט אן איש קשר → אינעם הויפט-גיליון (ווייזט זיך אויך אינעם הויפט-אתר, און דער נדבן באקומט "תורמים ← דער מוסד");
 // אן איש קשר → נאר אינעם גיליון פונעם מוסד. קבלה פון אמעריקע: מיטן EIN פון קהל אונגוואר, אין דער זעלבער סעריע ווי אינעם הויפט-אתר.
 // א קבלה פון ארץ ישראל (סעיף 46) גייט נישט פון דא — מ'שרייבט נאר איר נומער.
-import { letterhead, LH_CSS } from './brand.js?v=538';
-import { CURRENCIES, isForeign, fmtCur, amountLabel, usdRate, toUsd } from '../fx.js?v=538';
-import { downloadXlsx } from '../excel.js?v=538';
-import { isoToHebrewText, todayIso } from '../hebdate.js?v=538';
+import { letterhead, LH_CSS } from './brand.js?v=539';
+import { CURRENCIES, isForeign, fmtCur, amountLabel, usdRate, toUsd } from '../fx.js?v=539';
+import { downloadXlsx } from '../excel.js?v=539';
+import { isoToHebrewText, todayIso } from '../hebdate.js?v=539';
 
 let X = null;
 export function initGifts(ctx) { X = ctx; }
