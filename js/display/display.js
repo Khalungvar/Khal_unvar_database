@@ -273,13 +273,23 @@ function changesCalc(d0, n, holy) {
   }
   // "חדש": א שינוי פון א גבאי (געזען אויף דעם מחשב) — נאר אויפן אמת'ן מסך
   if (!PREVIEW && !SCRPV && !OFFSET) {
-    let st = null; try { st = JSON.parse(localStorage.getItem('disp-chg') || 'null'); } catch { /* */ }
+    let st = null; try { st = JSON.parse(localStorage.getItem('disp-chg2') || 'null'); } catch { /* */ }
     st = st && st.base ? st : { base: { day: ref, sig: cur }, seen: {} };
     const then = st.base.sig; const nowSig = sigOf(st.base.day);
-    if (!sigEq(then, nowSig)) for (const x of Object.keys(nowSig)) if (!(x in then)) st.seen[x] = n;
+    // נאר א נייער מנין איז "חדש" — א מנין וואס מ'האט נאר גערוקט מיט עטלעכע מינוט (אין דער זעלבער תפילה) איז נישט קיין נייער
+    if (!sigEq(then, nowSig)) {
+      const gone = Object.keys(then).filter((x) => !(x in nowSig));
+      for (const x of Object.keys(nowSig)) {
+        if (x in then) continue;
+        const g = x.split('|')[0];
+        const near = gone.filter((y) => y.split('|')[0] === g).sort((a, b) => Math.abs(then[a] - nowSig[x]) - Math.abs(then[b] - nowSig[x]))[0];
+        if (near != null && Math.abs(then[near] - nowSig[x]) <= 90) { gone.splice(gone.indexOf(near), 1); continue; }
+        st.seen[x] = n;
+      }
+    }
     st.base = { day: ref, sig: cur };
     for (const [x, since] of Object.entries(st.seen)) { if (since <= n - Math.max(1, after) || !(x in curK)) delete st.seen[x]; else out.newKeys.add(x); }
-    try { localStorage.setItem('disp-chg', JSON.stringify(st)); } catch { /* */ }
+    try { localStorage.setItem('disp-chg2', JSON.stringify(st)); localStorage.removeItem('disp-chg'); } catch { /* */ }
   }
   return out;
 }
