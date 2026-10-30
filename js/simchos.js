@@ -185,11 +185,26 @@ function compose(s) {
 }
 
 /** פעט: אלעס נאך דעם ערשטן ווארט, ווען דאס ערשטע ווארט איז א ראשי תיבות (הבה"ח, ה"ה) */
-function boldName(text) {
+// שבירת שורה: קיינמאל נישט צווישן תואר און ערשטן נאמען, נישט צווישן צוויי ערשטע נעמען, נישט אינעם פאמיליע נאמען / ביי הי"ו;
+// אויב מ'דארף שבירן — נאר פאר דעם פאמיליע נאמען
+const nb = (x) => (x ? `<span class="nb">${x}</span>` : '');
+/** תואר + ערשטע נעמען (איין שטיק) · פאמיליע נאמען + סיומת (איין שטיק) */
+function nameParts(title, first, last, suffix) {
+  const a = [h(title || ''), first ? `<b>${h(first)}</b>` : ''].filter(Boolean).join(' ');
+  const b = [last ? `<b>${h(last)}</b>` : '', h(suffix || '')].filter(Boolean).join(' ');
+  return [nb(a), nb(b)].filter(Boolean).join(' ');
+}
+/** א פרייער נאמען: דאס לעצטע ווארט איז דער פאמיליע נאמען (ווען ס'זענען מער ווי איין ווארט) */
+const splitLast = (nm) => { const w = String(nm || '').trim().split(/\s+/).filter(Boolean); return w.length > 1 ? [w.slice(0, -1).join(' '), w[w.length - 1]] : [w.join(' '), '']; };
+/** פעט: אלעס נאך דעם ערשטן ווארט, ווען דאס ערשטע ווארט איז א ראשי תיבות (הבה"ח, ה"ה). surname: דאס לעצטע ווארט איז א פאמיליע נאמען (דער צווייטער צד) */
+function boldName(text, surname = false) {
   const s = String(text || '').trim();
   if (!s) return '';
   const m = /^(\S*["״'׳]\S*)\s+(.+)$/.exec(s);
-  return m ? `${h(m[1])} <b>${h(m[2])}</b>` : `<b>${h(s)}</b>`;
+  const [title, rest] = m ? [m[1], m[2]] : ['', s];
+  if (!surname) return nameParts(title, rest, '', '');
+  const [first, last] = splitLast(rest);
+  return nameParts(title, first, last, '');
 }
 
 /** איין שמחה אלס HTML פארן גליון */
@@ -224,14 +239,14 @@ export function simchaHtml(s) {
   const ty = TYPES[s.type] || TYPES.birth;
   const lines = rows.map((x) => {
     const c = contactOf(x.id) || {};
-    const nm = x.id.startsWith('n:') ? x.id.slice(2) : `${c.first_name_he || ''} ${c.last_name_he || ''}`;
-    const name = `${h(x.title || '')} <b>${h(nm)}</b> ${h(x.suffix || '')}`.replace(/\s+/g, ' ').trim();
+    const [first, last] = x.id.startsWith('n:') ? splitLast(x.id.slice(2)) : [String(c.first_name_he || '').trim(), String(c.last_name_he || '').trim()];
+    const name = nameParts(x.title, first, last, x.suffix);
     return `<div class="sg-name">${name}</div>${x.noteOn && x.note ? `<div class="sg-note">${h(x.note)}</div>` : ''}`;
   }).join('');
   const self = isSelf(s);
   const forLine = String(s.text_override || '').trim() ? h(s.text_override)
-    : self ? [h(SELF[s.type][s.child_gender === 'f' ? 'f' : 'm']), ty.other ? `עב"ג ${boldName(s.other_side)}`.trim() : '', h(ty.post), 'בשעטו"מ'].filter((x) => String(x).trim()).join(' ')
-    : [h(ty.pre), h(rel), boldName(s.child_name), ty.other ? `עב"ג ${boldName(s.other_side)}`.trim() : '', h(ty.post), 'בשעטו"מ']
+    : self ? [h(SELF[s.type][s.child_gender === 'f' ? 'f' : 'm']), ty.other ? `עב"ג ${boldName(s.other_side, true)}`.trim() : '', h(ty.post), 'בשעטו"מ'].filter((x) => String(x).trim()).join(' ')
+    : [h(ty.pre), h(rel), boldName(s.child_name), ty.other ? `עב"ג ${boldName(s.other_side, true)}`.trim() : '', h(ty.post), 'בשעטו"מ']
       .filter((x) => String(x).trim()).join(' ');
   return `<div class="sg-entry">${lines}<div class="sg-for">${forLine}</div>${String(s.after_note || '').trim() ? `<div class="sg-after">${h(s.after_note)}</div>` : ''}</div>`;
 }

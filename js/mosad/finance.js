@@ -1,14 +1,14 @@
 // אתר פון א מוסד — 💰 משכורות והוצאות (הרשאה "finance"):
 // 💵 משכורות (₪: גלובלי / שעות קבועות / רישום יומי / גלובלי + שעות, תוספות און ניכויים, תשלומים, וויפיל מ'איז נאך שולדיג),
 // 🧾 הוצאות (₪/$, קאטעגאריעס, צילום קבלה), 📥 הכנסות ותמיכה, ⚖️ חובות פתוחים, 📊 מאזן חודשי — יעדער מטבע באזונדער.
-import { downloadXlsx } from '../excel.js?v=531';
-import { todayIso, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=531';
-import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=531';
-import { historyDialog } from './me.js?v=531';
-import { PAY_TYPES, schedText } from './team.js?v=531';
-import { usdRate } from '../fx.js?v=531';
-import { heDate } from './brand.js?v=531';
-import { hebMonthOf } from './hdays.js?v=531';
+import { downloadXlsx } from '../excel.js?v=532';
+import { todayIso, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=532';
+import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=532';
+import { historyDialog } from './me.js?v=532';
+import { PAY_TYPES, schedText } from './team.js?v=532';
+import { usdRate } from '../fx.js?v=532';
+import { heDate } from './brand.js?v=532';
+import { hebMonthOf } from './hdays.js?v=532';
 
 let X = null;
 export function initFinance(ctx) { X = ctx; }

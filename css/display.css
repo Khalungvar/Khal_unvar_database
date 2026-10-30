@@ -406,3 +406,6 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .per .pd { border: 2px solid #c9a24c; border-radius: 14px; background: #fff; margin: 1.05em 2px .55em; padding: 0 6px 4px; }
 .per .pd-h { width: 82%; margin: -.62em auto 4px; border-radius: 11px; }
 .per .pcols { padding-top: 16px; }
+
+/* שהשמחה במעונם: א שטיק נאמען וואס ווערט נישט צעבראכן */
+.mzl .nb { white-space: nowrap; }

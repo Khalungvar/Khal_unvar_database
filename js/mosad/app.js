@@ -1,16 +1,16 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { letterhead, hebrewDateHints } from './brand.js?v=531';
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=531';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=531';
-import { initGifts, renderGifts } from './gifts.js?v=531';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab } from './journal.js?v=531';
-import { initDorm, renderDorm } from './dorm.js?v=531';
-import { initReg, renderReg } from './reg.js?v=531';
-import { initSortTables } from '../sorttables.js?v=531';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=531';
-import { initTeam, renderTeam } from './team.js?v=531';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=531';
+import { letterhead, hebrewDateHints } from './brand.js?v=532';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=532';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=532';
+import { initGifts, renderGifts } from './gifts.js?v=532';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab } from './journal.js?v=532';
+import { initDorm, renderDorm } from './dorm.js?v=532';
+import { initReg, renderReg } from './reg.js?v=532';
+import { initSortTables } from '../sorttables.js?v=532';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=532';
+import { initTeam, renderTeam } from './team.js?v=532';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=532';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';

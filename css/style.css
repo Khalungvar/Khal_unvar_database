@@ -2297,3 +2297,6 @@ html[dir="ltr"] .lobby-grid { background-position: calc((100% - 81px) * .2875 + 
 .sg-box[data-b="parsha"] i { background: #c2410c; }
 .sg-lay-side { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .sg-lay-side label { display: flex; gap: 6px; align-items: center; }
+
+/* שהשמחה במעונם: א שטיק נאמען וואס ווערט נישט צעבראכן */
+.sg-entry .nb { white-space: nowrap; }
