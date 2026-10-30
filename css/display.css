@@ -87,7 +87,6 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .mny .times { display: flex; flex-wrap: wrap; justify-content: center; gap: 0; padding: 4px 0 2px; direction: rtl; }
 .mny .times span { font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 30px; line-height: 1.18; color: var(--ink); padding: 0 12px; direction: ltr; position: relative; }
 .mny .times span + span::before { content: '•'; position: absolute; right: -5px; color: var(--gold3); }
-.mny .times span.past { color: #b7aa8c; }
 .mny .times span.nx { color: #8b1a1a; text-decoration: underline; text-decoration-color: var(--gold); text-underline-offset: 6px; }
 
 /* לינקס אונטן: דער קומענדיגער מנין — ווייס, בולט */
@@ -349,7 +348,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 /* שולחן הטהור ודרשות: פס בין האירוע לזמני השבת */
 .sh-sep { height: 0; border-top: 2px solid rgba(243,220,154,.6); margin: 4px 10px; }
 /* פסח / תשרי: משבצת אחת גדולה בשלושה טורים; "שמחה במעונם" בגובה של "המנין הבא" */
-.frame.per { top: 246px; left: 44px; width: 1151px; height: 430px; display: flex; flex-direction: column; }
+.frame.per { top: 164px; left: 44px; width: 1151px; height: 512px; display: flex; flex-direction: column; }
 .per .ttl { font-size: 32px; padding: 4px 0 6px; flex: none; }
 .per .pcols { flex: 1 1 auto; min-height: 0; column-count: 3; column-gap: 26px; column-rule: 1.5px solid rgba(138,106,42,.45); column-fill: balance; padding: 8px 22px 12px; direction: rtl; overflow: hidden; font-size: 30px; }
 .per .pd { break-inside: avoid; margin-bottom: .35em; }
@@ -358,10 +357,27 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 .per .pd-r { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; column-gap: .4em; font-family: var(--serif); font-weight: 700; font-size: .78em; line-height: 1.25; color: var(--ink); padding: 0 .2em; }
 .per .pd-r.t span { color: var(--navy); }
 .per .pd-r span { flex: 0 0 auto; }
-.per .pd-r b { font-family: 'Frank Ruhl Libre', serif; direction: ltr; text-align: left; flex: 1 1 0; min-width: 5em; font-weight: 700; word-spacing: -1px; }
+.per .pd-r b { font-family: 'Frank Ruhl Libre', serif; direction: rtl; text-align: right; flex: 1 1 0; min-width: 5em; font-weight: 700; word-spacing: -1px; }
 .per .pd-r b i { font-style: normal; font-family: var(--serif); font-size: .75em; color: var(--muted); }
-.per .pd-r.past { color: #b7aa8c; } .per .pd-r.past span { color: #b7aa8c; }
 .per-on .mzl { top: 700px; height: 230px; }
 .per-on .mzl .head { width: 190px; height: 40px; margin-top: 6px; }
 .mzl.mzl-per, .per-on .mzl { height: 230px; } .mzl.mzl-per .head { width: 190px; height: 40px; margin-top: 6px; }
 .per .pd-r span small { font-size: .7em; color: var(--muted); font-weight: 500; }
+
+/* פסח/תשרי: אן "קהל אונגוואר" און "בנשיאות" — די קרוין בלייבט */
+.per-on .top .logo b, .per-on .top .logo i { display: none; }
+
+/* כותרות (שחרית/מנחה/מעריב, און די טעג אין פסח/תשרי): שארף — טעקסט אין דער מיט, צווייפאכע גאלדענע ליניעס אויף ביידע זייטן */
+.mny .grp h3, .mny .grp.hg h3, .mny .grp.rb h3, .per .pd-h {
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  background: none; border-radius: 0; padding: 0 0 2px; color: var(--navy); line-height: 1.15; text-shadow: none; }
+.mny .grp h3::before, .mny .grp h3::after, .per .pd-h::before, .per .pd-h::after {
+  content: ''; flex: 1 1 0; min-width: 20px; height: 3px; border-top: 2px solid var(--gold3); border-bottom: 1px solid var(--gold); }
+.mny .grp h3 small, .per .pd-h small { color: var(--muted); }
+.mny .grp.hg h3 { color: #4a2a12; }
+.mny .grp.rb h3 { color: #6b4a12; }
+.per .pd-h { margin-bottom: 2px; }
+.per .pd-h { white-space: nowrap; }
+.per .pd-r b em { font-style: normal; white-space: nowrap; unicode-bidi: isolate; }
+.per .pd-r b em:not(:last-child):not(.dn)::after { content: ' ·'; color: var(--gold3); }
+.per .pd-r b em.dn { margin-left: .5em; }

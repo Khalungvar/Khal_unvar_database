@@ -517,7 +517,8 @@ function render() {
       const same = l.per.every((q) => q.mins.join() === l.per[0].mins.join());
       const lastQ = l.per[l.per.length - 1];
       const past = rel(lastQ, Math.max(...lastQ.mins)) < nowMin;
-      const times = same ? l.per[0].mins.map((m) => tt(m)).join(' · ') : l.per.map((q) => `<i>${DNS[dowOf(q.n)]}</i> ${q.mins.map((m) => tt(m)).join(' · ')}`).join(' &nbsp;');
+      const em = (ms) => ms.map((m) => `<em>${tt(m)}</em>`).join(' ');
+      const times = same ? em(l.per[0].mins) : l.per.map((q) => `<em class="dn"><i>${DNS[dowOf(q.n)]}</i></em> ${em(q.mins)}`).join(' ');
       return `<div class="pd-r${l.kind === 'tefila' ? ' t' : l.kind === 'event' ? ' e' : ''}${past ? ' past' : ''}"><span>${h(l.label)}${l.note ? ` <small>(${h(l.note)})</small>` : ''}</span><b>${times}</b></div>`;
     };
     const title = PER.part === 'pesach' ? 'זמני התפילות לחג הפסח' : 'זמני התפילות לימי תשרי';
@@ -615,7 +616,7 @@ function render() {
   $('#dyn').innerHTML = main;
   $('#screen').classList.toggle('per-on', !!PER);
   for (const box of document.querySelectorAll('#dyn .per .pcols')) {
-    let fs = 30; box.style.fontSize = `${fs}px`;
+    let fs = 34; box.style.fontSize = `${fs}px`;
     while ((box.scrollWidth > box.clientWidth + 2 || box.scrollHeight > box.clientHeight + 2) && fs > 12) { fs -= 1; box.style.fontSize = `${fs}px`; }
   }
   updateShiurim(AD || HID.shiurim ? '' : shInner);
