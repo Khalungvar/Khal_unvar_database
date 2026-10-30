@@ -648,11 +648,13 @@ function render() {
   for (const nt of document.querySelectorAll('#dyn .bnotes .chg-note')) { let f = parseFloat(getComputedStyle(nt).fontSize); while (nt.scrollWidth > nt.clientWidth + 1 && f > 11) { f -= 0.5; nt.style.fontSize = `${f}px`; } }
   for (const box of document.querySelectorAll('#dyn .shab')) {
     // די שעה (לועזישע ציפערן) זאל אויסזען אזוי הויך ווי די העברעישע ווערטער: ~0.81 פונעם נאמען
-    for (const r of box.querySelectorAll('.sh-r')) {
+    // אלע שורות (תפילות און אנדערע) אין דער זעלבער גרייס
+    const rws = [...box.querySelectorAll('.sh-r')].filter((r) => r.querySelector(':scope > span') && r.querySelector(':scope > b'));
+    const base = Math.max(0, ...rws.map((r) => parseFloat(getComputedStyle(r.querySelector(':scope > span')).fontSize) || 0)) * 1.12;
+    for (const r of rws) {
       const sp = r.querySelector(':scope > span'); const bb = r.querySelector(':scope > b');
-      if (!sp || !bb || sp.dataset.b) continue;
-      const fs = parseFloat(getComputedStyle(sp).fontSize) * 1.12;
-      sp.dataset.b = fs; bb.dataset.b = Math.round(fs * 0.81 * 10) / 10;
+      if (sp.dataset.b) continue;
+      sp.dataset.b = base; bb.dataset.b = Math.round(base * 0.81 * 10) / 10;
     }
     fitBoard(box, '.sh-r > span, .sh-r > b', 1.35);
     for (const t of box.querySelectorAll('.sh-t.one')) { let f = parseFloat(getComputedStyle(t).fontSize); while (t.scrollWidth > t.clientWidth + 1 && f > 12) { f -= 1; t.style.fontSize = `${f}px`; } }
