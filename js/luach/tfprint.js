@@ -2,7 +2,7 @@
 // ימות החול: ווי דער אלטער ZMANIM1 (מסגרת, פסים שווארצע). שבת: ווי דער בלאט "זמני שבת פרשת נח".
 // יו"ט / ימי דפגרא / תשרי: ווי דער בלאט פון פורים — חלקים מיט א קעפל: שורות מיט פינטלעך, א פאס פון תיבות, א טבלה פון מנינים.
 import { hhmm } from './zmanim.js';
-import { computeWeekday, computeShabbos, daysOf, dayZ, timeOf } from './minyanim.js';
+import { computeWeekday, computeShabbos, daysOf, dayZ, timeOf, eventsBetween } from './minyanim.js';
 import { dowOf, isoOf } from './engine.js';
 
 const h = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -188,12 +188,12 @@ export function specialPage({ pasuk, psrc, title, sections, cols = 1 }, size = '
 
 // ---------- וואס מ'דרוקט: גרופעס פון בלאקן ----------
 export const GROUPS = {
-  yt: [['pesach', 'פסח', ['erevPesach', 'erevPesachShabbos', 'pesach', 'cholPesach', 'shabbosChmPesach', 'erevShvii', 'shviiPesach'], 'זמני המועד ותפילה'],
-    ['shavuos', 'שבועות', ['erevShavuos', 'shavuos'], 'זמני המועד ותפילה']],
+  yt: [['pesach', 'פסח', ['bedika', 'erevPesach', 'erevPesachShabbos', 'pesach1', 'pesach2', 'cholPesach', 'shabbosChm', 'shvii', 'acharon'], 'זמני המועד ותפילה', 'pesach'],
+    ['shavuos', 'שבועות', ['shavuos'], 'זמני המועד ותפילה', 'yt']],
   minor: [['chanuka', 'חנוכה', ['chanuka'], 'זמני התפילה לימי החנוכה'], ['asaraTeves', 'עשרה בטבת', ['asaraTeves'], 'זמני התפילה לעשרה בטבת'],
-    ['purim', 'פורים', ['taanisEsther', 'purim'], 'זמני התפילה לימי הפורים'], ['lagBaomer', 'ל"ג בעומר', ['lagBaomer'], 'זמני ל"ג בעומר'],
+    ['purim', 'פורים', ['taanisEsther', 'purim'], 'זמני התפילה לימי הפורים'],
     ['tamuz17', 'י"ז בתמוז', ['tamuz17'], 'זמני התפילה לי"ז בתמוז'], ['tishaBav', 'תשעה באב', ['tishaBav'], 'זמני התפילה לתשעה באב']],
-  tishrei: [['tishrei', 'ימי הרחמים — תשרי', ['selichos1', 'selichos', 'erevRH', 'rh', 'gedalia', 'aseres', 'yud3', 'shuva', 'erevYK', 'yk', 'sukkos', 'cholSukkos', 'hoshana', 'shmini', 'bereishis'], 'לוח הזמנים לימי הרחמים והרצון הבעל"ט']],
+  tishrei: [['tishrei', 'ימי הרחמים — תשרי', ['selichos1', 'selichos', 'shabSel', 'hilula', 'erevRH', 'rh1', 'rh2', 'gedalia', 'shuva', 'aseres', 'yud3', 'erevYK', 'yk', 'bein', 'shabBein', 'sukkos1', 'sukkos2', 'cholSukkos', 'shabChmS', 'hoshana', 'shmini', 'simchas'], 'לוח הזמנים לימי הרחמים והרצון הבעל"ט']],
 };
 const OWN = [['minchaEve', 'מנחה ערב'], ['maarivEve', 'מעריב ערב'], ['shacharis', 'שחרית'], ['mincha', 'מנחה'], ['maarivMid', 'מעריב'], ['maariv', 'מעריב מוצאי']];
 const DOWN = ['יום א\'', 'יום ב\'', 'יום ג\'', 'יום ד\'', 'יום ה\'', 'יום ו\'', 'שבת'];
@@ -249,6 +249,11 @@ export function buildSpecial(data, part, whens, Y, loc) {
           parts.push({ k: 'table', label, note: r.note, rows });
         } else parts.push(kind(label, r.note, g.p.mins.filter((m) => m != null)));
       }
+    }
+    // שולחן הטהור ודרשות אין די טעג
+    for (const e of eventsBetween(data, ds[0] - 1, ds[ds.length - 1], loc)) {
+      const rs = e.rows.filter((r) => ds.includes(r.day) || (r.day === ds[0] - 1 && e.n === ds[0]));
+      if (rs.length) parts.push(kind(e.ev.title || rs[0].label, rs.map((r) => r.label).filter((x) => x && x !== e.ev.title).join(', '), rs.map((r) => r.min)));
     }
     if (parts.length) out.push({ head: b.title, parts, n: ds[0], days: ds, when: b.when });
   }

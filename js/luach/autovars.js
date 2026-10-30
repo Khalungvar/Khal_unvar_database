@@ -3,7 +3,8 @@
 // די זמנים ווערן גערעכנט פונקט ווי אויף דער תצוגה אין בית הכנסת (luach/minyanim.js).
 import { buildYear, isoOf, nOf, dowOf, hdOf, mitzvaYomis } from './engine.js';
 import { zmanim, hhmm, LOCATIONS } from './zmanim.js';
-import { defaults, computeWeekday, computeHoly, chagOn, computeSpecial, daysOf, rebbeAwayOn } from './minyanim.js';
+import { defaults, computeWeekday, computeHoly, chagOn, computeSpecial, daysOf, rebbeAwayOn, normData, eventsBetween } from './minyanim.js';
+import { segFor, segText, inPeriod, msgSegments } from './periods.js';
 import { hebrewNumber, monthHe } from '../hebdate.js';
 
 const LOC = LOCATIONS.bp;
@@ -32,7 +33,7 @@ export function nextEve(data, n) {
 
 /** די ערטער (שם → טעקסט) פאר א טאג (iso). data = די "זמני תפילות" (Minyanim) */
 export function autoVars(rawData, iso) {
-  const data = { ...defaults(), ...(rawData || {}) };
+  const data = normData({ ...defaults(), ...(rawData || {}) });
   const n = nOf(iso);
   const out = {};
   // ---- שבת / יו"ט (די קומענדיגע — פון דעם טאג) ----
@@ -90,6 +91,19 @@ export function autoVars(rawData, iso) {
   // ---- מצוה יומית ----
   const mz = mitzvaYomis(iso);
   out['מצוה יומית'] = mz ? `מצוה ${mz.num}: ${mz.text}` : '';
+  // ---- שולחן הטהור ודרשות: אין דער וואך (פון היינט ביז פרייטאג) — אדער (פאר א הודעה פון ערב שבת) אין דער שבת ----
+  const evLine = (e, r) => `${e.ev.title || r.label}${r.label && r.label !== e.ev.title ? ` — ${r.label}` : ''}: ${fmt(r.min)}`;
+  {
+    let fr = n; while (dowOf(fr) !== 5) fr += 1;
+    const z5 = zmanim(isoOf(fr), LOC).candles;
+    const wk = eventsBetween(data, n, fr, LOC).flatMap((e) => e.rows.filter((r) => !(r.day === fr && r.min >= z5)).map((r) => evLine(e, r)));
+    out['שולה"ט ודרשות'] = wk.join('\n');
+    const zs = zmanim(isoOf(fr + 1), LOC).motzei;
+    const sh = eventsBetween(data, fr, fr + 1, LOC).flatMap((e) => e.rows.filter((r) => (r.day === fr && r.min >= z5) || (r.day === fr + 1 && r.min < zs)).map((r) => evLine(e, r)));
+    out['__שולה"ט בשבת'] = sh.join('\n');
+  }
+  // ---- פסח / תשרי: דער חלק (V "כאן ההודעה מתחלקת") וואס גייט ארויס פון היינט ----
+  { const g = segFor(data, n, LOC); out['חלק פסח/תשרי'] = g ? segText(g, fmt) : ''; }
   // ---- משבצת שבת ויו"ט: פונקט ווי די הילצערנע משבצת אויף דער תצוגה ----
   out['משבצת שבת ויו"ט'] = holyBox(data, eve);
   // ---- משבצת יומא דפגרא: דער קומענדיגער טאג פון א "יומא דפגרא" (חנוכה, פורים, תעניות ...) ----
@@ -155,13 +169,16 @@ export function fillTemplate(text, vars, line = '') {
 }
 /** די קומענדיגע צייט (טעקסט 'yyyy-MM-dd HH:mm', ניו יארק) פון א "מתי" נאך now ('yyyy-MM-dd HH:mm'), אדער '' */
 export function nextOccurrence(sched, rawData, now) {
-  const s = sched || {}; const data = { ...defaults(), ...(rawData || {}) };
+  const s = sched || {}; const data = normData({ ...defaults(), ...(rawData || {}) });
   const time = /^\d{1,2}:\d{2}$/.test(s.time || '') ? s.time.padStart(5, '0') : '10:00';
   if (s.type === 'once') { const at = String(s.at || '').replace('T', ' ').slice(0, 16); return at > now ? at : ''; }
   const n0 = nOf(now.slice(0, 10));
   for (let n = n0; n < n0 + 400; n += 1) {
     let ok = false;
-    if (s.type === 'weekly') ok = dowOf(n) === Number(s.dow);
+    // אין דער צייט פון פסח / תשרי — אלעס איז אין דער הודעה פון פסח/תשרי (נישט שבת און נישט ימות החול)
+    if (['weekly', 'monthly', 'hmonthly'].includes(s.type) && inPeriod(data, n, LOC)) continue;
+    if (s.type === 'segment') ok = ['pesach', 'tishrei'].includes(s.part) && [hdOf(n).y, hdOf(n).y + 1].some((Y) => msgSegments(data, s.part, Y, LOC).some((g) => g.send === n));
+    else if (s.type === 'weekly') ok = dowOf(n) === Number(s.dow);
     else if (s.type === 'monthly') ok = Number(isoOf(n).slice(8, 10)) === Number(s.day);
     else if (s.type === 'hmonthly') {
       // א טאג אין חודש עברי; ל' אין א חודש פון כ"ט טעג → כ"ט
@@ -171,9 +188,10 @@ export function nextOccurrence(sched, rawData, now) {
       const e = n + (Number(s.before) || 0); // דער ערב איז "before" טעג נאך דעם טאג פונעם שיקן
       if (!holyOn(data, e) && holyOn(data, e + 1)) {
         // די גאנצע קייט פון הייליגע טעג: שבת אן יו"ט → "ערב שבת"; מיט יו"ט → "ערב יום טוב" (די משבצת האט אלעס)
-        let k = e + 1; let hasShab = false; let hasChag = false;
-        while (holyOn(data, k)) { if (dowOf(k) === 6) hasShab = true; if (chagOn(data, k)) hasChag = true; k += 1; }
-        ok = s.what === 'shabbos' ? hasShab && !hasChag : s.what === 'yt' ? hasChag : true;
+        let k = e + 1; let hasShab = false; let hasChag = false; let shav = false; let inPer = false;
+        while (holyOn(data, k)) { if (dowOf(k) === 6) hasShab = true; if (chagOn(data, k)) hasChag = true; const hk = hdOf(k); if (hk.m === 'Sivan' && (hk.d === 6 || hk.d === 7)) shav = true; if (inPeriod(data, k, LOC)) inPer = true; k += 1; }
+        // "ערב יו"ט" איז יעצט "ערב שבועות"; פסח און תשרי — "ערב פסח" / "תשרי" (לויט די חלקים)
+        ok = inPer ? false : s.what === 'shabbos' ? hasShab && !hasChag : s.what === 'yt' ? shav : true;
       }
     } else if (s.type === 'erevMinor') {
       // דער לעצטער וואכנטאג פאר א טאג פון "ימי דפגרא"
@@ -192,9 +210,10 @@ export function schedText(sched) {
   if (s.type === 'monthly') return `כל חודש לועזי ב-${s.day} ב-${tm}`;
   if (s.type === 'hmonthly') return `כל חודש עברי ב-${hebrewNumber(Number(s.day) || 1)} ב-${tm}`;
   if (s.type === 'erevMinor') return `ערב יומא דפגרא ב-${tm}`;
+  if (s.type === 'segment') return `${s.part === 'tishrei' ? 'תשרי' : 'ערב פסח'} — לפני כל חלק ב-${tm}`;
   if (s.type === 'keyword') return `כשמישהו שולח: ${(s.words || []).join(', ')}`;
   if (s.type === 'erev') {
-    const w = s.what === 'shabbos' ? 'שבת' : s.what === 'yt' ? 'יום טוב' : 'שבת ויום טוב';
+    const w = s.what === 'shabbos' ? 'שבת' : s.what === 'yt' ? 'שבועות' : 'שבת ויום טוב';
     const b = Number(s.before) || 0;
     return `${b ? `${b === 1 ? 'יום' : `${b} ימים`} לפני ` : ''}ערב ${w} ב-${tm}`;
   }

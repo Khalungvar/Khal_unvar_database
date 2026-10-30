@@ -153,8 +153,8 @@ export function defaults() {
       ],
     },
     minor: { blocks: MINOR_BLOCKS() },
-    yt: { blocks: YT_BLOCKS() },
-    tishrei: { blocks: TISHREI_BLOCKS() },
+    ...normParts({ yt: { blocks: YT_BLOCKS() }, tishrei: { blocks: TISHREI_BLOCKS() } }),
+    events: { rows: [] },
     shiurim: { rows: SHIURIM_DEF() },
   };
 }
@@ -261,12 +261,116 @@ function YT_BLOCKS() {
   ];
 }
 
+// ---------- פסח / תשרי: א לוח פון טעג (יעדער טאג: כותרת, שורות, V "כמו ביום חול", V "כמו שבת רגילה", V חלוקה) ----------
+export const CHAG_DAYS = new Set(['pesach1', 'pesach2', 'shvii', 'acharon', 'rh1', 'rh2', 'yk', 'sukkos1', 'sukkos2', 'shmini', 'simchas']);
+export const SHAB_DAYS = new Set(['erevPesachShabbos', 'shabbosChm', 'shabSel', 'shuva', 'shabBein', 'shabChmS']);
+const NO_WK = new Set(['hilula', 'yud3', 'hoshana']);
+export const dayBlock = (when, title, rows = [], o = {}) => ({ id: id(), title, when, rows,
+  wk: { shacharis: !CHAG_DAYS.has(when) && !SHAB_DAYS.has(when) && !NO_WK.has(when), mincha: !CHAG_DAYS.has(when) && !SHAB_DAYS.has(when) && !NO_WK.has(when), maariv: !CHAG_DAYS.has(when) && !SHAB_DAYS.has(when) && !NO_WK.has(when) },
+  likeShab: SHAB_DAYS.has(when), splitD: false, splitM: false, ...o });
+const cloneRow = (r, o = {}) => ({ ...JSON.parse(JSON.stringify(r)), id: id(), ...o });
+/** א צוויי־טאגיגער בלאק (on: -1 / 0 / 1 / all / last) → צוויי טעג */
+function split2(b, w1, t1, w2, t2) {
+  const A = []; const B = [];
+  for (const r of b.rows || []) {
+    const on = r.on == null ? 'all' : String(r.on);
+    if (on === '-1') A.push(cloneRow(r, { on: -1 }));
+    else if (on === '0') A.push(cloneRow(r, { on: 'all' }));
+    else if (on === '1' || on === 'last') B.push(cloneRow(r, { on: 'all' }));
+    else { A.push(cloneRow(r)); B.push(cloneRow(r)); }
+  }
+  return [dayBlock(w1, t1, A, { pasuk: b.pasuk, psrc: b.psrc }), dayBlock(w2, t2, B)];
+}
+/** ווען א טאג האט שוין אן אייגענע שורה פון א תפילה (למשל "מנחה" ערב יו"כ) — נישט נאך אמאל "כמו ביום חול" */
+function smartWk(list) {
+  const GN = { shacharis: 'שחרית', mincha: 'מנחה', maariv: 'מעריב' };
+  for (const b of list) for (const g of Object.keys(GN)) if (b.wk?.[g] && (b.rows || []).some((r) => String(r.label || '').includes(GN[g]) && hasTimes(r))) b.wk[g] = false;
+}
+/** "כמו ביום חול" פון די אלטע "like/own" → שורות + wk */
+function fromLike(b, nb) {
+  const GN = { shacharis: 'שחרית', mincha: 'מנחה', maariv: 'מעריב' };
+  for (const g of ['shacharis', 'mincha', 'maariv']) {
+    const own = b.own?.[g] || [];
+    if (b.like && b.like[g] === false) { nb.wk[g] = false; if (own.length) nb.rows.push({ id: id(), label: GN[g], note: '', kind: 'tefila', on: 'all', times: own, screen: true }); }
+  }
+  return nb;
+}
+const hasTimes = (r) => (r.times || []).some((T) => T && (T.b !== 'fixed' || String(T.t || '').trim()));
+/** אלטע דאטן (yt מיט פסח, תשרי מיט צוויי־טאגיגע בלאקן) → דער נייער לוח פון טעג. אויך פאר דער ברירת מחדל. */
+export function normParts(d) {
+  const out = {};
+  const yt = d.yt?.blocks || [];
+  // ---- פסח ----
+  const OLDP = ['erevPesach', 'erevPesachShabbos', 'pesach', 'cholPesach', 'shabbosChmPesach', 'erevShvii', 'shviiPesach'];
+  if (!yt.some((b) => OLDP.includes(b.when)) && d.pesach?.blocks?.length) out.pesach = d.pesach;
+  else {
+    const W = (w) => yt.find((b) => b.when === w);
+    const P = [];
+    const t = (k) => WHEN.pesach.find(([x]) => x === k)[1];
+    P.push(dayBlock('bedika', t('bedika')));
+    P.push(W('erevPesach') ? fromLike(W('erevPesach'), dayBlock('erevPesach', t('erevPesach'), (W('erevPesach').rows || []).map((r) => cloneRow(r)))) : dayBlock('erevPesach', t('erevPesach')));
+    { const b = W('erevPesachShabbos'); P.push(dayBlock('erevPesachShabbos', t('erevPesachShabbos'), b ? (b.rows || []).map((r) => cloneRow(r, { on: String(r.on) === '0' ? -1 : 'all' })) : [], { likeShab: !(b && (b.rows || []).some(hasTimes)) })); }
+    P.push(...(W('pesach') ? split2(W('pesach'), 'pesach1', t('pesach1'), 'pesach2', t('pesach2')) : [dayBlock('pesach1', t('pesach1')), dayBlock('pesach2', t('pesach2'))]));
+    { const c = W('cholPesach'); const e = W('erevShvii'); const nb = c ? fromLike(c, dayBlock('cholPesach', t('cholPesach'), (c.rows || []).map((r) => cloneRow(r)))) : dayBlock('cholPesach', t('cholPesach'));
+      if (e) nb.rows.push(...(e.rows || []).map((r) => cloneRow(r, { on: 'last' }))); P.push(nb); }
+    { const b = W('shabbosChmPesach'); P.push(dayBlock('shabbosChm', t('shabbosChm'), b ? (b.rows || []).map((r) => cloneRow(r)) : [], { likeShab: !(b && (b.rows || []).some(hasTimes)) })); }
+    P.push(...(W('shviiPesach') ? split2(W('shviiPesach'), 'shvii', t('shvii'), 'acharon', t('acharon')) : [dayBlock('shvii', t('shvii')), dayBlock('acharon', t('acharon'))]));
+    smartWk(P);
+    out.pesach = { blocks: P };
+  }
+  // ---- שבועות: נאר דער חג (ערב שבועות איז א טייל פון חג — "ערב") ----
+  {
+    const sh = yt.find((b) => b.when === 'shavuos'); const es = yt.find((b) => b.when === 'erevShavuos');
+    const rows = [...(sh?.rows || [])];
+    if (es) for (const r of es.rows || []) if (hasTimes(r)) rows.push(cloneRow(r, { on: -1 }));
+    out.yt = { blocks: yt.length && !yt.some((b) => b.when !== 'shavuos') ? yt : [{ ...(sh || { id: id(), title: 'שבועות', when: 'shavuos', type: 'chag' }), rows }] };
+  }
+  // ---- תשרי ----
+  const tb = d.tishrei?.blocks || [];
+  if (tb.some((b) => b.when === 'rh1') || !tb.length) out.tishrei = tb.length ? d.tishrei : { blocks: [] };
+  else {
+    const W = (w) => tb.find((b) => b.when === w);
+    const t = (k) => WHEN.tishreiDays.find(([x]) => x === k)[1];
+    const keep = (w) => { const b = W(w); return b ? fromLike(b, dayBlock(w, t(w), (b.rows || []).map((r) => cloneRow(r)), { pasuk: b.pasuk, psrc: b.psrc })) : dayBlock(w, t(w)); };
+    const L = [keep('selichos1'), keep('selichos'), dayBlock('shabSel', t('shabSel'))];
+    { const b = W('erevRH'); const ev = (b?.rows || []).filter((r) => String(r.on) === '-1'); const dy = (b?.rows || []).filter((r) => String(r.on) !== '-1');
+      L.push(dayBlock('hilula', t('hilula'), ev.map((r) => cloneRow(r, { on: 'all' }))));
+      L.push(fromLike(b || {}, dayBlock('erevRH', t('erevRH'), dy.map((r) => cloneRow(r))))); }
+    L.push(...(W('rh') ? split2(W('rh'), 'rh1', t('rh1'), 'rh2', t('rh2')) : [dayBlock('rh1', t('rh1')), dayBlock('rh2', t('rh2'))]));
+    L.push(keep('gedalia'));
+    { const b = W('shuva'); L.push(dayBlock('shuva', t('shuva'), (b?.rows || []).map((r) => cloneRow(r)), { likeShab: !(b && (b.rows || []).some(hasTimes)) })); }
+    L.push(keep('aseres'), keep('yud3'), keep('erevYK'), keep('yk'), dayBlock('bein', t('bein')), dayBlock('shabBein', t('shabBein')));
+    L.push(...(W('sukkos') ? split2(W('sukkos'), 'sukkos1', t('sukkos1'), 'sukkos2', t('sukkos2')) : [dayBlock('sukkos1', t('sukkos1')), dayBlock('sukkos2', t('sukkos2'))]));
+    L.push(keep('cholSukkos'), dayBlock('shabChmS', t('shabChmS')), keep('hoshana'));
+    L.push(...(W('shmini') ? split2(W('shmini'), 'shmini', t('shmini'), 'simchas', t('simchas')) : [dayBlock('shmini', t('shmini')), dayBlock('simchas', t('simchas'))]));
+    for (const x of L) { if (CHAG_DAYS.has(x.when)) x.wk = { shacharis: false, mincha: false, maariv: false }; }
+    smartWk(L);
+    out.tishrei = { blocks: L, ...(W('bereishis') ? { bereishis: W('bereishis') } : {}) };
+  }
+  return out;
+}
+/** פאר יעדן ארט וואו מ'לייענט די דאטן: אלטע דאטן → נייע (נישט טוישן ווען שוין נייע) */
+export function normData(data) {
+  if (!data || data.__norm) return data;
+  Object.assign(data, normParts(data));
+  if (!data.events) data.events = { rows: [] };
+  Object.defineProperty(data, '__norm', { value: true, enumerable: false, configurable: true });
+  return data;
+}
+
 // ---------- וואנען איז יעדער בלאק (פון א אידיש יאר) ----------
 export const WHEN = {
   tishrei: [['selichos1', 'סליחות - יום א\''], ['selichos', 'סליחות - שאר הימים'], ['erevRH', 'ערב ראש השנה'], ['rh', 'ראש השנה'], ['gedalia', 'צום גדליה'], ['aseres', 'עשרת ימי תשובה'],
     ['yud3', 'י"ג מדות'], ['shuva', 'שבת תשובה'], ['erevYK', 'ערב יום הכיפורים'], ['yk', 'יום הכיפורים'], ['sukkos', 'חג הסוכות'], ['cholSukkos', 'חול המועד סוכות'],
     ['hoshana', 'הושענא רבה'], ['shmini', 'שמיני עצרת ושמחת תורה'], ['bereishis', 'שבת בראשית']],
   minor: [['chanuka', 'חנוכה'], ['asaraTeves', 'עשרה בטבת'], ['taanisEsther', 'תענית אסתר'], ['purim', 'פורים'], ['tamuz17', 'י"ז בתמוז'], ['tishaBav', 'תשעה באב']],
+  pesach: [['bedika', 'יום וליל בדיקת חמץ'], ['erevPesach', 'ערב פסח'], ['erevPesachShabbos', 'שבת שחל בערב פסח'], ['pesach1', "יום א' דפסח"], ['pesach2', "יום ב' דפסח"],
+    ['cholPesach', 'ימי חול המועד'], ['shabbosChm', 'שבת חול המועד'], ['shvii', 'שביעי של פסח'], ['acharon', 'אחרון של פסח']],
+  tishreiDays: [['selichos1', "יום א' דסליחות"], ['selichos', 'שאר ימי הסליחות'], ['shabSel', 'שבת פרשת ...'], ['hilula', 'יומא דהילולא — ליל ערב ראש השנה'], ['erevRH', 'ערב ראש השנה'],
+    ['rh1', "יום א' דראש השנה"], ['rh2', "יום ב' דראש השנה"], ['gedalia', 'צום גדליה'], ['shuva', 'שבת שובה'], ['aseres', 'עשרת ימי תשובה'], ['yud3', 'י"ג מדות'],
+    ['erevYK', 'ערב יום כיפור'], ['yk', 'יום כיפור'], ['bein', 'בין יום כיפור לסוכות'], ['shabBein', 'שבת שבין יום כיפור לסוכות'], ['sukkos1', "יום א' דסוכות"], ['sukkos2', "יום ב' דסוכות"],
+    ['cholSukkos', 'חול המועד סוכות'], ['shabChmS', 'שבת חול המועד'], ['hoshana', 'הושענא רבה'], ['shmini', 'שמיני עצרת'], ['simchas', 'שמחת תורה']],
+  shavuos: [['shavuos', 'שבועות']],
   yt: [['erevPesach', 'ערב פסח'], ['erevPesachShabbos', 'ערב פסח שחל בשבת (ו\' + ש\')'], ['pesach', 'פסח (ב\' ימים)'], ['cholPesach', 'חול המועד פסח'], ['shabbosChmPesach', 'שבת חול המועד פסח'], ['erevShvii', 'ערב שביעי של פסח'], ['shviiPesach', 'שביעי ואחרון של פסח'], ['erevShavuos', 'ערב שבועות'], ['shavuos', 'שבועות']],
 };
 const yc = new Map();
@@ -288,7 +392,7 @@ export function daysOf(when, Y) {
     case 'erevRH': return [T(1) - 1];
     case 'rh': return [T(1), T(2)];
     case 'gedalia': return findHol(Y, /צום גדליה/);
-    case 'aseres': return range(T(3), T(8)).filter((n) => dowOf(n) !== 6);
+    case 'aseres': { const g = findHol(Y, /צום גדליה/); return range(T(3), T(8)).filter((n) => dowOf(n) !== 6 && !g.includes(n)); }
     case 'yud3': return findHol(Y, /^י"ג מדות/).filter((n) => n < T(10));
     case 'shuva': return range(T(3), T(9)).filter((n) => dowOf(n) === 6);
     case 'erevYK': return [T(9)];
@@ -296,16 +400,16 @@ export function daysOf(when, Y) {
     case 'sukkos': return [T(15), T(16)];
     case 'cholSukkos': return range(T(17), T(20)).filter((n) => dowOf(n) !== 6);
     case 'hoshana': return [T(21)];
-    case 'shmini': return [T(22), T(23)];
+    case 'shmini': return [T(22)]; // (פריער: שמע"צ און שמח"ת צוזאמען — יעצט צוויי טעג באזונדער)
     case 'bereishis': { let n = T(24); while (dowOf(n) !== 6) n += 1; return [n]; }
     case 'chanuka': return findHol(Y, /חנוכה/);
     case 'asaraTeves': return findHol(Y, /עשרה בטבת/);
     case 'taanisEsther': return findHol(Y, /תענית אסתר/);
     case 'purim': return findHol(Y, /^פורים$|^פורים \(/);
     case 'erevPesach': { const e = at('Nisan', 14); return e != null && dowOf(e) !== 6 ? [e] : []; }
-    case 'erevPesachShabbos': { const e = at('Nisan', 14); return e != null && dowOf(e) === 6 ? [e - 1, e] : []; }
+    case 'erevPesachShabbos': { const e = at('Nisan', 14); return e != null && dowOf(e) === 6 ? [e] : []; }
     case 'pesach': { const p = at('Nisan', 15); return [p, p + 1]; }
-    case 'cholPesach': return range(at('Nisan', 17), at('Nisan', 19)).filter((n) => dowOf(n) !== 6);
+    case 'cholPesach': return range(at('Nisan', 17), at('Nisan', 20)).filter((n) => dowOf(n) !== 6);
     case 'shabbosChmPesach': return range(at('Nisan', 17), at('Nisan', 20)).filter((n) => dowOf(n) === 6);
     case 'erevShvii': return [at('Nisan', 20)];
     case 'shviiPesach': return [at('Nisan', 21), at('Nisan', 22)];
@@ -313,6 +417,24 @@ export function daysOf(when, Y) {
     case 'erevShavuos': return [at('Sivan', 5)];
     case 'shavuos': return [at('Sivan', 6), at('Sivan', 7)];
     case 'tamuz17': return findHol(Y, /י"ז בתמוז/);
+    // ---- פסח: לוח של ימים ----
+    case 'bedika': { const e = at('Nisan', 14); return e == null ? [] : [dowOf(e) === 6 ? e - 2 : e - 1]; }
+    case 'pesach1': return [at('Nisan', 15)];
+    case 'pesach2': return [at('Nisan', 16)];
+    case 'shabbosChm': return range(at('Nisan', 17), at('Nisan', 20)).filter((n) => dowOf(n) === 6);
+    case 'shvii': return [at('Nisan', 21)];
+    case 'acharon': return [at('Nisan', 22)];
+    // ---- תשרי: לוח של ימים ----
+    case 'shabSel': { const rh = T(1); let sat = rh - 1; while (dowOf(sat) !== 6) sat -= 1; if (rh - sat < 4) sat -= 7; const first = sat + 1; return range(first, rh - 1).filter((n) => dowOf(n) === 6); }
+    case 'hilula': return [T(1) - 2];
+    case 'rh1': return [T(1)];
+    case 'rh2': return [T(2)];
+    case 'bein': return range(T(11), T(14)).filter((n) => dowOf(n) !== 6);
+    case 'shabBein': return range(T(11), T(14)).filter((n) => dowOf(n) === 6);
+    case 'sukkos1': return [T(15)];
+    case 'sukkos2': return [T(16)];
+    case 'shabChmS': return range(T(17), T(20)).filter((n) => dowOf(n) === 6);
+    case 'simchas': return [T(23)];
     case 'tishaBav': return findHol(Y, /תשעה באב/);
     default: return [];
   }
@@ -380,6 +502,11 @@ export function computeWeekday(data, n, loc, opt = {}) {
   if (out.last != null) out.mincha = out.mincha.filter((x) => x.min <= out.last);
   out.ov = {}; out.shacharisNote = w.shacharisNote || ''; out.minchaNote = w.minchaNote || ''; out.maarivNote = w.maarivNote || '';
   if (opt.plain) return out;
+  // שולחן הטהור ודרשות: "אין מנין לפני / אחרי" — מנחה ומעריב פון דעם טאג
+  for (const e of eventsBetween(data, n, n, loc)) {
+    const qb = Number(e.ev.qb) || 0; const qa = Number(e.ev.qa) || 0; if (!qb && !qa) continue;
+    for (const g of ['mincha', 'maariv']) out[g] = out[g].filter((x) => x.rebbe || !e.rows.some((r) => x.min >= r.min - qb && x.min <= r.min + qa));
+  }
   // חנוכה ותעניות: נאר דער מעריב (מוצאי תענית / חנוכה) — אנשטאט דעם מעריב הרגיל
   const mn = opt.ytOnly ? null : maarivNight(data, n);
   if (mn) { const zn = dayZ(isoOf(n), loc); out.maariv = mn.times.map((T) => ({ min: timeOf(T, zn), room: '', note: '' })).filter((x) => x.min != null).sort((a, b) => a.min - b.min); out.ov.maariv = true; out.maarivLabel = mn.label; }
@@ -413,6 +540,46 @@ export function minorBlockOn(data, n, ytOnly = false, all = false) {
   }
   return null;
 }
+// ---------- שולחן הטהור ודרשות (אירועים שאינם בימים המוגדרים) ----------
+// ev = { id, title, date: { type: 'heb'|'shabbos'|'once', d, m, sh, iso }, onShab: ''|'fri'|'motzei'|'sun', rows: [{ id, label, eve, time }],
+//        away: true (מתבטל כשאד"ש לא נמצא), qb / qa (אין מנחה/מעריב של ימות החול X דק' לפני / אחרי), screen }
+export const EV_SHAB = ['שבת הגדול', 'פרשת שקלים', 'פרשת זכור', 'פרשת פרה', 'פרשת החודש', 'שבת שובה', 'שבת שירה', 'שבת חזון', 'שבת נחמו'];
+export const awayOnDay = (data, k) => { const iso = isoOf(k); return (data.rebbeAway || []).some((x) => x.from && x.to && x.from <= iso && x.to >= iso); };
+/** דער טאג פונעם אירוע אין אידישן יאר Y: { n, eveAll } אדער null */
+function evDayIn(ev, Y) {
+  const D = ev.date || {};
+  if (D.type === 'once') { if (!D.iso) return null; const n = nOf(D.iso); return hdOf(n).y === Y ? { n, eveAll: false } : null; }
+  const days = yearDays(Y);
+  if (D.type === 'shabbos') {
+    const key = String(D.sh || '').trim(); if (!key) return null;
+    const x = days.find((d) => dowOf(d.n) === 6 && ((d.items || []).some((i) => i.text === key) || (d.parsha && (d.parsha === key || d.parsha === key.replace(/^פרשת\s+/, '')))));
+    return x ? { n: x.n, eveAll: false } : null;
+  }
+  let m = D.m; const leap = isLeapYear(Y);
+  if (m === 'Adar' && leap) m = 'Adar II'; else if ((m === 'Adar I' || m === 'Adar II') && !leap) m = 'Adar';
+  const x = days.find((q) => q.hm === m && q.hd === Number(D.d)); if (!x) return null;
+  let n = x.n; let eveAll = false;
+  if (dowOf(n) === 6 && ev.onShab) { if (ev.onShab === 'fri') eveAll = true; else if (ev.onShab === 'motzei') { n += 1; eveAll = true; } else if (ev.onShab === 'sun') n += 1; }
+  return { n, eveAll };
+}
+/** די אירועים מיט שורות אויף טעג n0..n1: [{ ev, n, rows: [{ label, day, min }], first, last }] */
+export function eventsBetween(data, n0, n1, loc) {
+  const out = [];
+  const ys = new Set([hdOf(n0).y - 1, hdOf(n0).y, hdOf(n1).y, hdOf(n1).y + 1]);
+  for (const ev of data.events?.rows || []) {
+    if (ev.screen === false) continue;
+    for (const Y of ys) {
+      const at = evDayIn(ev, Y); if (!at) continue;
+      const rows = (ev.rows || []).map((r) => { const day = r.eve || at.eveAll ? at.n - 1 : at.n; return { label: r.label || ev.title, day, min: timeOf(r.time, dayZ(isoOf(day), loc)) }; })
+        .filter((r) => r.min != null && r.day >= n0 && r.day <= n1);
+      if (!rows.length) continue;
+      if (ev.away !== false && rows.some((r) => awayOnDay(data, r.day))) continue;
+      const abs = rows.map((r) => r.day * 1440 + r.min);
+      out.push({ ev, n: at.n, rows: rows.sort((a, b) => a.day * 1440 + a.min - (b.day * 1440 + b.min)), first: Math.min(...abs), last: Math.max(...abs) });
+    }
+  }
+  return out.sort((a, b) => a.first - b.first);
+}
 const avosSeason = (n) => { const x = hdOf(n); return ['Iyar', 'Sivan', 'Tamuz', 'Av', 'Elul'].includes(x.m) || (x.m === 'Nisan' && x.d > 22); };
 /** שבת: fri = n פון ערב שבת. גיט [{ label, min, kind, note, day }] אין סדר, מיט הדלקת נרות פאראויס */
 /** כ"ק אד"ש איז נישט דא די שבת (data.rebbeAway = [{ from, to }] — פון "✈ נסע") */
@@ -437,13 +604,17 @@ export function computeShabbos(data, fri, loc) {
     }
     rows.push({ label: r.label, min, kind: r.kind, note: r.note || '', day: r.day, screen: r.screen !== false });
   }
+  // שולחן הטהור ודרשות וואס זענען אין דער שבת (ליל שבת נאך הדלקת נרות, אדער שבת)
+  for (const e of eventsBetween(data, fri, fri + 1, loc)) {
+    for (const r of e.rows) if ((r.day === fri + 1 && r.min < zs.motzei) || (r.day === fri && r.min >= zf.candles)) rows.push({ label: r.label, min: r.min, kind: 'event', note: '', day: r.day === fri ? 'fri' : 'sat', screen: true });
+  }
   return rows; // אין דעם סדר וואס מ'האט באשטימט
 }
 /** בלאקן (תשרי + יו"ט) וואס האבן עפעס אויף טאג n (אויך ערב: on = -1). גיט [{ title, rows:[{label,note,kind,mins:[..]}] }] */
 export function computeSpecial(data, n, loc) {
   const zd = dayZ(isoOf(n), loc); const out = [];
   const x = hdOf(n);
-  for (const part of ['tishrei', 'yt', 'minor']) {
+  for (const part of ['tishrei', 'pesach', 'yt', 'minor']) {
     for (const b of data[part]?.blocks || []) {
       for (const Y of [x.y, x.y + 1, x.y - 1]) {
         const ds = daysOf(b.when, Y);
@@ -457,6 +628,7 @@ export function computeSpecial(data, n, loc) {
           return i < 0 ? ds[0] + i === n : ds[i] === n;
         }).map((r) => ({ label: r.label, note: r.note, kind: r.kind, screen: r.screen !== false, disp: r.disp || null,
           place: r.disp?.place || (isChag(part, b) ? 'shab' : 'weekday'),
+          ...((r.sat?.on && dowOf(n) === 6 && r.sat.label) ? { label: r.sat.label } : (r.fri?.on && dowOf(n) === 5) ? { label: r.fri.label || (/מנחה/.test(r.label || '') ? 'מנחה וקבלת שבת' : r.label) } : {}),
           mins: ((r.sat?.on && dowOf(n) === 6 ? r.sat.times : r.fri?.on && dowOf(n) === 5 ? r.fri.times : r.times) || []).map((t) => timeOf(t, zd)).filter((m) => m != null) }));
         if (rows.length) { out.push({ title: b.title, part, when: b.when, type: isChag(part, b) ? 'chag' : (b.type || ''), rows }); break; }
       }
@@ -465,13 +637,13 @@ export function computeSpecial(data, n, loc) {
   return out;
 }
 // ---------- שבת און יו"ט צוזאמען ----------
-export const TISHREI_CHAG = new Set(['rh', 'yk', 'sukkos', 'shmini']);
-const isChag = (part, b) => (part === 'yt' && b.type === 'chag') || (part === 'tishrei' && TISHREI_CHAG.has(b.when));
+export const TISHREI_CHAG = new Set(['rh1', 'rh2', 'yk', 'sukkos1', 'sukkos2', 'shmini', 'simchas']);
+const isChag = (part, b) => (part === 'yt' && b.type === 'chag') || ((part === 'tishrei' || part === 'pesach') && CHAG_DAYS.has(b.when));
 /** איז טאג n א יו"ט (לויטן לוח, אדער א בלאק פון א חג) */
 export function chagOn(data, n) {
   const x = hdOf(n);
   for (const y of [x.y, x.y + 1]) { const d = yearDays(y).find((q) => q.n === n); if (d) { if (d.items.some((i) => i.yt)) return true; break; } }
-  for (const [part, list] of [['yt', data.yt?.blocks || []], ['tishrei', data.tishrei?.blocks || []]]) {
+  for (const [part, list] of [['yt', data.yt?.blocks || []], ['tishrei', data.tishrei?.blocks || []], ['pesach', data.pesach?.blocks || []]]) {
     for (const b of list) { if (!isChag(part, b)) continue; for (const Y of [x.y, x.y + 1, x.y - 1]) if (daysOf(b.when, Y).includes(n)) return true; }
   }
   return false;
@@ -492,12 +664,12 @@ export function computeHoly(data, eve, loc) {
     const sh = rows.find((r) => r.day === 1 && /שחרית/.test(r.label));
     const keep = rows.filter((r) => r.day === 0 || (sh && r.min != null && r.min <= sh.min) || r === sh);
     const chagEve = spec(d, 1).filter((r) => r.chag);
-    return [...keep, ...chagEve, { label: 'הדלקת נרות יו"ט — לא לפני', kind: 'zman', note: '', min: zD.rt, more: [], day: 1, screen: true, place: 'shab' }];
+    return [...keep, ...chagEve, { label: 'מוצאי שבת', kind: 'zman', note: '', min: zD.rt, more: [], day: 1, screen: true, place: 'shab' }];
   }
   const out = [];
   // הדלקת נרות: ערב פון א וואכנטאג, אדער ערב שבת (אויך ווען ער"ש איז יו"ט — פון א נר הדולק)
   if (dowOf(eve) === 5) out.push({ label: 'הדלקת נרות', kind: 'zman', note: '', min: zE.candles, more: [], day: 0, screen: true, place: 'shab' });
-  else if (dowOf(eve) === 6 && !cE && cD) out.push({ label: 'הדלקת נרות יו"ט — לא לפני', kind: 'zman', note: '', min: zE.rt, more: [], day: 0, screen: true, place: 'shab' });
+  else if (dowOf(eve) === 6 && !cE && cD) out.push({ label: 'מוצאי שבת', kind: 'zman', note: '', min: zE.rt, more: [], day: 0, screen: true, place: 'shab' });
   else if (!cE && cD) out.push({ label: 'הדלקת נרות', kind: 'zman', note: '', min: zE.candles, more: [], day: 0, screen: true, place: 'shab' });
   // פונעם ערב: אויב דער ערב איז אליין א יו"ט — נאר די אוונט-זאכן
   const eveCut = cE ? zE.shkia - 90 : -Infinity;

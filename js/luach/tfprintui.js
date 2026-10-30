@@ -69,7 +69,7 @@ function pagesHtml() {
   if (!o) return '<p class="muted">אין מה להדפיס.</p>';
   st.grp = o.v;
   const g = GROUPS[st.type].find(([k]) => k === o.key);
-  const b = buildSpecial(data, st.type, g[2], o.Y, LOC);
+  const b = buildSpecial(data, g[4] || st.type, g[2], o.Y, LOC);
   const sections = st.shab && st.type !== 'minor' ? withShabbos(b.sections) : b.sections;
   return specialPage({ title: st.title || g[3], pasuk: st.pasuk || b.pasuk, psrc: st.psrc || b.psrc, sections, cols: st.type === 'tishrei' ? 2 : 1 }, st.size);
 }
@@ -77,7 +77,7 @@ function pagesHtml() {
 /** שבת וואס רירט אן יו"ט (ערב יו"ט / נאך יו"ט) און האט נישט קיין אייגענעם בלאק — צולייגן די זמני שבת אין סדר */
 function shabbosNear(sections) {
   const all = sections.flatMap((x) => x.days || []); if (!all.length) return [];
-  const covered = new Set(sections.filter((x) => /shabbos|shuva/i.test(x.when || '')).flatMap((x) => x.days || [])); const out = [];
+  const covered = new Set(sections.filter((x) => /shab|shuva/i.test(x.when || '')).flatMap((x) => x.days || [])); const out = [];
   for (let S = Math.min(...all) - 1; S <= Math.max(...all) + 1; S += 1) {
     if (dowOf(S) !== 6 || covered.has(S) || chagOn(data, S)) continue; // יו"ט בשבת: די שורות פון חג ("כשחל בשבת")
     const eveYT = chagOn(data, S + 1); const afterYT = chagOn(data, S - 1);

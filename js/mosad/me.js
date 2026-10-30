@@ -1,7 +1,7 @@
 // אתר פון א מוסד — 👤 אזור אישי (פרטים, ⏱ שעון נוכחות, 📋 משימות, 📜 הפעולות שלי, ✉️ מייל — שפעטער),
 // 📜 יומן פעולות (בעלים / מנהל), 📜 היסטוריה פון א רשומה, און 🗂 גיבויים.
-import { downloadXlsx } from '../excel.js?v=524';
-import { todayIso } from '../hebdate.js?v=524';
+import { downloadXlsx } from '../excel.js?v=525';
+import { todayIso } from '../hebdate.js?v=525';
 
 let X = null;
 export function initMe(ctx) { X = ctx; }

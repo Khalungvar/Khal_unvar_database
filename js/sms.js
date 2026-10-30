@@ -368,8 +368,11 @@ const KW_RESERVED = ['stop', 'stopall', 'unsubscribe', 'cancel', 'end', 'quit', 
 const kwWords = (v) => [...new Set((Array.isArray(v) ? v : String(v || '').split(/[,،\n]+/)).map((w) => String(w).trim().toLowerCase().replace(/[^\w\u0590-\u05FF]/g, '')).filter((w) => w && !KW_RESERVED.includes(w)))];
 const ST_BADGE = { '': ['⏳', 'csAuSt_wait'], approved: ['✓', 'csAuSt_ok'], canceled: ['✕', 'csAuSt_cancel'], missed: ['⚠', 'csAuSt_missed'], sent: ['📤', 'csAuSt_sent'], skip: ['🚫', 'csAuSt_skip'] };
 // "מתי": די סארטן אויפן אתר → sched
-const UI_TYPES = [['weekly', 'csAuTWeekly'], ['eshab', 'csAuTEShab'], ['hmonthly', 'csAuTHMonthly'], ['monthly', 'csAuTMonthly'], ['eyt', 'csAuTEYt'], ['eminor', 'csAuTEMinor'], ['once', 'csAuTOnce'], ['keyword', 'csAuTKw']];
-const uiType = (sc) => (sc.type === 'erev' ? (sc.what === 'yt' ? 'eyt' : 'eshab') : sc.type === 'erevMinor' ? 'eminor' : sc.type || 'eshab');
+const UI_TYPES = [['weekly', 'csAuTWeekly'], ['eshab', 'csAuTEShab'], ['hmonthly', 'csAuTHMonthly'], ['monthly', 'csAuTMonthly'], ['epesach', 'csAuTEPesach'], ['eyt', 'csAuTEYt'], ['etishrei', 'csAuTETishrei'], ['eminor', 'csAuTEMinor'], ['once', 'csAuTOnce'], ['keyword', 'csAuTKw']];
+const uiType = (sc) => (sc.type === 'erev' ? (sc.what === 'yt' ? 'eyt' : 'eshab') : sc.type === 'erevMinor' ? 'eminor' : sc.type === 'segment' ? (sc.part === 'tishrei' ? 'etishrei' : 'epesach') : sc.type || 'eshab');
+const BOX_SEG = 'חלק פסח/תשרי';
+/** אין א הודעה פון ערב שבת: {שולה"ט ודרשות} = די אין דער שבת */
+const varsFor = (vars, sc) => (sc && sc.type === 'erev' && sc.what === 'shabbos' ? { ...vars, 'שולה"ט ודרשות': vars['__שולה"ט בשבת'] || '' } : vars);
 const BOX_HOLY = 'משבצת שבת ויו"ט'; const BOX_MINOR = 'משבצת יומא דפגרא';
 // די אלגעמיינע ערטער (פאר ערב יו"ט / יומא דפגרא — נאר די + די משבצת)
 const GENERAL = ['פרשה', 'פרשה הבאה', 'יום', 'תאריך עברי', 'תאריך לועזי', 'מצוה יומית', 'עלות השחר', 'נץ החמה', 'סוף זמן ק"ש מג"א', 'סוף זמן ק"ש גר"א', 'חצות', 'שקיעה', 'צאת הכוכבים'];
@@ -390,15 +393,15 @@ function alwaysForbidden(sc) {
   }
   const hr = hm(sc.time); if (hr == null) return '';
   if (hr < qTo || hr >= qFrom) return t('csAuBadNight', { a: qTo, b: qFrom });
-  if ((sc.type === 'erev' || (sc.type === 'weekly' && Number(sc.dow) === 5)) && hr >= cut) return t('csAuBadErev', { c: cut });
+  if ((sc.type === 'erev' || sc.type === 'segment' || (sc.type === 'weekly' && Number(sc.dow) === 5)) && hr >= cut) return t('csAuBadErev', { c: cut });
   return '';
 }
 /** דער טעקסט וואס גייט ארויס (מיט/אן דעם נאמען) */
-const fullText = (a, D, occ) => { const m = modOf(a.occ_mod); const b = renderAuto(a.text, autoVars(D, occ.slice(0, 10)), a.line || '', a.occ_mod); return m.nobrand ? b : branded(b); };
+const fullText = (a, D, occ) => { const m = modOf(a.occ_mod); const b = renderAuto(a.text, varsFor(autoVars(D, occ.slice(0, 10)), schedOf(a)), a.line || '', a.occ_mod); return m.nobrand ? b : branded(b); };
 /** שינוי חד־פעמי: הורדת שורות, טקסט אנשטאט, שורות הגבאי */
 function modDialog(a, D) {
   const occ = String(a.occ_at || ''); if (!occ) return;
-  const vars = autoVars(D, occ.slice(0, 10));
+  const vars = varsFor(autoVars(D, occ.slice(0, 10)), schedOf(a));
   const m = modOf(a.occ_mod); const [l1, l2] = lineParts(a.line);
   const dlg = dialog(`<h3>✎ ${h(t('csAuMod'))} · ${h(a.name)}</h3>
     <p class="muted small">${h(t('csAuModHint'))}</p>
@@ -538,8 +541,9 @@ function autoEditor(a, D) {
   const lists = phoneLists().length ? phoneLists() : savedInScope();
   const users = allUsers();
   const sample = autoVars(D, todayIso());
-  const names = [...Object.keys(sample), 'הודעת הגבאי 1', 'הודעת הגבאי 2'];
-  const chipsFor = (ut) => (ut === 'eyt' ? [BOX_HOLY, ...GENERAL] : ut === 'eminor' ? [BOX_MINOR, ...GENERAL] : names.filter((n) => n !== BOX_MINOR && !/^הודעת הגבאי/.test(n)))
+  const names = [...Object.keys(sample).filter((k) => !k.startsWith('__')), 'הודעת הגבאי 1', 'הודעת הגבאי 2'];
+  const chipsFor = (ut) => (ut === 'eyt' ? [BOX_HOLY, 'שולה"ט ודרשות', ...GENERAL] : ut === 'eminor' ? [BOX_MINOR, ...GENERAL] : ut === 'epesach' || ut === 'etishrei' ? [BOX_SEG, ...GENERAL]
+    : names.filter((n) => n !== BOX_MINOR && n !== BOX_SEG && !/^הודעת הגבאי/.test(n)))
     .concat(ut === 'keyword' ? [] : ['הודעת הגבאי 1', 'הודעת הגבאי 2']);
   const DAYSH = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי'];
   const dlg = dialog(`<h3>🔁 ${h(t(a ? 'csAuEdit' : 'csAuNew'))}</h3>
@@ -554,10 +558,10 @@ function autoEditor(a, D) {
         <span data-t="monthly">${h(t('csAuDay'))} <input name="day" type="number" min="1" max="28" value="${h(sc.day || 1)}" style="width:60px"></span>
         <span data-t="keyword"><input name="words" dir="auto" value="${h(isKw(sc) ? kwWords(sc.words).join(', ') : '')}" placeholder="${h(t('csAuKwPh'))}" style="min-width:220px"></span>
         <span data-t="once"><input name="at" type="datetime-local" value="${h(String(sc.at || '').replace(' ', 'T'))}"></span>
-        <span data-t="weekly eshab hmonthly monthly eyt eminor">${h(t('csAuAt'))} <input name="time" type="time" value="${h(sc.time || '10:00')}"></span>
+        <span data-t="weekly eshab hmonthly monthly eyt eminor epesach etishrei">${h(t('csAuAt'))} <input name="time" type="time" value="${h(sc.time || '10:00')}"></span>
         <p class="muted small" id="au-next"></p></fieldset>
       <label class="mm-l">${h(t('smsText'))}<textarea name="text" rows="5" dir="auto">${h(a?.text || '')}</textarea></label>
-      <div class="cs-chips">${[...new Set([...names, BOX_HOLY, BOX_MINOR])].map((n) => `<button type="button" class="chip${n.startsWith('משבצת') ? ' box' : ''}" data-v="${h(n)}"${n === BOX_HOLY ? ` title="${h(t('csAuBoxHolyT'))}"` : ''}>{${h(n)}}</button>`).join('')}</div>
+      <div class="cs-chips">${[...new Set([...names, BOX_HOLY, BOX_MINOR, BOX_SEG])].map((n) => `<button type="button" class="chip${n.startsWith('משבצת') ? ' box' : ''}" data-v="${h(n)}"${n === BOX_HOLY ? ` title="${h(t('csAuBoxHolyT'))}"` : ''}>{${h(n)}}</button>`).join('')}</div>
       <p class="muted small">${h(t('csAuPrevT'))}</p><div class="cs-prev" id="au-prev" dir="auto"></div><p class="muted small" id="au-seg"></p>
       <label class="chip-check"><input type="checkbox" name="active"${!a || /^(true|1)$/i.test(String(a.active)) ? ' checked' : ''}> ${h(t('csAuActive'))}</label>
     </form>
@@ -569,6 +573,8 @@ function autoEditor(a, D) {
     if (type === 'eshab') return { type: 'erev', what: 'shabbos', time: f.time.value };
     if (type === 'eyt') return { type: 'erev', what: 'yt', time: f.time.value };
     if (type === 'eminor') return { type: 'erevMinor', time: f.time.value };
+    if (type === 'epesach') return { type: 'segment', part: 'pesach', time: f.time.value };
+    if (type === 'etishrei') return { type: 'segment', part: 'tishrei', time: f.time.value };
     if (type === 'hmonthly') return { type, day: Number(f.hday.value) || 1, time: f.time.value };
     if (type === 'weekly') return { type, dow: Number(f.dow.value), time: f.time.value };
     if (type === 'monthly') return { type, day: Number(f.day.value) || 1, time: f.time.value };
@@ -588,7 +594,7 @@ function autoEditor(a, D) {
     nxEl.textContent = bad ? `⚠ ${bad}` : kw ? t('csAuKwHint') : nx ? `${t('csAuNext')}: ${nx}` : t('csAuNoNext');
     nxEl.className = bad ? 'small seg-warn' : 'muted small';
     $('#au-save', dlg).disabled = !!bad;
-    const vars = autoVars(D, (nx || nyNow()).slice(0, 10));
+    const vars = varsFor(autoVars(D, (nx || nyNow()).slice(0, 10)), sn);
     const full = branded(fillTemplate(f.text.value, vars, a?.line || ''));
     $('#au-prev', dlg).textContent = full; paintSeg($('#au-seg', dlg), full);
   };

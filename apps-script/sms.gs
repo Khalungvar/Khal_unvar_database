@@ -1237,7 +1237,7 @@ function awayDepends(a, occ) {
     const data = minyanimData(); const sat = awaySat_(occ);
     if (LUACH.rebbeAwayOn(data, sat - 1)) return false;
     const alt = Object.assign({}, data, { rebbeAway: (data.rebbeAway || []).concat([{ from: LUACH.isoOf(sat - 1), to: LUACH.isoOf(sat) }]) });
-    const b2 = LUACH.renderAuto(a.text, LUACH.autoVars(alt, String(occ).slice(0, 10)), a.line || '', a.occ_mod || '');
+    const b2 = LUACH.renderAuto(a.text, varsFor_(a, LUACH.autoVars(alt, String(occ).slice(0, 10))), a.line || '', a.occ_mod || '');
     return b2 !== bodyOf(a, occ);
   } catch (e) { return false; }
 }
@@ -1299,7 +1299,9 @@ function setMod(a, mod) { const v = JSON.stringify(LUACH.modOf(mod)); setFields(
 // ---- דער טעקסט ----
 const VARS = {};
 function varsAt(occ) { const d = String(occ).slice(0, 10); if (!VARS[d]) VARS[d] = LUACH.autoVars(minyanimData(), d); return VARS[d]; }
-function bodyOf(a, occ) { return LUACH.renderAuto(a.text, varsAt(occ), a.line || '', a.occ_mod || ''); }
+/** אין א הודעה פון ערב שבת: {שולה"ט ודרשות} = די אין דער שבת */
+function varsFor_(a, v) { const sc = schedOf(a); return sc.type === 'erev' && sc.what === 'shabbos' ? Object.assign({}, v, { 'שולה"ט ודרשות': v['__שולה"ט בשבת'] || '' }) : v; }
+function bodyOf(a, occ) { return LUACH.renderAuto(a.text, varsFor_(a, varsAt(occ)), a.line || '', a.occ_mod || ''); }
 function fullOf(a, occ, cfg) { const b = bodyOf(a, occ); return modOf_(a).nobrand ? b : branded(b, cfg); }
 function costOf(a, occ, cfg) { return Math.round(autoRecipList(a).length * (Number(cfg.price_sms) || 0.01) * segments(fullOf(a, occ, cfg)) * 100) / 100; }
 /** "זמני שבת, פרשת וירא" — מיט דער פרשה נאר ביי א הודעה פון שבת */

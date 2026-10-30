@@ -7,17 +7,19 @@ import { hebrewNumber } from '../hebdate.js';
 import { normScreen, currentByPlace, adUrl, themeCss } from './screenset.js';
 import { printCss, weekdayPage, shabbosPage, fitPages } from '../luach/tfprint.js';
 import { CONFIG } from '../config.js';
-import { defaults, computeWeekday, computeShabbos, computeSpecial, computeShiurim, computeHoly, chagOn, partOfDay, minorBlockOn, maarivNight, ptAround, PT } from '../luach/minyanim.js';
+import { defaults, computeWeekday, computeShabbos, computeSpecial, computeShiurim, computeHoly, chagOn, partOfDay, minorBlockOn, maarivNight, ptAround, PT, normData, eventsBetween } from '../luach/minyanim.js';
+import { periodNow, dayLabel, clearPeriodCache } from '../luach/periods.js';
 
 // ---------- דאטן: תצוגה מקדימה (פון "זמני תפילות" — localStorage), אנדערש ברירת מחדל ----------
 const QS = new URLSearchParams(location.search);
 const PREVIEW = QS.has('preview');
 let DATA = defaults();
 let LIVE = false; // נתונים מהגיליון (לא ברירת מחדל)
-if (PREVIEW) { try { const j = JSON.parse(localStorage.getItem('tf-preview') || 'null'); if (j) DATA = { ...DATA, ...j }; } catch { /* */ } }
+if (PREVIEW) { try { const j = JSON.parse(localStorage.getItem('tf-preview') || 'null'); if (j) DATA = { ...DATA, ...j }; } catch { /* */ } normData(DATA); }
 else {
   // דער לעצטער וואס מ'האט באקומען — אויב דער אינטערנעט פאלט
   try { const j = JSON.parse(localStorage.getItem('disp-data') || 'null'); if (j) { DATA = { ...DATA, ...j }; LIVE = true; } } catch { /* */ }
+  normData(DATA);
 }
 // ---------- לייענען פונעם גיליון פון דער תצוגה (פארעפנטלעכט) — יעדע 5 מינוט ----------
 const SHEET_ID = '1hhrsXNhDCK7OGXOClTPE8pxOJ3EjmTmndH0r_qrms70';
@@ -43,7 +45,7 @@ async function pull() {
     const j = JSON.parse(parts.map((x) => x[1] || '').join(''));
     // נאר ווען עפעס האט זיך באמת געטוישט — אנדערש רעכנט מען יעדע מינוט איבער די גרייסן
     const js = JSON.stringify(j);
-    DATA = { ...defaults(), ...j }; LIVE = true;
+    if (js !== dataLast) { DATA = normData({ ...defaults(), ...j }); if (AWAY) DATA.rebbeAway = AWAY; } LIVE = true;
     if (js !== dataLast) { dataLast = js; boardCache.clear(); shLast = null; }
     try { localStorage.setItem('disp-data', js); } catch { /* */ }
   } catch { /* בלייבט מיט דעם וואס מ'האט */ }
@@ -60,7 +62,7 @@ async function pullAway() {
     if (!rows.length || rows[0][0] !== 'from') { AWAY = []; return; }
     const dt = (v) => { const a = /^(\d{4})-(\d{2})-(\d{2})/.exec(v || ''); if (a) return a[0]; const b = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(v || ''); return b ? `${b[3]}-${b[1].padStart(2, '0')}-${b[2].padStart(2, '0')}` : ''; };
     const list = rows.slice(1).map((x) => ({ from: dt(x[0]), to: dt(x[1]) })).filter((x) => x.from && x.to);
-    if (JSON.stringify(list) !== JSON.stringify(AWAY)) { AWAY = list; boardCache.clear(); }
+    if (JSON.stringify(list) !== JSON.stringify(AWAY)) { AWAY = list; boardCache.clear(); DATA.rebbeAway = AWAY; clearPeriodCache(DATA); }
     try { localStorage.setItem('disp-away', JSON.stringify(AWAY)); } catch { /* */ }
   } catch { /* */ }
 }
@@ -144,14 +146,15 @@ function mazelNow() {
   const t = nowD().getTime();
   return SIMCHOS.filter((x) => !x.until || x.until > t).map((x) => ({ html: x.html, id: x.id }));
 }
-let mzCache = { key: '', pages: [[0]] };
+let mzCache = { key: '', pages: [[0]] }; let PER_ON = false;
 function mazelPages() {
   MAZEL = mazelNow();
   if (!MAZEL.length) return [[]];
-  const key = `${MAZEL.map((x) => x.id || x.for).join(',')}|${document.fonts?.status}|${Math.floor(Date.now() / 60000)}`;
+  const key = `${MAZEL.map((x) => x.id || x.for).join(',')}|${document.fonts?.status}|${Math.floor(Date.now() / 60000)}|${PER_ON}`;
   if (mzCache.key === key) return mzCache.pages;
   let m = document.getElementById('mzmeas');
-  if (!m) { m = document.createElement('div'); m.id = 'mzmeas'; m.className = 'frame mzl'; m.style.cssText = 'visibility:hidden;position:fixed;left:0;top:0;z-index:-1;pointer-events:none;direction:rtl'; document.body.appendChild(m); }
+  if (!m) { m = document.createElement('div'); m.id = 'mzmeas'; m.style.cssText = 'visibility:hidden;position:fixed;left:0;top:0;z-index:-1;pointer-events:none;direction:rtl'; document.body.appendChild(m); }
+  m.className = `frame mzl${PER_ON ? ' mzl-per' : ''}`;
   m.innerHTML = `<img class="head" src="${SCR.simchaHead || 'img/display/simcha-title.jpg'}" alt=""><div class="wk">x</div><div class="list">${MAZEL.map(entryHtml).join('')}</div>`;
   const list = m.querySelector('.list');
   const cs = getComputedStyle(list);
@@ -354,7 +357,10 @@ function render() {
     const xNight = new Set(nights.map((x) => x.d));
     const chN = nights.filter((x) => x.mn.chanuka);
     const notes = { shacharis: wP.shacharisNote, mincha: wP.minchaNote, maariv: wP.maarivNote };
-    const skipOf = (g, m) => (m.xdays || []).includes(dk) || (g !== 'shacharis' && !ov[g] && dk === 5) || (g === 'maariv' && !ov.maariv && xNight.has(k));
+    // שולחן הטהור ודרשות: "אין מנין לפני / אחרי" (מנחה ומעריב פון דעם טאג)
+    const quiet = eventsBetween(DATA, k, k, LOC).flatMap((e) => (Number(e.ev.qb) || Number(e.ev.qa) ? e.rows.map((r) => [r.min - (Number(e.ev.qb) || 0), r.min + (Number(e.ev.qa) || 0)]) : []));
+    const skipOf = (g, m) => (m.xdays || []).includes(dk) || (g !== 'shacharis' && !ov[g] && dk === 5) || (g === 'maariv' && !ov.maariv && xNight.has(k))
+      || (g !== 'shacharis' && !m.rebbe && quiet.some(([a, b]) => m.min >= a && m.min <= b));
     const groups = ['shacharis', 'mincha', 'maariv'].map((g) => ({ g, h: g === 'maariv' && chN.length ? 'מעריב (לא בימי חנוכה)' : GN[g], sub: notes[g] ? `(${notes[g]})` : '',
       items: pick(g).filter((m) => g === 'shacharis' || !m.rebbe).map((m) => ({ ...m, k: GN[g], key: chgKey(m), min: m.min + off, day: k, skip: skipOf(g, m) })) }));
     // אלע וואכנטעג זענען חנוכה — קיין מעריב הרגיל
@@ -413,7 +419,7 @@ function render() {
   }
   function holyBoard(eve) {
     const rows = holyRows(eve);
-    return { holy: true, rows, groups: [{ items: rows.filter((r) => r.kind === 'tefila' && r.min != null).map((r) => ({ min: r.min, k: r.label, room: '' })) }] };
+    return { holy: true, rows, groups: [{ items: rows.filter((r) => (r.kind === 'tefila' || r.kind === 'event') && r.min != null).map((r) => ({ min: r.min, k: r.label, room: '' })) }] };
   }
   const hasFuture = (bd) => dayItems(bd).some((m) => m.min >= nowMin);
   // שבת/יו"ט: פון ערב (נאך דער לעצטער שחרית) ביז נאך מעריב מוצאי — טוישן זיך די פלעצער:
@@ -435,9 +441,24 @@ function render() {
     : [weekdayBoard(n, 0), weekdayBoard(n + 1, 1440)].find(hasFuture) || weekdayBoard(n + 1, 1440);
   // שבת-קעסטל (ווען נישט געטוישט): די קומענדיגע שבת / יו"ט
   let nextEve = n; while (!holy(nextEve + 1) || holy(nextEve)) nextEve += 1;
-  const PTB = ptBox();
+  // ---- שולחן הטהור ודרשות וואס זענען נישט אין שבת: אין דער משבצת פון שבת (פאר / נאך די זמני שבת), ביז א שעה נאכן לעצטן ----
+  const inShabEv = (e) => e.rows.every((r) => (dowOf(r.day) === 6 && r.min < zmanim(isoOf(r.day), LOC).motzei) || (dowOf(r.day) === 5 && r.min >= zmanim(isoOf(r.day), LOC).candles));
+  const EVW = eventsBetween(DATA, n - 2, n + 10, LOC).filter((e) => !inShabEv(e))
+    .map((e) => ({ ...e, rel: e.rows.map((r) => ({ ...r, rmin: r.min + (r.day - n) * 1440 })) }))
+    .filter((e) => Math.max(...e.rel.map((r) => r.rmin)) + 60 >= nowMin);
+  /** די אירועים פאר דער משבצת פון שבת (ערב = eve): פאר שבת (זונטאג–פרייטאג) און נאך שבת (זונטאג / מוצאי שבת) */
+  const evFor = (eve) => {
+    const before = EVW.filter((e) => e.n >= eve - 5 && e.n <= eve); const after = EVW.filter((e) => e.n === eve + 2);
+    const rowsN = [...before, ...after].reduce((a, e) => a + e.rel.length, 0);
+    return { before, after, only: before.length + after.length >= 2 || rowsN > 3 };
+  };
+  const evItems = EVW.flatMap((e) => e.rel.map((r) => ({ min: r.rmin, k: r.label, room: '' })));
+  // ---- פסח / תשרי: א גרויסע משבצת מיט אלע זמנים פונעם חלק ----
+  const PER = periodNow(DATA, n, nowMin, LOC); PER_ON = !!PER;
+  const perItems = PER ? PER.seg.secs.flatMap((sc) => sc.lines.filter((l) => l.screen !== false && (l.kind === 'tefila' || l.kind === 'event')).flatMap((l) => l.per.flatMap((q) => q.mins.map((m) => ({ min: m + (q.n - n) * 1440, k: l.label, room: '' }))))) : [];
+  const PTB = PER ? null : ptBox();
   const ptItems = PTB ? PTB.rows.filter((r) => r.kind === 'tefila').flatMap((r) => [r.min, ...r.more].map((m) => ({ min: m, k: r.label, room: '' }))) : [];
-  const all = [...dayItems(swap ? hb : board), ...ptItems].sort((x, y) => x.min - y.min);
+  const all = PER ? perItems.sort((x, y) => x.min - y.min) : [...dayItems(swap ? hb : board), ...ptItems, ...evItems].sort((x, y) => x.min - y.min);
   // דער קומענדיגער מנין — אויב נישט אויפן לוח (נאך דעם לעצטן מעריב), זוכן ווייטער: וואכנטאג / שבת / יו"ט
   const nextAny = () => {
     for (let k = n; k < n + 10; k += 1) {
@@ -474,13 +495,33 @@ function render() {
     // דער נאמען פונעם בלאק פון חג (פסח, שבועות, שבת חול המועד ...) — ווי אין "זמני תפילות"
     const chagTitle = [d, eve].map((k) => specials(k, 0, 'shab').find((bk) => bk.type === 'chag')?.title).find(Boolean) || '';
     // נאר מיט א שעה, לויט דער שעה (הדלקת נרות / ער"ש / שבת)
-    const rows = holyRows(eve).filter((r) => r.min != null).sort((a, b) => a.min - b.min);
+    const E = evFor(eve);
+    const evRows = (list) => list.flatMap((e, i) => [...(i ? [{ sep: true }] : []), ...e.rel.map((r) => ({ label: r.label, kind: 'event', min: r.rmin, more: [] }))]);
+    const sh = E.only ? [] : holyRows(eve).filter((r) => r.min != null).sort((a, b) => a.min - b.min);
+    const rows = E.only ? evRows([...E.before, ...E.after])
+      : [...evRows(E.before), ...(E.before.length ? [{ sep: true }] : []), ...sh, ...(E.after.length ? [{ sep: true }] : []), ...evRows(E.after)];
     const dense = rows.length > (pos === 'pos-main' ? 8 : 7) ? ' dense' : '';
     return `<div class="shab ${pos}${dense}${pos === 'pos-main' && CUR.notice ? ' has-ntc' : ''}" style="--n:${rows.length}">
       ${pos === 'pos-main' && CUR.notice ? `<div class="chg-note ntc">${esc2(CUR.notice.text)}</div>` : ''}
-      <div class="sh-t"><small class="pre">${h(SCR.texts.tHoly)}</small>${h(chagTitle ? `ל${chagTitle}` : shab ? 'לשבת קודש' : `ל${ytName || 'יום טוב'}`)}<small>${ps ? `פרשת ${h(ps)}` : '&nbsp;'}</small></div>
-      ${rows.map((r) => `<div class="sh-r${r.kind === 'tefila' ? ' big' : ''}${r.kind === 'tefila' && r.min != null && r.min < nowMin ? ' past' : ''}"><span>${h(r.label)}</span><b>${r.min == null ? '—' : [r.min, ...(r.more || [])].map((m) => tm(((m % 1440) + 1440) % 1440)).join(' · ')}</b></div>`).join('')}
+      <div class="sh-t"><small class="pre">${h(SCR.texts.tHoly)}</small>${h(chagTitle ? `ל${chagTitle}` : shab ? 'לשבת קודש' : `ל${ytName || 'יום טוב'}`)}<small>${E.only ? '&nbsp;' : ps ? `פרשת ${h(ps)}` : '&nbsp;'}</small></div>
+      ${rows.map((r) => (r.sep ? '<div class="sh-sep"></div>' : `<div class="sh-r${r.kind === 'tefila' ? ' big' : ''}${(r.kind === 'tefila' || r.kind === 'event') && r.min != null && r.min < nowMin ? ' past' : ''}"><span>${h(r.label)}</span><b>${r.min == null ? '—' : [r.min, ...(r.more || [])].map((m) => tm(((m % 1440) + 1440) % 1440)).join(' · ')}</b></div>`)).join('')}
     </div>`;
+  }
+  // פסח / תשרי: אלע טעג פונעם חלק, אין דריי שפאלטן (פון רעכטס צו לינקס)
+  const DNS = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", 'ש"ק'];
+  function perHtml() {
+    const secs = PER.seg.secs.map((sc) => ({ ...sc, ls: sc.lines.filter((l) => l.screen !== false) })).filter((sc) => sc.ls.length);
+    const rel = (q, m) => m + (q.n - n) * 1440;
+    const tt = (m) => tm(((m % 1440) + 1440) % 1440);
+    const line = (l) => {
+      const same = l.per.every((q) => q.mins.join() === l.per[0].mins.join());
+      const lastQ = l.per[l.per.length - 1];
+      const past = rel(lastQ, Math.max(...lastQ.mins)) < nowMin;
+      const times = same ? l.per[0].mins.map((m) => tt(m)).join(' · ') : l.per.map((q) => `<i>${DNS[dowOf(q.n)]}</i> ${q.mins.map((m) => tt(m)).join(' · ')}`).join(' &nbsp;');
+      return `<div class="pd-r${l.kind === 'tefila' ? ' t' : l.kind === 'event' ? ' e' : ''}${past ? ' past' : ''}"><span>${h(l.label)}${l.note ? ` <small>(${h(l.note)})</small>` : ''}</span><b>${times}</b></div>`;
+    };
+    const title = PER.part === 'pesach' ? 'זמני התפילות לחג הפסח' : 'זמני התפילות לימי תשרי';
+    return `<div class="frame per"><div class="ttl">${h(title)}</div><div class="pcols">${secs.map((sc) => `<div class="pd"><div class="pd-h">${h(sc.title)} <small>${h(sc.dates)}</small></div>${sc.ls.map(line).join('')}</div>`).join('')}</div></div>`;
   }
 
   function ptHtml(pos) {
@@ -507,7 +548,7 @@ function render() {
       ${HID.clock ? '<div class="clock"></div>' : `<div class="clock">${hh}:${String(now.getMinutes()).padStart(2, '0')}<span>${String(now.getSeconds()).padStart(2, '0')} ${ap}</span></div>`}
     </div>
 
-    ${swap ? shabHtml(hd - 1, hd, 'pos-main') : mnyHtml(board, 'pos-main')}
+    ${PER ? perHtml() : swap ? shabHtml(hd - 1, hd, 'pos-main') : mnyHtml(board, 'pos-main')}
 
     ${HID.next ? '' : `<div class="frame next">
       <div class="row1"><div class="lbl">${h(SCR.texts.tNext)}</div>${next && SCR.countdown !== false ? `<div class="cd">${cdText}</div>` : ''}</div>
@@ -527,7 +568,7 @@ function render() {
       <div class="note">${adds.map((a, i) => (i ? `<span class="chg">${h(a)}</span>` : h(a))).join(' · ')}</div>
       ${omer ? `<div class="omer">${h(omer)}</div>` : ''}
       <div class="lc"><div><h4>${h(SCR.texts.tMitzva)}</h4><p>מצוה ${h(hebrewNumber(mz.n))}</p><small>${h(mz.text)}</small></div><div><h4>${h(SCR.texts.tDaf)}</h4><p>${h(daf.text)}</p></div></div>
-    </div>` : HID.side ? '' : PTB ? ptHtml('pos-side') : swap ? mnyHtml(board, 'pos-side') : shabHtml(nextEve, nextEve + 1, 'pos-side')}
+    </div>` : HID.side || PER ? '' : PTB ? ptHtml('pos-side') : swap ? mnyHtml(board, 'pos-side') : shabHtml(nextEve, nextEve + 1, 'pos-side')}
 
     ${HID.simchos ? '' : `<div class="frame mzl">
       <img class="head" src="${h(SCR.simchaHead || 'img/display/simcha-title.jpg')}" alt="שהשמחה במעונם">
@@ -572,6 +613,11 @@ function render() {
   const adKey = AD ? (AD.q || `${AD.id}|${AD.lib || AD.sys || ''}|${AD.text || ''}|${AD.fit || ''}`) : '';
   if (adKey !== adLast) { adLast = adKey; $('#adlayer').innerHTML = AD ? `<div class="ad${AD.clear ? ' clr' : ''}">${adHtml(AD)}</div>` : ''; fillSystem($('#adlayer')); }
   $('#dyn').innerHTML = main;
+  $('#screen').classList.toggle('per-on', !!PER);
+  for (const box of document.querySelectorAll('#dyn .per .pcols')) {
+    let fs = 30; box.style.fontSize = `${fs}px`;
+    while ((box.scrollWidth > box.clientWidth + 2 || box.scrollHeight > box.clientHeight + 2) && fs > 12) { fs -= 1; box.style.fontSize = `${fs}px`; }
+  }
   updateShiurim(AD || HID.shiurim ? '' : shInner);
   // לוח המניינים (חול): די אותיות ווערן אזוי גרויס אז זיי פילן אויס די מסגרת
   for (const box of document.querySelectorAll('#dyn .mny')) fitBoard(box);

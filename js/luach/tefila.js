@@ -1,6 +1,6 @@
 // "זמני תפילות" — ניהול: ימות החול · שבת · יום טוב · תשרי. די דאטן: לשונית Minyanim (key = data, value = JSON).
 // דער חשבון (וואס קומט ארויס פאר א טאג) איז אין minyanim.js — דאס זעלבע וואס די תצוגה אין בית הכנסת ניצט.
-import { defaults, chagRows, TISHREI_CHAG, computeShiurim, REF_DAYS, condOf, ANCHORS, BASES, ROUNDS, COMBOS, HDOW, MINOR1, PT, maarivNight, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
+import { defaults, chagRows, TISHREI_CHAG, computeShiurim, REF_DAYS, condOf, ANCHORS, BASES, ROUNDS, COMBOS, HDOW, MINOR1, PT, maarivNight, CHAG_DAYS, SHAB_DAYS, EV_SHAB, normData, eventsBetween, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
 import { hhmm } from './zmanim.js';
 import { hdOf, dowOf } from './engine.js';
 import { MONTH } from './mitzva.js';
@@ -11,13 +11,14 @@ import { versionStore, askNote, openVersions } from '../versions.js';
 import { state, displayName } from '../data.js';
 import { escapeHtml as h, nowStamp } from '../util.js';
 import { loadAway } from './away.js';
+import { periodSections, dayLabel, clearPeriodCache } from './periods.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 let ui = {};
 export function initTefila(helpers) { ui = helpers; }
 
-const TABS = [['weekday', 'ימות החול'], ['shabbos', 'שבת'], ['minor', 'חנוכה ותעניות'], ['pt', 'פורים ותשעה באב'], ['yt', 'ערב יו"ט ויו"ט'], ['tishrei', 'תשרי'], ['shiurim', 'שיעורים']];
+const TABS = [['weekday', 'ימות החול'], ['shabbos', 'שבת'], ['events', 'שולה"ט ודרשות'], ['minor', 'חנוכה ותעניות'], ['pt', 'פורים ותשעה באב'], ['pesach', 'פסח'], ['shavuos', 'שבועות'], ['tishrei', 'תשרי'], ['shiurim', 'שיעורים']];
 const GROUPS = [['shacharis', 'שחרית'], ['mincha', 'מנחה'], ['maariv', 'מעריב']];
 const MGROUPS = [['minchaEve', 'מנחה ערב'], ['maarivEve', 'מעריב ערב'], ['shacharis', 'שחרית'], ['mincha', 'מנחה'], ['maarivMid', 'מעריב לילות האמצע'], ['maariv', 'מעריב מוצאי']];
 const DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
@@ -231,8 +232,8 @@ const ON = [['all', 'כל ימי הבלוק'], ['-1', 'ערב'], ...['א', 'ב',
 const onOpts = (v) => (v === 'wed' ? [...ON, ['wed', 'רביעי']] : ON);
 function upcomingYear(part) {
   const x = hdOf(nOf(todayIso()));
-  if (part === 'tishrei') return daysOf('bereishis', x.y)[0] >= nOf(todayIso()) ? x.y : x.y + 1;
-  return daysOf(part === 'minor' || part === 'pt' ? 'tishaBav' : 'shavuos', x.y).slice(-1)[0] >= nOf(todayIso()) ? x.y : x.y + 1;
+  if (part === 'tishrei') return daysOf('simchas', x.y)[0] >= nOf(todayIso()) ? x.y : x.y + 1;
+  return daysOf(part === 'minor' || part === 'pt' ? 'tishaBav' : part === 'pesach' ? 'acharon' : 'shavuos', x.y).slice(-1)[0] >= nOf(todayIso()) ? x.y : x.y + 1;
 }
 const dateLabel = (n) => { const x = hdOf(n); return `${DAYS[dowOf(n)]}' ${hebrewNumber(x.d)} ${MONTH[x.m] || ''}`.trim(); };
 // ימי דפגרא: "כמו ימות החול" פאר יעדע תפילה; ווען נישט — אייגענע שעות. און וואס טוט זיך ער"ש
@@ -265,9 +266,20 @@ function maarivHead(b, bp) {
 function friRowHtml(r, p, key = 'fri', txt = '🕯 כשחל בערב שבת — שעה אחרת') {
   const on = !!r[key]?.on; const fp = `${p}.${key}`;
   return `<div class="tf-rf tf-frirow"><label class="tf-like"><input type="checkbox" data-f="${h(fp)}.on"${on ? ' checked' : ''}${canEdit() ? '' : ' disabled'}> ${txt}</label>
+    ${on ? fld(`${fp}.label`, 'text', ` class="tf-w12" placeholder="${key === 'fri' ? 'שם: מנחה וקבלת שבת' : 'שם (רשות)'}"`) : ''}
     ${on ? `<div class="tf-times">${(r[key].times || []).map((T, ti) => `<span class="tf-tm">${tsHtml(T, `${fp}.times.${ti}`)}${btn('delT', `${fp}.times.${ti}`, '✕', 'הסר שעה')}</span>`).join('')}${btn('addT', `${fp}.times`, '＋ שעה')}</div>` : ''}</div>`;
 }
-const isChagBlock = (part, b) => (part === 'yt' && b.type === 'chag') || (part === 'tishrei' && TISHREI_CHAG.has(b.when));
+const isChagBlock = (part, b) => (part === 'yt' && b.type === 'chag') || ((part === 'tishrei' || part === 'pesach') && CHAG_DAYS.has(b.when));
+const DAYLIST = (part) => part === 'pesach' || part === 'tishrei';
+// פסח / תשרי: V "כמו ביום חול" · "כמו שבת רגילה" · "כאן התצוגה מתחלקת" · "כאן ההודעה מתחלקת"
+function dayHead(b, bp) {
+  const ck = (path, v, txt, title = '') => `<label class="tf-like"${title ? ` title="${h(title)}"` : ''}><input type="checkbox" data-f="${h(path)}"${v ? ' checked' : ''}${canEdit() ? '' : ' disabled'}> ${txt}</label>`;
+  return `<div class="tf-minor tf-dayh"><div class="tf-rf"><span class="muted small">כמו ביום חול:</span>
+      ${ck(`${bp}.wk.shacharis`, b.wk?.shacharis, 'שחרית')}${ck(`${bp}.wk.mincha`, b.wk?.mincha, 'מנחה')}${ck(`${bp}.wk.maariv`, b.wk?.maariv, 'מעריב')}
+      ${SHAB_DAYS.has(b.when) || b.likeShab ? ck(`${bp}.likeShab`, b.likeShab, '🕯 כמו שבת רגילה', 'זמני השבת מלשונית שבת (כולל ✈ ושולה"ט ודרשות)') : ''}
+      <span class="spacer"></span>${ck(`${bp}.splitD`, b.splitD, '✂ כאן התצוגה מתחלקת', 'אחרי היום הזה מתחיל חלק חדש בתצוגה (חצי שעה אחרי הזמן האחרון)')}
+      ${ck(`${bp}.splitM`, b.splitM, '✉ כאן ההודעה מתחלקת', 'הודעה אוטומטית "ערב פסח" / "תשרי": כל חלק — הודעה אחת, ביום שלפני היום הראשון שלו')}</div></div>`;
+}
 function minorFri(b, bp) {
   const fm = b.fri?.mode === 'custom';
   return `<div class="tf-minor tf-frib"><div class="tf-rf"><b>🕯 כשחל בערב שבת</b> — מנחה וקבלת שבת:
@@ -279,8 +291,9 @@ const metaHtml = (tp) => `<span class="tf-meta">${fld(`${tp}.room`, 'text', ' cl
 // להדפסה: כותרת · פסוק · מקור (נשמר בבלאק)
 const printHead = (bp) => `<div class="tf-rf tf-ph"><span class="muted small">🖨 להדפסה:</span>${fld(`${bp}.pasuk`, 'text', ' class="tf-w16" placeholder="פסוק בראש הדף (רשות)"')}${fld(`${bp}.psrc`, 'text', ' class="tf-w6" placeholder="מקור"')}</div>`;
 // "חנוכה ותעניות" און "פורים ותשעה באב" — ביידע אין data.minor
-const storeOf = (part) => (part === 'pt' ? 'minor' : part);
-const whenList = (part) => (part === 'minor' ? WHEN.minor.filter(([k]) => MINOR1.includes(k)) : part === 'pt' ? WHEN.minor.filter(([k]) => PT.includes(k)) : WHEN[part]);
+const storeOf = (part) => (part === 'pt' ? 'minor' : part === 'shavuos' ? 'yt' : part);
+const whenList = (part) => (part === 'minor' ? WHEN.minor.filter(([k]) => MINOR1.includes(k)) : part === 'pt' ? WHEN.minor.filter(([k]) => PT.includes(k))
+  : part === 'tishrei' ? WHEN.tishreiDays : part === 'shavuos' ? WHEN.shavuos : WHEN[part]);
 const inTab = (part, b) => (part === 'minor' ? MINOR1.includes(b.when) : part === 'pt' ? PT.includes(b.when) : true);
 function blocksHtml(part) {
   const Y = upcomingYear(part);
@@ -288,28 +301,52 @@ function blocksHtml(part) {
   const bs = data[store].blocks || [];
   return `<p class="muted small">התאריכים מחושבים לבד כל שנה (מוצג: ${hebrewNumber(Y % 1000)}). השעות — לעדכן כל שנה, או לקבוע ביחס לשקיעה וכו'.</p>
   ${part === 'minor' ? '<p class="muted small">שחרית ומנחה — כמו בימות החול. מגדירים כאן רק את המעריב (מוצאי תענית / חנוכה).</p>' : ''}
+  ${DAYLIST(part) ? '<p class="muted small">לוח לפי ימים. בכל יום: השורות שלו, ו־V "כמו ביום חול" — מוסיף את המנינים הרגילים של ימות החול. בשבתות: "כמו שבת רגילה". ✂ / ✉ — איפה התצוגה / ההודעה מתחלקת. בתצוגה: משבצת אחת גדולה בשלושה טורים.</p>' : ''}
+  ${part === 'shavuos' ? '<p class="muted small">ערב שבועות — שורות "ערב" בתוך החג (כמו ערב שבת).</p>' : ''}
   ${part === 'pt' ? '<p class="muted small">📺 בתצוגה: הזמנים כאן מוצגים במקום זמני השבת — מאחרי השבת שלפני ועד חצי שעה אחרי הזמן האחרון. כשחל ביום ראשון — מיום שישי אחרי שחרית האחרונה, במקום לוח ימות החול (זמני השבת נשארים).</p>' : ''}
   ${bs.map((b, bi) => { if (!inTab(part, b)) return ''; const bp = `${store}.blocks.${bi}`; let ds = daysOf(b.when, Y); let nextY = 0; if (!ds.length) { for (let y = Y + 1; y < Y + 40; y += 1) { const d2 = daysOf(b.when, y); if (d2.length) { ds = d2; nextY = y; break; } } } return `<section class="tf-blk">
     <div class="tf-bh">${fld(`${bp}.title`, 'text', ' class="tf-w16 tf-bt"')} ${sel(`${bp}.when`, whenList(part))}
       <span class="muted small">${ds.length ? h(ds.length > 3 ? `${dateLabel(ds[0])} … ${dateLabel(ds[ds.length - 1])} (${ds.length} ימים)` : ds.map(dateLabel).join(' · ')) + (nextY ? ` (הפעם הבאה: ${hebrewNumber(nextY % 1000)})` : '') : '—'}</span>
-      <span class="spacer"></span>${ds.length ? `<button type="button" class="tf-mini tf-pvb" data-act="pvSide" data-d="${isoOf(ds[0])}" title="להציג את היום הזה בתצוגה המקדימה בצד">👁 תצוגה</button>` : ''}${btn('up', bp, '↑', 'למעלה')}${btn('down', bp, '↓', 'למטה')}${btn('del', bp, '🗑', 'מחק בלוק')}</div>
-    ${part === 'yt' ? `<div class="tf-type ${b.type || 'erev'}">${b.type === 'chag' ? '🕯 חג — מוצג כמו שבת' : b.type === 'chm' ? '🌿 חול המועד' : '📅 ערב חג — מתנהג כמו ימות החול'}</div>` : ''}
-    ${part === 'minor' ? maarivHead(b, bp) : part === 'yt' && b.type !== 'chag' ? minorHead(b, bp) : ''}
+      <span class="spacer"></span>${ds.length ? `<button type="button" class="tf-mini tf-pvb" data-act="pvSide" data-d="${isoOf(ds[0])}" title="להציג את היום הזה בתצוגה המקדימה בצד">👁 תצוגה</button>` : ''}${DAYLIST(part) || part === 'shavuos' ? '' : `${btn('up', bp, '↑', 'למעלה')}${btn('down', bp, '↓', 'למטה')}${btn('del', bp, '🗑', 'מחק בלוק')}`}</div>
+    ${part === 'minor' ? maarivHead(b, bp) : DAYLIST(part) ? dayHead(b, bp) : ''}
     ${printHead(bp)}
     <div class="tf-rows">
     ${(b.rows || []).map((r, i) => { const p = `${bp}.rows.${i}`; return `<div class="tf-r">
       <div class="tf-rf${r.screen === false ? ' tf-off' : ''}"><label class="tf-scr" title="תצוגה במסך">${fld(`${p}.screen`, 'check')} 📺</label>${fld(`${p}.label`, 'text', ' class="tf-w12" placeholder="שם"')}${fld(`${p}.note`, 'text', ' class="tf-w10" placeholder="הערה"')}
       ${sel(`${p}.on`, onOpts(r.on))}${sel(`${p}.kind`, [['tefila', 'תפילה'], ['other', 'אחר']])}<span class="spacer"></span><span class="tf-acts">${btn('up', p, '↑', 'למעלה')}${btn('down', p, '↓', 'למטה')}${btn('del', p, '🗑', 'מחק')}</span></div>
       <div class="tf-times">${(r.times || []).map((T, ti) => `<span class="tf-tm${r.table ? ' tf-tmt' : ''}">${tsHtml(T, `${p}.times.${ti}`)}${r.table && T ? metaHtml(`${p}.times.${ti}`) : ''}${btn('delT', `${p}.times.${ti}`, '✕', 'הסר שעה')}</span>`).join('')}${btn('addT', `${p}.times`, '＋ שעה')}<span class="spacer"></span>
-        <label class="tf-like" title="להדפסה: כל שעה בשורה של טבלה, עם חדר / מגילה / עזרת נשים">${fld(`${p}.table`, 'check')} 📋 טבלה</label>${r.screen === false ? '' : dispBtn(r, p)}</div>
+        <label class="tf-like" title="להדפסה: כל שעה בשורה של טבלה, עם חדר / מגילה / עזרת נשים">${fld(`${p}.table`, 'check')} 📋 טבלה</label>${r.screen === false || DAYLIST(part) ? '' : dispBtn(r, p)}</div>
       ${isChagBlock(part, b) ? friRowHtml(r, p) + friRowHtml(r, p, 'sat', '🕍 כשחל בשבת — שעה אחרת') : ''}
     </div>`; }).join('')}
     </div>
-    ${part === 'minor' || (part === 'yt' && b.type === 'chm') ? minorFri(b, bp) : ''}
+    ${part === 'minor' ? minorFri(b, bp) : ''}
     ${canEdit() ? `<div class="tf-add"><button type="button" class="btn ghost" data-act="addR" data-p="${bp}.rows">➕ שורה</button></div>` : ''}
   </section>`; }).join('')}
-  ${canEdit() ? (part === 'yt' ? `<div class="tf-add"><button type="button" class="btn" data-act="addB" data-p="yt" data-t="erev">➕ ערב חג</button><button type="button" class="btn" data-act="addB" data-p="yt" data-t="chm">➕ חול המועד</button><button type="button" class="btn" data-act="addB" data-p="yt" data-t="chag">➕ חג</button></div>`
-    : part === 'minor' || part === 'pt' ? '' : `<div class="tf-add"><button type="button" class="btn" data-act="addB" data-p="${part}">➕ בלוק</button></div>`) : ''}`;
+  `;
+}
+
+// ---------- שולחן הטהור ודרשות (אירועים שאינם בימים המוגדרים) ----------
+const HM = [['Tishri', 'תשרי'], ['Heshvan', 'חשון'], ['Kislev', 'כסלו'], ['Tevet', 'טבת'], ['Shevat', 'שבט'], ['Adar', 'אדר'], ['Adar I', "אדר א'"], ['Adar II', "אדר ב'"], ['Nisan', 'ניסן'], ['Iyar', 'אייר'], ['Sivan', 'סיון'], ['Tamuz', 'תמוז'], ['Av', 'אב'], ['Elul', 'אלול']];
+function eventsHtml() {
+  const rs = data.events.rows || [];
+  const D30 = Array.from({ length: 30 }, (x, i) => [String(i + 1), hebrewNumber(i + 1)]);
+  return `<p class="muted small">אירועים שאינם בימים המוגדרים (ל"ג בעומר, ט"ו בשבט, יומא דהילולא, דרשת שבת הגדול ...). בתצוגה: עד 3 שורות — במשבצת השבת (לפני זמני השבת, ואם ביום ראשון — אחריהם, עם פס); בתוך שבת — בין זמני השבת; יותר — משבצת לבד. יורד שעה אחרי הזמן האחרון. מופיע גם ב"המנין הבא", בהודעות ({שולה"ט ודרשות}) ובהדפסת שבת וחג.</p>
+  <div class="tf-rows">
+  ${rs.map((ev, i) => { const p = `events.rows.${i}`; const D = ev.date || {}; return `<section class="tf-blk">
+    <div class="tf-bh"><label class="tf-scr" title="פעיל">${fld(`${p}.screen`, 'check')} 📺</label>${fld(`${p}.title`, 'text', ' class="tf-w16 tf-bt" placeholder="שם האירוע"')}
+      ${sel(`${p}.date.type`, [['heb', 'תאריך עברי'], ['shabbos', 'שבת מסוימת'], ['once', 'תאריך חד־פעמי']])}
+      ${D.type === 'shabbos' ? `${sel(`${p}.date.sh`, [['', '—'], ...EV_SHAB.map((x) => [x, x])])} או פרשה: ${fld(`${p}.date.sh`, 'text', ' class="tf-w8" placeholder="למשל: וירא"')}`
+        : D.type === 'once' ? fld(`${p}.date.iso`, 'date')
+        : `${sel(`${p}.date.d`, D30)} ${sel(`${p}.date.m`, HM)} <span class="muted small">כשחל בשבת:</span>${sel(`${p}.onShab`, [['', 'נשאר בשבת'], ['fri', 'ליל שבת'], ['motzei', 'מוצאי שבת'], ['sun', 'יום ראשון']])}`}
+      <span class="spacer"></span><span class="tf-acts">${btn('up', p, '↑', 'למעלה')}${btn('down', p, '↓', 'למטה')}${btn('del', p, '🗑', 'מחק')}</span></div>
+    <div class="tf-rf tf-sub"><label class="tf-like">${fld(`${p}.away`, 'check')} מתבטל כשאד"ש לא נמצא</label>
+      <span class="muted small">אין מנחה / מעריב של ימות החול:</span>${fld(`${p}.qb`, 'number', ' class="tf-w4" min="0"')} דק' לפני ${fld(`${p}.qa`, 'number', ' class="tf-w4" min="0"')} דק' אחרי</div>
+    ${(ev.rows || []).map((r, ri) => { const rp = `${p}.rows.${ri}`; return `<div class="tf-rf">${fld(`${rp}.label`, 'text', ' class="tf-w12" placeholder="שם (למשל: שולחן הטהור)"')}
+      <label class="tf-like" title="בערב שלפני התאריך">${fld(`${rp}.eve`, 'check')} ליל</label>${tsHtml(r.time, `${rp}.time`)}${btn('del', rp, '✕', 'מחק שורה')}</div>`; }).join('')}
+    ${canEdit() ? `<div class="tf-add"><button type="button" class="btn ghost" data-act="addEvR" data-p="${p}.rows">➕ שורה</button></div>` : ''}
+  </section>`; }).join('')}
+  </div>
+  ${canEdit() ? '<div class="tf-add"><button type="button" class="btn" data-act="addEv">➕ אירוע</button></div>' : ''}`;
 }
 
 // ---------- תצוגה מקדימה: וואס קומט ארויס פאר א טאג ----------
@@ -348,6 +385,15 @@ function previewHtml() {
   } else if (tab === 'shabbos') {
     let fri = n; while (dowOf(fri) !== 5) fri += 1;
     body = `<p class="muted small">שבת ${h(isoOf(fri + 1))}</p><table class="tf-pt">${computeShabbos(data, fri).map((r) => `<tr class="${r.kind === 'tefila' ? 'k' : ''}${r.screen === false ? ' tf-off' : ''}"><td>${h(r.label)}</td><td>${tm(r.min)}</td></tr>`).join('')}</table>`;
+  } else if (tab === 'events') {
+    const evs = eventsBetween(data, n - 1, n + 60);
+    body = evs.length ? evs.map((e) => `<h4>${h(e.ev.title || '—')} <small class="muted">${h(dayLabel(e.n))}</small></h4><table class="tf-pt">${e.rows.map((r) => `<tr><td>${h(r.label)}${r.day !== e.n ? ' <small class="muted">(ליל)</small>' : ''}</td><td>${tm(r.min)}</td></tr>`).join('')}</table>`).join('')
+      : '<p class="muted">אין אירועים בחודשיים הקרובים</p>';
+  } else if (DAYLIST(tab)) {
+    clearPeriodCache(data); const x = hdOf(n); const Ys = tab === 'tishrei' ? [x.y, x.y + 1] : [x.y];
+    const secs = Ys.flatMap((Y) => periodSections(data, tab, Y)).filter((sc) => sc.ds.includes(n) || sc.lines.some((l) => l.per.some((q) => q.n === n)));
+    body = secs.length ? secs.map((sc) => `<h4>${h(sc.title)} <small class="muted">${h(sc.dates)}</small></h4><table class="tf-pt">${sc.lines.map((l) => { const q = l.per.find((z) => z.n === n) || l.per[0]; return `<tr class="${l.kind === 'tefila' ? 'k' : ''}${l.screen === false ? ' tf-off' : ''}"><td>${h(l.label)}${l.wk ? ' <small class="muted">(כמו ביום חול)</small>' : ''}${l.note ? ` <small>(${h(l.note)})</small>` : ''}${q.n !== n ? ` <small class="muted">${h(dayLabel(q.n))}</small>` : ''}</td><td>${q.mins.map(tm).join(' | ')}</td></tr>`; }).join('')}</table>`).join('')
+      : '<p class="muted">אין בלוח הזה זמנים ביום הזה</p>';
   } else {
     const sp = computeSpecial(data, n);
     const mn = maarivNight(data, n);
@@ -384,31 +430,27 @@ function normalize() {
       data.minor.blocks = data.minor.blocks.filter((b) => !moved.some((m) => m.when === b.when)).concat(moved.map(strip));
       const order = WHEN.minor.map(([k]) => k); data.minor.blocks.sort((x, y) => order.indexOf(x.when) - order.indexOf(y.when));
     }
-    data.yt.blocks = (data.yt.blocks || []).filter((b) => yw.has(b.when));
-    for (const d of defaults().yt.blocks) if (!data.yt.blocks.some((b) => b.when === d.when)) data.yt.blocks.push(d);
-    const yo = WHEN.yt.map(([k]) => k); data.yt.blocks.sort((x, y) => yo.indexOf(x.when) - yo.indexOf(y.when));
   }
-  // ערב חג / חג (אלטע דאטן אן type)
-  const chagW = new Set(['pesach', 'shviiPesach', 'shavuos', 'shabbosChmPesach', 'erevPesachShabbos']);
-  for (const b of data.yt.blocks || []) { if (!b.type) b.type = chagW.has(b.when) ? 'chag' : 'erev'; if (b.when === 'cholPesach' && b.type === 'erev') b.type = 'chm'; }
-  // חג מיט די אלטע ליידיקע שורות (שחרית/מנחה) → מנחה ומעריב · שחרית · מנחה ומעריב
-  for (const b of data.yt.blocks || []) if (b.type === 'chag' && b.when !== 'erevPesachShabbos' && (b.rows || []).length && (b.rows || []).every((r) => !(r.times || []).length && /^(שחרית|מנחה ומעריב)$/.test(r.label)) && b.rows.some((r) => r.on === 1 || r.on === '1')) b.rows = chagRows();
+  // פסח / תשרי: לוח של ימים; שבועות: נאר דער חג (אלטע דאטן ווערן איבערגעשטעלט)
+  normData(data);
+  for (const b of data.yt.blocks || []) { if (!b.type) b.type = 'chag'; }
   for (const b of data.yt.blocks || []) if (b.type === 'chag' && (b.rows || []).every((r) => !(r.times || []).length && /^(שחרית|מנחה)$/.test(r.label))) b.rows = chagRows();
-  for (const b of [...(data.yt.blocks || []).filter((x) => x.type === 'chag'), ...(data.tishrei.blocks || []).filter((x) => TISHREI_CHAG.has(x.when))]) {
+  for (const b of [...(data.yt.blocks || []), ...(data.tishrei.blocks || []), ...(data.pesach.blocks || [])]) {
     for (const r of b.rows || []) for (const k of ['fri', 'sat']) if (!r[k] || !Array.isArray(r[k].times)) r[k] = { on: false, times: [] };
+    if (b.wk === undefined && b.when !== 'shavuos') b.wk = { shacharis: false, mincha: false, maariv: false };
   }
   for (const b of data.yt.blocks || []) if (b.type === 'chag') for (const r of b.rows || []) if (!r.disp) r.disp = { ...dispDefault(r), place: 'shab' };
-  if (!data.yt.blocks.some((b) => b.when === 'erevShvii')) { const i = data.yt.blocks.findIndex((b) => b.when === 'shviiPesach'); const nb = defaults().yt.blocks.find((b) => b.when === 'erevShvii'); data.yt.blocks.splice(i < 0 ? data.yt.blocks.length : i, 0, nb); }
+  if (!data.events) data.events = { rows: [] };
   if (!data.shiurim) data.shiurim = defaults().shiurim;
   // ל"ג בעומר — נישט מער; יעדער בלאק פון חנוכה/תעניות/פורים/ט"ב איז דא
   data.minor.blocks = (data.minor.blocks || []).filter((b) => b.when !== 'lagBaomer' || (b.rows || []).some((r) => (r.times || []).length));
   for (const d0 of defaults().minor.blocks) if (!data.minor.blocks.some((b) => b.when === d0.when)) data.minor.blocks.push(d0);
-  for (const b of [...(data.minor.blocks || []), ...(data.yt.blocks || []).filter((x) => x.type !== 'chag')]) {
+  for (const b of [...(data.minor.blocks || [])]) {
     b.like = { minchaEve: true, maarivEve: true, shacharis: true, mincha: true, maarivMid: true, maariv: true, ...(b.like || {}) };
     b.own = { minchaEve: [], maarivEve: [], shacharis: [], mincha: [], maarivMid: [], maariv: [], ...(b.own || {}) };
     b.fri = b.fri || { mode: 'regular', time: null };
   }
-  for (const part of ['yt', 'minor', 'tishrei']) for (const b of data[part].blocks || []) for (const r of b.rows || []) if (r.screen === undefined) r.screen = true;
+  for (const part of ['yt', 'minor', 'tishrei', 'pesach']) for (const b of data[part].blocks || []) for (const r of b.rows || []) if (r.screen === undefined) r.screen = true;
 }
 export async function tefilaData() { await prepare(); return data; }
 let BACK = 'זמנים ולוחות';
@@ -445,9 +487,12 @@ const HELP = `<div class="tf-help">
     <li>כל שורה: שם, ער"ש או שבת, שעה, עונה (גם "שבתות פרקי אבות"), תפילה / אחר, הערה, ו-📺 אם להציג במסך.</li>
     <li><b>✈ כשאד"ש לא נמצא</b> — כרגיל / לא מוצג / מאוחר ב-X דקות. התאריכים — בכפתור "✈ כ"ק אדמו"ר שליט"א נסע" בדף הקודם (או 6 בהודעה האוטומטית לגבאי).</li>
   </ul></details>
-  <details><summary><b>חנוכה ותעניות · פורים ותשעה באב · ערב יו"ט · תשרי</b></summary><ul>
+  <details><summary><b>חנוכה ותעניות · פורים ותשעה באב · פסח · שבועות · תשרי · שולה"ט ודרשות</b></summary><ul>
     <li><b>חנוכה ותעניות</b> — שחרית ומנחה כמו בימות החול; מגדירים רק את המעריב (מוצאי התענית / בחנוכה). בתצוגה — פס משלו בלוח ימות החול, מתחילת השבוע ועד חצי שעה אחרי המנין האחרון.</li>
     <li><b>פורים ותשעה באב</b> — זמנים מיוחדים; בתצוגה במקום זמני השבת, מאחרי השבת שלפני ועד חצי שעה אחרי הזמן האחרון (כשחל ביום ראשון — במקום לוח ימות החול, מיום שישי).</li>
+    <li><b>פסח ותשרי</b> — לוח לפי ימים. בכל יום: השורות שלו, V "כמו ביום חול" (מוסיף את המנינים הרגילים), בשבתות V "כמו שבת רגילה", ✂ "כאן התצוגה מתחלקת" ו־✉ "כאן ההודעה מתחלקת". בתצוגה: משבצת אחת גדולה בשלושה טורים, כל חלק עד חצי שעה אחרי הזמן האחרון שלו. בתקופה הזאת לא יוצאות ההודעות של שבת ושל ימות החול — רק "ערב פסח" / "תשרי" עם {חלק פסח/תשרי}.</li>
+    <li><b>שבועות</b> — חג אחד; ערב שבועות = שורות "ערב" בתוך החג.</li>
+    <li><b>שולה"ט ודרשות</b> — אירועים בתאריך עברי / שבת מסוימת / תאריך חד־פעמי; מתבטלים כשאד"ש לא נמצא (V); "אין מנחה/מעריב" לפני ואחרי; מופיעים במשבצת השבת, ב"המנין הבא", בהודעות ({שולה"ט ודרשות}) ובהדפסה.</li>
     <li>התאריכים של כל בלוק מחושבים לבד כל שנה. "ערב" = הערב שלפני היום הראשון.</li>
   </ul></details>
   <details><summary><b>שמירה, גרסאות ותצוגה</b></summary><ul>
@@ -458,7 +503,7 @@ const HELP = `<div class="tf-help">
   </ul></details>
 </div>`;
 function render(main, onBack) {
-  const body = tab === 'weekday' ? weekdayHtml() : tab === 'shabbos' ? shabbosHtml() : tab === 'shiurim' ? shiurimHtml() : blocksHtml(tab);
+  const body = tab === 'weekday' ? weekdayHtml() : tab === 'shabbos' ? shabbosHtml() : tab === 'shiurim' ? shiurimHtml() : tab === 'events' ? eventsHtml() : blocksHtml(tab);
   main.innerHTML = `<div class="lx-bar">
       <button type="button" class="btn ghost" id="tf-back">← ${h(BACK)}</button>
       <b class="lx-title">🕰 זמני התפילות והשיעורים</b>
@@ -492,7 +537,9 @@ ${canEdit() ? '<button type="button" class="btn" id="tf-ver" title="לשמור �
     onRestore: (obj, v) => { data = obj; normalize(); dirty = true; rerender(); ui.toast?.(`גרסה ${v} נטענה — לחץ 💾 שמירה כדי להחזיר אותה`); } });
   const rs = $('#tf-reset', main); if (rs) rs.onclick = () => {
     if (!confirm(`למלא מחדש את "${TABS.find(([k]) => k === tab)[1]}" מברירת המחדל? (השינויים בחלק הזה יימחקו)`)) return;
-    if (tab === 'minor' || tab === 'pt') { const d0 = defaults().minor.blocks; data.minor.blocks = data.minor.blocks.map((b) => (inTab(tab, b) ? d0.find((x) => x.when === b.when) || b : b)); } else data[tab] = defaults()[tab];
+    if (tab === 'events') data.events = { rows: [] };
+    else if (tab === 'shavuos') data.yt = defaults().yt;
+    else if (tab === 'minor' || tab === 'pt') { const d0 = defaults().minor.blocks; data.minor.blocks = data.minor.blocks.map((b) => (inTab(tab, b) ? d0.find((x) => x.when === b.when) || b : b)); } else data[tab] = defaults()[tab];
     touched(true);
   };
   main.oninput = main.onchange = (e) => {
@@ -506,7 +553,7 @@ ${canEdit() ? '<button type="button" class="btn" id="tf-ver" title="לשמור �
     const f = el.closest('[data-f]'); const ts = el.closest('[data-ts]');
     if (f && f.dataset.f) {
       const v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
-      set(f.dataset.f, v); touched(e.type === 'change' && ((el.tagName === 'SELECT' && /\.(when|season|mode|place|kind|type|away)$/.test(f.dataset.f)) || /\.(screen|like\.\w+|fri\.on|sat\.on|table)$/.test(f.dataset.f)));
+      set(f.dataset.f, v); touched(e.type === 'change' && ((el.tagName === 'SELECT' && /\.(when|season|mode|place|kind|type|away|sh|onShab)$/.test(f.dataset.f)) || /\.(screen|like\.\w+|fri\.on|sat\.on|table|likeShab|wk\.\w+|split[DM])$/.test(f.dataset.f)));
     } else if (ts && el.dataset.k) {
       if (e.type === 'input' && el.tagName === 'SELECT') return;
       const full = tsChange(ts.dataset.ts, el.dataset.k, el.type === 'checkbox' ? el.checked : el.value); touched(full);
@@ -534,6 +581,8 @@ ${canEdit() ? '<button type="button" class="btn" id="tf-ver" title="לשמור �
     else if (act === 'condOn') { const r = get(p); r.cond = [b.dataset.g === 'shacharis' ? { dir: 'after', min: 0, base: 'alos' } : b.dataset.g === 'mincha' ? { dir: 'before', min: 0, base: 'shkia' } : { dir: 'after', min: 50, base: 'shkia' }]; }
     else if (act === 'condAdd') { const r = get(p); const g = p.split('.')[1]; r.cond = condOf(r, g) || []; r.cond.push({ dir: 'before', min: 0, base: 'shkia' }); }
     else if (act === 'condDel') { const ks = p.split('.'); const ci = Number(ks.pop()); ks.pop(); const r = get(ks.join('.')); r.cond = condOf(r, ks[1]) || []; r.cond.splice(ci, 1); if (!r.cond.length) r.cond = null; }
+    else if (act === 'addEv') data.events.rows.push({ id: newId(), title: '', date: { type: 'heb', d: 1, m: 'Tishri' }, onShab: '', rows: [{ id: newId(), label: '', eve: false, time: { b: 'fixed', t: '' } }], away: true, qb: 0, qa: 0, screen: true });
+    else if (act === 'addEvR') get(p).push({ id: newId(), label: '', eve: false, time: { b: 'fixed', t: '' } });
     else if (act === 'addS') data.shabbos.rows.push({ id: newId(), screen: true, label: '', day: 'sat', kind: 'tefila', season: 'all', time: { b: 'fixed', t: '' }, note: '' });
     else if (act === 'addB') {
       const t = b.dataset.t;
