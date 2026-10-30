@@ -389,3 +389,20 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 
 /* לוח המניינים של ימות החול: רקע ווייס, ווי "המנין הבא" */
 .frame.mny { background: #fff; }
+
+/* כל קבוצה (שחרית/מנחה/...; א טאג אין פסח/תשרי) אין א אייגענער ראם; די כותרת זיצט אויפן אויבערשטן קו, אין דער מיט */
+.mny .grp { position: relative; border: 2px solid #c9a24c; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 1px rgba(138,106,42,.25), 0 2px 5px rgba(60,40,10,.12);
+  margin: 26px 22px 0 !important; padding: 20px 8px 4px; }
+.mny .grp:first-of-type { margin-top: 24px !important; }
+.mny .grp h3, .mny.has-chg .grp h3 { position: absolute; top: -19px; left: 50%; transform: translateX(-50%); width: 62%; height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; font-size: 32px; }
+.mny .grp h3 small { font-size: 17px; }
+.mny .grp.rb h3, .mny.has-chg .grp.rb h3 { width: 86%; font-size: 26px; background: linear-gradient(180deg, #1f4278 0%, #0f2140 100%); }
+.mny .grp h3::before, .mny .grp h3::after, .per .pd-h::before, .per .pd-h::after { content: none; display: none; }
+.mny .times { padding-top: 2px; }
+.mny.pos-side .grp { margin: 18px 12px 0 !important; padding: 14px 4px 2px; border-radius: 12px; }
+.mny.pos-side .grp:first-of-type { margin-top: 16px !important; }
+.mny.pos-side .grp h3 { top: -14px; height: 27px; font-size: 21px; border-radius: 9px; }
+.mny.pos-side .grp.rb h3 { font-size: 17px; }
+.per .pd { border: 2px solid #c9a24c; border-radius: 14px; background: #fff; margin: 1.05em 2px .55em; padding: 0 6px 4px; }
+.per .pd-h { width: 82%; margin: -.62em auto 4px; border-radius: 11px; }
+.per .pcols { padding-top: 16px; }
