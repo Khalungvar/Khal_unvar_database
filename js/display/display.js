@@ -373,7 +373,8 @@ function render() {
     const notes = { shacharis: wP.shacharisNote, mincha: wP.minchaNote, maariv: wP.maarivNote };
     // שולחן הטהור ודרשות: "אין מנין לפני / אחרי" (מנחה ומעריב פון דעם טאג)
     const quiet = eventsBetween(DATA, k, k, LOC).flatMap((e) => (Number(e.ev.qb) || Number(e.ev.qa) ? e.rows.map((r) => [r.min - (Number(e.ev.qb) || 0), r.min + (Number(e.ev.qa) || 0)]) : []));
-    const skipOf = (g, m) => (m.xdays || []).includes(dk) || (g !== 'shacharis' && !ov[g] && dk === 5) || (g === 'maariv' && !ov.maariv && xNight.has(k))
+    // שבת / יו"ט: קיין מנחה / מעריב פון וואכנטאג (מוצאי שבת/יו"ט — נאר מה עס שטייט אין זמני שבת/יו"ט)
+    const skipOf = (g, m) => (m.xdays || []).includes(dk) || (g !== 'shacharis' && !ov[g] && dk === 5) || (g !== 'shacharis' && holy(k)) || (g === 'maariv' && !ov.maariv && xNight.has(k))
       || (g !== 'shacharis' && !m.rebbe && quiet.some(([a, b]) => m.min >= a && m.min <= b));
     const groups = ['shacharis', 'mincha', 'maariv'].map((g) => ({ g, h: g === 'maariv' && chN.length ? 'מעריב (לא בימי חנוכה)' : GN[g], sub: notes[g] ? `(${notes[g]})` : '',
       items: pick(g).filter((m) => g === 'shacharis' || !m.rebbe).map((m) => ({ ...m, k: GN[g], key: chgKey(m), min: m.min + off, day: k, skip: skipOf(g, m) })) }));
@@ -485,7 +486,8 @@ function render() {
     }
     return null;
   };
-  const next = all.find((m) => m.min + grace(m) >= nowMin) || nextAny();
+  // דער פריסטער פון: דעם לוח, אדער ווייטער (נישט א ווייטע שולחן הטהור פאר דעם קומענדיגן מנין)
+  const next = PER ? (all.find((m) => m.min + grace(m) >= nowMin) || nextAny()) : [all.find((m) => m.min + grace(m) >= nowMin), nextAny()].filter(Boolean).sort((a, b) => a.min - b.min)[0] || null;
   const lastMincha = swap ? null : board.last;
   const cd = next ? Math.max(0, (next.min - nowMin) * 60) : 0;
   const cdText = `${String(Math.floor(cd / 3600)).padStart(2, '0')}:${String(Math.floor((cd % 3600) / 60)).padStart(2, '0')}:${String(Math.floor(cd % 60)).padStart(2, '0')}`;
