@@ -347,3 +347,7 @@
 .tf-away { white-space: nowrap; font-size: .9em; }
 .tf-help { background: #fffaf0; border: 1px solid #e2d6b8; border-radius: 12px; padding: 10px 18px; margin: 10px 0; line-height: 1.6; }
 .tf-help h3 { margin: 4px 0 8px; } .tf-help details { margin: 6px 0; } .tf-help summary { cursor: pointer; } .tf-help ul { margin: 4px 0 8px; padding-inline-start: 22px; }
+.sc-ntc .sc-nrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sc-ntc .sc-nrow .sc-chk{flex:0 0 auto;min-width:150px}
+.sc-ntc .sc-nrow > input{flex:1 1 160px;min-width:120px}
+.sc-ntc .sc-nadd select{max-width:150px}

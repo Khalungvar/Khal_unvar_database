@@ -269,6 +269,10 @@ function render(main) {
         <label class="sc-chk">${chk('chg.shift', S.chg.shift)} גם כשהשעה זזה לבד לפי השקיעה (כל שבוע)</label>
         <p class="muted small">ביטול מנין — בלי הודעה. שינוי של גבאי נכנס מהרגע שהוא נשמר; מעבר חורף/קיץ — לפי התאריך.</p>
       </section>
+      <section class="sc-card sc-ntc"><h3>⚠ הודעות ו"חדש" במסך</h3>
+        <p class="muted small">לפי התאריך שבתצוגה למעלה. ✔ = מוצג. אפשר לכתוב טקסט אחר (ריק = הטקסט הרגיל).</p>
+        <div id="sc-ntc"><p class="muted small">טוען…</p></div>
+      </section>
       <section class="sc-card"><h3>🖥 המסך</h3>
         <label class="sc-row"><span>שוליים לטלוויזיה (פיקסלים, 0–120)</span>${num('safe', S.safe, 0, 120)}</label>
         <p class="muted small">אם הטלוויזיה חותכת את הקצוות — להגדיל. אם רואים את כל המסגרות עד הסוף — אפשר להקטין עד 0.</p>
@@ -350,6 +354,38 @@ function render(main) {
   $$('[data-drag]', main).forEach((b) => { b.onclick = () => { const i = Number(b.dataset.drag); dragI = dragI === i ? null : i; render(main); if (dragI != null) $('.sc-pv', main).scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
   // דער מסך: 1920×1080, אויסגעשטעלט צו דער ברייט
   const box = $('.sc-frame-box', main); const fr = $('#sc-frame', main);
+  // ⚠ הודעות ו"חדש": וואס די תצוגה ווייזט (window.__ntc פונעם iframe)
+  const nbox = $('#sc-ntc', main);
+  const fillNtc = (tries = 0) => {
+    if (!nbox || nbox.contains(document.activeElement)) return;
+    let X = null; try { X = fr.contentWindow.__ntc; } catch { /* */ }
+    if (!X) { if (tries < 20) setTimeout(() => fillNtc(tries + 1), 250); return; }
+    const N = S.ntc || {}; const labelOf = new Map((X.all || []).map((a) => [a.id, a.label]));
+    const row = (id, label, def) => { const o = N[id] || {}; return `<div class="sc-row sc-nrow"><label class="sc-chk"><input type="checkbox" data-ntc="${h(id)}" data-nf="on"${o.off ? '' : ' checked'}${dis}> ${label}</label><input data-ntc="${h(id)}" data-nf="txt" value="${h(o.txt || '')}" placeholder="${h(def)}"${dis}></div>`; };
+    const rows = [];
+    if (X.off) rows.push('<p class="muted small">ההודעות כבויות ("להודיע לבד כשזמן משתנה").</p>');
+    if (X.note) rows.push(row(X.note.id, '<b>הודעה:</b>', X.note.def));
+    const shown = new Set((X.news || []).map((x) => x.id));
+    for (const x of X.news || []) rows.push(row(x.id, `<b>חדש</b> ליד ${h(x.label)}`, 'חדש'));
+    // וואס מ'האט שוין אויסגעלאשן / געטוישט (אויך ווען עס ווייזט זיך נישט יעצט) — ניט אויסצולעשן
+    for (const [id, o] of Object.entries(N)) if (!shown.has(id) && id !== X.note?.id && id.startsWith('new:') && (o.off || o.txt)) rows.push(row(id, `<b>חדש</b> ליד ${h(labelOf.get(id) || id.slice(4).replace('|', ' '))}`, 'חדש'));
+    if (!X.note && !(X.news || []).length && !X.off) rows.push('<p class="muted small">אין עכשיו הודעה או "חדש" בתאריך הזה.</p>');
+    if (ed && (X.all || []).length) rows.push(`<p class="muted small sc-nadd">"חדש" במסך בבית המדרש ליד מנין שלא חדש? <select id="sc-nsel">${X.all.filter((a) => !N[a.id]?.off).map((a) => `<option value="${h(a.id)}">${h(a.label)}</option>`).join('')}</select> <button type="button" class="btn small-btn" id="sc-noff">כבה "חדש"</button></p>`);
+    nbox.innerHTML = rows.join('');
+    const off = $('#sc-noff', nbox); if (off) off.onclick = () => { const id = $('#sc-nsel', nbox).value; S.ntc = S.ntc || {}; S.ntc[id] = { ...(S.ntc[id] || {}), off: true }; changed(false); fillNtc(); };
+  };
+  if (nbox) {
+    fr.addEventListener('load', () => fillNtc());
+    nbox.oninput = nbox.onchange = (e) => {
+      const el = e.target; const id = el.dataset.ntc; if (!id) return; e.stopPropagation();
+      S.ntc = S.ntc || {}; const o = { ...(S.ntc[id] || {}) };
+      if (el.dataset.nf === 'on') o.off = !el.checked; else o.txt = el.value.trim();
+      if (!o.off) delete o.off; if (!o.txt) delete o.txt;
+      if (Object.keys(o).length) S.ntc[id] = o; else delete S.ntc[id];
+      changed(false);
+    };
+    fillNtc();
+  }
   const fit = () => { const k = box.clientWidth / 1920; fr.style.transform = `scale(${k})`; box.style.height = `${1080 * k}px`; };
   fit(); window.removeEventListener('resize', onRs); onRs = () => { fit(); placeDrag(); }; window.addEventListener('resize', onRs);
   // ווען דער בלאט איז געווען באהאלטן ביים צייכענען (ברייט 0) — נאכאמאל ווען ער ווערט געזען

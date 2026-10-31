@@ -32,6 +32,8 @@ export function screenDefaults() {
     chg: { on: true, before: 7, after: 7, shift: false },
     // פארבן: theme = פארן גאנצן מסך (ליידיג = די געווענליכע); boxes = פאר א געוויסער משבצת { bg, text, title }
     theme: {}, boxes: {},
+    // הודעות און "חדש" אויפן מסך: { id: { off, txt } } — כבוי / אנדער טעקסט
+    ntc: {},
   };
 }
 
@@ -44,6 +46,7 @@ export function normScreen(s) {
   o.hide = { ...d.hide, ...(o.hide || {}) };
   o.chg = { ...d.chg, ...(o.chg || {}) };
   o.theme = { ...(o.theme || {}) }; o.boxes = { ...(o.boxes || {}) };
+  o.ntc = o.ntc && typeof o.ntc === 'object' ? { ...o.ntc } : {};
   o.library = Array.isArray(o.library) ? o.library : [];
   o.items = (Array.isArray(o.items) ? o.items : []).map((a) => ({ on: true, from: '', to: '', days: [], sec: 0, fit: 'contain', frame: a.place !== 'free', ...a }));
   return o;
