@@ -195,7 +195,7 @@ function weekdayHtml() {
   const rb = (g, title) => { const p = `weekday.rebbe.${g}`; return `<tr><td><b>${title}</b></td><td>${fld(`${p}.on`, 'check')}</td><td>${tsHtml(get(`${p}.time`), `${p}.time`)}</td>
       <td>${fld(`${p}.room`, 'text', ' class="tf-w8"')}</td><td>${fld(`${p}.note`, 'text', ' class="tf-w8"')}</td>
       <td>${fld(`${p}.before`, 'number', ' class="tf-w4" min="0"')} דק'</td><td>${fld(`${p}.after`, 'number', ' class="tf-w4" min="0"')} דק'</td>
-      <td>${g === 'shacharis' ? `${fld(`${p}.fri`, 'check')} גם בער"ש` : ''}</td></tr>`; };
+      <td>${g === 'shacharis' ? `${fld(`${p}.fri`, 'check')} גם בער"ש` : g === 'mincha' ? `<span title="אם יוצא :15 או :45 — בשעון חורף מאחרים 5 דק' (:20 / :50), בשעון קיץ מקדימים 5 דק' (:10 / :40)">${fld(`${p}.q`, 'check')} :15/:45 ← ±5 דק' (חורף מאחר, קיץ מקדים)</span>` : ''}</td></tr>`; };
   const rebbe = `<section class="tf-grp tf-rebbe"><h3>מנין כ"ק מרן אדמו"ר שליט"א</h3>
     <p class="muted small">שעה עם עיגול (למשל: שקיעה +25, עיגול ל-5). מניין אחר שנופל בתוך "אין מנין אחר" לפני או אחרי — לא יוצג באותו יום.</p>
     <table class="tf-t"><thead><tr><th></th><th>פעיל</th><th>שעה</th><th>חדר</th><th>הערה</th><th>אין מנין אחר — לפניו</th><th>— אחריו</th><th></th></tr></thead><tbody>
@@ -415,6 +415,7 @@ async function prepare() {
 function normalize() {
   const dr = defaults().weekday.rebbe;
   data.weekday.rebbe = { ...dr, ...(data.weekday.rebbe || {}) };
+  if (data.weekday.rebbe.mincha && data.weekday.rebbe.mincha.q === undefined) data.weekday.rebbe.mincha.q = true;
   data.weekday.camp = { ...defaults().weekday.camp, ...(data.weekday.camp || {}) };
   for (const g of ['shacharis', 'mincha', 'maariv']) for (const r of data.weekday[g] || []) { r.cond = condOf(r, g); delete r.auto; }
   // תצוגה במסך — ברירת מחדל: פעיל

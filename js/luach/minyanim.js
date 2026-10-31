@@ -120,7 +120,7 @@ export function defaults() {
       // מנין כ"ק אדמו"ר שליט"א — באזונדער: א זמן מיט עיגול, און א "שטילע צייט" ארום אים ווען קיין אנדער מנין טאר נישט זיין
       rebbe: {
         shacharis: { on: true, time: F('07:30'), room: "חדר א'", note: '', before: 0, after: 0, fri: true },
-        mincha: { on: true, time: R('shkia', 25, 5), room: "חדר ב'", note: '', before: 30, after: 0, last: true },
+        mincha: { on: true, time: R('shkia', 25, 5), room: "חדר ב'", note: '', before: 30, after: 0, last: true, q: true },
         maariv: { on: true, time: R('shkia', 60, 5), room: 'למטה', note: '', before: 0, after: 30 },
       },
       shacharis: [
@@ -493,7 +493,9 @@ export function computeWeekday(data, n, loc, opt = {}) {
   for (const g of ['shacharis', 'mincha', 'maariv']) {
     const r = rb[g]; if (!r || !r.on) continue;
     if (g === 'shacharis' && fri && r.fri === false) continue;
-    const m = timeOf(r.time, zd); if (m == null) continue;
+    let m = timeOf(r.time, zd); if (m == null) continue;
+    // מנחה כ"ק: אויב ס'קומט אויס :15 / :45 — ווינטער +5, זומער −5 (r.q === false → נישט)
+    if (g === 'mincha' && r.q !== false && (((m % 60) + 60) % 60 === 15 || ((m % 60) + 60) % 60 === 45)) m += isSummer(iso) ? -5 : 5;
     const b = Number(r.before) || 0; const a = Number(r.after) || 0;
     out[g] = out[g].filter((x) => !(x.min >= m - b && x.min <= m + a));
     out[g].push({ min: m, room: r.room || w.defaultRoom || '', note: r.note || '', kahal: true, rebbe: true, spec: specOf(r.time) });
