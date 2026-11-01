@@ -9,6 +9,18 @@ const h = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<':
 const tm = (m) => (m == null ? '' : hhmm(((m % 1440) + 1440) % 1440));
 const chunk = (a, n) => { const o = []; for (let i = 0; i < a.length; i += n) o.push(a.slice(i, i + n)); return o; };
 
+// "חדש" — ווי אויפן מסך: א מנין וואס איז די וואך און נישט געווען די פריערדיגע וואך (הגדרות המסך: chg.on / chg.after / chg.shift / ntc)
+const GNP = { shacharis: 'שחרית', mincha: 'מנחה', maariv: 'מעריב' };
+const chgKeyP = (m, scr) => (!scr?.chg?.shift && m.spec ? `R${m.spec}` : `t${Math.round(((m.min % 1440) + 1440) % 1440)}`);
+export function weekNew(data, n, loc, scr) {
+  const none = () => null;
+  if (!scr || scr.chg?.on === false || Number(scr.chg?.after) === 0) return none;
+  const sun = n - dowOf(n);
+  const sig = (k) => { const w = computeWeekday(data, k, loc); const o = new Set(); for (const g of Object.keys(GNP)) for (const m of w[g] || []) o.add(`${GNP[g]}|${chgKeyP(m, scr)}`); return o; };
+  const cur = sig(sun); const prev = sig(sun - 7); const N = scr.ntc || {};
+  return (g, m) => { const x = `${GNP[g]}|${chgKeyP(m, scr)}`; if (!cur.has(x) || prev.has(x) || N[`new:${x}`]?.off) return null; return N[`new:${x}`]?.txt || 'חדש'; };
+}
+
 export const SIZES = { letter: { w: 8.5, h: 11, label: '8.5×11' }, tabloid: { w: 11, h: 17, label: '11×17' } };
 export const FOOTER = ['צו באקומען זמנים און הודעות', 'שיקט די ווארט UNGVAR', 'צו 1-833-646-3971'];
 
@@ -46,6 +58,10 @@ export function printCss(fontHe = 'Frank Ruhl Libre') {
 .tp-wk .tp-line .dot { margin: 0 .16em; }
 .tp-wk .tp-rb { border: .07em solid #000; border-radius: .14em; padding: 0 .1em; }
 .tp-wk .tp-ap { font-family: ${HE}; font-size: .38em; font-weight: 700; margin-inline-start: .15em; vertical-align: .35em; }
+.tp-wk .tp-band small.tp-ssh { font-size: 1.75em; font-weight: 900; white-space: nowrap; line-height: 1.1; }
+.tp-wk .tp-band small.tp-ssh .tp-num { font-size: 1.05em; }
+.tp-new { display: inline-block; font-size: .42em; font-weight: 900; background: #000; color: #fff; border-radius: .3em; padding: .05em .3em .1em; margin-inline-end: .2em; vertical-align: .55em; line-height: 1.15; }
+.tp-rbl .tp-new { font-size: .55em; vertical-align: .4em; }
 .tp-wk .tp-shab { text-align: center; font-size: 2.15em; font-weight: 900; padding: .18em 0 .1em; white-space: nowrap; }
 .tp-wk .tp-key { font-size: .8em; text-align: center; margin-top: .1em; }
 /* ---- שבת / יו"ט: קעפל פון בריוו ---- */
@@ -114,17 +130,19 @@ const page = (cls, size, inner, extra = '') => {
 
 // ---------- ימות החול ----------
 /** n = א טאג אין דער וואך (מ'רעכנט לויט weekday.refDay); fri = ערב שבת; parsha = נאמען */
-export function weekdayPage(data, n, fri, parsha, loc, size = 'letter') {
+export function weekdayPage(data, n, fri, parsha, loc, size = 'letter', scr = null) {
   const w = computeWeekday(data, n, loc);
+  const nw = weekNew(data, n, loc, scr);
+  const tag = (g, x) => { const t = nw(g, x); return t ? `<span class="tp-new">${h(t)}</span>` : ''; };
   const sh = computeShabbos(data, fri, loc);
   // צעטיילט גלייך: 7 → 3,2,2
   const even = (a, per) => { const L = Math.max(1, Math.ceil(a.length / per)); const o = []; let i = 0; for (let k = 0; k < L; k += 1) { const c = Math.ceil((a.length - i) / (L - k)); o.push(a.slice(i, i + c)); i += c; } return o; };
-  const line = (items, per) => even(items, per).map((row) => `<div class="tp-line">${row.map((x) => `<span class="tp-num${x.rebbe ? ' tp-rb' : ''}">${tm(x.min)}</span>${x.ap ? '<span class="tp-ap">בערך</span>' : ''}${x.xn ? `<span class="tp-ap">${h(x.xn)}</span>` : ''}`).join('<span class="tp-num dot">•</span>')}</div>`).join('');
+  const line = (items, per) => even(items, per).map((row) => `<div class="tp-line">${row.map((x) => `${x.g ? tag(x.g, x) : ''}<span class="tp-num${x.rebbe ? ' tp-rb' : ''}">${tm(x.min)}</span>${x.ap ? '<span class="tp-ap">בערך</span>' : ''}${x.xn ? `<span class="tp-ap">${h(x.xn)}</span>` : ''}`).join('<span class="tp-num dot">•</span>')}</div>`).join('');
   const per = (g, a) => (g === 'mincha' ? (a.length > 9 ? 4 : 3) : g === 'maariv' ? (a.length > 4 ? 3 : 2) : (a.length > 9 ? 4 : 3));
   const rbM = w.mincha.find((x) => x.rebbe); const rbA = w.maariv.find((x) => x.rebbe);
-  const mincha = w.mincha.filter((x) => !x.rebbe); const maariv = w.maariv.filter((x) => !x.rebbe);
-  const shach = w.shacharis.map((x) => ({ ...x, rebbe: false }));
-  const rbLine = rbM || rbA ? `<div class="tp-rbl"><div class="t">מנין כ"ק אדמו"ר שליט"א</div>${[rbM ? `מנחה <span class="tp-num">${tm(rbM.min)}</span>` : '', rbA ? `מעריב <small>(בערך)</small> <span class="tp-num">${tm(rbA.min)}</span>` : ''].filter(Boolean).join(' <span class="tp-num">·</span> ')}</div>` : '';
+  const mincha = w.mincha.filter((x) => !x.rebbe).map((x) => ({ ...x, g: 'mincha' })); const maariv = w.maariv.filter((x) => !x.rebbe).map((x) => ({ ...x, g: 'maariv' }));
+  const shach = w.shacharis.map((x) => ({ ...x, rebbe: false, g: 'shacharis' }));
+  const rbLine = rbM || rbA ? `<div class="tp-rbl"><div class="t">מנין כ"ק אדמו"ר שליט"א</div>${[rbM ? `מנחה ${tag('mincha', rbM)}<span class="tp-num">${tm(rbM.min)}</span>` : '', rbA ? `מעריב <small>(בערך)</small> ${tag('maariv', rbA)}<span class="tp-num">${tm(rbA.min)}</span>` : ''].filter(Boolean).join(' <span class="tp-num">·</span> ')}</div>` : '';
   const fMin = sh.find((r) => r.day === 'fri' && r.kind === 'tefila' && /מנחה/.test(r.label));
   const sShach = sh.find((r) => r.day === 'sat' && /שחרית/.test(r.label));
   const sMin = sh.find((r) => r.day === 'sat' && r.kind === 'tefila' && /מנחה/.test(r.label));
@@ -136,7 +154,7 @@ export function weekdayPage(data, n, fri, parsha, loc, size = 'letter') {
     ${band('מנחה', w.minchaNote ? h(w.minchaNote) : '')}<div class="tp-times">${line(mincha, per('mincha', mincha))}</div>
     ${rbLine}
     ${band('מעריב', w.maarivNote ? h(w.maarivNote) : '')}<div class="tp-times">${line(maariv, per('maariv', maariv))}</div>
-    <div class="tp-band"><span></span><b style="font-size:2.3em">זמני שבת קודש</b>${sShach?.min != null ? `<small>שחרית<br><span class="tp-num">${tm(sShach.min)}</span></small>` : '<span></span>'}</div>
+    <div class="tp-band"><span></span><b style="font-size:2.3em">זמני שבת קודש</b>${sShach?.min != null ? `<small class="tp-ssh">שחרית <span class="tp-num">${tm(sShach.min)}</span></small>` : '<span></span>'}</div>
     <div class="tp-shab">${[fMin?.min != null ? `מנחה ער"ש <span class="tp-num">${tm(fMin.min)}</span>` : '', sMin?.min != null ? `מנחה ש"ק <span class="tp-num">${tm(sMin.min)}</span>` : ''].filter(Boolean).join(' <span class="tp-num">•</span> ')}</div>`;
   return page('tp-wk', size, inner, '<div class="tp-frame"><i></i><i></i><i></i><i></i></div>');
 }

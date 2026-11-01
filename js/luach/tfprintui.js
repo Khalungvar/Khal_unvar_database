@@ -1,6 +1,7 @@
 // 🖨 הדפסת זמני התפילה: בוחרים סוג (ימות החול / שבת / יו"ט / ימי דפגרא ותעניות / תשרי), תאריכים, גודל וגופן → מדפיסים / PDF / JPG
 import { printCss, weekdayPage, shabbosPage, specialPage, buildSpecial, fitPages, GROUPS, SIZES } from './tfprint.js';
 import { tefilaData } from './tefila.js';
+import { screenSettings } from './screen.js';
 import { daysOf, computeHoly, chagOn } from './minyanim.js';
 import { buildYear, hdOf, isoOf, nOf, dowOf } from './engine.js';
 import { LOCATIONS } from './zmanim.js';
@@ -42,11 +43,12 @@ function occurrences(part) {
   return out.sort((a, b) => a.first - b.first);
 }
 
-let ui = null; let back = null; let data = null;
+let ui = null; let back = null; let data = null; let scr = null;
 export async function openTfPrint(main, onBack, helpers) {
   ui = helpers; back = onBack;
   main.innerHTML = '<p class="muted">…</p>';
   data = await tefilaData();
+  try { scr = await screenSettings(); } catch { scr = null; } // "חדש" — ווי אויפן מסך
   if (!st.font) st.font = defFont();
   if (!st.fri) st.fri = fridays()[0];
   render(main);
@@ -61,7 +63,7 @@ function pagesHtml() {
     }
     return fris.map((fri) => {
       const p = parshaOf(fri + 1);
-      return st.type === 'weekday' ? weekdayPage(data, fri - 5, fri, p, LOC, st.size) : shabbosPage(data, fri, `זמני שבת פרשת ${p}`, LOC, st.size);
+      return st.type === 'weekday' ? weekdayPage(data, fri - 5, fri, p, LOC, st.size, scr) : shabbosPage(data, fri, `זמני שבת פרשת ${p}`, LOC, st.size);
     }).join('');
   }
   const occ = occurrences(st.type);

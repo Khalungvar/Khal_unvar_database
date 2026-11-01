@@ -721,7 +721,7 @@ function fillSystem(root) {
   const n0 = nOf(iso0); let f = n0; if (dowOf(n0) === 6) f = n0 - 1; else while (dowOf(f) !== 5) f += 1;
   const ps = dayOf(f + 1)?.parsha || '';
   boxes.forEach((b) => {
-    const pg = b.dataset.sys === 'shabbos' ? shabbosPage(DATA, f, `זמני שבת פרשת ${ps}`, LOC) : weekdayPage(DATA, f - 5, f, ps, LOC);
+    const pg = b.dataset.sys === 'shabbos' ? shabbosPage(DATA, f, `זמני שבת פרשת ${ps}`, LOC) : weekdayPage(DATA, f - 5, f, ps, LOC, 'letter', SCR);
     b.innerHTML = `<div class="ovs-in">${pg}</div>`;
     const inn = b.firstChild; const k = Math.min(b.clientWidth / 816, b.clientHeight / 1056) || 0.5;
     inn.style.transform = `scale(${k})`; inn.style.width = '816px'; inn.style.height = '1056px';

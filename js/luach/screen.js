@@ -30,6 +30,13 @@ const BOXES = [
   ['zmanim', 'זמני היום'], ['mitzva', 'מצוה יומית'], ['daf', 'דף היומי'], ['shiurim', 'שיעורי תורה'], ['bottom', 'הפס התחתון (תאריך וקול)'],
 ];
 
+/** די הגדרות פונעם מסך (פאר אנדערע בלעטער, למשל ההדפסה) */
+export async function screenSettings() {
+  const rows = await sheet().read('Screen!A2:D100');
+  const parts = rows.filter((r) => /^data#\d+$/.test(String(r[0] || ''))).sort((x, y) => Number(String(x[0]).split('#')[1]) - Number(String(y[0]).split('#')[1]));
+  return normScreen(parts.length ? JSON.parse(parts.map((r) => r[1] || '').join('')) : null);
+}
+
 async function load() {
   let j = null;
   try {
