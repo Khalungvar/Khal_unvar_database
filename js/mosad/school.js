@@ -1,7 +1,8 @@
 // אתר פון א מוסד — די ישיבה: תלמידים, בוגרים, הורים, שכר לימוד און קבלות (אלעס אינעם גיליון פונעם מוסד, דורכן שומר).
-import { letterhead, LH_CSS, heDate } from './brand.js?v=543';
-import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=543';
-import { downloadXlsx } from '../excel.js?v=543';
+import { letterhead, LH_CSS, heDate } from './brand.js?v=590';
+import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=590';
+import { downloadXlsx } from '../excel.js?v=590';
+import { colFilters } from '../sorttables.js?v=590';
 
 let X = null; // די כלים פון app.js: { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render }
 export function initSchool(ctx) { X = ctx; }
@@ -151,47 +152,41 @@ export function renderStudents(box, which = 'active') {
     const day = which === 'active' ? sc.asOf || today() : today();
     const all = enrolls();
     const list0 = all.filter((e) => statusOn(e, day) === which);
-    const shiurim = [...new Set(all.map((e) => e.shiur).filter(Boolean))].sort();
     const key = which === 'active' ? 'q' : 'aq';
-    const rows = list0.filter((e) => (!sc.shiur || e.shiur === sc.shiur)
-      && match(sc[key] || '', [nm(e.contact_id), nm(e.parent_id), ph(e.contact_id), ph(e.parent_id), e.shiur, e.room, X.pById(e.contact_id)?.il_phone, X.pById(e.contact_id)?.abroad_phone])).sort(byName);
+    const rows = list0.filter((e) => match(sc[key] || '', [nm(e.contact_id), nm(e.parent_id), ph(e.contact_id), ph(e.parent_id), X.pById(e.contact_id)?.il_phone, X.pById(e.contact_id)?.abroad_phone])).sort(byName);
     const act = which === 'active';
-    box.innerHTML = `<h2 class="ms-h">${act ? '🎓 תלמידי הישיבה' : '🚪 בוגרי הישיבה והוריהם'} <span class="count-pill">${list0.length}</span></h2>
+    box.innerHTML = `<h2 class="ms-h">${act ? '🎓 תלמידי הישיבה' : '🚪 בוגרי הישיבה והוריהם'} <span class="count-pill">${list0.length}</span> <span class="muted small cf-count"></span></h2>
       <div class="ms-bar">
-        <input type="search" id="sc-q-${key}" placeholder="חיפוש: שם, הורה, טלפון, שיעור…" value="${h(sc[key] || '')}">
-        ${shiurim.length ? `<select id="sc-shiur"><option value="">כל השיעורים</option>${shiurim.map((s) => `<option${s === sc.shiur ? ' selected' : ''}>${h(s)}</option>`).join('')}</select>` : ''}
+        <input type="search" id="sc-q-${key}" placeholder="חיפוש: שם, הורה, טלפון…" value="${h(sc[key] || '')}">
         ${act ? `<label class="small">נכון לתאריך <input type="date" id="sc-asof" value="${h(sc.asOf)}"></label>` : ''}
         <span class="spacer"></span>
         ${X.can('people_edit') ? '<button type="button" class="btn primary" id="sc-new">＋ רישום תלמיד</button>' : ''}
         <button type="button" class="btn" id="sc-xl">⬇ Excel</button>
         ${act ? '<button type="button" class="btn" id="sc-phones">🖨 יומן טלפונים</button><button type="button" class="btn" id="sc-abroad">📒 אלפון חו"ל</button>' : ''}
+        ${X.can('students') || X.can('people_edit') ? '<button type="button" class="btn" id="sc-abimp" title="ייבוא טלפונים בחו&quot;ל מאקסל: שם, משפחה, טלפון">⬆ טלפונים בחו"ל מאקסל</button>' : ''}
         <button type="button" class="btn" id="sc-reload" title="רענון">⟳</button>
       </div>
       ${sc.asOf && act ? `<p class="muted small">מי שלמד ב-${h(isoToHebrewText(day))}</p>` : ''}
-      ${rows.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>תלמיד</th>${act ? '<th>טלפון בארץ</th>' : ''}<th>טלפון בחו"ל</th><th>הורה</th><th>טלפון ההורה</th><th>שיעור</th><th>מ-</th><th>עד</th>${tu() ? '<th>יתרה</th>' : ''}<th></th></tr></thead><tbody>
-        ${rows.map((e) => { const b = tu() ? balance(e) : 0; const p = X.pById(e.contact_id); return `<tr data-row="${h(e.enroll_id)}">
-          <td><a href="#" data-open="${h(e.contact_id)}"><b>${h(nm(e.contact_id))}</b></a>${e.room ? `<div class="muted small">חדר ${h(e.room)}</div>` : ''}</td>
+      ${rows.length ? `<div class="ms-wrap"><table class="ms-table col-filter" data-fkey="st-${which}"><thead><tr><th>תלמיד</th>${act ? '<th>טלפון בארץ</th>' : ''}<th>טלפון בחו"ל</th><th>הורה</th><th>טלפון ההורה</th><th>מ-</th><th>עד</th><th></th></tr></thead><tbody>
+        ${rows.map((e) => { const p = X.pById(e.contact_id); return `<tr data-row="${h(e.enroll_id)}">
+          <td><a href="#" data-open="${h(e.contact_id)}"><b>${h(nm(e.contact_id))}</b></a></td>
           ${act ? `<td dir="ltr" class="small">${h(p?.il_phone || '')}${p && (X.can('students') || X.can('people_edit')) ? ` <button type="button" class="linkish" data-il="${h(e.contact_id)}" title="טלפון בארץ">✎</button>` : ''}</td>` : ''}
           <td dir="ltr" class="small">${h(p?.abroad_phone || '')}${p && (X.can('students') || X.can('people_edit')) ? ` <button type="button" class="linkish" data-ab="${h(e.contact_id)}" title="טלפון בחו&quot;ל">✎</button>` : ''}</td>
           <td>${e.parent_id ? `<a href="#" data-open="${h(e.parent_id)}">${h(nm(e.parent_id))}</a>` : '<span class="muted">—</span>'}</td>
           <td dir="ltr" class="small">${h(ph(e.parent_id))}</td>
-          <td class="small">${h(e.shiur || '')}</td><td class="small">${h(dateText(e.start_date))}</td><td class="small">${h(dateText(e.end_date))}</td>
-          ${tu() ? `<td class="num ${b > 0 ? 'ms-owe' : ''}" dir="ltr">${charged(e) || paid(e) ? money(b) : ''}</td>` : ''}
-          <td class="ms-acts">${X.can('people_edit') || tu() ? `<button type="button" class="btn small-btn" data-edit="${h(e.enroll_id)}" title="עריכה">✎</button>` : ''}
-            ${tu() ? `<button type="button" class="btn small-btn" data-pay="${h(e.enroll_id)}" title="תשלום">💲</button>` : ''}
-            ${X.can('people_edit') ? `<button type="button" class="btn small-btn" data-out="${h(e.enroll_id)}" title="${act ? 'עזב / מחיקה' : 'מחיקה'}">🗑</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`
+          <td class="small">${h(dateText(e.start_date))}</td><td class="small">${h(dateText(e.end_date))}</td>
+          <td class="ms-acts">${X.can('people_edit') || tu() ? `<button type="button" class="btn small-btn" data-edit="${h(e.enroll_id)}" title="עריכה">✎</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`
       : `<p class="muted ms-empty">${list0.length ? 'אין תוצאות.' : 'אין.'}</p>`}`;
     searchInput(box, key, () => renderStudents(box, which));
-    const s = X.$('#sc-shiur', box); if (s) s.onchange = () => { sc.shiur = s.value; renderStudents(box, which); };
     const a = X.$('#sc-asof', box); if (a) a.onchange = () => { sc.asOf = a.value; renderStudents(box, which); };
     X.$('#sc-new', box)?.addEventListener('click', () => enrollDialog({}));
     X.$$('[data-out]', box).forEach((b) => { b.onclick = () => outDialog(all.find((x) => String(x.enroll_id) === b.dataset.out), act); });
     X.$('#sc-phones', box)?.addEventListener('click', () => X.printPhones?.());
     X.$('#sc-reload', box).onclick = () => reload().then(() => X.toast('עודכן')).catch((err) => X.toast(X.msg(err), 'err'));
     X.$('#sc-xl', box).onclick = () => {
-      const head = ['תלמיד', 'טלפון בארץ', 'טלפון בחו"ל', 'טלפון', 'הורה', 'טלפון ההורה', 'מייל ההורה', 'שיעור', 'חדר', 'סטטוס', 'מ-', 'עד', 'זמן', ...(tu() ? ['שכר לימוד', 'חיוב', 'שולם', 'יתרה'] : []), 'הערה'];
+      const head = ['תלמיד', 'טלפון בארץ', 'טלפון בחו"ל', 'טלפון', 'הורה', 'טלפון ההורה', 'מייל ההורה', 'סטטוס', 'מ-', 'עד', 'זמן', 'הערה'];
       downloadXlsx(`${X.st.mosad?.name || 'ישיבה'} - ${act ? 'תלמידים' : 'בוגרים'}`, head, rows.map((e) => [nm(e.contact_id), act ? X.pById(e.contact_id)?.il_phone || '' : '', X.pById(e.contact_id)?.abroad_phone || '', ph(e.contact_id), nm(e.parent_id), ph(e.parent_id), mail(e.parent_id),
-        e.shiur || '', e.room || '', ST[statusOn(e, day)], dateText(e.start_date), dateText(e.end_date), e.zman || '', ...(tu() ? [priceRanges(e).join('; '), charged(e), paid(e), balance(e)] : []), e.note || '']), { rtl: true });
+        ST[statusOn(e, day)], dateText(e.start_date), dateText(e.end_date), e.zman || '', e.note || '']), { rtl: true });
     };
     X.$$('[data-il]', box).forEach((b) => {
       b.onclick = async () => {
@@ -215,10 +210,50 @@ export function renderStudents(box, which = 'active') {
       const ids = list0.map((e) => e.contact_id).filter((id) => X.pById(id));
       const title = `אלפון טלפונים בחו"ל — ${X.st.mosad?.name || ''}`.trim();
       X.printList?.(title, isoToHebrewText(today()), { cols: [{ t: 'טלפון בחו"ל', ltr: true }], rows: ids.map((id) => ({ id, cells: [X.pById(id)?.abroad_phone || ''] })), twoUp: true });
-      downloadXlsx(title, ['תלמיד', 'טלפון בחו"ל', 'טלפון בארץ'], ids.map((id) => X.pById(id)).sort((a, b) => X.nameOf(a).localeCompare(X.nameOf(b), 'he')).map((p) => [X.nameOf(p), p.abroad_phone || '', p.il_phone || '']), { rtl: true });
     });
+    X.$('#sc-abimp', box)?.addEventListener('click', () => abroadImport(all, () => renderStudents(box, which)));
     wireRows(box);
+    colFilters(box);
   });
+}
+// ⬆ טלפונים בחו"ל מאקסל (שם · משפחה · טלפון): מתאימים לפי השם לתלמידים ולבוגרים, מציגים — ושומרים רק אחרי אישור
+function abroadImport(all, after) {
+  const { h } = X;
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.xlsx,.csv';
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return;
+    let t;
+    try { const { readTable } = await import('./kitchen.js?v=590'); t = await readTable(f); } catch (err) { X.toast(X.msg(err), 'err'); return; }
+    const hi = t.findIndex((r) => r.some((c) => /משפחה/.test(String(c))));
+    if (hi < 0) { X.toast('לא נמצאה שורת כותרות (שם, משפחה, טלפון).', 'err'); return; }
+    const head = t[hi].map(String); const ci = (re) => head.findIndex((c) => re.test(c));
+    const cF = ci(/^\s*שם/); const cL = ci(/משפחה/); const cP = ci(/טלפון|נייד|phone/i);
+    const norm = (s) => String(s || '').replace(/["'״׳`]/g, '').replace(/\s+/g, ' ').trim();
+    const ids = [...new Set(all.map((e) => String(e.contact_id)))].filter((id) => X.pById(id));
+    const byName = {};
+    ids.forEach((id) => { const p = X.pById(id); const k = `${norm(p.first_name_he)}|${norm(p.last_name_he)}`; (byName[k] ||= []).push(id); });
+    const rows = t.slice(hi + 1).map((r) => ({ f: norm(r[cF]), l: norm(r[cL]), ph: String(r[cP] ?? '').trim() })).filter((r) => r.l && r.ph);
+    const res = rows.map((r) => { const m = byName[`${r.f}|${r.l}`] || []; return { ...r, ids: m, cur: m.length === 1 ? X.S(X.pById(m[0]).abroad_phone) : '' }; });
+    const ok = res.filter((r) => r.ids.length === 1 && r.cur !== r.ph);
+    const same = res.filter((r) => r.ids.length === 1 && r.cur === r.ph);
+    const none = res.filter((r) => !r.ids.length); const many = res.filter((r) => r.ids.length > 1);
+    const d = X.dialog(`<h2>⬆ טלפונים בחו"ל — ${h(f.name)}</h2>
+      <p>${rows.length} שורות עם טלפון · <b>${ok.length}</b> יישמרו${ok.some((r) => r.cur) ? ` (מתוכם ${ok.filter((r) => r.cur).length} מחליפים מספר קיים)` : ''} · ${same.length} כבר נכונים · ${none.length} לא נמצאו · ${many.length} כפולים</p>
+      <div class="ms-wrap" style="max-height:50vh;overflow:auto"><table class="ms-table"><thead><tr><th>שם</th><th>טלפון</th><th>מצב</th></tr></thead><tbody>
+        ${[...ok.map((r) => [r, r.cur ? `✎ במקום ${r.cur}` : '✓ חדש']), ...none.map((r) => [r, '⚠ לא נמצא']), ...many.map((r) => [r, '⚠ יש כמה בשם הזה'])].map(([r, st]) => `<tr><td>${h(`${r.f} ${r.l}`)}</td><td dir="ltr">${h(r.ph)}</td><td class="small">${h(st)}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="muted small">מי שלא נמצא — אפשר להוסיף ידנית (✎ ליד הטלפון בחו"ל).</p>
+      <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>ביטול</button><button type="button" class="btn primary" id="ai-go"${ok.length ? '' : ' disabled'}>💾 לשמור ${ok.length}</button></div>`);
+    X.$$('[data-x]', d).forEach((b) => { b.onclick = () => d.close(); });
+    X.$('#ai-go', d).onclick = async (e) => {
+      e.target.disabled = true; let n = 0;
+      for (const r of ok) {
+        try { await X.call(X.KEY, 'ilPhone', { contact_id: r.ids[0], abroad_phone: r.ph }); X.pById(r.ids[0]).abroad_phone = r.ph; n += 1; e.target.textContent = `${n} / ${ok.length}…`; } catch (err) { X.toast(X.msg(err), 'err'); break; }
+      }
+      d.close(); X.toast(`נשמרו ${n} טלפונים.`); after();
+    };
+  };
+  inp.click();
 }
 
 // ---------- 👪 הורים ----------
@@ -241,8 +276,8 @@ export function renderParents(box) {
       <div class="ms-bar"><div class="seg">${[['all', `הכל (${all0.length})`], ['active', `תלמידי הישיבה (${nAct})`], ['left', `בוגרים (${all0.length - nAct})`]]
         .map(([k, l]) => `<button type="button" data-pf="${k}" class="${pf === k ? 'on' : ''}">${h(l)}</button>`).join('')}</div>
         <input type="search" id="sc-q-pq" placeholder="חיפוש: הורה, תלמיד, טלפון…" value="${h(sc.pq)}"><span class="spacer"></span>
-        <button type="button" class="btn" id="sc-xl">⬇ Excel</button></div>
-      ${rows.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>הורה</th><th>ילדים</th><th>נייד</th><th>מייל</th>${tu() ? '<th>יתרה</th>' : ''}</tr></thead><tbody>
+        <button type="button" class="btn" id="sc-pp">🖨 הדפסה</button><button type="button" class="btn" id="sc-xl">⬇ Excel</button></div>
+      ${rows.length ? `<div class="ms-wrap"><table class="ms-table col-filter" data-fkey="parents"><thead><tr><th>הורה</th><th>ילדים</th><th>נייד</th><th>מייל</th>${tu() ? '<th>יתרה</th>' : ''}</tr></thead><tbody>
         ${rows.map((p) => { const b = tu() ? p.kids.reduce((s, e) => s + balance(e), 0) : 0; return `<tr><td><a href="#" data-open="${h(p.id)}"><b>${h(nm(p.id))}</b></a></td>
           <td>${p.kids.map((e) => `<a href="#" data-open="${h(e.contact_id)}">${h(X.pById(e.contact_id)?.first_name_he || nm(e.contact_id))}</a> <span class="ms-kind${statusOn(e) === 'left' ? '' : ' k-student'}">${h(ST[statusOn(e)])}</span>`).join(' ')}</td>
           <td dir="ltr" class="small">${h(ph(p.id))}</td><td dir="ltr" class="small">${h(mail(p.id))}</td>
@@ -252,7 +287,12 @@ export function renderParents(box) {
     X.$$('[data-pf]', box).forEach((b) => { b.onclick = () => { sc.pf = b.dataset.pf; renderParents(box); }; });
     X.$('#sc-xl', box).onclick = () => downloadXlsx(`${X.st.mosad?.name || 'ישיבה'} - הורים`, ['הורה', 'ילדים', 'נייד', 'טלפון בית', 'מייל', 'כתובת', 'עיר', ...(tu() ? ['יתרה'] : [])],
       rows.map((p) => { const c = X.pById(p.id) || {}; return [nm(p.id), p.kids.map((e) => `${nm(e.contact_id)} (${ST[statusOn(e)]})`).join(', '), c.mobile || '', c.home_phone || '', c.email_1 || '', c.address || '', [c.city, c.state, c.zip].filter(Boolean).join(' '), ...(tu() ? [p.kids.reduce((s, e) => s + balance(e), 0)] : [])]; }), { rtl: true });
+    // 🖨 הדפסה אחידה (כמו שאר הרשימות)
+    X.$('#sc-pp', box).onclick = () => X.printList?.(`הורי התלמידים — ${X.st.mosad?.name || ''}`.trim(), isoToHebrewText(today()), {
+      cols: [{ t: 'ילדים' }, { t: 'נייד', ltr: true }],
+      rows: rows.map((p) => ({ id: p.id, cells: [p.kids.map((e) => X.pById(e.contact_id)?.first_name_he || nm(e.contact_id)).join(', '), ph(p.id)] })), twoUp: false });
     wireRows(box);
+    colFilters(box);
   });
 }
 
@@ -350,7 +390,7 @@ export function personSchool(p) {
   const id = String(p.contact_id);
   const mine = enrolls().filter((e) => String(e.contact_id) === id || String(e.parent_id) === id);
   return mine.map((e) => `<div class="kv"><span>${String(e.contact_id) === id ? 'רישום' : `הורה של ${h(nm(e.contact_id))}`}</span><span>
-      ${h([ST[statusOn(e)], e.shiur, dateText(e.start_date) ? `מ-${dateText(e.start_date)}` : '', dateText(e.end_date) ? `עד ${dateText(e.end_date)}` : ''].filter(Boolean).join(' · '))}
+      ${h([ST[statusOn(e)], dateText(e.start_date) ? `מ-${dateText(e.start_date)}` : '', dateText(e.end_date) ? `עד ${dateText(e.end_date)}` : ''].filter(Boolean).join(' · '))}
       ${tu() && (charged(e) || paid(e)) ? ` · יתרה <b dir="ltr" class="${balance(e) > 0 ? 'ms-owe' : ''}">${money(balance(e))}</b>` : ''}</span></div>`).join('');
 }
 
@@ -437,7 +477,7 @@ function enrollDialog(e0 = {}) {
         <label>זמן<select name="zman"><option value=""></option>${zs.map((z) => `<option value="${h(z.label)}" data-start="${h(z.start)}"${z.label === e.zman ? ' selected' : ''}>${h(z.label)}</option>`).join('')}</select></label>
         <label>סטטוס<select name="status">${Object.values(ST).map((x) => `<option${x === e.status ? ' selected' : ''}>${h(x)}</option>`).join('')}</select></label>
         ${my('start', 'מ-')}${my('end', 'עד')}
-        <label>שיעור<input name="shiur" list="sc-dl-sh" value="${h(e.shiur || '')}"></label><datalist id="sc-dl-sh">${shiurim.map((x) => `<option value="${h(x)}">`).join('')}</datalist>
+<input type="hidden" name="shiur" value="${h(e.shiur || '')}">
         <label>חדר<input name="room" value="${h(e.room || '')}"></label>
       </div></fieldset>` : `<p><b>${h(nm(e.contact_id))}</b></p>`}
       ${tu() ? `<fieldset><legend>שכר לימוד</legend><div class="grid">

@@ -1,14 +1,14 @@
 // אתר פון א מוסד — 💰 משכורות והוצאות (הרשאה "finance"):
 // 💵 משכורות (₪: גלובלי / שעות קבועות / רישום יומי / גלובלי + שעות, תוספות און ניכויים, תשלומים, וויפיל מ'איז נאך שולדיג),
 // 🧾 הוצאות (₪/$, קאטעגאריעס, צילום קבלה), 📥 הכנסות ותמיכה, ⚖️ חובות פתוחים, 📊 מאזן חודשי — יעדער מטבע באזונדער.
-import { downloadXlsx } from '../excel.js?v=543';
-import { todayIso, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=543';
-import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=543';
-import { historyDialog } from './me.js?v=543';
-import { PAY_TYPES, schedText } from './team.js?v=543';
-import { usdRate } from '../fx.js?v=543';
-import { heDate } from './brand.js?v=543';
-import { hebMonthOf } from './hdays.js?v=543';
+import { downloadXlsx } from '../excel.js?v=590';
+import { todayIso, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=590';
+import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=590';
+import { historyDialog } from './me.js?v=590';
+import { PAY_TYPES, schedText } from './team.js?v=590';
+import { usdRate } from '../fx.js?v=590';
+import { heDate } from './brand.js?v=590';
+import { hebMonthOf } from './hdays.js?v=590';
 
 let X = null;
 export function initFinance(ctx) { X = ctx; }
@@ -107,7 +107,10 @@ export async function renderFinance(box) {
     try { await load(); } catch (err) { box.innerHTML = `<p class="ms-note err">${h(X.msg(err))}</p>`; return; }
   }
   if (!F.month) F.month = todayIso().slice(0, 7);
-  const tabs = [['sal', '💵 משכורות'], ['exp', '🧾 הוצאות'], ['inc', '📥 הכנסות ותמיכה'], ['debt', '⚖️ חובות פתוחים'], ['bal', '📊 מאזן חודשי']];
+  // 💵 משכורות / הכנסות / מאזן — נאר מנהל מוסד; חובות און הוצאות — אויך א געווענליכער באנוצער
+  const mgr = X.can('salary'); const reg = X.can('finance') || X.isAdmin?.();
+  const tabs = [...(mgr ? [['sal', '💵 משכורות']] : []), ...(reg || mgr ? [['exp', '🧾 הוצאות']] : []), ...(mgr ? [['inc', '📥 הכנסות ותמיכה']] : []), ...(reg || mgr ? [['debt', '⚖️ חובות פתוחים']] : []), ...(mgr ? [['bal', '📊 מאזן חודשי'], ['work', '🧹 ימי עבודה']] : [])];
+  if (!tabs.some(([k]) => k === F.tab)) F.tab = tabs[0]?.[0] || 'exp';
   box.innerHTML = `<h2 class="ms-h">💰 משכורות והוצאות</h2>
     <nav class="ms-subtabs">${tabs.map(([k, l]) => `<button type="button" data-ft="${k}" class="${F.tab === k ? 'on' : ''}">${h(l)}</button>`).join('')}
       <span class="spacer"></span><button type="button" class="linkish" id="fn-reload">⟳ רענון</button></nav><div id="fn-body"></div>`;
@@ -115,6 +118,7 @@ export async function renderFinance(box) {
   X.$('#fn-reload', box).onclick = async () => { F.d = null; renderFinance(box); };
   const body = X.$('#fn-body', box);
   const rer = () => renderFinance(box);
+  if (F.tab === 'work') { const { renderWork } = await import('./journal.js?v=590'); renderWork(body); return; }
   ({ sal: salTab, exp: expTab, inc: incTab, debt: debtTab, bal: balTab })[F.tab](body, rer);
 }
 const monthBar = (extra = '') => `<div class="ms-bar"><label>חודש <input type="month" id="fn-mo" value="${X.h(F.month)}"></label><b>${X.h(monthName(F.month))}</b><span class="spacer"></span>${extra}</div>`;

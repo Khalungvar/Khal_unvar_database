@@ -15,7 +15,9 @@ const MAIN_ID = '16gyhQ4W7p2DHjPMtdXldFynG1KUzDypGvTvYlS7cnJY';
 const CLIENT_ID = '73541082309-bb0bc3jv1dchtpgsr129m5bbertk79ua.apps.googleusercontent.com';
 const FIRST_CONTACT_ID = 2001;
 // יעדער כפתור אויפן ערשטן בלאט איז א הרשאה; people_edit = צולייגן / טוישן אנשי קשר (שרייבט אינעם הויפט-מאגר)
-const PERMS = ['students', 'alumni', 'staff_list', 'tuition', 'insurance', 'parents', 'chavrusas', 'attendance', 'donations', 'finance', 'people_edit', 'dorm'];
+const PERMS = ['students', 'alumni', 'staff_list', 'tuition', 'insurance', 'parents', 'chavrusas', 'attendance', 'donations', 'finance', 'people_edit', 'dorm', 'stipends', 'kitchen', 'manager', 'salary'];
+// 👑 מנהל מוסד / טכני: משכורות (salary), שכר לימוד (tuition), נדבות וקבלות (donations) — נאר מיט דער הרשאה (אדמין / בעלים: אלעס)
+const MGR_PERMS = ['tuition', 'donations', 'salary'];
 // וואס דער מוסד מעג זען / טוישן אין א קאנטאקט
 const C_FIELDS = ['title_he', 'first_name_he', 'last_name_he', 'title_en', 'first_name_en', 'last_name_en', 'legal_first_name',
   'marital_status', 'wife_name_he', 'wife_name_en', 'address', 'city', 'state', 'zip', 'country', 'is_alive'];
@@ -42,7 +44,11 @@ const TABS = {
   Repayments: ['rep_id', 'debt_key', 'date', 'amount', 'currency', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
   Tasks: ['task_id', 'text', 'assigned_to', 'from_email', 'due', 'urgent', 'status', 'contact_id', 'done_at', 'done_by', 'created_at', 'created_by', 'updated_at', 'updated_by'],
   Receipts: ['receipt_no', 'payment_id', 'contact_id', 'payer_id', 'amount', 'issued_at', 'issued_by', 'void', 'void_by', 'void_at', 'note'],
+  // 🍳 מלאי המטבח
+  Kitchen: ['product_id', 'product_name', 'category', 'current_stock', 'unit', 'min_threshold', 'lead_time_days', 'daily_use', 'expiry_date', 'supplier_name', 'unit_price', 'recurring_day', 'standard_qty', 'note', 'updated_at', 'updated_by'],
+  KitchenOrders: ['order_id', 'date', 'supplier', 'items', 'total', 'status', 'note', 'created_at', 'created_by'],
 };
+const K_NUM = { current_stock: 1, min_threshold: 1, lead_time_days: 1, daily_use: 1, unit_price: 1, standard_qty: 1 };
 // א דאטום פון גיליון (Date) → 'yyyy-MM-dd' (מיט צייט ווען ס'איז דא)
 let TZ = '';
 function cell(v) {
@@ -173,7 +179,7 @@ function dropCaches(M, ppl, names, don) {
   if (ks.length) unstore(M, ks);
 }
 // אקציעס וואס לייענען נאר; יעדע אנדערע (א שרייבונג) מעקט אויס דעם cache פון די מענטשן
-const READS = { dormImg: 1, batch: 1, me: 1, people: 1, find: 1, school: 1, whereIs: 1, gifts: 1, chav: 1, att: 1, hours: 1, ins: 1, team: 1, clock: 0, users: 1, tasks: 1, log: 1, history: 1, fin: 1, fileGet: 1, backups: 1, staff: 1 };
+const READS = { kitchen: 1, dormImg: 1, batch: 1, me: 1, people: 1, find: 1, school: 1, whereIs: 1, gifts: 1, chav: 1, att: 1, hours: 1, ins: 1, team: 1, clock: 0, users: 1, tasks: 1, log: 1, history: 1, fin: 1, fileGet: 1, backups: 1, staff: 1 };
 
 function doPost(e) {
   try {
@@ -452,7 +458,12 @@ function roleOf(M, email) {
   })[0];
   if (!st) return null;
   const role = S(st.role) === 'admin' ? 'admin' : 'staff';
-  const perms = role === 'admin' ? PERMS.slice() : S(st.perms).split(',').map(S).filter(function (p) { return PERMS.indexOf(p) >= 0; });
+  let perms = role === 'admin' ? PERMS.slice() : S(st.perms).split(',').map(S).filter(function (p) { return PERMS.indexOf(p) >= 0; });
+  if (role !== 'admin') {
+    const mgr = perms.indexOf('manager') >= 0;
+    perms = perms.filter(function (p) { return MGR_PERMS.indexOf(p) < 0; });
+    if (mgr) perms = perms.concat(MGR_PERMS);
+  }
   return { email: email, name: S(st.name), role: role, perms: perms };
 }
 const isAdminRole = function (me) { return me.role === 'owner' || me.role === 'admin'; };
@@ -567,11 +578,37 @@ function deleteRequest(M, me, id, why) {
     summary: '🎓 ' + (M.name || M.key) + ': ' + name + ' (#' + id + ')' + (why ? ' — ' + why : ''),
     status: 'pending', requested_by: me.email + ' @' + M.key, requested_at: now() });
 }
+/** FALSE אין א צעל ווערט א boolean → "false"; ביידע = לא פעיל */
+function isOff(v) { return S(v).toUpperCase() === 'FALSE'; }
+/** אברך → דער תואר "ר'" (נאר ווען עס איז ליידיג) */
+function avreichTitle(id, by) {
+  const cs = main().getSheetByName('Contacts');
+  const c = objsCols(cs, ['contact_id', 'title_he']).filter(function (x) { return S(x.contact_id) === S(id); })[0];
+  if (c && !S(c.title_he)) setCells(cs, c._row, { title_he: "ר'", updated_at: now(), updated_by: by });
+}
+/** אינעם הויפט-אתר "יוצא" ביי צוות / אברכים (און נישט פעיל ביי די אנדערע) → Team: לשעבר */
+function teamFromTags(M) {
+  const sh = M.book.getSheetByName('Team'); if (!sh) return 0;
+  const team = objs(sh).filter(function (t) { return S(t.contact_id) && !isOff(t.active); });
+  if (!team.length) return 0;
+  const want = {}; team.forEach(function (t) { want[S(t.contact_id)] = t; });
+  const org = 'o:' + M.org; let n = 0;
+  objsCols(main().getSheetByName('Contacts'), ['contact_id', 'tags']).forEach(function (r) {
+    const t = want[S(r.contact_id)]; if (!t) return;
+    let tg = []; try { tg = JSON.parse(S(r.tags) || '[]'); } catch (err) { return; }
+    const mine = (Array.isArray(tg) ? tg : []).filter(function (x) { return x.p && String(x.p[0]) === '2' && String(x.p[1]) === org && (String(x.p[2]) === Y_NODE.staff || String(x.p[2]) === Y_NODE.avreich); });
+    if (!mine.length || mine.some(function (x) { return x.s !== 'f'; })) return;
+    const d = mine.map(function (x) { return S(x.d); }).sort().pop() || Utilities.formatDate(new Date(), 'Asia/Jerusalem', 'yyyy-MM-dd');
+    setCells(sh, t._row, { active: 'FALSE', end_date: S(t.end_date).slice(0, 10) || d.slice(0, 10), updated_at: now(), updated_by: 'main-site tag' });
+    n++;
+  });
+  return n;
+}
 /** ער ארבעט מער נישט (נישט צוות און נישט אברך) → Team: לשעבר, מיט א סוף-טאג */
 function teamOff(M, id) {
   const sh = M.book.getSheetByName('Team');
   const t = objs(sh).filter(function (x) { return S(x.contact_id) === id; })[0];
-  if (t && S(t.active) !== 'FALSE') setCells(sh, t._row, { active: 'FALSE', end_date: S(t.end_date) || Utilities.formatDate(new Date(), 'Asia/Jerusalem', 'yyyy-MM-dd') });
+  if (t && !isOff(t.active)) setCells(sh, t._row, { active: 'FALSE', end_date: S(t.end_date) || Utilities.formatDate(new Date(), 'Asia/Jerusalem', 'yyyy-MM-dd') });
 }
 
 const ACTIONS = {
@@ -684,6 +721,7 @@ const ACTIONS = {
       if (ex) setCells(sh, ex._row, { status: 'active', kind: kinds.join(','), removed_by: '', removed_at: '' });
       else appendObj(sh, { contact_id: Number(id) || id, kind: kinds.join(','), status: 'active', added_by: me.email, added_at: now() });
       logIt(M, me, 'link', id, kinds.join(','));
+      if (kinds.indexOf('avreich') >= 0) avreichTitle(id, me.email + ' @' + M.key);
     } finally { lock.releaseLock(); }
     return { ok: true, contact_id: id };
   },
@@ -713,6 +751,7 @@ const ACTIONS = {
         id = String(nextContactId(ss));
         const o = { contact_id: Number(id), is_alive: true, is_active: true, country: 'USA', created_at: now(), created_by: me.email + ' @' + M.key, updated_at: now(), updated_by: me.email + ' @' + M.key };
         C_FIELDS.forEach(function (f) { if (f in c && S(c[f]) !== '') o[f] = c[f]; });
+        if (S(req.kind) === 'avreich' && !S(o.title_he)) o.title_he = "ר'";
         appendObj(cs, o);
         hist.push(['contact', '*', '', 'created by ' + M.key]);
         appendObj(M.book.getSheetByName('People'), { contact_id: Number(id), kind: S(req.kind) || 'student', status: 'active', added_by: me.email, added_at: now() });
@@ -945,6 +984,92 @@ const ACTIONS = {
   },
 
   // ---------- הגדרות (סדרים, טעג) — נאר בעלים / מנהל ----------
+  // ---------- 🍳 מלאי המטבח ----------
+  kitchen: function (M, me) {
+    need(me, 'kitchen');
+    const rd = function (name) { const sh = ensureTab(M.book, name, TABS[name]); return objs(sh).filter(function (x) { return S(x[TABS[name][0]]); }).map(function (x) { const o = {}; TABS[name].forEach(function (k) { o[k] = S(x[k]).replace(/^'/, ''); }); return o; }); };
+    const items = rd('Kitchen').map(function (o) { o.expiry_date = o.expiry_date.slice(0, 10); return o; });
+    const orders = rd('KitchenOrders').slice(-300);
+    return { items: items, orders: orders };
+  },
+  /** פריט חדש / עדכון. rows: [{...}] — כמה ביחד (ייבוא) */
+  kitchenSave: function (M, me, req) {
+    need(me, 'kitchen');
+    const rows = [].concat(req.rows || (req.row ? [req.row] : [])).slice(0, 2000);
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const sh = ensureTab(M.book, 'Kitchen', TABS.Kitchen);
+      const all = objs(sh);
+      let max = 0; all.forEach(function (x) { const n = Number(String(x.product_id).replace(/\D/g, '')); if (n > max) max = n; });
+      const ids = [];
+      rows.forEach(function (r) {
+        const o = { updated_at: now(), updated_by: me.email };
+        TABS.Kitchen.forEach(function (k) { if (k === 'product_id' || k === 'updated_at' || k === 'updated_by' || !(k in r)) return; const v = S(r[k]).slice(0, 300); o[k] = K_NUM[k] ? (v === '' ? '' : Number(v) || 0) : (k === 'expiry_date' && v ? "'" + v.slice(0, 10) : v); });
+        if (!S(o.product_name) && !S(r.product_id)) return;
+        const ex = S(r.product_id) && all.filter(function (x) { return S(x.product_id) === S(r.product_id); })[0];
+        if (ex) { setCells(sh, ex._row, o); ids.push(S(r.product_id)); }
+        else { o.product_id = 'K' + (++max); appendObj(sh, o); ids.push(o.product_id); }
+      });
+      return { ok: true, ids: ids };
+    } finally { lock.releaseLock(); }
+  },
+  kitchenDelete: function (M, me, req) {
+    need(me, 'kitchen');
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const sh = ensureTab(M.book, 'Kitchen', TABS.Kitchen);
+      const ex = objs(sh).filter(function (x) { return S(x.product_id) === S(req.id); })[0];
+      if (ex) { logIt(M, me, 'kitchen-delete', '', S(ex.product_name)); delRow(sh, ex._row); }
+      return { ok: true };
+    } finally { lock.releaseLock(); }
+  },
+  /** הזמנה: נרשמת בהיסטוריה; received = true → המלאי עולה */
+  kitchenOrder: function (M, me, req) {
+    need(me, 'kitchen');
+    const items = [].concat(req.items || []).slice(0, 300).map(function (x) { return { id: S(x.id), name: S(x.name).slice(0, 120), qty: Number(x.qty) || 0, unit: S(x.unit).slice(0, 20), price: Number(x.price) || 0 }; }).filter(function (x) { return x.qty > 0; });
+    if (!items.length) throw new Error('need-text');
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const sh = ensureTab(M.book, 'KitchenOrders', TABS.KitchenOrders);
+      let max = 0; objs(sh).forEach(function (x) { const n = Number(x.order_id); if (n > max) max = n; });
+      const total = items.reduce(function (t, x) { return t + x.qty * x.price; }, 0);
+      appendObj(sh, { order_id: max + 1, date: "'" + Utilities.formatDate(new Date(), 'Asia/Jerusalem', 'yyyy-MM-dd'), supplier: S(req.supplier).slice(0, 120), items: JSON.stringify(items), total: Math.round(total * 100) / 100,
+        status: req.received ? 'received' : 'ordered', note: S(req.note).slice(0, 300), created_at: now(), created_by: me.email });
+      if (req.received) {
+        const ks = ensureTab(M.book, 'Kitchen', TABS.Kitchen); const all = objs(ks);
+        items.forEach(function (x) { const ex = all.filter(function (k) { return S(k.product_id) === x.id; })[0]; if (ex) setCells(ks, ex._row, { current_stock: (Number(ex.current_stock) || 0) + x.qty, updated_at: now(), updated_by: me.email }); });
+      }
+      return { ok: true, order_id: max + 1 };
+    } finally { lock.releaseLock(); }
+  },
+  /** הזמנה שהגיעה → המלאי עולה */
+  kitchenReceive: function (M, me, req) {
+    need(me, 'kitchen');
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const sh = ensureTab(M.book, 'KitchenOrders', TABS.KitchenOrders);
+      const o = objs(sh).filter(function (x) { return S(x.order_id) === S(req.id); })[0];
+      if (!o || S(o.status) === 'received') return { ok: true };
+      let items = []; try { items = JSON.parse(S(o.items)) || []; } catch (err) { items = []; }
+      const ks = ensureTab(M.book, 'Kitchen', TABS.Kitchen); const all = objs(ks);
+      items.forEach(function (x) { const ex = all.filter(function (k) { return S(k.product_id) === S(x.id); })[0]; if (ex) setCells(ks, ex._row, { current_stock: (Number(ex.current_stock) || 0) + (Number(x.qty) || 0), updated_at: now(), updated_by: me.email }); });
+      setCells(sh, o._row, { status: 'received' });
+      return { ok: true };
+    } finally { lock.releaseLock(); }
+  },
+  /** 🎖 סוגי מלגות: [{ id, name, sedarim: [keys], tpl: { to: [], bless, intro, amount, quotes: [] } }] */
+  stipTypesSave: function (M, me, req) {
+    need(me, 'stipends');
+    const cut = function (v, n) { return S(v).slice(0, n); };
+    const list = [].concat(req.types || []).slice(0, 20).map(function (t, i) {
+      const tp = t.tpl || {};
+      return { id: cut(t.id, 30) || ('t' + i), name: cut(t.name, 60) || 'מלגה', sedarim: [].concat(t.sedarim || []).map(S).slice(0, 10),
+        tpl: { to: [].concat(tp.to || []).map(function (x) { return cut(x, 200); }).slice(0, 6), bless: cut(tp.bless, 1000), intro: cut(tp.intro, 200), amount: cut(tp.amount, 200), quotes: [].concat(tp.quotes || []).map(function (x) { return cut(x, 600); }).slice(0, 8) } };
+    });
+    putSetting(M, me, 'stip_types', JSON.stringify(list));
+    logIt(M, me, 'settings', '', 'stip_types');
+    return { ok: true, settings: settingsOf(M) };
+  },
   settingsSave: function (M, me, req) {
     if (!isAdminRole(me)) throw new Error('no-permission');
     const sh = M.book.getSheetByName('Settings');
@@ -1070,14 +1195,15 @@ const ACTIONS = {
 
   // ---------- ✅ השתתפות: א שורה פאר וואך + סדר + בחור; marks = { "0": "v", "0b": "x" } (טאג 0=זונטאג; b = די צווייטע משבצת) ----------
   att: function (M, me, req) {
-    need(me, 'attendance');
+    // השתתפות; גם 🎖 מלגות (לקרוא) ו-🧹 ימי עבודה במשכורות
+    if (!isAdminRole(me) && ['attendance', 'stipends', 'salary'].every(function (p) { return me.perms.indexOf(p) < 0; })) throw new Error('no-permission');
     const from = S(req.from); const to = S(req.to) || from;
     return { rows: objs(M.book.getSheetByName('Attendance')).filter(function (x) { const w = S(x.week).slice(0, 10); return w >= from && w <= to; })
       .map(function (x) { return { week: S(x.week).slice(0, 10), seder: S(x.seder), contact_id: S(x.contact_id), marks: S(x.marks), note: S(x.note) }; }) };
   },
   attSave: function (M, me, req) {
-    need(me, 'attendance');
     const week = S(req.week).slice(0, 10); const seder = S(req.seder);
+    need(me, seder === '_work' && me.perms.indexOf('salary') >= 0 ? 'salary' : 'attendance');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(week) || !seder) throw new Error('bad-week');
     const lock = LockService.getScriptLock(); lock.waitLock(20000);
     try {
@@ -1162,8 +1288,9 @@ const ACTIONS = {
   // ---------- 👔 צוות (Team): תפקיד, טעלעפאן, פעיל/לשעבר, סארט שכר — אן סכומים ----------
   team: function (M, me) {
     if (!isAdminRole(me) && ['staff_list', 'finance', 'attendance'].every(function (p) { return me.perms.indexOf(p) < 0; })) throw new Error('no-permission');
+    try { teamFromTags(M); } catch (err) { /* נישט שטערן */ }
     return { team: objs(M.book.getSheetByName('Team')).filter(function (t) { return S(t.contact_id); }).map(function (t) {
-      const o = {}; TABS.Team.forEach(function (k) { o[k] = S(t[k]); }); o.start_date = o.start_date.slice(0, 10); o.end_date = o.end_date.slice(0, 10); return o; }) };
+      const o = {}; TABS.Team.forEach(function (k) { o[k] = S(t[k]); }); o.start_date = o.start_date.slice(0, 10); o.end_date = o.end_date.slice(0, 10); o.active = isOff(o.active) ? 'FALSE' : 'TRUE'; return o; }) };
   },
   teamSave: function (M, me, req) {
     need(me, 'staff_list');
@@ -1175,7 +1302,7 @@ const ACTIONS = {
     const lock = LockService.getScriptLock(); lock.waitLock(20000);
     try {
       const sh = M.book.getSheetByName('Team');
-      const o = { email: em, role: S(t.role), start_date: S(t.start_date), end_date: S(t.end_date), active: t.active === false || S(t.active) === 'FALSE' ? 'FALSE' : 'TRUE',
+      const o = { email: em, role: S(t.role), start_date: S(t.start_date), end_date: S(t.end_date), active: t.active === false || isOff(t.active) ? 'FALSE' : 'TRUE',
         pay_type: ['global', 'schedule', 'log', 'mixed', 'days'].indexOf(S(t.pay_type)) >= 0 ? S(t.pay_type) : '', schedule: typeof t.schedule === 'string' ? t.schedule : JSON.stringify(t.schedule || []), note: S(t.note), pay_via: ['us', 'parents'].indexOf(S(t.pay_via)) >= 0 ? S(t.pay_via) : '', updated_at: now(), updated_by: me.email };
       const ex = objs(sh).filter(function (x) { return S(x.contact_id) === S(t.contact_id); })[0];
       if (ex) setCells(sh, ex._row, o); else { o.contact_id = Number(t.contact_id) || t.contact_id; appendObj(sh, o); }
@@ -1252,7 +1379,7 @@ const ACTIONS = {
   log: function (M, me, req) {
     const own = !isAdminRole(me) || req.mine;
     const from = S(req.from); const to = S(req.to); const by = S(req.by).toLowerCase(); const ent = S(req.entity); const q = S(req.q);
-    const fin = isAdminRole(me) || me.perms.indexOf('finance') >= 0;
+    const fin = isAdminRole(me) || me.perms.indexOf('salary') >= 0;
     const rowsL = objs(M.book.getSheetByName('Log')).filter(function (x) {
       const at = S(x.at);
       if (own && S(x.by).toLowerCase() !== me.email) return false;
@@ -1270,7 +1397,7 @@ const ACTIONS = {
   /** די היסטאריע פון איין רשומה (entity + id), אדער פון א מענטש (contact_id) */
   history: function (M, me, req) {
     const ent = S(req.entity); const id = S(req.id); const cid = S(req.contact_id);
-    const fin = isAdminRole(me) || me.perms.indexOf('finance') >= 0;
+    const fin = isAdminRole(me) || me.perms.indexOf('salary') >= 0;
     if (SECRET[ent] && !fin) throw new Error('no-permission');
     return { log: objs(M.book.getSheetByName('Log')).filter(function (x) {
       if (SECRET[S(x.entity)] && !fin) return false;
@@ -1280,7 +1407,8 @@ const ACTIONS = {
 
   // ---------- 💰 משכורות והוצאות (finance) ----------
   fin: function (M, me) {
-    need(me, 'finance');
+    if (!isAdminRole(me) && me.perms.indexOf('finance') < 0 && me.perms.indexOf('salary') < 0) throw new Error('no-permission');
+    const sal = isAdminRole(me) || me.perms.indexOf('salary') >= 0;
     const take = function (tab) { return objs(M.book.getSheetByName(tab)).filter(function (x) { return S(x[TABS[tab][0]]); }).map(function (x) { const o = {}; TABS[tab].forEach(function (k) { o[k] = S(x[k]).replace(/^'/, ''); }); return o; }); };
     const team = take('Team');
     const ids = {}; team.forEach(function (t) { ids[S(t.contact_id)] = true; });
@@ -1290,13 +1418,15 @@ const ACTIONS = {
     const tuition = objs(M.book.getSheetByName('Tuition')).filter(function (x) { return S(x.payment_id); }).map(function (x) { return { date: S(x.date).slice(0, 10), amount: Number(x.amount) || 0 }; });
     const gifts = orgDonations(M).map(function (d) { return { date: S(d.date).slice(0, 10), currency: S(d.currency) || 'USD', orig: Number(d.amount_orig) || 0, usd: Number(d.amount_usd) || 0 }; })
       .concat(objs(M.book.getSheetByName('Gifts')).filter(function (g) { return S(g.gift_id); }).map(function (g) { return { date: S(g.date).slice(0, 10), currency: S(g.currency) || 'USD', orig: Number(g.amount_orig) || 0, usd: Number(g.amount_usd) || 0 }; }));
-    return { team: team, payInfo: take('PayInfo'), items: take('PayItems'), payments: take('PayPayments'), expenses: take('Expenses'), incomes: take('Incomes'),
+    if (!sal) return { sal: false, team: team.map(function (t) { return { contact_id: t.contact_id, role: t.role, active: t.active }; }), payInfo: [], items: [], payments: [], expenses: take('Expenses'), incomes: [],
+      debts: take('Debts'), repayments: take('Repayments'), hours: [], tuition: [], gifts: [], settings: settingsOf(M) };
+    return { sal: true, team: team, payInfo: take('PayInfo'), items: take('PayItems'), payments: take('PayPayments'), expenses: take('Expenses'), incomes: take('Incomes'),
       debts: take('Debts'), repayments: take('Repayments'), hours: hours, tuition: tuition, gifts: gifts, settings: settingsOf(M) };
   },
   /** א שורה אין איינע פון די finance-לשוניות (נייע אדער טוישן) */
   finSave: function (M, me, req) {
-    need(me, 'finance');
     const tab = S(req.tab);
+    need(me, FIN_SAL[tab] ? 'salary' : 'finance');
     if (!FIN_TABS[tab]) throw new Error('bad-tab');
     const r = req.row || {};
     const lock = LockService.getScriptLock(); lock.waitLock(20000);
@@ -1329,8 +1459,8 @@ const ACTIONS = {
     } finally { lock.releaseLock(); }
   },
   finDelete: function (M, me, req) {
-    need(me, 'finance');
     const tab = S(req.tab);
+    need(me, FIN_SAL[tab] ? 'salary' : 'finance');
     if (!FIN_TABS[tab] || tab === 'PayInfo') throw new Error('bad-tab');
     const lock = LockService.getScriptLock(); lock.waitLock(20000);
     try {
@@ -1416,7 +1546,7 @@ const ACTIONS = {
   // ---------- ישיבה: רישום, שכר לימוד, קבלות ----------
   school: function (M, me) {
     if (!isAdminRole(me) && !['students', 'alumni', 'parents', 'tuition', 'chavrusas', 'attendance', 'insurance', 'finance', 'dorm'].some(function (p) { return me.perms.indexOf(p) >= 0; })) throw new Error('no-permission');
-    const tu = isAdminRole(me) || me.perms.indexOf('tuition') >= 0 || me.perms.indexOf('finance') >= 0; // finance: נאר לייענען (חובות)
+    const tu = isAdminRole(me) || me.perms.indexOf('tuition') >= 0; // נאר מנהל מוסד
     const en = objs(M.book.getSheetByName('Enrollments')).filter(function (e) { return S(e.enroll_id); }).map(function (e) {
       const o = {};
       TABS.Enrollments.forEach(function (k) { if (tu || ['tuition_amount', 'month_amounts', 'tuition_period'].indexOf(k) < 0) o[k] = S(e[k]); });
@@ -1596,7 +1726,7 @@ const ACTIONS = {
     if (!isAdminRole(me)) throw new Error('no-permission');
     const list = objs(M.book.getSheetByName('Staff')).filter(function (s) { return S(s.email); })
       .map(function (s) { return { email: S(s.email).toLowerCase(), name: S(s.name), role: S(s.role) === 'admin' ? 'admin' : 'staff', perms: S(s.perms).split(',').map(S).filter(Boolean), active: S(s.active) !== 'FALSE' && String(s.active) !== 'false' }; });
-    return { staff: list, owners: M.owners, permsAll: PERMS };
+    return { staff: list, owners: M.owners, permsAll: PERMS.filter(function (p) { return MGR_PERMS.indexOf(p) < 0; }) };
   },
   staffSave: function (M, me, req) {
     if (!isAdminRole(me)) throw new Error('no-permission');
@@ -1703,10 +1833,11 @@ function hhmm(v) {
   return S(v).replace(/^'/, '').slice(0, 5);
 }
 const FIN_TABS = { PayInfo: true, PayItems: true, PayPayments: true, Expenses: true, Incomes: true, Debts: true, Repayments: true };
+const FIN_SAL = { PayInfo: true, PayItems: true, PayPayments: true, Incomes: true }; // נאר מנהל מוסד
 const SECRET = { PayInfo: true, PayItems: true, PayPayments: true, Expenses: true, Incomes: true, Debts: true, Repayments: true };
 /** דער צוות-מענטש וואס איז אריינגעקומען (לויט זיין גוגל-אדרעס) */
 function teamOf(M, email) {
-  const t = objs(M.book.getSheetByName('Team')).filter(function (x) { return S(x.email).toLowerCase() === email && S(x.active) !== 'FALSE'; })[0];
+  const t = objs(M.book.getSheetByName('Team')).filter(function (x) { return S(x.email).toLowerCase() === email && !isOff(x.active); })[0];
   if (!t) return null;
   const o = {}; TABS.Team.forEach(function (k) { o[k] = S(t[k]); }); return o;
 }
@@ -1879,7 +2010,7 @@ function yeshivaExpected(M) {
   peopleRows(M).forEach(function (p) {
     const kinds = S(p.kind).split(',').map(S);
     const tm = team.filter(function (x) { return S(x.contact_id) === S(p.contact_id); })[0];
-    const on = !tm || S(tm.active) !== 'FALSE';
+    const on = !tm || !isOff(tm.active);
     if (kinds.indexOf('staff') >= 0) set(p.contact_id, 'staff', on);
     if (kinds.indexOf('avreich') >= 0) set(p.contact_id, 'avreich', on);
   });

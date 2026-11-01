@@ -1,11 +1,11 @@
 // אתר פון א מוסד — 👔 אנשי צוות ואברכים: צוויי באזונדערע רשימות אין איין כפתור.
 // אנשי צוות: תפקיד, טלפון, מייל (לאגאין), פון ווען, פעיל/לשעבר, סארט שכר (אן סכומים); 💰 → משכורות (נאר מיט הרשאה).
 // אברכים: וועמען זיי לערנען מיט (פון די חברותות), און שעות (כניסה/יציאה).
-import { downloadXlsx } from '../excel.js?v=543';
-import { currentZman } from './school.js?v=543';
-import { historyDialog } from './me.js?v=543';
-import { heDate } from './brand.js?v=543';
-import { rulesOf, rulesText } from './hdays.js?v=543';
+import { downloadXlsx } from '../excel.js?v=590';
+import { currentZman } from './school.js?v=590';
+import { historyDialog } from './me.js?v=590';
+import { heDate } from './brand.js?v=590';
+import { rulesOf, rulesText } from './hdays.js?v=590';
 
 let X = null;
 export function initTeam(ctx) { X = ctx; }
@@ -15,7 +15,7 @@ export const PAY_TYPES = { '': '—', global: 'גלובלי (סכום קבוע �
 const DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו'];
 export const schedText = (s) => { let a; try { a = typeof s === 'string' ? JSON.parse(s || '[]') : s || []; } catch { a = []; } if (!Array.isArray(a)) return rulesText(a); return a.map((x) => `${DAYS[x.d]} ${x.from}–${x.to}`).join(', '); };
 
-export async function loadTeam() { T.team = (await X.call(X.KEY, 'team')).team; return T.team; }
+export async function loadTeam() { T.team = (await X.call(X.KEY, 'team')).team.map((t) => ({ ...t, active: String(t.active).toUpperCase() === 'FALSE' ? 'FALSE' : 'TRUE' })); return T.team; }
 export function resetTeam() { T.team = null; }
 
 export async function renderTeam(box) {
@@ -38,7 +38,7 @@ function staffList(body, box) {
   const people = X.st.people.filter((p) => (p.kinds || [p.kind]).includes('staff'));
   const isActive = (p) => tOf(p.contact_id).active !== 'FALSE';
   const list = people.filter((p) => (T.past ? !isActive(p) : isActive(p))).sort((a, b) => X.nameOf(a).localeCompare(X.nameOf(b), 'he'));
-  const fin = X.can('finance');
+  const fin = X.can('salary'); // 💰 משכורת — נאר מנהל מוסד
   body.innerHTML = `<div class="ms-bar"><div class="seg"><button type="button" data-p="0" class="${T.past ? '' : 'on'}">פעילים (${people.filter(isActive).length})</button><button type="button" data-p="1" class="${T.past ? 'on' : ''}">לשעבר (${people.filter((p) => !isActive(p)).length})</button></div>
       <span class="spacer"></span>${X.can('people_edit') ? '<button type="button" class="btn primary" id="tm-add">➕ איש צוות</button>' : ''}<button type="button" class="btn" id="tm-xl">⬇ Excel</button></div>
     ${list.length ? `<div class="ms-wrap"><table class="ms-table"><thead><tr><th>שם</th><th>תפקיד</th><th>טלפון</th><th>מייל</th><th>מ-</th><th>שכר</th><th></th></tr></thead><tbody>

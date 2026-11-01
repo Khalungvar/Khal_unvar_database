@@ -62,3 +62,66 @@ export function initSortTables() {
     groups.forEach((g) => g.forEach((r) => body.append(r)));
   });
 }
+
+// ---------- סינון כמו באקסל: טבלה עם class="col-filter" ו-data-fkey="…" ----------
+// בכל כותרת ▾ → רשימת ערכים עם ✓ (+ חיפוש). הסינון נשמר לפי data-fkey גם אחרי רענון של הטבלה.
+const FSTATE = {}; // fkey → { colIndex: Set(ערכים מוסתרים) }
+const cellVal = (row, i) => { const c = row.cells[i]; return c ? (c.innerText || '').trim().replace(/\s*✎\s*$/, '').trim() : ''; };
+function applyFilters(table) {
+  const st = FSTATE[table.dataset.fkey] || {};
+  const body = table.tBodies[0]; if (!body) return;
+  let shown = 0;
+  [...body.rows].forEach((r) => {
+    const hide = Object.entries(st).some(([i, set]) => set.size && set.has(cellVal(r, Number(i))));
+    r.hidden = hide; if (!hide) shown++;
+  });
+  table.querySelectorAll('thead th').forEach((th, i) => { const b = th.querySelector('.cf-btn'); if (b) b.classList.toggle('on', !!(st[i] && st[i].size)); });
+  const pill = table.closest('section, .ms-page, div')?.parentElement?.querySelector('.cf-count');
+  if (pill) pill.textContent = Object.values(st).some((s) => s.size) ? `מוצגים ${shown}` : '';
+}
+function openPop(table, th, i) {
+  document.querySelectorAll('.cf-pop').forEach((p) => p.remove());
+  const key = table.dataset.fkey; FSTATE[key] = FSTATE[key] || {}; const st = FSTATE[key];
+  const set = st[i] || (st[i] = new Set());
+  const vals = [...new Set([...table.tBodies[0].rows].map((r) => cellVal(r, i)))].sort((a, b) => a.localeCompare(b, ['he', 'en'], { numeric: true }));
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const pop = document.createElement('div'); pop.className = 'cf-pop'; pop.dir = 'rtl';
+  pop.innerHTML = `<input type="search" class="cf-q" placeholder="חיפוש…">
+    <div class="cf-acts"><button type="button" data-a="all">בחר הכל</button><button type="button" data-a="none">נקה הכל</button><button type="button" data-a="az">מיון א←ת</button><button type="button" data-a="za">מיון ת←א</button></div>
+    <div class="cf-list">${vals.map((v) => `<label><input type="checkbox" value="${esc(v)}"${set.has(v) ? '' : ' checked'}> ${v ? esc(v) : '<i>(ריק)</i>'}</label>`).join('')}</div>`;
+  document.body.append(pop);
+  const r = th.getBoundingClientRect();
+  pop.style.top = `${r.bottom + window.scrollY + 2}px`; pop.style.left = `${Math.max(4, Math.min(r.right - 230, window.innerWidth - 240)) + window.scrollX}px`;
+  const boxes = () => [...pop.querySelectorAll('.cf-list input')];
+  const sync = () => { set.clear(); boxes().forEach((b) => { if (!b.checked) set.add(b.value); }); applyFilters(table); };
+  pop.querySelector('.cf-list').onchange = sync;
+  pop.querySelector('.cf-q').oninput = (e) => { const q = e.target.value.trim(); boxes().forEach((b) => { b.parentElement.hidden = q && !b.value.includes(q); }); };
+  pop.querySelector('.cf-acts').onclick = (e) => {
+    const a = e.target.dataset.a; if (!a) return;
+    if (a === 'all' || a === 'none') { boxes().forEach((b) => { if (!b.parentElement.hidden) b.checked = a === 'all'; }); sync(); return; }
+    th.dataset.sort = a === 'az' ? 'desc' : 'asc'; // הקליק הבא הופך
+    pop.remove(); th.click();
+  };
+  setTimeout(() => document.addEventListener('mousedown', function off(ev) { if (!pop.contains(ev.target)) { pop.remove(); document.removeEventListener('mousedown', off); } }), 0);
+}
+/** לקרוא אחרי שהטבלה נבנתה */
+export function colFilters(root) {
+  (root || document).querySelectorAll('table.col-filter').forEach((table) => {
+    table.querySelectorAll('thead th').forEach((th, i) => {
+      if (!th.textContent.trim() || th.querySelector('.cf-btn')) return;
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'cf-btn'; b.textContent = '▾'; b.title = 'סינון';
+      b.onclick = (e) => { e.stopPropagation(); openPop(table, th, i); };
+      th.append(b);
+    });
+    applyFilters(table);
+  });
+}
+if (!document.getElementById('cf-css')) {
+  const s = document.createElement('style'); s.id = 'cf-css';
+  s.textContent = `.cf-btn{border:0;background:none;cursor:pointer;font-size:.8em;opacity:.55;padding:0 3px}.cf-btn.on{opacity:1;color:#c0392b;font-weight:bold}
+  .cf-pop{position:absolute;z-index:9999;background:#fff;color:#222;border:1px solid #bbb;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:8px;width:230px;font-size:13px}
+  .cf-pop .cf-q{width:100%;box-sizing:border-box;margin-bottom:6px}.cf-acts{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}.cf-acts button{font-size:11px;padding:2px 6px;cursor:pointer}
+  .cf-list{max-height:260px;overflow:auto;display:flex;flex-direction:column;gap:2px}.cf-list label{display:flex;gap:6px;align-items:center;cursor:pointer}
+  @media (prefers-color-scheme:dark){.cf-pop{background:#222;color:#eee;border-color:#555}}`;
+  document.head.append(s);
+}
