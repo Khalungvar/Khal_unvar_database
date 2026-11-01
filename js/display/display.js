@@ -655,8 +655,15 @@ function render() {
   $('#dyn').innerHTML = main;
   $('#screen').classList.toggle('per-on', !!PER);
   for (const box of document.querySelectorAll('#dyn .per .pcols')) {
-    let fs = 34; box.style.fontSize = `${fs}px`;
-    while ((box.scrollWidth > box.clientWidth + 2 || box.scrollHeight > box.clientHeight + 2) && fs > 12) { fs -= 1; box.style.fontSize = `${fs}px`; }
+    // וויפל טורים — נאר וויפל עס פעלט אויס (1/2/3), און די אותיות אזוי גרויס אז זיי פילן אויס די גאנצע מסגרת
+    const nPd = box.querySelectorAll('.pd').length;
+    const fits = () => box.scrollWidth <= box.clientWidth + 2 && box.scrollHeight <= box.clientHeight + 2
+      && [...box.querySelectorAll('.pd-h')].every((x) => x.scrollWidth <= x.clientWidth + 1)
+      && [...box.querySelectorAll('.pd-r')].every((r) => { const a = r.querySelector(':scope > span'); const b = r.querySelector(':scope > b'); return !a || !b || Math.abs(a.getBoundingClientRect().top - b.getBoundingClientRect().top) < a.getBoundingClientRect().height; });
+    const best = (c) => { box.style.columnCount = c; let lo = 12; let hi = 96; while (hi - lo > 0.5) { const m = (lo + hi) / 2; box.style.fontSize = `${m}px`; if (fits()) lo = m; else hi = m; } return lo; };
+    let bc = 1; let bf = 0;
+    for (let c = 1; c <= Math.min(3, Math.max(1, nPd)); c++) { const f = best(c); if (f > bf + 0.5) { bf = f; bc = c; } }
+    box.style.columnCount = bc; box.style.fontSize = `${bf}px`;
     // א לאנגער נאמען פון א טאג: נאר די כותרת ווערט קלענער, אין איין שורה
     for (const hd of box.querySelectorAll('.pd-h')) { let f = parseFloat(getComputedStyle(hd).fontSize); while (hd.scrollWidth > hd.clientWidth + 1 && f > 12) { f -= 1; hd.style.fontSize = `${f}px`; } }
   }
@@ -696,6 +703,15 @@ function render() {
     b2.style.fontSize = `${fs}px`;
   }
   enlarge($('#dyn'));
+  // שמחות: די רשימה טאר נישט אנרירן דעם "1 מתוך 2" — ווען עס גייט נישט אריין, ווערן די אותיות פון די שמחות קלענער
+  for (const ls of document.querySelectorAll('#dyn .mzl .list')) {
+    const es = [...ls.querySelectorAll('.mz-e, .mz-e *')]; let g = 1;
+    const base = es.map((e) => parseFloat(getComputedStyle(e).fontSize) || 0);
+    const pgs = [...ls.parentElement.querySelectorAll('.pg, .dots')];
+    const top = () => (pgs.length ? Math.min(...pgs.map((x) => x.getBoundingClientRect().top)) - 4 : ls.getBoundingClientRect().bottom);
+    const over = () => ls.scrollHeight > ls.clientHeight + 1 || [...ls.querySelectorAll('.mz-e')].some((e) => e.getBoundingClientRect().bottom > top());
+    while (over() && g > 0.7) { g -= 0.03; es.forEach((e, i) => { if (base[i]) e.style.setProperty('font-size', `${(base[i] * g).toFixed(2)}px`, 'important'); }); }
+  }
   $('#dynb').innerHTML = bot;
   enlarge($('#dynb'));
   updateOverlays();
@@ -790,8 +806,8 @@ const ENL = new Map(); const ENL_K = 1.2;
 function enlarge(root) {
   if (!root) return;
   const key = root.innerHTML.replace(/<div class="clock">[\s\S]*?<\/div>(?=\s*<\/div>|\s*$|\s*<)/, '').replace(/<div class="cd">[^<]*<\/div>/, '');
-  // דער קליינער 3-טורים קעסטל האט שוין זיין אייגענע גרייס (פול אויסגעפילט)
-  const els = [...root.querySelectorAll('*')].filter((e) => !e.closest('.mny.pos-side'));
+  // דער קליינער 3-טורים קעסטל און די פסח/תשרי טורים האבן שוין זייער אייגענע גרייס (פול אויסגעפילט)
+  const els = [...root.querySelectorAll('*')].filter((e) => !e.closest('.mny.pos-side') && !e.closest('.per .pcols'));
   const rec = ENL.get(key);
   if (rec && rec.length === els.length) { els.forEach((e, i) => { e.style.cssText = rec[i]; }); return; }
   const cs = els.map((e) => getComputedStyle(e));
@@ -851,7 +867,10 @@ function fitC3(box) {
   const sp = [...box.querySelectorAll('.times span')]; const lb = [...box.querySelectorAll('.times.rbt i')];
   const key = `c3|${box.className}|${box.textContent}`;
   const set = (f) => { sp.forEach((e) => { e.style.fontSize = `${f}px`; }); lb.forEach((e) => { e.style.fontSize = `${Math.round(f * 0.68)}px`; }); };
-  if (boardCache.has(key)) { set(boardCache.get(key)); return; }
+  // מנחה / מעריב מיט אסאך מניינים: 2 שעות אין א שורה (שחרית בלייבט איינס אין א שורה)
+  const mg = [...box.querySelectorAll('.grp.g-mincha, .grp.g-maariv')];
+  const setTwo = (ms) => mg.forEach((g, i) => g.classList.toggle('two', !!(ms & (1 << i))));
+  if (boardCache.has(key)) { const c = boardCache.get(key); setTwo(c.ms); set(c.f); return; }
   const over = () => {
     const bb = box.getBoundingClientRect(); const sc = bb.height / box.offsetHeight || 1; const pad = parseFloat(getComputedStyle(box).paddingBottom) * sc;
     if ([...box.children].some((c) => !c.classList.contains('bnotes') && c.getBoundingClientRect().bottom > bb.bottom - pad + 1)) return true;
@@ -861,9 +880,11 @@ function fitC3(box) {
       return lr.bottom > gb.bottom - 4 * sc || (tm && tm.scrollWidth > tm.clientWidth + 1);
     });
   };
-  let f = 46; set(f);
-  while (over() && f > 16) { f -= 1; set(f); }
-  boardCache.set(key, f); if (boardCache.size > 50) boardCache.clear();
+  const fit = () => { let f = 46; set(f); while (over() && f > 16) { f -= 1; set(f); } return f; };
+  let bm = 0; setTwo(0); let bf = fit();
+  for (let ms = 1; ms < (1 << mg.length); ms++) { setTwo(ms); const f = fit(); if (f > bf * 1.1) { bf = f; bm = ms; } }
+  setTwo(bm); set(bf);
+  boardCache.set(key, { f: bf, ms: bm }); if (boardCache.size > 50) boardCache.clear();
 }
 function fitBoard(box, sel = '.times span, .times.rbt i', max = 1.6) {
   const els = [...box.querySelectorAll(sel)];

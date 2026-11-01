@@ -545,3 +545,17 @@ html, body, * { cursor: none !important; }
 .mny.c3.pos-side .grp:not(.g-rb):not(.g-x) .times { padding-top: 1px; }
 /* בייזש: 8% טונקלער (נאך די 120% בהירות) */
 :root { --paperbg: #c1bcb1; }
+/* פסח / תשרי: די שעות אין א טבלה (אלע אין דער זעלבער ברייט, אן פונקטן — קיין פונקט בלייבט נישט הענגען אין סוף שורה); די כותרת פון א קעסטל ווערט נישט אפגעשניטן אויבן */
+.per .pcols { padding-top: .8em; }
+.per .pd-r b { display: grid; grid-template-columns: repeat(auto-fill, 2.45em); column-gap: .4em; justify-content: start; }
+.per .pd-r b em { text-align: center; }
+.per .pd-r b em:not(:last-child):not(.dn)::after { content: none; }
+.per .pd-r b em.dn { margin-left: 0; text-align: right; }
+/* לוח החול (3 טורים): מנחה / מעריב מיט אסאך מניינים — 2 שעות אין א שורה, מיט א מרווח */
+.mny.c3 .grp.two:not(.g-rb):not(.g-x) .times { flex-direction: row; flex-wrap: wrap; justify-content: center; align-content: flex-start; align-items: baseline; }
+.mny.c3 .grp.two .times span { width: 50%; box-sizing: border-box; text-align: center; padding: 0 .22em; }
+/* "(חוץ מיום א')" אונטער דער שעה, קליין, אין איין שורה */
+.mny.c3 .grp:not(.g-rb) .times span small { display: block; font-size: .5em !important; line-height: 1; white-space: nowrap; direction: rtl; unicode-bidi: isolate; color: var(--muted); }
+/* א שורה אין זמני שבת / פורים / ת"ב: אלעמאל א רווח צווישן דעם נאמען און דער שעה */
+.sh-r { column-gap: .45em; }
+.times span small { unicode-bidi: isolate; direction: rtl; }
