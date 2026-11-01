@@ -45,9 +45,9 @@ export function printCss(fontHe = 'Frank Ruhl Libre') {
 .tp-wk .tp-frame i:nth-child(4) { bottom: calc(-9px * var(--k)); left: calc(-9px * var(--k)); }
 .tp-wk .tp-rbl { text-align: center; font-weight: 900; font-size: 3.15em; line-height: 1.12; border: .06em solid #000; border-radius: .2em; margin: .05em 0 .15em; padding: 0 .15em .03em; white-space: nowrap; }
 .tp-wk .tp-rbl { display: flex; justify-content: center; align-items: last baseline; gap: .06em; }
-.tp-wk .tp-rbl { padding-top: .5em; }
-.tp-wk .tp-rbl .stk { position: relative; line-height: 1; }
-.tp-wk .tp-rbl .stk .t { position: absolute; bottom: 165%; right: 0; white-space: nowrap; line-height: 1.05; }
+.tp-wk .tp-rbl .stk { display: flex; flex-direction: column; align-items: flex-start; line-height: 1; }
+.tp-wk .tp-rbl .stk .l { align-self: flex-end; }
+.tp-wk .tp-rbl .stk .t { line-height: 1.05; white-space: nowrap; }
 .tp-wk .tp-rbl .t { font-size: .36em; font-weight: 700; }
 .tp-wk .tp-rbl .l { font-size: .6em; font-weight: 900; line-height: 1; margin-inline-start: .45em; }
 .tp-wk .tp-rbl .stk .l { margin: 0; font-size: 1em; }
