@@ -559,3 +559,11 @@ html, body, * { cursor: none !important; }
 /* א שורה אין זמני שבת / פורים / ת"ב: אלעמאל א רווח צווישן דעם נאמען און דער שעה */
 .sh-r { column-gap: .45em; }
 .times span small { unicode-bidi: isolate; direction: rtl; }
+/* "נתייסד" / "בנשיאות": 15% קלענער, ענג צווישן די שורות */
+.top .logo i { font-size: 23.8px; line-height: 1; }
+/* מנין כ"ק: ווייניקער רווח צווישן מנחה און מעריב, די מסגרת 10% העכער (ארויף) */
+.mny.c3:not(.pos-side) .times.rbt { gap: 0 12px; padding-top: 6px; }
+.mny.c3:not(.pos-side) .g-rb { padding-top: 26px; }
+/* מצוה יומית / דף היומי: דער "ל" און די סופיות ווערן נישט אפגעשניטן */
+.lrn-m .l1, .lrn-m .l2 { overflow: visible; padding: .12em 0 .1em; line-height: 1.1; }
+.lrn-m { overflow: visible; }

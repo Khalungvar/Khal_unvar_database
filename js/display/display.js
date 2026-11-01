@@ -787,18 +787,19 @@ function updateShiurim(inner) {
   // גרויס ווי מעגליך: די לענגסטע שורה פילט אויס די ברייט
   const rows = [...inn.querySelectorAll('.shiur > div')];
   for (const e of L.querySelectorAll('.ttl, h4')) e.style.fontSize = `${(parseFloat(getComputedStyle(e).fontSize) * ENL_K).toFixed(2)}px`;
+  // די שעה און די קליינע ווערטער אין א שורה — אין פראפארציע צו דער שורה (em), אז זיי ווערן צוזאמען קלענער
+  rows.forEach((r) => { const rf = 17; const ds = [...r.querySelectorAll('*')]; const em = ds.map((d) => (parseFloat(getComputedStyle(d).fontSize) || rf) / (parseFloat(getComputedStyle(d.parentElement).fontSize) || rf)); ds.forEach((d, i) => { d.style.fontSize = `${em[i].toFixed(3)}em`; }); });
   let fs = 36; const setFs = () => rows.forEach((r) => { r.style.fontSize = `${fs}px`; });
   setFs();
   while (fs > 16 && rows.some((r) => r.scrollWidth > r.clientWidth + 1)) { fs -= 1; setFs(); }
-  // ווען עס גייט נישט אריין: קרייז ארויף
-  if (inn.scrollHeight > v.clientHeight + 2) {
-    const hgt = inn.scrollHeight;
-    inn.innerHTML += `<div class="shgap"></div>${inner}`;
-    inn.querySelectorAll('.shiur > div').forEach((r) => { r.style.fontSize = `${fs}px`; });
-    const step = hgt + 30;
-    inn.style.setProperty('--sh', `${step}px`);
-    inn.style.animation = `shscroll ${Math.round(step / Math.max(4, Number(SCR.shiurSpeed) || 18))}s linear infinite`;
-  }
+  // ווען עס גייט נישט אריין: ערשט ענגער צווישן די שורות, נאכדעם קלענערע אותיות — שטייט אויפן פלאץ (קיין קרייז)
+  const over = () => inn.scrollHeight > v.clientHeight + 1;
+  for (let lh = 1.15; over() && lh > 0.98; lh -= 0.03) rows.forEach((r) => { r.style.lineHeight = String(lh.toFixed(2)); r.style.marginTop = '0'; r.style.marginBottom = '0'; });
+  // די כותרות פון די גרופעס (דף היומי / שיעורים) ווערן אויך קלענער מיט די שורות, און ענגער
+  const h4s = [...inn.querySelectorAll('h4')]; const h4f = h4s.map((e) => parseFloat(e.style.fontSize) || 20);
+  const h4set = () => h4s.forEach((e, i) => { e.style.fontSize = `${Math.min(h4f[i], fs * 1.2).toFixed(1)}px`; e.style.lineHeight = '1.05'; e.style.marginBottom = '0'; });
+  if (over()) { inn.querySelectorAll('.shiur').forEach((x, i) => { x.style.marginTop = i ? '2px' : '5px'; x.style.paddingTop = '2px'; }); h4set(); }
+  while (over() && fs > 12) { fs -= 0.5; setFs(); h4set(); }
 }
 /** אלע אותיות 20% גרעסער; ווען עס גייט נישט אריין אין דער מסגרת — ווערן די אפשטאנדן צווישן די שורות קלענער (נישט די אותיות).
  *  אויסגערעכנט איינמאל פאר יעדן אינהאלט (cache), נאכדעם נאר איבערגעשטעלט. */
@@ -866,7 +867,9 @@ const boardCache = new Map();
 function fitC3(box) {
   const sp = [...box.querySelectorAll('.times span')]; const lb = [...box.querySelectorAll('.times.rbt i')];
   const key = `c3|${box.className}|${box.textContent}`;
-  const set = (f) => { sp.forEach((e) => { e.style.fontSize = `${f}px`; }); lb.forEach((e) => { e.style.fontSize = `${Math.round(f * 0.68)}px`; }); };
+  // מנין כ"ק: 15% גרעסער ווי די אנדערע שעות
+  const RB = box.classList.contains('pos-side') ? 1 : 1.15;
+  const set = (f) => { sp.forEach((e) => { e.style.fontSize = `${e.closest('.rbt') ? Math.round(f * RB) : f}px`; }); lb.forEach((e) => { e.style.fontSize = `${Math.round(f * 0.68 * RB)}px`; }); };
   // מנחה / מעריב מיט אסאך מניינים: 2 שעות אין א שורה (שחרית בלייבט איינס אין א שורה)
   const mg = [...box.querySelectorAll('.grp.g-mincha, .grp.g-maariv')];
   const setTwo = (ms) => mg.forEach((g, i) => g.classList.toggle('two', !!(ms & (1 << i))));
