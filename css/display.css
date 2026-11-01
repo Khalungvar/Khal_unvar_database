@@ -587,3 +587,7 @@ html, body, * { cursor: none !important; }
 /* "מצוה" / המספר: חצי רווח; הכותרות 15% יותר גדולות — השורה מתחת נשארת במקום (הכותרת גדלה למעלה) */
 .lv2 .pvn { line-height: .76; }
 .lv2 .pl { font-size: 25.3px; margin-top: -.1304em; }
+/* צבעים מוחלפים: המצוה / הדף בחום־זהב, "מצוה צ'" בכחול; הכותרות קרובות יותר לטקסט (בלי להזיז אותו) */
+.lv2 .pt { color: #8a5a14; }
+.lv2 .pvn { color: var(--navy); }
+.lv2 .pl { position: relative; top: .15em; }
