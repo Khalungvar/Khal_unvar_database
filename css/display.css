@@ -591,3 +591,9 @@ html, body, * { cursor: none !important; }
 .lv2 .pt { color: #8a5a14; }
 .lv2 .pvn { color: var(--navy); }
 .lv2 .pl { position: relative; top: .15em; }
+/* שהשמחה במעונם: חד וקריא מרחוק — אותיות עבות וכהות, בלי צל מטושטש */
+.mzl .mz-e { font-weight: 700; color: #000; box-shadow: 0 0 0 1.5px rgba(138,106,42,.55); -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; }
+.mzl .mz-e b { font-weight: 900; }
+.mzl .mz-e .sg-note, .mzl .mz-e .sg-after { color: #1a1a1a; font-weight: 700; font-size: 18px; }
+.mzl .wk { font-weight: 900; font-size: 21px; }
+.mzl .pg { font-weight: 900; color: #5a3d0f; }
