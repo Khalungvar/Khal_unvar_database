@@ -44,14 +44,16 @@ export function printCss(fontHe = 'Frank Ruhl Libre') {
 .tp-wk .tp-frame i:nth-child(3) { bottom: calc(-9px * var(--k)); right: calc(-9px * var(--k)); }
 .tp-wk .tp-frame i:nth-child(4) { bottom: calc(-9px * var(--k)); left: calc(-9px * var(--k)); }
 .tp-wk .tp-rbl { text-align: center; font-weight: 900; font-size: 3.15em; line-height: 1.12; border: .06em solid #000; border-radius: .2em; margin: .05em 0 .15em; padding: 0 .15em .03em; white-space: nowrap; }
-.tp-wk .tp-rbl { display: flex; justify-content: center; align-items: flex-end; gap: .12em; }
-.tp-wk .tp-rbl .stk { display: flex; flex-direction: column; align-items: flex-start; line-height: 1; padding-bottom: .1em; }
+.tp-wk .tp-rbl { display: flex; justify-content: center; align-items: last baseline; gap: .06em; }
+.tp-wk .tp-rbl { padding-top: .5em; }
+.tp-wk .tp-rbl .stk { position: relative; line-height: 1; }
+.tp-wk .tp-rbl .stk .t { position: absolute; bottom: 165%; right: 0; white-space: nowrap; line-height: 1.05; }
 .tp-wk .tp-rbl .t { font-size: .36em; font-weight: 700; }
-.tp-wk .tp-rbl .l { font-size: .6em; font-weight: 900; line-height: 1; padding-bottom: .1em; margin-inline-start: .35em; }
-.tp-wk .tp-rbl .stk .l { margin: 0; }
-.tp-wk .tp-rbl .stk .l { font-size: 1em; padding: 0; }
-.tp-wk .tp-rbl .stk .l { font-size: .6em; }
-.tp-wk .tp-rbl .ba { font-size: .28em; font-weight: 700; padding-bottom: .4em; }
+.tp-wk .tp-rbl .l { font-size: .6em; font-weight: 900; line-height: 1; margin-inline-start: .45em; }
+.tp-wk .tp-rbl .stk .l { margin: 0; font-size: 1em; }
+.tp-wk .tp-rbl .stk { font-size: .6em; font-weight: 900; }
+.tp-wk .tp-rbl .stk .t { font-size: .6em; }
+.tp-wk .tp-rbl .ba { font-size: .28em; font-weight: 700; margin-inline-start: .15em; }
 .tp-wk .tp-rbl .tp-num { font-size: 1.1em; }
 .tp-wk .tp-rbl .tp-num.dot { font-size: 1em; }
 .tp-wk .tp-in { inset: calc(62px * var(--k)); }
