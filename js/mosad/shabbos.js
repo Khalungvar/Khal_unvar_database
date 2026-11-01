@@ -1,8 +1,8 @@
 // 🕯 דף זמני השבת — זמני ירושלים מהלוח (js/luach/zmanim.js), אורח לסעודה, ואז Word לפי התבנית של הישיבה.
 // התבנית: img/mosad/yeshiva/shabbos-template.docx — מחליפים רק את הטקסטים (הרקע, הגופנים והמסגרת נשארים).
-import { zmanim, hhmm, LOCATIONS } from '../luach/zmanim.js?v=592';
-import { parashaOf, holidayOf } from '../parasha.js?v=592';
-import { toHebrew, yearLabel, todayIso, isoToHebrewText } from '../hebdate.js?v=592';
+import { zmanim, hhmm, LOCATIONS } from '../luach/zmanim.js?v=591';
+import { parashaOf, holidayOf } from '../parasha.js?v=591';
+import { toHebrew, yearLabel, todayIso, isoToHebrewText } from '../hebdate.js?v=591';
 
 let X = null;
 const S = { fri: '' };

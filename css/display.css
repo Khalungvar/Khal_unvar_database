@@ -532,6 +532,8 @@ html, body, * { cursor: none !important; }
 .top .logo i.s2 + i { margin-top: -3px; }
 /* דער גאלדענער פאס פון אונטן גייט ארויף 25px צוזאמען מיט אלעס */
 .bottom { height: calc(1080px - var(--safe, 0px) - 979px * var(--safe-s, 1) + 25px * var(--safe-s, 1)); padding-bottom: calc(var(--safe, 0px) + 25px * var(--safe-s, 1)); }
+/* בהירות כללית 120% */
+#screen { filter: brightness(1.2); }
 /* 3 טורים אין דער קליינער קעסטל */
 .mny.c3.pos-side { padding: 0 10px 8px; column-gap: 8px; }
 .mny.c3.pos-side > .ttl { margin: 0 -10px; }
