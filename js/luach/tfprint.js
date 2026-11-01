@@ -148,7 +148,7 @@ export function weekdayPage(data, n, fri, parsha, loc, size = 'letter', scr = nu
   const sShach = sh.find((r) => r.day === 'sat' && /שחרית/.test(r.label));
   const sMin = sh.find((r) => r.day === 'sat' && r.kind === 'tefila' && /מנחה/.test(r.label));
   const band = (name, note, cls = '') => `<div class="tp-band"><span></span><b>${h(name)}</b>${note ? `<small${cls ? ` class="${cls}"` : ''}>${note}</small>` : '<span></span>'}</div>`;
-  const shNote = w.shacharisNote ? `זמני ברכות (${h(w.shacharisNote.replace(/\s*מינוט|\s*דקות/, ''))} מינוט)` : '';
+  const shNote = w.shacharisNote ? `${h(w.shacharisNote.replace(/\s*מינוט|\s*דקות/, ''))} מינוט` : '';
   const inner = `
     <div class="tp-title">פרשת ${h(parsha)}</div>
     ${band('שחרית', shNote, 'tp-ssh tp-bn')}<div class="tp-times">${line(shach, per('shacharis', shach))}</div>
