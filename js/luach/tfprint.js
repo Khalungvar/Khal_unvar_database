@@ -69,7 +69,7 @@ export function printCss(fontHe = 'Frank Ruhl Libre') {
 .tp-wk .tp-ap { font-family: ${HE}; font-size: .38em; font-weight: 700; margin-inline-start: .15em; vertical-align: .35em; }
 .tp-wk .tp-band small.tp-ssh { font-size: 1.75em; font-weight: 900; white-space: nowrap; line-height: 1.1; }
 .tp-wk .tp-band small.tp-ssh .tp-num { font-size: 1.05em; }
-.tp-wk .tp-band small.tp-bn { font-size: 1.485em; justify-self: end; }
+.tp-wk .tp-band small.tp-bn { font-size: 1.75em; justify-self: end; }
 .tp-new { display: inline-block; font-size: .42em; font-weight: 900; background: #000; color: #fff; border-radius: .3em; padding: .05em .3em .1em; margin-inline-end: .2em; vertical-align: .55em; line-height: 1.15; }
 .tp-rbl .tp-new { font-size: .42em; vertical-align: .55em; }
 .tp-wk .tp-shab { text-align: center; font-size: 2.15em; font-weight: 900; padding: .18em 0 .1em; white-space: nowrap; }
