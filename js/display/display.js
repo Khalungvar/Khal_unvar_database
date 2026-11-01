@@ -521,7 +521,7 @@ function render() {
   const gCls = (g) => (g.rebbe ? 'g-rb' : g.g ? `g-${g.g}` : 'g-x');
   const actOf = (g) => g.items.some((m) => isNx(m));
   const mnyHtml = (bd, pos) => `<div class="frame mny ${pos}${(chg.note || CUR.notice) && pos === 'pos-main' ? ' has-chg' : ''}${c3Of(bd, pos) ? ` c3${bd.groups.some((g) => g.rebbe) ? '' : ' no-rb'}${bd.groups.some((g) => g.g === 'maariv') ? '' : ' no-ma'}` : ''}">
-      <div class="ttl">${h(SCR.texts.tWeek)}${(() => { const k0 = swap ? wk : n; let s6 = k0; while (dowOf(s6) !== 6) s6 += 1; const p6 = dayOf(s6)?.parsha; return p6 ? ` - פרשת ${h(p6)}` : ''; })()}</div>
+      <div class="ttl">${h(SCR.texts.tWeek)}${(() => { let k0 = swap ? wk : board.k; if (dowOf(k0) === 6) k0 += 1; let s6 = k0; while (dowOf(s6) !== 6) s6 += 1; const p6 = dayOf(s6)?.parsha; return p6 ? ` - פרשת ${h(p6)}` : ''; })()}</div>
       ${bd.groups.map((g) => (g.rebbe
         ? `<div class="grp rb ${gCls(g)}${actOf(g) ? ' act' : ''}"><h3>${h(g.h)}</h3><div class="times rbt">${g.items.map((m) => `<span class="${m.min < nowMin ? 'past' : ''}${m === next ? ' nx' : ''}${isNew(m) ? ' new' : ''}">${isNew(m) ? `<em>${h(chg.newTxt ? chg.newTxt(`${m.k}|${m.key}`) : 'חדש')}</em>` : ''}<i>${m.lbl}</i> ${tm(((m.min % 1440) + 1440) % 1440)}</span>`).join('')}</div></div>`
         : `<div class="grp ${gCls(g)}${actOf(g) ? ' act' : ''}"><h3>${h(g.h)}${g.sub ? ` <small>${h(g.sub)}</small>` : ''}</h3>${g.sub ? `<div class="gsub">${h(g.sub)}</div>` : ''}<div class="times">${timesHtml(g.items)}</div></div>`)).join('')}
