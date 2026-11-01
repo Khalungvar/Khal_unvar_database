@@ -1,9 +1,9 @@
 // 📝 טופס הרשמה לישיבת בית שערים (פארן עולם — אן לאגאין) + אזור אישי פאר די עלטערן (?t=…).
 // עברית / אידיש / English. די טעקסטן און סכומים קומען פון "⚙️ הגדרות רישום" (אדער די ברירות מחדל).
-import { CONFIG } from '../config.js?v=591';
-import { toHebrew, fromHebrew, monthsOf, hebrewNumber, yearLabel, isoToHebrewText, todayIso } from '../hebdate.js?v=591';
-import { mergeConf, mergeTexts, fill } from './reg-defaults.js?v=591';
-import { suggest, details, placesEnabled } from '../places.js?v=591';
+import { CONFIG } from '../config.js?v=592';
+import { toHebrew, fromHebrew, monthsOf, hebrewNumber, yearLabel, isoToHebrewText, todayIso } from '../hebdate.js?v=592';
+import { mergeConf, mergeTexts, fill } from './reg-defaults.js?v=592';
+import { suggest, details, placesEnabled } from '../places.js?v=592';
 
 const MOSAD = 'yeshiva';
 const DRAFT = 'reg-draft-v1';
