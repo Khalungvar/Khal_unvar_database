@@ -1,8 +1,7 @@
 // Calls & SMS: שליחות צום עולם (SMS / א הקלטה), קרעדיטן, הקלטות, און ניהול.
 // דער "מוח" איז אן Apps Script (CONFIG.SMS_URL); דא לייענט מען די לשוניות גלייך פונעם גיליון.
 import { CONFIG } from './config.js';
-import { state, allUsers, saveContact } from './data.js';
-import { adminCardInto } from './admin.js';
+import { state, allUsers } from './data.js';
 import { readTabs, appendRows, updateRow, currentToken } from './google.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, nowStamp, digits } from './util.js';
@@ -75,12 +74,30 @@ const paintSeg = (el, full) => {
 
 // ---------- וועמען מ'שיקט ----------
 const phonesOf = (c) => c._phones || state.phones.get(String(c.contact_id)) || {};
+const PH_FIELDS = ['mobile', 'home_phone', 'wife_mobile', 'other_phone'];
 const nm = (c) => ui.fullNameHe(c) || [c.first_name_en, c.last_name_en].filter(Boolean).join(' ');
 export function recipientsOf(listId, kind) {
   const l = state.savedLists.find((x) => String(x.list_id) === String(listId));
   const st = { total: 0, nophone: [], nosend: [], noconsent: [], out: [], dup: 0 };
   if (!l) return { list: [], st };
   const { cr } = parseSaved(l);
+  // רשימת תפוצה: ווען ביי טעלעפאנען שטייט דער נאמען פון דער רשימה — נאר די טעלעפאנען (יעדן פעלד: נייד, בית, אשה, נוסף)
+  const lname = String(l.name || '').trim();
+  const tagged = [];
+  if (lname) state.contacts.forEach((c) => { const p = phonesOf(c); PH_FIELDS.forEach((k) => { if (String(p[`${k}_tags`] || '').split(',').map((x) => x.trim()).includes(lname) && last10(p[k])) tagged.push({ c, d: last10(p[k]) }); }); });
+  if (tagged.length) {
+    const seen = new Set(); const list = [];
+    st.total = tagged.length;
+    tagged.forEach(({ c, d }) => {
+      const o = data?.opt.get(d);
+      if (o && String(o.status) === 'out') { st.out.push(c); return; }
+      if (!o || String(o.status) !== 'in') { st.noconsent.push({ c, d }); return; }
+      if (seen.has(d)) { st.dup += 1; return; }
+      seen.add(d);
+      list.push({ phone: d, contact_id: c.contact_id, name: nm(c) });
+    });
+    return { list, st };
+  }
   const all = evaluate(cr);
   st.total = all.length;
   const okKeys = new Set(channel(all, 'phones', cr.includeNoSend).rows.map((r) => r.key));
@@ -293,7 +310,8 @@ async function loadGabbaiLog(force = false) {
   return glog;
 }
 async function gabbaiView(body) {
-  const joins = data.optRows.filter((o) => String(o.source) === 'join' && String(o.status) === 'in' && !String(o.contact_id || '').trim());
+  // נייע (JOIN) און די פון דער אלטער רשימה (Gloo) וואס זענען נאך נישט פארבינדן מיט א קאנטאקט
+  const joins = data.optRows.filter((o) => ['join', 'old_list'].includes(String(o.source)) && String(o.status) === 'in' && !String(o.contact_id || '').trim());
   body.innerHTML = `<p class="muted">${h(t('loading'))}</p>`;
   const L = await loadGabbaiLog(true);
   const users = Object.fromEntries(allUsers().map((u) => [u.email, u.name]));
@@ -332,8 +350,8 @@ async function gabbaiView(body) {
       if (!c) return;
       const o = data.optRows.find((x) => String(x._row) === inp.dataset.row);
       try {
-        await setConsent([{ phone: o.phone, contact_id: c.contact_id, name: o.name }], 'in', 'join');
-        await joinToCard(c, o.phone);
+        await setConsent([{ phone: o.phone, contact_id: c.contact_id, name: o.name }], 'in', String(o.source) === 'old_list' ? 'old_list' : 'join');
+        await joinToCard(c, o.phone, String(o.lists || '').split(',').map((x) => x.trim()).filter(Boolean));
         renderCalls();
       } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
     };
@@ -341,14 +359,15 @@ async function gabbaiView(body) {
 }
 
 /** א נייער (JOIN) וואס מ'האט פארבינדן מיט א קאנטאקט: דער נומער אין זיין כרטיס (אויב נאך נישט) + די JOIN־רשימה */
-async function joinToCard(c, phone) {
-  const list = String(data.config.join_list || '').trim();
+async function joinToCard(c, phone, lists = null) {
+  const want = lists && lists.length ? lists : [String(data.config.join_list || '').trim()].filter(Boolean);
   const p = { ...(state.phones.get(String(c.contact_id)) || {}) };
   const F = ['mobile', 'other_phone', 'home_phone', 'wife_mobile'];
   let k = F.find((f) => digits(p[f]).slice(-10) === digits(phone).slice(-10));
   if (!k) { k = ['mobile', 'other_phone'].find((f) => !String(p[f] || '').trim()); if (!k) return; p[k] = fmtPhone(phone) || phone; }
-  if (list) { const tags = String(p[`${k}_tags`] || '').split(',').map((x) => x.trim()).filter(Boolean); if (!tags.includes(list)) tags.push(list); p[`${k}_tags`] = tags.join(', '); }
+  if (want.length) { const tags = String(p[`${k}_tags`] || '').split(',').map((x) => x.trim()).filter(Boolean); want.forEach((l) => { if (!tags.includes(l)) tags.push(l); }); p[`${k}_tags`] = tags.join(', '); }
   delete p.contact_id;
+  const { saveContact } = await import('./data.js');
   await saveContact(c, p);
 }
 
@@ -876,7 +895,7 @@ async function adminTab(body) {
   };
   $('#cfg-tx', body).onclick = () => textsDialog();
   $('#cfg-join', body).onchange = async (e) => { try { await call('config_set', { values: { join_list: e.target.value } }); await loadSms(true); ui.toast(t('saved')); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); } };
-  adminCardInto($('#cs-gb-card', body), 'admGabbaim', () => renderCalls());
+  import('./admin.js').then(({ adminCardInto }) => adminCardInto($('#cs-gb-card', body), 'admGabbaim', () => renderCalls())).catch(() => {});
   // דער אישור פון די Toll-Free נומערן (טעלניקס)
   call('tf_status').then((r) => {
     const TF = { Verified: ['✓', 'ok', 'csTfOk'], Rejected: ['✕', 'warn', 'csTfRej'], 'Waiting For Customer': ['⚠', 'warn', 'csTfFix'] };
@@ -902,31 +921,35 @@ async function adminTab(body) {
 }
 
 // ---------- אינעם כרטיס: "מאשר SMS" ----------
+/** שורת SMS בכרטיס: לכל טלפון שיש לו מספר — האם מותר לשלוח אליו */
 export function smsCardHtml(c) {
   if (!smsOn()) return '';
   const p = phonesOf(c);
-  const d = last10(p.mobile);
-  if (!d) return '';
-  const o = data?.opt.get(d);
-  const label = !data ? '…' : !o ? t('smsCardNone') : String(o.status) === 'out' ? t('smsCardOut') : `${t('smsCardIn')} · ${t((SOURCES.find(([k]) => k === o.source) || [, 'smsSrcOther'])[1])}`;
-  return `<p class="sms-card small" id="sms-card-line">📱 SMS: <span class="${o && String(o.status) === 'in' ? 'ok' : o ? 'warn' : 'muted'}">${h(label)}</span>
-    ${data && (!o || String(o.status) !== 'out') ? ` <button type="button" class="linkish small" id="sms-card-btn">${h(t(o && String(o.status) === 'in' ? 'smsCardRemove' : 'smsCardAdd'))}</button>` : ''}</p>`;
+  const seen = new Set();
+  const rows = PH_FIELDS.map((k) => [k, last10(p[k])]).filter(([, d]) => d && !seen.has(d) && seen.add(d));
+  if (!rows.length) return '';
+  const line = ([k, d]) => {
+    const o = data?.opt.get(d);
+    const label = !data ? '…' : !o ? t('smsCardNone') : String(o.status) === 'out' ? t('smsCardOut') : `${t('smsCardIn')} · ${t((SOURCES.find(([x]) => x === o.source) || [, 'smsSrcOther'])[1])}`;
+    return `<span class="sms-ph"><span dir="ltr" class="muted">${h(fmtPhone(d))}</span> <span class="${o && String(o.status) === 'in' ? 'ok' : o ? 'warn' : 'muted'}">${h(label)}</span>${data && (!o || String(o.status) !== 'out') ? ` <button type="button" class="linkish small" data-smsk="${k}">${h(t(o && String(o.status) === 'in' ? 'smsCardRemove' : 'smsCardAdd'))}</button>` : ''}</span>`;
+  };
+  return `<p class="sms-card small" id="sms-card-line">📱 SMS: ${rows.map(line).join(' · ')}</p>`;
 }
 export function wireSmsCard(c) {
   if (!smsOn()) return;
   const refresh = () => { const el = $('#sms-card-line'); if (el) { el.outerHTML = smsCardHtml(c); wireSmsCard(c); } };
   if (!data) { loadSms().then(refresh).catch(() => {}); return; }
-  $('#sms-card-btn')?.addEventListener('click', async () => {
-    const p = phonesOf(c);
-    const o = data.opt.get(last10(p.mobile));
+  $$('#sms-card-line [data-smsk]').forEach((btn) => btn.addEventListener('click', async () => {
+    const p = phonesOf(c); const ph = p[btn.dataset.smsk];
+    const o = data.opt.get(last10(ph));
     try {
-      if (o && String(o.status) === 'in') await setConsent([{ phone: p.mobile, contact_id: c.contact_id, name: nm(c) }], 'none', 'removed');
+      if (o && String(o.status) === 'in') await setConsent([{ phone: ph, contact_id: c.contact_id, name: nm(c) }], 'none', 'removed');
       else {
-        const dlg = dialog(`<h3>📱 ${h(t('smsCardAdd'))}</h3><label>${h(t('smsSource'))} <select id="sc-src">${SOURCES.filter(([k]) => k !== 'join').map(([k, l]) => `<option value="${k}">${h(t(l))}</option>`).join('')}</select></label>
+        const dlg = dialog(`<h3>📱 ${h(t('smsCardAdd'))} <span dir="ltr">${h(fmtPhone(ph))}</span></h3><label>${h(t('smsSource'))} <select id="sc-src">${SOURCES.filter(([k]) => k !== 'join').map(([k, l]) => `<option value="${k}">${h(t(l))}</option>`).join('')}</select></label>
           <div class="dialog-actions"><button type="button" class="btn primary" id="sc-ok">${h(t('saveBtn'))}</button><button type="button" class="btn" data-x>${h(t('cancel'))}</button></div>`);
-        await new Promise((res) => { $('#sc-ok', dlg).onclick = async () => { const src = $('#sc-src', dlg).value; dlg.close(); await setConsent([{ phone: p.mobile, contact_id: c.contact_id, name: nm(c) }], 'in', src); res(); }; dlg.addEventListener('close', res); });
+        await new Promise((res) => { $('#sc-ok', dlg).onclick = async () => { const src = $('#sc-src', dlg).value; dlg.close(); await setConsent([{ phone: ph, contact_id: c.contact_id, name: nm(c) }], 'in', src); res(); }; dlg.addEventListener('close', res); });
       }
       refresh();
     } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
-  });
+  }));
 }

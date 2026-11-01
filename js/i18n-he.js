@@ -920,7 +920,7 @@ export const HE = {
   "smsAddCredit": "הוספת קרדיטים (מנהל)",
   "smsCreditNote": "סיבה (Zelle / צ'ק...)",
   "smsAddCreditBtn": "הוספה",
-  "smsJoins": "נרשמו בעצמם (JOIN)",
+  "smsJoins": "לחבר לאיש קשר (JOIN / הרשימה הישנה)",
   "smsOptOuts": "STOP",
   "smsCardNone": "עדיין לא אישר",
   "smsCardOut": "ביקש STOP",
