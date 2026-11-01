@@ -249,7 +249,9 @@ function gabbaiByPhone(phone) {
   if (!d) return null;
   const s = settingsCols(['gabbai_email', 'gabbai_name', 'gabbai_phone']);
   for (let i = 0; i < s.length; i += 1) {
-    if (last10(s[i].gabbai_phone) === d && s[i].gabbai_email) return { email: lower(s[i].gabbai_email), name: s[i].gabbai_name || s[i].gabbai_email };
+    // א גבאי קען האבן עטלעכע טעלעפאנען (געשיידט מיט א קאמע)
+    const mine = String(s[i].gabbai_phone || '').split(/[,;\/]/).map(last10);
+    if (mine.indexOf(d) >= 0 && s[i].gabbai_email) return { email: lower(s[i].gabbai_email), name: s[i].gabbai_name || s[i].gabbai_email };
   }
   return null;
 }
@@ -326,6 +328,20 @@ function setOpt(phone, fields) {
   if (r) setFields('SmsOptIn', r._row, f);
   else appendObj('SmsOptIn', Object.assign({ phone: fmtPhone(phone) }, f));
 }
+/** JOIN: דער טעלעפאן ווערט צוגעלייגט צו דער רשימה פון "join_list" (SmsConfig) — דער טעג ביים ריכטיגן טעלעפאן אינעם קאנטאקט */
+function joinListName() { return String(config().join_list || '').trim(); }
+function addPhoneToList(contactId, phone, list) {
+  if (!list || !contactId) return false;
+  const d = last10(phone);
+  const t = readTab('Phones');
+  const r = t.rows.filter(function (x) { return String(x.contact_id) === String(contactId); })[0];
+  if (!r) return false;
+  const k = ['mobile', 'home_phone', 'wife_mobile', 'other_phone'].filter(function (f) { return last10(r[f]) === d; })[0];
+  if (!k) return false;
+  const tags = String(r[k + '_tags'] || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+  if (tags.indexOf(list) < 0) { tags.push(list); const f = {}; f[k + '_tags'] = tags.join(', '); setFields('Phones', r._row, f); PHONES = null; }
+  return true;
+}
 function publicInbound(from, text) {
   const P = PropertiesService.getScriptProperties();
   const line = P.getProperty('TELNYX_BROADCAST_NUMBER');
@@ -349,6 +365,7 @@ function publicInbound(from, text) {
     const c = contactsByPhone(from)[0];
     if (c) {
       setOpt(from, { status: 'in', source: 'join', contact_id: c.contact_id, name: heName(c), by: 'sms' });
+      addPhoneToList(c.contact_id, from, joinListName());
       sendSms(line, from, optInText(), null, { line: 'broadcast', contact_id: c.contact_id });
       ev('join_phone', { phone: from, contact_id: c.contact_id, name: heName(c), text: text });
       return { ok: true, handled: 'join-known' };
@@ -379,10 +396,10 @@ function publicInbound(from, text) {
       const r = joinMatch(name);
       if (r.contact) {
         setOpt(from, { contact_id: r.contact.contact_id });
-        ev('join_name', { phone: from, contact_id: r.contact.contact_id, name: name, text: text, detail: heName(r.contact) });
+        ev('join_name', { phone: from, contact_id: r.contact.contact_id, name: name, text: text, detail: heName(r.contact) + (joinListName() ? ' · להוסיף את המספר לכרטיס ולרשימה: ' + joinListName() : '') });
       } else {
         const opts = r.cands.slice(0, 4).map(function (c) { return heName(c) + (parentLine(c) ? ' (' + parentLine(c) + ')' : ''); }).join(' / ');
-        ev('join_review', { phone: from, name: name, text: text, detail: opts ? 'אפשרויות: ' + opts : 'לא נמצא באנשי הקשר' });
+        ev('join_review', { phone: from, name: name, text: text, detail: (opts ? 'אפשרויות: ' + opts : 'לא נמצא באנשי הקשר') + (joinListName() ? ' · רשימה: ' + joinListName() : '') });
         generalTask('📱 הצטרף לקבלת הודעות: ' + name + ' · ' + fmtPhone(from) + ' — לשייך לאיש קשר (Calls & SMS → הגבאים בהודעות)' + (opts ? '. אפשרויות: ' + opts : ''), '');
       }
       return { ok: true, handled: 'join-name' };
@@ -1268,7 +1285,7 @@ function whenText(occ) {
 }
 function gabbaiPhone(email) {
   const s = settingsCols(['gabbai_email', 'gabbai_phone']);
-  for (let i = 0; i < s.length; i += 1) if (lower(s[i].gabbai_email) === lower(email) && last10(s[i].gabbai_phone)) return e164(s[i].gabbai_phone);
+  for (let i = 0; i < s.length; i += 1) { const ph = String(s[i].gabbai_phone || '').split(/[,;\/]/)[0]; if (lower(s[i].gabbai_email) === lower(email) && last10(ph)) return e164(ph); }
   return '';
 }
 /** א מעלדונג פאר'ן גבאי: SMS פונעם נומער פון קהל (פון זיינע קרעדיטן, ביז מינוס $1) + אימעיל */

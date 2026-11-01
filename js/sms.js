@@ -1,7 +1,8 @@
 // Calls & SMS: שליחות צום עולם (SMS / א הקלטה), קרעדיטן, הקלטות, און ניהול.
 // דער "מוח" איז אן Apps Script (CONFIG.SMS_URL); דא לייענט מען די לשוניות גלייך פונעם גיליון.
 import { CONFIG } from './config.js';
-import { state, allUsers } from './data.js';
+import { state, allUsers, saveContact } from './data.js';
+import { adminCardInto } from './admin.js';
 import { readTabs, appendRows, updateRow, currentToken } from './google.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, nowStamp, digits } from './util.js';
@@ -264,6 +265,8 @@ function permsView(body) {
 }
 
 /** רשימות פאר הודעות און צלצולים (גרייטע רשימות מיטן ציל "טעלעפאנען") */
+/** די נעמען פון די גרייטע רשימות פאר טעלעפאנען */
+function phoneListNames() { return [...new Set(savedInScope().filter((l) => parseSaved(l).cr.meta?.firstTab === 'phones').map((l) => String(l.name || '').trim()).filter(Boolean))]; }
 function listsView(body) {
   const mine = savedInScope().filter((l) => parseSaved(l).cr.meta?.firstTab === 'phones');
   body.innerHTML = `<p class="muted small">${h(t('csListsHint'))}</p>
@@ -328,9 +331,25 @@ async function gabbaiView(body) {
       const c = state.contacts.find((x) => ui.pickerLabel(x) === inp.value.trim());
       if (!c) return;
       const o = data.optRows.find((x) => String(x._row) === inp.dataset.row);
-      try { await setConsent([{ phone: o.phone, contact_id: c.contact_id, name: o.name }], 'in', 'join'); renderCalls(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+      try {
+        await setConsent([{ phone: o.phone, contact_id: c.contact_id, name: o.name }], 'in', 'join');
+        await joinToCard(c, o.phone);
+        renderCalls();
+      } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
     };
   });
+}
+
+/** א נייער (JOIN) וואס מ'האט פארבינדן מיט א קאנטאקט: דער נומער אין זיין כרטיס (אויב נאך נישט) + די JOIN־רשימה */
+async function joinToCard(c, phone) {
+  const list = String(data.config.join_list || '').trim();
+  const p = { ...(state.phones.get(String(c.contact_id)) || {}) };
+  const F = ['mobile', 'other_phone', 'home_phone', 'wife_mobile'];
+  let k = F.find((f) => digits(p[f]).slice(-10) === digits(phone).slice(-10));
+  if (!k) { k = ['mobile', 'other_phone'].find((f) => !String(p[f] || '').trim()); if (!k) return; p[k] = fmtPhone(phone) || phone; }
+  if (list) { const tags = String(p[`${k}_tags`] || '').split(',').map((x) => x.trim()).filter(Boolean); if (!tags.includes(list)) tags.push(list); p[`${k}_tags`] = tags.join(', '); }
+  delete p.contact_id;
+  await saveContact(c, p);
 }
 
 // ---------- הודעות אוטומטיות ----------
@@ -839,6 +858,9 @@ async function adminTab(body) {
       <button type="button" class="btn" id="cfg-yt">📅 ${h(t('smsCfgYt'))}</button>
       <button type="button" class="btn" id="cfg-tx">📝 ${h(t('csTxTitle'))}</button></section>
     <section><h3>✅ ${h(t('csTfTitle'))}</h3><div id="tf-status" class="muted">…</div></section>
+    <section><h3>🔑 ${h(t('csJoinTitle'))}</h3><p class="muted small">${h(t('csJoinHint'))}</p>
+      <select id="cfg-join"><option value="">${h(t('csJoinNone'))}</option>${phoneListNames().map((n) => `<option value="${h(n)}"${n === String(c.join_list || '') ? ' selected' : ''}>${h(n)}</option>`).join('')}</select></section>
+    <section><h3>📱 ${h(t('csGbTitle'))}</h3><div id="cs-gb-card"></div></section>
     <section><h3>📊 ${h(t('smsReport'))}</h3><div id="sms-report" class="muted">…</div></section>
     <section><h3>➕ ${h(t('smsAddCredit'))}</h3>
       <select id="cr-user">${users.map((u) => `<option value="${h(u.email)}">${h(u.name)}</option>`).join('')}</select>
@@ -853,6 +875,8 @@ async function adminTab(body) {
     try { await call('config_set', { values: { blocked_dates: yt.join(','), erev_dates: erev.join(',') } }); await loadSms(true); ui.toast(t('smsCfgYtDone', { n: yt.length })); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
   };
   $('#cfg-tx', body).onclick = () => textsDialog();
+  $('#cfg-join', body).onchange = async (e) => { try { await call('config_set', { values: { join_list: e.target.value } }); await loadSms(true); ui.toast(t('saved')); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); } };
+  adminCardInto($('#cs-gb-card', body), 'admGabbaim', () => renderCalls());
   // דער אישור פון די Toll-Free נומערן (טעלניקס)
   call('tf_status').then((r) => {
     const TF = { Verified: ['✓', 'ok', 'csTfOk'], Rejected: ['✕', 'warn', 'csTfRej'], 'Waiting For Customer': ['⚠', 'warn', 'csTfFix'] };

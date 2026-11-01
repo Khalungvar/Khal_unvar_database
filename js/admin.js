@@ -204,7 +204,14 @@ export function renderAdmin() {
   $$('.adm-card[data-key]', main).forEach((card) => wireCard(card, defs[Number(card.dataset.key)]));
 }
 
-function wireCard(card, def) {
+/** א כארטל פון דער אדמין (למשל 'admGabbaim') אין אן אנדער ארט (Calls & SMS → ניהול) — די זעלבע דאטן, די זעלבע שפייכלונג */
+export function adminCardInto(el, label, after) {
+  const def = GROUPS.flatMap((g) => g.lists || []).find((d) => d.label === label);
+  if (!def || !el) return;
+  el.innerHTML = cardHtml(def, label);
+  wireCard(el.firstElementChild, def, after);
+}
+function wireCard(card, def, after = null) {
   const body = $('tbody', card);
   const dirty = () => { $('.adm-save', card).hidden = false; card.classList.add('dirty'); };
   card.addEventListener('input', dirty);
@@ -247,7 +254,7 @@ function wireCard(card, def) {
       else await saveListColumns(columns);
       await loadAll();
       ui.refreshAll();
-      renderAdmin();
+      if (after) after(); else renderAdmin();
       ui.toast(t('saved'));
       if (shareP && await shareP) await syncSharing({ auto: true });
     } catch (err) {
