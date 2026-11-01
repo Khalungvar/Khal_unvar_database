@@ -578,3 +578,9 @@ html, body, * { cursor: none !important; }
 /* מצוה יומית / דף היומי: חצי מהרווח בין השורות; "מצוה יומית:" באותו גודל כמו "דף היומי:" */
 .lrn-m .l1, .lrn-m .l2 { padding: 0; line-height: .78; }
 .lrn-m:not(.lrn-d) .l1 span { font-size: 28.6px; }
+/* מצוה יומית + דף היומי — אותו מראה: כותרת קטנה, ומתחת המצוה / הדף באותו גודל וצבע; בצד: "מצוה" + המספר */
+.lrn-m.lv2 { display: flex; flex-direction: row; align-items: stretch; padding: 6px 12px; }
+.lv2 .pvn { flex: 0 0 auto; display: flex; flex-direction: column; justify-content: center; align-items: center; padding-left: 12px; margin-left: 12px; border-left: 2px solid rgba(138,106,42,.45); font-family: var(--serif); font-weight: 900; color: #8a5a14; font-size: 38px; line-height: 1.02; white-space: nowrap; }
+.lv2 .pvb { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+.lv2 .pl { font-family: var(--serif); font-weight: 700; color: var(--muted); font-size: 22px; line-height: 1; white-space: nowrap; }
+.lv2 .pt { font-family: var(--serif); font-weight: 900; color: var(--navy); font-size: 40px; line-height: 1.05; white-space: nowrap; margin-top: 4px; padding: .05em 0; }

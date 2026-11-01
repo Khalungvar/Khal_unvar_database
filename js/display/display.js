@@ -630,13 +630,12 @@ function render() {
       ${omer ? `<div class="omer">${h(omer)}</div>` : ''}
     </div>`}
 
-    ${HID.mitzva ? '' : `<div class="frame lrn-m">
-      <div class="l1"><span>${h(SCR.texts.tMitzva)}:</span> מצוה ${h(hebrewNumber(mz.n))}</div>
-      <div class="l2 fit">${h(mz.text)}</div>
+    ${HID.mitzva ? '' : `<div class="frame lrn-m lv2">
+      <div class="pvn"><span>מצוה</span><span>${h(hebrewNumber(mz.n))}</span></div>
+      <div class="pvb"><div class="pl">${h(SCR.texts.tMitzva)}:</div><div class="pt">${h(mz.text)}</div></div>
     </div>`}
-    ${HID.daf ? '' : `<div class="frame lrn-m lrn-d">
-      <div class="l1"><span>${h(SCR.texts.tDaf)}:</span></div>
-      <div class="l2 fit">${h(`${daf.masechta} ${gersh(daf.daf)}`)}</div>
+    ${HID.daf ? '' : `<div class="frame lrn-m lrn-d lv2">
+      <div class="pvb"><div class="pl">${h(SCR.texts.tDaf)}:</div><div class="pt">${h(`${daf.masechta} ${gersh(daf.daf)}`)}</div></div>
     </div>`}`}
 <!--BOT-->
     ${HID.bottom ? '' : `<div class="bottom">
@@ -696,14 +695,8 @@ function render() {
     let fs = 40; el.style.fontSize = `${fs}px`;
     while (el.scrollWidth > el.clientWidth + 1 && fs > 14) { fs -= 1; el.style.fontSize = `${fs}px`; }
   }
-  // מצוה יומית: די אויבערשטע שורה ("מצוה יומית: מצוה פ"ח") אין דער זעלבער גרייס ווי דער נאמען פון דער מצוה
-  for (const box of document.querySelectorAll('#dyn .lrn-m:not(.lrn-d)')) {
-    const a = box.querySelector('.l1'); const b2 = box.querySelector('.l2'); if (!a || !b2) continue;
-    let fs = parseFloat(b2.style.fontSize) || 40; a.style.fontSize = `${fs}px`;
-    while (a.scrollWidth > a.clientWidth + 1 && fs > 14) { fs -= 1; a.style.fontSize = `${fs}px`; }
-    b2.style.fontSize = `${fs}px`;
-  }
   enlarge($('#dyn'));
+  sameLrn();
   // שמחות: די רשימה טאר נישט אנרירן דעם "1 מתוך 2" — ווען עס גייט נישט אריין, ווערן די אותיות פון די שמחות קלענער
   for (const ls of document.querySelectorAll('#dyn .mzl .list')) {
     const es = [...ls.querySelectorAll('.mz-e, .mz-e *')]; let g = 1;
@@ -716,6 +709,13 @@ function render() {
   $('#dynb').innerHTML = bot;
   enlarge($('#dynb'));
   updateOverlays();
+}
+// מצוה יומית + דף היומי: די מצוה און דער דף אין דער זעלבער גרייס — די גרעסטע וואס גייט אריין אין ביידע
+function sameLrn() {
+  const pts = [...document.querySelectorAll('#dyn .lv2 .pt')]; if (!pts.length) return;
+  let fs = Math.min(...pts.map((p) => parseFloat(getComputedStyle(p).fontSize) || 40));
+  const set = () => pts.forEach((p) => p.style.setProperty('font-size', `${fs}px`, 'important'));
+  set(); while (pts.some((p) => p.scrollWidth > p.clientWidth + 1) && fs > 12) { fs -= 0.5; set(); }
 }
 let shLast = null; let adLast = null; let ovLast = null; let thmLast = null;
 // ---------- תמונות / טעקסטן / דפים אויפן מסך (פון "תצוגת והגדרות המסך") ----------
@@ -826,7 +826,7 @@ function enlarge(root) {
   const kk = els.map(kOf);
   els.forEach((e, i) => { if (fs[i]) e.style.setProperty('font-size', `${(fs[i] * kk[i]).toFixed(2)}px`, 'important'); });
   // וואס דארף זיין אין איין שורה — קלענער ביז עס גייט אריין אין דער ברייט
-  for (const el of root.querySelectorAll('.fit, .sh-t.one, .chg-note, .pd-h, .lrn-m .l1, .sh-r > span, .ttl, .grp h3')) {
+  for (const el of root.querySelectorAll('.fit, .sh-t.one, .chg-note, .pd-h, .lrn-m .l1, .lv2 .pt, .sh-r > span, .ttl, .grp h3')) {
     let f = parseFloat(el.style.fontSize); while (f > 11 && el.scrollWidth > el.clientWidth + 1) { f -= 0.5; el.style.setProperty('font-size', `${f}px`, 'important'); }
   }
   // דער רבי'ס שורה (מנחה / מעריב) — אין איין שורה
