@@ -8,6 +8,7 @@ import { LOCATIONS } from './zmanim.js';
 import { hebrewNumber, todayIso, toHebrew, monthHe } from '../hebdate.js';
 import { customFontNames } from '../fonts.js';
 import { htmlToJpeg, jpegsToPdf } from '../pdf.js';
+import { weekdayDocx } from './tfdocx.js';
 import { escapeHtml as h } from '../util.js';
 
 const LOC = LOCATIONS.bp;
@@ -122,6 +123,7 @@ function render(main) {
       <button type="button" class="btn primary" id="tp-print">🖨 הדפסה</button>
       <button type="button" class="btn" id="tp-pdf">PDF</button>
       <button type="button" class="btn" id="tp-jpg">JPG</button>
+      ${st.type === 'weekday' ? '<button type="button" class="btn" id="tp-docx" title="המסגרת כתמונה, הטקסט אפשר לערוך">⬇ וורד</button>' : ''}
     </div>
     <style id="tp-css">${printCss(st.font)}</style>
     <div class="tp-prev" id="tp-prev">${pagesHtml()}</div>`;
@@ -173,6 +175,16 @@ function render(main) {
       const pdf = jpegsToPdf(await jpgs(3), { pageW: S.w * 72, pageH: S.h * 72, margin: 0 });
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([pdf], { type: 'application/pdf' }));
       a.download = `${name()}.pdf`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    } catch (err) { ui?.toast?.(ui.friendlyError ? ui.friendlyError(err) : String(err), 'error'); }
+    b.disabled = false;
+  };
+  const dx = $('#tp-docx', main);
+  if (dx) dx.onclick = async (e) => {
+    const b = e.currentTarget; b.disabled = true;
+    try {
+      const blob = await weekdayDocx(pages(), { size: SIZES[st.size], font: st.font, css: printCss(st.font) });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${name()}.docx`;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     } catch (err) { ui?.toast?.(ui.friendlyError ? ui.friendlyError(err) : String(err), 'error'); }
     b.disabled = false;
   };

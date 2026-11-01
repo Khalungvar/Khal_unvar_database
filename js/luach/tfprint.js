@@ -142,7 +142,9 @@ export function weekdayPage(data, n, fri, parsha, loc, size = 'letter', scr = nu
   const sh = computeShabbos(data, fri, loc);
   // צעטיילט גלייך: 7 → 3,2,2
   const even = (a, per) => { const L = Math.max(1, Math.ceil(a.length / per)); const o = []; let i = 0; for (let k = 0; k < L; k += 1) { const c = Math.ceil((a.length - i) / (L - k)); o.push(a.slice(i, i + c)); i += c; } return o; };
-  const line = (items, per) => even(items, per).map((row) => `<div class="tp-line">${row.map((x) => `${x.g ? tag(x.g, x) : ''}<span class="tp-num${x.rebbe ? ' tp-rb' : ''}">${tm(x.min)}</span>${x.ap ? '<span class="tp-ap">בערך</span>' : ''}${x.xn ? `<span class="tp-ap">${h(x.xn)}</span>` : ''}`).join('<span class="tp-num dot">•</span>')}</div>`).join('');
+  // 3 אין א שורה; אבער צוויי שורות פון 2 צום סוף → איין שורה פון 4
+  const rowsOf = (items, per) => { const r = even(items, per); if (r.length >= 2 && r[r.length - 1].length === 2 && r[r.length - 2].length === 2) r.splice(r.length - 2, 2, [...r[r.length - 2], ...r[r.length - 1]]); return r; };
+  const line = (items, per) => rowsOf(items, per).map((row) => `<div class="tp-line">${row.map((x) => `${x.g ? tag(x.g, x) : ''}<span class="tp-num${x.rebbe ? ' tp-rb' : ''}">${tm(x.min)}</span>${x.ap ? '<span class="tp-ap">בערך</span>' : ''}${x.xn ? `<span class="tp-ap">${h(x.xn)}</span>` : ''}`).join('<span class="tp-num dot">•</span>')}</div>`).join('');
   const per = (g, a) => (g === 'mincha' ? (a.length > 9 ? 4 : 3) : g === 'maariv' ? (a.length > 4 ? 3 : 2) : (a.length > 9 ? 4 : 3));
   const rbM = w.mincha.find((x) => x.rebbe); const rbA = w.maariv.find((x) => x.rebbe);
   const mincha = w.mincha.filter((x) => !x.rebbe).map((x) => ({ ...x, g: 'mincha' })); const maariv = w.maariv.filter((x) => !x.rebbe).map((x) => ({ ...x, g: 'maariv' }));
