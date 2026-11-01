@@ -1956,7 +1956,15 @@ function closeOnBackdrop(dialog, close) {
     if (e.target !== dialog) return;
     const r = dialog.getBoundingClientRect();
     const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
-    if (!inside) close();
+    if (!inside) {
+      close();
+      // די לחיצה (mouseup/click) וואס קומט נאכדעם טאר נישט "דורכפאלן" אויף דעם וואס ליגט אונטער דעם פענצטער (למשל "רשימה חדשה")
+      if (!dialog.open) {
+        const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+        document.addEventListener('click', swallow, { capture: true, once: true });
+        setTimeout(() => document.removeEventListener('click', swallow, { capture: true }), 600);
+      }
+    }
   });
 }
 
