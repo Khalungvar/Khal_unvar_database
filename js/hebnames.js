@@ -13,11 +13,12 @@ const M = {
   'שלמה': 'Shlomo Shloime Shloimy Shloimi Solomon Sholmo Shlomie Shloimie Shlome Salamon Shlomi',
   'יוסף': 'Yosef Yossef Yoseph Yosel Yossel Yossi Yossy Yosi Yoshe Joseph Joe Joey Yossie Yoseif Yusef Yosele',
   'בנימין': 'Binyomin Binyamin Benjamin Binyamin Binyumin Benyomin Benyamin Benny Ben Binny Bini Biny Yomi Yumi Yoni Yumy',
-  'שמואל': 'Shmuel Shmiel Samuel Sam Shmuely Shmuli Shmuly Shmulik Shmiel Shmil Sammy Shmelke',
+  'שמואל': 'Shmuel Shmiel Shmual Samuel Sam Shmuely Shmuli Shmuly Shmulik Shmil Sammy',
+  'שמעלקע': 'Shmelke Shmelka',
   'יהושע': 'Yehoshua Yehoshia Joshua Josh Shia Shea Shaya Shie Shiye Shuie Yeshua Yehoshie Shiye Yeshie',
   'ישעיה': 'Yeshaya Yeshayahu Yeshayah Isaiah Shaya Shaye Shayu Shayah',
   'ישראל': 'Yisroel Yisrael Israel Yisrul Srul Sruly Sruli Srulik Isruel Israel Yisruel Srully',
-  'מרדכי': 'Mordechai Mordche Mordchai Mordy Mordi Motty Mottie Motti Moti Motel Motl Mordecai Mutty Mutti Mottel Mordkhe',
+  'מרדכי': 'Mordechai Mordchay Mordechay Mordche Mordchai Mordy Mordi Motty Mottie Motti Moti Motel Motl Mordecai Mutty Mutti Mottel Mordkhe',
   'אליעזר': 'Eliezer Lazer Leizer Leiser Lezer Laizer Elazer Eluzer Lazar Leizy',
   'אלעזר': 'Elazar Eleazar Elozor Elozer',
   'אליהו': 'Eliyahu Eliyohu Eliahu Eliahou Elijah Eli Elia Elya Elye Elyahu',
@@ -107,7 +108,7 @@ const M = {
   'צמח': 'Tzemach Tzemech',
   'מאיר צבי': '',
   // ---- נקבה: שמות עבריים ----
-  'שרה': 'Sarah Sara Suri Surie Suri Soro Surah Sury Sorale Sarala Surele',
+  'שרה': 'Sarah Sara Sora Sorah Sura Suri Surie Soro Surah Sury Sorale Sarala Surele',
   'רבקה': 'Rivka Rivkah Rifka Rifky Rivky Rivki Rebecca Rivkie Riki Ricky Rifki',
   'רחל': 'Rochel Rachel Ruchel Ruchy Ruchie Ruchi Rochi Rochy Rochie',
   'לאה': 'Leah Lea Leeba?',
@@ -124,7 +125,8 @@ const M = {
   'מלכה': 'Malka Malky Malki Malkie Malkah',
   'רייזל': 'Raizel Reizel Raizy Raizi Rose? Reizy',
   'שיינדל': 'Sheindel Shaindel Shaindy Sheindy Shaindie',
-  'בלומא': 'Bluma Blima Blimie Blimy Blimi Bloomie',
+  'בלומא': 'Bluma Bloomie',
+  'בלימא': 'Blima Blimie Blimy Blimi',
   'פערל': 'Perel Pearl Perl Peril Perry? Perele',
   'גיטל': 'Gitel Gittel Gitty Gitti Gittie Gitta',
   'הינדא': 'Hinda Hindy Hindi Hindie',
@@ -160,7 +162,8 @@ const M = {
   // ---- אידיש (נשאר באידיש) ----
   'לייב': 'Leib Leibel Leibi Leibie Leiby Leibish Leibele Lieb Leb Laib Leibl',
   'הערש': 'Hersh Hershel Hershy Hershi Hershie Hersch Herschel Hirsh Hirsch Heshy Heshi Heshie',
-  'בער': 'Ber Berel Berl Berish Beri Berry?',
+  'בער': 'Ber Berel Berl Beri Berry?',
+  'בעריש': 'Berish Berisch Berrish',
   'וואלף': 'Wolf Velvel Velvi Volvi Welwel',
   'פייוויש': 'Feivish Feivel Fivel Feival Feivy Feivi',
   'קאפל': 'Kopel Koppel Kopy Koppy',
@@ -182,6 +185,8 @@ const M = {
   'שייע': 'Shaye?',
   'נטע': 'Nuta Nute Nusi? Nota Nosi?',
   'פערץ': 'Peretz Perets',
+  'איתמר': 'Isamar Itamar Isomor Isumar',
+  'ציון': 'Zion Tzion',
   'מאניס': 'Manis Mannis Manes Mannes',
   'שעפטל': 'Sheftel Sheftl',
   'קלמן': 'Kalmen?',
@@ -231,7 +236,7 @@ export function heOfWord(w) {
 }
 /** שם מלא (כמה מילים): כל מילה לבד. null = אין שום הצעה */
 export function heOfName(en, translit = null) {
-  const words = String(en || '').replace(/\([^)]*\)/g, ' ').replace(/[.,]/g, ' ').split(/\s+/).filter((w) => w.length > 1);
+  const words = String(en || '').replace(/\([^)]*\)/g, ' ').replace(/[.,]/g, ' ').replace(/\bben[\s-]*t?zion\b/gi, 'Bentzion').split(/\s+/).filter((w) => w.length > 1);
   if (!words.length) return null;
   let parts = words.map(heOfWord);
   if (parts.every((p) => !p)) return null;

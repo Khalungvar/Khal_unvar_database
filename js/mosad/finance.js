@@ -1,14 +1,14 @@
 // אתר פון א מוסד — 💰 משכורות והוצאות (הרשאה "finance"):
 // 💵 משכורות (₪: גלובלי / שעות קבועות / רישום יומי / גלובלי + שעות, תוספות און ניכויים, תשלומים, וויפיל מ'איז נאך שולדיג),
 // 🧾 הוצאות (₪/$, קאטעגאריעס, צילום קבלה), 📥 הכנסות ותמיכה, ⚖️ חובות פתוחים, 📊 מאזן חודשי — יעדער מטבע באזונדער.
-import { downloadXlsx } from '../excel.js?v=595';
-import { todayIso, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=595';
-import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=595';
-import { historyDialog } from './me.js?v=595';
-import { PAY_TYPES, schedText } from './team.js?v=595';
-import { usdRate } from '../fx.js?v=595';
-import { heDate } from './brand.js?v=595';
-import { hebMonthOf } from './hdays.js?v=595';
+import { downloadXlsx } from '../excel.js?v=596';
+import { todayIso, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=596';
+import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=596';
+import { historyDialog } from './me.js?v=596';
+import { PAY_TYPES, schedText } from './team.js?v=596';
+import { usdRate } from '../fx.js?v=596';
+import { heDate } from './brand.js?v=596';
+import { hebMonthOf } from './hdays.js?v=596';
 
 let X = null;
 export function initFinance(ctx) { X = ctx; }
@@ -118,7 +118,7 @@ export async function renderFinance(box) {
   X.$('#fn-reload', box).onclick = async () => { F.d = null; renderFinance(box); };
   const body = X.$('#fn-body', box);
   const rer = () => renderFinance(box);
-  if (F.tab === 'work') { const { renderWork } = await import('./journal.js?v=595'); renderWork(body); return; }
+  if (F.tab === 'work') { const { renderWork } = await import('./journal.js?v=596'); renderWork(body); return; }
   ({ sal: salTab, exp: expTab, inc: incTab, debt: debtTab, bal: balTab })[F.tab](body, rer);
 }
 const monthBar = (extra = '') => `<div class="ms-bar"><label>חודש <input type="month" id="fn-mo" value="${X.h(F.month)}"></label><b>${X.h(monthName(F.month))}</b><span class="spacer"></span>${extra}</div>`;
