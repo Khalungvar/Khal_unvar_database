@@ -576,5 +576,6 @@ html, body, * { cursor: none !important; }
 .lrn-s .shin.two { padding-top: 6px; }
 .lrn-s .shiur > div .who { display: block; padding-right: .6em; font-size: 1.1em; font-weight: 700; color: #5c513c; }
 /* מצוה יומית / דף היומי: חצי מהרווח בין השורות; "מצוה יומית:" באותו גודל כמו "דף היומי:" */
-.lrn-m .l1, .lrn-m .l2 { padding: .06em 0 .05em; line-height: 1.04; }
+.lrn-m .l1, .lrn-m .l2 { padding: 0; line-height: .86; }
+.lrn-m .l1 { margin-bottom: .08em; }
 .lrn-m:not(.lrn-d) .l1 span { font-size: 28.6px; }
