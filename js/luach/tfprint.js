@@ -48,9 +48,9 @@ export function printCss(fontHe = 'Frank Ruhl Libre') {
 .tp-wk .tp-rbl small { font-size: .6em; }
 .tp-wk .tp-rbl .tp-num { font-size: 1.15em; }
 .tp-wk .tp-in { inset: calc(62px * var(--k)); }
-.tp-wk .tp-title { text-align: center; font-weight: 900; font-size: 4.1em; line-height: 1.12; padding: .1em 0 .12em; }
+.tp-wk .tp-title { text-align: center; font-weight: 900; font-size: 5.33em; line-height: 1.05; padding: .1em 0 .12em; }
 .tp-wk .tp-band { background: #000; color: #fff; border-radius: .25em; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: .02em .5em .1em; }
-.tp-wk .tp-band b { font-size: 3.2em; font-weight: 900; line-height: 1.15; }
+.tp-wk .tp-band b { font-size: 4em; font-weight: 900; line-height: .92; padding-bottom: .04em; }
 .tp-wk .tp-band small { font-size: .95em; font-weight: 700; text-align: center; line-height: 1.2; justify-self: end; }
 .tp-wk .tp-band small.r { justify-self: start; }
 .tp-wk .tp-times { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: space-evenly; padding: .15em 0; }
@@ -60,6 +60,7 @@ export function printCss(fontHe = 'Frank Ruhl Libre') {
 .tp-wk .tp-ap { font-family: ${HE}; font-size: .38em; font-weight: 700; margin-inline-start: .15em; vertical-align: .35em; }
 .tp-wk .tp-band small.tp-ssh { font-size: 1.75em; font-weight: 900; white-space: nowrap; line-height: 1.1; }
 .tp-wk .tp-band small.tp-ssh .tp-num { font-size: 1.05em; }
+.tp-wk .tp-band small.tp-bn { font-size: 1.35em; justify-self: end; }
 .tp-new { display: inline-block; font-size: .42em; font-weight: 900; background: #000; color: #fff; border-radius: .3em; padding: .05em .3em .1em; margin-inline-end: .2em; vertical-align: .55em; line-height: 1.15; }
 .tp-rbl .tp-new { font-size: .55em; vertical-align: .4em; }
 .tp-wk .tp-shab { text-align: center; font-size: 2.15em; font-weight: 900; padding: .18em 0 .1em; white-space: nowrap; }
@@ -146,11 +147,11 @@ export function weekdayPage(data, n, fri, parsha, loc, size = 'letter', scr = nu
   const fMin = sh.find((r) => r.day === 'fri' && r.kind === 'tefila' && /מנחה/.test(r.label));
   const sShach = sh.find((r) => r.day === 'sat' && /שחרית/.test(r.label));
   const sMin = sh.find((r) => r.day === 'sat' && r.kind === 'tefila' && /מנחה/.test(r.label));
-  const band = (name, note) => `<div class="tp-band"><span></span><b>${h(name)}</b>${note ? `<small>${note}</small>` : '<span></span>'}</div>`;
-  const shNote = w.shacharisNote ? `זמני ברכות<br>(${h(w.shacharisNote.replace(/\s*מינוט|\s*דקות/, ''))} מינוט)` : '';
+  const band = (name, note, cls = '') => `<div class="tp-band"><span></span><b>${h(name)}</b>${note ? `<small${cls ? ` class="${cls}"` : ''}>${note}</small>` : '<span></span>'}</div>`;
+  const shNote = w.shacharisNote ? `זמני ברכות (${h(w.shacharisNote.replace(/\s*מינוט|\s*דקות/, ''))} מינוט)` : '';
   const inner = `
     <div class="tp-title">פרשת ${h(parsha)}</div>
-    ${band('שחרית', shNote)}<div class="tp-times">${line(shach, per('shacharis', shach))}</div>
+    ${band('שחרית', shNote, 'tp-ssh tp-bn')}<div class="tp-times">${line(shach, per('shacharis', shach))}</div>
     ${band('מנחה', w.minchaNote ? h(w.minchaNote) : '')}<div class="tp-times">${line(mincha, per('mincha', mincha))}</div>
     ${rbLine}
     ${band('מעריב', w.maarivNote ? h(w.maarivNote) : '')}<div class="tp-times">${line(maariv, per('maariv', maariv))}</div>
