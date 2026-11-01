@@ -771,6 +771,8 @@ export const HE = {
   "csGabbai": "הגבאים בהודעות",
   "csAdmin": "ניהול",
   "csNoCard": "להשאיר בלי כרטיס",
+  "csPendingGets": "מקבל הודעות, צריך לחבר",
+  "csPendingN": "מתוך זה {n} ממתינים לחיבור",
   "csNoCardTitle": "מנויים בלי כרטיס (מקבלים הודעות)",
   "csNoCardN": "מתוך זה {n} בלי כרטיס",
   "csJoinTitle": "הצטרפות ב-JOIN",
