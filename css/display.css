@@ -574,3 +574,4 @@ html, body, * { cursor: none !important; }
 .lrn-s .shin.two .shiur > div { white-space: normal; overflow: visible; }
 .mny.c3:not(.pos-side) .times.rbt { gap: 0 4px; }
 .lrn-s .shin.two { padding-top: 6px; }
+.lrn-s .shiur > div .who { display: block; padding-right: .6em; }

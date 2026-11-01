@@ -360,8 +360,9 @@ function render() {
   // {שעה} {חלק היום} - {שם השיעור} - {מגיד שיעור} - {מיקום}
   const shLine = (x) => {
     const t = x.min == null ? `<b>${h(x.note || '')}</b>` : `<b>${tm(x.min)}</b> <small>${partOfDay(x.min)}</small>`;
-    const parts = [x.type === 'daf' ? '' : h(x.title), h(x.who), h(x.room)].filter(Boolean).join(' - ');
-    return `<div class="${x === nextShiur ? 'nx' : 'ln'}">${t} - ${parts}</div>`;
+    // שורה 1: שעה, סוג (אויב ס'איז דא), ארט; שורה 2: דער מגיד שיעור
+    const parts = [x.type === 'daf' ? '' : h(x.title), h(x.room)].filter(Boolean).join(' - ');
+    return `<div class="${x === nextShiur ? 'nx' : 'ln'}">${t}${parts ? ` - ${parts}` : ''}${x.who ? `<span class="who">${h(x.who)}</span>` : ''}</div>`;
   };
 
   // מניינים
