@@ -585,7 +585,7 @@ function render() {
   const html = `
     ${PREVIEW ? '<div class="sample">תצוגה מקדימה — לא נשמר</div>' : !LIVE ? '<div class="sample">דוגמה — זמני ברירת מחדל</div>' : ''}
     <div class="top">
-      ${HID.day ? '<div class="day"></div>' : `<div class="day">${h(dw === 6 && nowMin > z.motzei ? 'מוצאי שבת קודש' : YDAY[dw])}${parsha ? ` פרשת ${h(parsha)}` : ''}<small class="hd">${h(heDate)}${holAll ? ` - ${h(holAll)}` : ''}</small></div>`}
+      ${HID.day ? '<div class="day"></div>' : `<div class="day">${h(dw === 6 && nowMin > z.motzei ? 'מוצאי שבת קודש' : YDAY[dw])}${(() => { const pd = dw === 6 ? (dayOf(n)?.parsha || '') : parsha; return pd ? ` פרשת ${h(pd)}` : ''; })()}<small class="hd">${h(heDate)}${holAll ? ` - ${h(holAll)}` : ''}</small></div>`}
       ${HID.logo ? '<div class="logo"></div>' : `<div class="logo"><img src="${h(SCR.logo || 'img/logo.png')}" alt=""><b>${h(SCR.texts.title)}</b>${SCR.texts.sub2 ? `<i class="s2">${h(SCR.texts.sub2)}</i>` : ''}<i>${h(SCR.texts.sub)}</i></div>`}
       ${HID.clock ? '<div class="clock"></div>' : `<div class="clock">${hh}:${String(now.getMinutes()).padStart(2, '0')}<span>:${String(now.getSeconds()).padStart(2, '0')} ${ap}</span><small class="greg">${now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</small></div>`}
     </div>
