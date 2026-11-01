@@ -362,7 +362,7 @@ async function renderWeek(body, seder) {
       <button type="button" class="btn" id="ja-full">🖨 עם הסימונים</button>
       <button type="button" class="btn" id="ja-xl">⬇ Excel</button>
     </div>
-    <p class="muted small">לחיצה על משבצת: ✓ נוכח → ✗ חסר → ⏰ איחור → ריק.${two ? ' 1 / 2 = תחילת הסדר וסוף הסדר.' : ''} אפשר גם "✓ לכולם" ביום.</p>
+    <p class="muted small">לחיצה על משבצת: ✓ נוכח → ✗ חסר → ⏰ איחור → ריק.${two ? ' 1 / 2 = תחילת הסדר וסוף הסדר. ✓ ב-2 כש-1 ריק — 1 מסומן אוטומטית ⏰ איחור.' : ''} אפשר גם "✓ לכולם" ביום.</p>
     <div class="ms-wrap"><table class="ms-table ja-table"><thead>
       <tr><th rowspan="${two ? 2 : 1}">#</th><th rowspan="${two ? 2 : 1}">שם</th><th rowspan="${two ? 2 : 1}">משפחה</th>${days.map((d) => `<th colspan="${slotsOn(seder, d)}"${two && slotsOn(seder, d) < 2 ? ' rowspan="2"' : ''} class="c">${DAYS[d]}<div class="muted small">${fmtDay(isoAdd(sun, d))}</div>${edit ? `<button type="button" class="linkish small" data-all="${d}">✓ לכולם</button>` : ''}</th>`).join('')}</tr>
       ${two ? `<tr>${days.filter((d) => slotsOn(seder, d) > 1).map(() => '<th class="c small">1</th><th class="c small">2</th>').join('')}</tr>` : ''}
@@ -373,7 +373,13 @@ async function renderWeek(body, seder) {
   const saveBtn = X.$('#ja-save', body);
   const changed = new Set();
   const setCell = (b, v) => { marks[b.dataset.id][b.dataset.k] = v; if (!v) delete marks[b.dataset.id][b.dataset.k]; b.textContent = MARK_TXT[v] || ''; b.className = `ja-cell m-${v || 'e'}`; changed.add(b.dataset.id); J.dirty = true; if (saveBtn) saveBtn.disabled = false; };
-  X.$$('.ja-cell', body).forEach((b) => { b.onclick = () => { const cur = marks[b.dataset.id][b.dataset.k] || ''; setCell(b, MARKS[(MARKS.indexOf(cur) + 1) % MARKS.length]); }; });
+  // משבצת 2 ✓ און משבצת 1 איז ליידיג → ער איז געקומען שפעטער: משבצת 1 ווערט ⏰ איחור (מ'קען עס טוישן)
+  const lateFirst = (b) => {
+    const k = b.dataset.k; if (!k.endsWith('b') || marks[b.dataset.id][k] !== 'v') return;
+    const k1 = k.slice(0, -1); if (marks[b.dataset.id][k1]) return;
+    const b1 = X.$(`.ja-cell[data-id="${CSS.escape(b.dataset.id)}"][data-k="${k1}"]`, body); if (b1) setCell(b1, 'l');
+  };
+  X.$$('.ja-cell', body).forEach((b) => { b.onclick = () => { const cur = marks[b.dataset.id][b.dataset.k] || ''; setCell(b, MARKS[(MARKS.indexOf(cur) + 1) % MARKS.length]); lateFirst(b); }; });
   X.$$('[data-all]', body).forEach((a) => {
     a.onclick = () => X.$$(`.ja-cell[data-k="${a.dataset.all}"], .ja-cell[data-k="${a.dataset.all}b"]`, body).forEach((b) => { if (!marks[b.dataset.id][b.dataset.k]) setCell(b, 'v'); });
   });
