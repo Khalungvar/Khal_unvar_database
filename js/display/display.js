@@ -790,8 +790,12 @@ function updateShiurim(inner) {
   // די שעה און די קליינע ווערטער אין א שורה — אין פראפארציע צו דער שורה (em), אז זיי ווערן צוזאמען קלענער
   rows.forEach((r) => { const rf = 17; const ds = [...r.querySelectorAll('*')]; const em = ds.map((d) => (parseFloat(getComputedStyle(d).fontSize) || rf) / (parseFloat(getComputedStyle(d.parentElement).fontSize) || rf)); ds.forEach((d, i) => { d.style.fontSize = `${em[i].toFixed(3)}em`; }); });
   let fs = 36; const setFs = () => rows.forEach((r) => { r.style.fontSize = `${fs}px`; });
+  // דף היומי און די אנדערע שיעורים: צוויי טורים (דף היומי רעכטס); א שיעור מעג זיך צוטיילן אויף 2 שורות
+  const two = !!(inn.querySelector('.sh-daf') && inn.querySelector('.sh-oth'));
+  inn.classList.toggle('two', two);
   setFs();
   while (fs > 16 && rows.some((r) => r.scrollWidth > r.clientWidth + 1)) { fs -= 1; setFs(); }
+  if (two) { while (fs > 12 && inn.scrollHeight > v.clientHeight + 1) { fs -= 0.5; setFs(); } }
   // ווען עס גייט נישט אריין: ערשט ענגער צווישן די שורות, נאכדעם קלענערע אותיות — שטייט אויפן פלאץ (קיין קרייז)
   const over = () => inn.scrollHeight > v.clientHeight + 1;
   for (let lh = 1.15; over() && lh > 0.98; lh -= 0.03) rows.forEach((r) => { r.style.lineHeight = String(lh.toFixed(2)); r.style.marginTop = '0'; r.style.marginBottom = '0'; });
@@ -857,7 +861,7 @@ function enlarge(root) {
     if (below.length) {
       const top = Math.min(...below.map((r) => r.top)); const kids = [...logo.querySelectorAll('*')];
       const bot = () => Math.max(...kids.map((x) => x.getBoundingClientRect().bottom)); const scr = $('#screen'); const sc = scr.getBoundingClientRect().width / (scr.offsetWidth || 1);
-      let k = 1; while (bot() > top - 4 * sc && k > 0.5) { k -= 0.03; squeeze(kids, k); }
+      let k = 1; while (bot() > top - 16 * sc && k > 0.5) { k -= 0.03; squeeze(kids, k); }
     }
   }
   ENL.set(key, els.map((e) => e.style.cssText)); if (ENL.size > 40) ENL.clear();
@@ -868,7 +872,7 @@ function fitC3(box) {
   const sp = [...box.querySelectorAll('.times span')]; const lb = [...box.querySelectorAll('.times.rbt i')];
   const key = `c3|${box.className}|${box.textContent}`;
   // מנין כ"ק: 15% גרעסער ווי די אנדערע שעות
-  const RB = box.classList.contains('pos-side') ? 1 : 1.15;
+  const RB = box.classList.contains('pos-side') ? 1 : 1.3;
   const set = (f) => { sp.forEach((e) => { e.style.fontSize = `${e.closest('.rbt') ? Math.round(f * RB) : f}px`; }); lb.forEach((e) => { e.style.fontSize = `${Math.round(f * 0.68 * RB)}px`; }); };
   // מנחה / מעריב מיט אסאך מניינים: 2 שעות אין א שורה (שחרית בלייבט איינס אין א שורה)
   const mg = [...box.querySelectorAll('.grp.g-mincha, .grp.g-maariv')];

@@ -567,3 +567,10 @@ html, body, * { cursor: none !important; }
 /* מצוה יומית / דף היומי: דער "ל" און די סופיות ווערן נישט אפגעשניטן */
 .lrn-m .l1, .lrn-m .l2 { overflow: visible; padding: .12em 0 .1em; line-height: 1.1; }
 .lrn-m { overflow: visible; }
+/* שיעורי תורה אין צוויי טורים: דף היומי (רעכטס) / די אנדערע (לינקס) */
+.lrn-s .shin.two { display: grid; grid-template-columns: 1fr 1fr; column-gap: 0; }
+.lrn-s .shin.two .shiur { margin: 0 !important; padding: 2px 8px 0 !important; border-top: 0; }
+.lrn-s .shin.two .shiur.sh-oth { border-right: 2px solid rgba(138,106,42,.45); }
+.lrn-s .shin.two .shiur > div { white-space: normal; overflow: visible; }
+.mny.c3:not(.pos-side) .times.rbt { gap: 0 4px; }
+.lrn-s .shin.two { padding-top: 6px; }
