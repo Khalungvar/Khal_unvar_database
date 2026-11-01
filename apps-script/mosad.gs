@@ -47,6 +47,7 @@ const TABS = {
   // 🍳 מלאי המטבח
   Kitchen: ['product_id', 'product_name', 'category', 'current_stock', 'unit', 'min_threshold', 'lead_time_days', 'daily_use', 'expiry_date', 'supplier_name', 'unit_price', 'recurring_day', 'standard_qty', 'note', 'updated_at', 'updated_by'],
   KitchenOrders: ['order_id', 'date', 'supplier', 'items', 'total', 'status', 'note', 'created_at', 'created_by'],
+  KitchenEvents: ['event_id', 'name', 'date', 'items', 'note', 'updated_at', 'updated_by'],
   KitchenRequests: ['req_id', 'type', 'product_id', 'data', 'note', 'by', 'at', 'status', 'decided_by', 'decided_at'],
 };
 const K_NUM = { current_stock: 1, min_threshold: 1, lead_time_days: 1, daily_use: 1, unit_price: 1, standard_qty: 1 };
@@ -992,12 +993,31 @@ const ACTIONS = {
     const rd = function (name) { const sh = ensureTab(M.book, name, TABS[name]); return objs(sh).filter(function (x) { return S(x[TABS[name][0]]); }).map(function (x) { const o = {}; TABS[name].forEach(function (k) { o[k] = S(x[k]).replace(/^'/, ''); }); return o; }); };
     const items = rd('Kitchen').map(function (o) { o.expiry_date = o.expiry_date.slice(0, 10); return o; });
     const orders = rd('KitchenOrders').slice(-300);
+    const events = rd('KitchenEvents').map(function (e) { e.date = String(e.date).slice(0, 10); return e; });
     if (me.kw) { // עובד מטבח (סיסמה)
       if (!me.kw.prices) items.forEach(function (o) { o.unit_price = ''; });
-      return { items: items, orders: orders.map(function (o) { if (!me.kw.prices) o.total = ''; return o; }), kw: { name: me.kw.name, prices: !!me.kw.prices },
+      return { items: items, events: events, orders: orders.map(function (o) { if (!me.kw.prices) o.total = ''; return o; }), kw: { name: me.kw.name, prices: !!me.kw.prices },
         requests: rd('KitchenRequests').filter(function (r) { return r.by === me.email; }).slice(-50) };
     }
-    return { items: items, orders: orders, requests: rd('KitchenRequests').filter(function (r) { return r.status === 'pending'; }), workers: kWorkers(M).map(function (w) { return { id: w.id, name: w.name, prices: !!w.prices, active: w.active !== false }; }) };
+    return { items: items, events: events, orders: orders, requests: rd('KitchenRequests').filter(function (r) { return r.status === 'pending'; }), workers: kWorkers(M).map(function (w) { return { id: w.id, name: w.name, prices: !!w.prices, active: w.active !== false }; }) };
+  },
+  /** 🎉 הזמנה מיוחדת (פורים, שבועות, שבת שהרבי נמצא…): { event_id?, name, date, items: [{ id, name, qty, unit, supplier }], note } · remove */
+  kitchenEventSave: function (M, me, req) {
+    need(me, 'kitchen');
+    const e = req.event || {};
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const sh = ensureTab(M.book, 'KitchenEvents', TABS.KitchenEvents);
+      const all = objs(sh);
+      const ex = S(e.event_id) && all.filter(function (x) { return S(x.event_id) === S(e.event_id); })[0];
+      if (req.remove) { if (ex) delRow(sh, ex._row); return { ok: true }; }
+      const items = [].concat(e.items || []).slice(0, 300).map(function (x) { return { id: S(x.id).slice(0, 20), name: S(x.name).slice(0, 120), qty: Number(x.qty) || 0, unit: S(x.unit).slice(0, 20), supplier: S(x.supplier).slice(0, 80) }; }).filter(function (x) { return x.name; });
+      const o = { name: S(e.name).slice(0, 80) || 'הזמנה מיוחדת', date: S(e.date) ? "'" + S(e.date).slice(0, 10) : '', items: JSON.stringify(items), note: S(e.note).slice(0, 300), updated_at: now(), updated_by: me.email };
+      if (ex) { setCells(sh, ex._row, o); return { ok: true, id: S(ex.event_id) }; }
+      let max = 0; all.forEach(function (x) { const n = Number(x.event_id); if (n > max) max = n; });
+      o.event_id = max + 1; appendObj(sh, o);
+      return { ok: true, id: String(max + 1) };
+    } finally { lock.releaseLock(); }
   },
   /** 🔑 עובדי מטבח: { id?, name, password?, prices, active } */
   kitchenWorkerSave: function (M, me, req) {
@@ -1096,7 +1116,7 @@ const ACTIONS = {
       return { ok: true };
     } finally { lock.releaseLock(); }
   },
-  /** ❓ עוזר AI: עונה רק לפי המדריך של האתר (help/yeshiva.md). דער שליסל: Script Properties → GEMINI_API_KEY */
+  /** ❓ עוזר AI: מדריך האתר + גישה לנתונים (לפי ההרשאות) דרך "כלים"; הוספה / שינוי — רק הצעה, המשתמש מאשר באתר. מפתח: Script Properties → GEMINI_API_KEY */
   ask: function (M, me, req) {
     const q = S(req.question).slice(0, 800);
     if (!q) throw new Error('need-text');
@@ -1105,8 +1125,9 @@ const ACTIONS = {
     if (!key) throw new Error('ai-no-key');
     const c = CacheService.getScriptCache();
     const day = Utilities.formatDate(new Date(), 'Asia/Jerusalem', 'yyyy-MM-dd');
+    const limit = Number(props.getProperty('DAILY_LIMIT') || 40);
     const lk = 'ai:' + day + ':' + me.email; const n = Number(c.get(lk) || 0);
-    if (n >= Number(props.getProperty('DAILY_LIMIT') || 30)) throw new Error('ai-limit');
+    if (n >= limit) throw new Error('ai-limit');
     c.put(lk, String(n + 1), 21600);
     let guide = c.get('ai-guide:' + M.key);
     if (!guide) {
@@ -1114,22 +1135,39 @@ const ACTIONS = {
       guide = r.getResponseCode() === 200 ? r.getContentText().slice(0, 90000) : '';
       if (guide) c.put('ai-guide:' + M.key, guide, 3600);
     }
-    const system = ['You are the help assistant of the management website of ' + (M.name || 'the yeshiva') + ' (ungvar.org/' + M.key + ').',
-      'Answer ONLY from the guide below. If the guide does not cover it, say you do not know and suggest asking the site manager.',
-      'Answer in Hebrew (or in the language of the question). Be short and practical: numbered steps, exact button names in **bold** as in the guide.',
-      'Never invent buttons or features. You cannot see or change any data. Do not ask for or repeat personal data.',
-      'The user is currently on the page: ' + S(req.page).slice(0, 60) + '. Their permissions: ' + (isAdminRole(me) ? 'admin (all)' : me.perms.join(', ')) + '.',
-      '', '=== GUIDE ===', guide].join('\n');
+    const can = function (p) { return isAdminRole(me) || me.perms.indexOf(p) >= 0; };
+    const seePeople = ['students', 'alumni', 'parents', 'staff_list', 'people_edit', 'insurance', 'attendance', 'chavrusas'].some(can);
+    const T = aiTools(M, me, can);
+    const decls = seePeople ? T.decls : [];
+    const system = ['You are the assistant of the management website of ' + (M.name || 'the yeshiva') + ' (ungvar.org/' + M.key + ').',
+      'Answer in Hebrew (or in the language of the question). Be short and practical. Exact button names in **bold** as in the guide.',
+      'For "how do I" questions answer ONLY from the guide below; never invent buttons or features.',
+      seePeople ? 'You can look up people with the tools (find_people, person_details). Use them for questions about a specific person. Never guess data; if not found, say so.' : 'You have no access to people data for this user.',
+      seePeople ? 'To add a person or change a phone, call the propose_* tools — this only PREPARES the change; tell the user to press the ✓ button that appears to confirm. Never claim it was saved.' : '',
+      'Do not reveal data beyond what the tools return. The user is on page: ' + S(req.page).slice(0, 60) + '. Their permissions: ' + (isAdminRole(me) ? 'admin (all)' : me.perms.join(', ')) + '.',
+      'Today: ' + day + '.', '', '=== GUIDE ===', guide].join('\n');
     const model = props.getProperty('GEMINI_MODEL') || 'gemini-flash-latest';
-    const res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
-      method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, muteHttpExceptions: true,
-      payload: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: q }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 4096 } }) });
-    if (res.getResponseCode() !== 200) throw new Error('ai-' + res.getResponseCode());
-    const data = JSON.parse(res.getContentText());
-    const parts = (((data.candidates || [])[0] || {}).content || {}).parts || [];
-    const answer = parts.map(function (p) { return p.text || ''; }).join('').trim();
-    if (!answer) throw new Error('ai-empty');
-    return { answer: answer, left: Math.max(0, Number(props.getProperty('DAILY_LIMIT') || 30) - n - 1) };
+    const contents = [].concat((req.history || []).slice(-6).map(function (x) { return { role: x.role === 'model' ? 'model' : 'user', parts: [{ text: S(x.text).slice(0, 2000) }] }; }), [{ role: 'user', parts: [{ text: q }] }]);
+    const actions = [];
+    for (let turn = 0; turn < 5; turn++) {
+      const body = { systemInstruction: { parts: [{ text: system }] }, contents: contents, generationConfig: { temperature: 0.2, maxOutputTokens: 4096 } };
+      if (decls.length) body.tools = [{ functionDeclarations: decls }];
+      const res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', { method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, muteHttpExceptions: true, payload: JSON.stringify(body) });
+      if (res.getResponseCode() !== 200) throw new Error('ai-' + res.getResponseCode());
+      const cand = ((JSON.parse(res.getContentText()).candidates || [])[0] || {}).content || { parts: [] };
+      const calls = (cand.parts || []).filter(function (p) { return p.functionCall; });
+      if (!calls.length) {
+        const answer = (cand.parts || []).map(function (p) { return p.text || ''; }).join('').trim();
+        if (!answer && !actions.length) throw new Error('ai-empty');
+        return { answer: answer, actions: actions, left: Math.max(0, limit - n - 1) };
+      }
+      contents.push({ role: 'model', parts: cand.parts });
+      contents.push({ role: 'user', parts: calls.map(function (p) {
+        let out; try { out = T.run(p.functionCall.name, p.functionCall.args || {}, actions); } catch (err) { out = { error: String(err.message || err) }; }
+        return { functionResponse: { name: p.functionCall.name, response: { result: out } } };
+      }) });
+    }
+    return { answer: 'לא הצלחתי להשלים את הבקשה. נסה לנסח אחרת.', actions: actions };
   },
   /** 🎖 סוגי מלגות: [{ id, name, sedarim: [keys], tpl: { to: [], bless, intro, amount, quotes: [] } }] */
   stipTypesSave: function (M, me, req) {
@@ -2291,6 +2329,62 @@ const REG_MAIL_DEFAULT = {
 };
 
 // ---------- פארן עולם (אן לאגאין) ----------
+// ---------- ❓ כלים של העוזר (רק קריאה; שינויים — הצעה בלבד) ----------
+function aiTools(M, me, can) {
+  const P = ACTIONS.people(M);
+  const byId = {}; P.people.forEach(function (p) { byId[S(p.contact_id)] = p; });
+  const nm = function (p) { return p ? [S(p.title_he), S(p.first_name_he), S(p.last_name_he)].filter(Boolean).join(' ') || [S(p.first_name_en), S(p.last_name_en)].join(' ').trim() : ''; };
+  const father = function (id) { const r = P.relations.filter(function (x) { return (x.a === id && x.type === 'זון פון') || (x.b === id && x.type === 'טאטע פון'); })[0]; return r ? byId[r.a === id ? r.b : r.a] : null; };
+  const t = Utilities.formatDate(new Date(), 'Asia/Jerusalem', 'yyyy-MM-dd');
+  let EN = null; const enOf = function (id) { if (!EN) { EN = {}; objs(M.book.getSheetByName('Enrollments')).forEach(function (e) { (EN[S(e.contact_id)] = EN[S(e.contact_id)] || []).push(e); }); } return EN[id] || []; };
+  const status = function (id) { const es = enOf(id); if (!es.length) return ''; const act = es.some(function (e) { const end = S(e.end_date).slice(0, 10); return S(e.status) !== 'יצא' && !(end && end < t); }); return act ? 'לומד עכשיו' : 'בוגר / יצא'; };
+  const brief = function (p) { const id = S(p.contact_id); const f = father(id); return { contact_id: id, name: nm(p), kinds: S(p.kind), status: status(id), il_phone: S(p.il_phone), abroad_phone: S(p.abroad_phone), mobile: S(p.mobile), father: f ? nm(f) + ' (#' + S(f.contact_id) + ')' : '' }; };
+  const decls = [
+    { name: 'find_people', description: 'Search people of the yeshiva (students, alumni, parents, staff, avreichim) by name or phone. Returns up to 15 matches.', parameters: { type: 'OBJECT', properties: { query: { type: 'STRING', description: 'name (Hebrew/English, part is ok) or phone digits' } }, required: ['query'] } },
+    { name: 'person_details', description: 'Full details of one person by contact_id: phones, email, address, father/children, enrollment dates, insurance (if allowed).', parameters: { type: 'OBJECT', properties: { contact_id: { type: 'STRING' } }, required: ['contact_id'] } },
+    { name: 'propose_add_person', description: 'PREPARE adding a new person (not saved until the user confirms in the site).', parameters: { type: 'OBJECT', properties: { first_name_he: { type: 'STRING' }, last_name_he: { type: 'STRING' }, kind: { type: 'STRING', enum: ['student', 'parent', 'staff', 'avreich', 'other'] }, father_contact_id: { type: 'STRING', description: 'optional: contact_id of the father (must already exist)' }, mobile: { type: 'STRING' }, il_phone: { type: 'STRING' }, abroad_phone: { type: 'STRING' } }, required: ['first_name_he', 'last_name_he', 'kind'] } },
+    { name: 'propose_set_phone', description: 'PREPARE changing the Israel phone or the abroad phone of an existing person (not saved until the user confirms).', parameters: { type: 'OBJECT', properties: { contact_id: { type: 'STRING' }, field: { type: 'STRING', enum: ['il_phone', 'abroad_phone'] }, value: { type: 'STRING' } }, required: ['contact_id', 'field', 'value'] } },
+  ];
+  const run = function (name, a, actions) {
+    if (name === 'find_people') {
+      const q = S(a.query).toLowerCase(); const dg = q.replace(/\D/g, '');
+      const words = q.replace(/[0-9\-\s]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+      const hits = P.people.filter(function (p) {
+        if (dg.length >= 5 && [p.mobile, p.home_phone, p.il_phone, p.abroad_phone, p.wife_mobile].map(S).some(function (x) { return x.replace(/\D/g, '').indexOf(dg) >= 0; })) return true;
+        if (!words.length) return false;
+        const hay = [p.first_name_he, p.last_name_he, p.first_name_en, p.last_name_en].map(S).join(' ').toLowerCase();
+        return words.every(function (w) { return hay.indexOf(w) >= 0; });
+      });
+      return { count: hits.length, people: hits.slice(0, 15).map(brief) };
+    }
+    if (name === 'person_details') {
+      const id = S(a.contact_id).replace(/\D/g, ''); const p = byId[id];
+      if (!p) return { error: 'not found' };
+      const o = brief(p);
+      ['email_1', 'home_phone', 'wife_mobile', 'address', 'city', 'state', 'zip', 'country', 'marital_status'].forEach(function (k) { if (S(p[k])) o[k] = S(p[k]); });
+      o.children = P.relations.filter(function (x) { return (x.b === id && x.type === 'זון פון') || (x.a === id && x.type === 'טאטע פון'); }).map(function (x) { const k = byId[x.a === id ? x.b : x.a]; return k ? nm(k) + ' (#' + S(k.contact_id) + ')' : ''; }).filter(Boolean);
+      o.enrollments = enOf(id).map(function (e) { const par = byId[S(e.parent_id)]; return { from: S(e.start_date).slice(0, 10), to: S(e.end_date).slice(0, 10), zman: S(e.zman), status: S(e.status), parent: par ? nm(par) + ' (' + S(par.mobile || par.home_phone) + ')' : '', note: S(e.note) }; });
+      if (can('insurance')) { const r = objs(M.book.getSheetByName('Insurance')).filter(function (x) { return S(x.contact_id) === id; })[0]; if (r) o.insurance = { kupah: S(r.kupah), member_no: S(r.member_no), company: S(r.company), policy_no: S(r.policy_no), expires: S(r.expires).slice(0, 10), debt: S(r.debt), status: S(r.status), note: S(r.note) }; }
+      if (can('staff_list')) { const tm = objs(M.book.getSheetByName('Team')).filter(function (x) { return S(x.contact_id) === id; })[0]; if (tm) o.team = { role: S(tm.role), active: !isOff(tm.active), from: S(tm.start_date).slice(0, 10), to: S(tm.end_date).slice(0, 10) }; }
+      return o;
+    }
+    if (name === 'propose_add_person') {
+      if (!can('people_edit')) return { error: 'no permission to add people' };
+      if (S(a.father_contact_id) && !byId[S(a.father_contact_id).replace(/\D/g, '')]) return { error: 'father not found' };
+      const dup = P.people.filter(function (p) { return S(p.first_name_he) === S(a.first_name_he) && S(p.last_name_he) === S(a.last_name_he); }).map(brief);
+      actions.push({ type: 'add', data: { first_name_he: S(a.first_name_he), last_name_he: S(a.last_name_he), kind: S(a.kind), father: S(a.father_contact_id).replace(/\D/g, ''), mobile: S(a.mobile), il_phone: S(a.il_phone), abroad_phone: S(a.abroad_phone) } });
+      return { prepared: true, possible_duplicates: dup, note: 'Tell the user to press ✓ to confirm' + (dup.length ? ' — warn: a person with the same name already exists' : '') };
+    }
+    if (name === 'propose_set_phone') {
+      if (!can('students') && !can('people_edit')) return { error: 'no permission' };
+      const id = S(a.contact_id).replace(/\D/g, ''); const p = byId[id]; if (!p) return { error: 'not found' };
+      actions.push({ type: 'phone', data: { contact_id: id, name: nm(p), field: S(a.field) === 'abroad_phone' ? 'abroad_phone' : 'il_phone', value: S(a.value), old: S(p[S(a.field)]) } });
+      return { prepared: true, note: 'Tell the user to press ✓ to confirm' };
+    }
+    return { error: 'unknown tool' };
+  };
+  return { decls: decls, run: run };
+}
 // ---------- 🍳 עובדי מטבח: סיסמה פאר יעדן (Settings: kitchen_workers) — נאר דער מטבח ----------
 function kWorkers(M) { const r = objs(M.book.getSheetByName('Settings')).filter(function (x) { return S(x.key) === 'kitchen_workers'; })[0]; try { const v = JSON.parse(S(r && r.value) || '[]'); return Array.isArray(v) ? v : []; } catch (err) { return []; } }
 function kHash(salt, pass) { return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + '|' + pass, Utilities.Charset.UTF_8)); }
@@ -2327,8 +2421,9 @@ const KPUB = {
       const op = S(req.op);
       if (op === 'read') return ACTIONS.kitchen(M, me);
       if (op === 'stock') { const v = Math.max(0, Number(req.value) || 0); return ACTIONS.kitchenSave(M, me, { row: { product_id: S(req.id), current_stock: v } }); }
-      if (op === 'order') { const r = ACTIONS.kitchenOrder(M, me, { supplier: req.supplier, items: [].concat(req.items || []).map(function (x) { return { id: x.id, name: x.name, qty: x.qty, unit: x.unit, price: me.kw.prices ? x.price : 0 }; }), received: !!req.received }); return r; }
+      if (op === 'order') { const r = ACTIONS.kitchenOrder(M, me, { supplier: req.supplier, items: [].concat(req.items || []).map(function (x) { return { id: x.id, name: x.name, qty: x.qty, unit: x.unit, price: me.kw.prices ? x.price : 0 }; }), received: !!req.received, note: req.note }); return r; }
       if (op === 'receive') return ACTIONS.kitchenReceive(M, me, { id: req.id });
+      if (op === 'event') return ACTIONS.kitchenEventSave(M, me, { event: req.event, remove: !!req.remove });
       if (op === 'request') {
         const type = S(req.type) === 'delete' ? 'delete' : 'add';
         const sh = ensureTab(M.book, 'KitchenRequests', TABS.KitchenRequests);

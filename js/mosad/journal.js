@@ -150,7 +150,7 @@ export function printList(title, sub, { cols, rows, head = null, landscape = fal
   const anyEk = D.cols.some((c) => c.ek);
   const fopts = cols.map((c, i) => `<option value="f${i}">רק מי שמלא — ${X.h(c.t)}</option><option value="e${i}">רק מי שריק — ${X.h(c.t)}</option>`).join('');
   const bar = `<label>להציג: <select id="pf"><option value="-1">כולם</option>${fopts}</select></label>
-    <span hidden><input type="checkbox" id="p2"${twoUp ? ' checked' : ''}>
+    <span hidden><input type="checkbox" id="p2" checked>
     ${anyEk ? sel('pw', '', [['30', 'בינונית']]) : ''}
     ${sel('pz', '', [['12.5', 'רגילה']])}
     ${sel('ph', '', [[anyEk ? '26' : '18', '']])}</span>`;
@@ -614,7 +614,12 @@ export async function renderIns(box) {
   const act = activeStudents();
   const zAll = [...new Set(act.map(zOf).filter(Boolean))].sort((a, b) => (zs.findIndex((z) => z.label === a) - zs.findIndex((z) => z.label === b)));
   if (J.insZ && !zAll.includes(J.insZ)) J.insZ = '';
-  const ids = act.filter((e) => !J.insZ || zOf(e) === J.insZ).map((e) => e.contact_id).filter((id) => X.pById(id));
+  const ids0 = act.filter((e) => !J.insZ || zOf(e) === J.insZ).map((e) => e.contact_id).filter((id) => X.pById(id));
+  // 🔎 חיפוש לפי שם (או טלפון)
+  const qq = S(J.insQ || '');
+  const ids = !qq ? ids0 : ids0.filter((id) => `${full(id)} ${X.pById(id)?.il_phone || ''}`.includes(qq));
+  // טלפון האבא: ההורה ברישום, אחרת "בן של" בכרטיס
+  const fPhone = (id) => { const e = act.find((x) => String(x.contact_id) === String(id)); const par = (e?.parent_id && X.pById(e.parent_id)) || X.fatherOf(X.pById(id) || {}); return par ? X.phoneOf(par) || '' : ''; };
   const insOf = (id) => J.ins.find((r) => String(r.contact_id) === String(id)) || {};
   const parentMail = (id) => { const f = X.fatherOf(X.pById(id) || {}); return X.S(f?.email_1) || X.S(X.pById(id)?.email_1); };
   const soon = (d) => d && d <= new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
@@ -627,24 +632,27 @@ export async function renderIns(box) {
     <div class="ms-bar">
       <div class="seg"><button type="button" data-f="" class="${f ? '' : 'on'}">הכל</button><button type="button" data-f="_need" class="${f === '_need' ? 'on' : ''}">⚠ לטיפול (${ids.filter((id) => needs(insOf(id))).length})</button>
         ${KUPOT.filter((k) => counts[k]).map((k) => `<button type="button" data-f="${h(k)}" class="${f === k ? 'on' : ''}">${h(k)} (${counts[k]})</button>`).join('')}</div>
+      <input type="search" id="ji-q" placeholder="🔎 חיפוש לפי שם…" value="${h(J.insQ || '')}">
       <label class="small">זמן <select id="ji-z"><option value="">כל הזמנים</option>${zAll.map((z) => `<option${z === J.insZ ? ' selected' : ''}>${h(z)}</option>`).join('')}</select></label>
       <span class="spacer"></span>
       <button type="button" class="btn" id="ji-print">🖨 הדפסה</button><button type="button" class="btn" id="ji-xl">⬇ Excel</button>
     </div>
-    <p class="muted small">"לטיפול" = אין קופה / אין מספר חבר / יש חוב / הביטוח נגמר בתוך 30 יום / סומן "לטיפול". הטלפון — הטלפון בארץ (מ"תלמידי הישיבה"); מייל — של האב.</p>
-    <div class="ms-wrap"><table class="ms-table"><thead><tr><th>#</th><th>שם</th><th>משפחה</th><th>טלפון</th><th>מספר חבר</th><th>אימייל הורים</th><th>קופה</th><th>הערות</th><th></th></tr></thead><tbody>
+    <p class="muted small">"לטיפול" = אין קופה / אין מספר חבר / יש חוב / הביטוח נגמר בתוך 30 יום / סומן "לטיפול". הטלפון — הטלפון בארץ (מ"תלמידי הישיבה"); טלפון האבא — של ההורה ברישום; מייל — של האב.</p>
+    <div class="ms-wrap"><table class="ms-table col-filter" data-fkey="ins"><thead><tr><th>#</th><th>שם</th><th>משפחה</th><th>טלפון</th><th>טלפון האבא</th><th>מספר חבר</th><th>אימייל הורים</th><th>קופה</th><th>הערות</th><th></th></tr></thead><tbody>
       ${list.map((id, i) => { const r = insOf(id); return `<tr class="${needs(r) ? 'ji-need' : ''}"><td class="num">${i + 1}</td><td>${h(first(id))}</td><td><b>${h(last(id))}</b></td>
-        <td dir="ltr" class="small">${h(X.pById(id)?.il_phone || '')}</td><td dir="ltr" class="small">${h(r.member_no || r.policy_no || '')}</td>
+        <td dir="ltr" class="small">${h(X.pById(id)?.il_phone || '')}</td><td dir="ltr" class="small">${h(fPhone(id))}</td><td dir="ltr" class="small">${h(r.member_no || r.policy_no || '')}</td>
         <td dir="ltr" class="small">${h(parentMail(id))}</td><td>${h(r.kupah === 'ביטוח פרטי' ? r.company || r.kupah : r.kupah || '')}</td><td class="small">${h(stat(r))}</td>
         <td>${X.can('insurance') ? `<button type="button" class="btn small-btn" data-ed="${h(id)}">✎</button>` : ''}</td></tr>`; }).join('')}
     </tbody></table></div>`;
   X.$$('[data-f]', box).forEach((b) => { b.onclick = () => { J.insFilter = b.dataset.f; renderIns(box); }; });
   X.$('#ji-z', box).onchange = (e) => { J.insZ = e.target.value; renderIns(box); };
+  const qi = X.$('#ji-q', box); qi.oninput = () => { J.insQ = qi.value; clearTimeout(J.insT); J.insT = setTimeout(() => { renderIns(box); const x = X.$('#ji-q', box); x.focus(); x.setSelectionRange(x.value.length, x.value.length); }, 300); };
   X.$$('[data-ed]', box).forEach((b) => { b.onclick = () => insDialog(b.dataset.ed, insOf(b.dataset.ed), box); });
-  const cols = (id) => { const r = insOf(id); return [first(id), last(id), X.pById(id)?.il_phone || '', r.member_no || r.policy_no || '', parentMail(id), r.kupah === 'ביטוח פרטי' ? r.company || r.kupah : r.kupah || '', stat(r)]; };
-  X.$('#ji-xl', box).onclick = () => downloadXlsx('ביטוח בריאות', ['#', 'שם', 'משפחה', 'טלפון', 'מספר חבר', 'אימייל הורים', 'קופה', 'הערות'], list.map((id, i) => [i + 1, ...cols(id)]), { rtl: true });
+  colFilters(box);
+  const cols = (id) => { const r = insOf(id); return [first(id), last(id), X.pById(id)?.il_phone || '', fPhone(id), r.member_no || r.policy_no || '', parentMail(id), r.kupah === 'ביטוח פרטי' ? r.company || r.kupah : r.kupah || '', stat(r)]; };
+  X.$('#ji-xl', box).onclick = () => downloadXlsx('ביטוח בריאות', ['#', 'שם', 'משפחה', 'טלפון', 'טלפון האבא', 'מספר חבר', 'אימייל הורים', 'קופה', 'הערות'], list.map((id, i) => [i + 1, ...cols(id)]), { rtl: true });
   X.$('#ji-print', box).onclick = () => printList(`ביטוח בריאות${J.insZ ? ` — ${J.insZ}` : ''}`, h(isoToHebrewText(todayIso())), {
-    cols: [{ t: 'טלפון', ltr: true }, { t: 'מספר חבר', ltr: true }, { t: 'אימייל הורים', ltr: true }, { t: 'קופה' }, { t: 'הערות' }],
+    cols: [{ t: 'טלפון', ltr: true }, { t: 'טלפון האבא', ltr: true }, { t: 'מספר חבר', ltr: true }, { t: 'אימייל הורים', ltr: true }, { t: 'קופה' }, { t: 'הערות' }],
     rows: list.map((id) => ({ id, cells: cols(id).slice(2) })), landscape: true });
 }
 function insDialog(id, r, box) {
@@ -700,6 +708,8 @@ const examPass = (s, v) => {
   if (s.exam?.mode === 'fixed' || !Number.isFinite(Number(x))) return true;
   return Number(x) >= (Number(s.exam?.min) || 0);
 };
+const HDAYS = [0, 1, 2, 3, 4]; // הספק יומי: א'–ה'
+const hesOf = (m) => HDAYS.filter((d) => m[`h${d}`]);
 async function renderExam(body) {
   const { h } = X;
   const ss = examSed();
@@ -712,35 +722,77 @@ async function renderExam(body) {
   try { rows = await attRows(sun); } catch (err) { fail(body, err); return; }
   const key = `${s.key}:exam`;
   const ids = students(isoAdd(sun, 4));
-  const val = (id) => parseMarks(rows.find((r) => r.seder === key && String(r.contact_id) === String(id))?.marks).s ?? '';
+  const chk = s.exam?.mode === 'check'; const hes = !!s.exam?.hespek;
+  const M = {}; ids.forEach((id) => { M[id] = parseMarks(rows.find((r) => r.seder === key && String(r.contact_id) === String(id))?.marks); });
+  const val = (id) => M[id].s ?? '';
   const edit = X.can('attendance');
   const amt = Number(s.exam?.amount) || 0;
+  const DN = ['א', 'ב', 'ג', 'ד', 'ה'];
   body.innerHTML = `${weekBar(sun)}
       ${ss.length > 1 ? `<div class="seg">${ss.map((x) => `<button type="button" data-ex="${h(x.key)}" class="${x.key === s.key ? 'on' : ''}">${h(x.name)}</button>`).join('')}</div>` : `<b>${h(s.name)}</b>`}
       ${edit ? '<button type="button" class="btn primary" id="je-save" disabled>💾 שמירה</button>' : ''}
       <button type="button" class="btn" id="je-print">🖨 הדפסה</button>
+      ${hes ? '<button type="button" class="btn" id="je-hsum">📊 סיכום הספק חודשי</button>' : ''}
     </div>
-    <p class="muted small">ציון (מספר), או "עבר" / "לא". ${s.exam?.mode === 'fixed' ? `כל מבחן${amt ? ` → ${amt} ₪ מלגה` : ''} (סכום קבוע)` : `עובר = ציון ${h(s.exam?.min || 0)} ומעלה${amt ? ` → ${amt} ₪ מלגה` : ''}`}. ריק = לא נבחן.</p>
-    <div class="ms-wrap"><table class="ms-table"><thead><tr><th>#</th><th>שם</th><th>משפחה</th><th class="c">ציון</th><th class="c"></th></tr></thead><tbody>
+    <p class="muted small">${chk ? `✓ = המבחן מולא${amt ? ` → ${amt} ₪ מלגה` : ''}; ריק = לא מולא.` : `ציון (מספר), או "עבר" / "לא". ${s.exam?.mode === 'fixed' ? `כל מבחן${amt ? ` → ${amt} ₪ מלגה` : ''} (סכום קבוע)` : `עובר = ציון ${h(s.exam?.min || 0)} ומעלה${amt ? ` → ${amt} ₪ מלגה` : ''}`}. ריק = לא נבחן.`}
+      ${hes ? ' הספק: ✓ לכל יום (א\'–ה\') שלמד את ההספק — בלי מלגה, רק לסיכום החודשי.' : ''}</p>
+    <div class="ms-wrap"><table class="ms-table"><thead><tr><th>#</th><th>שם</th><th>משפחה</th><th class="c">${chk ? 'המבחן מולא' : 'ציון'}</th>${chk ? '' : '<th class="c"></th>'}
+      ${hes ? DN.map((d, k) => `<th class="c">הספק ${d}'<div class="muted small">${fmtDay(isoAdd(sun, k))}</div>${edit ? `<button type="button" class="linkish small" data-hall="${k}">✓ לכולם</button>` : ''}</th>`).join('') : ''}</tr></thead><tbody>
       ${ids.map((id, i) => { const v = val(id); const p = examPass(s, v); return `<tr><td class="num">${i + 1}</td><td>${h(first(id))}</td><td><b>${h(last(id))}</b></td>
-        <td class="c"><input class="je-in" data-id="${h(id)}" value="${h(v)}" style="width:70px" dir="auto"${edit ? '' : ' disabled'}></td><td class="c je-st">${p === null ? '' : p ? '✓' : '✗'}</td></tr>`; }).join('')}
+        ${chk ? `<td class="c"><input type="checkbox" class="je-ck" data-id="${h(id)}"${v ? ' checked' : ''}${edit ? '' : ' disabled'}></td>`
+          : `<td class="c"><input class="je-in" data-id="${h(id)}" value="${h(v)}" style="width:70px" dir="auto"${edit ? '' : ' disabled'}></td><td class="c je-st">${p === null ? '' : p ? '✓' : '✗'}</td>`}
+        ${hes ? HDAYS.map((d) => `<td class="c"><input type="checkbox" class="je-h" data-id="${h(id)}" data-d="${d}"${M[id][`h${d}`] ? ' checked' : ''}${edit ? '' : ' disabled'}></td>`).join('') : ''}</tr>`; }).join('')}
     </tbody></table></div>`;
   wireWeek(body, () => renderExam(body));
   X.$$('[data-ex]', body).forEach((b) => { b.onclick = () => { if (J.dirty && !window.confirm('יש שינויים שלא נשמרו. לעבור בלי לשמור?')) return; J.dirty = false; J.examSeder = b.dataset.ex; renderExam(body); }; });
   const saveBtn = X.$('#je-save', body); const changed = new Set();
+  const dirty = (id) => { changed.add(id); J.dirty = true; if (saveBtn) saveBtn.disabled = false; };
   X.$$('.je-in', body).forEach((inp) => {
-    inp.oninput = () => { changed.add(inp.dataset.id); J.dirty = true; if (saveBtn) saveBtn.disabled = false; const p = examPass(s, inp.value); inp.closest('tr').querySelector('.je-st').textContent = p === null ? '' : p ? '✓' : '✗'; };
+    inp.oninput = () => { M[inp.dataset.id].s = X.S(inp.value); dirty(inp.dataset.id); const p = examPass(s, inp.value); inp.closest('tr').querySelector('.je-st').textContent = p === null ? '' : p ? '✓' : '✗'; };
   });
+  X.$$('.je-ck', body).forEach((c) => { c.onchange = () => { M[c.dataset.id].s = c.checked ? 'v' : ''; dirty(c.dataset.id); }; });
+  X.$$('.je-h', body).forEach((c) => { c.onchange = () => { if (c.checked) M[c.dataset.id][`h${c.dataset.d}`] = 1; else delete M[c.dataset.id][`h${c.dataset.d}`]; dirty(c.dataset.id); }; });
+  X.$$('[data-hall]', body).forEach((a) => { a.onclick = () => X.$$(`.je-h[data-d="${a.dataset.hall}"]`, body).forEach((c) => { if (!c.checked) { c.checked = true; c.onchange(); } }); });
   saveBtn?.addEventListener('click', async () => {
     saveBtn.disabled = true;
-    const out = [...changed].map((id) => ({ contact_id: id, marks: JSON.stringify(X.S(X.$(`.je-in[data-id="${id}"]`, body).value) ? { s: X.S(X.$(`.je-in[data-id="${id}"]`, body).value) } : {}) }));
+    const out = [...changed].map((id) => { const m = { ...M[id] }; if (!X.S(m.s)) delete m.s; return { contact_id: id, marks: JSON.stringify(m) }; });
     try {
       await X.call(X.KEY, 'attSave', { week: sun, seder: key, rows: out });
       out.forEach((r) => { const ex = rows.find((x) => x.seder === key && String(x.contact_id) === String(r.contact_id)); if (ex) ex.marks = r.marks; else rows.push({ week: sun, seder: key, ...r }); });
       changed.clear(); J.dirty = false; X.toast('נשמר.');
     } catch (err) { saveBtn.disabled = false; X.toast(X.msg(err), 'err'); }
   });
-  X.$('#je-print', body).onclick = () => printList(`מבחן ${s.name}`, h(weekTitle(sun)), { cols: [{ t: 'ציון', c: 'c' }], rows: ids.map((id) => ({ id, cells: [val(id)] })), twoUp: true });
+  X.$('#je-print', body).onclick = () => printList(`מבחן ${s.name}`, h(weekTitle(sun)), {
+    cols: [{ t: chk ? 'מבחן' : 'ציון', c: 'c mk' }, ...(hes ? DN.map((d) => ({ t: `${d}'`, c: 'c mk' })) : [])],
+    rows: ids.map((id) => ({ id, cells: [chk ? (val(id) ? '✓' : '') : val(id), ...(hes ? HDAYS.map((d) => (M[id][`h${d}`] ? '✓' : '')) : [])] })), twoUp: true });
+  X.$('#je-hsum', body)?.addEventListener('click', () => hespekMonth(s));
+}
+/** 📊 סיכום הספק לחודש עברי: ימים שלמד ההספק מתוך ימי ההספק שהתקיימו (מישהו סומן בהם) */
+async function hespekMonth(s) {
+  const { h } = X;
+  const months = hebMonths();
+  const d = X.dialog(`<h2>📊 סיכום הספק — ${h(s.name)}</h2><label>חודש <select id="hs-mon">${months.map((m) => `<option value="${h(m.key)}">${h(m.label)}</option>`).join('')}</select></label>
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>ביטול</button><button type="button" class="btn primary" id="hs-go">🖨 הדפסה</button><button type="button" class="btn" id="hs-xl">⬇ Excel</button></div>`);
+  X.$$('[data-x]', d).forEach((b) => { b.onclick = () => d.close(); });
+  const build = async () => {
+    const mon = months.find((m) => m.key === X.$('#hs-mon', d).value);
+    const rows = (await X.call(X.KEY, 'att', { from: sundayOf(mon.from), to: mon.to })).rows.filter((r) => r.seder === `${s.key}:exam`);
+    const held = new Set(); const got = {};
+    rows.forEach((r) => { const m = parseMarks(r.marks); hesOf(m).forEach((dd) => { const day = isoAdd(r.week, dd); if (day < mon.from || day > mon.to) return; held.add(day); (got[r.contact_id] ||= new Set()).add(day); }); });
+    const ids = sortIds([...new Set([...students(mon.to < todayIso() ? mon.to : todayIso()), ...Object.keys(got)])].filter((id) => X.pById(id)));
+    const n = held.size;
+    return { mon, n, ids, cnt: (id) => got[id]?.size || 0 };
+  };
+  X.$('#hs-go', d).onclick = async () => {
+    try { const D = await build(); d.close();
+      printList(`סיכום הספק — ${s.name} — ${D.mon.label}`, `ימי הספק שהתקיימו: ${D.n}`, { cols: [{ t: 'ימים', c: 'c' }, { t: '%', c: 'c' }], rows: D.ids.map((id) => ({ id, cells: [`${D.cnt(id)} / ${D.n}`, D.n ? `${Math.round((D.cnt(id) / D.n) * 100)}%` : ''] })), twoUp: true });
+    } catch (err) { X.toast(X.msg(err), 'err'); }
+  };
+  X.$('#hs-xl', d).onclick = async () => {
+    try { const D = await build(); d.close();
+      downloadXlsx(`הספק ${s.name} ${D.mon.label}`, ['#', 'שם', 'ימים', 'מתוך', '%'], D.ids.map((id, i) => [i + 1, full(id), D.cnt(id), D.n, D.n ? Math.round((D.cnt(id) / D.n) * 100) : '']), { rtl: true });
+    } catch (err) { X.toast(X.msg(err), 'err'); }
+  };
 }
 
 // =====================================================================
@@ -1046,15 +1098,16 @@ export function settingsHtml() {
       </tbody></table>
       <h4>💰 מלגות</h4>
       <p class="muted small">סכום לכל השתתפות (✓) בסדר; "גם איחור" = ⏰ נחשב השתתפות. הנוסח בפתק — למשל "בסדר הלימוד לפני התפילה בימות החול". מבחן שבועי (למשל בסדר שלישי): סכום קבוע לכל מבחן, או רק מציון מינימלי ומעלה.</p>
-      <table class="ms-table ms-stip"><thead><tr><th>סדר</th><th>₪ להשתתפות</th><th>גם איחור</th><th>הנוסח בפתק</th><th>מבחן שבועי</th><th>חישוב</th><th>ציון מינימלי</th><th>₪ למבחן</th></tr></thead><tbody>
+      <table class="ms-table ms-stip"><thead><tr><th>סדר</th><th>₪ להשתתפות</th><th>גם איחור</th><th>הנוסח בפתק</th><th>מבחן שבועי</th><th>חישוב</th><th>ציון מינימלי</th><th>₪ למבחן</th><th>הספק יומי א'–ה'</th></tr></thead><tbody>
         ${(s.sedarim || []).map((x) => `<tr data-key="${h(x.key)}"><td>${h(x.name)}</td>
           <td><input name="stip" type="number" min="0" step="1" dir="ltr" style="width:70px" value="${h(x.stip || '')}"></td>
           <td class="c"><input type="checkbox" name="stipLate"${x.stipLate ? ' checked' : ''}></td>
           <td><input name="stipText" value="${h(x.stipText || '')}" placeholder="בסדר ${h(x.name)}"></td>
           <td class="c"><input type="checkbox" name="exOn"${x.exam?.on ? ' checked' : ''}></td>
-          <td><select name="exMode"><option value="min"${x.exam?.mode !== 'fixed' ? ' selected' : ''}>מציון מינימלי</option><option value="fixed"${x.exam?.mode === 'fixed' ? ' selected' : ''}>סכום קבוע לכל מבחן</option></select></td>
+          <td><select name="exMode"><option value="min"${!['fixed', 'check'].includes(x.exam?.mode) ? ' selected' : ''}>מציון מינימלי</option><option value="fixed"${x.exam?.mode === 'fixed' ? ' selected' : ''}>סכום קבוע לכל מבחן</option><option value="check"${x.exam?.mode === 'check' ? ' selected' : ''}>✓ מולא / לא (בלי ציון)</option></select></td>
           <td><input name="exMin" type="number" min="0" max="100" dir="ltr" style="width:60px" value="${h(x.exam?.min || '')}"></td>
-          <td><input name="exAmt" type="number" min="0" step="1" dir="ltr" style="width:70px" value="${h(x.exam?.amount || '')}"></td></tr>`).join('')}
+          <td><input name="exAmt" type="number" min="0" step="1" dir="ltr" style="width:70px" value="${h(x.exam?.amount || '')}"></td>
+          <td class="c"><input type="checkbox" name="exHes"${x.exam?.hespek ? ' checked' : ''}></td></tr>`).join('')}
       </tbody></table>
       <div class="actions"><button type="button" class="btn" id="ms-sed-add">➕ סדר</button><span class="spacer"></span><button type="submit" class="btn primary">💾 שמירת ההגדרות</button></div>
     </form>`;
@@ -1091,7 +1144,7 @@ export function wireSettings(root) {
       // 💰 מלגות (פון דער טאבעלע אונטן)
       const st = X.$(`.ms-stip tr[data-key="${key}"]`, form); const g = (n) => st?.querySelector(`[name=${n}]`);
       const old = (X.st.settings?.sedarim || []).find((x) => x.key === key) || {};
-      const stip = st ? { stip: Number(g('stip').value) || 0, stipLate: g('stipLate').checked, stipText: X.S(g('stipText').value), exam: { on: g('exOn').checked, mode: g('exMode').value === 'fixed' ? 'fixed' : 'min', min: Number(g('exMin').value) || 0, amount: Number(g('exAmt').value) || 0 } }
+      const stip = st ? { stip: Number(g('stip').value) || 0, stipLate: g('stipLate').checked, stipText: X.S(g('stipText').value), exam: { on: g('exOn').checked, mode: ['fixed', 'check'].includes(g('exMode').value) ? g('exMode').value : 'min', min: Number(g('exMin').value) || 0, amount: Number(g('exAmt').value) || 0, hespek: g('exHes').checked } }
         : { stip: old.stip || 0, stipLate: !!old.stipLate, stipText: old.stipText || '', exam: old.exam || { on: false, min: 0, amount: 0 } };
       return name ? { key, name, att: v('att').checked, chav: v('chav').checked, slots: Math.max(1, ...days.map((j) => per[j])), slotsBy, days, ...stip } : null;
     }).filter(Boolean);

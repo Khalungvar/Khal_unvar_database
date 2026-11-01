@@ -31,7 +31,7 @@ async function post(body) {
   return j;
 }
 // דאס זעלבע "call" ווי אינעם אתר — אבער דורך kAct מיט דער סעסיע
-const OPS = { kitchen: (b) => ({ op: 'read' }), kitchenSave: (b) => ({ op: 'stock', id: b.row?.product_id, value: b.row?.current_stock }), kitchenOrder: (b) => ({ op: 'order', ...b }), kitchenReceive: (b) => ({ op: 'receive', id: b.id }), kitchenRequest: (b) => ({ op: 'request', ...b }) };
+const OPS = { kitchen: (b) => ({ op: 'read' }), kitchenSave: (b) => ({ op: 'stock', id: b.row?.product_id, value: b.row?.current_stock }), kitchenOrder: (b) => ({ op: 'order', ...b }), kitchenReceive: (b) => ({ op: 'receive', id: b.id }), kitchenRequest: (b) => ({ op: 'request', ...b }), kitchenEventSave: (b) => ({ op: 'event', ...b }) };
 async function call(_k, action, body = {}) {
   const s = store.get();
   if (!OPS[action]) throw new Error('bad-action');

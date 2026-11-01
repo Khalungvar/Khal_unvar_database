@@ -70,7 +70,7 @@ export async function renderKitchen(box) {
         ${r.note ? `<span class="muted small">— ${h(r.note)}</span>` : ''} <span class="muted small">(${h(String(r.by).replace(/^מטבח: /, ''))})</span>
         <button type="button" class="btn small-btn primary" data-ok="${h(r.req_id)}">✓ לאשר</button><button type="button" class="btn small-btn" data-no="${h(r.req_id)}">✗ לדחות</button></div>`; }).join('')}</div>` : ''}
     ${todays.length ? `<p class="ms-note">📅 היום יום הזמנה קבועה: ${todays.map((it) => `<b>${h(it.product_name)}</b> (${orderQty(it, true)} ${h(it.unit || '')})`).join(' · ')} <button type="button" class="btn small-btn" id="kc-rec">🛒 לרשימת הקניות</button></p>` : ''}
-    <nav class="ms-subtabs">${[['stock', '📦 מלאי'], ['shop', '🛒 רשימת קניות'], ['hist', '📜 היסטוריית הזמנות']].map(([k, l]) => `<button type="button" data-kt="${k}" class="${K.tab === k ? 'on' : ''}">${h(l)}</button>`).join('')}
+    <nav class="ms-subtabs">${[['stock', '📦 מלאי'], ['shop', '🛒 רשימת קניות'], ['events', '🎉 הזמנות מיוחדות'], ['hist', '📜 היסטוריית הזמנות']].map(([k, l]) => `<button type="button" data-kt="${k}" class="${K.tab === k ? 'on' : ''}">${h(l)}</button>`).join('')}
       <span class="spacer"></span>${kw() ? '' : '<button type="button" class="linkish" id="kc-workers">🔑 אנשי המטבח וסיסמאות</button>'}<button type="button" class="linkish" id="kc-reload">⟳ רענון</button></nav>
     <div id="kc-body"></div>`;
   X.$$('[data-kt]', box).forEach((b) => { b.onclick = () => { K.tab = b.dataset.kt; renderKitchen(box); }; });
@@ -86,6 +86,7 @@ export async function renderKitchen(box) {
   if (!items.length && K.tab === 'stock') return emptyView(body, rer);
   if (K.tab === 'shop') return shopTab(body, rer);
   if (K.tab === 'hist') return histTab(body, rer);
+  if (K.tab === 'events') return eventsTab(body, rer);
   return stockTab(body, rer);
 }
 
@@ -291,4 +292,86 @@ function workersDialog(after) {
   };
   X.$$('[data-sv]', d).forEach((b) => { b.onclick = () => save(b.closest('tr')); });
   X.$$('[data-rm]', d).forEach((b) => { b.onclick = () => save(b.closest('tr'), true); });
+}
+
+// ---------- 🎉 הזמנות מיוחדות: פורים, שבועות, שבת שהרבי נמצא… — תבנית שנשמרת לשנה הבאה ----------
+const evItems = (e) => { try { return JSON.parse(e.items || '[]') || []; } catch { return []; } };
+function eventsTab(body, rer) {
+  const { h } = X;
+  const evs = [...(K.d.events || [])].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || String(a.name).localeCompare(String(b.name), 'he'));
+  body.innerHTML = `<div class="ms-bar"><span class="muted small">אירוע = רשימת מוצרים וכמויות. נשמר כתבנית — בפעם הבאה רק מעדכנים תאריך ולוחצים "🛒 הכן הזמנה".</span><span class="spacer"></span>
+      <button type="button" class="btn primary" id="ke-new">＋ הזמנה מיוחדת חדשה</button></div>
+    ${evs.length ? `<div class="kc-evs">${evs.map((e) => { const it = evItems(e); const dd = e.date ? daysTo(e.date) : null;
+      return `<div class="kc-ev"><div><b>🎉 ${h(e.name)}</b>${e.date ? ` <span class="muted small">${h(e.date)}${dd !== null && dd >= 0 && dd <= 14 ? ` · בעוד ${dd} ימים` : ''}</span>` : ''}</div>
+        <div class="muted small">${it.length} מוצרים${e.note ? ` · ${h(e.note)}` : ''}</div>
+        <div class="actions"><button type="button" class="btn small-btn primary" data-prep="${h(e.event_id)}">🛒 הכן הזמנה</button><button type="button" class="btn small-btn" data-eed="${h(e.event_id)}">✎</button>
+          <button type="button" class="btn small-btn" data-ecp="${h(e.event_id)}" title="שכפול">📋</button><button type="button" class="btn small-btn" data-edel="${h(e.event_id)}">🗑</button></div></div>`; }).join('')}</div>`
+      : '<p class="muted ms-empty">אין עדיין הזמנות מיוחדות.</p>'}`;
+  const byId = (id) => evs.find((e) => String(e.event_id) === String(id));
+  X.$('#ke-new', body).onclick = () => eventDialog({ name: '', date: '', items: '[]' }, rer);
+  X.$$('[data-eed]', body).forEach((b) => { b.onclick = () => eventDialog(byId(b.dataset.eed), rer); });
+  X.$$('[data-ecp]', body).forEach((b) => { b.onclick = () => { const e = byId(b.dataset.ecp); eventDialog({ ...e, event_id: '', name: `${e.name} (עותק)` }, rer); }; });
+  X.$$('[data-edel]', body).forEach((b) => { b.onclick = async () => { const e = byId(b.dataset.edel); if (!window.confirm(`למחוק את "${e.name}"?`)) return; try { await X.call(X.KEY, 'kitchenEventSave', { event: { event_id: e.event_id }, remove: true }); await load(); rer(); } catch (err) { X.toast(X.msg(err), 'err'); } }; });
+  X.$$('[data-prep]', body).forEach((b) => { b.onclick = () => prepEvent(byId(b.dataset.prep), body, rer); });
+}
+function eventDialog(e, rer) {
+  const { h } = X;
+  const inv = K.d.items || [];
+  let items = evItems(e);
+  const d = X.dialog(`<h2>🎉 ${e.event_id ? h(e.name) : 'הזמנה מיוחדת'}</h2>
+    <form class="ms-form"><div class="grid"><label>שם<input name="name" value="${h(e.name || '')}" placeholder="למשל: פורים / שבת שהרבי נמצא" required></label><label>תאריך<input name="date" type="date" value="${h(e.date || '')}"></label><label class="wide">הערה<input name="note" value="${h(e.note || '')}"></label></div>
+      <datalist id="ke-dl">${inv.map((x) => `<option value="${h(x.product_name)}">`).join('')}</datalist>
+      <table class="ms-table"><thead><tr><th>מוצר (מהמלאי או חדש)</th><th>כמות</th><th>יחידה</th><th>ספק</th><th></th></tr></thead><tbody id="ke-rows"></tbody></table>
+      <div class="actions"><button type="button" class="btn" id="ke-add">＋ שורה</button><span class="spacer"></span><button type="button" class="btn" data-x>ביטול</button><button type="submit" class="btn primary">💾 שמירה</button></div></form>`);
+  X.$$('[data-x]', d).forEach((b) => { b.onclick = () => d.close(); });
+  const tb = X.$('#ke-rows', d);
+  const read = () => { items = X.$$('tr', tb).map((tr) => { const v = (k) => X.S(X.$(`[data-k="${k}"]`, tr).value); const nm = v('name'); const it = inv.find((x) => x.product_name === nm); return { id: it?.product_id || '', name: nm, qty: Number(v('qty')) || 0, unit: v('unit') || it?.unit || '', supplier: v('supplier') || it?.supplier_name || '' }; }); };
+  const draw = () => {
+    tb.innerHTML = items.map((x, i) => `<tr><td><input data-k="name" list="ke-dl" value="${h(x.name)}"></td><td><input data-k="qty" type="number" min="0" step="any" dir="ltr" style="width:6em" value="${h(x.qty || '')}"></td>
+      <td><input data-k="unit" style="width:6em" value="${h(x.unit || '')}"></td><td><input data-k="supplier" style="width:9em" value="${h(x.supplier || '')}"></td><td><button type="button" class="btn small-btn" data-rm="${i}">✕</button></td></tr>`).join('');
+    X.$$('[data-rm]', tb).forEach((b) => { b.onclick = () => { read(); items.splice(Number(b.dataset.rm), 1); draw(); }; });
+    // בחירה מהמלאי → יחידה וספק לבד
+    X.$$('[data-k="name"]', tb).forEach((inp) => { inp.onchange = () => { const it = inv.find((x) => x.product_name === X.S(inp.value)); if (!it) return; const tr = inp.closest('tr'); const u = X.$('[data-k="unit"]', tr); const sp = X.$('[data-k="supplier"]', tr); if (!u.value) u.value = it.unit || ''; if (!sp.value) sp.value = it.supplier_name || ''; }; });
+  };
+  if (!items.length) items = [{ name: '', qty: '' }];
+  draw();
+  X.$('#ke-add', d).onclick = () => { read(); items.push({ name: '', qty: '' }); draw(); X.$$('[data-k="name"]', tb).pop().focus(); };
+  const form = X.$('form', d);
+  form.onsubmit = async (ev) => {
+    ev.preventDefault(); read();
+    const event = { event_id: e.event_id || '', name: X.S(form.elements.name.value), date: form.elements.date.value, note: X.S(form.elements.note.value), items: items.filter((x) => x.name) };
+    try { await X.call(X.KEY, 'kitchenEventSave', { event }); await load(); d.close(); rer(); X.toast('נשמר.'); } catch (err) { X.toast(X.msg(err), 'err'); }
+  };
+}
+/** 🛒 הכן הזמנה: לפי ספק, אפשר לקזז מה שיש במלאי; וואטסאפ / העתקה / נרשם כהוזמן / הגיע */
+function prepEvent(e, body, rer) {
+  const { h } = X;
+  const inv = K.d.items || [];
+  let deduct = false;
+  const draw = () => {
+    const lines = evItems(e).map((x) => { const it = (x.id && inv.find((k) => k.product_id === x.id)) || inv.find((k) => k.product_name === x.name); const have = it ? n(it.current_stock) : 0; return { ...x, id: it?.product_id || x.id || '', have, need: Math.max(0, n(x.qty) - (deduct ? have : 0)), price: it ? n(it.unit_price) : 0 }; });
+    const groups = {}; lines.forEach((x) => { (groups[x.supplier || 'בלי ספק'] ||= []).push(x); });
+    const sups = Object.keys(groups).sort((a, b) => a.localeCompare(b, 'he'));
+    body.innerHTML = `<div class="ms-bar"><button type="button" class="btn" id="kp-back">→ חזרה</button><b>🎉 ${h(e.name)}</b>${e.date ? ` <span class="muted small">${h(e.date)}</span>` : ''}<span class="spacer"></span>
+        <label class="check"><input type="checkbox" id="kp-ded"${deduct ? ' checked' : ''}> לקזז מה שיש כבר במלאי</label><button type="button" class="btn" id="kp-xl">⬇ Excel</button></div>
+      ${sups.map((sp) => `<section class="kc-sup"><h3>🚚 ${h(sp)}</h3><table class="ms-table"><thead><tr><th>מוצר</th><th>לאירוע</th>${deduct ? '<th>במלאי</th>' : ''}<th>להזמין</th></tr></thead><tbody>
+        ${groups[sp].map((x, i) => `<tr><td>${h(x.name)}</td><td>${h(String(n(x.qty)))} ${h(x.unit)}</td>${deduct ? `<td>${h(String(x.have))}</td>` : ''}<td><input type="number" min="0" step="any" class="kp-q" data-s="${h(sp)}" data-i="${i}" value="${x.need}" style="width:6em" dir="ltr"> ${h(x.unit)}</td></tr>`).join('')}
+        </tbody></table><div class="actions"><button type="button" class="btn" data-wa="${h(sp)}">💬 וואטסאפ</button><button type="button" class="btn" data-cp="${h(sp)}">📋 העתקה</button><span class="spacer"></span>
+        <button type="button" class="btn" data-ord="${h(sp)}">📝 נרשם כהוזמן</button><button type="button" class="btn primary" data-rcv="${h(sp)}">✓ הגיע — להוסיף למלאי</button></div></section>`).join('') || '<p class="muted">אין מוצרים באירוע.</p>'}`;
+    const linesOf = (sp) => groups[sp].map((x, i) => ({ id: x.id, name: x.name, qty: n(X.$(`.kp-q[data-s="${CSS.escape(sp)}"][data-i="${i}"]`, body)?.value), unit: x.unit, price: x.price })).filter((x) => x.qty > 0);
+    const text = (sp) => `הזמנה — ${e.name}${e.date ? ` (${e.date})` : ''} — ${X.st.mosad?.name || ''}\n${linesOf(sp).map((x) => `• ${x.name}: ${x.qty} ${x.unit}`).join('\n')}`;
+    X.$('#kp-back', body).onclick = () => eventsTab(body, rer);
+    X.$('#kp-ded', body).onchange = (ev) => { deduct = ev.target.checked; draw(); };
+    X.$$('[data-wa]', body).forEach((b) => { b.onclick = () => window.open(`https://wa.me/?text=${encodeURIComponent(text(b.dataset.wa))}`, '_blank'); });
+    X.$$('[data-cp]', body).forEach((b) => { b.onclick = async () => { try { await navigator.clipboard.writeText(text(b.dataset.cp)); X.toast('הועתק.'); } catch { X.toast('לא הצליח להעתיק.', 'err'); } }; });
+    const order = async (sp, received) => {
+      const items = linesOf(sp); if (!items.length) return;
+      if (received && !window.confirm(`להוסיף למלאי את מה שהגיע מ${sp}?`)) return;
+      try { await X.call(X.KEY, 'kitchenOrder', { supplier: sp, items, received, note: `🎉 ${e.name}` }); await load(); X.toast(received ? 'המלאי עודכן.' : 'נרשם בהיסטוריה.'); } catch (err) { X.toast(X.msg(err), 'err'); }
+    };
+    X.$$('[data-ord]', body).forEach((b) => { b.onclick = () => order(b.dataset.ord, false); });
+    X.$$('[data-rcv]', body).forEach((b) => { b.onclick = () => order(b.dataset.rcv, true); });
+    X.$('#kp-xl', body).onclick = () => downloadXlsx(`הזמנה ${e.name}`, ['ספק', 'מוצר', 'כמות', 'יחידה'], sups.flatMap((sp) => linesOf(sp).map((x) => [sp, x.name, x.qty, x.unit])), { rtl: true });
+  };
+  draw();
 }
