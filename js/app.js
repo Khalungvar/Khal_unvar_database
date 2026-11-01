@@ -1277,9 +1277,47 @@ function tagPicker(name, listName, value) {
     </div>`;
 }
 
+/** רשימות תפוצה ליד א טעלעפאן / אימייל: נאר די רשימות וואו ער איז טאקע, + "הוסף לרשימה" (פון די גרייטע רשימות פאר טעלעפאנען / אימיילס), ✕ צו אראפנעמען */
+function readyListNames(kind) {
+  const ft = kind === 'email' ? 'email' : 'phones';
+  return [...new Set((state.savedLists || []).filter((l) => { try { return (JSON.parse(l.criteria || '{}').meta || {}).firstTab === ft; } catch { return false; } }).map((l) => String(l.name || '').trim()).filter(Boolean))];
+}
+function listPicker(name, kind, value) {
+  const selected = splitTags(value);
+  return `
+    <div class="tags lpick" dir="rtl" data-name="${name}" data-kind="${kind}">
+      ${selected.map((tag) => `<button type="button" class="chip toggle on" title="${h(t('lpRemove'))}">${h(tag)} <span class="x">✕</span></button>`).join('')}
+      <button type="button" class="chip add">${h(t('lpAdd'))}</button>
+    </div>`;
+}
+function wireListPicker(box) {
+  box.addEventListener('click', (e) => {
+    const b = e.target.closest('.chip');
+    if (!b) return;
+    if (b.classList.contains('toggle')) { b.remove(); return; }
+    if (!b.classList.contains('add')) return;
+    box.querySelector('.lp-menu')?.remove();
+    const have = $$('.chip.toggle.on', box).map((x) => x.firstChild.textContent.trim());
+    const opts = readyListNames(box.dataset.kind).filter((n) => !have.includes(n));
+    const menu = document.createElement('div');
+    menu.className = 'lp-menu';
+    menu.innerHTML = opts.length ? opts.map((n) => `<button type="button" data-l="${h(n)}">${h(n)}</button>`).join('') : `<p class="muted small">${h(t(box.dataset.kind === 'email' ? 'lpNoneEmail' : 'lpNonePhone'))}</p>`;
+    box.append(menu);
+    menu.addEventListener('click', (ev) => {
+      const o = ev.target.closest('[data-l]');
+      if (!o) return;
+      const nb = document.createElement('button');
+      nb.type = 'button'; nb.className = 'chip toggle on'; nb.title = t('lpRemove');
+      nb.innerHTML = `${h(o.dataset.l)} <span class="x">✕</span>`;
+      box.insertBefore(nb, b);
+      menu.remove();
+    });
+  });
+}
+
 function readTags(root, name) {
   const box = $(`.tags[data-name="${name}"]`, root);
-  return joinTags($$('.chip.toggle.on', box).map((b) => b.textContent));
+  return joinTags($$('.chip.toggle.on', box).map((b) => (b.firstChild?.nodeType === 3 ? b.firstChild.textContent : b.textContent).trim()));
 }
 
 function cityStateDatalists() {
@@ -1564,12 +1602,12 @@ function openForm(c = {}, opts = {}) {
       ${phoneFields().map(([k, label]) => `
         <div class="contact-line">
           <label>${label}<input name="${k}" dir="ltr" inputmode="tel" value="${h(p[k] ?? '')}"></label>
-          ${tagPicker(`${k}_tags`, 'phone_tag', p[`${k}_tags`])}
+          ${listPicker(`${k}_tags`, 'phone', p[`${k}_tags`])}
         </div>`).join('')}
       ${emailFields().map(([k, label]) => `
         <div class="contact-line">
           <label>${label}<input name="${k}" type="email" dir="ltr" value="${h(p[k] ?? '')}"></label>
-          ${tagPicker(`${k}_tags`, 'email_tag', p[`${k}_tags`])}
+          ${listPicker(`${k}_tags`, 'email', p[`${k}_tags`])}
         </div>`).join('')}
     </fieldset>
 
@@ -1612,7 +1650,8 @@ function wireForm(form, original) {
   const f = (name) => form.elements[name];
 
   // תגיות
-  $$('.tags[data-name]', form).forEach(wireTagPicker);
+  $$('.tags[data-name]:not(.lpick)', form).forEach(wireTagPicker);
+  $$('.tags.lpick', form).forEach(wireListPicker);
   wireOrgTagsForm(form, { toast, friendlyError, submitRequest });
 
   // הצעת שם באנגלית לפי העברית — רק כשהשדה באנגלית ריק. מוצג באפור עד שמשנים או מאשרים.

@@ -2300,3 +2300,11 @@ html[dir="ltr"] .lobby-grid { background-position: calc((100% - 81px) * .2875 + 
 
 /* שהשמחה במעונם: א שטיק נאמען וואס ווערט נישט צעבראכן */
 .sg-entry .nb { white-space: nowrap; }
+/* רשימות תפוצה ליד טלפון / אימייל: רק מה שמסומן, + הוסף לרשימה (תפריט קטן) */
+.tags.lpick { position: relative; }
+.tags.lpick .chip.toggle.on .x { font-size: .8em; opacity: .7; margin-inline-start: 2px; }
+.tags.lpick .chip.toggle.on:hover .x { opacity: 1; }
+.lp-menu { position: absolute; top: 100%; inset-inline-start: 0; z-index: 30; background: var(--card, #fff); border: 1px solid var(--line, #ccc); border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.15); padding: 4px; display: flex; flex-direction: column; min-width: 180px; max-height: 240px; overflow: auto; }
+.lp-menu button { all: unset; cursor: pointer; padding: 6px 10px; border-radius: 6px; text-align: right; }
+.lp-menu button:hover { background: var(--accent, #eee); color: var(--accent-ink, inherit); }
+.lp-menu p { margin: 6px 10px; }
