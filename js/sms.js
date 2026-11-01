@@ -85,9 +85,12 @@ export function recipientsOf(listId, kind) {
   const lname = String(l.name || '').trim();
   const tagged = [];
   if (lname) state.contacts.forEach((c) => { const p = phonesOf(c); PH_FIELDS.forEach((k) => { if (String(p[`${k}_tags`] || '').split(',').map((x) => x.trim()).includes(lname) && last10(p[k])) tagged.push({ c, d: last10(p[k]) }); }); });
-  if (tagged.length) {
+  // "מנוי בלי כרטיס": אין SmsOptIn מיט דער רשימה, אן א קאנטאקט
+  const inList = (o) => String(o.lists || '').split(',').map((x) => x.trim()).includes(lname);
+  const nocard = lname && data ? data.optRows.filter((o) => String(o.status) === 'in' && inList(o) && String(o.contact_id || '').trim() === 'nocard' && last10(o.phone)) : [];
+  if (tagged.length || nocard.length) {
     const seen = new Set(); const list = [];
-    st.total = tagged.length;
+    st.total = tagged.length + nocard.length; st.nocard = 0;
     tagged.forEach(({ c, d }) => {
       const o = data?.opt.get(d);
       if (o && String(o.status) === 'out') { st.out.push(c); return; }
@@ -96,6 +99,7 @@ export function recipientsOf(listId, kind) {
       seen.add(d);
       list.push({ phone: d, contact_id: c.contact_id, name: nm(c) });
     });
+    nocard.forEach((o) => { const d = last10(o.phone); if (seen.has(d)) { st.dup += 1; return; } seen.add(d); st.nocard += 1; list.push({ phone: d, contact_id: '', name: String(o.name || '') }); });
     return { list, st };
   }
   const all = evaluate(cr);
@@ -290,7 +294,8 @@ function listsView(body) {
     <button type="button" class="btn primary" id="cl-new">➕ ${h(t('csListNew'))}</button>
     ${mine.length ? `<table class="lapsed-table"><tbody>${mine.map((l) => {
     const sms = recipientsOf(l.list_id, 'sms').list.length; const calls = recipientsOf(l.list_id, 'call').list.length;
-    return `<tr><td>${l.visibility === 'private' ? '🔒 ' : ''}<b>${h(l.name)}</b></td><td class="small">💬 ${sms} · 📞 ${calls}</td>
+    const nc = recipientsOf(l.list_id, 'sms').st.nocard || 0;
+    return `<tr><td>${l.visibility === 'private' ? '🔒 ' : ''}<b>${h(l.name)}</b></td><td class="small">💬 ${sms}${nc ? ` <span class="muted">(${h(t('csNoCardN', { n: nc }))})</span>` : ''} · 📞 ${calls}</td>
       <td><button type="button" class="linkish" data-open="${h(l.list_id)}">${h(t('csOpen'))}</button>
         <button type="button" class="linkish" data-send="${h(l.list_id)}">💬 ${h(t('csSendTo'))}</button></td></tr>`;
   }).join('')}</tbody></table>` : `<p class="empty">${h(t('csNoLists'))}</p>`}`;
@@ -312,6 +317,7 @@ async function loadGabbaiLog(force = false) {
 async function gabbaiView(body) {
   // נייע (JOIN) און די פון דער אלטער רשימה (Gloo) וואס זענען נאך נישט פארבינדן מיט א קאנטאקט
   const joins = data.optRows.filter((o) => ['join', 'old_list'].includes(String(o.source)) && String(o.status) === 'in' && !String(o.contact_id || '').trim());
+  const nocards = data.optRows.filter((o) => String(o.status) === 'in' && String(o.contact_id || '').trim() === 'nocard');
   body.innerHTML = `<p class="muted">${h(t('loading'))}</p>`;
   const L = await loadGabbaiLog(true);
   const users = Object.fromEntries(allUsers().map((u) => [u.email, u.name]));
@@ -334,8 +340,11 @@ async function gabbaiView(body) {
     <section class="cs-sec"><h3>🙋 ${h(t('smsJoins'))} (${joins.length})</h3>
       ${joins.length ? `<ul class="mx-plist">${joins.map((o) => { const r = review(o.phone); return `<li><b>${h(o.name)}</b> <span dir="ltr" class="muted small">${h(o.phone)}</span>
         ${r ? `<div class="muted small" dir="auto">${h(r.detail)}</div>` : ''}
-        <input class="join-pick" data-row="${o._row}" list="dl-sms-c" placeholder="${h(t('pickContact'))}"></li>`; }).join('')}</ul>
+        <input class="join-pick" data-row="${o._row}" list="dl-sms-c" placeholder="${h(t('pickContact'))}">
+        <button type="button" class="linkish small" data-nocard="${o._row}">${h(t('csNoCard'))}</button>${o.lists ? ` <span class="muted small">· ${h(o.lists)}</span>` : ''}</li>`; }).join('')}</ul>
         <datalist id="dl-sms-c">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>` : '<p class="muted small">—</p>'}</section>
+    <section class="cs-sec"><h3>📵 ${h(t('csNoCardTitle'))} (${nocards.length})</h3>${nocards.length ? `<ul class="mx-plist">${nocards.map((o) => `<li><b>${h(o.name || '—')}</b> <span dir="ltr" class="muted small">${h(o.phone)}</span>${o.lists ? ` <span class="muted small">· ${h(o.lists)}</span>` : ''}
+        <input class="join-pick" data-row="${o._row}" list="dl-sms-c" placeholder="${h(t('pickContact'))}"></li>`).join('')}</ul>` : '<p class="muted small">—</p>'}</section>
     <section class="cs-sec"><h3>⚠ ${h(t('csGbFail'))} (${fails.length})</h3>${table(fails)}</section>
     <section class="cs-sec"><h3>✓ ${h(t('csGbActions'))}</h3>${table(pick(['action']))}</section>
     <section class="cs-sec"><h3>📱 ${h(t('csGbAuto'))}</h3>${table(pick(['join_phone', 'join_name'], 40))}</section>
@@ -344,6 +353,13 @@ async function gabbaiView(body) {
         ${rows.slice(-60).map((r) => `<div class="cs-msg ${r.dir === 'in' ? 'in' : 'out'}"><div dir="auto">${h(r.text)}</div><span class="muted small" dir="ltr">${h(String(r.at).slice(5, 16))}</span></div>`).join('')}</details>`).join('')
     : '<p class="muted small">—</p>'}</section>`;
   $$('[data-card]', body).forEach((b) => { b.onclick = () => ui.openCard(b.dataset.card); });
+  $$('[data-nocard]', body).forEach((b) => {
+    b.onclick = async () => {
+      const o = data.optRows.find((x) => String(x._row) === b.dataset.nocard);
+      if (!o) return;
+      try { await setConsent([{ phone: o.phone, contact_id: 'nocard', name: o.name }], 'in', String(o.source || 'old_list')); renderCalls(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+    };
+  });
   $$('.join-pick', body).forEach((inp) => {
     inp.onchange = async () => {
       const c = state.contacts.find((x) => ui.pickerLabel(x) === inp.value.trim());
