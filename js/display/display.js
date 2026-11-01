@@ -710,7 +710,7 @@ function render() {
     const pgs = [...ls.parentElement.querySelectorAll('.pg, .dots')];
     const top = () => (pgs.length ? Math.min(...pgs.map((x) => x.getBoundingClientRect().top)) - 4 : ls.getBoundingClientRect().bottom);
     const over = () => ls.scrollHeight > ls.clientHeight + 1 || [...ls.querySelectorAll('.mz-e')].some((e) => e.getBoundingClientRect().bottom > top());
-    while (over() && g > 0.7) { g -= 0.03; es.forEach((e, i) => { if (base[i]) e.style.setProperty('font-size', `${(base[i] * g).toFixed(2)}px`, 'important'); }); }
+    while (over() && g > 0.93) { g -= 0.03; es.forEach((e, i) => { if (base[i]) e.style.setProperty('font-size', `${(base[i] * g).toFixed(2)}px`, 'important'); }); }
   }
   $('#dynb').innerHTML = bot;
   enlarge($('#dynb'));
@@ -872,12 +872,24 @@ function fitC3(box) {
   const sp = [...box.querySelectorAll('.times span')]; const lb = [...box.querySelectorAll('.times.rbt i')];
   const key = `c3|${box.className}|${box.textContent}`;
   // מנין כ"ק: 15% גרעסער ווי די אנדערע שעות
-  const RB = box.classList.contains('pos-side') ? 1 : 1.3;
+  const RB = 1;
   const set = (f) => { sp.forEach((e) => { e.style.fontSize = `${e.closest('.rbt') ? Math.round(f * RB) : f}px`; }); lb.forEach((e) => { e.style.fontSize = `${Math.round(f * 0.68 * RB)}px`; }); };
   // מנחה / מעריב מיט אסאך מניינים: 2 שעות אין א שורה (שחרית בלייבט איינס אין א שורה)
   const mg = [...box.querySelectorAll('.grp.g-mincha, .grp.g-maariv')];
   const setTwo = (ms) => mg.forEach((g, i) => g.classList.toggle('two', !!(ms & (1 << i))));
-  if (boardCache.has(key)) { const c = boardCache.get(key); setTwo(c.ms); set(c.f); return; }
+  // מנין כ"ק: די אותיות 90% ברייט (שמאָלער), אזוי גרויס ווי עס גייט אריין אין זיין מסגרת
+  const rsp = [...box.querySelectorAll('.times.rbt > span')];
+  const rbSet = (f, k) => {
+    rsp.forEach((e) => { e.style.fontSize = `${Math.round(f * k)}px`; e.style.display = 'inline-block'; e.style.transform = ''; e.style.margin = '0'; e.querySelectorAll('i').forEach((x) => { x.style.fontSize = `${Math.round(f * 0.68 * k)}px`; }); });
+    rsp.forEach((e) => { const w = e.offsetWidth; e.style.transform = 'scaleX(.9)'; e.style.margin = `0 ${(-w * 0.05).toFixed(1)}px`; });
+  };
+  const rbFit = (f) => {
+    if (!rsp.length || box.classList.contains('pos-side')) return 1;
+    const rb = box.querySelector('.times.rbt');
+    for (let k = 1.7; k >= 1; k -= 0.05) { rbSet(f, k); const tp = rsp.map((e) => e.getBoundingClientRect().top); if (rb.scrollWidth <= rb.clientWidth + 1 && Math.max(...tp) - Math.min(...tp) < 6 && !over()) return k; }
+    rbSet(f, 1); return 1;
+  };
+  if (boardCache.has(key)) { const c = boardCache.get(key); setTwo(c.ms); set(c.f); if (c.rk && rsp.length && !box.classList.contains('pos-side')) rbSet(c.f, c.rk); return; }
   const over = () => {
     const bb = box.getBoundingClientRect(); const sc = bb.height / box.offsetHeight || 1; const pad = parseFloat(getComputedStyle(box).paddingBottom) * sc;
     if ([...box.children].some((c) => !c.classList.contains('bnotes') && c.getBoundingClientRect().bottom > bb.bottom - pad + 1)) return true;
@@ -891,7 +903,8 @@ function fitC3(box) {
   let bm = 0; setTwo(0); let bf = fit();
   for (let ms = 1; ms < (1 << mg.length); ms++) { setTwo(ms); const f = fit(); if (f > bf * 1.1) { bf = f; bm = ms; } }
   setTwo(bm); set(bf);
-  boardCache.set(key, { f: bf, ms: bm }); if (boardCache.size > 50) boardCache.clear();
+  const rk = rbFit(bf);
+  boardCache.set(key, { f: bf, ms: bm, rk }); if (boardCache.size > 50) boardCache.clear();
 }
 function fitBoard(box, sel = '.times span, .times.rbt i', max = 1.6) {
   const els = [...box.querySelectorAll(sel)];
