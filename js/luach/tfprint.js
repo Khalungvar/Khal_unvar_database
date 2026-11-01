@@ -43,10 +43,12 @@ export function printCss(fontHe = 'Frank Ruhl Libre') {
 .tp-wk .tp-frame i:nth-child(2) { top: calc(-9px * var(--k)); left: calc(-9px * var(--k)); }
 .tp-wk .tp-frame i:nth-child(3) { bottom: calc(-9px * var(--k)); right: calc(-9px * var(--k)); }
 .tp-wk .tp-frame i:nth-child(4) { bottom: calc(-9px * var(--k)); left: calc(-9px * var(--k)); }
-.tp-wk .tp-rbl { text-align: center; font-weight: 900; font-size: 2em; line-height: 1.15; border: .09em solid #000; border-radius: .3em; margin: 0 .6em .25em; padding: .05em .4em .1em; white-space: nowrap; }
-.tp-wk .tp-rbl .t { font-size: .7em; line-height: 1.1; }
-.tp-wk .tp-rbl small { font-size: .6em; }
-.tp-wk .tp-rbl .tp-num { font-size: 1.15em; }
+.tp-wk .tp-rbl { text-align: center; font-weight: 900; font-size: 3.15em; line-height: 1.12; border: .06em solid #000; border-radius: .2em; margin: .05em 0 .15em; padding: 0 .15em .03em; white-space: nowrap; }
+.tp-wk .tp-rbl .t { display: inline; font-size: .34em; }
+.tp-wk .tp-rbl .l { font-size: .5em; }
+.tp-wk .tp-rbl small { font-size: .3em; }
+.tp-wk .tp-rbl .tp-num { font-size: 1.1em; }
+.tp-wk .tp-rbl .tp-num.dot { font-size: 1em; }
 .tp-wk .tp-in { inset: calc(62px * var(--k)); }
 .tp-wk .tp-title { text-align: center; font-weight: 900; font-size: 5.33em; line-height: 1.05; padding: .1em 0 .12em; }
 .tp-wk .tp-band { background: #000; color: #fff; border-radius: .25em; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: .02em .5em .1em; }
@@ -62,7 +64,7 @@ export function printCss(fontHe = 'Frank Ruhl Libre') {
 .tp-wk .tp-band small.tp-ssh .tp-num { font-size: 1.05em; }
 .tp-wk .tp-band small.tp-bn { font-size: 1.485em; justify-self: end; }
 .tp-new { display: inline-block; font-size: .42em; font-weight: 900; background: #000; color: #fff; border-radius: .3em; padding: .05em .3em .1em; margin-inline-end: .2em; vertical-align: .55em; line-height: 1.15; }
-.tp-rbl .tp-new { font-size: .55em; vertical-align: .4em; }
+.tp-rbl .tp-new { font-size: .42em; vertical-align: .55em; }
 .tp-wk .tp-shab { text-align: center; font-size: 2.15em; font-weight: 900; padding: .18em 0 .1em; white-space: nowrap; }
 .tp-wk .tp-key { font-size: .8em; text-align: center; margin-top: .1em; }
 /* ---- שבת / יו"ט: קעפל פון בריוו ---- */
@@ -143,7 +145,7 @@ export function weekdayPage(data, n, fri, parsha, loc, size = 'letter', scr = nu
   const rbM = w.mincha.find((x) => x.rebbe); const rbA = w.maariv.find((x) => x.rebbe);
   const mincha = w.mincha.filter((x) => !x.rebbe).map((x) => ({ ...x, g: 'mincha' })); const maariv = w.maariv.filter((x) => !x.rebbe).map((x) => ({ ...x, g: 'maariv' }));
   const shach = w.shacharis.map((x) => ({ ...x, rebbe: false, g: 'shacharis' }));
-  const rbLine = rbM || rbA ? `<div class="tp-rbl"><div class="t">מנין כ"ק אדמו"ר שליט"א</div>${[rbM ? `מנחה ${tag('mincha', rbM)}<span class="tp-num">${tm(rbM.min)}</span>` : '', rbA ? `מעריב <small>(בערך)</small> ${tag('maariv', rbA)}<span class="tp-num">${tm(rbA.min)}</span>` : ''].filter(Boolean).join(' <span class="tp-num">·</span> ')}</div>` : '';
+  const rbLine = rbM || rbA ? `<div class="tp-rbl"><span class="t">מנין כ"ק אדמו"ר שליט"א:</span> ${[rbM ? `<span class="l">מנחה</span> ${tag('mincha', rbM)}<span class="tp-num">${tm(rbM.min)}</span>` : '', rbA ? `<span class="l">מעריב</span> <small>(בערך)</small> ${tag('maariv', rbA)}<span class="tp-num">${tm(rbA.min)}</span>` : ''].filter(Boolean).join(' <span class="tp-num dot">•</span> ')}</div>` : '';
   const fMin = sh.find((r) => r.day === 'fri' && r.kind === 'tefila' && /מנחה/.test(r.label));
   const sShach = sh.find((r) => r.day === 'sat' && /שחרית/.test(r.label));
   const sMin = sh.find((r) => r.day === 'sat' && r.kind === 'tefila' && /מנחה/.test(r.label));
