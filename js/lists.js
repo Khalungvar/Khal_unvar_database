@@ -224,7 +224,20 @@ function exceptIds(ex, seen) {
 export const listById = (id) => state.savedLists.find((l) => String(l.list_id) === String(id));
 
 /** די מענטשן פון א רשימה: [{ key, c, ext?, manual?, until?, colors, total }] */
+const SUB_FIELDS = ['mobile', 'home_phone', 'wife_mobile', 'other_phone', 'email_1', 'email_2'];
+/** ווער עס איז אין א רשימת תפוצה: דער נאמען פון דער רשימה שטייט ביי איינעם פון זיינע טעלעפאנען / אימיילס */
+export function subscribers(name) {
+  const n = String(name || '').trim();
+  if (!n) return [];
+  const out = [];
+  state.contacts.forEach((c) => {
+    const p = state.phones.get(String(c.contact_id)) || {};
+    if (SUB_FIELDS.some((k) => String(p[`${k}_tags`] || '').split(',').map((x) => x.trim()).includes(n))) out.push(c);
+  });
+  return out;
+}
 export function evaluate(raw, seen = new Set()) {
+  const subName = raw && raw.__name;
   const cr = normalize(raw);
   const general = (c) => (cr.includeDeceased || isAlive(c.is_alive))
     && (cr.includeInactive || isTrue(c.is_active) || c.is_active === '' || c.is_active === undefined)
@@ -236,6 +249,7 @@ export function evaluate(raw, seen = new Set()) {
   const ex = exceptIds(cr.except, seen);
   const out = new Map();
   const put = (key, row) => { if (!out.has(key)) out.set(key, { key, colors: [], ...row }); };
+  if (subName) subscribers(subName).forEach((c) => { const id = String(c.contact_id); if (!ex.has(id)) put(id, { c, sub: true }); });
   base.forEach((id) => {
     const c = contactOf(id);
     if (c && !ex.has(id) && general(c)) put(id, { c, colors: fam.get(id) || [], total: don?.get(id)?.total || 0 });
@@ -309,7 +323,10 @@ export function savedInScope({ all = false } = {}) {
 export function parseSaved(l) {
   let raw = {};
   try { raw = JSON.parse(l?.criteria || '{}'); } catch { raw = {}; }
-  return { cr: normalize(raw), cols: [] };
+  const cr = normalize(raw);
+  // רשימת תפוצה: דער נאמען פון דער רשימה (נישט געשפייכלט) — ווער עס האט אים ביי א טעלעפאן / אימייל, איז אין דער רשימה
+  if (l?.name) Object.defineProperty(cr, '__name', { value: String(l.name).trim(), enumerable: false });
+  return { cr, cols: [] };
 }
 /** פאר אנדערע (מייל, מייל מירדזש, קבלות): נאר מענטשן מיט א כרטיס */
 export function templates() { return []; }
