@@ -1,7 +1,7 @@
 // 🍳 מלאי המטבח — על הגיליון של המוסד (Kitchen, KitchenOrders), לא Firebase.
 // התראות: מתחת למינימום / לפני שייגמר (ימי אספקה × צריכה יומית) / תוקף (5 ימים לפני) · רשימת קניות לפי ספק · הזמנות קבועות לפי יום בשבוע.
-import { downloadXlsx } from '../excel.js?v=594';
-import { colFilters } from '../sorttables.js?v=594';
+import { downloadXlsx } from '../excel.js?v=595';
+import { colFilters } from '../sorttables.js?v=595';
 
 let X = null;
 const K = { d: null, tab: 'stock', cat: '', q: '', sort: 'name', card: '' };
@@ -238,7 +238,7 @@ const HEAD = { product_name: /שם|מוצר|פריט|product/i, category: /קט�
   lead_time_days: /אספקה|lead/i, daily_use: /צריכה|daily/i, expiry_date: /תוקף|תפוגה|expir/i, supplier_name: /ספק|supplier/i, unit_price: /מחיר|price/i, standard_qty: /תקן|standard/i, note: /הערה|note/i };
 export async function readTable(file) {
   if (/\.csv$/i.test(file.name)) return (await file.text()).split(/\r?\n/).filter((l) => l.trim()).map((l) => l.split(/,|\t/).map((c) => c.replace(/^"|"$/g, '').trim()));
-  const { _test } = await import('./shabbos.js?v=594');
+  const { _test } = await import('./shabbos.js?v=595');
   const files = Object.fromEntries(await _test.unzip(await file.arrayBuffer()));
   const dec = new TextDecoder(); const P = (k) => (files[k] ? new DOMParser().parseFromString(dec.decode(files[k]), 'application/xml') : null);
   const shared = [...(P('xl/sharedStrings.xml')?.getElementsByTagName('si') || [])].map((si) => [...si.getElementsByTagName('t')].map((t) => t.textContent).join(''));

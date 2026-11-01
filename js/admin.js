@@ -160,6 +160,7 @@ export function renderAdmin() {
     + (state.isOwner ? `<div class="adm-group" id="adm-import" data-tab="people">${importBoxHtml()}</div>` : '')
     + `<div class="adm-group" data-tab="people"><h3 class="adm-group-title">🔄 ${h(t('lsTitle'))}</h3><p class="muted small">${h(t('lsHint'))}</p><button type="button" class="btn" id="adm-lsync">📄 ${h(t('lsOpen'))}</button></div>`
     + `<div class="adm-group" data-tab="people"><h3 class="adm-group-title">🎓 ${h(t('msChTitle'))}</h3><p class="muted small">${h(t('msChHint'))}</p><button type="button" class="btn" id="adm-msch">🎓 ${h(t('msChOpen'))}</button></div>`
+    + `<div class="adm-group" data-tab="lists"><h3 class="adm-group-title">🔤 תיקון שמות פרטיים בעברית</h3><p class="muted small">שמות שנכתבו בעברית בתעתיק אוטומטי מאנגלית (Joshua → דזשאשוא) — הצעה לשם העברי (יהושע), לאשר אחד אחד או את כל הבטוחים.</p><button type="button" class="btn" id="adm-namefix">🔤 לפתוח</button></div>`
     + `<div class="adm-group" data-tab="people"><h3 class="adm-group-title">🏠 ${h(t('lwtTitle'))}</h3><p class="muted small">${h(t('lwtHint'))}</p><button type="button" class="btn" id="adm-lwt">🏠 ${h(t('lwtOpen', { n: livesWithCandidates().length }))}</button></div>`
     + campaignsAdminHtml()
     + orgDetailsAdminHtml()
@@ -198,6 +199,7 @@ export function renderAdmin() {
   if (state.isOwner) renderSharing();
   wireImport($('#adm-import', main), ui);
   $('#adm-lsync', main)?.addEventListener('click', () => openListSync());
+  $('#adm-namefix', main)?.addEventListener('click', async () => { const m = await import('./namefix.js'); m.initNameFix(ui); m.openNameFix(); });
   $('#adm-lwt', main)?.addEventListener('click', () => openLivesWithTool());
   $('#adm-msch', main)?.addEventListener('click', () => mosadChangesDialog());
 

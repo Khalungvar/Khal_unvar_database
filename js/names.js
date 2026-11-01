@@ -1,3 +1,4 @@
+import { heOfName } from './hebnames.js';
 // הצעת שם באנגלית לפי השם בעברית.
 // סדר העדיפויות: 1) איך השם הזה כבר נכתב באנגלית אצל אנשי קשר אחרים במאגר (לומד מהשימוש שלכם)
 //                2) רשימה בסיסית של שמות נפוצים.
@@ -350,6 +351,10 @@ export function suggestHeFirstName(en, contacts) {
   // כמה ווערטער: יעדעס ווארט באזונדער (באקאנט → פון דער ליסטע, נישט באקאנט → תעתיק)
   // נאר איניציאלן (M, A Y)? — די אות מיט א גרש: מ'
   if (!clean) return String(en || '').replace(/[^a-z\s]/gi, ' ').split(/\s+/).filter(Boolean).map((w) => `${transliterateEnglish(w).replace(/^א(?=.)/, '').replace(/ם/g, 'מ').replace(/ן/g, 'נ').replace(/ך/g, 'כ').replace(/ף/g, 'פ').replace(/ץ/g, 'צ')}'`).join(' ');
+  // קודם: המילון של השמות העבריים (Joshua → יהושע); שם לועזי (George) → ריק, לכתוב ידנית
+  const hn = heOfName(clean, (w) => lookupEn(w, dict) || transliterateEnglish(w));
+  if (hn?.foreign) return '';
+  if (hn?.he) return hn.he;
   return lookupEn(clean, dict) || clean.split(/\s+/).map((w) => lookupEn(w, dict) || transliterateEnglish(w)).join(' ');
 }
 

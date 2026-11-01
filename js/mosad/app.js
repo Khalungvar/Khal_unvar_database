@@ -1,18 +1,18 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { letterhead, hebrewDateHints } from './brand.js?v=594';
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=594';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=594';
-import { initGifts, renderGifts } from './gifts.js?v=594';
-import { initTheme } from './theme.js?v=594';
-import { initAsk } from './ask.js?v=594';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab, renderStipPage } from './journal.js?v=594';
-import { initDorm, renderDorm } from './dorm.js?v=594';
-import { initReg, renderReg } from './reg.js?v=594';
-import { initSortTables } from '../sorttables.js?v=594';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=594';
-import { initTeam, renderTeam } from './team.js?v=594';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=594';
+import { letterhead, hebrewDateHints } from './brand.js?v=595';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=595';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=595';
+import { initGifts, renderGifts } from './gifts.js?v=595';
+import { initTheme } from './theme.js?v=595';
+import { initAsk } from './ask.js?v=595';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab, renderStipPage } from './journal.js?v=595';
+import { initDorm, renderDorm } from './dorm.js?v=595';
+import { initReg, renderReg } from './reg.js?v=595';
+import { initSortTables } from '../sorttables.js?v=595';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=595';
+import { initTeam, renderTeam } from './team.js?v=595';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=595';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -228,8 +228,8 @@ function render(fromPop) {
   else if (st.tab === 'chavrusas') renderChav(box);
   else if (st.tab === 'attendance') renderAtt(box);
   else if (st.tab === 'stipends') renderStipPage(box);
-  else if (st.tab === 'kitchen') import('./kitchen.js?v=594').then((m) => { m.initKitchen(ctx); m.renderKitchen(box); });
-  else if (st.tab === 'shabbos') import('./shabbos.js?v=594').then((m) => { m.initShabbos(ctx); m.renderShabbos(box); });
+  else if (st.tab === 'kitchen') import('./kitchen.js?v=595').then((m) => { m.initKitchen(ctx); m.renderKitchen(box); });
+  else if (st.tab === 'shabbos') import('./shabbos.js?v=595').then((m) => { m.initShabbos(ctx); m.renderShabbos(box); });
   else if (st.tab === 'insurance') renderIns(box);
   else if (st.tab === 'staff_list') renderTeam(box);
   else if (st.tab === 'finance') renderFinance(box);
