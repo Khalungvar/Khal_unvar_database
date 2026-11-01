@@ -47,6 +47,7 @@ const TABS = {
   // 🍳 מלאי המטבח
   Kitchen: ['product_id', 'product_name', 'category', 'current_stock', 'unit', 'min_threshold', 'lead_time_days', 'daily_use', 'expiry_date', 'supplier_name', 'unit_price', 'recurring_day', 'standard_qty', 'note', 'updated_at', 'updated_by'],
   KitchenOrders: ['order_id', 'date', 'supplier', 'items', 'total', 'status', 'note', 'created_at', 'created_by'],
+  KitchenRequests: ['req_id', 'type', 'product_id', 'data', 'note', 'by', 'at', 'status', 'decided_by', 'decided_at'],
 };
 const K_NUM = { current_stock: 1, min_threshold: 1, lead_time_days: 1, daily_use: 1, unit_price: 1, standard_qty: 1 };
 // א דאטום פון גיליון (Date) → 'yyyy-MM-dd' (מיט צייט ווען ס'איז דא)
@@ -179,12 +180,13 @@ function dropCaches(M, ppl, names, don) {
   if (ks.length) unstore(M, ks);
 }
 // אקציעס וואס לייענען נאר; יעדע אנדערע (א שרייבונג) מעקט אויס דעם cache פון די מענטשן
-const READS = { kitchen: 1, dormImg: 1, batch: 1, me: 1, people: 1, find: 1, school: 1, whereIs: 1, gifts: 1, chav: 1, att: 1, hours: 1, ins: 1, team: 1, clock: 0, users: 1, tasks: 1, log: 1, history: 1, fin: 1, fileGet: 1, backups: 1, staff: 1 };
+const READS = { ask: 1, kitchen: 1, dormImg: 1, batch: 1, me: 1, people: 1, find: 1, school: 1, whereIs: 1, gifts: 1, chav: 1, att: 1, hours: 1, ins: 1, team: 1, clock: 0, users: 1, tasks: 1, log: 1, history: 1, fin: 1, fileGet: 1, backups: 1, staff: 1 };
 
 function doPost(e) {
   try {
     const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (req.action === 'brand') return out(brandOf(req.mosad)); // פארן לאגאין: נאר נאמען + לאגא
+    if (KPUB[req.action]) { const KM = mosadOf(req.mosad); if (!KM) return out({ error: 'no-mosad' }); return out(KPUB[req.action](KM, req)); } // 🍳 דף המטבח (סיסמה, אן גוגל)
     if (PUBLIC[req.action]) { const PM = mosadOf(req.mosad); if (!PM) return out({ error: 'no-mosad' }); return out(PUBLIC[req.action](PM, req)); } // דער טופס רישום (אן לאגאין)
     const email = whoIs(req.token);
     if (!email) return out({ error: 'not-signed-in' });
@@ -990,7 +992,44 @@ const ACTIONS = {
     const rd = function (name) { const sh = ensureTab(M.book, name, TABS[name]); return objs(sh).filter(function (x) { return S(x[TABS[name][0]]); }).map(function (x) { const o = {}; TABS[name].forEach(function (k) { o[k] = S(x[k]).replace(/^'/, ''); }); return o; }); };
     const items = rd('Kitchen').map(function (o) { o.expiry_date = o.expiry_date.slice(0, 10); return o; });
     const orders = rd('KitchenOrders').slice(-300);
-    return { items: items, orders: orders };
+    if (me.kw) { // עובד מטבח (סיסמה)
+      if (!me.kw.prices) items.forEach(function (o) { o.unit_price = ''; });
+      return { items: items, orders: orders.map(function (o) { if (!me.kw.prices) o.total = ''; return o; }), kw: { name: me.kw.name, prices: !!me.kw.prices },
+        requests: rd('KitchenRequests').filter(function (r) { return r.by === me.email; }).slice(-50) };
+    }
+    return { items: items, orders: orders, requests: rd('KitchenRequests').filter(function (r) { return r.status === 'pending'; }), workers: kWorkers(M).map(function (w) { return { id: w.id, name: w.name, prices: !!w.prices, active: w.active !== false }; }) };
+  },
+  /** 🔑 עובדי מטבח: { id?, name, password?, prices, active } */
+  kitchenWorkerSave: function (M, me, req) {
+    need(me, 'kitchen');
+    const w = req.worker || {};
+    const list = kWorkers(M);
+    let x = list.filter(function (v) { return v.id === S(w.id); })[0];
+    if (!x) { if (!S(w.name) || !S(w.password)) throw new Error('need-text'); x = { id: 'w' + Date.now().toString(36), ver: 1 }; list.push(x); }
+    if (S(w.name)) x.name = S(w.name).slice(0, 40);
+    x.prices = !!w.prices; x.active = w.active !== false;
+    if (S(w.password)) { if (S(w.password).length < 4) throw new Error('short-pass'); x.salt = Utilities.getUuid(); x.hash = kHash(x.salt, S(w.password)); x.ver = (Number(x.ver) || 0) + 1; }
+    if (w.remove) list.splice(list.indexOf(x), 1);
+    // נישט דורך setCells — די סיסמאות (hash) זאלן נישט אריין אין יומן
+    const sh = M.book.getSheetByName('Settings'); const ex = objs(sh).filter(function (r) { return S(r.key) === 'kitchen_workers'; })[0];
+    const head = headOf(sh); const row = { key: 'kitchen_workers', value: JSON.stringify(list), updated_at: now(), updated_by: me.email };
+    if (ex) sh.getRange(ex._row, 1, 1, head.length).setValues([head.map(function (h) { return row[h] === undefined ? '' : row[h]; })]);
+    else sh.appendRow(head.map(function (h) { return row[h] === undefined ? '' : row[h]; }));
+    logIt(M, me, 'kitchen-worker', '', (w.remove ? 'remove ' : '') + x.name + (S(w.password) ? ' (סיסמה חדשה)' : ''));
+    return { ok: true };
+  },
+  /** בקשה פון א עובד (הוספה / מחיקה) → אישור / דחייה */
+  kitchenReqDecide: function (M, me, req) {
+    need(me, 'kitchen');
+    const sh = ensureTab(M.book, 'KitchenRequests', TABS.KitchenRequests);
+    const r = objs(sh).filter(function (x) { return S(x.req_id) === S(req.id); })[0];
+    if (!r || S(r.status) !== 'pending') return { ok: true };
+    if (req.approve) {
+      if (S(r.type) === 'add') { let d = {}; try { d = JSON.parse(S(r.data)) || {}; } catch (err) { d = {}; } d.product_id = ''; ACTIONS.kitchenSave(M, me, { row: d }); }
+      if (S(r.type) === 'delete') ACTIONS.kitchenDelete(M, me, { id: S(r.product_id) });
+    }
+    setCells(sh, r._row, { status: req.approve ? 'approved' : 'rejected', decided_by: me.email, decided_at: now() });
+    return { ok: true };
   },
   /** פריט חדש / עדכון. rows: [{...}] — כמה ביחד (ייבוא) */
   kitchenSave: function (M, me, req) {
@@ -1056,6 +1095,41 @@ const ACTIONS = {
       setCells(sh, o._row, { status: 'received' });
       return { ok: true };
     } finally { lock.releaseLock(); }
+  },
+  /** ❓ עוזר AI: עונה רק לפי המדריך של האתר (help/yeshiva.md). דער שליסל: Script Properties → GEMINI_API_KEY */
+  ask: function (M, me, req) {
+    const q = S(req.question).slice(0, 800);
+    if (!q) throw new Error('need-text');
+    const props = PropertiesService.getScriptProperties();
+    const key = props.getProperty('GEMINI_API_KEY');
+    if (!key) throw new Error('ai-no-key');
+    const c = CacheService.getScriptCache();
+    const day = Utilities.formatDate(new Date(), 'Asia/Jerusalem', 'yyyy-MM-dd');
+    const lk = 'ai:' + day + ':' + me.email; const n = Number(c.get(lk) || 0);
+    if (n >= Number(props.getProperty('DAILY_LIMIT') || 30)) throw new Error('ai-limit');
+    c.put(lk, String(n + 1), 21600);
+    let guide = c.get('ai-guide:' + M.key);
+    if (!guide) {
+      const r = UrlFetchApp.fetch('https://ungvar.org/help/yeshiva.md?t=' + Date.now(), { muteHttpExceptions: true });
+      guide = r.getResponseCode() === 200 ? r.getContentText().slice(0, 90000) : '';
+      if (guide) c.put('ai-guide:' + M.key, guide, 3600);
+    }
+    const system = ['You are the help assistant of the management website of ' + (M.name || 'the yeshiva') + ' (ungvar.org/' + M.key + ').',
+      'Answer ONLY from the guide below. If the guide does not cover it, say you do not know and suggest asking the site manager.',
+      'Answer in Hebrew (or in the language of the question). Be short and practical: numbered steps, exact button names in **bold** as in the guide.',
+      'Never invent buttons or features. You cannot see or change any data. Do not ask for or repeat personal data.',
+      'The user is currently on the page: ' + S(req.page).slice(0, 60) + '. Their permissions: ' + (isAdminRole(me) ? 'admin (all)' : me.perms.join(', ')) + '.',
+      '', '=== GUIDE ===', guide].join('\n');
+    const model = props.getProperty('GEMINI_MODEL') || 'gemini-flash-latest';
+    const res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+      method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, muteHttpExceptions: true,
+      payload: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: q }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 4096 } }) });
+    if (res.getResponseCode() !== 200) throw new Error('ai-' + res.getResponseCode());
+    const data = JSON.parse(res.getContentText());
+    const parts = (((data.candidates || [])[0] || {}).content || {}).parts || [];
+    const answer = parts.map(function (p) { return p.text || ''; }).join('').trim();
+    if (!answer) throw new Error('ai-empty');
+    return { answer: answer, left: Math.max(0, Number(props.getProperty('DAILY_LIMIT') || 30) - n - 1) };
   },
   /** 🎖 סוגי מלגות: [{ id, name, sedarim: [keys], tpl: { to: [], bless, intro, amount, quotes: [] } }] */
   stipTypesSave: function (M, me, req) {
@@ -1823,7 +1897,7 @@ function settingsOf(M) {
     if (k === 'sedarim' || k === 'exp_cats' || k === 'inc_cats') { try { const v = JSON.parse(S(x.value)); if (v && v.length) o[k] = v; } catch (err) { /* */ } }
     else if (k === 'rooms') { try { const v = JSON.parse(S(x.value)); if (Array.isArray(v)) o.rooms = v; } catch (err) { /* */ } }
     else if (k === 'dorm_bld') { try { const v = JSON.parse(S(x.value)); if (Array.isArray(v)) o.dorm_bld = v; } catch (err) { /* */ } }
-    else if (k && k.indexOf('dormimg:') !== 0 && k !== 'reg' && k.indexOf('reg_txt:') !== 0) o[k] = S(x.value);
+    else if (k && k.indexOf('dormimg:') !== 0 && k !== 'reg' && k.indexOf('reg_txt:') !== 0 && k !== 'kitchen_workers') o[k] = S(x.value); // kitchen_workers (סיסמאות) — קיינמאל נישט צום אתר
   });
   return o;
 }
@@ -2217,6 +2291,59 @@ const REG_MAIL_DEFAULT = {
 };
 
 // ---------- פארן עולם (אן לאגאין) ----------
+// ---------- 🍳 עובדי מטבח: סיסמה פאר יעדן (Settings: kitchen_workers) — נאר דער מטבח ----------
+function kWorkers(M) { const r = objs(M.book.getSheetByName('Settings')).filter(function (x) { return S(x.key) === 'kitchen_workers'; })[0]; try { const v = JSON.parse(S(r && r.value) || '[]'); return Array.isArray(v) ? v : []; } catch (err) { return []; } }
+function kHash(salt, pass) { return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + '|' + pass, Utilities.Charset.UTF_8)); }
+/** דער סעסיע → דער עובד (נאר ווען ער איז נאך פעיל און די סיסמה איז נישט געטוישט) */
+function kSession(M, tok) {
+  if (!tok) throw new Error('k-login');
+  const raw = CacheService.getScriptCache().get('ks:' + String(tok).slice(0, 80));
+  if (!raw) throw new Error('k-login');
+  const ss = JSON.parse(raw);
+  if (ss.m !== M.key) throw new Error('k-login');
+  const w = kWorkers(M).filter(function (x) { return x.id === ss.w; })[0];
+  if (!w || w.active === false || Number(w.ver) !== Number(ss.v)) throw new Error('k-login');
+  return { email: 'מטבח: ' + w.name, name: w.name, role: 'staff', perms: ['kitchen'], kw: w };
+}
+const KPUB = {
+  kNames: function (M) { return { names: kWorkers(M).filter(function (w) { return w.active !== false; }).map(function (w) { return { id: w.id, name: w.name }; }), mosad: M.name }; },
+  kLogin: function (M, req) {
+    const c = CacheService.getScriptCache();
+    const fk = 'kf:' + M.key + ':' + S(req.id).slice(0, 30);
+    const fails = Number(c.get(fk) || 0);
+    if (fails >= 5) return { error: 'k-locked' };
+    const w = kWorkers(M).filter(function (x) { return x.id === S(req.id) && x.active !== false; })[0];
+    if (!w || kHash(w.salt, S(req.password)) !== w.hash) { c.put(fk, String(fails + 1), 600); return { error: 'k-bad' }; }
+    c.remove(fk);
+    const tok = Utilities.getUuid() + Utilities.getUuid();
+    c.put('ks:' + tok, JSON.stringify({ m: M.key, w: w.id, v: Number(w.ver) }), 21600);
+    return { ok: true, token: tok, name: w.name };
+  },
+  /** אלע אקציעס פונעם עובד: { ks, op, ... } */
+  kAct: function (M, req) {
+    try {
+      const me = kSession(M, req.ks);
+      CUR = { M: M, me: me };
+      const op = S(req.op);
+      if (op === 'read') return ACTIONS.kitchen(M, me);
+      if (op === 'stock') { const v = Math.max(0, Number(req.value) || 0); return ACTIONS.kitchenSave(M, me, { row: { product_id: S(req.id), current_stock: v } }); }
+      if (op === 'order') { const r = ACTIONS.kitchenOrder(M, me, { supplier: req.supplier, items: [].concat(req.items || []).map(function (x) { return { id: x.id, name: x.name, qty: x.qty, unit: x.unit, price: me.kw.prices ? x.price : 0 }; }), received: !!req.received }); return r; }
+      if (op === 'receive') return ACTIONS.kitchenReceive(M, me, { id: req.id });
+      if (op === 'request') {
+        const type = S(req.type) === 'delete' ? 'delete' : 'add';
+        const sh = ensureTab(M.book, 'KitchenRequests', TABS.KitchenRequests);
+        let max = 0; objs(sh).forEach(function (x) { const n = Number(x.req_id); if (n > max) max = n; });
+        const d = req.row || {}; const keep = {};
+        TABS.Kitchen.forEach(function (k) { if (k in d && k !== 'product_id' && k !== 'updated_at' && k !== 'updated_by' && (me.kw.prices || k !== 'unit_price')) keep[k] = S(d[k]).slice(0, 300); });
+        if (type === 'add' && !S(keep.product_name)) throw new Error('need-text');
+        appendObj(sh, { req_id: max + 1, type: type, product_id: S(req.id), data: JSON.stringify(keep), note: S(req.note).slice(0, 300), by: me.email, at: now(), status: 'pending' });
+        logIt(M, me, 'kitchen-request', '', type + ' ' + (S(keep.product_name) || S(req.id)));
+        return { ok: true };
+      }
+      return { error: 'bad-action' };
+    } catch (err) { return { error: String((err && err.message) || err) }; }
+  },
+};
 const PUBLIC = {
   pubRegInfo: function (M) {
     const c = regConf(M);

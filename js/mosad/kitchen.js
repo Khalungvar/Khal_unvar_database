@@ -1,7 +1,7 @@
 // 🍳 מלאי המטבח — על הגיליון של המוסד (Kitchen, KitchenOrders), לא Firebase.
 // התראות: מתחת למינימום / לפני שייגמר (ימי אספקה × צריכה יומית) / תוקף (5 ימים לפני) · רשימת קניות לפי ספק · הזמנות קבועות לפי יום בשבוע.
-import { downloadXlsx } from '../excel.js?v=590';
-import { colFilters } from '../sorttables.js?v=590';
+import { downloadXlsx } from '../excel.js?v=591';
+import { colFilters } from '../sorttables.js?v=591';
 
 let X = null;
 const K = { d: null, tab: 'stock', cat: '', q: '', sort: 'name', card: '' };
@@ -42,6 +42,8 @@ function orderQty(it, recurring = false) {
 }
 
 export function initKitchen(ctx) { X = ctx; }
+const kw = () => K.d?.kw || null; // עובד מטבח (סיסמה) — אנדערש מנהל (גוגל)
+const showPrices = () => !kw() || kw().prices;
 async function load() { K.d = await X.call(X.KEY, 'kitchen'); }
 export async function renderKitchen(box) {
   const { h } = X;
@@ -59,16 +61,25 @@ export async function renderKitchen(box) {
   };
   const dow = new Date().getDay();
   const todays = items.filter((it) => it.recurring_day !== '' && Number(it.recurring_day) === dow && n(it.standard_qty));
+  const reqs = (!kw() && K.d.requests) || [];
   const card = (k, ic, l, v, cls = '') => `<button type="button" class="kc-card${K.card === k ? ' on' : ''} ${cls}" data-card="${k}"><span>${ic} ${h(l)}</span><b>${h(String(v))}</b></button>`;
   box.innerHTML = `<h2 class="ms-h">🍳 מלאי המטבח</h2>
-    <div class="kc-cards">${card('', '📦', 'סה"כ פריטים', m.all)}${card('order', '🛒', 'לחידוש', m.order, m.order ? 'warn' : '')}${card('exp', '⏳', 'עומדים לפוג / פגו', m.exp, m.exp ? 'bad' : '')}${card('value', '💰', 'שווי מלאי מוערך', money(m.value))}</div>
+    <div class="kc-cards">${card('', '📦', 'סה"כ פריטים', m.all)}${card('order', '🛒', 'לחידוש', m.order, m.order ? 'warn' : '')}${card('exp', '⏳', 'עומדים לפוג / פגו', m.exp, m.exp ? 'bad' : '')}${showPrices() ? card('value', '💰', 'שווי מלאי מוערך', money(m.value)) : ''}</div>
+    ${reqs.length ? `<div class="ms-note"><b>📨 בקשות מאנשי המטבח (${reqs.length})</b>${reqs.map((r) => { let d = {}; try { d = JSON.parse(r.data || '{}'); } catch { d = {}; } const it = (K.d.items || []).find((x) => x.product_id === r.product_id);
+      return `<div class="kc-req">${r.type === 'add' ? `➕ פריט חדש: <b>${h(d.product_name || '')}</b> ${h([d.category, d.current_stock && `${d.current_stock} ${d.unit || ''}`, d.supplier_name].filter(Boolean).join(' · '))}` : `🗑 מחיקה: <b>${h(it?.product_name || r.product_id)}</b>`}
+        ${r.note ? `<span class="muted small">— ${h(r.note)}</span>` : ''} <span class="muted small">(${h(String(r.by).replace(/^מטבח: /, ''))})</span>
+        <button type="button" class="btn small-btn primary" data-ok="${h(r.req_id)}">✓ לאשר</button><button type="button" class="btn small-btn" data-no="${h(r.req_id)}">✗ לדחות</button></div>`; }).join('')}</div>` : ''}
     ${todays.length ? `<p class="ms-note">📅 היום יום הזמנה קבועה: ${todays.map((it) => `<b>${h(it.product_name)}</b> (${orderQty(it, true)} ${h(it.unit || '')})`).join(' · ')} <button type="button" class="btn small-btn" id="kc-rec">🛒 לרשימת הקניות</button></p>` : ''}
     <nav class="ms-subtabs">${[['stock', '📦 מלאי'], ['shop', '🛒 רשימת קניות'], ['hist', '📜 היסטוריית הזמנות']].map(([k, l]) => `<button type="button" data-kt="${k}" class="${K.tab === k ? 'on' : ''}">${h(l)}</button>`).join('')}
-      <span class="spacer"></span><button type="button" class="linkish" id="kc-reload">⟳ רענון</button></nav>
+      <span class="spacer"></span>${kw() ? '' : '<button type="button" class="linkish" id="kc-workers">🔑 אנשי המטבח וסיסמאות</button>'}<button type="button" class="linkish" id="kc-reload">⟳ רענון</button></nav>
     <div id="kc-body"></div>`;
   X.$$('[data-kt]', box).forEach((b) => { b.onclick = () => { K.tab = b.dataset.kt; renderKitchen(box); }; });
   X.$$('[data-card]', box).forEach((b) => { b.onclick = () => { K.card = b.dataset.card === 'value' ? '' : (K.card === b.dataset.card ? '' : b.dataset.card); K.tab = K.card === 'order' ? 'shop' : 'stock'; renderKitchen(box); }; });
   X.$('#kc-reload', box).onclick = () => { K.d = null; renderKitchen(box); };
+  X.$('#kc-workers', box)?.addEventListener('click', () => workersDialog(() => { K.d = null; renderKitchen(box); }));
+  const decide = async (id, approve) => { try { await X.call(X.KEY, 'kitchenReqDecide', { id, approve }); await load(); renderKitchen(box); X.toast(approve ? 'אושר.' : 'נדחה.'); } catch (err) { X.toast(X.msg(err), 'err'); } };
+  X.$$('[data-ok]', box).forEach((b) => { b.onclick = () => decide(b.dataset.ok, true); });
+  X.$$('[data-no]', box).forEach((b) => { b.onclick = () => decide(b.dataset.no, false); });
   X.$('#kc-rec', box)?.addEventListener('click', () => { K.rec = true; K.tab = 'shop'; renderKitchen(box); });
   const body = X.$('#kc-body', box);
   const rer = () => renderKitchen(box);
@@ -104,13 +115,13 @@ function stockTab(body, rer) {
       <select id="kc-sort">${[['name', 'מיון: א-ב'], ['exp', 'מיון: תוקף'], ['qty', 'מיון: כמות']].map(([k, l]) => `<option value="${k}"${k === K.sort ? ' selected' : ''}>${l}</option>`).join('')}</select>
       ${K.card ? `<button type="button" class="linkish" id="kc-clr">✕ ${K.card === 'order' ? 'לחידוש' : 'תוקף'}</button>` : ''}
       <span class="spacer"></span>
-      <button type="button" class="btn primary" id="kc-new">＋ פריט חדש</button>
-      <button type="button" class="btn" id="kc-imp">⬆ ייבוא מאקסל</button><button type="button" class="btn" id="kc-xl">⬇ Excel</button>
+      <button type="button" class="btn primary" id="kc-new">${kw() ? '＋ בקשה לפריט חדש' : '＋ פריט חדש'}</button>
+      ${kw() ? '' : '<button type="button" class="btn" id="kc-imp">⬆ ייבוא מאקסל</button>'}<button type="button" class="btn" id="kc-xl">⬇ Excel</button>
     </div>
-    ${list.length ? `<div class="ms-wrap"><table class="ms-table col-filter" data-fkey="kitchen"><thead><tr><th>מוצר</th><th>קטגוריה</th><th>במלאי</th><th>מינימום</th><th>תוקף</th><th>ספק</th><th>מחיר</th><th>מצב</th><th></th></tr></thead><tbody>
+    ${list.length ? `<div class="ms-wrap"><table class="ms-table col-filter" data-fkey="kitchen"><thead><tr><th>מוצר</th><th>קטגוריה</th><th>במלאי</th><th>מינימום</th><th>תוקף</th><th>ספק</th>${showPrices() ? '<th>מחיר</th>' : ''}<th>מצב</th><th></th></tr></thead><tbody>
       ${list.map((it) => `<tr><td><b>${h(it.product_name)}</b>${it.note ? `<div class="muted small">${h(it.note)}</div>` : ''}</td><td>${h(it.category)}</td>
         <td class="c" data-v="${n(it.current_stock)}"><button type="button" class="btn small-btn" data-dec="${h(it.product_id)}">−</button> <b>${h(String(n(it.current_stock)))}</b> ${h(it.unit || '')} <button type="button" class="btn small-btn" data-inc="${h(it.product_id)}">+</button></td>
-        <td class="c">${h(it.min_threshold)}</td><td class="small" data-v="${h(it.expiry_date || '')}">${h(it.expiry_date || '')}</td><td>${h(it.supplier_name)}</td><td class="num">${it.unit_price !== '' ? h(money(it.unit_price)) : ''}</td>
+        <td class="c">${h(it.min_threshold)}</td><td class="small" data-v="${h(it.expiry_date || '')}">${h(it.expiry_date || '')}</td><td>${h(it.supplier_name)}</td>${showPrices() ? `<td class="num">${it.unit_price !== '' ? h(money(it.unit_price)) : ''}</td>` : ''}
         <td>${badge(it)}</td><td class="ms-acts"><button type="button" class="btn small-btn" data-ed="${h(it.product_id)}">✎</button></td></tr>`).join('')}
     </tbody></table></div>` : '<p class="muted ms-empty">אין.</p>'}`;
   const qi = X.$('#kc-q', body); qi.oninput = () => { K.q = qi.value; clearTimeout(K.t); K.t = setTimeout(() => { stockTab(body, rer); const x = X.$('#kc-q', body); x.focus(); x.setSelectionRange(x.value.length, x.value.length); }, 250); };
@@ -118,8 +129,9 @@ function stockTab(body, rer) {
   X.$('#kc-sort', body).onchange = (e) => { K.sort = e.target.value; stockTab(body, rer); };
   X.$('#kc-clr', body)?.addEventListener('click', () => { K.card = ''; rer(); });
   X.$('#kc-new', body).onclick = () => itemDialog({}, rer);
-  X.$('#kc-imp', body).onclick = () => importXl(rer);
-  X.$('#kc-xl', body).onclick = () => downloadXlsx('מלאי המטבח', FIELDS.map(([, l]) => l), items.map((it) => FIELDS.map(([k, , t]) => (k === 'recurring_day' ? (it[k] !== '' ? DAYS[Number(it[k])] || '' : '') : t === 'n' ? (it[k] === '' ? '' : n(it[k])) : it[k] || ''))), { rtl: true });
+  X.$('#kc-imp', body)?.addEventListener('click', () => importXl(rer));
+  const FX = FIELDS.filter(([k]) => showPrices() || k !== 'unit_price');
+  X.$('#kc-xl', body).onclick = () => downloadXlsx('מלאי המטבח', FX.map(([, l]) => l), items.map((it) => FX.map(([k, , t]) => (k === 'recurring_day' ? (it[k] !== '' ? DAYS[Number(it[k])] || '' : '') : t === 'n' ? (it[k] === '' ? '' : n(it[k])) : it[k] || ''))), { rtl: true });
   const byId = (id) => items.find((x) => x.product_id === id);
   const bump = async (id, d) => {
     const it = byId(id); if (!it) return;
@@ -144,22 +156,31 @@ function itemDialog(it, rer) {
     if (k === 'recurring_day') return `<label>${l}<select name="${k}"><option value="">ללא</option>${DAYS.slice(0, 6).map((d, i) => `<option value="${i}"${String(it[k]) === String(i) && it[k] !== '' ? ' selected' : ''}>יום ${d}'</option>`).join('')}</select></label>`;
     return `<label>${l}<input name="${k}"${t === 'n' ? ' type="number" step="any" min="0" dir="ltr"' : t === 'date' ? ' type="date"' : ''} value="${h(it[k] ?? '')}"${k === 'product_name' ? ' required' : ''}></label>`;
   };
-  const d = X.dialog(`<h2>${it.product_id ? '✎ ' + h(it.product_name) : '＋ פריט חדש'}</h2>
-    <form class="ms-form"><div class="grid">${FIELDS.map(inp).join('')}</div>
+  const W = kw(); const ro = W && it.product_id; // עובד: פריט קיים — רק בקשת מחיקה
+  const d = X.dialog(`<h2>${it.product_id ? '✎ ' + h(it.product_name) : W ? '＋ בקשה לפריט חדש' : '＋ פריט חדש'}</h2>
+    ${W ? `<p class="ms-note small">${ro ? 'שינוי פרטי הפריט — אצל המנהל. אפשר לבקש למחוק אותו.' : 'הבקשה תעבור לאישור המנהל, והפריט ייכנס למלאי אחרי האישור.'}</p>` : ''}
+    <form class="ms-form"><fieldset${ro ? ' disabled' : ''} style="border:0;padding:0;margin:0"><div class="grid">${FIELDS.filter(([k]) => showPrices() || k !== 'unit_price').map(inp).join('')}</div></fieldset>
+      ${W ? '<label>הערה למנהל<input name="rq_note"></label>' : ''}
       <datalist id="kc-dl-u">${UNITS.map((u) => `<option value="${h(u)}">`).join('')}</datalist><datalist id="kc-dl-c">${cats.map((u) => `<option value="${h(u)}">`).join('')}</datalist><datalist id="kc-dl-s">${sups.map((u) => `<option value="${h(u)}">`).join('')}</datalist>
       <p class="muted small">התראה מוקדמת: כשהמלאי ≤ מינימום + (צריכה ליום × ימי אספקה) — מופיע ב"לחידוש" לפני שנגמר. הזמנה קבועה: ביום שנבחר — כמות להזמנה = תקן − מה שנשאר במדף.</p>
-      <div class="actions">${it.product_id ? '<button type="button" class="btn danger" id="kc-del">🗑 מחיקה</button>' : ''}<span class="spacer"></span><button type="button" class="btn" data-x>ביטול</button><button type="submit" class="btn primary">💾 שמירה</button></div></form>`);
+      <div class="actions">${it.product_id ? `<button type="button" class="btn danger" id="kc-del">🗑 ${W ? 'בקשה למחוק' : 'מחיקה'}</button>` : ''}<span class="spacer"></span><button type="button" class="btn" data-x>ביטול</button>${ro ? '' : `<button type="submit" class="btn primary">${W ? '📨 לשלוח למנהל' : '💾 שמירה'}</button>`}</div></form>`);
   X.$$('[data-x]', d).forEach((b) => { b.onclick = () => d.close(); });
   const form = X.$('form', d);
   form.onsubmit = async (e) => {
     e.preventDefault();
-    const row = { product_id: it.product_id || '' }; FIELDS.forEach(([k]) => { row[k] = X.S(form.elements[k].value); });
+    const row = { product_id: it.product_id || '' }; FIELDS.forEach(([k]) => { if (form.elements[k]) row[k] = X.S(form.elements[k].value); });
     const btn = X.$('button[type=submit]', form); btn.disabled = true;
-    try { await X.call(X.KEY, 'kitchenSave', { row }); await load(); d.close(); rer(); X.toast('נשמר.'); } catch (err) { btn.disabled = false; X.toast(X.msg(err), 'err'); }
+    try {
+      if (W) { await X.call(X.KEY, 'kitchenRequest', { type: 'add', row, note: X.S(form.elements.rq_note.value) }); d.close(); X.toast('הבקשה נשלחה למנהל.'); return; }
+      await X.call(X.KEY, 'kitchenSave', { row }); await load(); d.close(); rer(); X.toast('נשמר.');
+    } catch (err) { btn.disabled = false; X.toast(X.msg(err), 'err'); }
   };
   X.$('#kc-del', d)?.addEventListener('click', async () => {
-    if (!window.confirm(`למחוק את "${it.product_name}" מהמלאי?`)) return;
-    try { await X.call(X.KEY, 'kitchenDelete', { id: it.product_id }); await load(); d.close(); rer(); } catch (err) { X.toast(X.msg(err), 'err'); }
+    if (!window.confirm(W ? `לבקש מהמנהל למחוק את "${it.product_name}"?` : `למחוק את "${it.product_name}" מהמלאי?`)) return;
+    try {
+      if (W) { await X.call(X.KEY, 'kitchenRequest', { type: 'delete', id: it.product_id, note: X.S(form.elements.rq_note?.value) }); d.close(); X.toast('הבקשה נשלחה למנהל.'); return; }
+      await X.call(X.KEY, 'kitchenDelete', { id: it.product_id }); await load(); d.close(); rer();
+    } catch (err) { X.toast(X.msg(err), 'err'); }
   });
 }
 
@@ -176,8 +197,8 @@ function shopTab(body, rer) {
   body.innerHTML = `<div class="ms-bar"><span class="muted small">פריטים שמתחת לסף (וגם לפי ימי האספקה) עוברים לכאן לבד. אפשר לשנות כמות לפני ששולחים.${K.rec ? ' כולל ההזמנות הקבועות של היום.' : ''}</span><span class="spacer"></span>
       <button type="button" class="btn" id="ks-print">🖨 PDF / הדפסה</button><button type="button" class="btn" id="ks-xl">⬇ Excel</button></div>
     ${sups.length ? sups.map((sp) => `<section class="kc-sup"><h3>🚚 ${h(sp)}</h3>
-      <table class="ms-table"><thead><tr><th>מוצר</th><th>במלאי</th><th>להזמין</th><th>מחיר</th></tr></thead><tbody>
-      ${groups[sp].map((x) => `<tr><td>${h(x.it.product_name)}</td><td>${h(String(n(x.it.current_stock)))} ${h(x.it.unit || '')}</td><td><input type="number" min="0" step="any" class="ks-q" data-id="${h(x.it.product_id)}" value="${x.qty}" style="width:6em" dir="ltr"> ${h(x.it.unit || '')}</td><td class="num">${x.it.unit_price !== '' ? h(money(n(x.it.unit_price) * x.qty)) : ''}</td></tr>`).join('')}
+      <table class="ms-table"><thead><tr><th>מוצר</th><th>במלאי</th><th>להזמין</th>${showPrices() ? '<th>מחיר</th>' : ''}</tr></thead><tbody>
+      ${groups[sp].map((x) => `<tr><td>${h(x.it.product_name)}</td><td>${h(String(n(x.it.current_stock)))} ${h(x.it.unit || '')}</td><td><input type="number" min="0" step="any" class="ks-q" data-id="${h(x.it.product_id)}" value="${x.qty}" style="width:6em" dir="ltr"> ${h(x.it.unit || '')}</td>${showPrices() ? `<td class="num">${x.it.unit_price !== '' ? h(money(n(x.it.unit_price) * x.qty)) : ''}</td>` : ''}</tr>`).join('')}
       </tbody></table>
       <div class="actions"><button type="button" class="btn" data-wa="${h(sp)}">💬 וואטסאפ</button><button type="button" class="btn" data-cp="${h(sp)}">📋 העתקה</button><span class="spacer"></span>
         <button type="button" class="btn" data-ord="${h(sp)}">📝 נרשם כהוזמן</button><button type="button" class="btn primary" data-rcv="${h(sp)}">✓ הגיע — להוסיף למלאי</button></div></section>`).join('')
@@ -216,7 +237,7 @@ const HEAD = { product_name: /שם|מוצר|פריט|product/i, category: /קט�
   lead_time_days: /אספקה|lead/i, daily_use: /צריכה|daily/i, expiry_date: /תוקף|תפוגה|expir/i, supplier_name: /ספק|supplier/i, unit_price: /מחיר|price/i, standard_qty: /תקן|standard/i, note: /הערה|note/i };
 export async function readTable(file) {
   if (/\.csv$/i.test(file.name)) return (await file.text()).split(/\r?\n/).filter((l) => l.trim()).map((l) => l.split(/,|\t/).map((c) => c.replace(/^"|"$/g, '').trim()));
-  const { _test } = await import('./shabbos.js?v=590');
+  const { _test } = await import('./shabbos.js?v=591');
   const files = Object.fromEntries(await _test.unzip(await file.arrayBuffer()));
   const dec = new TextDecoder(); const P = (k) => (files[k] ? new DOMParser().parseFromString(dec.decode(files[k]), 'application/xml') : null);
   const shared = [...(P('xl/sharedStrings.xml')?.getElementsByTagName('si') || [])].map((si) => [...si.getElementsByTagName('t')].map((t) => t.textContent).join(''));
@@ -242,4 +263,32 @@ function importXl(rer) {
     } catch (err) { X.toast(X.msg(err), 'err'); }
   };
   inp.click();
+}
+
+// ---------- 🔑 אנשי המטבח: שם + סיסמה לכל אחד; "מחירים" = רואה מחירים ושווי (באישור המנהל) ----------
+function workersDialog(after) {
+  const { h } = X;
+  const ws = K.d.workers || [];
+  const link = new URL('kitchen/', location.href.replace(/[^/]*$/, '')).href;
+  const d = X.dialog(`<h2>🔑 אנשי המטבח</h2>
+    <p class="muted small">אנשי המטבח נכנסים בלי גוגל, בדף: <a href="${h(link)}" target="_blank" dir="ltr">${h(link)}</a> — בוחרים שם ומקלידים סיסמה. הם רואים רק את המטבח: מעדכנים כמויות, רשימת קניות, "הגיע". פריט חדש / מחיקה — עוברים אליך לאישור.</p>
+    <table class="ms-table"><thead><tr><th>שם</th><th>רואה מחירים</th><th>פעיל</th><th>סיסמה חדשה</th><th></th></tr></thead><tbody>
+      ${ws.map((w) => `<tr data-w="${h(w.id)}"><td><input data-f="name" value="${h(w.name)}"></td><td class="c"><input type="checkbox" data-f="prices"${w.prices ? ' checked' : ''}></td><td class="c"><input type="checkbox" data-f="active"${w.active ? ' checked' : ''}></td>
+        <td><input data-f="password" type="text" autocomplete="off" placeholder="(בלי שינוי)" dir="ltr" style="width:9em"></td><td><button type="button" class="btn small-btn" data-sv>💾</button> <button type="button" class="btn small-btn" data-rm>🗑</button></td></tr>`).join('')}
+      <tr data-w=""><td><input data-f="name" placeholder="שם חדש"></td><td class="c"><input type="checkbox" data-f="prices"></td><td class="c"><input type="checkbox" data-f="active" checked></td>
+        <td><input data-f="password" type="text" autocomplete="off" placeholder="סיסמה (4+)" dir="ltr" style="width:9em"></td><td><button type="button" class="btn small-btn primary" data-sv>＋ הוספה</button></td></tr>
+    </tbody></table>
+    <p class="muted small">סיסמה חדשה מוציאה מיד את מי שנכנס עם הישנה. אחרי 5 ניסיונות שגויים — נעילה ל-10 דקות. כל פעולה נרשמת ביומן בשם העובד.</p>
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>סגירה</button></div>`);
+  X.$$('[data-x]', d).forEach((b) => { b.onclick = () => { d.close(); after(); }; });
+  const save = async (tr, remove = false) => {
+    const v = (f) => X.$(`[data-f="${f}"]`, tr);
+    const worker = { id: tr.dataset.w, name: X.S(v('name').value), password: X.S(v('password').value), prices: v('prices').checked, active: v('active').checked, remove };
+    if (!worker.id && (!worker.name || worker.password.length < 4)) { X.toast('צריך שם וסיסמה (לפחות 4 תווים).', 'err'); return; }
+    if (worker.password && worker.password.length < 4) { X.toast('סיסמה — לפחות 4 תווים.', 'err'); return; }
+    if (remove && !window.confirm(`להסיר את ${worker.name}?`)) return;
+    try { await X.call(X.KEY, 'kitchenWorkerSave', { worker }); await load(); d.close(); workersDialog(after); X.toast('נשמר.'); } catch (err) { X.toast(err?.message === 'short-pass' ? 'סיסמה — לפחות 4 תווים.' : X.msg(err), 'err'); }
+  };
+  X.$$('[data-sv]', d).forEach((b) => { b.onclick = () => save(b.closest('tr')); });
+  X.$$('[data-rm]', d).forEach((b) => { b.onclick = () => save(b.closest('tr'), true); });
 }

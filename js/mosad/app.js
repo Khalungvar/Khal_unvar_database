@@ -1,16 +1,18 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { letterhead, hebrewDateHints } from './brand.js?v=590';
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=590';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=590';
-import { initGifts, renderGifts } from './gifts.js?v=590';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab, renderStipPage } from './journal.js?v=590';
-import { initDorm, renderDorm } from './dorm.js?v=590';
-import { initReg, renderReg } from './reg.js?v=590';
-import { initSortTables } from '../sorttables.js?v=590';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=590';
-import { initTeam, renderTeam } from './team.js?v=590';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=590';
+import { letterhead, hebrewDateHints } from './brand.js?v=591';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=591';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=591';
+import { initGifts, renderGifts } from './gifts.js?v=591';
+import { initTheme } from './theme.js?v=591';
+import { initAsk } from './ask.js?v=591';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab, renderStipPage } from './journal.js?v=591';
+import { initDorm, renderDorm } from './dorm.js?v=591';
+import { initReg, renderReg } from './reg.js?v=591';
+import { initSortTables } from '../sorttables.js?v=591';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=591';
+import { initTeam, renderTeam } from './team.js?v=591';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=591';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -204,11 +206,13 @@ function render(fromPop) {
       <button type="button" class="ms-brand linkish" id="ms-home" title="דף הבית"><img src="${h(logoSrc())}" alt=""><b>${h(st.mosad?.name || TITLE)}</b></button>
       <span class="spacer"></span>
       <button type="button" class="btn small-btn ms-mebtn" id="ms-me" title="אזור אישי">👤 ${h(st.me.name || st.me.email)} · ${h(ROLE_NAMES[st.me.role] || '')}${st.openTasks ? ` <span class="count-pill">${st.openTasks}</span>` : ''}</button>
-      <button type="button" class="btn small-btn" id="ms-out">יציאה</button>
+      <span id="ms-theme"></span><button type="button" class="btn small-btn" id="ms-out">יציאה</button>
     </header>
     ${st.tab === 'home' ? '' : `<nav class="ms-crumb"><button type="button" class="linkish" id="ms-back">→ דף הבית</button></nav>`}
     <main id="ms-main"></main>`;
   $('#ms-out').onclick = () => { signOut(); clearPrefetch(); st.me = null; loginView('יצאת מהמערכת.'); };
+  initTheme($('#ms-theme'));
+  initAsk(ctx);
   $('#ms-home').onclick = () => { st.tab = 'home'; render(); };
   $('#ms-me').onclick = () => { st.tab = 'me'; render(); };
   $('#ms-back')?.addEventListener('click', () => { st.tab = 'home'; render(); });
@@ -224,8 +228,8 @@ function render(fromPop) {
   else if (st.tab === 'chavrusas') renderChav(box);
   else if (st.tab === 'attendance') renderAtt(box);
   else if (st.tab === 'stipends') renderStipPage(box);
-  else if (st.tab === 'kitchen') import('./kitchen.js?v=590').then((m) => { m.initKitchen(ctx); m.renderKitchen(box); });
-  else if (st.tab === 'shabbos') import('./shabbos.js?v=590').then((m) => { m.initShabbos(ctx); m.renderShabbos(box); });
+  else if (st.tab === 'kitchen') import('./kitchen.js?v=591').then((m) => { m.initKitchen(ctx); m.renderKitchen(box); });
+  else if (st.tab === 'shabbos') import('./shabbos.js?v=591').then((m) => { m.initShabbos(ctx); m.renderShabbos(box); });
   else if (st.tab === 'insurance') renderIns(box);
   else if (st.tab === 'staff_list') renderTeam(box);
   else if (st.tab === 'finance') renderFinance(box);
@@ -587,3 +591,4 @@ initSortTables();
 
 // ביי יעדן דאטום-פעלד: דער עברי'שער דאטום דערנעבן
 try { hebrewDateHints(document.body); } catch { /* */ }
+initTheme(null); // דער מצב (כהה/בהיר) — פון דער ערשטער מינוט, אויך אויפן לאגאין

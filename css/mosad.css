@@ -1,3 +1,4 @@
+:root { --card: var(--surface, #fff); } /* כרטיסים — גם בתצוגה כהה */
 /* אתר פון א מוסד (ישיבה וכו') — נוצט די הויפט-סטיילס (style.css) */
 .ms-body { margin: 0; background: var(--bg); }
 .ms-login { max-width: 420px; margin: 12vh auto; padding: 32px 24px; text-align: center; background: var(--card, #fff); border: 1px solid #e8dcc4; border-radius: 16px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
@@ -9,7 +10,7 @@
 .ms-brand { display: flex; align-items: center; gap: 8px; font-size: 1.2em; color: var(--accent); }
 .ms-brand img { width: 34px; height: 34px; }
 .ms-tabs { display: flex; gap: 6px; padding: 10px 16px 0; flex-wrap: wrap; }
-.ms-tabs button { border: 1px solid #e3d3ad; background: var(--card, #fff); border-radius: 10px 10px 0 0; padding: 8px 14px; cursor: pointer; font: inherit; }
+.ms-tabs button { color: inherit; border: 1px solid #e3d3ad; background: var(--card, #fff); border-radius: 10px 10px 0 0; padding: 8px 14px; cursor: pointer; font: inherit; }
 .ms-tabs button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 #ms-main { padding: 14px 16px 40px; max-width: 1200px; margin: 0 auto; }
 .ms-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
@@ -95,7 +96,7 @@ fieldset { border: 1px solid #e8dcc4; border-radius: 10px; margin: 8px 0; }
 @media (max-width: 640px) { .ms-tiles { grid-template-columns: repeat(2, 1fr); gap: 10px; } .ms-tile { padding: 16px 8px 12px; } .ms-more { grid-column: 1 / -1; } }
 /* יומנים */
 .ms-subtabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
-.ms-subtabs button { border: 1px solid #e3d3ad; background: var(--card, #fff); border-radius: 18px; padding: 5px 12px; cursor: pointer; font: inherit; }
+.ms-subtabs button { color: inherit; border: 1px solid #e3d3ad; background: var(--card, #fff); border-radius: 18px; padding: 5px 12px; cursor: pointer; font: inherit; }
 .ms-subtabs button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .ja-table td.c, .ja-table th.c, .jh-table td.c, .jh-table th.c { text-align: center; padding: 2px; }
 .ja-cell { width: 30px; height: 26px; border: 1px solid #ccc; border-radius: 6px; background: #fff; cursor: pointer; font-size: 15px; padding: 0; }
@@ -334,3 +335,12 @@ td.ltr, .ltr { direction: ltr; text-align: end; }
 .kc-b { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: .78em; white-space: nowrap; }
 .kc-b.warn { background: #fef3c7; color: #92400e; } .kc-b.bad { background: #fee2e2; color: #991b1b; }
 .kc-sup { border: 1px solid var(--line, #ddd); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; } .kc-sup h3 { margin: 4px 0 8px; }
+/* ❓ עוזר */
+.ms-ask-btn { position: fixed; bottom: 16px; left: 16px; z-index: 900; border-radius: 22px; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
+.ms-ask-box { position: fixed; bottom: 64px; left: 16px; z-index: 901; width: min(380px, calc(100vw - 32px)); height: min(480px, 70vh); display: flex; flex-direction: column; background: var(--surface, #fff); color: var(--ink, #222); border: 1px solid var(--line, #ccc); border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+.ms-ask-head { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line, #ddd); } .ms-ask-head .linkish { margin-inline-start: auto; }
+.ms-ask-log { flex: 1; overflow: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.ms-ask-m { padding: 7px 10px; border-radius: 10px; line-height: 1.45; max-width: 92%; } .ms-ask-m.me { align-self: flex-start; background: #dbeafe; color: #1e3a8a; } .ms-ask-m.bot { align-self: flex-end; background: var(--bg, #f5f5f5); } .ms-ask-m.warn { color: #b91c1c; }
+.ms-ask-f { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--line, #ddd); } .ms-ask-f textarea { flex: 1; resize: none; font: inherit; }
+.kc-req { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px 0; border-top: 1px dashed var(--line, #ddd); }
+@media print { .ms-ask-btn, .ms-ask-box { display: none !important; } }
