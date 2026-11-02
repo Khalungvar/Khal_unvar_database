@@ -5,7 +5,7 @@ import { htmlToJpeg } from '../pdf.js';
 // ---------- זיפ (אן צוזאמענדריקן) ----------
 const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n += 1) { let c = n; for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
 const crc32 = (b) => { let c = 0xffffffff; for (let i = 0; i < b.length; i += 1) c = CRC[(c ^ b[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
-function zip(files) {
+export function zip(files) {
   const enc = new TextEncoder(); const parts = []; const cen = []; let off = 0;
   for (const [name, data0] of files) {
     const data = typeof data0 === 'string' ? enc.encode(data0) : data0; const nm = enc.encode(name); const c = crc32(data);

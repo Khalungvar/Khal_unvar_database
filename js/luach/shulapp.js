@@ -14,7 +14,7 @@ const h = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<':
 const main = $('#luach-main');
 function toast(t, kind = '') { const e = document.createElement('div'); e.className = `sa-toast ${kind}`; e.textContent = t; document.body.append(e); setTimeout(() => e.remove(), 3500); }
 const ui = { toast, friendlyError: (e) => String(e?.message || e) };
-const KEY = new URLSearchParams(location.search).get('s') || '';
+const KEY = new URLSearchParams(location.search).get('s') || (SHULS.bp.standalone ? 'bp' : '');
 
 // הרשימה של בתי הכנסת — פתוחה לקריאה (כמו המסך)
 async function registry() {
@@ -41,8 +41,8 @@ function hub() {
 }
 
 async function start() {
-  try { await registry(); } catch { /* */ }
-  if (!KEY || !SHULS[KEY] || KEY === 'bp') { main.innerHTML = '<div class="sa-login"><p>הקישור לא תקין. בקש מהמנהל את הקישור של בית הכנסת שלך.</p></div>'; return; }
+  if (!SHULS.bp.standalone) { try { await registry(); } catch { /* */ } }
+  if (!KEY || !SHULS[KEY] || (KEY === 'bp' && !SHULS.bp.standalone)) { main.innerHTML = '<div class="sa-login"><p>הקישור לא תקין. בקש מהמנהל את הקישור של בית הכנסת שלך.</p></div>'; return; }
   setCurShul(KEY);
   await initAuth();
   const go = async () => {

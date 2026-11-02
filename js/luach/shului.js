@@ -8,6 +8,7 @@ import { isoOf, nOf, dowOf } from './engine.js';
 import { SHULS, DEFAULT_SHUL, CITIES, shulDefaults, normShul, locOf, applyShul, joinParts, curShul } from './shul.js';
 import { shulPeople, addPerson, removePerson, ROLE } from './shuls.js';
 import { buildStandalone } from './standalone.js';
+import { buildPackage } from './pkg.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -102,6 +103,7 @@ function render(main, onBack) {
     <h3 class="sh-h2">📺 מסך התצוגה</h3>
     <div class="sh-row"><a href="display.html?shul=${h(curShul())}" target="_blank">פתח את המסך ↗</a>
       <button type="button" class="btn small-btn" id="sh-dl" title="קובץ אחד שפותחים במחשב התצוגה (כרום, מסך מלא). עובד גם בלי האתר ובלי אינטרנט; כשהחיבור חוזר הוא מושך עדכון מיד. נעול על הגרסה שהורדה.">⬇ קובץ תצוגה עצמאי</button> <span class="muted small" id="sh-dl-st"></span></div>
+    ${state.isAdmin ? `<div class="sh-row"><button type="button" class="btn small-btn ghost" id="sh-pkg" title="ZIP עם כל הקוד + מדריך התקנה — בית הכנסת ירוץ באתר ובחשבון גוגל משלו, בלי קשר לאתר הזה">📦 עותק עצמאי לגמרי (חבילה)</button> <span class="muted small" id="sh-pkg-st"></span></div>` : ''}
   </section>
   </div>
   <div class="sh-bar">${ed ? `<input id="sh-note" placeholder="הערה לגרסה (לא חובה)"><button type="button" class="btn primary" id="sh-save"${dirty ? '' : ' disabled'}>💾 שמירה</button>` : '<span class="muted">צפייה בלבד</span>'}
@@ -140,6 +142,16 @@ function render(main, onBack) {
       $$('[data-hs]', sb).forEach((x) => { x.onchange = () => { const set = new Set(C.hideSimchos || []); if (x.checked) set.add(x.dataset.hs); else set.delete(x.dataset.hs); C.hideSimchos = [...set]; const sv2 = $('#sh-save', main); if (sv2) sv2.disabled = false; }; });
     }).catch(() => { sb.textContent = 'לא ניתן לטעון'; });
   }
+  const pk = $('#sh-pkg', main);
+  if (pk) pk.onclick = async () => {
+    const st = $('#sh-pkg-st', main); pk.disabled = true;
+    try {
+      const blob = await buildPackage({ name: C.name || '' }, (m) => { st.textContent = `מכין… ${m}`; });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `מערכת זמני תפילות - ${C.name || curShul()}.zip`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      st.textContent = '✓ הורד — בתוך הקובץ: "התקנה.html"';
+    } catch (err) { st.textContent = `שגיאה: ${err.message || err}`; }
+    pk.disabled = false;
+  };
   $('#sh-dl', main).onclick = async () => {
     const st = $('#sh-dl-st', main); const b = $('#sh-dl', main); b.disabled = true;
     try {

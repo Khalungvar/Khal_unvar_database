@@ -22,4 +22,7 @@ const date = new Date().toISOString().slice(0, 10);
 fs.writeFileSync(path.join(out, 'manifest.json'), JSON.stringify({ n, date, note, js, assets }, null, 1));
 idx.push({ n, date, note });
 fs.writeFileSync(idxP, JSON.stringify(idx, null, 1));
+// רשימת הקבצים לחבילה העצמאית (📦 עותק עצמאי) — הקוד העדכני של דף הגבאים והתצוגה
+const pkg = [...new Set([...closure('js/luach/shulapp.js'), ...js, ...fs.readdirSync('js/vendor').map((f) => `js/vendor/${f}`), ...assets, 'css/style.css', 'css/luach.css', 'display.html', 'shul/index.html'])];
+fs.writeFileSync('rel/pkg-files.json', JSON.stringify(pkg, null, 1));
 console.log(`release ${n}: ${js.length} js, ${assets.length} assets`);
