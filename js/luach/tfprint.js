@@ -128,6 +128,8 @@ export function printCss(fontHe = 'Frank Ruhl Libre') {
 .tp-bl .tp-lh2 { display: block; width: 88%; margin: calc(.26in * var(--k, 1)) auto 0; }
 .tp-bl .tp-lf { display: block; width: 88%; margin: auto auto calc(.25in * var(--k, 1)); }
 .tp-bl .tp-in > :not(.tp-lh2):not(.tp-lf) { margin-inline: calc(.5in * var(--k, 1)); }
+.tp-sh.tp-bl .tp-in { padding: 0; }
+.tp-bl .tp-in > .tp-rows { margin-inline: auto; }
 `;
 }
 

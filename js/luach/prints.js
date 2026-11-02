@@ -45,12 +45,12 @@ ${blk('rebbe')}
 <div class="tp-band"><span></span><b>מעריב</b><small>{הערת מעריב}</small></div>${blk('maariv', 'div', 'tp-times')}
 <div class="tp-band"><span></span><b style="font-size:2.3em">זמני שבת קודש</b>${blk('sshach', 'small', 'tp-ssh')}</div>
 ${blk('shabline', 'div', 'tp-shab')}` },
-  shabbos: { name: 'שבת', size: 'letter', cls: 'tp-sh', frame: false, rec: { type: 'weekly', dow: 5 }, html: `
-<img class="tp-lh" src="img/print/letterhead.png" alt="">
+  shabbos: { name: 'שבת', size: 'letter', cls: 'tp-sh tp-bl', frame: false, rec: { type: 'weekly', dow: 5 }, html: `
+<img class="tp-lh2" src="img/print/letterhead.png" alt="">
 <div class="tp-title">זמני שבת פרשת {פרשה}</div>
 <div class="tp-sub">בצל כ"ק מרן אדמו"ר שליט"א</div>
 ${blk('shabrows', 'div', 'tp-rows')}
-<div class="tp-foot"><div class="box">${FOOTER.map(h).join('<br>')}</div><div class="rule"></div></div>` },
+<img class="tp-lf" src="img/print/letterfoot.png" alt="">` },
   // דף חדש: הבלאנק של ביהמ"ד (כמו בדף של שבת) — הכל ב-em, אז מתאים את עצמו לכל גודל דף
   blank: { name: 'דף חדש', size: 'letter', cls: 'tp-bl', frame: false, rec: { type: 'once', date: '' }, html: `
 <img class="tp-lh2" src="img/print/letterhead.png" alt="">
@@ -69,6 +69,12 @@ async function load() {
   } catch { T = []; }
   // התבניות הישנות (מהעורך הקודם) — בלי תדירות: חד פעמי
   T = T.filter((x) => x && x.html).map((x) => ({ cls: 'tp-free', rec: { type: 'once', date: '' }, ...x }));
+  // הבלאנק של ביהמ"ד (כמו ה-PDF): למטה טלפון/פקס במקום התיבה של קול אונגוואר
+  T.forEach((x) => {
+    if (!/class="tp-foot"/.test(x.html)) return;
+    x.html = x.html.replace(/<div class="tp-foot">[\s\S]*?<div class="rule"><\/div><\/div>/, '<img class="tp-lf" src="img/print/letterfoot.png" alt="">').replace(/<img class="tp-lh"/, '<img class="tp-lh2"');
+    if (!/tp-bl/.test(x.cls || '')) x.cls = `${x.cls || 'tp-sh'} tp-bl`;
+  });
   if (!T.some((x) => x.id === 'weekday')) T.unshift({ id: 'weekday', ...JSON.parse(JSON.stringify(STARTERS.weekday)) });
   if (!T.some((x) => x.id === 'shabbos')) T.splice(1, 0, { id: 'shabbos', ...JSON.parse(JSON.stringify(STARTERS.shabbos)) });
   saved = JSON.stringify(T);
