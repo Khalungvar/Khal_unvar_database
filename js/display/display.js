@@ -46,11 +46,30 @@ function parseCsv(t) {
 // אינטערנעט: ווען א לייענונג פאלט דורך (און דער קאמפיוטער מיינט ער איז פארבונדן) — נאכאמאל יעדע 15 סעקונדעס;
 // ווען דער קאמפיוטער באקומט צוריק א פארבינדונג (online) — גלייך. נאך אזא "צוריק-פארבינדונג" ווייזט זיך 🔄 פאר 2 מינוט.
 let NET_BAD = false; let NET_SYNC = 0; let retryTm = 0;
+// דער עצמאי'דיגער קובץ (file://) קען נישט לייענען CSV (CORS) — ער לייענט דורך JSONP (א <script>)
+let jpN = 0;
+function jsonp(tab) {
+  return new Promise((res, rej) => {
+    const cb = `__gv${Date.now()}_${jpN += 1}`; const sc = document.createElement('script');
+    const done = (f) => { clearTimeout(tm); delete window[cb]; sc.remove(); f(); };
+    const tm = setTimeout(() => done(() => rej(new Error('timeout'))), 20000);
+    window[cb] = (d) => done(() => {
+      if (!d || d.status !== 'ok' || !d.table) { rej(new Error('bad')); return; }
+      const cols = d.table.cols || [];
+      const val = (c, i) => (c == null ? '' : c.f != null && !['string', 'number'].includes(cols[i]?.type) ? String(c.f) : c.v == null ? '' : String(c.v));
+      res([cols.map((c) => c.label || ''), ...(d.table.rows || []).map((r) => (r.c || []).map(val))]);
+    });
+    sc.onerror = () => done(() => rej(new Error('net')));
+    sc.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:${cb}&sheet=${encodeURIComponent(tab)}&headers=1&t=${Date.now()}`;
+    document.head.append(sc);
+  });
+}
 async function fetchTab(tab) {
   try {
+    if (BOOT || location.protocol === 'file:') return await jsonp(tab);
     const r = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${tab}&headers=1&t=${Date.now()}`, { cache: 'no-store' });
     if (!r.ok) throw new Error(String(r.status));
-    return await r.text();
+    return parseCsv(await r.text());
   } catch {
     runFail = true;
     if (!NET_BAD) NET_BAD = Date.now();
@@ -64,8 +83,8 @@ const partsJson = (rows) => {
   return parts.length ? JSON.parse(parts.map((x) => x[1] || '').join('')) : null;
 };
 let dataLast = '';
-function gotData(text) {
-  const j = partsJson(parseCsv(text)); if (!j) return;
+function gotData(rows) {
+  const j = partsJson(rows); if (!j) return;
   // נאר ווען עפעס האט זיך באמת געטוישט — אנדערש רעכנט מען יעדע מינוט איבער די גרייסן
   const js = JSON.stringify(j);
   if (js !== dataLast) { DATA = normData({ ...defaults(), ...j }); if (AWAY) DATA.rebbeAway = AWAY; } LIVE = true;
@@ -76,8 +95,7 @@ async function pull() { if (PREVIEW) return; const t = await fetchTab('Minyanim'
 // ✈ כ"ק אדמו"ר שליט"א נסע: לשונית RebbeAway — [from, to] (תאריכים)
 let AWAY = null;
 { const j = lsGet('disp-away'); if (Array.isArray(j)) AWAY = j; }
-function gotAway(text) {
-  const rows = parseCsv(text);
+function gotAway(rows) {
   if (!rows.length || rows[0][0] !== 'from') { AWAY = []; return; }
   const dt = (v) => { const a = /^(\d{4})-(\d{2})-(\d{2})/.exec(v || ''); if (a) return a[0]; const b = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(v || ''); return b ? `${b[3]}-${b[1].padStart(2, '0')}-${b[2].padStart(2, '0')}` : ''; };
   const list = rows.slice(1).map((x) => ({ from: dt(x[0]), to: dt(x[1]) })).filter((x) => x.from && x.to);
@@ -88,8 +106,7 @@ async function pullAway() { if (PREVIEW) return; const t = await fetchTab('Rebbe
 // שמחות: לשונית Simchos — [simcha_id, html, until(ms)]; יעדע שמחה ווייזט זיך ביז "until"
 let SIMCHOS = null;
 { const j = lsGet('disp-simchos'); if (Array.isArray(j)) SIMCHOS = j; }
-function gotSimchos(text) {
-  const rows = parseCsv(text);
+function gotSimchos(rows) {
   if (!rows.length || rows[0][0] !== 'simcha_id') return;
   SIMCHOS = rows.slice(1).filter((x) => x[0] && x[1]).map((x) => ({ id: x[0], html: x[1], until: Number(x[2]) || 0 }));
   lsSet('disp-simchos', SIMCHOS);
@@ -99,8 +116,8 @@ async function pullSimchos() { if (PREVIEW) return; const t = await fetchTab('Si
 const SCRPV = QS.has('scrpv');
 let SCR = normScreen(null);
 try { const j = SCRPV ? JSON.parse(localStorage.getItem('scr-preview') || 'null') : lsGet('disp-screen'); if (j) SCR = normScreen(j); } catch { /* */ }
-function gotScreen(text) {
-  const j = partsJson(parseCsv(text)); if (!j) return;
+function gotScreen(rows) {
+  const j = partsJson(rows); if (!j) return;
   SCR = normScreen(j); applySafe(); mzCache.key = ''; shLast = null;
   lsSet('disp-screen', j);
 }
@@ -109,8 +126,8 @@ async function pullScreen() { if (SCRPV) return; const t = await fetchTab('Scree
 const okShul = (j) => (j && j.kind === 'shul' ? j : null);
 let CFG = normShul(okShul(BOOT?.cfg) || okShul(lsGet('disp-shul')), SHUL);
 let LOC = applyShul(CFG);
-function gotShul(text) {
-  const j = partsJson(parseCsv(text)); if (!j || j.kind !== 'shul') return;
+function gotShul(rows) {
+  const j = partsJson(rows); if (!j || j.kind !== 'shul') return;
   const js = JSON.stringify(j);
   if (js !== JSON.stringify(lsGet('disp-shul'))) {
     CFG = normShul(j, SHUL); LOC = applyShul(CFG);
@@ -133,10 +150,10 @@ function pinCheck() {
 function fromSnapshot() {
   if (!BOOT?.snap) return;
   const S = BOOT.snap; const no = (k) => lsGet(k) == null;
-  try { if (S.Minyanim && no('disp-data')) gotData(S.Minyanim); } catch { /* */ }
-  try { if (S.Screen && no('disp-screen')) gotScreen(S.Screen); } catch { /* */ }
-  try { if (S.Simchos && no('disp-simchos')) gotSimchos(S.Simchos); } catch { /* */ }
-  try { if (S.RebbeAway && no('disp-away')) gotAway(S.RebbeAway); } catch { /* */ }
+  try { if (S.Minyanim && no('disp-data')) gotData(parseCsv(S.Minyanim)); } catch { /* */ }
+  try { if (S.Screen && no('disp-screen')) gotScreen(parseCsv(S.Screen)); } catch { /* */ }
+  try { if (S.Simchos && no('disp-simchos')) gotSimchos(parseCsv(S.Simchos)); } catch { /* */ }
+  try { if (S.RebbeAway && no('disp-away')) gotAway(parseCsv(S.RebbeAway)); } catch { /* */ }
 }
 // אלע מינוט: די הגדרות, די זמנים און די שמחות
 let pulling = false; let runFail = false;
