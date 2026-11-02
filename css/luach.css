@@ -322,7 +322,7 @@
 .sc-dragl { position: absolute; inset: 0; z-index: 2; background: rgba(0,0,0,.08); }
 .sc-dragb { position: absolute; border: 3px dashed #2e7dd7; background: rgba(46,125,215,.18); cursor: move; display: flex; align-items: flex-start; justify-content: center; touch-action: none; }
 .sc-dragb span { background: #2e7dd7; color: #fff; font-size: 12px; padding: 1px 6px; border-radius: 0 0 6px 6px; white-space: nowrap; }
-.sc-hdl { position: absolute; left: -7px; bottom: -7px; width: 14px; height: 14px; background: #2e7dd7; border: 2px solid #fff; border-radius: 50%; cursor: nesw-resize; }
+.sc-hdl { position: absolute; left: -7px; bottom: -7px; width: 14px; height: 14px; background: #2e7dd7; border: 2px solid #fff; border-radius: 50%; cursor: nwse-resize; }
 .sc-lib { min-width: 640px; }
 .sc-libg { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; max-height: 60vh; overflow: auto; }
 .sc-libi { display: flex; flex-direction: column; gap: 4px; align-items: center; border: 1px solid #eadfc4; border-radius: 10px; padding: 6px; }
@@ -351,3 +351,16 @@
 .sc-ntc .sc-nrow .sc-chk{flex:0 0 auto;min-width:150px}
 .sc-ntc .sc-nrow > input{flex:1 1 160px;min-width:120px}
 .sc-ntc .sc-nadd select{max-width:150px}
+/* ✥ סידור המשבצות */
+.ly-dlg { width: 96vw; max-width: 96vw; height: 94vh; max-height: 94vh; padding: 8px; display: flex; flex-direction: column; }
+.ly-dlg[open] { display: flex; }
+.ly-bar { display: flex; align-items: center; gap: 10px; padding: 4px 6px 8px; flex-wrap: wrap; }
+.ly-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.ly-box { position: relative; overflow: hidden; background: #000; border-radius: 6px; }
+.ly-box iframe { position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; border: 0; transform-origin: top left; pointer-events: none; }
+.ly-ov { position: absolute; inset: 0; }
+.ly-r { position: absolute; border: 2px dashed #ffcf40; background: rgba(255,207,64,.12); cursor: move; touch-action: none; }
+.ly-r.moved { border-style: solid; border-color: #3fd17a; }
+.ly-r span { position: absolute; top: 2px; right: 4px; background: rgba(0,0,0,.65); color: #fff; font-size: 12px; padding: 0 5px; border-radius: 4px; pointer-events: none; }
+.ly-r button { position: absolute; top: 2px; left: 2px; font-size: 12px; padding: 0 5px; cursor: pointer; }
+.ly-r i { position: absolute; right: -6px; bottom: -6px; width: 14px; height: 14px; background: #ffcf40; border: 2px solid #000; border-radius: 3px; cursor: nwse-resize; }

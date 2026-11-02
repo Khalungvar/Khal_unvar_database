@@ -6,6 +6,7 @@ import { state, displayName } from '../data.js';
 import { escapeHtml as h, nowStamp, shrinkImage } from '../util.js';
 import { normScreen, screenDefaults, PLACES, SYSTEM, adUrl, THEME, BOX_SEL } from '../display/screenset.js';
 import { versionStore, openVersions } from '../versions.js';
+import { openLayout } from './layout.js';
 import { curSheetId } from './shul.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -293,10 +294,12 @@ function render(main) {
           ${['bg', 'text', 'title'].map((f) => `<td><input type="color" data-box="${k}" data-bf="${f}" value="${h(c[f] || (f === 'bg' ? '#fbf5e6' : f === 'text' ? '#1d1a14' : '#0f2140'))}" class="${c[f] ? 'set' : 'unset'}" title="${f === 'bg' ? 'רקע' : f === 'text' ? 'טקסט' : 'כותרת'}"${dis}></td>`).join('')}
           <td>${(c.bg || c.text || c.title) && ed ? `<button type="button" class="tf-mini" data-boxx="${k}" title="ברירת מחדל">↺</button>` : ''}</td></tr>`; }).join('')}</table>
         ${ed ? '<button type="button" class="btn small-btn ghost" id="sc-col-reset">↺ כל הצבעים לברירת מחדל</button>' : ''}
+        ${ed ? '<p><button type="button" class="btn" id="sc-layout">✥ סידור המשבצות במסך (מקום וגודל)</button></p>' : ''}
       </section>
       ${kioskHtml(ed)}
     </div>`;
 
+  const lyb = $('#sc-layout', main); if (lyb) lyb.onclick = () => openLayout(S, previewSrc, () => changed(true));
   const setK = (k, v) => { const ks = k.split('.'); const last = ks.pop(); ks.reduce((o, x) => o[x], S)[last] = v; };
   const changed = (full) => { if (full) render(main); else { const dd = dirty(); const sv = $('#sc-save', main); const nt = $('#sc-note', main); if (sv) sv.disabled = !dd; if (nt) nt.disabled = !dd; $('#sc-warn', main).hidden = !dd; } refreshPreview(main); };
   main.oninput = (e) => {

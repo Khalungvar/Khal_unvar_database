@@ -112,6 +112,8 @@ export function themeCss(S) {
     if (c.bg) out.push(`${sel} { --paper: ${c.bg}; background: ${c.bg} !important; }`);
     if (c.text) out.push(`${sel}, ${sel} *:not(.ttl):not(.sh-t):not(.sh-t *):not(.cd):not(.chg-note) { --ink: ${c.text}; color: ${c.text} !important; }`);
     if (c.title) out.push(`${sel} .ttl, ${sel} .sh-t { background: ${c.title} !important; }`);
+    // ✥ סידור המשבצות: מקום וגודל (פיקסלים של 1920×1080, ביחס להורה של המשבצת)
+    const P = c.pos; if (P && [P.x, P.y, P.w, P.h].every((v) => Number.isFinite(Number(v)))) out.push(`${sel} { left: ${Math.round(P.x)}px !important; top: ${Math.round(P.y)}px !important; width: ${Math.round(P.w)}px !important; height: ${Math.round(P.h)}px !important; right: auto !important; bottom: auto !important; }`);
   }
   return out.join('\n');
 }
