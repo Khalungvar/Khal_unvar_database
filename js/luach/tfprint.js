@@ -129,7 +129,7 @@ export function printCss(fontHe = 'Frank Ruhl Libre') {
 .tp-bl .tp-lf { display: block; width: 88%; margin: auto auto calc(.25in * var(--k, 1)); }
 .tp-bl .tp-in > :not(.tp-lh2):not(.tp-lf) { margin-inline: calc(.5in * var(--k, 1)); }
 .tp-sh.tp-bl .tp-in { padding: 0; }
-.tp-bl .tp-in > .tp-rows { margin-inline: auto; }
+.tp-bl .tp-in > .tp-rows { margin-inline: auto !important; }
 `;
 }
 
