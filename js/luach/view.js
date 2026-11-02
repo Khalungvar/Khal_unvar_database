@@ -14,6 +14,7 @@ import { initBooklet } from './booklet.js';
 import { initTefila, openTefila } from './tefila.js';
 import { openTfPrint } from './tfprintui.js';
 import { openScreen } from './screen.js';
+import { openShul, loadShulCfg } from './shului.js';
 import { openAway, loadAway, awayStatus } from './away.js';
 import { CONFIG } from '../config.js';
 
@@ -309,6 +310,7 @@ function renderTefilaHub(main) {
       ${tile('tfScreen', '📺', t('tfScreen'), t('tfScreenSub'))}
       ${tile('tfPrint', '🖨', t('tfPrint'), t('tfPrintSub'))}
       ${tile('tfTimes', '🕰', t('tfTimes'), t('hTefilaSub'))}
+      ${tile('tfShul', '⚙️', 'הגדרות בית הכנסת', 'שם · מקום ושיטות הזמנים · גרסה · קובץ תצוגה')}
     </div>
     <div class="aw-bar"><button type="button" class="btn ghost aw-btn" id="tfh-away">✈ כ”ק אדמו"ר שליט"א נסע</button><span class="muted small" id="tfh-away-st"></span></div>
     <p class="aw-disp muted small" id="tfh-disp"></p>`;
@@ -328,7 +330,9 @@ export async function renderLuach() {
   if (!main) return;
   if (mode === 'hub') { renderHub(main); return; }
   if (mode === 'mitzva') { openMitzva(main, () => { mode = 'hub'; renderLuach(); }); return; }
+  if (String(mode).startsWith('tf') || mode === 'tefila') { try { await loadShulCfg(); } catch { /* */ } }
   if (mode === 'tefila') { renderTefilaHub(main); return; }
+  if (mode === 'tfShul') { openShul(main, () => { mode = 'tefila'; renderLuach(); }, ui); return; }
   if (mode === 'tfScreen') { openScreen(main, () => { mode = 'tefila'; renderLuach(); }, ui); return; }
   if (mode === 'tfPrint') { openTfPrint(main, () => { mode = 'tefila'; renderLuach(); }, ui); return; }
   if (mode === 'tfTimes') { openTefila(main, () => { mode = 'tefila'; renderLuach(); }, t('hTefila')); return; }

@@ -8,7 +8,8 @@ import { openBooklet } from './booklet.js';
 import { openCycle } from './cycle.js';
 
 const $ = (s, r = document) => r.querySelector(s);
-export const MONTH = { Tishri: 'תשרי', Heshvan: 'מרחשון', Kislev: 'כסלו', Tevet: 'טבת', Shevat: 'שבט', Adar: 'אדר', 'Adar I': 'אדר א\'', 'Adar II': 'אדר ב\'', Nisan: 'ניסן', Iyar: 'אייר', Sivan: 'סיון', Tamuz: 'תמוז', Av: 'מנחם אב', Elul: 'אלול' };
+import { MONTH } from './months.js';
+export { MONTH };
 const DAY = ['יום ראשון', 'יום שני', 'יום שלישי', 'יום רביעי', 'יום חמישי', 'ערב שבת', 'שבת קודש'];
 const hnum = (n) => { const s = hebrewNumber(n); return s; };
 const dateHe = (n) => { const x = hdOf(n); return `${hnum(x.d)} ${MONTH[x.m] || x.m}`; };

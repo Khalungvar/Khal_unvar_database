@@ -10,7 +10,16 @@ export const LOCATIONS = {
   // ירושלים — ווי MyZmanim: נץ/שקיעה "בגובה 650 מטר מישור"; עלות/צאת למג"א 72 דק' לפי 16.1 מעלות; לילה 72 דק' נאך שקיעה בגובה 650/0
   jlm: { key: 'jlm', name: 'ירושלים', en: 'Jerusalem', lat: 31.7780, lon: 35.2354, tz: 'Asia/Jerusalem', candles: 40, il: true, myz: true },
 };
-export const LOCATION = LOCATIONS.bp;
+// דער מקום פון דעם בית הכנסת וואס מ'ארבעט יעצט מיט (הגדרות בית הכנסת) — ברירת מחדל: בארא פארק
+export let LOCATION = LOCATIONS.bp;
+export function setLocation(loc) { LOCATION = loc || LOCATIONS.bp; }
+
+// שיטות (הגדרות בית הכנסת → loc.z). ריק = כמו היום (בארא פארק: 72 דקות, הדלקה 18, טבלת chaitables)
+export const METHODS = {
+  alos: [['m72', '72 דקות לפני הנץ'], ['m90', '90 דקות לפני הנץ'], ['d16.1', '16.1 מעלות'], ['d19.8', '19.8 מעלות']],
+  motzei: [['m72', '72 דקות אחרי השקיעה'], ['m90', '90 דקות'], ['m60', '60 דקות'], ['m50', '50 דקות'], ['m45', '45 דקות'], ['m42', '42 דקות'], ['d8.5', '8.5 מעלות'], ['d7.083', '7.083 מעלות']],
+  shkia: [['sea', 'בגובה פני הים'], ['elev', 'לפי גובה המקום']],
+};
 
 const RAD = Math.PI / 180;
 
@@ -82,10 +91,14 @@ export function setZmanimTable(t) { table = t || {}; }
 export function zmanim(iso, loc = LOCATION) {
   const [y, m, d] = iso.split('-').map(Number);
   const o = tzOffset(y, m, d, loc.tz);
-  const s = solar(y, m, d, loc.lat, loc.lon);
+  const Z = loc.z || null;
+  // גובה המקום: דער אפק איז נידעריקער → נץ פריער / שקיעה שפעטער
+  const zen = Z && Z.shkia === 'elev' && Number(loc.elev) > 0 ? 90.833 + 0.0347 * Math.sqrt(Number(loc.elev)) : 90.833;
+  const s = solar(y, m, d, loc.lat, loc.lon, zen);
   let neitz = s.rise + o;
   let shkia = s.set + o;
-  const t = loc.key === 'bp' ? table[iso] : null;
+  const useTable = loc.table ?? loc.key === 'bp';
+  const t = useTable ? table[iso] : null;
   let source = 'calc';
   if (t && t.neitz != null && t.shkia != null) { neitz = t.neitz; shkia = t.shkia; source = 'table'; }
   const chatzos = t?.chatzos ?? (neitz + shkia) / 2;
@@ -97,16 +110,28 @@ export function zmanim(iso, loc = LOCATION) {
     alos = deg.rise + o; tzeis = deg.set + o;
     night = solar(y, m, d, loc.lat, loc.lon, 90.833 + 0.92).set + o + 72; // שקיעה בגובה 650/0 + 72
   }
+  // שיטות פון די הגדרות
+  const meth = (v, base, sign, kind) => {
+    const mm = /^m(\d+(?:\.\d+)?)$/.exec(v || ''); if (mm) return base + sign * Number(mm[1]);
+    const dd = /^d(\d+(?:\.\d+)?)$/.exec(v || ''); if (dd) { const r = solar(y, m, d, loc.lat, loc.lon, 90 + Number(dd[1])); return (kind === 'rise' ? r.rise : r.set) + o; }
+    return null;
+  };
+  if (Z?.alos) { const a = meth(Z.alos, neitz, -1, 'rise'); const b = meth(Z.alos, shkia, 1, 'set'); if (a != null) alos = a; if (b != null) tzeis = b; }
+  if (Z?.motzei) { const v = meth(Z.motzei, shkia, 1, 'set'); if (v != null) night = v; }
+  const custom = !!(Z && (Z.alos || Z.motzei));
   const maHour = (tzeis - alos) / 12;
   const graHour = (shkia - neitz) / 12;
+  const cand = Z && Z.candles != null && Z.candles !== '' ? Number(Z.candles) : (loc.candles ?? 18);
   return {
     neitz, shkia, chatzos, alos, tzeis, source,
-    maKS: t?.maKS ?? alos + 3 * maHour,
+    maKS: (custom ? null : t?.maKS) ?? alos + 3 * maHour,
     graKS: t?.graKS ?? neitz + 3 * graHour,
+    maTefila: alos + 4 * maHour,
+    graTefila: neitz + 4 * graHour,
     maAchila: alos + 4 * maHour, // סוף זמן אכילת חמץ (מ"א)
     maSreifa: alos + 5 * maHour, // סוף זמן שריפת חמץ (מ"א)
-    candles: t?.candles ?? shkia - (loc.candles ?? 18),
-    motzei: t?.motzei ?? night,
+    candles: (Z && Z.candles != null && Z.candles !== '' ? null : t?.candles) ?? shkia - cand,
+    motzei: (Z?.motzei ? null : t?.motzei) ?? night,
   };
 }
 

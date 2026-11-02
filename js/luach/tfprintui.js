@@ -4,14 +4,13 @@ import { tefilaData } from './tefila.js';
 import { screenSettings } from './screen.js';
 import { daysOf, computeHoly, chagOn } from './minyanim.js';
 import { buildYear, hdOf, isoOf, nOf, dowOf } from './engine.js';
-import { LOCATIONS } from './zmanim.js';
+import { LOCATION as LOC } from './zmanim.js';
 import { hebrewNumber, todayIso, toHebrew, monthHe } from '../hebdate.js';
 import { customFontNames } from '../fonts.js';
 import { htmlToJpeg, jpegsToPdf } from '../pdf.js';
 import { weekdayDocx } from './tfdocx.js';
 import { escapeHtml as h } from '../util.js';
 
-const LOC = LOCATIONS.bp;
 const $ = (s, r = document) => r.querySelector(s);
 const TYPES = [['weekday', 'ימות החול'], ['shabbos', 'שבת'], ['yt', 'יו"ט'], ['minor', 'ימי דפגרא ותעניות'], ['tishrei', 'תשרי']];
 const st = { type: 'weekday', mode: 'parsha', fri: null, from: '', to: '', grp: '', shab: true, size: 'letter', font: '', title: '', pasuk: '', psrc: '' };

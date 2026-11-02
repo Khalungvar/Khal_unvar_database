@@ -1,7 +1,7 @@
 // דער לוח: וואס איז יעדן טאג פון א יאר (חוץ לארץ, מנהג אונגוואר). קיין DOM — נאר רעכענען.
 // { days: [...], pages: [...] } פאר א אידיש יאר. יעדער טאג: { iso, n, dow, hd, hm, he, items: [...], zm }.
 import { isLeapYear, hebrewNumber, monthHe } from '../hebdate.js';
-import { zmanim, hhmm, dstChange, LOCATIONS } from './zmanim.js';
+import { zmanim, hhmm, dstChange, LOCATIONS, LOCATION } from './zmanim.js';
 import { MITZVOS, MITZVA_ANCHOR } from './mitzvos.js';
 
 const DAY = 86400000;
@@ -198,7 +198,7 @@ void RC_NAME;
  *  kind: hol (נאמען פון יו"ט/טאג) · parsha · special (שבת שובה...) · note (קליין אונטן) · small (נוסח / יזכור...)
  *        hillula · omer · avos · time · eruv · rebbe */
 export function buildYear(Y, extra = {}, opts = {}) {
-  const loc = opts.loc || LOCATIONS.bp;
+  const loc = opts.loc || LOCATION;
   const il = !!loc.il; // ארץ ישראל: איין טאג יו"ט, פרשיות פון א"י, זמנים פון דעם ארט
   const I = yearInfo(Y);
   const P = yearInfo(Y - 1);

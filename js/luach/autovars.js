@@ -2,12 +2,11 @@
 // א ריינער מאדול (אן DOM) — דער אתר ניצט אים פאר דער תצוגה מקדימה, און דער Apps Script (א "bundle") ביים שיקן.
 // די זמנים ווערן גערעכנט פונקט ווי אויף דער תצוגה אין בית הכנסת (luach/minyanim.js).
 import { buildYear, isoOf, nOf, dowOf, hdOf, mitzvaYomis } from './engine.js';
-import { zmanim, hhmm, LOCATIONS } from './zmanim.js';
+import { zmanim, hhmm, LOCATION as LOC } from './zmanim.js';
 import { defaults, computeWeekday, computeHoly, chagOn, computeSpecial, daysOf, rebbeAwayOn, normData, eventsBetween } from './minyanim.js';
 import { segFor, segText, inPeriod, msgSegments } from './periods.js';
 import { hebrewNumber, monthHe } from '../hebdate.js';
 
-const LOC = LOCATIONS.bp;
 const yc = new Map();
 function dayOf(n) {
   const Y = hdOf(n).y;

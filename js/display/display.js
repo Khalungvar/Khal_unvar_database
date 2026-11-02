@@ -2,27 +2,37 @@
 // דוגמה: די מניינים זענען איבערגענומען פון דער אלטער תוכנה (BZS); שפעטער — פון "זמני תפילות" אינעם אתר.
 import { buildYear, isoOf, nOf, dowOf, hdOf, dafYomi, mitzvaYomis, omerText } from '../luach/engine.js';
 import { zmanim, hhmm, LOCATIONS } from '../luach/zmanim.js';
-import { MONTH } from '../luach/mitzva.js';
+import { MONTH } from '../luach/months.js';
 import { hebrewNumber } from '../hebdate.js';
 import { normScreen, currentByPlace, adUrl, themeCss } from './screenset.js';
 import { printCss, weekdayPage, shabbosPage, fitPages } from '../luach/tfprint.js';
 import { CONFIG } from '../config.js';
 import { defaults, computeWeekday, computeShabbos, computeSpecial, computeShiurim, computeHoly, chagOn, partOfDay, minorBlockOn, maarivNight, ptAround, PT, normData, eventsBetween } from '../luach/minyanim.js';
 import { periodNow, dayLabel, clearPeriodCache } from '../luach/periods.js';
+import { SHULS, DEFAULT_SHUL, normShul, applyShul } from '../luach/shul.js';
+
+// ---------- בית הכנסת: ?shul=key, אדער דער עצמאי'דיגער קובץ (window.DISP_BOOT) ----------
+const QS = new URLSearchParams(location.search);
+const BOOT = window.DISP_BOOT || null;
+const SHUL = BOOT?.key || QS.get('shul') || DEFAULT_SHUL;
+const SHEET_ID = BOOT?.sheetId || SHULS[SHUL]?.sheetId || SHULS[DEFAULT_SHUL].sheetId;
+const REL = Number(window.DISP_REL) || 0; // א געשפייכלטע גרסה (rel/N)
+// localStorage: בארא פארק — די זעלבע שליסלען ווי פריער; אנדערע בתי כנסת — מיט א פרעפיקס
+const LK = (k) => (SHUL === DEFAULT_SHUL ? k : `${SHUL}:${k}`);
+const lsGet = (k) => { try { return JSON.parse(localStorage.getItem(LK(k)) || 'null'); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(LK(k), typeof v === 'string' ? v : JSON.stringify(v)); } catch { /* */ } };
 
 // ---------- דאטן: תצוגה מקדימה (פון "זמני תפילות" — localStorage), אנדערש ברירת מחדל ----------
-const QS = new URLSearchParams(location.search);
 const PREVIEW = QS.has('preview');
 let DATA = defaults();
 let LIVE = false; // נתונים מהגיליון (לא ברירת מחדל)
 if (PREVIEW) { try { const j = JSON.parse(localStorage.getItem('tf-preview') || 'null'); if (j) DATA = { ...DATA, ...j }; } catch { /* */ } normData(DATA); }
 else {
   // דער לעצטער וואס מ'האט באקומען — אויב דער אינטערנעט פאלט
-  try { const j = JSON.parse(localStorage.getItem('disp-data') || 'null'); if (j) { DATA = { ...DATA, ...j }; LIVE = true; } } catch { /* */ }
+  const j = lsGet('disp-data'); if (j) { DATA = { ...DATA, ...j }; LIVE = true; }
   normData(DATA);
 }
-// ---------- לייענען פונעם גיליון פון דער תצוגה (פארעפנטלעכט) — יעדע 5 מינוט ----------
-const SHEET_ID = '1hhrsXNhDCK7OGXOClTPE8pxOJ3EjmTmndH0r_qrms70';
+// ---------- לייענען פונעם גיליון פון דער תצוגה (פארעפנטלעכט) ----------
 function parseCsv(t) {
   const rows = []; let row = []; let cur = ''; let q = false;
   for (let i = 0; i < t.length; i += 1) {
@@ -33,75 +43,120 @@ function parseCsv(t) {
   if (cur || row.length) { row.push(cur); rows.push(row); }
   return rows;
 }
-let dataLast = '';
-async function pull() {
-  if (PREVIEW) return;
+// אינטערנעט: ווען א לייענונג פאלט דורך (און דער קאמפיוטער מיינט ער איז פארבונדן) — נאכאמאל יעדע 15 סעקונדעס;
+// ווען דער קאמפיוטער באקומט צוריק א פארבינדונג (online) — גלייך. נאך אזא "צוריק-פארבינדונג" ווייזט זיך 🔄 פאר 2 מינוט.
+let NET_BAD = false; let NET_SYNC = 0; let retryTm = 0;
+async function fetchTab(tab) {
   try {
-    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Minyanim&headers=1&t=${Date.now()}`, { cache: 'no-store' });
-    if (!r.ok) return;
-    const rows = parseCsv(await r.text());
-    const parts = rows.filter((x) => /^data#\d+$/.test(x[0] || '')).sort((a, b) => Number(a[0].split('#')[1]) - Number(b[0].split('#')[1]));
-    if (!parts.length) return;
-    const j = JSON.parse(parts.map((x) => x[1] || '').join(''));
-    // נאר ווען עפעס האט זיך באמת געטוישט — אנדערש רעכנט מען יעדע מינוט איבער די גרייסן
-    const js = JSON.stringify(j);
-    if (js !== dataLast) { DATA = normData({ ...defaults(), ...j }); if (AWAY) DATA.rebbeAway = AWAY; } LIVE = true;
-    if (js !== dataLast) { dataLast = js; boardCache.clear(); shLast = null; }
-    try { localStorage.setItem('disp-data', js); } catch { /* */ }
-  } catch { /* בלייבט מיט דעם וואס מ'האט */ }
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${tab}&headers=1&t=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) throw new Error(String(r.status));
+    return await r.text();
+  } catch {
+    runFail = true;
+    if (!NET_BAD) NET_BAD = Date.now();
+    clearTimeout(retryTm);
+    if (navigator.onLine !== false) retryTm = setTimeout(pullAll, 15000);
+    return null;
+  }
 }
+const partsJson = (rows) => {
+  const parts = rows.filter((x) => /^data#\d+$/.test(x[0] || '')).sort((a, b) => Number(a[0].split('#')[1]) - Number(b[0].split('#')[1]));
+  return parts.length ? JSON.parse(parts.map((x) => x[1] || '').join('')) : null;
+};
+let dataLast = '';
+function gotData(text) {
+  const j = partsJson(parseCsv(text)); if (!j) return;
+  // נאר ווען עפעס האט זיך באמת געטוישט — אנדערש רעכנט מען יעדע מינוט איבער די גרייסן
+  const js = JSON.stringify(j);
+  if (js !== dataLast) { DATA = normData({ ...defaults(), ...j }); if (AWAY) DATA.rebbeAway = AWAY; } LIVE = true;
+  if (js !== dataLast) { dataLast = js; boardCache.clear(); shLast = null; }
+  lsSet('disp-data', js);
+}
+async function pull() { if (PREVIEW) return; const t = await fetchTab('Minyanim'); if (t) { try { gotData(t); } catch { /* */ } } }
 // ✈ כ"ק אדמו"ר שליט"א נסע: לשונית RebbeAway — [from, to] (תאריכים)
 let AWAY = null;
-try { const j = JSON.parse(localStorage.getItem('disp-away') || 'null'); if (Array.isArray(j)) AWAY = j; } catch { /* */ }
-async function pullAway() {
-  if (PREVIEW) return;
-  try {
-    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=RebbeAway&headers=1&t=${Date.now()}`, { cache: 'no-store' });
-    if (!r.ok) return;
-    const rows = parseCsv(await r.text());
-    if (!rows.length || rows[0][0] !== 'from') { AWAY = []; return; }
-    const dt = (v) => { const a = /^(\d{4})-(\d{2})-(\d{2})/.exec(v || ''); if (a) return a[0]; const b = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(v || ''); return b ? `${b[3]}-${b[1].padStart(2, '0')}-${b[2].padStart(2, '0')}` : ''; };
-    const list = rows.slice(1).map((x) => ({ from: dt(x[0]), to: dt(x[1]) })).filter((x) => x.from && x.to);
-    if (JSON.stringify(list) !== JSON.stringify(AWAY)) { AWAY = list; boardCache.clear(); DATA.rebbeAway = AWAY; clearPeriodCache(DATA); }
-    try { localStorage.setItem('disp-away', JSON.stringify(AWAY)); } catch { /* */ }
-  } catch { /* */ }
+{ const j = lsGet('disp-away'); if (Array.isArray(j)) AWAY = j; }
+function gotAway(text) {
+  const rows = parseCsv(text);
+  if (!rows.length || rows[0][0] !== 'from') { AWAY = []; return; }
+  const dt = (v) => { const a = /^(\d{4})-(\d{2})-(\d{2})/.exec(v || ''); if (a) return a[0]; const b = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(v || ''); return b ? `${b[3]}-${b[1].padStart(2, '0')}-${b[2].padStart(2, '0')}` : ''; };
+  const list = rows.slice(1).map((x) => ({ from: dt(x[0]), to: dt(x[1]) })).filter((x) => x.from && x.to);
+  if (JSON.stringify(list) !== JSON.stringify(AWAY)) { AWAY = list; boardCache.clear(); DATA.rebbeAway = AWAY; clearPeriodCache(DATA); }
+  lsSet('disp-away', AWAY);
 }
+async function pullAway() { if (PREVIEW) return; const t = await fetchTab('RebbeAway'); if (t) { try { gotAway(t); } catch { /* */ } } }
 // שמחות: לשונית Simchos — [simcha_id, html, until(ms)]; יעדע שמחה ווייזט זיך ביז "until"
 let SIMCHOS = null;
-try { const j = JSON.parse(localStorage.getItem('disp-simchos') || 'null'); if (Array.isArray(j)) SIMCHOS = j; } catch { /* */ }
-async function pullSimchos() {
-  if (PREVIEW) return;
-  try {
-    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Simchos&headers=1&t=${Date.now()}`, { cache: 'no-store' });
-    if (!r.ok) return;
-    const rows = parseCsv(await r.text());
-    if (!rows.length || rows[0][0] !== 'simcha_id') return;
-    SIMCHOS = rows.slice(1).filter((x) => x[0] && x[1]).map((x) => ({ id: x[0], html: x[1], until: Number(x[2]) || 0 }));
-    try { localStorage.setItem('disp-simchos', JSON.stringify(SIMCHOS)); } catch { /* */ }
-  } catch { /* */ }
+{ const j = lsGet('disp-simchos'); if (Array.isArray(j)) SIMCHOS = j; }
+function gotSimchos(text) {
+  const rows = parseCsv(text);
+  if (!rows.length || rows[0][0] !== 'simcha_id') return;
+  SIMCHOS = rows.slice(1).filter((x) => x[0] && x[1]).map((x) => ({ id: x[0], html: x[1], until: Number(x[2]) || 0 }));
+  lsSet('disp-simchos', SIMCHOS);
 }
+async function pullSimchos() { if (PREVIEW) return; const t = await fetchTab('Simchos'); if (t) { try { gotSimchos(t); } catch { /* */ } } }
 // ---------- הגדרות פונעם מסך (לשונית Screen); ?scrpv=1 — תצוגה מקדימה פון "תצוגת והגדרות המסך" (נאך נישט געשפייכלט) ----------
 const SCRPV = QS.has('scrpv');
 let SCR = normScreen(null);
-try { const j = JSON.parse(localStorage.getItem(SCRPV ? 'scr-preview' : 'disp-screen') || 'null'); if (j) SCR = normScreen(j); } catch { /* */ }
-async function pullScreen() {
-  if (SCRPV) return;
-  try {
-    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Screen&headers=1&t=${Date.now()}`, { cache: 'no-store' });
-    if (!r.ok) return;
-    const rows = parseCsv(await r.text());
-    const parts = rows.filter((x) => /^data#\d+$/.test(x[0] || '')).sort((a, b) => Number(a[0].split('#')[1]) - Number(b[0].split('#')[1]));
-    if (!parts.length) return;
-    const j = JSON.parse(parts.map((x) => x[1] || '').join(''));
-    SCR = normScreen(j); applySafe(); mzCache.key = ''; shLast = null;
-    try { localStorage.setItem('disp-screen', JSON.stringify(j)); } catch { /* */ }
-  } catch { /* */ }
+try { const j = SCRPV ? JSON.parse(localStorage.getItem('scr-preview') || 'null') : lsGet('disp-screen'); if (j) SCR = normScreen(j); } catch { /* */ }
+function gotScreen(text) {
+  const j = partsJson(parseCsv(text)); if (!j) return;
+  SCR = normScreen(j); applySafe(); mzCache.key = ''; shLast = null;
+  lsSet('disp-screen', j);
+}
+async function pullScreen() { if (SCRPV) return; const t = await fetchTab('Screen'); if (t) { try { gotScreen(t); } catch { /* */ } } }
+// ---------- הגדרות בית הכנסת (לשונית ShulConfig): מקום, שיטות, שפה, גרסה ----------
+let CFG = normShul(BOOT?.cfg || lsGet('disp-shul'), SHUL);
+let LOC = applyShul(CFG);
+function gotShul(text) {
+  const j = partsJson(parseCsv(text)); if (!j) return;
+  const js = JSON.stringify(j);
+  if (js !== JSON.stringify(lsGet('disp-shul'))) {
+    CFG = normShul(j, SHUL); LOC = applyShul(CFG);
+    yc.clear(); boardCache.clear(); shLast = null; clearPeriodCache(DATA);
+  }
+  lsSet('disp-shul', js);
+  pinCheck();
+}
+async function pullShul() { const t = await fetchTab('ShulConfig'); if (t) { try { gotShul(t); } catch { /* */ } } }
+// 🔒 א בית כנסת וואס איז "נעול" אויף א גרסה — לויפט פון rel/N; "תמיד האחרונה" — פונעם אתר. (נישט אינעם עצמאי'דיגן קובץ)
+function pinCheck() {
+  if (BOOT || PREVIEW || SCRPV) return;
+  const want = Number(CFG.ver) || 0;
+  if (want === REL) return;
+  const qs = location.search || `?shul=${SHUL}`;
+  if (want) { const base = REL ? '../' : 'rel/'; location.replace(`${base}${want}/display.html${qs}`); }
+  else location.replace(`../../display.html${qs}`);
+}
+// דער עצמאי'דיגער קובץ: די ערשטע מאל אן אינטערנעט — פון דער תמונת-מצב אינעם קובץ
+function fromSnapshot() {
+  if (!BOOT?.snap) return;
+  const S = BOOT.snap; const no = (k) => lsGet(k) == null;
+  try { if (S.Minyanim && no('disp-data')) gotData(S.Minyanim); } catch { /* */ }
+  try { if (S.Screen && no('disp-screen')) gotScreen(S.Screen); } catch { /* */ }
+  try { if (S.Simchos && no('disp-simchos')) gotSimchos(S.Simchos); } catch { /* */ }
+  try { if (S.RebbeAway && no('disp-away')) gotAway(S.RebbeAway); } catch { /* */ }
 }
 // אלע מינוט: די הגדרות, די זמנים און די שמחות
-pull(); setInterval(pull, 60 * 1000);
-pullScreen(); setInterval(pullScreen, 60 * 1000);
-pullSimchos(); setInterval(pullSimchos, 60 * 1000);
-pullAway(); setInterval(pullAway, 60 * 1000);
+let pulling = false; let runFail = false;
+async function pullAll() {
+  if (pulling) return; pulling = true; runFail = false;
+  try { await Promise.all([pull(), pullScreen(), pullSimchos(), pullAway(), pullShul()]); } finally { pulling = false; }
+  // אלץ איז אנגעקומען נאך א צייט אן אינטערנעט → 🔄 פאר 2 מינוט
+  if (!runFail) { if (NET_BAD) NET_SYNC = Date.now(); NET_BAD = 0; }
+  netMark();
+}
+function netMark() {
+  let el = document.getElementById('netsync');
+  const on = Date.now() - NET_SYNC < 120000;
+  if (!on) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'netsync'; el.textContent = '🔄'; el.style.cssText = 'position:fixed;top:6px;left:8px;z-index:99;font-size:22px;opacity:.85;pointer-events:none'; document.body.append(el); }
+}
+function startSync() {
+  fromSnapshot();
+  pullAll(); setInterval(pullAll, 60 * 1000); setInterval(netMark, 10000);
+  window.addEventListener('online', () => { clearTimeout(retryTm); pullAll(); });
+}
 
 // ---------- כל 20 דקות: "אני מחובר" (סטטוס באתר) + גרסה חדשה של האתר → מרעננים לבד ----------
 // בלי אינטרנט — לא נוגעים בכלום (ממשיכים להציג מה שיש). מרעננים רק אחרי שהקובץ החדש נטען בהצלחה.
@@ -109,7 +164,8 @@ const MYV = (document.querySelector('script[type=importmap]')?.textContent.match
 async function heartbeat() {
   if (PREVIEW || OFFSET || SCRPV) return;
   try {
-    if (CONFIG.SMS_URL) fetch(CONFIG.SMS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'display_ping', v: MYV }) }).catch(() => {});
+    if (CONFIG.SMS_URL) fetch(CONFIG.SMS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'display_ping', v: MYV || (BOOT ? `f${BOOT.ver}` : REL ? `r${REL}` : ''), shul: SHUL }) }).catch(() => {});
+    if (BOOT || REL) return; // א געשפייכלטע גרסה / דער עצמאי'דיגער קובץ — נישט רעפרעשן צו א נייע גרסה
     const r = await fetch(`display.html?chk=${Date.now()}`, { cache: 'no-store' });
     if (!r.ok) return;
     const v = ((await r.text()).match(/\?v=(\d+)/) || [])[1];
@@ -124,10 +180,11 @@ let OFFSET = 0;
 if (QS.get('at')) { const t = new Date(QS.get('at')); if (!Number.isNaN(t.getTime())) OFFSET = t.getTime() - Date.now(); }
 const nowD = () => new Date(Date.now() + OFFSET);
 
-const LOC = LOCATIONS.bp;
 const $ = (s, r = document) => r.querySelector(s);
 const h = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const YDAY = ['זונטאג', 'מאנטאג', 'דינסטאג', 'מיטוואך', 'דאנערשטאג', 'פרייטאג', 'שבת קודש'];
+// שמות הימים לפי שפת התצוגה (הגדרות בית הכנסת)
+const DAYN = { yi: ['זונטאג', 'מאנטאג', 'דינסטאג', 'מיטוואך', 'דאנערשטאג', 'פרייטאג', 'שבת קודש'], he: ['יום ראשון', 'יום שני', 'יום שלישי', 'יום רביעי', 'יום חמישי', 'יום שישי', 'שבת קודש'], en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Shabbos'] };
+const yday = () => DAYN[CFG.lang] || DAYN.yi;
 const SAMPLE = !PREVIEW && !LIVE;
 
 // ---------- מזל טוב (שפעטער: פון "שהשמחה במעונם" — אותו טקסט ווי אינעם גליון) ----------
@@ -571,7 +628,7 @@ function render() {
     const P = PTB; const x0 = hdOf(P.d);
     const dense = P.rows.length > 7 ? ' dense' : '';
     return `<div class="shab pt ${pos}${dense}" style="--n:${P.rows.length}">
-      <div class="sh-t one">${h(`${SCR.texts.tHoly} ל${P.title} - ${YDAY[dowOf(P.d)]} ${hebrewNumber(x0.d)} ${MONTH[x0.m] || x0.m}`)}</div>
+      <div class="sh-t one">${h(`${SCR.texts.tHoly} ל${P.title} - ${yday()[dowOf(P.d)]} ${hebrewNumber(x0.d)} ${MONTH[x0.m] || x0.m}`)}</div>
       ${P.rows.map((r) => `<div class="sh-r${r.kind === 'tefila' ? ' big' : ''}${r.min < nowMin && !r.more.some((m) => m >= nowMin) ? ' past' : ''}"><span>${h(r.label)}</span><b>${[r.min, ...r.more].map((m) => tm(((m % 1440) + 1440) % 1440)).join(' · ')}</b></div>`).join('')}
     </div>`;
   }
@@ -586,7 +643,7 @@ function render() {
   const html = `
     ${PREVIEW ? '<div class="sample">תצוגה מקדימה — לא נשמר</div>' : !LIVE ? '<div class="sample">דוגמה — זמני ברירת מחדל</div>' : ''}
     <div class="top">
-      ${HID.day ? '<div class="day"></div>' : `<div class="day">${h(dw === 6 && nowMin > z.motzei ? 'מוצאי שבת קודש' : YDAY[dw])}${(() => { const pd = dw === 6 ? (dayOf(n)?.parsha || '') : parsha; return pd ? ` פרשת ${h(pd)}` : ''; })()}<small class="hd">${h(heDate)}${holAll ? ` - ${h(holAll)}` : ''}</small></div>`}
+      ${HID.day ? '<div class="day"></div>' : `<div class="day">${h(dw === 6 && nowMin > z.motzei ? 'מוצאי שבת קודש' : yday()[dw])}${(() => { const pd = dw === 6 ? (dayOf(n)?.parsha || '') : parsha; return pd ? ` פרשת ${h(pd)}` : ''; })()}<small class="hd">${h(heDate)}${holAll ? ` - ${h(holAll)}` : ''}</small></div>`}
       ${HID.logo ? '<div class="logo"></div>' : `<div class="logo"><img src="${h(SCR.logo || 'img/logo.png')}" alt=""><b>${h(SCR.texts.title)}</b>${SCR.texts.sub2 ? `<i class="s2">${h(SCR.texts.sub2)}</i>` : ''}<i>${h(SCR.texts.sub)}</i></div>`}
       ${HID.clock ? '<div class="clock"></div>' : `<div class="clock">${hh}:${String(now.getMinutes()).padStart(2, '0')}<span>:${String(now.getSeconds()).padStart(2, '0')} ${ap}</span><small class="greg">${now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</small></div>`}
     </div>
@@ -952,5 +1009,6 @@ function fit() {
   $('#screen').style.transform = `scale(${s})`;
 }
 window.addEventListener('resize', fit);
+startSync();
 fit(); render();
 setInterval(render, 1000);
