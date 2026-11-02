@@ -15,6 +15,7 @@ import { initTefila, openTefila } from './tefila.js';
 import { openTfPrint } from './tfprintui.js';
 import { openScreen } from './screen.js';
 import { openShul, loadShulCfg } from './shului.js';
+import { openTemplates } from './tpl.js';
 import { loadShuls, createShul } from './shuls.js';
 import { SHULS, DEFAULT_SHUL, CITIES, curShul, setCurShul } from './shul.js';
 import { resetTefila } from './tefila.js';
@@ -314,6 +315,7 @@ function renderTefilaHub(main) {
       ${tile('tfScreen', '📺', t('tfScreen'), t('tfScreenSub'))}
       ${tile('tfPrint', '🖨', t('tfPrint'), t('tfPrintSub'))}
       ${tile('tfTimes', '🕰', t('tfTimes'), t('hTefilaSub'))}
+      ${tile('tfTpl', '📝', 'תבניות הדפסה', 'עורך כמו וורד, עם קודים')}
     </div>
     <div class="aw-bar"><button type="button" class="btn ghost aw-btn" id="tfh-shul">⚙️ הגדרות בית הכנסת</button></div>
     ${curShul() === DEFAULT_SHUL ? `<div class="aw-bar"><button type="button" class="btn ghost aw-btn" id="tfh-away">✈ כ”ק אדמו"ר שליט"א נסע</button><span class="muted small" id="tfh-away-st"></span></div>
@@ -369,6 +371,7 @@ export async function renderLuach() {
   if (mode === 'mitzva') { openMitzva(main, () => { mode = 'hub'; renderLuach(); }); return; }
   if (String(mode).startsWith('tf') || mode === 'tefila') { try { await loadShulCfg(); } catch { /* */ } }
   if (mode === 'tefila') { renderTefilaHub(main); return; }
+  if (mode === 'tfTpl') { openTemplates(main, () => { mode = 'tefila'; renderLuach(); }, ui); return; }
   if (mode === 'tfShul') { openShul(main, () => { mode = 'tefila'; renderLuach(); }, ui); return; }
   if (mode === 'tfScreen') { openScreen(main, () => { mode = 'tefila'; renderLuach(); }, ui); return; }
   if (mode === 'tfPrint') { openTfPrint(main, () => { mode = 'tefila'; renderLuach(); }, ui); return; }

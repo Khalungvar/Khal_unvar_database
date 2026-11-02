@@ -364,3 +364,18 @@
 .ly-r span { position: absolute; top: 2px; right: 4px; background: rgba(0,0,0,.65); color: #fff; font-size: 12px; padding: 0 5px; border-radius: 4px; pointer-events: none; }
 .ly-r button { position: absolute; top: 2px; left: 2px; font-size: 12px; padding: 0 5px; cursor: pointer; }
 .ly-r i { position: absolute; right: -6px; bottom: -6px; width: 14px; height: 14px; background: #ffcf40; border: 2px solid #000; border-radius: 3px; cursor: nwse-resize; }
+/* ⚙️ מה להציג בזמני התפילות */
+.tf-main.hide-room .c-room, .tf-main.hide-room td:has(> [data-f$=".room"]), .tf-main.hide-room [data-f$=".room"],
+.tf-main.hide-note .c-note, .tf-main.hide-note td:has(> [data-f$=".note"]), .tf-main.hide-note [data-f$=".note"], .tf-main.hide-note [data-f$="Note"], .tf-main.hide-note h3 small,
+.tf-main.hide-season .c-season, .tf-main.hide-season td:has(> [data-f$=".season"]), .tf-main.hide-season [data-f$=".season"], .tf-main.hide-season .tf-rng,
+.tf-main.hide-cond .c-cond, .tf-main.hide-cond .tf-cond:not(.tf-disp),
+.tf-main.hide-disp .tf-disp,
+.tf-main.hide-fri .c-fri, .tf-main.hide-fri td:has(> [data-f$=".fri"]),
+.tf-main.hide-rebbe .s-rebbe, .tf-main.hide-camp .s-camp, .tf-main.hide-ref .s-ref { display: none !important; }
+/* 📝 תבניות הדפסה */
+.tp-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 0; position: sticky; top: 0; z-index: 3; background: var(--bg, #fff); }
+.tp-tools button, .tp-tools select, .tp-tools input { font: inherit; padding: 3px 7px; }
+.tp-stage { overflow: auto; background: #8a8a8a; padding: 20px; border-radius: 8px; }
+.tp-page { margin: 0 auto; background: #fff; color: #000; box-shadow: 0 2px 10px rgba(0,0,0,.4); padding: 0.3in; box-sizing: border-box; font-family: 'Frank Ruhl Libre', serif; outline: none; }
+.tp-page [data-rep] { outline: 2px dashed #2a7de1; outline-offset: -2px; }
+.tp-page [data-rep]::before { content: none; }

@@ -13,6 +13,7 @@ import { escapeHtml as h, nowStamp } from '../util.js';
 import { loadAway } from './away.js';
 import { periodSections, dayLabel, clearPeriodCache } from './periods.js';
 import { curSheetId } from './shul.js';
+import { loadShulCfg, patchShul } from './shului.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -185,10 +186,10 @@ function weekdayHtml() {
   const w = data.weekday;
   const groups = GROUPS.map(([g, title]) => `<section class="tf-grp">
     <h3>${title} <small>הערה: ${fld(`weekday.${g}Note`, 'text', ' class="tf-w12"')}</small></h3>
-    <table class="tf-t"><thead><tr><th>שעה</th><th>חדר</th><th>הערה</th><th>עונה</th><th title="המניין מוצג רק אם הוא לפני / אחרי זמן מסוים">תלוי</th>${g === 'shacharis' ? '<th>גם בער"ש</th>' : ''}<th></th></tr></thead><tbody>
+    <table class="tf-t"><thead><tr><th>שעה</th><th class="c-room">חדר</th><th class="c-note">הערה</th><th class="c-season">עונה</th><th class="c-cond" title="המניין מוצג רק אם הוא לפני / אחרי זמן מסוים">תלוי</th>${g === 'shacharis' ? '<th class="c-fri">גם בער"ש</th>' : ''}<th></th></tr></thead><tbody>
     ${(w[g] || []).map((r, i) => { const p = `weekday.${g}.${i}`; return `<tr>
       <td>${tsHtml(r.time, `${p}.time`)}</td><td>${fld(`${p}.room`, 'text', ' class="tf-w8"')}</td><td>${fld(`${p}.note`, 'text', ' class="tf-w10"')}</td>
-      <td>${seasonHtml(p, SEASONS)}</td><td>${condBtn(r, g, p)}</td>
+      <td>${seasonHtml(p, SEASONS)}</td><td class="c-cond">${condBtn(r, g, p)}</td>
       ${g === 'shacharis' ? `<td>${fld(`${p}.fri`, 'check')}</td>` : ''}
       <td class="tf-acts">${btn('del', p, '🗑', 'מחק')}</td></tr>`; }).join('')}
     </tbody></table>
@@ -198,15 +199,15 @@ function weekdayHtml() {
       <td>${fld(`${p}.room`, 'text', ' class="tf-w8"')}</td><td>${fld(`${p}.note`, 'text', ' class="tf-w8"')}</td>
       <td>${fld(`${p}.before`, 'number', ' class="tf-w4" min="0"')} דק'</td><td>${fld(`${p}.after`, 'number', ' class="tf-w4" min="0"')} דק'</td>
       <td>${g === 'shacharis' ? `${fld(`${p}.fri`, 'check')} גם בער"ש` : g === 'mincha' ? `<span title="אם יוצא :15 או :45 — בשעון חורף מאחרים 5 דק' (:20 / :50), בשעון קיץ מקדימים 5 דק' (:10 / :40)">${fld(`${p}.q`, 'check')} :15/:45 ← ±5 דק' (חורף מאחר, קיץ מקדים)</span>` : ''}</td></tr>`; };
-  const rebbe = `<section class="tf-grp tf-rebbe"><h3>מנין כ"ק מרן אדמו"ר שליט"א</h3>
+  const rebbe = `<section class="tf-grp tf-rebbe s-rebbe"><h3>מנין כ"ק מרן אדמו"ר שליט"א</h3>
     <p class="muted small">שעה עם עיגול (למשל: שקיעה +25, עיגול ל-5). מניין אחר שנופל בתוך "אין מנין אחר" לפני או אחרי — לא יוצג באותו יום.</p>
     <table class="tf-t"><thead><tr><th></th><th>פעיל</th><th>שעה</th><th>חדר</th><th>הערה</th><th>אין מנין אחר — לפניו</th><th>— אחריו</th><th></th></tr></thead><tbody>
     ${rb('shacharis', 'שחרית')}${rb('mincha', 'מנחה')}${rb('maariv', 'מעריב')}</tbody></table></section>`;
   const MON = ['', 'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'].map((t, i) => [i ? String(i) : '', t || '—']);
   const DD = [['', '—'], ...Array.from({ length: 31 }, (x, i) => [String(i + 1), String(i + 1)])];
-  const camp = `<section class="tf-grp tf-rebbe"><h3>תקופת קעמפ</h3>
+  const camp = `<section class="tf-grp tf-rebbe s-camp"><h3>תקופת קעמפ</h3>
     <p class="tf-rf">מ־${sel('weekday.camp.fromD', DD)} ${sel('weekday.camp.fromM', MON)} עד־${sel('weekday.camp.toD', DD)} ${sel('weekday.camp.toM', MON)} <span class="muted small">(כל שנה; מנין שלא מתקיים בקעמפ — בחלון "תלוי")</span></p></section>`;
-  const ref = `<section class="tf-grp tf-rebbe"><h3>זמני ימות החול — לכל השבוע</h3>
+  const ref = `<section class="tf-grp tf-rebbe s-ref"><h3>זמני ימות החול — לכל השבוע</h3>
     <p class="tf-rf">שעות שתלויות בשקיעה וכו' (מנין כ"ק, "תלוי") מחושבות לכל השבוע לפי: ${sel('weekday.refDay', REF_DAYS)}</p></section>`;
   return `${ref}${rebbe}${camp}<p class="muted small">חדר שיוצג במסך כשלמניין לא נכתב חדר (אפשר להשאיר ריק): ${fld('weekday.defaultRoom', 'text', ' class="tf-w10" placeholder="למשל: ביהמ&quot;ד"')}</p>
     <p class="muted small">שעון קיץ = מאמצע מרץ עד תחילת נובמבר · שעון חורף = שאר השנה.</p>${groups}`;
@@ -461,6 +462,7 @@ export async function openTefila(main, onBack, backLabel) {
   if (backLabel) BACK = backLabel;
   main.innerHTML = '<p class="muted">…</p>';
   await prepare();
+  try { const c = await loadShulCfg(); SHOWCFG = c.show || {}; } catch { SHOWCFG = {}; }
   render(main, onBack);
 }
 // ---------- ❓ הסבר: איך הזמנים בנויים ומה אפשר לעשות ----------
@@ -505,7 +507,28 @@ const HELP = `<div class="tf-help">
     <li>התצוגה בבית הכנסת מרעננת את עצמה לבד כשיש גרסה חדשה של האתר (בדיקה כל 20 דקות).</li>
   </ul></details>
 </div>`;
+// ⚙️ מה להציג: בכל לשונית אפשר להסתיר סוגי הגדרות (נשמר בהגדרות בית הכנסת, לכל הגבאים)
+const SHOW_OPTS = [['room', 'חדר'], ['note', 'הערות'], ['season', 'עונות'], ['cond', 'תלוי (תנאים)'], ['disp', 'תצוגה במסך'], ['fri', 'ערב שבת'], ['rebbe', 'מנין כ"ק אדמו"ר'], ['camp', 'קעמפ'], ['ref', 'חישוב לכל השבוע']];
+let SHOWCFG = {};
+const hideCls = () => (SHOWCFG[tab] || []).map((k) => `hide-${k}`).join(' ');
+function showDialog(main) {
+  const hid = new Set(SHOWCFG[tab] || []);
+  const d = document.createElement('dialog'); d.className = 'sheet';
+  d.innerHTML = `<button type="button" class="x-close" data-x>✕</button><h3>⚙️ מה להציג — ${h(TABS.find(([k]) => k === tab)?.[1] || '')}</h3>
+    <p class="muted small">מה שלא מסומן — מוסתר מהדף (וממשיך לפעול). נשמר לכל הגבאים.</p>
+    ${SHOW_OPTS.map(([k, l]) => `<label class="check" style="display:block;margin:4px 0"><input type="checkbox" data-k="${k}"${hid.has(k) ? '' : ' checked'}${canEdit() ? '' : ' disabled'}> ${h(l)}</label>`).join('')}
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn primary" data-ok>שמור</button></div>`;
+  document.body.append(d); d.addEventListener('close', () => d.remove()); d.showModal();
+  d.querySelector('[data-x]').onclick = () => d.close();
+  d.querySelector('[data-ok]').onclick = async () => {
+    const off = [...d.querySelectorAll('[data-k]')].filter((x) => !x.checked).map((x) => x.dataset.k);
+    SHOWCFG = { ...SHOWCFG, [tab]: off }; d.close(); render(main, BACKFN);
+    try { await patchShul((c) => { c.show = { ...(c.show || {}), [tab]: off }; }); ui.toast?.('נשמר ✓'); } catch (err) { ui.toast?.(String(err.message || err), 'error'); }
+  };
+}
+let BACKFN = null;
 function render(main, onBack) {
+  BACKFN = onBack;
   const body = tab === 'weekday' ? weekdayHtml() : tab === 'shabbos' ? shabbosHtml() : tab === 'shiurim' ? shiurimHtml() : tab === 'events' ? eventsHtml() : blocksHtml(tab);
   main.innerHTML = `<div class="lx-bar">
       <button type="button" class="btn ghost" id="tf-back">← ${h(BACK)}</button>
@@ -516,17 +539,19 @@ function render(main, onBack) {
 ${canEdit() ? '<button type="button" class="btn" id="tf-ver" title="לשמור את המצב הנוכחי כנקודה שאפשר לחזור אליה">📌 שמור כגרסה</button>' : ''}
       <button type="button" class="btn ghost" id="tf-vers" title="רשימת הגרסאות השמורות">🕘 גרסאות</button>
       <button type="button" class="btn" data-act="pv" data-d="" title="לראות במסך את התאריך שבתצוגה המקדימה">👁 במסך</button>
+      <button type="button" class="btn ghost" id="tf-show" title="אילו הגדרות להציג בלשונית הזאת">⚙️ מה להציג</button>
       <button type="button" class="btn ghost${helpOpen ? ' on' : ''}" id="tf-help" title="איך הזמנים עובדים">❓ הסבר</button>
       ${canEdit() ? '<button type="button" class="btn ghost" id="tf-reset" title="למלא מחדש מברירת המחדל (הלוח השנתי + התוכנה הישנה)">↺</button>' : ''}
     </div>
     ${row ? '' : '<p class="lx-warn">⚠ עדיין לא נשמר — מוצגים הזמנים מהלוח השנתי ומהתוכנה הישנה. לעבור, לתקן ולשמור.</p>'}
     ${helpOpen ? HELP : ''}
-    <div class="tf-wrap"><div class="tf-main">${body}</div><aside class="tf-side">${previewHtml()}</aside></div>${condDialog()}${dispDialog()}`;
+    <div class="tf-wrap"><div class="tf-main ${hideCls()}">${body}</div><aside class="tf-side">${previewHtml()}</aside></div>${condDialog()}${dispDialog()}`;
   const rerender = () => render(main, onBack);
   const touched = (full) => { dirty = true; const s = $('#tf-save', main); if (s) s.disabled = false; if (full) rerender(); else $('.tf-side', main).innerHTML = previewHtml(); bindDate(); };
   const bindDate = () => { const d = $('#tf-date', main); if (d) d.onchange = () => { prevIso = d.value || todayIso(); $('.tf-side', main).innerHTML = previewHtml(); bindDate(); }; };
   bindDate();
   $('#tf-help', main).onclick = () => { helpOpen = !helpOpen; rerender(); };
+  $('#tf-show', main).onclick = () => showDialog(main);
   $('#tf-back', main).onclick = () => { if (dirty && !confirm('יש שינויים שלא נשמרו. לצאת?')) return; onBack(); };
   $$('[data-tab]', main).forEach((b) => { b.onclick = () => { tab = b.dataset.tab; rerender(); }; });
   const sv = $('#tf-save', main); if (sv) sv.onclick = async () => { await save(); rerender(); };

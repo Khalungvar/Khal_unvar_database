@@ -39,6 +39,11 @@ async function save(note) {
   try { await VS().add(C, note, state.email); } catch { try { await sh().addTab('ShulHistory'); await sh().write('ShulHistory!A1:D1', [['version', 'saved_at', 'saved_by', 'note']]); await VS().add(C, note, state.email); } catch { /* */ } }
   cache = normShul(JSON.parse(v), curShul()); applyShul(cache); saved = JSON.stringify(C); meta = { at: stamp, by: state.email };
 }
+/** שינוי קטן בהגדרות (למשל "מה להציג" בזמני התפילות) — נשמר מיד */
+export async function patchShul(fn) {
+  await loadShulCfg();
+  C = normShul(JSON.parse(JSON.stringify(cache)), curShul()); fn(C); await save('');
+}
 async function loadReleases() {
   try { const r = await fetch(`rel/index.json?t=${Date.now()}`, { cache: 'no-store' }); releases = r.ok ? await r.json() : []; } catch { releases = []; }
 }
