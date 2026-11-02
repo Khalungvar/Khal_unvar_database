@@ -12,10 +12,12 @@ import { autoVars } from './autovars.js';
 import { computeWeekday, computeShabbos, computeShiurim, CODE_GROUPS } from './minyanim.js';
 import { isoOf, nOf, dowOf, hdOf, buildYear } from './engine.js';
 import { hhmm, LOCATION } from './zmanim.js';
-import { printCss, wkBlocks, pageHtml, fitPages, FOOTER } from './tfprint.js';
+import { printCss, wkBlocks, pageHtml, fitPages, FOOTER, SIZES as TSIZES } from './tfprint.js';
+import { weekdayDocx } from './tfdocx.js';
 import { customFontNames } from '../fonts.js';
 import { hebrewNumber } from '../hebdate.js';
 import { MONTH } from './months.js';
+import { ribbonHtml, wireRibbon } from './ribbon.js';
 import { screenSettings } from './screen.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -30,7 +32,7 @@ const DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', '
 const HMONTHS = Object.entries(MONTH);
 const canEdit = () => !!(state.isAllowed || state.isAdmin);
 let T = []; let ui = null; let saved = ''; let DATA = null; let SCRS = null;
-let weekAt = ''; let editId = null; let q = '';
+let weekAt = ''; let editId = null; let q = ''; let ribTab = 'home'; let unwire = null;
 
 // ---------- הדפים ההתחלתיים: העיצוב של היום (ימות החול / שבת), עכשיו עריך ----------
 const blk = (k, tag = 'div', cls = '') => `<${tag}${cls ? ` class="${cls}"` : ''} data-blk="${k}" contenteditable="false"></${tag}>`;
@@ -151,6 +153,32 @@ function docHtml(it, pages, autoPrint) {
 }
 // fitPages כטקסט (בשביל החלון של ההדפסה)
 const FITSRC = `const fit = ${fitPages.toString().replace(/^function fitPages/, 'function')}`;
+// ⬇ וורד: איך שזה יוצא בשבוע הזה — לתיקון חד-פעמי בוורד (בלי לשנות את התבנית)
+async function exportWord(it, day) {
+  const box = document.createElement('div'); box.style.cssText = 'position:fixed;left:-20000px;top:0';
+  box.innerHTML = `<style>${printCss()}</style>${pageOf(it, fill(it, day))}`; document.body.append(box);
+  try {
+    try { await document.fonts.ready; } catch { /* */ }
+    fitPages(box);
+    const pg = box.querySelector('.tp-page'); const name = `${it.name} - ${isoOf(day)}`;
+    let blob;
+    if (it.cls === 'tp-wk') blob = await weekdayDocx([pg], { size: TSIZES[SIZES[it.size] ? it.size : 'letter'], font: '', css: printCss() });
+    else {
+      // שאר הדפים: HTML שוורד פותח (עם אותו עיצוב)
+      const base = location.href.replace(/shul\/.*$/, '').replace(/[^/]*$/, '');
+      const inn = pg.querySelector('.tp-in'); const fs = getComputedStyle(inn).fontSize;
+      const [, , sz] = SIZES[it.size] || SIZES.letter;
+      let body = inn.innerHTML.replace(/src="(?!data:|https?:)([^"]+)"/g, (m, u) => `src="${base}${u}"`).replace(/var\(--k,\s*1\)|var\(--k\)/g, String(parseFloat(pg.style.getPropertyValue('--k')) || 1));
+      body = `<div style="font-size:${fs};font-family:'Frank Ruhl Libre',serif;direction:rtl">${body}</div>`;
+      const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${h(name)}</title>
+        <style>@page WordSection1{size:${sz};margin:.4in} div.WordSection1{page:WordSection1} body{direction:rtl} .tp-lh2,.tp-lh{width:6.5in} .tp-lf{width:6.5in} ${printCss()}</style></head><body dir="rtl"><div class="WordSection1">${body}</div></body></html>`;
+      blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${name}.${it.cls === 'tp-wk' ? 'docx' : 'doc'}`;
+    document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  } catch (err) { ui?.toast?.(String(err.message || err), 'error'); }
+  box.remove();
+}
 function openPrint(it, days, auto) {
   const w = window.open('', '_blank'); if (!w) { ui?.toast?.('הדפדפן חסם חלון חדש', 'error'); return; }
   w.document.write(docHtml(it, days.map((k) => pageOf(it, fill(it, k))).join(''), auto)); w.document.close();
@@ -175,12 +203,12 @@ function listView(main, onBack) {
     <button type="button" class="btn small-btn ghost" data-w="7">שבוע הבא ▶</button>
     <span class="muted small">${h(dlabel(sun))} – ${h(dlabel(sun + 6))}</span></div>
     ${week.length ? `<div class="pr-cards">${week.map(({ it, days }) => `<div class="pr-card"><b>${h(it.name)}</b><span class="muted small">${h(it.rec?.type === 'daily' ? 'יומי' : days.map(dlabel).join(', '))}</span>
-      <div><button type="button" class="btn small-btn" data-pv="${h(it.id)}" data-day="${days[0]}">👁</button><button type="button" class="btn small-btn primary" data-pr="${h(it.id)}" data-day="${days[0]}">🖨 הדפסה</button>${ed ? `<button type="button" class="btn small-btn ghost" data-ed="${h(it.id)}">✏️</button>` : ''}</div></div>`).join('')}</div>`
+      <div><button type="button" class="btn small-btn" data-pv="${h(it.id)}" data-day="${days[0]}">👁</button><button type="button" class="btn small-btn primary" data-pr="${h(it.id)}" data-day="${days[0]}">🖨 הדפסה</button><button type="button" class="btn small-btn ghost" data-wd="${h(it.id)}" data-day="${days[0]}" title="לוורד — איך שזה יוצא בשבוע הזה, לתיקון חד-פעמי">⬇ וורד</button>${ed ? `<button type="button" class="btn small-btn ghost" data-ed="${h(it.id)}">✏️</button>` : ''}</div></div>`).join('')}</div>`
     : '<p class="muted">אין הדפסות בשבוע הזה.</p>'}
   </section>
   <section class="pr-all"><div class="pr-wbar"><b>כל ההדפסות</b><input id="pr-q" placeholder="🔍 חיפוש" value="${h(q)}"></div>
     ${ORDER.map((g) => { const L = list.filter((it) => (it.rec?.type || 'once') === g); return L.length ? `<h4>${GN[g]}</h4>${L.map((it) => `<div class="pr-row"><b>${h(it.name)}</b><span class="muted small">${h(recText(it.rec))}</span><span class="spacer"></span>
-      <button type="button" class="btn small-btn ghost" data-pv="${h(it.id)}">👁</button><button type="button" class="btn small-btn ghost" data-pr="${h(it.id)}">🖨</button>
+      <button type="button" class="btn small-btn ghost" data-pv="${h(it.id)}">👁</button><button type="button" class="btn small-btn ghost" data-pr="${h(it.id)}">🖨</button><button type="button" class="btn small-btn ghost" data-wd="${h(it.id)}" title="לוורד">⬇W</button>
       ${ed ? `<button type="button" class="btn small-btn ghost" data-ed="${h(it.id)}">✏️</button><button type="button" class="btn small-btn ghost" data-dup="${h(it.id)}" title="שכפול">⧉</button>${['weekday', 'shabbos'].includes(it.id) ? '' : `<button type="button" class="btn small-btn ghost" data-del="${h(it.id)}">🗑</button>`}` : ''}</div>`).join('')}` : ''; }).join('')}
   </section>`;
   const get = (id) => T.find((x) => x.id === id);
@@ -192,6 +220,7 @@ function listView(main, onBack) {
   $$('[data-pv]', main).forEach((b) => { b.onclick = () => { const it = get(b.dataset.pv); openPrint(it, [dayFor(b, it)], false); }; });
   $$('[data-pr]', main).forEach((b) => { b.onclick = () => { const it = get(b.dataset.pr); openPrint(it, [dayFor(b, it)], true); }; });
   $$('[data-ed]', main).forEach((b) => { b.onclick = () => { editId = b.dataset.ed; editView(main, onBack); }; });
+  $$('[data-wd]', main).forEach((b) => { b.onclick = async () => { const it = get(b.dataset.wd); b.disabled = true; await exportWord(it, dayFor(b, it)); b.disabled = false; }; });
   $$('[data-dup]', main).forEach((b) => { b.onclick = async () => { const it = get(b.dataset.dup); T.push({ ...JSON.parse(JSON.stringify(it)), id: `t${Date.now().toString(36)}`, name: `${it.name} (עותק)` }); await persist(); listView(main, onBack); }; });
   $$('[data-del]', main).forEach((b) => { b.onclick = async () => { const it = get(b.dataset.del); if (!confirm(`למחוק את "${it.name}"?`)) return; T = T.filter((x) => x !== it); await persist(); listView(main, onBack); }; });
   const nb = $('#pr-new', main);
@@ -233,24 +262,13 @@ function editView(main, onBack) {
       ${r.type === 'monthly' ? `<select id="te-mo"><option value="rc"${r.rc ? ' selected' : ''}>ראש חודש</option>${Array.from({ length: 30 }, (x, i) => `<option value="${i + 1}"${!r.rc && Number(r.hd) === i + 1 ? ' selected' : ''}>${hebrewNumber(i + 1)} בחודש</option>`).join('')}</select>` : ''}
       ${r.type === 'yearly' ? `<select id="te-yd">${Array.from({ length: 30 }, (x, i) => `<option value="${i + 1}"${Number(r.hd) === i + 1 ? ' selected' : ''}>${hebrewNumber(i + 1)}</option>`).join('')}</select><select id="te-ym">${HMONTHS.map(([k, l]) => `<option value="${h(k)}"${r.hm === k ? ' selected' : ''}>${h(l)}</option>`).join('')}</select>` : ''}</span>
     <span class="spacer"></span>
-    <button type="button" class="btn" id="te-pv">👁 עם הזמנים</button>${ed ? '<button type="button" class="btn primary" id="te-save">💾 שמירה</button>' : ''}</div>
-  <div class="tp-tools">
-    <select data-cmd="fontName"><option value="">גופן</option>${FONTS().map((f) => `<option>${h(f)}</option>`).join('')}</select>
-    <select data-cmd="size"><option value="">גודל</option>${[10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72, 96].map((s) => `<option>${s}</option>`).join('')}</select>
-    <button type="button" data-cmd="bold"><b>B</b></button><button type="button" data-cmd="italic"><i>I</i></button><button type="button" data-cmd="underline"><u>U</u></button>
-    <input type="color" data-cmd="foreColor" title="צבע טקסט"><input type="color" data-cmd="hiliteColor" value="#ffffff" title="צבע רקע">
-    <button type="button" data-cmd="justifyRight">⯈</button><button type="button" data-cmd="justifyCenter">≡</button><button type="button" data-cmd="justifyLeft">⯇</button>
-    <button type="button" id="te-table">▦ טבלה</button>
-    <select id="te-code"><option value="">{ } הכנס קוד</option>${codeList(pvDay).map(([g, l]) => `<optgroup label="${h(g)}">${l.map(([c, t]) => `<option value="${h(c)}">${h(t)}</option>`).join('')}</optgroup>`).join('')}</select>
-    <select id="te-blk"><option value="">▤ הכנס בלוק</option>${BLK.map(([k, l]) => `<option value="${k}">${h(l)}</option>`).join('')}</select>
-    <select id="te-rep"><option value="">↻ שורה חוזרת</option>${REP.map(([k, l]) => `<option value="${k}">${h(l)}</option>`).join('')}</select>
-    <label class="small"><input type="checkbox" id="te-frame"${it.frame ? ' checked' : ''}> מסגרת</label>
-    <button type="button" id="te-src" title="עריכת HTML">&lt;/&gt;</button>
-  </div>
+    <button type="button" class="btn" id="te-pv">👁 עם הזמנים</button><button type="button" class="btn ghost" id="te-wd">⬇ וורד</button>${ed ? '<button type="button" class="btn primary" id="te-save">💾 שמירה</button>' : ''}</div>
+  <div class="pr-rib" id="te-rib">${ribbonHtml(ribTab, { fonts: FONTS(), codes: codeList(pvDay), blocks: BLK, reps: REP })}</div>
+  <div class="pr-pageopts"><label class="small"><input type="checkbox" id="te-frame"${it.frame ? ' checked' : ''}> מסגרת</label> <button type="button" class="btn small-btn ghost" id="te-src" title="עריכת HTML">&lt;/&gt; HTML</button></div>
   <p class="muted small">בלוק (אפור) = חלק שהמערכת ממלאת כמו בעיצוב הקבוע. אפשר לגרור / למחוק אותו ולכתוב סביבו. שורה חוזרת (מסגרת כחולה) = שורה שמשוכפלת לכל מניין: {שעה} {חדר} {הערה} / {שם} {שעה}.</p>
   <div class="tp-stage">${pageOf(it, '').replace('<div class="tp-in"></div>', `<div class="tp-in te-ed" id="te-page" contenteditable="${ed}">${it.html}</div>`)}</div>`;
   const pg = $('#te-page', main);
-  fitPages($('.tp-stage', main));
+  pg.style.setProperty('--fs', '16px'); // בעורך: גודל ממוצע (בהדפסה — מותאם לדף)
   $$('[data-blk]', pg).forEach((b) => { b.setAttribute('data-label', BLKNAME[b.dataset.blk] || b.dataset.blk); });
   const sync = () => { const c = pg.cloneNode(true); c.querySelectorAll('[data-label]').forEach((x) => x.removeAttribute('data-label')); it.html = c.innerHTML; };
   pg.addEventListener('input', sync);
@@ -264,28 +282,17 @@ function editView(main, onBack) {
   on('#te-date', (v) => { r.date = v; }); on('#te-dow', (v) => { r.dow = Number(v); });
   on('#te-mo', (v) => { if (v === 'rc') { r.rc = true; delete r.hd; } else { r.rc = false; r.hd = Number(v); } });
   on('#te-yd', (v) => { r.hd = Number(v); }); on('#te-ym', (v) => { r.hm = v; });
-  $$('[data-cmd]', main).forEach((el) => {
-    const run = () => {
-      pg.focus(); const c = el.dataset.cmd;
-      if (c === 'size') { if (!el.value) return; document.execCommand('fontSize', false, '7'); $$('font[size="7"]', pg).forEach((f) => { const s = document.createElement('span'); s.style.fontSize = `${el.value}px`; s.innerHTML = f.innerHTML; f.replaceWith(s); }); el.value = ''; }
-      else if (el.tagName === 'SELECT' || el.type === 'color') { if (el.value) document.execCommand(c, false, el.value); if (el.tagName === 'SELECT') el.value = ''; }
-      else document.execCommand(c, false, null);
-      sync();
-    };
-    if (el.tagName === 'BUTTON') el.onmousedown = (e) => { e.preventDefault(); run(); }; else el.onchange = run;
+  const ins = (html) => { document.execCommand('insertHTML', false, html); $$('[data-blk]', pg).forEach((b) => { b.setAttribute('data-label', BLKNAME[b.dataset.blk] || b.dataset.blk); b.contentEditable = 'false'; }); sync(); };
+  if (unwire) unwire();
+  unwire = wireRibbon($('#te-rib', main), pg, {
+    change: sync,
+    tab: (k) => { ribTab = k; rerender(); },
+    insBlock: (k) => { const cls = { shacharis: 'tp-times', mincha: 'tp-times', maariv: 'tp-times', shabline: 'tp-shab', shabrows: 'tp-rows' }[k] || ''; ins(blk(k, k === 'sshach' ? 'span' : 'div', cls)); },
+    insRep: (g) => {
+      const inner = g === 'shabbos' ? '<td style="padding:4px">{שם}</td><td style="padding:4px;font-weight:700">{שעה}</td>' : '<td style="padding:2px;text-align:center;font-weight:700">{שעה} <span style="font-size:.6em">{חדר}</span></td>';
+      ins(`<table style="width:100%;border-collapse:collapse;font-size:1.6em"><tbody><tr data-rep="${g}">${inner}</tr></tbody></table><div><br></div>`);
+    },
   });
-  const ins = (html) => { pg.focus(); document.execCommand('insertHTML', false, html); $$('[data-blk]', pg).forEach((b) => { b.setAttribute('data-label', BLKNAME[b.dataset.blk] || b.dataset.blk); b.contentEditable = 'false'; }); sync(); };
-  $('#te-table', main).onmousedown = (e) => {
-    e.preventDefault(); const rr = Number(prompt('כמה שורות?', '3')) || 0; const cc = Number(prompt('כמה עמודות?', '2')) || 0; if (!rr || !cc) return;
-    ins(`<table style="width:100%;border-collapse:collapse;font-size:1.4em">${Array.from({ length: rr }, () => `<tr>${Array.from({ length: cc }, () => '<td style="border:1px solid #000;padding:4px">&nbsp;</td>').join('')}</tr>`).join('')}</table><div></div>`);
-  };
-  $('#te-code', main).onchange = (e) => { const v = e.target.value; e.target.value = ''; if (v) { pg.focus(); document.execCommand('insertText', false, `{${v}}`); sync(); } };
-  $('#te-blk', main).onchange = (e) => { const k = e.target.value; e.target.value = ''; if (!k) return; const cls = { shacharis: 'tp-times', mincha: 'tp-times', maariv: 'tp-times', shabline: 'tp-shab', shabrows: 'tp-rows' }[k] || ''; ins(blk(k, k === 'sshach' ? 'span' : 'div', cls)); };
-  $('#te-rep', main).onchange = (e) => {
-    const g = e.target.value; e.target.value = ''; if (!g) return;
-    const inner = g === 'shabbos' ? '<td style="padding:4px">{שם}</td><td style="padding:4px;font-weight:700">{שעה}</td>' : '<td style="padding:2px;text-align:center;font-weight:700">{שעה} <span style="font-size:.6em">{חדר}</span></td>';
-    ins(`<table style="width:100%;border-collapse:collapse;font-size:1.6em"><tbody><tr data-rep="${g}">${inner}</tr></tbody></table><div></div>`);
-  };
   $('#te-src', main).onclick = () => {
     sync(); const d = document.createElement('dialog'); d.className = 'sheet wide';
     d.innerHTML = `<h3>HTML</h3><textarea dir="ltr" style="width:100%;height:60vh;font-family:monospace;font-size:12px">${h(it.html)}</textarea><div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>ביטול</button><button type="button" class="btn primary" data-ok>עדכון</button></div>`;
@@ -294,6 +301,7 @@ function editView(main, onBack) {
     d.querySelector('[data-ok]').onclick = () => { it.html = d.querySelector('textarea').value; d.close(); editView(main, onBack); };
   };
   $('#te-pv', main).onclick = () => { sync(); openPrint(it, [pvDay], false); };
+  $('#te-wd', main).onclick = async (e) => { sync(); e.target.disabled = true; await exportWord(it, pvDay); e.target.disabled = false; };
   const sv = $('#te-save', main);
   if (sv) sv.onclick = async () => { sync(); sv.disabled = true; await persist(); sv.disabled = false; };
   void before;

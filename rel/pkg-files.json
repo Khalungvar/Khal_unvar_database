@@ -37,6 +37,7 @@
  "js/luach/screen.js",
  "js/luach/autovars.js",
  "js/luach/tfprint.js",
+ "js/luach/ribbon.js",
  "js/luach/prints.js",
  "js/luach/shulapp.js",
  "js/display/display.js",
