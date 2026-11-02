@@ -1132,8 +1132,12 @@ function stripeCheckout(req, email) {
   const pay = Math.round((usd + STRIPE_FEE) * 100); // הקרדיטים = usd; התשלום = usd + דמי טיפול
   const site = P.getProperty('SITE_URL') || 'https://ungvar.org/';
   const form = {
-    mode: 'payment', 'line_items[0][quantity]': '1', 'line_items[0][price_data][currency]': 'usd',
-    'line_items[0][price_data][unit_amount]': String(pay), 'line_items[0][price_data][product_data][name]': 'SMS credits $' + usd.toFixed(2) + ' – Mosdos Ungvar (incl. $' + STRIPE_FEE.toFixed(2) + ' service fee)',
+    mode: 'payment', submit_type: 'donate',
+    'line_items[0][quantity]': '1', 'line_items[0][price_data][currency]': 'usd',
+    'line_items[0][price_data][unit_amount]': String(Math.round(usd * 100)), 'line_items[0][price_data][product_data][name]': 'Donation – Khal Ungvar',
+    'line_items[1][quantity]': '1', 'line_items[1][price_data][currency]': 'usd',
+    'line_items[1][price_data][unit_amount]': String(pay - Math.round(usd * 100)), 'line_items[1][price_data][product_data][name]': 'Processing fee',
+    'payment_intent_data[statement_descriptor_suffix]': 'DONATION', 'payment_intent_data[description]': 'Donation – Khal Ungvar',
     customer_email: email, 'metadata[email]': email, 'metadata[credits]': String(usd), client_reference_id: email,
     success_url: site + '?credits=ok', cancel_url: site + '?credits=cancel',
   };
@@ -1153,7 +1157,7 @@ function stripePaid_(req) {
   if (!email || !req.session_id) return { error: 'bad' };
   const t = readTab('Credits');
   if (t.rows.some(function (r) { return String(r.ref) === String(req.session_id); })) return { ok: true, dup: true };
-  appendObj('Credits', { at: stamp(), email: email, delta: Number(req.credits) || Number(req.amount_total) / 100 || 0, kind: 'purchase', ref: req.session_id, note: 'Stripe $' + (Number(req.amount_total) / 100), by: 'stripe' });
+  appendObj('Credits', { at: stamp(), email: email, delta: Number(req.credits) || Number(req.amount_total) / 100 || 0, kind: 'purchase', ref: req.session_id, note: 'Donation $' + (Number(req.amount_total) / 100), by: 'stripe' });
   return { ok: true };
 }
 
