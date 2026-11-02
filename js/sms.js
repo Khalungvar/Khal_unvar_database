@@ -32,11 +32,12 @@ async function call(action, body = {}) {
   return r;
 }
 function errText(r) {
-  const map = { 'no-credits': t('smsNoCredits', { need: money(r.need), have: money(r.have) }), 'not-allowed': t('smsNotAllowed'), 'no-recipients': t('smsNoRecipients'), 'no-stripe': t('smsNoStripe'), 'admin-only': t('adminOnly'),
+  const map = { 'no-credits': t('smsNoCredits', { need: money(r.need), have: money(r.have) }), 'not-allowed': t('smsNotAllowed'), 'no-recipients': t('smsNoRecipients'), 'no-stripe': t('smsNoStripe'), 'bad-amount': t('smsBadAmount'), 'admin-only': t('adminOnly'),
     'kw-empty': t('csAuKwEmpty'), 'opted-out': t('csInOptedOut'), 'kw-taken': t('csAuKwTaken', { w: (r.words || []).join(', ') }) };
   return map[r.error] || r.error;
 }
 const money = (n) => `$${(Number(n) || 0).toFixed(2)}`;
+const FEE = 0.35; // דמי טיפול לכל רכישה — אותו מספר כמו STRIPE_FEE ב-sms.gs
 
 /** לייענט די SMS לשוניות (יעדע באזונדער — א לשונית וואס איז נאך נישטא איז נישט קיין פראבלעם) */
 export async function loadSms(force = false) {
@@ -862,16 +863,27 @@ function creditsTab(body) {
   const mine = data.credits.filter((r) => String(r.email).toLowerCase() === state.email).slice().reverse();
   body.innerHTML = `<div class="sms-buy"><h3>💳 ${h(t('smsBuy'))}</h3>
       <p class="muted small">${h(t('smsBuyHint', { p: money(data.config.price_sms || 0.01) }))}</p>
-      <div class="seg">${[10, 20, 50, 100].map((n) => `<button type="button" data-usd="${n}">$${n}</button>`).join('')}</div></div>
+      <div class="seg">${[10, 20, 50, 100].map((n) => `<button type="button" data-usd="${n}">$${n} <span class="muted small">→ ${money(n + FEE)}</span></button>`).join('')}</div>
+      <div class="sms-other"><label>${h(t('smsOther'))}: $<input type="number" id="sms-amt" min="1" max="500" step="0.01" inputmode="decimal" dir="ltr" style="width:90px"></label>
+        <button type="button" id="sms-amt-go" disabled>${h(t('smsPayBtn'))}</button></div>
+      <p class="muted small">${h(t('smsFeeNote', { f: money(FEE) }))}</p></div>
     <h3>${h(t('smsLedger'))}</h3>
     ${mine.length ? `<table class="lapsed-table"><tbody>${mine.map((r) => `<tr><td dir="ltr" class="small">${h(String(r.at).slice(0, 16))}</td><td>${h(r.note || r.kind)}</td>
       <td dir="ltr" class="${Number(r.delta) < 0 ? 'warn' : 'ok'}">${Number(r.delta) < 0 ? '−' : '+'}${money(Math.abs(r.delta))}</td></tr>`).join('')}</tbody></table>` : `<p class="empty">—</p>`}`;
-  $$('[data-usd]', body).forEach((b) => {
-    b.onclick = async () => {
-      b.disabled = true;
-      try { const r = await call('checkout', { usd: Number(b.dataset.usd) }); location.href = r.url; } catch (err) { ui.toast(ui.friendlyError(err), 'error'); b.disabled = false; }
-    };
-  });
+  const buy = async (b, usd) => {
+    b.disabled = true;
+    try { const r = await call('checkout', { usd }); location.href = r.url; } catch (err) { ui.toast(ui.friendlyError(err), 'error'); b.disabled = false; }
+  };
+  $$('[data-usd]', body).forEach((b) => { b.onclick = () => buy(b, Number(b.dataset.usd)); });
+  const amt = $('#sms-amt', body); const go = $('#sms-amt-go', body);
+  const val = () => Math.round((Number(amt.value) || 0) * 100) / 100;
+  amt.oninput = () => {
+    const v = val(); const ok = v >= 1 && v <= 500;
+    go.disabled = !ok;
+    go.textContent = ok ? `${t('smsPayBtn')} ${money(v + FEE)}` : t('smsPayBtn');
+    amt.title = ok ? '' : t('smsBadAmount');
+  };
+  go.onclick = () => buy(go, val());
 }
 
 function recsTab(outer) {

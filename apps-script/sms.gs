@@ -1122,15 +1122,18 @@ function callPlay(req) {
 }
 
 // ---------- Stripe ----------
+const STRIPE_FEE = 0.35; // דמי טיפול לכל רכישה (גם ב-js/sms.js)
 function stripeCheckout(req, email) {
   const P = PropertiesService.getScriptProperties();
   const key = P.getProperty('STRIPE_SECRET_KEY');
   if (!key) return { error: 'no-stripe' };
-  const usd = Math.max(10, Math.min(500, Math.round(Number(req.usd) || 0)));
+  const usd = Math.round(Number(req.usd) * 100) / 100;
+  if (!(usd >= 1 && usd <= 500)) return { error: 'bad-amount' };
+  const pay = Math.round((usd + STRIPE_FEE) * 100); // הקרדיטים = usd; התשלום = usd + דמי טיפול
   const site = P.getProperty('SITE_URL') || 'https://ungvar.org/';
   const form = {
     mode: 'payment', 'line_items[0][quantity]': '1', 'line_items[0][price_data][currency]': 'usd',
-    'line_items[0][price_data][unit_amount]': String(usd * 100), 'line_items[0][price_data][product_data][name]': 'SMS credits – Mosdos Ungvar',
+    'line_items[0][price_data][unit_amount]': String(pay), 'line_items[0][price_data][product_data][name]': 'SMS credits $' + usd.toFixed(2) + ' – Mosdos Ungvar (incl. $' + STRIPE_FEE.toFixed(2) + ' service fee)',
     customer_email: email, 'metadata[email]': email, 'metadata[credits]': String(usd), client_reference_id: email,
     success_url: site + '?credits=ok', cancel_url: site + '?credits=cancel',
   };
