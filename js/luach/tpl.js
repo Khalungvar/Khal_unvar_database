@@ -170,3 +170,4 @@ export async function openTemplates(main, onBack, helpers) {
   cur = Math.min(cur, T.length - 1);
   render(main, onBack, data);
 }
+export { fill as fillTemplateHtml, STARTERS };
