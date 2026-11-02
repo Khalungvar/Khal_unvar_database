@@ -12,6 +12,7 @@ import { state, displayName } from '../data.js';
 import { escapeHtml as h, nowStamp } from '../util.js';
 import { loadAway } from './away.js';
 import { periodSections, dayLabel, clearPeriodCache } from './periods.js';
+import { curSheetId } from './shul.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -28,7 +29,8 @@ const canEdit = () => !!(state.isAllowed || state.isAdmin);
 // די דאטן ליגן אין דעם גיליון פון דער תצוגה (CONFIG.DISPLAY_SHEET_ID), לשונית Minyanim:
 // שורה 1 = כותרות, שורות 2.. = JSON אין שטיקער (א צעל האט א גרענעץ פון 50,000 אותיות)
 const CHUNK = 40000;
-const disp = () => otherSheet(CONFIG.DISPLAY_SHEET_ID);
+const disp = () => otherSheet(curSheetId());
+export function resetTefila() { data = null; }
 async function load(force = false) {
   if (data && !force) return;
   let saved = null;

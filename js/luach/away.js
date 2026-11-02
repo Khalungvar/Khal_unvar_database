@@ -1,6 +1,7 @@
 // ✈ כ"ק אדמו"ר שליט"א נסע: תקופות (מ... עד..., לפי תאריך עברי) — לשונית RebbeAway בגיליון של התצוגה.
 // דערפון: אין די שורות פון שבת — "כשאד"ש לא נמצא": כרגיל / לא מוצג / מאוחר ב־X דק' (תצוגה, הדפסה, הודעות).
 // דער גבאי קען אויך שיקן 6 אין דער אויטאמאטישער הודעה — דאן ווערט עס אריינגעשריבן דא ביז מוצאי שבת.
+import { curSheetId } from './shul.js';
 import { otherSheet } from '../google.js';
 import { CONFIG } from '../config.js';
 import { state } from '../data.js';
@@ -8,7 +9,7 @@ import { escapeHtml as h, nowStamp } from '../util.js';
 import { toHebrew, fromHebrew, monthsOf, hebrewNumber, yearLabel, isoToHebrewText, todayIso } from '../hebdate.js';
 
 const TAB = 'RebbeAway';
-const sh = () => otherSheet(CONFIG.DISPLAY_SHEET_ID);
+const sh = () => otherSheet(curSheetId());
 export const canAway = () => !!(state.isAllowed || state.isAdmin);
 
 export async function loadAway() {

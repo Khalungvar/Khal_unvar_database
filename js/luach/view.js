@@ -15,6 +15,9 @@ import { initTefila, openTefila } from './tefila.js';
 import { openTfPrint } from './tfprintui.js';
 import { openScreen } from './screen.js';
 import { openShul, loadShulCfg } from './shului.js';
+import { loadShuls, createShul } from './shuls.js';
+import { SHULS, DEFAULT_SHUL, CITIES, curShul, setCurShul } from './shul.js';
+import { resetTefila } from './tefila.js';
 import { openAway, loadAway, awayStatus } from './away.js';
 import { CONFIG } from '../config.js';
 
@@ -305,25 +308,58 @@ function renderTefilaHub(main) {
   const tile = (k, icon, title, sub, soon) => `<button type="button" class="lobby-tile lx-hubt" data-tf="${k}"${soon ? ' data-soon="1"' : ''}>
     <span class="lobby-icon">${icon}</span><b>${h(title)}</b><span class="muted small">${h(soon ? t('soon') : sub)}</span></button>`;
   main.innerHTML = `<div class="lx-bar"><button type="button" class="btn ghost" id="tfh-back">← ${h(t('hubTitle'))}</button></div>
-    <h2 class="lx-hubh">🕍 ${h(t('hTefila'))}</h2>
+    <h2 class="lx-hubh">🕍 ${h(curShul() === DEFAULT_SHUL ? t('hTefila') : `זמני תפילות — ${SHULS[curShul()]?.name || ''}`)}</h2>
+    <div class="aw-bar sh-pick" id="tfh-pick"></div>
     <div class="lx-hub">
       ${tile('tfScreen', '📺', t('tfScreen'), t('tfScreenSub'))}
       ${tile('tfPrint', '🖨', t('tfPrint'), t('tfPrintSub'))}
       ${tile('tfTimes', '🕰', t('tfTimes'), t('hTefilaSub'))}
     </div>
     <div class="aw-bar"><button type="button" class="btn ghost aw-btn" id="tfh-shul">⚙️ הגדרות בית הכנסת</button></div>
-    <div class="aw-bar"><button type="button" class="btn ghost aw-btn" id="tfh-away">✈ כ”ק אדמו"ר שליט"א נסע</button><span class="muted small" id="tfh-away-st"></span></div>
-    <p class="aw-disp muted small" id="tfh-disp"></p>`;
+    ${curShul() === DEFAULT_SHUL ? `<div class="aw-bar"><button type="button" class="btn ghost aw-btn" id="tfh-away">✈ כ”ק אדמו"ר שליט"א נסע</button><span class="muted small" id="tfh-away-st"></span></div>
+    <p class="aw-disp muted small" id="tfh-disp"></p>` : ''}`;
   $('#tfh-back', main).onclick = () => { mode = 'hub'; renderLuach(); };
   const st = (list) => { const e = $('#tfh-away-st', main); if (e) e.textContent = awayStatus(list); };
-  loadAway().then(st).catch(() => {});
-  $('#tfh-away', main).onclick = () => openAway(st);
+  if ($('#tfh-away', main)) { loadAway().then(st).catch(() => {}); $('#tfh-away', main).onclick = () => openAway(st); }
+  shulPicker($('#tfh-pick', main), main);
   $('#tfh-shul', main).onclick = () => { mode = 'tfShul'; renderLuach(); };
-  dispStatus($('#tfh-disp', main));
+  if ($('#tfh-disp', main)) dispStatus($('#tfh-disp', main));
   $$('[data-tf]', main).forEach((b) => { b.onclick = () => {
     if (b.dataset.soon) { ui.toast?.(t('soon')); return; }
     mode = b.dataset.tf; renderLuach();
   }; });
+}
+
+// 🏛 בחירת בית כנסת + "בית כנסת חדש" (רק מנהל)
+async function shulPicker(el, main) {
+  if (!el) return;
+  const list = await loadShuls();
+  const all = [{ key: DEFAULT_SHUL, name: 'בארא פארק (קהל אונגוואר)' }, ...list];
+  el.innerHTML = `${all.length > 1 ? `<label>🏛 בית כנסת: <select id="tfh-shulsel">${all.map((x) => `<option value="${h(x.key)}"${x.key === curShul() ? ' selected' : ''}>${h(x.name)}</option>`).join('')}</select></label>` : ''}
+    ${state.isAdmin ? '<button type="button" class="btn ghost aw-btn" id="tfh-new">🏛 בית כנסת חדש</button>' : ''}`;
+  const sel = $('#tfh-shulsel', el);
+  if (sel) sel.onchange = async () => { setCurShul(sel.value); resetTefila(); try { await loadShulCfg(true); } catch { /* */ } renderTefilaHub(main); };
+  const nb = $('#tfh-new', el);
+  if (nb) nb.onclick = () => newShulDialog(main);
+}
+function newShulDialog(main) {
+  const d = document.createElement('dialog'); d.className = 'sheet';
+  d.innerHTML = `<button type="button" class="x-close" data-x>✕</button><h2>🏛 בית כנסת חדש</h2>
+    <form id="ns-f" class="sh-sec" style="border:0">
+    <label>שם בית הכנסת <input name="name" required></label>
+    <label>עיר (לחישוב הזמנים) <select name="city">${CITIES.map((c) => `<option value="${c.id}">${h(c.name)}</option>`).join('')}</select></label>
+    <label>שפת התצוגה <select name="lang"><option value="yi">אידיש</option><option value="he">עברית</option><option value="en">English</option></select></label>
+    <label>שהשמחה במעונם <select name="simchos"><option value="ungvar">מהרשימה של אונגוואר (אפשר להסתיר)</option><option value="own">רשימה משלהם</option></select></label>
+    <p class="muted small">ייווצר גיליון חדש ב-Google Drive שלך, עם זמני ברירת מחדל. אחר כך: הגדרות → גבאים, כדי להוסיף מי שינהל.</p>
+    <div class="actions"><span class="muted small" id="ns-st"></span><span class="spacer"></span><button type="submit" class="btn primary">צור</button></div></form>`;
+  document.body.append(d); d.addEventListener('close', () => d.remove()); $('[data-x]', d).onclick = () => d.close(); d.showModal();
+  $('#ns-f', d).onsubmit = async (e) => {
+    e.preventDefault(); const f = e.target; const b = $('button[type=submit]', f); b.disabled = true; const st = $('#ns-st', d);
+    try {
+      const r = await createShul({ name: f.elements.name.value.trim(), city: f.elements.city.value, lang: f.elements.lang.value, simchos: f.elements.simchos.value, email: state.email }, (m) => { st.textContent = m; });
+      d.close(); setCurShul(r.key); resetTefila(); try { await loadShulCfg(true); } catch { /* */ } ui.toast?.('בית הכנסת נוצר ✓'); renderTefilaHub(main);
+    } catch (err) { st.textContent = `שגיאה: ${err.message || err}`; b.disabled = false; }
+  };
 }
 
 export async function renderLuach() {

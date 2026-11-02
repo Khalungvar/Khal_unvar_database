@@ -8,6 +8,12 @@ export const SHULS = {
   bp: { key: 'bp', sheetId: '1hhrsXNhDCK7OGXOClTPE8pxOJ3EjmTmndH0r_qrms70' },
 };
 export const DEFAULT_SHUL = 'bp';
+// דער בית הכנסת וואס מ'ארבעט יעצט מיט אינעם אתר (בארא פארק, אדער א בית כנסת פון דער רשימה "Shuls")
+let CUR = DEFAULT_SHUL;
+export const curShul = () => CUR;
+export const curSheetId = () => (SHULS[CUR] || SHULS[DEFAULT_SHUL]).sheetId;
+export function setCurShul(k) { if (SHULS[k]) CUR = k; }
+export function registerShul(x) { if (x && x.key && x.sheetId) SHULS[x.key] = { ...SHULS[x.key], ...x }; }
 
 // ערים מוכנות (קואורדינטות, אזור זמן, גובה במטרים, דקות הדלקה לפי המנהג המקובל שם)
 export const CITIES = [

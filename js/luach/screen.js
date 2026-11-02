@@ -6,11 +6,12 @@ import { state, displayName } from '../data.js';
 import { escapeHtml as h, nowStamp, shrinkImage } from '../util.js';
 import { normScreen, screenDefaults, PLACES, SYSTEM, adUrl, THEME, BOX_SEL } from '../display/screenset.js';
 import { versionStore, openVersions } from '../versions.js';
+import { curSheetId } from './shul.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const sheet = () => otherSheet(CONFIG.DISPLAY_SHEET_ID);
-const VS = versionStore('ScreenHistory');
+const sheet = () => otherSheet(curSheetId());
+const vs = () => versionStore('ScreenHistory', curSheetId());
 const CHUNK = 40000;
 
 let S = null; let saved = ''; let meta = { at: '', by: '' }; let ui = null; let back = null;
@@ -94,13 +95,13 @@ async function save(main) {
   const btn = $('#sc-save', main); if (btn) btn.disabled = true;
   try {
     const note = ($('#sc-note', main)?.value || '').trim();
-    S.version = (await VS.last()) + 1;
+    S.version = (await vs().last()) + 1;
     const v = JSON.stringify(S); const parts = [];
     for (let i = 0; i < v.length; i += CHUNK) parts.push(v.slice(i, i + CHUNK));
     const stamp = nowStamp();
     await sheet().clear('Screen!A2:D100');
     await sheet().write(`Screen!A1:D${parts.length + 1}`, [['key', 'value', 'updated_at', 'updated_by'], ...parts.map((p, i) => [`data#${i}`, p, stamp, state.email])]);
-    await VS.add(S, note, state.email);
+    await vs().add(S, note, state.email);
     saved = JSON.stringify(S); meta = { at: stamp, by: state.email };
     ui.toast?.(`נשמר — גרסה ${S.version} ✓ (המסך יתעדכן תוך דקה)`);
   } catch (err) { ui.toast?.(String(err.message || err), 'error'); }
@@ -313,7 +314,7 @@ function render(main) {
   };
   $('#sc-back', main).onclick = () => { if (dirty() && !confirm('יש שינויים שלא נשמרו. לצאת בלי לשמור?')) return; window.removeEventListener('beforeunload', unload); back(); };
   const sv = $('#sc-save', main); if (sv) sv.onclick = () => save(main);
-  $('#sc-vers', main).onclick = () => openVersions({ store: VS, title: 'גרסאות — הגדרות המסך', canRestore: !!(state.canRestore || state.isAdmin) && ed, nameOf: (x) => displayName(x),
+  $('#sc-vers', main).onclick = () => openVersions({ store: vs(), title: 'גרסאות — הגדרות המסך', canRestore: !!(state.canRestore || state.isAdmin) && ed, nameOf: (x) => displayName(x),
     onRestore: (obj, v) => { const keep = S.version; S = normScreen(obj); S.version = keep; render(main); refreshPreview(main, true); ui.toast?.(`גרסה ${v} נטענה — לחץ 💾 שמירה כדי להחזיר אותה למסך`); } });
   const atIn = $('#sc-at', main);
   atIn.onchange = () => { at = atIn.value || localIso(new Date()); refreshPreview(main, true); };

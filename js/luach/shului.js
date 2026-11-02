@@ -5,7 +5,8 @@ import { escapeHtml as h, nowStamp } from '../util.js';
 import { versionStore, openVersions } from '../versions.js';
 import { zmanim, hhmm, METHODS } from './zmanim.js';
 import { isoOf, nOf, dowOf } from './engine.js';
-import { SHULS, DEFAULT_SHUL, CITIES, shulDefaults, normShul, locOf, applyShul, joinParts } from './shul.js';
+import { SHULS, DEFAULT_SHUL, CITIES, shulDefaults, normShul, locOf, applyShul, joinParts, curShul } from './shul.js';
+import { shulPeople, addPerson, removePerson, ROLE } from './shuls.js';
 import { buildStandalone } from './standalone.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -13,19 +14,20 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const CHUNK = 40000;
 const LANGS = [['yi', 'אידיש'], ['he', 'עברית'], ['en', 'English']];
 
-let key = DEFAULT_SHUL; let C = null; let saved = ''; let meta = { at: '', by: '' }; let ui = null; let releases = [];
-const sheetId = () => SHULS[key].sheetId;
+let C = null; let saved = ''; let meta = { at: '', by: '' }; let ui = null; let releases = [];
+const sheetId = () => SHULS[curShul()].sheetId;
 const sh = () => otherSheet(sheetId());
 const VS = () => versionStore('ShulHistory', sheetId());
 const canEdit = () => !!(state.isAllowed || state.isAdmin);
 
 // ---------- טעינה ושמירה ----------
-let cache = null;
+let cache = null; let cacheKey = '';
 export async function loadShulCfg(force = false) {
-  if (cache && !force) return cache;
+  if (cache && !force && cacheKey === curShul()) return cache;
+  cacheKey = curShul();
   let j = null;
   try { const rows = await sh().read('ShulConfig!A2:D50'); j = joinParts(rows); if (rows[0]) meta = { at: String(rows[0][2] || ''), by: String(rows[0][3] || '') }; } catch { /* אין עדיין לשונית */ }
-  cache = normShul(j, key); applyShul(cache);
+  cache = normShul(j, curShul()); applyShul(cache);
   return cache;
 }
 async function save(note) {
@@ -35,7 +37,7 @@ async function save(note) {
   try { await sh().clear('ShulConfig!A2:D50'); } catch { await sh().addTab('ShulConfig'); }
   await sh().write(`ShulConfig!A1:D${parts.length + 1}`, [['key', 'value', 'updated_at', 'updated_by'], ...parts.map((p, i) => [`data#${i}`, p, stamp, state.email])]);
   try { await VS().add(C, note, state.email); } catch { try { await sh().addTab('ShulHistory'); await sh().write('ShulHistory!A1:D1', [['version', 'saved_at', 'saved_by', 'note']]); await VS().add(C, note, state.email); } catch { /* */ } }
-  cache = normShul(JSON.parse(v), key); applyShul(cache); saved = JSON.stringify(C); meta = { at: stamp, by: state.email };
+  cache = normShul(JSON.parse(v), curShul()); applyShul(cache); saved = JSON.stringify(C); meta = { at: stamp, by: state.email };
 }
 async function loadReleases() {
   try { const r = await fetch(`rel/index.json?t=${Date.now()}`, { cache: 'no-store' }); releases = r.ok ? await r.json() : []; } catch { releases = []; }
@@ -45,7 +47,7 @@ async function loadReleases() {
 function zPreview() {
   const now = new Date(); const n = nOf(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
   const fri = n + ((5 - dowOf(n) + 7) % 7);
-  const before = locOf(normShul(JSON.parse(saved), key)); const after = locOf(C);
+  const before = locOf(normShul(JSON.parse(saved), curShul())); const after = locOf(C);
   const rows = [['עלות השחר', 'alos', n], ['נץ החמה', 'neitz', n], ['סוף זמן ק"ש מג"א', 'maKS', n], ['סוף זמן ק"ש גר"א', 'graKS', n], ['חצות', 'chatzos', n], ['שקיעה', 'shkia', n],
     ['הדלקת נרות (ערב שבת)', 'candles', fri], ['מוצאי שבת / ר"ת', 'motzei', fri + 1]];
   const v = (loc, f, d) => { try { return hhmm(zmanim(isoOf(d), loc)[f]); } catch { return '—'; } };
@@ -64,6 +66,11 @@ function render(main, onBack) {
   <section class="sh-sec"><h3>כללי</h3>
     <label>שם בית הכנסת <input data-p="name" value="${h(C.name)}"></label>
     <label>שפת התצוגה במסך ${sel('lang', LANGS, C.lang)}</label>
+    ${curShul() !== DEFAULT_SHUL ? `<label>שהשמחה במעונם ${sel('simchos', [['ungvar', 'מהרשימה של אונגוואר'], ['own', 'רשימה משלנו']], C.simchos || 'ungvar')}</label>
+    ${(C.simchos || 'ungvar') === 'ungvar' ? '<details><summary class="small">להסתיר שמחות מסוימות</summary><div id="sh-sim" class="small">טוען…</div></details>' : ''}
+    <h3 class="sh-h2">👥 גבאים</h3><div id="sh-people" class="small muted">טוען…</div>
+    <div class="sh-row"><input id="sh-pe" type="email" placeholder="אימייל של גוגל" dir="ltr" style="flex:1"> ${sel('_role', [['writer', 'גבאי (עורך)'], ['reader', 'צפייה בלבד']], 'writer').replace('data-p="_role"', 'id="sh-pr"')} <button type="button" class="btn small-btn" id="sh-padd">➕ הוסף</button></div>
+    <p class="muted small">כניסה לגבאים: <a href="shul/?s=${h(curShul())}" target="_blank">ungvar.org/shul/?s=${h(curShul())}</a></p>` : ''}
   </section>
   <section class="sh-sec"><h3>📍 מקום (לחישוב הזמנים)</h3>
     <label>עיר ${sel('loc.city', [...CITIES.map((c) => [c.id, c.name]), ['custom', 'אחר — להזין ידנית']], C.loc.city)}</label>
@@ -88,7 +95,7 @@ function render(main, onBack) {
   <section class="sh-sec"><h3 title="תמיד האחרונה — כל עדכון מגיע למסך לבד. נעול — המסך נשאר על הגרסה עד שמשנים כאן. אם משהו השתבש: בוחרים את הקודמת ושומרים.">🔒 גרסה</h3>
     <label>הגרסה שהמסך מריץ ${sel('ver', relOpts, C.ver)}</label>
     <h3 class="sh-h2">📺 מסך התצוגה</h3>
-    <div class="sh-row"><a href="display.html?shul=${h(key)}" target="_blank">פתח את המסך ↗</a>
+    <div class="sh-row"><a href="display.html?shul=${h(curShul())}" target="_blank">פתח את המסך ↗</a>
       <button type="button" class="btn small-btn" id="sh-dl" title="קובץ אחד שפותחים במחשב התצוגה (כרום, מסך מלא). עובד גם בלי האתר ובלי אינטרנט; כשהחיבור חוזר הוא מושך עדכון מיד. נעול על הגרסה שהורדה.">⬇ קובץ תצוגה עצמאי</button> <span class="muted small" id="sh-dl-st"></span></div>
   </section>
   </div>
@@ -116,17 +123,44 @@ function render(main, onBack) {
     render(main, onBack);
   };
   $('#sh-vers', main).onclick = () => openVersions({ store: VS(), title: 'גרסאות — הגדרות בית הכנסת', canRestore: canEdit(), nameOf: (x) => displayName(x),
-    onRestore: (obj, v) => { C = normShul(obj, key); render(main, onBack); ui?.toast?.(`גרסה ${v} נטענה — לחץ 💾 שמירה`); } });
+    onRestore: (obj, v) => { C = normShul(obj, curShul()); render(main, onBack); ui?.toast?.(`גרסה ${v} נטענה — לחץ 💾 שמירה`); } });
+  if ($('#sh-people', main)) peopleUi(main);
+  const sb = $('#sh-sim', main);
+  if (sb) {
+    otherSheet(SHULS[DEFAULT_SHUL].sheetId).read('Simchos!A2:C300').then((rows) => {
+      const now = Date.now(); const hid = new Set(C.hideSimchos || []);
+      const list = rows.filter((r) => r[0] && r[1] && (!Number(r[2]) || Number(r[2]) > now));
+      const txt = (x) => { const e = document.createElement('div'); e.innerHTML = String(x); return e.textContent.replace(/\s+/g, ' ').trim().slice(0, 90); };
+      sb.innerHTML = list.length ? list.map((r) => `<label class="check"><input type="checkbox" data-hs="${h(r[0])}"${hid.has(String(r[0])) ? ' checked' : ''}> ${h(txt(r[1]))}</label>`).join('') : 'אין שמחות כרגע';
+      $$('[data-hs]', sb).forEach((x) => { x.onchange = () => { const set = new Set(C.hideSimchos || []); if (x.checked) set.add(x.dataset.hs); else set.delete(x.dataset.hs); C.hideSimchos = [...set]; const sv2 = $('#sh-save', main); if (sv2) sv2.disabled = false; }; });
+    }).catch(() => { sb.textContent = 'לא ניתן לטעון'; });
+  }
   $('#sh-dl', main).onclick = async () => {
     const st = $('#sh-dl-st', main); const b = $('#sh-dl', main); b.disabled = true;
     try {
       st.textContent = 'מכין את הקובץ…';
-      const html = await buildStandalone({ key, sheetId: sheetId(), cfg: JSON.parse(saved), ver: C.ver || (releases[releases.length - 1]?.n ?? '') });
+      const html = await buildStandalone({ key: curShul(), sheetId: sheetId(), cfg: JSON.parse(saved), ver: C.ver || (releases[releases.length - 1]?.n ?? '') });
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-      a.download = `תצוגה - ${C.name || key}.html`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      a.download = `תצוגה - ${C.name || curShul()}.html`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
       st.textContent = '✓ הורד';
     } catch (err) { st.textContent = `שגיאה: ${err.message || err}`; }
     b.disabled = false;
+  };
+}
+
+async function peopleUi(main) {
+  const box = $('#sh-people', main); const id = sheetId();
+  const draw = async () => {
+    try {
+      const ppl = await shulPeople(id);
+      box.innerHTML = ppl.map((p) => `<div class="sh-row"><span dir="ltr">${h(p.email)}</span> <span class="muted">${h(ROLE[p.role] || p.role)}</span>${p.role !== 'owner' && canEdit() ? ` <button type="button" class="btn small-btn ghost" data-rm="${h(p.id)}">✕</button>` : ''}</div>`).join('') || 'אין עדיין';
+      $$('[data-rm]', box).forEach((b) => { b.onclick = async () => { if (!confirm('להסיר את ההרשאה?')) return; await removePerson(id, b.dataset.rm); draw(); }; });
+    } catch (err) { box.textContent = `לא ניתן לטעון (${err.message || err})`; }
+  };
+  draw();
+  $('#sh-padd', main).onclick = async () => {
+    const em = $('#sh-pe', main).value.trim(); if (!/^\S+@\S+\.\S+$/.test(em)) { ui?.toast?.('אימייל לא תקין', 'error'); return; }
+    try { await addPerson(id, em, $('#sh-pr', main).value, C.name || ''); $('#sh-pe', main).value = ''; ui?.toast?.('נוסף ✓ — גוגל שולח לו אימייל'); draw(); } catch (err) { ui?.toast?.(String(err.message || err), 'error'); }
   };
 }
 
@@ -134,7 +168,7 @@ export async function openShul(main, onBack, helpers) {
   ui = helpers;
   main.innerHTML = '<p class="muted">…</p>';
   await Promise.all([loadShulCfg(true), loadReleases()]);
-  C = normShul(JSON.parse(JSON.stringify(cache)), key); saved = JSON.stringify(C);
+  C = normShul(JSON.parse(JSON.stringify(cache)), curShul()); saved = JSON.stringify(C);
   render(main, onBack);
 }
 export { shulDefaults };

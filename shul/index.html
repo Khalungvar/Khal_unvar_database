@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>זמני תפילות – ניהול בית הכנסת</title>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css?v=612">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    body { margin: 0; } #sa-top { display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--line, #ddd); }
+    #sa-top b { font-size: 1.1rem; } #sa-top .sp { flex: 1; } #luach-main { padding: 12px 16px 40px; max-width: 1400px; margin: 0 auto; }
+    .sa-login { max-width: 420px; margin: 12vh auto; text-align: center; } .sa-toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 8px 16px; border-radius: 8px; z-index: 99; }
+    .sa-toast.error { background: #a3191b; }
+  </style>
+</head>
+<body>
+  <div id="sa-top"><b id="sa-name">🕍 זמני תפילות</b><span class="sp"></span><span class="muted small" id="sa-user"></span></div>
+  <main id="luach-main"><p class="muted">טוען…</p></main>
+  <script type="module" src="../js/luach/shulapp.js?v=612"></script>
+</body>
+</html>

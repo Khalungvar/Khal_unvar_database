@@ -1,0 +1,28 @@
+{
+ "n": 2,
+ "date": "2026-11-02",
+ "note": "בתי כנסת נוספים, שמחות מאונגוואר",
+ "js": [
+  "js/hebdate.js",
+  "js/luach/zmanim.js",
+  "js/luach/mitzvos.js",
+  "js/luach/engine.js",
+  "js/luach/months.js",
+  "js/display/screenset.js",
+  "js/luach/minyanim.js",
+  "js/luach/tfprint.js",
+  "js/config.js",
+  "js/luach/periods.js",
+  "js/luach/shul.js",
+  "js/display/display.js"
+ ],
+ "assets": [
+  "css/display.css",
+  "fonts/frank-ruhl-libre-latin.woff2",
+  "img/logo.png",
+  "img/display/molding.jpg",
+  "img/display/simcha-head.jpg",
+  "img/display/simcha-title.jpg",
+  "img/display/wood.jpg"
+ ]
+}

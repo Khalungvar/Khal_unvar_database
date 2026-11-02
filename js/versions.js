@@ -2,13 +2,14 @@
 // געניצט פאר "זמני התפילות" (MinyanimHistory) און "תצוגת והגדרות המסך" (ScreenHistory).
 import { otherSheet } from './google.js';
 import { CONFIG } from './config.js';
+import { curSheetId } from './luach/shul.js';
 import { nowStamp } from './util.js';
 
 const CHUNK = 40000;
 const COLS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-export function versionStore(tab, sheetId = CONFIG.DISPLAY_SHEET_ID) {
-  const sh = () => otherSheet(sheetId);
+export function versionStore(tab, sheetId = null) {
+  const sh = () => otherSheet(sheetId || curSheetId());
   return {
     /** [{ ver, at, by, note, row }] — די נייסטע ערשט */
     async list() {

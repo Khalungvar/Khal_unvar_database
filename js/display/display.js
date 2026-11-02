@@ -48,7 +48,7 @@ function parseCsv(t) {
 let NET_BAD = false; let NET_SYNC = 0; let retryTm = 0;
 // דער עצמאי'דיגער קובץ (file://) קען נישט לייענען CSV (CORS) — ער לייענט דורך JSONP (א <script>)
 let jpN = 0;
-function jsonp(tab) {
+function jsonp(tab, sid = SHEET_ID) {
   return new Promise((res, rej) => {
     const cb = `__gv${Date.now()}_${jpN += 1}`; const sc = document.createElement('script');
     const done = (f) => { clearTimeout(tm); delete window[cb]; sc.remove(); f(); };
@@ -60,14 +60,14 @@ function jsonp(tab) {
       res([cols.map((c) => c.label || ''), ...(d.table.rows || []).map((r) => (r.c || []).map(val))]);
     });
     sc.onerror = () => done(() => rej(new Error('net')));
-    sc.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:${cb}&sheet=${encodeURIComponent(tab)}&headers=1&t=${Date.now()}`;
+    sc.src = `https://docs.google.com/spreadsheets/d/${sid}/gviz/tq?tqx=responseHandler:${cb}&sheet=${encodeURIComponent(tab)}&headers=1&t=${Date.now()}`;
     document.head.append(sc);
   });
 }
-async function fetchTab(tab) {
+async function fetchTab(tab, sid = SHEET_ID) {
   try {
-    if (BOOT || location.protocol === 'file:') return await jsonp(tab);
-    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${tab}&headers=1&t=${Date.now()}`, { cache: 'no-store' });
+    if (BOOT || location.protocol === 'file:') return await jsonp(tab, sid);
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${sid}/gviz/tq?tqx=out:csv&sheet=${tab}&headers=1&t=${Date.now()}`, { cache: 'no-store' });
     if (!r.ok) throw new Error(String(r.status));
     return parseCsv(await r.text());
   } catch {
@@ -108,10 +108,11 @@ let SIMCHOS = null;
 { const j = lsGet('disp-simchos'); if (Array.isArray(j)) SIMCHOS = j; }
 function gotSimchos(rows) {
   if (!rows.length || rows[0][0] !== 'simcha_id') return;
-  SIMCHOS = rows.slice(1).filter((x) => x[0] && x[1]).map((x) => ({ id: x[0], html: x[1], until: Number(x[2]) || 0 }));
+  const hid = new Set((CFG.hideSimchos || []).map(String));
+  SIMCHOS = rows.slice(1).filter((x) => x[0] && x[1] && !hid.has(String(x[0]))).map((x) => ({ id: x[0], html: x[1], until: Number(x[2]) || 0 }));
   lsSet('disp-simchos', SIMCHOS);
 }
-async function pullSimchos() { if (PREVIEW) return; const t = await fetchTab('Simchos'); if (t) { try { gotSimchos(t); } catch { /* */ } } }
+async function pullSimchos() { if (PREVIEW) return; const t = await fetchTab('Simchos', SHUL !== DEFAULT_SHUL && (CFG.simchos || 'ungvar') === 'ungvar' ? SHULS[DEFAULT_SHUL].sheetId : SHEET_ID); if (t) { try { gotSimchos(t); } catch { /* */ } } }
 // ---------- הגדרות פונעם מסך (לשונית Screen); ?scrpv=1 — תצוגה מקדימה פון "תצוגת והגדרות המסך" (נאך נישט געשפייכלט) ----------
 const SCRPV = QS.has('scrpv');
 let SCR = normScreen(null);
@@ -662,7 +663,7 @@ function render() {
     ${PREVIEW ? '<div class="sample">תצוגה מקדימה — לא נשמר</div>' : !LIVE ? '<div class="sample">דוגמה — זמני ברירת מחדל</div>' : ''}
     <div class="top">
       ${HID.day ? '<div class="day"></div>' : `<div class="day">${h(dw === 6 && nowMin > z.motzei ? 'מוצאי שבת קודש' : yday()[dw])}${(() => { const pd = dw === 6 ? (dayOf(n)?.parsha || '') : parsha; return pd ? ` פרשת ${h(pd)}` : ''; })()}<small class="hd">${h(heDate)}${holAll ? ` - ${h(holAll)}` : ''}</small></div>`}
-      ${HID.logo ? '<div class="logo"></div>' : `<div class="logo"><img src="${h(SCR.logo || 'img/logo.png')}" alt=""><b>${h(SCR.texts.title)}</b>${SCR.texts.sub2 ? `<i class="s2">${h(SCR.texts.sub2)}</i>` : ''}<i>${h(SCR.texts.sub)}</i></div>`}
+      ${HID.logo ? '<div class="logo"></div>' : `<div class="logo">${(SCR.logo || (SHUL === DEFAULT_SHUL ? 'img/logo.png' : '')) ? `<img src="${h(SCR.logo || 'img/logo.png')}" alt="">` : ''}<b>${h(SCR.texts.title)}</b>${SCR.texts.sub2 ? `<i class="s2">${h(SCR.texts.sub2)}</i>` : ''}<i>${h(SCR.texts.sub)}</i></div>`}
       ${HID.clock ? '<div class="clock"></div>' : `<div class="clock">${hh}:${String(now.getMinutes()).padStart(2, '0')}<span>:${String(now.getSeconds()).padStart(2, '0')} ${ap}</span><small class="greg">${now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</small></div>`}
     </div>
 

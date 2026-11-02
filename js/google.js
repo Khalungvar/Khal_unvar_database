@@ -216,6 +216,23 @@ export async function unshareSheet(permissionId) {
 
 const DRIVE = 'https://www.googleapis.com/drive/v3/files';
 
+/** א נייער גיליון (נאר דער אתר האט אים געשאפן → drive.file איז גענוג פאר שערן). גיט צוריק די ID. */
+export async function createSpreadsheet(title, tabs) {
+  const res = await authFetch('https://sheets.googleapis.com/v4/spreadsheets', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ properties: { title }, sheets: tabs.map((t) => ({ properties: { title: t } })) }) });
+  return res.spreadsheetId;
+}
+/** ווער האט צוטריט צו א טעקע: [{ id, email, role, type }] */
+export async function filePermissions(id) {
+  const res = await authFetch(`${DRIVE}/${id}/permissions?fields=permissions(id,emailAddress,role,type)&pageSize=100`);
+  return (res.permissions || []).map((p) => ({ id: p.id, email: String(p.emailAddress || '').toLowerCase(), role: p.role, type: p.type }));
+}
+export async function shareFile(id, email, role = 'writer', message = '') {
+  const q = `sendNotificationEmail=true${message ? `&emailMessage=${encodeURIComponent(message)}` : ''}`;
+  return authFetch(`${DRIVE}/${id}/permissions?${q}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'user', role, emailAddress: email }) });
+}
+export async function unshareFile(id, permissionId) { return authFetch(`${DRIVE}/${id}/permissions/${permissionId}`, { method: 'DELETE' }); }
+
 /** געפינט (אדער שאפט) א פאלדער לויטן נאמען. parent = ID פון דעם פאלדער אויבן (אדער 'root'). */
 export async function driveFolder(name, parent = 'root') {
   const q = `name='${name.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and '${parent}' in parents and trashed=false`;
