@@ -597,3 +597,12 @@ html, body, * { cursor: none !important; }
 .mzl .mz-e .sg-note, .mzl .mz-e .sg-after { color: #1a1a1a; font-weight: 700; font-size: 18px; }
 .mzl .wk { font-weight: 900; font-size: 21px; }
 .mzl .pg { font-weight: 900; color: #5a3d0f; }
+/* חדות מרחוק: הטקסטים הקטנים/האפורים כהים יותר + קו מתאר דק שמעבה את האותיות (בלי לשנות גדלים ומיקומים) */
+#screen { --muted: #4a3c22; }
+.lrn-s .shiur > div { color: #3a2f1c; }
+.lrn-s .shiur > div.ps { color: #6b5d44; }
+.lrn-s .shiur > div.ln { color: #241c0f; }
+.lrn-s .shiur h4 { color: #5e420f; }
+.lrn-s .shiur, .mzl .mz-e, .mzl .wk, .mzl .pg, .zm .note, .zm table, .pr i, .lv2 .pl, .times small, .times i, .shab, .mny small, .bottom {
+  -webkit-text-stroke: .45px currentColor; }
+.lrn-s .shiur > div small, .zm small, .times small { -webkit-text-stroke: .35px currentColor; }
