@@ -310,14 +310,15 @@ function renderTefilaHub(main) {
       ${tile('tfScreen', '📺', t('tfScreen'), t('tfScreenSub'))}
       ${tile('tfPrint', '🖨', t('tfPrint'), t('tfPrintSub'))}
       ${tile('tfTimes', '🕰', t('tfTimes'), t('hTefilaSub'))}
-      ${tile('tfShul', '⚙️', 'הגדרות בית הכנסת', 'שם · מקום ושיטות הזמנים · גרסה · קובץ תצוגה')}
     </div>
+    <div class="aw-bar"><button type="button" class="btn ghost aw-btn" id="tfh-shul">⚙️ הגדרות בית הכנסת</button></div>
     <div class="aw-bar"><button type="button" class="btn ghost aw-btn" id="tfh-away">✈ כ”ק אדמו"ר שליט"א נסע</button><span class="muted small" id="tfh-away-st"></span></div>
     <p class="aw-disp muted small" id="tfh-disp"></p>`;
   $('#tfh-back', main).onclick = () => { mode = 'hub'; renderLuach(); };
   const st = (list) => { const e = $('#tfh-away-st', main); if (e) e.textContent = awayStatus(list); };
   loadAway().then(st).catch(() => {});
   $('#tfh-away', main).onclick = () => openAway(st);
+  $('#tfh-shul', main).onclick = () => { mode = 'tfShul'; renderLuach(); };
   dispStatus($('#tfh-disp', main));
   $$('[data-tf]', main).forEach((b) => { b.onclick = () => {
     if (b.dataset.soon) { ui.toast?.(t('soon')); return; }
