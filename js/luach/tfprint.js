@@ -21,7 +21,7 @@ export function weekNew(data, n, loc, scr) {
   return (g, m) => { const x = `${GNP[g]}|${chgKeyP(m, scr)}`; if (!cur.has(x) || prev.has(x) || N[`new:${x}`]?.off) return null; return N[`new:${x}`]?.txt || 'חדש'; };
 }
 
-export const SIZES = { letter: { w: 8.5, h: 11, label: '8.5×11' }, tabloid: { w: 11, h: 17, label: '11×17' } };
+export const SIZES = { letter: { w: 8.5, h: 11, label: '8.5×11' }, tabloid: { w: 11, h: 17, label: '11×17' }, half: { w: 5.5, h: 8.5, label: '5.5×8.5' } };
 export const FOOTER = ['צו באקומען זמנים און הודעות', 'שיקט די ווארט UNGVAR', 'צו 1-833-646-3971'];
 
 /** CSS פאר די בלעטער. די בלעטער זענען געבויט אין "פונקטן" פון 8.5 אינטש = 816; ביי 11×17 ווערט אלעס גרעסער (--k) */

@@ -1,6 +1,6 @@
 // "זמני תפילות" — ניהול: ימות החול · שבת · יום טוב · תשרי. די דאטן: לשונית Minyanim (key = data, value = JSON).
 // דער חשבון (וואס קומט ארויס פאר א טאג) איז אין minyanim.js — דאס זעלבע וואס די תצוגה אין בית הכנסת ניצט.
-import { defaults, chagRows, TISHREI_CHAG, computeShiurim, REF_DAYS, condOf, ANCHORS, BASES, ROUNDS, COMBOS, HDOW, MINOR1, PT, maarivNight, CHAG_DAYS, SHAB_DAYS, EV_SHAB, normData, eventsBetween, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
+import { assignCodes, defaults, chagRows, TISHREI_CHAG, computeShiurim, REF_DAYS, condOf, ANCHORS, BASES, ROUNDS, COMBOS, HDOW, MINOR1, PT, maarivNight, CHAG_DAYS, SHAB_DAYS, EV_SHAB, normData, eventsBetween, SEASONS, WHEN, describe, daysOf, computeWeekday, computeShabbos, computeSpecial, nOf, isoOf } from './minyanim.js';
 import { hhmm } from './zmanim.js';
 import { hdOf, dowOf } from './engine.js';
 import { MONTH } from './mitzva.js';
@@ -186,9 +186,9 @@ function weekdayHtml() {
   const w = data.weekday;
   const groups = GROUPS.map(([g, title]) => `<section class="tf-grp">
     <h3>${title} <small>הערה: ${fld(`weekday.${g}Note`, 'text', ' class="tf-w12"')}</small></h3>
-    <table class="tf-t"><thead><tr><th>שעה</th><th class="c-room">חדר</th><th class="c-note">הערה</th><th class="c-season">עונה</th><th class="c-cond" title="המניין מוצג רק אם הוא לפני / אחרי זמן מסוים">תלוי</th>${g === 'shacharis' ? '<th class="c-fri">גם בער"ש</th>' : ''}<th></th></tr></thead><tbody>
+    <table class="tf-t"><thead><tr><th class="c-code" title="קוד להדפסות — קבוע, אפשר לשנות">קוד</th><th>שעה</th><th class="c-room">חדר</th><th class="c-note">הערה</th><th class="c-season">עונה</th><th class="c-cond" title="המניין מוצג רק אם הוא לפני / אחרי זמן מסוים">תלוי</th>${g === 'shacharis' ? '<th class="c-fri">גם בער"ש</th>' : ''}<th></th></tr></thead><tbody>
     ${(w[g] || []).map((r, i) => { const p = `weekday.${g}.${i}`; return `<tr>
-      <td>${tsHtml(r.time, `${p}.time`)}</td><td>${fld(`${p}.room`, 'text', ' class="tf-w8"')}</td><td>${fld(`${p}.note`, 'text', ' class="tf-w10"')}</td>
+      <td class="c-code">${fld(`${p}.code`, 'text', ' class="tf-w6 tf-code"')}</td><td>${tsHtml(r.time, `${p}.time`)}</td><td>${fld(`${p}.room`, 'text', ' class="tf-w8"')}</td><td>${fld(`${p}.note`, 'text', ' class="tf-w10"')}</td>
       <td>${seasonHtml(p, SEASONS)}</td><td class="c-cond">${condBtn(r, g, p)}</td>
       ${g === 'shacharis' ? `<td>${fld(`${p}.fri`, 'check')}</td>` : ''}
       <td class="tf-acts">${btn('del', p, '🗑', 'מחק')}</td></tr>`; }).join('')}
@@ -362,7 +362,7 @@ function shiurimHtml() {
   return `<p class="muted small">שיעור דף יומי מוצג במסך מתחת לדף היומי. שיעור אחר — עם השם שלו. שעה שונה בימים מסוימים = שורה נוספת.</p>
   <div class="tf-rows tf-shrows">
   ${rs.map((r, i) => { const p = `shiurim.rows.${i}`; return `<div class="tf-r">
-    <div class="tf-rf${r.screen === false ? ' tf-off' : ''}"><label class="tf-scr" title="תצוגה במסך">${fld(`${p}.screen`, 'check')} 📺</label>
+    <div class="tf-rf${r.screen === false ? ' tf-off' : ''}"><label class="tf-scr" title="תצוגה במסך">${fld(`${p}.screen`, 'check')} 📺</label><span class="c-code" title="קוד להדפסות">🔖 ${fld(`${p}.code`, 'text', ' class="tf-w6 tf-code"')}</span>
       ${sel(`${p}.type`, [['daf', 'שיעור דף היומי'], ['other', 'שיעור אחר']])}${r.type === 'other' ? fld(`${p}.title`, 'text', ' class="tf-w12 tf-bt" placeholder="שם השיעור"') : ''}
       ${fld(`${p}.who`, 'text', ' class="tf-w16" placeholder="מי מוסר"')}${fld(`${p}.room`, 'text', ' class="tf-w8" placeholder="איפה"')}
       <span class="spacer"></span><span class="tf-acts">${btn('up', p, '↑', 'למעלה')}${btn('down', p, '↓', 'למטה')}${btn('del', p, '🗑', 'מחק')}</span></div>
@@ -412,6 +412,7 @@ function previewHtml() {
 async function prepare() {
   await load();
   normalize();
+  if (assignCodes(data) && canEdit()) dirty = true; // 🔖 קודים חדשים — נשמרים בשמירה הבאה
   // ✈ נסיעות (פאר דער תצוגה מקדימה) — ליגט אין אן אייגענער לשונית, נישט אין די זמנים
   try { data.rebbeAway = await loadAway(); } catch { data.rebbeAway = []; }
 }
@@ -508,7 +509,7 @@ const HELP = `<div class="tf-help">
   </ul></details>
 </div>`;
 // ⚙️ מה להציג: בכל לשונית אפשר להסתיר סוגי הגדרות (נשמר בהגדרות בית הכנסת, לכל הגבאים)
-const SHOW_OPTS = [['room', 'חדר'], ['note', 'הערות'], ['season', 'עונות'], ['cond', 'תלוי (תנאים)'], ['disp', 'תצוגה במסך'], ['fri', 'ערב שבת'], ['rebbe', 'מנין כ"ק אדמו"ר'], ['camp', 'קעמפ'], ['ref', 'חישוב לכל השבוע']];
+const SHOW_OPTS = [['code', 'קוד (להדפסות)'], ['room', 'חדר'], ['note', 'הערות'], ['season', 'עונות'], ['cond', 'תלוי (תנאים)'], ['disp', 'תצוגה במסך'], ['fri', 'ערב שבת'], ['rebbe', 'מנין כ"ק אדמו"ר'], ['camp', 'קעמפ'], ['ref', 'חישוב לכל השבוע']];
 let SHOWCFG = {};
 const hideCls = () => (SHOWCFG[tab] || []).map((k) => `hide-${k}`).join(' ');
 function showDialog(main) {
@@ -529,6 +530,7 @@ function showDialog(main) {
 let BACKFN = null;
 function render(main, onBack) {
   BACKFN = onBack;
+  if (assignCodes(data) && canEdit()) dirty = true;
   const body = tab === 'weekday' ? weekdayHtml() : tab === 'shabbos' ? shabbosHtml() : tab === 'shiurim' ? shiurimHtml() : tab === 'events' ? eventsHtml() : blocksHtml(tab);
   main.innerHTML = `<div class="lx-bar">
       <button type="button" class="btn ghost" id="tf-back">← ${h(BACK)}</button>

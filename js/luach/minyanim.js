@@ -181,7 +181,7 @@ export const partOfDay = (m) => (m < 360 ? 'לפנות בוקר' : m < 720 ? 'ב
 export function computeShiurim(data, n, loc, allDays = false) {
   const iso = isoOf(n); const zd = dayZ(iso, loc); const dw = dowOf(n);
   return (data.shiurim?.rows || []).filter((r) => r.screen !== false && (allDays || (r.days || []).includes(dw)) && inSeason(r.season, iso, r))
-    .map((r) => ({ id: r.id, type: r.type, title: r.title, who: r.who, room: r.room, note: r.note, min: timeOf(r.time, zd) }))
+    .map((r) => ({ id: r.id, code: r.code || '', type: r.type, title: r.title, who: r.who, room: r.room, note: r.note, min: timeOf(r.time, zd) }))
     .sort((a, b) => (a.min ?? 9999) - (b.min ?? 9999));
 }
 const row = (label, times, o = {}) => ({ id: id(), label, note: '', kind: /שחרית|מנחה|מעריב|נדרי|סליחות/.test(label) ? 'tefila' : 'other', on: 'all', times: times.map((t) => (typeof t === 'string' ? F(t) : t)), ...o });
@@ -475,7 +475,7 @@ export function computeWeekday(data, n, loc, opt = {}) {
   // עונה / קעמפ: לויט דעם זונטאג פון דער וואך (די גאנצע וואך די זעלבע); שבת → די קומענדיגע וואך
   const iso = (w.refDay ?? '0') === 'daily' ? isoOf(n) : isoOf(n - dowOf(n) + (dowOf(n) === 6 ? 7 : 0));
   const ok = (r) => inSeason(r.season, iso, r) && (!fri || r.fri) && campEffect(r, iso, w.camp) !== 'drop';
-  const mk = (r) => ({ min: timeOf(r.time, zd), room: r.room || w.defaultRoom || '', note: r.note || '', kahal: !!r.kahal, last: !!r.last, spec: specOf(r.time), xn: campEffect(r, iso, w.camp) || '', xdays: campDays(r, iso, w.camp) });
+  const mk = (r) => ({ code: r.code || '', min: timeOf(r.time, zd), room: r.room || w.defaultRoom || '', note: r.note || '', kahal: !!r.kahal, last: !!r.last, spec: specOf(r.time), xn: campEffect(r, iso, w.camp) || '', xdays: campDays(r, iso, w.camp) });
   const valid = (x) => {
     if (x.min == null) return false;
     return (x.cond || []).every((c) => { // אלע תנאים מוזן זיין
@@ -688,3 +688,16 @@ export function computeHoly(data, eve, loc) {
   return out;
 }
 export { nOf, isoOf };
+
+// 🔖 קודים להדפסות: כל מניין / שיעור מקבל קוד קבוע ({שחרית 4}, {שיעור 2}) — לא משתנה כשמשנים שעה או סדר. אפשר לשנות לשם אחר.
+export const CODE_GROUPS = [['shacharis', 'שחרית'], ['mincha', 'מנחה'], ['maariv', 'מעריב']];
+export function assignCodes(data) {
+  let changed = false;
+  const used = new Set();
+  const all = [...CODE_GROUPS.flatMap(([g]) => data.weekday?.[g] || []), ...(data.shiurim?.rows || [])];
+  all.forEach((r) => { if (r.code) used.add(r.code); });
+  const next = (base) => { let i = 1; while (used.has(`${base} ${i}`)) i += 1; const c = `${base} ${i}`; used.add(c); return c; };
+  for (const [g, nm] of CODE_GROUPS) for (const r of data.weekday?.[g] || []) if (!r.code) { r.code = next(nm); changed = true; }
+  for (const r of data.shiurim?.rows || []) if (!r.code) { r.code = next('שיעור'); changed = true; }
+  return changed;
+}

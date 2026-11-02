@@ -396,3 +396,5 @@
 .te-ed span[data-blk], .te-ed small[data-blk] { display: inline-block; min-width: 6em; }
 .te-ed [data-rep] { outline: 2px dashed #2a7de1; outline-offset: -2px; }
 .tp-stage .tp-page { margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,.4); }
+.tf-code { font-size: .85em; color: #2a5db0; }
+.tf-main.hide-code .c-code, .tf-main.hide-code td:has(> [data-f$=".code"]) { display: none !important; }

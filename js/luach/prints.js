@@ -6,10 +6,10 @@
 import { otherSheet } from '../google.js';
 import { state } from '../data.js';
 import { escapeHtml as h, nowStamp } from '../util.js';
-import { curSheetId } from './shul.js';
+import { curSheetId, curShul, DEFAULT_SHUL } from './shul.js';
 import { tefilaData } from './tefila.js';
 import { autoVars } from './autovars.js';
-import { computeWeekday, computeShabbos } from './minyanim.js';
+import { computeWeekday, computeShabbos, computeShiurim, CODE_GROUPS } from './minyanim.js';
 import { isoOf, nOf, dowOf, hdOf, buildYear } from './engine.js';
 import { hhmm, LOCATION } from './zmanim.js';
 import { printCss, wkBlocks, pageHtml, fitPages, FOOTER } from './tfprint.js';
@@ -49,7 +49,13 @@ ${blk('shabline', 'div', 'tp-shab')}` },
 <div class="tp-sub">בצל כ"ק מרן אדמו"ר שליט"א</div>
 ${blk('shabrows', 'div', 'tp-rows')}
 <div class="tp-foot"><div class="box">${FOOTER.map(h).join('<br>')}</div><div class="rule"></div></div>` },
-  blank: { name: 'דף חדש', size: 'letter', cls: 'tp-free', frame: false, rec: { type: 'once', date: '' }, html: '<div style="font-size:2em;text-align:center">כתוב כאן…</div>' },
+  // דף חדש: הבלאנק של ביהמ"ד (כמו בדף של שבת) — הכל ב-em, אז מתאים את עצמו לכל גודל דף
+  blank: { name: 'דף חדש', size: 'letter', cls: 'tp-sh', frame: false, rec: { type: 'once', date: '' }, html: `
+<img class="tp-lh" src="img/print/letterhead.png" alt="">
+<div class="tp-title">כותרת</div>
+<div class="tp-sub">בצל כ"ק מרן אדמו"ר שליט"א</div>
+<div style="font-size:1.6em;text-align:center;margin-top:1.2em">כתוב כאן…</div>
+<div class="tp-foot"><div class="box">${FOOTER.map(h).join('<br>')}</div><div class="rule"></div></div>` },
 };
 const FRAME = '<div class="tp-frame"><i></i><i></i><i></i><i></i></div>';
 
@@ -111,7 +117,12 @@ function fill(it, n) {
   const w = computeWeekday(DATA, sun + 1, LOCATION, { plain: true });
   const groups = { shacharis: w.shacharis || [], mincha: w.mincha || [], maariv: w.maariv || [] };
   const shab = computeShabbos(DATA, fri, LOCATION).filter((r) => r.min != null).map((r) => ({ name: r.label, min: r.min, note: r.note }));
-  Object.entries(groups).forEach(([g, list]) => { const nm = REP.find(([k]) => k === g)[1]; list.forEach((m, i) => { vars[`${nm} ${i + 1}`] = tm(m.min); }); });
+  // 🔖 הקוד של כל מניין / שיעור (מזמני התפילות) → השעה בשבוע הזה; לא מתקיים → ריק
+  const codeRows = [...CODE_GROUPS.flatMap(([g]) => DATA.weekday?.[g] || []), ...(DATA.shiurim?.rows || [])];
+  codeRows.forEach((r) => { if (r.code) { vars[r.code] = ''; vars[`${r.code}.חדר`] = ''; vars[`${r.code}.הערה`] = ''; } });
+  const setC = (m) => { if (!m.code) return; vars[m.code] = tm(m.min); vars[`${m.code}.חדר`] = m.room || ''; vars[`${m.code}.הערה`] = m.note || ''; };
+  Object.values(groups).flat().forEach(setC);
+  computeShiurim(DATA, sun + 1, LOCATION, true).forEach(setC);
   shab.forEach((r, i) => { vars[`שבת ${i + 1}`] = `${r.name} ${tm(r.min)}`; });
   const box = document.createElement('div'); box.innerHTML = it.html;
   for (const el of [...box.querySelectorAll('[data-blk]')]) {
@@ -131,7 +142,7 @@ function fill(it, n) {
   // קוד ריק בתוך <small> (הערה) — ה-small נשאר ריק, כמו בעיצוב הקבוע
   return box.innerHTML.replace(/\{([^{}]{1,40})\}/g, (m, k) => (vars[k] != null ? (k.startsWith('הערת') ? String(vars[k]) : h(String(vars[k]))) : m));
 }
-const pageOf = (it, inner) => pageHtml(it.cls || 'tp-free', it.size === 'tabloid' ? 'tabloid' : 'letter', inner, it.frame ? FRAME : '');
+const pageOf = (it, inner) => pageHtml(it.cls || 'tp-free', SIZES[it.size] ? it.size : 'letter', inner, it.frame ? FRAME : '');
 function docHtml(it, pages, autoPrint) {
   const [, , pg] = SIZES[it.size] || SIZES.letter;
   return `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>${h(it.name)}</title><base href="${location.href.replace(/shul\/.*$/, '').replace(/[^/]*$/, '')}">
@@ -187,7 +198,8 @@ function listView(main, onBack) {
   const nb = $('#pr-new', main);
   if (nb) nb.onclick = () => {
     const kind = prompt('הדפסה חדשה:\n1 = דף ריק\n2 = על בסיס ימות החול\n3 = על בסיס שבת', '1'); if (!kind) return;
-    const base = kind === '2' ? STARTERS.weekday : kind === '3' ? STARTERS.shabbos : STARTERS.blank;
+    let base = kind === '2' ? STARTERS.weekday : kind === '3' ? STARTERS.shabbos : STARTERS.blank;
+    if (curShul() !== DEFAULT_SHUL && base !== STARTERS.weekday) base = { ...base, html: base.html.replace(/<img class="tp-lh"[^>]*>/, '').replace(/<div class="tp-sub">[\s\S]*?<\/div>/, '').replace(/<div class="tp-foot">[\s\S]*$/, '') };
     const it = { ...JSON.parse(JSON.stringify(base)), id: `t${Date.now().toString(36)}`, name: kind === '1' ? 'דף חדש' : `${base.name} (חדש)` };
     if (kind === '1') it.rec = { type: 'once', date: isoOf(n0) };
     T.push(it); editId = it.id; editView(main, onBack);
@@ -197,18 +209,25 @@ async function persist() { try { await save(); ui?.toast?.('נשמר ✓'); } ca
 
 // ---------- העורך ----------
 const FONTS = () => [...new Set(['Frank Ruhl Libre', 'David Libre', 'PFT_Vilna', 'Livorna', 'Arial', 'Times New Roman', ...customFontNames()])];
-function codeList() {
-  const v = Object.keys(autoVars(DATA, todayIso()));
-  return ['פרשה', 'הערת שחרית', 'הערת מנחה', 'הערת מעריב', ...REP.slice(0, 3).flatMap(([, nm]) => [1, 2, 3].map((i) => `${nm} ${i}`)), 'שבת 1', 'שבת 2', ...v.filter((x) => x !== 'פרשה')];
+/** [[קבוצה, [[קוד, תווית]]]] — כל הקודים, עם השעה של השבוע ליד כל מניין */
+function codeList(n) {
+  const sun = n - dowOf(n); const w = computeWeekday(DATA, sun + 1, LOCATION, { plain: true });
+  const tOf = new Map([...['shacharis', 'mincha', 'maariv'].flatMap((g) => w[g] || []), ...computeShiurim(DATA, sun + 1, LOCATION, true)].filter((m) => m.code).map((m) => [m.code, tm(m.min)]));
+  const one = (r, extra = '') => [r.code, `${r.code}${extra}${tOf.has(r.code) ? ` — ${tOf.get(r.code)}` : ' — (לא השבוע)'}`];
+  const out = CODE_GROUPS.map(([g, nm]) => [nm, (DATA.weekday?.[g] || []).filter((r) => r.code).map((r) => one(r))]);
+  out.push(['שיעורים', (DATA.shiurim?.rows || []).filter((r) => r.code).map((r) => one(r, r.title ? ` (${r.title})` : ''))]);
+  const v = Object.keys(autoVars(DATA, isoOf(n)));
+  out.push(['כללי', ['פרשה', 'פרשה הבאה', 'הערת שחרית', 'הערת מנחה', 'הערת מעריב', 'שבת 1', 'שבת 2', ...v.filter((x) => !['פרשה', 'פרשה הבאה'].includes(x) && !x.startsWith('__'))].map((x) => [x, x])]);
+  return out.filter(([, l]) => l.length);
 }
 function editView(main, onBack) {
   const it = T.find((x) => x.id === editId); if (!it) { listView(main, onBack); return; }
   const before = JSON.stringify(it); const r = it.rec || (it.rec = { type: 'once', date: '' });
-  const ed = canEdit(); const S = it.size === 'tabloid' ? 'tabloid' : 'letter';
+  const ed = canEdit(); const S = SIZES[it.size] ? it.size : 'letter';
   const n0 = nOf(weekAt || todayIso()); const pvDay = hitsInWeek(r, n0 - dowOf(n0))[0] ?? n0;
   main.innerHTML = `<style>${printCss()}</style><div class="lx-bar"><button type="button" class="btn ghost" id="te-back">← לרשימה</button>
     <input id="te-name" value="${h(it.name)}" style="width:12em;font-weight:700">
-    <select id="te-size"><option value="letter"${S === 'letter' ? ' selected' : ''}>8.5×11</option><option value="tabloid"${S === 'tabloid' ? ' selected' : ''}>11×17</option></select>
+    <select id="te-size">${Object.entries(SIZES).map(([k, x]) => `<option value="${k}"${S === k ? ' selected' : ''}>${x[3]}</option>`).join('')}</select>
     <span class="pr-rec">🔁 <select id="te-rt">${[['once', 'חד פעמי'], ['daily', 'יומי'], ['weekly', 'שבועי'], ['monthly', 'חודשי'], ['yearly', 'שנתי']].map(([k, l]) => `<option value="${k}"${r.type === k ? ' selected' : ''}>${l}</option>`).join('')}</select>
       ${r.type === 'once' ? `<input type="date" id="te-date" value="${h(r.date || '')}">` : ''}
       ${r.type === 'weekly' ? `<select id="te-dow">${DOW.map((d, i) => `<option value="${i}"${Number(r.dow) === i ? ' selected' : ''}>יום ${d}</option>`).join('')}</select>` : ''}
@@ -223,7 +242,7 @@ function editView(main, onBack) {
     <input type="color" data-cmd="foreColor" title="צבע טקסט"><input type="color" data-cmd="hiliteColor" value="#ffffff" title="צבע רקע">
     <button type="button" data-cmd="justifyRight">⯈</button><button type="button" data-cmd="justifyCenter">≡</button><button type="button" data-cmd="justifyLeft">⯇</button>
     <button type="button" id="te-table">▦ טבלה</button>
-    <select id="te-code"><option value="">{ } הכנס קוד</option>${codeList().map((c) => `<option>${h(c)}</option>`).join('')}</select>
+    <select id="te-code"><option value="">{ } הכנס קוד</option>${codeList(pvDay).map(([g, l]) => `<optgroup label="${h(g)}">${l.map(([c, t]) => `<option value="${h(c)}">${h(t)}</option>`).join('')}</optgroup>`).join('')}</select>
     <select id="te-blk"><option value="">▤ הכנס בלוק</option>${BLK.map(([k, l]) => `<option value="${k}">${h(l)}</option>`).join('')}</select>
     <select id="te-rep"><option value="">↻ שורה חוזרת</option>${REP.map(([k, l]) => `<option value="${k}">${h(l)}</option>`).join('')}</select>
     <label class="small"><input type="checkbox" id="te-frame"${it.frame ? ' checked' : ''}> מסגרת</label>
