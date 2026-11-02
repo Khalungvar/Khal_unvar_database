@@ -135,7 +135,8 @@ const page = (cls, size, inner, extra = '') => {
 
 // ---------- ימות החול ----------
 /** n = א טאג אין דער וואך (מ'רעכנט לויט weekday.refDay); fri = ערב שבת; parsha = נאמען */
-export function weekdayPage(data, n, fri, parsha, loc, size = 'letter', scr = null) {
+/** די חלקים פונעם בלאט פון ימות החול — אויך פאר "🖨 הדפסות" (די תבנית מיט בלאקן) */
+export function wkBlocks(data, n, fri, loc, scr = null) {
   const w = computeWeekday(data, n, loc);
   const nw = weekNew(data, n, loc, scr);
   const tag = (g, x) => { const t = nw(g, x); return t ? `<span class="tp-new">${h(t)}</span>` : ''; };
@@ -153,18 +154,29 @@ export function weekdayPage(data, n, fri, parsha, loc, size = 'letter', scr = nu
   const fMin = sh.find((r) => r.day === 'fri' && r.kind === 'tefila' && /מנחה/.test(r.label));
   const sShach = sh.find((r) => r.day === 'sat' && /שחרית/.test(r.label));
   const sMin = sh.find((r) => r.day === 'sat' && r.kind === 'tefila' && /מנחה/.test(r.label));
+  return {
+    shacharis: line(shach, per('shacharis', shach)), mincha: line(mincha, per('mincha', mincha)), maariv: line(maariv, per('maariv', maariv)), rebbe: rbLine,
+    shNote: w.shacharisNote ? `${h(w.shacharisNote.replace(/\s*מינוט|\s*דקות/, ''))} מינוט` : '', minchaNote: w.minchaNote ? h(w.minchaNote) : '', maarivNote: w.maarivNote ? h(w.maarivNote) : '',
+    sshach: sShach?.min != null ? `שחרית <span class="tp-num">${tm(sShach.min)}</span>` : '',
+    shabline: [fMin?.min != null ? `מנחה ער"ש <span class="tp-num">${tm(fMin.min)}</span>` : '', sMin?.min != null ? `מנחה ש"ק <span class="tp-num">${tm(sMin.min)}</span>` : ''].filter(Boolean).join(' <span class="tp-num">•</span> '),
+    shabrows: sh.filter((r) => r.min != null).map((r) => `<div class="tp-dots"><span class="l">${h(r.label)}${r.note ? `<span class="tp-note">(${h(r.note)})</span>` : ''}</span><span class="f"></span><span class="tp-num">${tm(r.min)}</span></div>`).join(''),
+  };
+}
+/** n = א טאג אין דער וואך (מ'רעכנט לויט weekday.refDay); fri = ערב שבת; parsha = נאמען */
+export function weekdayPage(data, n, fri, parsha, loc, size = 'letter', scr = null) {
+  const B = wkBlocks(data, n, fri, loc, scr);
   const band = (name, note, cls = '') => `<div class="tp-band"><span></span><b>${h(name)}</b>${note ? `<small${cls ? ` class="${cls}"` : ''}>${note}</small>` : '<span></span>'}</div>`;
-  const shNote = w.shacharisNote ? `${h(w.shacharisNote.replace(/\s*מינוט|\s*דקות/, ''))} מינוט` : '';
   const inner = `
     <div class="tp-title">פרשת ${h(parsha)}</div>
-    ${band('שחרית', shNote, 'tp-ssh tp-bn')}<div class="tp-times">${line(shach, per('shacharis', shach))}</div>
-    ${band('מנחה', w.minchaNote ? h(w.minchaNote) : '')}<div class="tp-times">${line(mincha, per('mincha', mincha))}</div>
-    ${rbLine}
-    ${band('מעריב', w.maarivNote ? h(w.maarivNote) : '')}<div class="tp-times">${line(maariv, per('maariv', maariv))}</div>
-    <div class="tp-band"><span></span><b style="font-size:2.3em">זמני שבת קודש</b>${sShach?.min != null ? `<small class="tp-ssh">שחרית <span class="tp-num">${tm(sShach.min)}</span></small>` : '<span></span>'}</div>
-    <div class="tp-shab">${[fMin?.min != null ? `מנחה ער"ש <span class="tp-num">${tm(fMin.min)}</span>` : '', sMin?.min != null ? `מנחה ש"ק <span class="tp-num">${tm(sMin.min)}</span>` : ''].filter(Boolean).join(' <span class="tp-num">•</span> ')}</div>`;
+    ${band('שחרית', B.shNote, 'tp-ssh tp-bn')}<div class="tp-times">${B.shacharis}</div>
+    ${band('מנחה', B.minchaNote)}<div class="tp-times">${B.mincha}</div>
+    ${B.rebbe}
+    ${band('מעריב', B.maarivNote)}<div class="tp-times">${B.maariv}</div>
+    <div class="tp-band"><span></span><b style="font-size:2.3em">זמני שבת קודש</b>${B.sshach ? `<small class="tp-ssh">${B.sshach}</small>` : '<span></span>'}</div>
+    <div class="tp-shab">${B.shabline}</div>`;
   return page('tp-wk', size, inner, '<div class="tp-frame"><i></i><i></i><i></i><i></i></div>');
 }
+export const pageHtml = page;
 
 // ---------- שבת ----------
 export function shabbosPage(data, fri, title, loc, size = 'letter') {

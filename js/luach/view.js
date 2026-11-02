@@ -12,10 +12,9 @@ import { getLang } from '../i18n.js';
 import { openMitzva } from './mitzva.js';
 import { initBooklet } from './booklet.js';
 import { initTefila, openTefila } from './tefila.js';
-import { openTfPrint } from './tfprintui.js';
 import { openScreen } from './screen.js';
 import { openShul, loadShulCfg } from './shului.js';
-import { openTemplates } from './tpl.js';
+import { openPrints } from './prints.js';
 import { loadShuls, createShul } from './shuls.js';
 import { SHULS, DEFAULT_SHUL, CITIES, curShul, setCurShul } from './shul.js';
 import { resetTefila } from './tefila.js';
@@ -315,7 +314,6 @@ function renderTefilaHub(main) {
       ${tile('tfScreen', '📺', t('tfScreen'), t('tfScreenSub'))}
       ${tile('tfPrint', '🖨', t('tfPrint'), t('tfPrintSub'))}
       ${tile('tfTimes', '🕰', t('tfTimes'), t('hTefilaSub'))}
-      ${tile('tfTpl', '📝', 'תבניות הדפסה', 'עורך כמו וורד, עם קודים')}
     </div>
     <div class="aw-bar"><button type="button" class="btn ghost aw-btn" id="tfh-shul">⚙️ הגדרות בית הכנסת</button></div>
     ${curShul() === DEFAULT_SHUL ? `<div class="aw-bar"><button type="button" class="btn ghost aw-btn" id="tfh-away">✈ כ”ק אדמו"ר שליט"א נסע</button><span class="muted small" id="tfh-away-st"></span></div>
@@ -371,10 +369,9 @@ export async function renderLuach() {
   if (mode === 'mitzva') { openMitzva(main, () => { mode = 'hub'; renderLuach(); }); return; }
   if (String(mode).startsWith('tf') || mode === 'tefila') { try { await loadShulCfg(); } catch { /* */ } }
   if (mode === 'tefila') { renderTefilaHub(main); return; }
-  if (mode === 'tfTpl') { openTemplates(main, () => { mode = 'tefila'; renderLuach(); }, ui); return; }
   if (mode === 'tfShul') { openShul(main, () => { mode = 'tefila'; renderLuach(); }, ui); return; }
   if (mode === 'tfScreen') { openScreen(main, () => { mode = 'tefila'; renderLuach(); }, ui); return; }
-  if (mode === 'tfPrint') { openTfPrint(main, () => { mode = 'tefila'; renderLuach(); }, ui); return; }
+  if (mode === 'tfPrint') { openPrints(main, () => { mode = 'tefila'; renderLuach(); }, ui); return; }
   if (mode === 'tfTimes') { openTefila(main, () => { mode = 'tefila'; renderLuach(); }, t('hTefila')); return; }
   if (!year) [year, pageIx] = currentYearAndPage();
   if (!main.firstChild) main.innerHTML = `<p class="muted">…</p>`;
@@ -573,7 +570,7 @@ const TX = {
   place: ['מיקום', 'ארט', 'Location'],
   hubTitle: ['זמנים ולוחות', 'זמנים און לוחות', 'Zmanim & Calendars'], hTefila: ['זמני תפילות ביהמ"ד בארא פארק', 'זמני תפילות ביהמ"ד בארא פארק', 'Davening times – Boro Park shul'], hTefilaSub: ['ימות החול · שבת · ימי דפגרא · יו"ט · תשרי', 'וואכנטאג · שבת · ימי דפגרא · יו"ט · תשרי', 'Weekday · Shabbos · Minor days · Yom Tov · Tishrei'],
   tfScreen: ['תצוגת והגדרות המסך', 'מסך און הגדרות', 'Screen display & settings'], tfScreenSub: ['הגדרות המסך בבית המדרש', 'הגדרות פונעם מסך אין בית המדרש', 'Beis medrash screen settings'],
-  tfPrint: ['הדפסת זמני התפילה', 'דרוקן זמני התפילה', 'Print davening times'], tfPrintSub: ['בחירת ימים או שבועות', 'אויסקלייבן טעג אדער וואכן', 'Choose days or weeks'],
+  tfPrint: ['הדפסות', 'דרוקן', 'Printing'], tfPrintSub: ['מודעות השבוע · שמורות · עריכה', 'מודעות פון דער וואך · אפגעהיטן · רעדאגירן', 'This week · saved · editable'],
   tfTimes: ['זמני התפילות והשיעורים', 'זמני התפילות און שיעורים', 'Davening & shiur times'],
   hCal: ['לוח שנה אונגוואר', 'לוח שנה אונגוואר', 'Ungvar yearly calendar'], hCalSub: ['זמנים · דף יומי · מצוה יומית', 'זמנים · דף יומי · מצוה יומית', 'Zmanim · Daf Yomi · Mitzva'],
   hMitzva: ['לוח מצוה יומית', 'לוח מצוה יומית', 'Mitzva Yomis calendar'], hMitzvaSub: ['שבועי · חודשי · מחזור · קונטרס', 'וועכנטליך · חודש · מחזור · קונטרס', 'Weekly · monthly · cycle · booklet'], soon: ['בקרוב', 'באלד', 'Coming soon'],

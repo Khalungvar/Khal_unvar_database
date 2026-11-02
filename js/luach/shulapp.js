@@ -5,9 +5,8 @@ import { state } from '../data.js';
 import { SHULS, registerShul, setCurShul, curShul } from './shul.js';
 import { initTefila, openTefila } from './tefila.js';
 import { openScreen } from './screen.js';
-import { openTfPrint } from './tfprintui.js';
 import { openShul, loadShulCfg } from './shului.js';
-import { openTemplates } from './tpl.js';
+import { openPrints } from './prints.js';
 
 const $ = (s) => document.querySelector(s);
 const h = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -28,15 +27,14 @@ function hub() {
   const n = SHULS[curShul()]?.name || '';
   $('#sa-name').textContent = `🕍 ${n}`; document.title = `זמני תפילות – ${n}`;
   const tile = (k, icon, title) => `<button type="button" class="lobby-tile lx-hubt" data-k="${k}"><span class="lobby-icon">${icon}</span><b>${h(title)}</b></button>`;
-  main.innerHTML = `<div class="lx-hub">${tile('times', '🕰', 'זמני התפילות והשיעורים')}${tile('screen', '📺', 'תצוגת והגדרות המסך')}${tile('print', '🖨', 'הדפסת זמני התפילה')}${tile('tpl', '📝', 'תבניות הדפסה')}</div>
+  main.innerHTML = `<div class="lx-hub">${tile('times', '🕰', 'זמני התפילות והשיעורים')}${tile('screen', '📺', 'תצוגת והגדרות המסך')}${tile('print', '🖨', 'הדפסות')}</div>
     <div class="aw-bar"><button type="button" class="btn ghost aw-btn" data-k="shul">⚙️ הגדרות בית הכנסת</button></div>`;
   main.querySelectorAll('[data-k]').forEach((b) => { b.onclick = () => {
     const back = () => hub(); const k = b.dataset.k;
     if (k === 'times') openTefila(main, back, 'זמני התפילות');
     if (k === 'screen') openScreen(main, back, ui);
-    if (k === 'print') openTfPrint(main, back, ui);
+    if (k === 'print') openPrints(main, back, ui);
     if (k === 'shul') openShul(main, back, ui);
-    if (k === 'tpl') openTemplates(main, back, ui);
   }; });
 }
 
