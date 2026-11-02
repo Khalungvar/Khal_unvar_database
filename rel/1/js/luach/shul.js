@@ -29,6 +29,7 @@ export const CITIES = [
 export function shulDefaults(key = DEFAULT_SHUL) {
   const bp = key === 'bp';
   return {
+    kind: 'shul', // סימן — gviz מחזיר את הלשונית הראשונה כשאין ShulConfig
     key,
     name: bp ? 'קהל אונגוואר' : '',
     lang: 'yi', // שפת התצוגה: yi / he / en

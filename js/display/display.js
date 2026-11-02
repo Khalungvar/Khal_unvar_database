@@ -106,10 +106,11 @@ function gotScreen(text) {
 }
 async function pullScreen() { if (SCRPV) return; const t = await fetchTab('Screen'); if (t) { try { gotScreen(t); } catch { /* */ } } }
 // ---------- הגדרות בית הכנסת (לשונית ShulConfig): מקום, שיטות, שפה, גרסה ----------
-let CFG = normShul(BOOT?.cfg || lsGet('disp-shul'), SHUL);
+const okShul = (j) => (j && j.kind === 'shul' ? j : null);
+let CFG = normShul(okShul(BOOT?.cfg) || okShul(lsGet('disp-shul')), SHUL);
 let LOC = applyShul(CFG);
 function gotShul(text) {
-  const j = partsJson(parseCsv(text)); if (!j) return;
+  const j = partsJson(parseCsv(text)); if (!j || j.kind !== 'shul') return;
   const js = JSON.stringify(j);
   if (js !== JSON.stringify(lsGet('disp-shul'))) {
     CFG = normShul(j, SHUL); LOC = applyShul(CFG);
