@@ -73,7 +73,7 @@ function render(main, onBack) {
       <label>קו אורך (lon) <input data-p="loc.lon" type="number" step="0.0001" value="${h(C.loc.lon)}" dir="ltr"></label>
       <label>אזור זמן <input data-p="loc.tz" value="${h(C.loc.tz)}" dir="ltr" placeholder="America/New_York"></label>
       <label>גובה (מטר) <input data-p="loc.elev" type="number" value="${h(C.loc.elev)}" dir="ltr"></label>
-    </div><p class="muted small">את הקואורדינטות אפשר למצוא ב-Google Maps: לחיצה ימנית על המקום → המספרים הראשונים.</p>`
+    </div>`
     : `<p class="muted small">${h(C.loc.lat)}, ${h(C.loc.lon)} · ${h(C.loc.tz)} · גובה ${h(C.loc.elev)} מ'</p>`}
   </section>
   <section class="sh-sec"><h3>🕰 שיטות הזמנים</h3>
@@ -82,16 +82,14 @@ function render(main, onBack) {
     <label>הדלקת נרות — דקות לפני השקיעה <input data-p="z.candles" type="number" min="0" max="60" value="${h(C.z.candles)}" style="width:5em"></label>
     <label>נץ ושקיעה ${sel('z.shkia', METHODS.shkia, C.z.shkia)}</label>
     ${C.loc.city === 'bp' ? `<label class="check"><input type="checkbox" data-p="z.table"${C.z.table ? ' checked' : ''}> נץ ושקיעה הנראים לפי טבלת chaitables (בארא פארק)</label>` : ''}
-    <h4>תצוגה מקדימה</h4>${zPreview()}
   </section>
-  <section class="sh-sec"><h3>🔒 גרסה</h3>
+  <section class="sh-sec"><h3>👁 הזמנים לפי ההגדרות</h3>${zPreview()}
+  </section>
+  <section class="sh-sec"><h3 title="תמיד האחרונה — כל עדכון מגיע למסך לבד. נעול — המסך נשאר על הגרסה עד שמשנים כאן. אם משהו השתבש: בוחרים את הקודמת ושומרים.">🔒 גרסה</h3>
     <label>הגרסה שהמסך מריץ ${sel('ver', relOpts, C.ver)}</label>
-    <p class="muted small">"תמיד האחרונה" — כל עדכון באתר מגיע למסך לבד. גרסה נעולה — המסך נשאר עליה עד שמשנים כאן. אם משהו השתבש אחרי עדכון: בחר כאן את הגרסה הקודמת ושמור.</p>
-  </section>
-  <section class="sh-sec"><h3>📺 מסך התצוגה</h3>
-    <p>קישור למסך: <a href="display.html?shul=${h(key)}" target="_blank" dir="ltr">ungvar.org/display.html?shul=${h(key)}</a></p>
-    <p><button type="button" class="btn" id="sh-dl">⬇ הורד קובץ תצוגה (עובד גם בלי האתר)</button> <span class="muted small" id="sh-dl-st"></span></p>
-    <p class="muted small">קובץ אחד שפותחים במחשב התצוגה (בכרום, מסך מלא). הזמנים מחושבים בתוך הקובץ; כשיש אינטרנט הוא מושך את המניינים וההגדרות העדכניים, וכשהחיבור חוזר — מיד. הקובץ נעול על הגרסה שהורדה; לעדכון — מורידים מחדש.</p>
+    <h3 class="sh-h2">📺 מסך התצוגה</h3>
+    <div class="sh-row"><a href="display.html?shul=${h(key)}" target="_blank">פתח את המסך ↗</a>
+      <button type="button" class="btn small-btn" id="sh-dl" title="קובץ אחד שפותחים במחשב התצוגה (כרום, מסך מלא). עובד גם בלי האתר ובלי אינטרנט; כשהחיבור חוזר הוא מושך עדכון מיד. נעול על הגרסה שהורדה.">⬇ קובץ תצוגה עצמאי</button> <span class="muted small" id="sh-dl-st"></span></div>
   </section>
   </div>
   <div class="sh-bar">${ed ? `<input id="sh-note" placeholder="הערה לגרסה (לא חובה)"><button type="button" class="btn primary" id="sh-save"${dirty ? '' : ' disabled'}>💾 שמירה</button>` : '<span class="muted">צפייה בלבד</span>'}
