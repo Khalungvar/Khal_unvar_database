@@ -50,12 +50,11 @@ ${blk('shabline', 'div', 'tp-shab')}` },
 ${blk('shabrows', 'div', 'tp-rows')}
 <div class="tp-foot"><div class="box">${FOOTER.map(h).join('<br>')}</div><div class="rule"></div></div>` },
   // דף חדש: הבלאנק של ביהמ"ד (כמו בדף של שבת) — הכל ב-em, אז מתאים את עצמו לכל גודל דף
-  blank: { name: 'דף חדש', size: 'letter', cls: 'tp-sh', frame: false, rec: { type: 'once', date: '' }, html: `
-<img class="tp-lh" src="img/print/letterhead.png" alt="">
-<div class="tp-title">כותרת</div>
-<div class="tp-sub">בצל כ"ק מרן אדמו"ר שליט"א</div>
-<div style="font-size:1.6em;text-align:center;margin-top:1.2em">כתוב כאן…</div>
-<div class="tp-foot"><div class="box">${FOOTER.map(h).join('<br>')}</div><div class="rule"></div></div>` },
+  blank: { name: 'דף חדש', size: 'letter', cls: 'tp-bl', frame: false, rec: { type: 'once', date: '' }, html: `
+<img class="tp-lh2" src="img/print/letterhead.png" alt="">
+<div style="font-size:3em;font-weight:900;text-align:center;margin-top:.6em">כותרת</div>
+<div style="font-size:1.6em;text-align:center;margin-top:1em">כתוב כאן…</div>
+<img class="tp-lf" src="img/print/letterfoot.png" alt="">` },
 };
 const FRAME = '<div class="tp-frame"><i></i><i></i><i></i><i></i></div>';
 
@@ -199,7 +198,7 @@ function listView(main, onBack) {
   if (nb) nb.onclick = () => {
     const kind = prompt('הדפסה חדשה:\n1 = דף ריק\n2 = על בסיס ימות החול\n3 = על בסיס שבת', '1'); if (!kind) return;
     let base = kind === '2' ? STARTERS.weekday : kind === '3' ? STARTERS.shabbos : STARTERS.blank;
-    if (curShul() !== DEFAULT_SHUL && base !== STARTERS.weekday) base = { ...base, html: base.html.replace(/<img class="tp-lh"[^>]*>/, '').replace(/<div class="tp-sub">[\s\S]*?<\/div>/, '').replace(/<div class="tp-foot">[\s\S]*$/, '') };
+    if (curShul() !== DEFAULT_SHUL && base !== STARTERS.weekday) base = { ...base, html: base.html.replace(/<img class="tp-lh2?"[^>]*>/, '').replace(/<img class="tp-lf"[^>]*>/, '').replace(/<div class="tp-sub">[\s\S]*?<\/div>/, '').replace(/<div class="tp-foot">[\s\S]*$/, '') };
     const it = { ...JSON.parse(JSON.stringify(base)), id: `t${Date.now().toString(36)}`, name: kind === '1' ? 'דף חדש' : `${base.name} (חדש)` };
     if (kind === '1') it.rec = { type: 'once', date: isoOf(n0) };
     T.push(it); editId = it.id; editView(main, onBack);

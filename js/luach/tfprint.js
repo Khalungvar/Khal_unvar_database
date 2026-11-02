@@ -124,6 +124,10 @@ export function printCss(fontHe = 'Frank Ruhl Libre') {
 .tp-ctr { text-align: center; font-weight: 700; font-size: 1.9em; line-height: 1.35; }
 .tp-ctr .tp-num { font-size: 1.05em; }
 .tp-tilde { text-align: center; font-weight: 900; font-size: 1.95em; margin-top: .25em; }
+/* ---- הבלאנק של ביהמ"ד (LTRHD Khal Ungvar): למעלה הלוגו, למטה טלפון/פקס — לפי הגודל של הדף ---- */
+.tp-bl .tp-lh2 { display: block; width: 88%; margin: calc(.26in * var(--k, 1)) auto 0; }
+.tp-bl .tp-lf { display: block; width: 88%; margin: auto auto calc(.25in * var(--k, 1)); }
+.tp-bl .tp-in > :not(.tp-lh2):not(.tp-lf) { margin-inline: calc(.5in * var(--k, 1)); }
 `;
 }
 
