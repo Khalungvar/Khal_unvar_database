@@ -1,8 +1,8 @@
 // 🕯 דף זמני השבת — זמני ירושלים מהלוח (js/luach/zmanim.js), אורח לסעודה, ואז Word לפי התבנית של הישיבה.
 // התבנית: img/mosad/yeshiva/shabbos-template.docx — מחליפים רק את הטקסטים (הרקע, הגופנים והמסגרת נשארים).
-import { zmanim, hhmm, LOCATIONS } from '../luach/zmanim.js?v=597';
-import { parashaOf, holidayOf } from '../parasha.js?v=597';
-import { toHebrew, yearLabel, todayIso, isoToHebrewText } from '../hebdate.js?v=597';
+import { zmanim, hhmm, LOCATIONS } from '../luach/zmanim.js?v=598';
+import { parashaOf, holidayOf } from '../parasha.js?v=598';
+import { toHebrew, yearLabel, todayIso, isoToHebrewText } from '../hebdate.js?v=598';
 
 let X = null;
 const S = { fri: '' };
@@ -28,13 +28,39 @@ function defaults(fri) {
 }
 
 export function initShabbos(ctx) { X = ctx; }
+// ---------- 📄 דפים קבועים: 🕯 זמני השבת · 📜 שיעור ליל שישי · תבניות שהועלו (Word עם {{שדות}}) ----------
+const BUILTIN = [{ id: 'leil', title: 'שיעור ליל שישי', file: '../../img/mosad/yeshiva/leil-shishi-template.docx',
+  defs: { 'שם המעביר': 'הרה"ג שמואל שאהן שליט"א', 'התואר': 'ראש ישיבתינו הק\'', 'השעה': '9:30' } }];
+// שדות שמתמלאים לבד לפי יום ההפקה
+const AUTO = ['פרשה', 'שנה', 'תאריך', 'תאריך לועזי', 'יום'];
+function tplList() {
+  const out = [...BUILTIN];
+  Object.entries(X.st.settings || {}).forEach(([k, v]) => {
+    if (!k.startsWith('asset:tpl:') || !v) return;
+    let r = {}; try { r = JSON.parse(v) || {}; } catch { r = {}; }
+    if (r.file) out.push({ id: k.slice(10), title: r.title || r.name || 'תבנית', up: true, fields: r.fields || [] });
+  });
+  return out;
+}
 export function renderShabbos(box) {
+  const { h } = X;
+  const tabs = [['shabbos', '🕯 זמני השבת'], ...tplList().map((t) => [t.id, `📜 ${t.title}`])];
+  if (!tabs.some(([k]) => k === S.tab)) S.tab = 'shabbos';
+  box.innerHTML = `<h2 class="ms-h">📄 דפים קבועים</h2>
+    <nav class="ms-subtabs">${tabs.map(([k, l]) => `<button type="button" data-pt="${h(k)}" class="${k === S.tab ? 'on' : ''}">${h(l)}</button>`).join('')}
+      <span class="spacer"></span><button type="button" class="linkish" id="pt-new">➕ תבנית חדשה</button></nav><div id="pt-body"></div>`;
+  X.$$('[data-pt]', box).forEach((b) => { b.onclick = () => { S.tab = b.dataset.pt; renderShabbos(box); }; });
+  X.$('#pt-new', box).onclick = () => newTplDialog(() => renderShabbos(box));
+  const body = X.$('#pt-body', box);
+  if (S.tab === 'shabbos') return renderTimes(body);
+  return renderTpl(body, tplList().find((t) => t.id === S.tab), () => renderShabbos(box));
+}
+function renderTimes(box) {
   const { h } = X;
   if (!S.fri) S.fri = nextFri(todayIso());
   const v = S.v && S.v._fri === S.fri ? S.v : (S.v = { _fri: S.fri, ...defaults(S.fri) });
   const f = (k, l, ph = '') => `<label>${h(l)}<input name="${k}" value="${h(v[k] || '')}" placeholder="${h(ph)}"${/candles|shkia|mincha|seder|shacharis|ks|motzei/.test(k) ? ' dir="ltr" style="width:6em"' : ''}></label>`;
-  box.innerHTML = `<h2 class="ms-h">🕯 זמני השבת</h2>
-    <div class="ms-bar"><label>ערב שבת <input type="date" id="sb-fri" value="${h(S.fri)}"></label>
+  box.innerHTML = `<div class="ms-bar"><label>ערב שבת <input type="date" id="sb-fri" value="${h(S.fri)}"></label>
       <button type="button" class="btn" id="sb-prev">→ שבוע קודם</button><button type="button" class="btn" id="sb-next">שבוע הבא ←</button>
       <span class="muted small">${h(isoToHebrewText(S.fri))}</span><span class="spacer"></span>
       <button type="button" class="linkish" id="sb-reset">⟳ לחשב מחדש מהלוח</button></div>
@@ -49,11 +75,11 @@ export function renderShabbos(box) {
   const form = X.$('#sb-form', box);
   const read = () => { Object.keys(v).forEach((k) => { if (form.elements[k]) v[k] = X.S(form.elements[k].value); }); };
   form.oninput = read;
-  const go = (iso) => { read(); S.fri = nextFri(iso); renderShabbos(box); };
+  const go = (iso) => { read(); S.fri = nextFri(iso); renderTimes(box); };
   X.$('#sb-fri', box).onchange = (e) => e.target.value && go(e.target.value);
   X.$('#sb-prev', box).onclick = () => go(add(S.fri, -7));
   X.$('#sb-next', box).onclick = () => go(add(S.fri, 7));
-  X.$('#sb-reset', box).onclick = () => { const g = v.guest; S.v = { _fri: S.fri, ...defaults(S.fri), guest: g }; renderShabbos(box); };
+  X.$('#sb-reset', box).onclick = () => { const g = v.guest; S.v = { _fri: S.fri, ...defaults(S.fri), guest: g }; renderTimes(box); };
   form.onsubmit = async (e) => {
     e.preventDefault(); read();
     const bad = ['candles', 'shkia', 'minchaF', 'seder', 'shacharis', 'ks', 'minchaS', 'motzei'].find((k) => toMin(v[k]) === null);
@@ -165,5 +191,123 @@ async function build(buf, v) {
   files[di] = ['word/document.xml', xml];
   return zip(files);
 }
+
+// ---------- 📜 תבנית עם שדות: {{שם}} במסמך Word ----------
+/** השדות שבתבנית (גם כשוורד מפצל את {{…}} לכמה ריצות) */
+function fieldsOf(files) {
+  const out = new Set();
+  files.filter(([n]) => /^word\/(document|header\d*|footer\d*)\.xml$/.test(n)).forEach(([, d]) => {
+    const xml = typeof d === 'string' ? d : new TextDecoder().decode(d);
+    (xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) || []).forEach((p) => { const t = runsOf(p).map((r) => r.t).join(''); (t.match(/\{\{([^{}]+)\}\}/g) || []).forEach((m) => out.add(m.slice(2, -2).trim())); });
+  });
+  return [...out];
+}
+const unx = (s) => String(s).replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+/** מחליף {{שדה}} בפסקה — גם כשהוא מפוצל בין ריצות: הטקסט החדש נכנס לריצה הראשונה, והשאר מתקצרות */
+function fillPara(p, vals) {
+  const rs = runsOf(p); if (!rs.length) return p;
+  const texts = rs.map((r) => unx(r.t)); const joined = texts.join('');
+  if (!/\{\{[^{}]+\}\}/.test(joined)) return p;
+  const starts = []; let acc = 0; texts.forEach((t) => { starts.push(acc); acc += t.length; });
+  const runAt = (pos) => { let i = 0; while (i + 1 < starts.length && starts[i + 1] <= pos) i += 1; return i; };
+  const out = [...texts]; const cut = texts.map(() => []); // [from, to, repl] יחסית לריצה
+  let m; const re = /\{\{([^{}]+)\}\}/g;
+  while ((m = re.exec(joined))) {
+    const v = vals[m[1].trim()]; if (v === undefined) continue;
+    const a = m.index; const b = a + m[0].length;
+    const ra = runAt(a); const rb = runAt(b - 1);
+    for (let i = ra; i <= rb; i += 1) { const f = Math.max(a, starts[i]) - starts[i]; const t = Math.min(b, starts[i] + texts[i].length) - starts[i]; cut[i].push([f, t, i === ra ? String(v) : '']); }
+  }
+  cut.forEach((cs, i) => { cs.sort((x, y) => y[0] - x[0]).forEach(([f, t, r]) => { out[i] = out[i].slice(0, f) + r + out[i].slice(t); }); });
+  const valsX = {}; out.forEach((t, i) => { if (t !== texts[i]) valsX[i] = xe(t); });
+  return setRuns(p, valsX);
+}
+async function buildTpl(buf, vals) {
+  const files = await unzip(buf);
+  files.forEach((f, i) => {
+    if (!/^word\/(document|header\d*|footer\d*)\.xml$/.test(f[0])) return;
+    const xml = new TextDecoder().decode(f[1]);
+    files[i] = [f[0], xml.replace(/<w:p[ >][\s\S]*?<\/w:p>/g, (p) => fillPara(p, vals))];
+  });
+  return zip(files);
+}
+/** השדות האוטומטיים לפי יום ההפקה: הפרשה של השבת הקרובה, השנה, התאריך העברי */
+function autoVals(iso) {
+  const sat = add(iso, (6 - new Date(`${iso}T12:00:00Z`).getUTCDay() + 7) % 7);
+  const hy = toHebrew(sat);
+  const DN = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת קודש'];
+  return { 'פרשה': holidayOf(sat, true) || parashaOf(sat, true)?.he || '', 'שנה': hy ? yearLabel(hy.y) : '', 'תאריך': isoToHebrewText(iso), 'תאריך לועזי': iso.split('-').reverse().join('/'), 'יום': `יום ${DN[new Date(`${iso}T12:00:00Z`).getUTCDay()]}` };
+}
+const memKey = (id) => `ms-tpl-${id}`;
+const mem = (id) => { try { return JSON.parse(localStorage.getItem(memKey(id)) || '{}') || {}; } catch { return {}; } };
+async function tplBuf(t) {
+  if (t.file) { const r = await fetch(new URL(t.file, import.meta.url)); if (!r.ok) throw new Error('התבנית לא נמצאה.'); return r.arrayBuffer(); }
+  const r = await X.call(X.KEY, 'assetGet', { kind: 'tpl', id: t.id });
+  const b64 = String(r.data).split(',')[1]; const bin = atob(b64); const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i += 1) u8[i] = bin.charCodeAt(i);
+  return u8.buffer;
+}
+async function renderTpl(box, t, back) {
+  const { h } = X;
+  if (!t) { box.innerHTML = '<p class="ms-note">לא נמצא.</p>'; return; }
+  box.innerHTML = '<p class="muted">טוען את התבנית…</p>';
+  let buf; let fields;
+  try { buf = await tplBuf(t); fields = fieldsOf(await unzip(buf.slice(0))); } catch (err) { box.innerHTML = `<p class="ms-note err">${h(X.msg(err))}</p>`; return; }
+  if (!S.tdate) S.tdate = todayIso();
+  const auto = autoVals(S.tdate);
+  const manual = fields.filter((f) => !AUTO.includes(f));
+  const autos = fields.filter((f) => AUTO.includes(f));
+  const v0 = { ...(t.defs || {}), ...mem(t.id) };
+  box.innerHTML = `<form class="ms-form" id="pt-form">
+      <div class="ms-bar"><label>יום ההפקה <input type="date" name="_date" value="${h(S.tdate)}"></label><span class="muted small">${h(isoToHebrewText(S.tdate))}</span><span class="spacer"></span>
+        ${t.up ? '<button type="button" class="linkish" id="pt-del">🗑 הסרת התבנית</button>' : ''}</div>
+      ${autos.length ? `<fieldset><legend>מתמלא לבד לפי היום (אפשר לשנות)</legend><div class="grid">${autos.map((f) => `<label>${h(f)}<input name="${h(f)}" value="${h(auto[f] || '')}"></label>`).join('')}</div></fieldset>` : ''}
+      ${manual.length ? `<fieldset><legend>שדות למילוי</legend><div class="grid">${manual.map((f) => `<label>${h(f)}<input name="${h(f)}" value="${h(v0[f] || '')}"></label>`).join('')}</div></fieldset>` : '<p class="muted">אין בתבנית שדות למילוי.</p>'}
+      <p class="muted small">הערכים האחרונים נשמרים לפעם הבאה. השדות בתבנית כתובים במסמך כך: {{שם השדה}}. שדות אוטומטיים: ${AUTO.map((x) => `{{${x}}}`).join(' ')}.</p>
+      <div class="actions"><span class="spacer"></span><button type="submit" class="btn primary">⬇ Word מוכן</button></div></form>`;
+  const form = X.$('#pt-form', box);
+  form.elements._date.onchange = (e) => { if (e.target.value) { S.tdate = e.target.value; renderTpl(box, t, back); } };
+  X.$('#pt-del', box)?.addEventListener('click', async () => {
+    if (!window.confirm(`להסיר את התבנית "${t.title}"? (הקובץ נשאר בדרייב)`)) return;
+    try { const r = await X.call(X.KEY, 'assetSave', { kind: 'tpl', id: t.id, remove: true }); X.st.settings = r.settings || X.st.settings; S.tab = 'shabbos'; back(); } catch (err) { X.toast(X.msg(err), 'err'); }
+  });
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const vals = {}; fields.forEach((f) => { vals[f] = X.S(form.elements[f]?.value ?? ''); });
+    try { localStorage.setItem(memKey(t.id), JSON.stringify(Object.fromEntries(manual.map((f) => [f, vals[f]])))); } catch { /* */ }
+    try {
+      const blob = await buildTpl(buf.slice(0), vals);
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `${t.title} - ${vals['פרשה'] || auto['פרשה'] || ''} ${vals['שנה'] || auto['שנה'] || ''}.docx`.replace(/["/\\?*:|<>]/g, '').replace(/\s+/g, ' ');
+      document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    } catch (err) { X.toast(X.msg(err), 'err'); }
+  };
+}
+function newTplDialog(after) {
+  const { h } = X;
+  const d = X.dialog(`<h2>➕ תבנית חדשה</h2>
+    <p class="muted small">מכינים את הדף ב-Word כרגיל, ובמקום הדברים שמשתנים כותבים בסוגריים כפולים: <b>{{שם המעביר}}</b>, <b>{{השעה}}</b> וכו'. שדות שמתמלאים לבד: ${AUTO.map((x) => `<b>{{${h(x)}}}</b>`).join(' ')}. המערכת מזהה את השדות לבד.</p>
+    <form class="ms-form"><label>שם התבנית<input name="title" required placeholder="למשל: מסיבת חנוכה"></label>
+      <label>קובץ Word (‎.docx)<input type="file" name="file" accept=".docx" required></label>
+      <div id="nt-found" class="muted small"></div>
+      <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>ביטול</button><button type="submit" class="btn primary">⬆ העלאה</button></div></form>`);
+  X.$$('[data-x]', d).forEach((b) => { b.onclick = () => d.close(); });
+  const form = X.$('form', d); let fields = [];
+  form.elements.file.onchange = async () => {
+    const f = form.elements.file.files[0]; if (!f) return;
+    try { fields = fieldsOf(await unzip(await f.arrayBuffer())); X.$('#nt-found', d).innerHTML = fields.length ? `נמצאו שדות: ${fields.map((x) => `<b>${h(x)}</b>`).join(', ')}` : '⚠ לא נמצאו שדות {{…}} בקובץ.'; if (!form.elements.title.value) form.elements.title.value = f.name.replace(/\.docx$/i, ''); } catch { X.$('#nt-found', d).textContent = '⚠ הקובץ לא נקרא — האם זה ‎.docx?'; }
+  };
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const f = form.elements.file.files[0]; if (!f) return;
+    const btn = X.$('button[type=submit]', form); btn.disabled = true;
+    try {
+      const data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+      const fixed = String(data).replace(/^data:[^;]*;/, 'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;');
+      const id = `t${Date.now().toString(36)}`;
+      const r = await X.call(X.KEY, 'assetSave', { kind: 'tpl', id, name: f.name, data: fixed, meta: { title: X.S(form.elements.title.value), fields } });
+      X.st.settings = r.settings || X.st.settings; S.tab = id; d.close(); X.toast('התבנית נשמרה.'); after();
+    } catch (err) { btn.disabled = false; X.toast(X.msg(err), 'err'); }
+  };
+}
 // לבדיקה (node)
-export const _test = { defaults, setTime, plain, runsOf, unzip, zip, build };
+export const _test = { defaults, setTime, plain, runsOf, unzip, zip, build, fieldsOf, fillPara, buildTpl, autoVals };

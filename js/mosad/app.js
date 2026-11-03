@@ -1,18 +1,18 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { letterhead, hebrewDateHints } from './brand.js?v=597';
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=597';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=597';
-import { initGifts, renderGifts } from './gifts.js?v=597';
-import { initTheme } from './theme.js?v=597';
-import { initAsk } from './ask.js?v=597';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab, renderStipPage } from './journal.js?v=597';
-import { initDorm, renderDorm } from './dorm.js?v=597';
-import { initReg, renderReg } from './reg.js?v=597';
-import { initSortTables } from '../sorttables.js?v=597';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=597';
-import { initTeam, renderTeam } from './team.js?v=597';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=597';
+import { letterhead, hebrewDateHints } from './brand.js?v=598';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=598';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=598';
+import { initGifts, renderGifts } from './gifts.js?v=598';
+import { initTheme } from './theme.js?v=598';
+import { initAsk } from './ask.js?v=598';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab, renderStipPage } from './journal.js?v=598';
+import { initDorm, renderDorm } from './dorm.js?v=598';
+import { initReg, renderReg } from './reg.js?v=598';
+import { initSortTables } from '../sorttables.js?v=598';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups } from './me.js?v=598';
+import { initTeam, renderTeam } from './team.js?v=598';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=598';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -63,7 +63,8 @@ const TILES = [
   { k: 'insurance', ic: '🏥', t: 'ביטוח בריאות', sub: 'קופה, מספר חבר, חובות' },
   { k: 'attendance', ic: '✅', t: 'השתתפות', sub: 'יומנים, כניסה ויציאה של אברכים' },
   { k: 'stipends', ic: '🎖', t: 'מלגות', sub: 'לפי סוג מלגה, פתקים ומזומן' },
-  { k: 'shabbos', ic: '🕯', t: 'זמני השבת', sub: 'דף לשבת — Word לפי התבנית', only: 'yeshiva' },
+  { k: 'shabbos', ic: '🕯', t: 'דפים קבועים', sub: 'זמני השבת, שיעור ליל שישי ותבניות', only: 'yeshiva' },
+  { k: 'simchos', ic: '🎉', t: 'עדכון שמחות', sub: 'לאונגוואר + דף מזל טוב' },
   { k: 'kitchen', ic: '🍳', t: 'מלאי המטבח', sub: 'התראות, רשימת קניות לפי ספק' },
   { k: 'chavrusas', ic: '🤝', t: 'חברותות', sub: 'לכל סדר, כולל אברכים' },
   { k: 'donations', ic: '💝', t: 'נדבות וקבלות', sub: 'כולל קבלות אמריקאיות' },
@@ -73,7 +74,7 @@ const TILES = [
   { k: 'dorm', ic: '🛏', t: 'פנימייה', sub: 'חדרים ושיבוץ' },
   { k: 'reg', ic: '📝', t: 'רישום לישיבה', sub: 'מועמדים וטופס הרשמה' },
 ];
-const PERM_NAMES = { ...Object.fromEntries(TILES.filter((x) => x.k !== 'shabbos').map((x) => [x.k, x.t])), finance: 'חובות והוצאות', people_edit: 'הוספה ועדכון אנשי קשר', reg_docs: 'רישום — צפייה בדרכון ובתעודת לידה',
+const PERM_NAMES = { ...Object.fromEntries(TILES.map((x) => [x.k, x.t])), shabbos: 'דפים קבועים (זמני השבת, ליל שישי…)', finance: 'חובות והוצאות', people_edit: 'הוספה ועדכון אנשי קשר', reg_docs: 'רישום — צפייה בדרכון ובתעודת לידה',
   manager: '👑 מנהל מוסד / טכני — משכורות, שכר לימוד, נדבות וקבלות', salary: 'משכורות' };
 
 const ROLE_NAMES = { owner: 'בעלים', admin: 'מנהל', staff: 'צוות' };
@@ -228,8 +229,9 @@ function render(fromPop) {
   else if (st.tab === 'chavrusas') renderChav(box);
   else if (st.tab === 'attendance') renderAtt(box);
   else if (st.tab === 'stipends') renderStipPage(box);
-  else if (st.tab === 'kitchen') import('./kitchen.js?v=597').then((m) => { m.initKitchen(ctx); m.renderKitchen(box); });
-  else if (st.tab === 'shabbos') import('./shabbos.js?v=597').then((m) => { m.initShabbos(ctx); m.renderShabbos(box); });
+  else if (st.tab === 'kitchen') import('./kitchen.js?v=598').then((m) => { m.initKitchen(ctx); m.renderKitchen(box); });
+  else if (st.tab === 'shabbos') import('./shabbos.js?v=598').then((m) => { m.initShabbos(ctx); m.renderShabbos(box); });
+  else if (st.tab === 'simchos') import('./simcha.js?v=598').then((m) => { m.initSimcha(ctx); m.renderSimcha(box); });
   else if (st.tab === 'insurance') renderIns(box);
   else if (st.tab === 'staff_list') renderTeam(box);
   else if (st.tab === 'finance') renderFinance(box);
@@ -241,7 +243,7 @@ function render(fromPop) {
 }
 
 function renderHome(box) {
-  const tiles = TILES.filter((x) => (!x.only || x.only === KEY) && (can(x.k) || (x.k === 'finance' && can('salary')) || (x.k === 'shabbos' && (can('attendance') || can('stipends')))));
+  const tiles = TILES.filter((x) => (!x.only || x.only === KEY) && (can(x.k) || (x.k === 'finance' && can('salary'))));
   // די קליינע כפתורים — אין צוויי שורות, נאך די גרויסע
   const small = [
     can('people_edit') ? '<button type="button" class="btn" data-go="people">👥 כל האנשים</button>' : '',

@@ -1,20 +1,29 @@
 // 🍳 מלאי המטבח — על הגיליון של המוסד (Kitchen, KitchenOrders), לא Firebase.
 // התראות: מתחת למינימום / לפני שייגמר (ימי אספקה × צריכה יומית) / תוקף (5 ימים לפני) · רשימת קניות לפי ספק · הזמנות קבועות לפי יום בשבוע.
-import { downloadXlsx } from '../excel.js?v=597';
-import { colFilters } from '../sorttables.js?v=597';
+import { downloadXlsx } from '../excel.js?v=598';
+import { colFilters } from '../sorttables.js?v=598';
 
 let X = null;
-const K = { d: null, tab: 'stock', cat: '', q: '', sort: 'name', card: '' };
+const K = { d: null, tab: 'stock', cat: '', sup: '', q: '', sort: 'name', card: '', frozen: false };
 const DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 const UNITS = ['יחידות', 'ק"ג', 'ליטר', 'מארזים', 'קרטונים', 'גרם'];
 const CATS0 = ['יבש', 'חלב', 'בשר', 'עוף', 'דגים', 'ירקות ופירות', 'קפואים', 'שתייה', 'לחם ומאפים', 'תבלינים', 'ניקיון', 'חד פעמי'];
 const WARN_DAYS = 5;
 const FIELDS = [
   ['product_name', 'שם המוצר'], ['category', 'קטגוריה'], ['current_stock', 'כמות במלאי', 'n'], ['unit', 'יחידה'],
-  ['min_threshold', 'מינימום להתראה', 'n'], ['daily_use', 'צריכה ליום (בערך)', 'n'], ['lead_time_days', 'ימי אספקה מהספק', 'n'],
+  ['min_threshold', 'מינימום להתראה', 'n'], ['daily_use', 'שימוש בשבוע (בערך)', 'n'], ['lead_time_days', 'ימי אספקה מהספק', 'n'],
+  ['pack_size', 'יחידות בקרטון / אריזה (אם מזמינים באריזות)', 'n'],
   ['expiry_date', 'תאריך תפוגה', 'date'], ['supplier_name', 'ספק'], ['unit_price', 'מחיר ליחידה ₪', 'n'],
-  ['recurring_day', 'יום הזמנה קבוע'], ['standard_qty', 'כמות תקן להזמנה קבועה', 'n'], ['note', 'הערה'],
+  ['recurring_day', 'יום הזמנה קבוע'], ['standard_qty', 'כמות תקן להזמנה קבועה', 'n'], ['note', 'הערה'], ['frozen', 'מוקפא'],
 ];
+// "שימוש בשבוע" — נשמר כצריכה ליום (daily_use), מוצג ×7
+const weekly = (it) => (it.daily_use === '' || it.daily_use == null ? '' : Math.round(n(it.daily_use) * 7 * 100) / 100);
+const isFrozen = (it) => ['1', 'true', 'כן', 'yes'].includes(String(it.frozen || '').toLowerCase());
+const pack = (it) => Math.max(1, n(it.pack_size) || 1);
+/** כמה אריזות להזמין (כשמזמינים בקרטונים) */
+const packs = (it, units) => (pack(it) > 1 ? Math.ceil(units / pack(it)) : units);
+const supsList = () => K.d?.suppliers || [];
+const supOf = (name) => supsList().find((x) => x.name === name);
 const n = (v) => Number(v) || 0;
 const today = () => new Date().toISOString().slice(0, 10);
 const daysTo = (iso) => (iso ? Math.round((Date.parse(`${iso}T12:00:00Z`) - Date.parse(`${today()}T12:00:00Z`)) / 86400000) : null);
@@ -33,7 +42,7 @@ function status(it) {
     d,
   };
 }
-const needsOrder = (it) => { const s = status(it); return s.low || s.soon; };
+const needsOrder = (it) => { if (isFrozen(it)) return false; const s = status(it); return s.low || s.soon; };
 /** כמה להזמין: עד המינימום + צריכה בימי האספקה + שבוע; בהזמנה קבועה — תקן פחות מה שנשאר */
 function orderQty(it, recurring = false) {
   if (recurring && n(it.standard_qty)) return Math.max(0, n(it.standard_qty) - n(it.current_stock));
@@ -52,15 +61,15 @@ export async function renderKitchen(box) {
     try { await load(); } catch (err) { box.innerHTML = `<p class="ms-note err">${h(X.msg(err))}</p>`; return; }
   }
   const items = K.d.items || [];
-  const st = items.map((it) => ({ it, s: status(it) }));
+  const st = items.filter((it) => !isFrozen(it)).map((it) => ({ it, s: status(it) }));
   const m = {
-    all: items.length,
+    all: items.filter((it) => !isFrozen(it)).length,
     order: st.filter((x) => x.s.low || x.s.soon).length,
     exp: st.filter((x) => x.s.exp || x.s.expSoon).length,
     value: items.reduce((t, it) => t + n(it.current_stock) * n(it.unit_price), 0),
   };
   const dow = new Date().getDay();
-  const todays = items.filter((it) => it.recurring_day !== '' && Number(it.recurring_day) === dow && n(it.standard_qty));
+  const todays = items.filter((it) => !isFrozen(it) && it.recurring_day !== '' && Number(it.recurring_day) === dow && n(it.standard_qty));
   const reqs = (!kw() && K.d.requests) || [];
   const card = (k, ic, l, v, cls = '') => `<button type="button" class="kc-card${K.card === k ? ' on' : ''} ${cls}" data-card="${k}"><span>${ic} ${h(l)}</span><b>${h(String(v))}</b></button>`;
   box.innerHTML = `<h2 class="ms-h">🍳 מלאי המטבח</h2>
@@ -71,12 +80,13 @@ export async function renderKitchen(box) {
         <button type="button" class="btn small-btn primary" data-ok="${h(r.req_id)}">✓ לאשר</button><button type="button" class="btn small-btn" data-no="${h(r.req_id)}">✗ לדחות</button></div>`; }).join('')}</div>` : ''}
     ${todays.length ? `<p class="ms-note">📅 היום יום הזמנה קבועה: ${todays.map((it) => `<b>${h(it.product_name)}</b> (${orderQty(it, true)} ${h(it.unit || '')})`).join(' · ')} <button type="button" class="btn small-btn" id="kc-rec">🛒 לרשימת הקניות</button></p>` : ''}
     <nav class="ms-subtabs">${[['stock', '📦 מלאי'], ['shop', '🛒 רשימת קניות'], ['events', '🎉 הזמנות מיוחדות'], ['hist', '📜 היסטוריית הזמנות']].map(([k, l]) => `<button type="button" data-kt="${k}" class="${K.tab === k ? 'on' : ''}">${h(l)}</button>`).join('')}
-      <span class="spacer"></span>${kw() ? '' : '<button type="button" class="linkish" id="kc-workers">🔑 אנשי המטבח וסיסמאות</button>'}<button type="button" class="linkish" id="kc-reload">⟳ רענון</button></nav>
+      <span class="spacer"></span>${kw() ? '' : '<button type="button" class="linkish" id="kc-sups">🚚 ספקים</button><button type="button" class="linkish" id="kc-workers">🔑 אנשי המטבח וסיסמאות</button>'}<button type="button" class="linkish" id="kc-reload">⟳ רענון</button></nav>
     <div id="kc-body"></div>`;
   X.$$('[data-kt]', box).forEach((b) => { b.onclick = () => { K.tab = b.dataset.kt; renderKitchen(box); }; });
   X.$$('[data-card]', box).forEach((b) => { b.onclick = () => { K.card = b.dataset.card === 'value' ? '' : (K.card === b.dataset.card ? '' : b.dataset.card); K.tab = K.card === 'order' ? 'shop' : 'stock'; renderKitchen(box); }; });
   X.$('#kc-reload', box).onclick = () => { K.d = null; renderKitchen(box); };
   X.$('#kc-workers', box)?.addEventListener('click', () => workersDialog(() => { K.d = null; renderKitchen(box); }));
+  X.$('#kc-sups', box)?.addEventListener('click', () => suppliersDialog(() => renderKitchen(box)));
   const decide = async (id, approve) => { try { await X.call(X.KEY, 'kitchenReqDecide', { id, approve }); await load(); renderKitchen(box); X.toast(approve ? 'אושר.' : 'נדחה.'); } catch (err) { X.toast(X.msg(err), 'err'); } };
   X.$$('[data-ok]', box).forEach((b) => { b.onclick = () => decide(b.dataset.ok, true); });
   X.$$('[data-no]', box).forEach((b) => { b.onclick = () => decide(b.dataset.no, false); });
@@ -104,15 +114,20 @@ function stockTab(body, rer) {
   const items = K.d.items || [];
   const cats = [...new Set([...CATS0, ...items.map((x) => x.category).filter(Boolean)])];
   const q = K.q.trim();
-  let list = items.filter((it) => (!K.cat || it.category === K.cat) && (!q || [it.product_name, it.supplier_name, it.category, it.note].join(' ').includes(q)));
+  const sups = [...new Set([...supsList().map((x) => x.name), ...items.map((x) => x.supplier_name).filter(Boolean)])].sort((a, b) => a.localeCompare(b, 'he'));
+  const nFrozen = items.filter(isFrozen).length;
+  let list = items.filter((it) => (!K.cat || it.category === K.cat) && (!K.sup || (K.sup === '_none' ? !it.supplier_name : it.supplier_name === K.sup)) && (K.frozen ? isFrozen(it) : !isFrozen(it))
+    && (!q || [it.product_name, it.supplier_name, it.category, it.note].join(' ').includes(q)));
   if (K.card === 'order') list = list.filter(needsOrder);
   if (K.card === 'exp') list = list.filter((it) => { const s = status(it); return s.exp || s.expSoon; });
   const sorters = { name: (a, b) => a.product_name.localeCompare(b.product_name, 'he'), exp: (a, b) => (a.expiry_date || '9999').localeCompare(b.expiry_date || '9999'), qty: (a, b) => n(a.current_stock) - n(b.current_stock) };
   list.sort(sorters[K.sort] || sorters.name);
-  const badge = (it) => { const s = status(it); return [s.low ? '<span class="kc-b bad">מתחת למינימום</span>' : '', s.soon ? '<span class="kc-b warn">להזמין עכשיו (ימי אספקה)</span>' : '', s.exp ? '<span class="kc-b bad">פג תוקף</span>' : '', s.expSoon ? `<span class="kc-b warn">פג בעוד ${s.d} ימים</span>` : ''].join(' '); };
+  const badge = (it) => { if (isFrozen(it)) return '<span class="kc-b">🧊 מוקפא</span>'; const s = status(it); return [s.low ? '<span class="kc-b bad">מתחת למינימום</span>' : '', s.soon ? '<span class="kc-b warn">להזמין עכשיו (ימי אספקה)</span>' : '', s.exp ? '<span class="kc-b bad">פג תוקף</span>' : '', s.expSoon ? `<span class="kc-b warn">פג בעוד ${s.d} ימים</span>` : ''].join(' '); };
   body.innerHTML = `<div class="ms-bar">
       <input type="search" id="kc-q" placeholder="חיפוש…" value="${h(K.q)}">
       <select id="kc-cat"><option value="">כל הקטגוריות</option>${cats.map((c) => `<option${c === K.cat ? ' selected' : ''}>${h(c)}</option>`).join('')}</select>
+      <select id="kc-sup"><option value="">כל הספקים</option>${sups.map((c) => `<option${c === K.sup ? ' selected' : ''}>${h(c)}</option>`).join('')}<option value="_none"${K.sup === '_none' ? ' selected' : ''}>בלי ספק</option></select>
+      ${nFrozen || K.frozen ? `<label class="check"><input type="checkbox" id="kc-frz"${K.frozen ? ' checked' : ''}> 🧊 מוקפאים (${nFrozen})</label>` : ''}
       <select id="kc-sort">${[['name', 'מיון: א-ב'], ['exp', 'מיון: תוקף'], ['qty', 'מיון: כמות']].map(([k, l]) => `<option value="${k}"${k === K.sort ? ' selected' : ''}>${l}</option>`).join('')}</select>
       ${K.card ? `<button type="button" class="linkish" id="kc-clr">✕ ${K.card === 'order' ? 'לחידוש' : 'תוקף'}</button>` : ''}
       <span class="spacer"></span>
@@ -121,18 +136,27 @@ function stockTab(body, rer) {
     </div>
     ${list.length ? `<div class="ms-wrap"><table class="ms-table col-filter" data-fkey="kitchen"><thead><tr><th>מוצר</th><th>קטגוריה</th><th>במלאי</th><th>מינימום</th><th>תוקף</th><th>ספק</th>${showPrices() ? '<th>מחיר</th>' : ''}<th>מצב</th><th></th></tr></thead><tbody>
       ${list.map((it) => `<tr><td><b>${h(it.product_name)}</b>${it.note ? `<div class="muted small">${h(it.note)}</div>` : ''}</td><td>${h(it.category)}</td>
-        <td class="c" data-v="${n(it.current_stock)}"><button type="button" class="btn small-btn" data-dec="${h(it.product_id)}">−</button> <b>${h(String(n(it.current_stock)))}</b> ${h(it.unit || '')} <button type="button" class="btn small-btn" data-inc="${h(it.product_id)}">+</button></td>
+        <td class="c" data-v="${n(it.current_stock)}"><button type="button" class="btn small-btn" data-dec="${h(it.product_id)}">−</button> <b>${h(String(n(it.current_stock)))}</b> ${h(it.unit || '')} <button type="button" class="btn small-btn" data-inc="${h(it.product_id)}">+</button>${pack(it) > 1 ? `<div class="muted small">≈ ${Math.floor(n(it.current_stock) / pack(it))} אריזות של ${pack(it)}</div>` : ''}</td>
         <td class="c">${h(it.min_threshold)}</td><td class="small" data-v="${h(it.expiry_date || '')}">${h(it.expiry_date || '')}</td><td>${h(it.supplier_name)}</td>${showPrices() ? `<td class="num">${it.unit_price !== '' ? h(money(it.unit_price)) : ''}</td>` : ''}
-        <td>${badge(it)}</td><td class="ms-acts"><button type="button" class="btn small-btn" data-ed="${h(it.product_id)}">✎</button></td></tr>`).join('')}
+        <td>${badge(it)}</td><td class="ms-acts"><button type="button" class="btn small-btn" data-ed="${h(it.product_id)}">✎</button>${kw() ? '' : ` <button type="button" class="btn small-btn" data-frz="${h(it.product_id)}" title="${isFrozen(it) ? 'להפשיר (להחזיר לשימוש)' : 'להקפיא (לא בשימוש כרגע — בלי התראות והזמנות)'}">${isFrozen(it) ? '♨' : '🧊'}</button>`}</td></tr>`).join('')}
     </tbody></table></div>` : '<p class="muted ms-empty">אין.</p>'}`;
   const qi = X.$('#kc-q', body); qi.oninput = () => { K.q = qi.value; clearTimeout(K.t); K.t = setTimeout(() => { stockTab(body, rer); const x = X.$('#kc-q', body); x.focus(); x.setSelectionRange(x.value.length, x.value.length); }, 250); };
   X.$('#kc-cat', body).onchange = (e) => { K.cat = e.target.value; stockTab(body, rer); };
   X.$('#kc-sort', body).onchange = (e) => { K.sort = e.target.value; stockTab(body, rer); };
+  X.$('#kc-sup', body).onchange = (e) => { K.sup = e.target.value; stockTab(body, rer); };
+  X.$('#kc-frz', body)?.addEventListener('change', (e) => { K.frozen = e.target.checked; stockTab(body, rer); });
+  X.$$('[data-frz]', body).forEach((b) => {
+    b.onclick = async () => {
+      const it = items.find((x) => x.product_id === b.dataset.frz); if (!it) return;
+      const v = isFrozen(it) ? '' : 'כן';
+      try { await X.call(X.KEY, 'kitchenSave', { row: { product_id: it.product_id, frozen: v } }); it.frozen = v; rer(); X.toast(v ? `"${it.product_name}" הוקפא — בלי התראות והזמנות.` : `"${it.product_name}" חזר לשימוש.`); } catch (err) { X.toast(X.msg(err), 'err'); }
+    };
+  });
   X.$('#kc-clr', body)?.addEventListener('click', () => { K.card = ''; rer(); });
   X.$('#kc-new', body).onclick = () => itemDialog({}, rer);
   X.$('#kc-imp', body)?.addEventListener('click', () => importXl(rer));
   const FX = FIELDS.filter(([k]) => showPrices() || k !== 'unit_price');
-  X.$('#kc-xl', body).onclick = () => downloadXlsx('מלאי המטבח', FX.map(([, l]) => l), items.map((it) => FX.map(([k, , t]) => (k === 'recurring_day' ? (it[k] !== '' ? DAYS[Number(it[k])] || '' : '') : t === 'n' ? (it[k] === '' ? '' : n(it[k])) : it[k] || ''))), { rtl: true });
+  X.$('#kc-xl', body).onclick = () => downloadXlsx('מלאי המטבח', FX.map(([, l]) => l), items.map((it) => FX.map(([k, , t]) => (k === 'recurring_day' ? (it[k] !== '' ? DAYS[Number(it[k])] || '' : '') : k === 'daily_use' ? weekly(it) : k === 'frozen' ? (isFrozen(it) ? 'כן' : '') : t === 'n' ? (it[k] === '' || it[k] == null ? '' : n(it[k])) : it[k] || ''))), { rtl: true });
   const byId = (id) => items.find((x) => x.product_id === id);
   const bump = async (id, d) => {
     const it = byId(id); if (!it) return;
@@ -154,6 +178,8 @@ function itemDialog(it, rer) {
     if (k === 'unit') return `<label>${l}<input name="${k}" list="kc-dl-u" value="${h(it[k] || 'יחידות')}"></label>`;
     if (k === 'category') return `<label>${l}<input name="${k}" list="kc-dl-c" value="${h(it[k] || '')}"></label>`;
     if (k === 'supplier_name') return `<label>${l}<input name="${k}" list="kc-dl-s" value="${h(it[k] || '')}"></label>`;
+    if (k === 'daily_use') return `<label>${l}<input name="${k}" type="number" step="any" min="0" dir="ltr" value="${h(weekly(it))}"></label>`;
+    if (k === 'frozen') return `<label class="check"><input type="checkbox" name="${k}"${isFrozen(it) ? ' checked' : ''}> 🧊 מוקפא — לא בשימוש כרגע (בלי התראות והזמנות)</label>`;
     if (k === 'recurring_day') return `<label>${l}<select name="${k}"><option value="">ללא</option>${DAYS.slice(0, 6).map((d, i) => `<option value="${i}"${String(it[k]) === String(i) && it[k] !== '' ? ' selected' : ''}>יום ${d}'</option>`).join('')}</select></label>`;
     return `<label>${l}<input name="${k}"${t === 'n' ? ' type="number" step="any" min="0" dir="ltr"' : t === 'date' ? ' type="date"' : ''} value="${h(it[k] ?? '')}"${k === 'product_name' ? ' required' : ''}></label>`;
   };
@@ -163,13 +189,15 @@ function itemDialog(it, rer) {
     <form class="ms-form"><fieldset${ro ? ' disabled' : ''} style="border:0;padding:0;margin:0"><div class="grid">${FIELDS.filter(([k]) => showPrices() || k !== 'unit_price').map(inp).join('')}</div></fieldset>
       ${W ? '<label>הערה למנהל<input name="rq_note"></label>' : ''}
       <datalist id="kc-dl-u">${UNITS.map((u) => `<option value="${h(u)}">`).join('')}</datalist><datalist id="kc-dl-c">${cats.map((u) => `<option value="${h(u)}">`).join('')}</datalist><datalist id="kc-dl-s">${sups.map((u) => `<option value="${h(u)}">`).join('')}</datalist>
-      <p class="muted small">התראה מוקדמת: כשהמלאי ≤ מינימום + (צריכה ליום × ימי אספקה) — מופיע ב"לחידוש" לפני שנגמר. הזמנה קבועה: ביום שנבחר — כמות להזמנה = תקן − מה שנשאר במדף.</p>
+      <p class="muted small">המלאי, המינימום והשימוש — ביחידות בודדות. מוצר שמזמינים בקרטון: ממלאים "יחידות בקרטון" — ההזמנה והקליטה בקרטונים, והמלאי יורד ביחידות. התראה מוקדמת: כשהמלאי ≤ מינימום + (שימוש בשבוע ÷ 7 × ימי אספקה) — מופיע ב"לחידוש" לפני שנגמר. הזמנה קבועה: ביום שנבחר — כמות להזמנה = תקן − מה שנשאר במדף.</p>
       <div class="actions">${it.product_id ? `<button type="button" class="btn danger" id="kc-del">🗑 ${W ? 'בקשה למחוק' : 'מחיקה'}</button>` : ''}<span class="spacer"></span><button type="button" class="btn" data-x>ביטול</button>${ro ? '' : `<button type="submit" class="btn primary">${W ? '📨 לשלוח למנהל' : '💾 שמירה'}</button>`}</div></form>`);
   X.$$('[data-x]', d).forEach((b) => { b.onclick = () => d.close(); });
   const form = X.$('form', d);
   form.onsubmit = async (e) => {
     e.preventDefault();
     const row = { product_id: it.product_id || '' }; FIELDS.forEach(([k]) => { if (form.elements[k]) row[k] = X.S(form.elements[k].value); });
+    if (form.elements.daily_use) row.daily_use = row.daily_use === '' ? '' : String(Math.round((n(row.daily_use) / 7) * 1000) / 1000);
+    if (form.elements.frozen) row.frozen = form.elements.frozen.checked ? 'כן' : '';
     const btn = X.$('button[type=submit]', form); btn.disabled = true;
     try {
       if (W) { await X.call(X.KEY, 'kitchenRequest', { type: 'add', row, note: X.S(form.elements.rq_note.value) }); d.close(); X.toast('הבקשה נשלחה למנהל.'); return; }
@@ -191,23 +219,25 @@ function shopTab(body, rer) {
   const items = K.d.items || [];
   const dow = new Date().getDay();
   const rec = (it) => K.rec && it.recurring_day !== '' && Number(it.recurring_day) === dow && n(it.standard_qty);
-  const list = items.filter((it) => needsOrder(it) || rec(it)).map((it) => ({ it, qty: orderQty(it, rec(it)) })).filter((x) => x.qty > 0);
+  const list = items.filter((it) => !isFrozen(it) && (needsOrder(it) || rec(it))).map((it) => ({ it, qty: packs(it, orderQty(it, rec(it))) })).filter((x) => x.qty > 0);
+  const uName = (it) => (pack(it) > 1 ? `קרטונים (${pack(it)} ${it.unit || 'יח\''})` : it.unit || '');
   const groups = {};
   list.forEach((x) => { (groups[x.it.supplier_name || 'בלי ספק'] ||= []).push(x); });
   const sups = Object.keys(groups).sort((a, b) => a.localeCompare(b, 'he'));
   body.innerHTML = `<div class="ms-bar"><span class="muted small">פריטים שמתחת לסף (וגם לפי ימי האספקה) עוברים לכאן לבד. אפשר לשנות כמות לפני ששולחים.${K.rec ? ' כולל ההזמנות הקבועות של היום.' : ''}</span><span class="spacer"></span>
       <button type="button" class="btn" id="ks-print">🖨 PDF / הדפסה</button><button type="button" class="btn" id="ks-xl">⬇ Excel</button></div>
-    ${sups.length ? sups.map((sp) => `<section class="kc-sup"><h3>🚚 ${h(sp)}</h3>
+    ${sups.length ? sups.map((sp) => `<section class="kc-sup"><h3>🚚 ${h(sp)}${supOf(sp)?.phone ? ` <span class="muted small" dir="ltr">${h(supOf(sp).phone)}</span>` : ''}${supOf(sp)?.contact ? ` <span class="muted small">· ${h(supOf(sp).contact)}</span>` : ''}</h3>
       <table class="ms-table"><thead><tr><th>מוצר</th><th>במלאי</th><th>להזמין</th>${showPrices() ? '<th>מחיר</th>' : ''}</tr></thead><tbody>
-      ${groups[sp].map((x) => `<tr><td>${h(x.it.product_name)}</td><td>${h(String(n(x.it.current_stock)))} ${h(x.it.unit || '')}</td><td><input type="number" min="0" step="any" class="ks-q" data-id="${h(x.it.product_id)}" value="${x.qty}" style="width:6em" dir="ltr"> ${h(x.it.unit || '')}</td>${showPrices() ? `<td class="num">${x.it.unit_price !== '' ? h(money(n(x.it.unit_price) * x.qty)) : ''}</td>` : ''}</tr>`).join('')}
+      ${groups[sp].map((x) => `<tr><td>${h(x.it.product_name)}</td><td>${h(String(n(x.it.current_stock)))} ${h(x.it.unit || '')}</td><td><input type="number" min="0" step="any" class="ks-q" data-id="${h(x.it.product_id)}" value="${x.qty}" style="width:6em" dir="ltr"> ${h(uName(x.it))}</td>${showPrices() ? `<td class="num">${x.it.unit_price !== '' ? h(money(n(x.it.unit_price) * x.qty * pack(x.it))) : ''}</td>` : ''}</tr>`).join('')}
       </tbody></table>
       <div class="actions"><button type="button" class="btn" data-wa="${h(sp)}">💬 וואטסאפ</button><button type="button" class="btn" data-cp="${h(sp)}">📋 העתקה</button><span class="spacer"></span>
         <button type="button" class="btn" data-ord="${h(sp)}">📝 נרשם כהוזמן</button><button type="button" class="btn primary" data-rcv="${h(sp)}">✓ הגיע — להוסיף למלאי</button></div></section>`).join('')
       : '<p class="ms-note">✓ אין מה להזמין כרגע.</p>'}`;
   const qtyOf = (id) => n(X.$(`.ks-q[data-id="${CSS.escape(id)}"]`, body)?.value);
-  const linesOf = (sp) => groups[sp].map((x) => ({ id: x.it.product_id, name: x.it.product_name, qty: qtyOf(x.it.product_id), unit: x.it.unit || '', price: n(x.it.unit_price) })).filter((x) => x.qty > 0);
+  const linesOf = (sp) => groups[sp].map((x) => ({ id: x.it.product_id, name: x.it.product_name, qty: qtyOf(x.it.product_id), unit: uName(x.it), mult: pack(x.it), price: n(x.it.unit_price) * pack(x.it) })).filter((x) => x.qty > 0);
   const text = (sp) => `הזמנה — ${X.st.mosad?.name || ''}\n${linesOf(sp).map((x) => `• ${x.name}: ${x.qty} ${x.unit}`).join('\n')}`;
-  X.$$('[data-wa]', body).forEach((b) => { b.onclick = () => window.open(`https://wa.me/?text=${encodeURIComponent(text(b.dataset.wa))}`, '_blank'); });
+  const waNum = (sp) => { let d = String(supOf(sp)?.phone || '').replace(/\D/g, ''); if (/^0\d{8,9}$/.test(d)) d = `972${d.slice(1)}`; else if (/^\d{10}$/.test(d)) d = `1${d}`; return d; };
+  X.$$('[data-wa]', body).forEach((b) => { b.onclick = () => window.open(`https://wa.me/${waNum(b.dataset.wa)}?text=${encodeURIComponent(text(b.dataset.wa))}`, '_blank'); });
   X.$$('[data-cp]', body).forEach((b) => { b.onclick = async () => { try { await navigator.clipboard.writeText(text(b.dataset.cp)); X.toast('הועתק.'); } catch { X.toast('לא הצליח להעתיק.', 'err'); } }; });
   const order = async (sp, received) => {
     const items2 = linesOf(sp); if (!items2.length) return;
@@ -234,11 +264,19 @@ function histTab(body, rer) {
 }
 
 // ---------- ⬆ ייבוא: xlsx / csv. מזהים כותרות לפי שם ----------
-const HEAD = { product_name: /שם|מוצר|פריט|product/i, category: /קטגור|category/i, current_stock: /כמות|מלאי|stock|qty/i, unit: /יחיד|unit/i, min_threshold: /מינ|min/i,
-  lead_time_days: /אספקה|lead/i, daily_use: /צריכה|daily/i, expiry_date: /תוקף|תפוגה|expir/i, supplier_name: /ספק|supplier/i, unit_price: /מחיר|price/i, standard_qty: /תקן|standard/i, note: /הערה|note/i };
+// סדר העדיפות חשוב: "שם הספק" הוא ספק ולא שם המוצר; "יחידות בקרטון" — אריזה ולא יחידה
+const HEAD = { supplier_name: /ספק|supplier|vendor/i, pack_size: /בקרטון|באריזה|קרטון|pack|case/i, product_name: /מוצר|פריט|product|item|^שם$|^שם\s/i, category: /קטגור|category/i,
+  min_threshold: /מינ|min/i, lead_time_days: /אספקה|lead/i, daily_use: /צריכה|שימוש|daily|usage|week/i, current_stock: /כמות|מלאי|stock|qty/i, unit: /יחיד|unit/i,
+  expiry_date: /תוקף|תפוגה|expir/i, unit_price: /מחיר|price/i, standard_qty: /תקן|standard/i, note: /הערה|note/i };
+/** כותרות → עמודות: כל כותרת לשדה אחד בלבד, לפי סדר העדיפות */
+function mapHeads(head, spec) {
+  const used = new Set(); const map = {};
+  Object.entries(spec).forEach(([k, re]) => { const i = head.findIndex((x, j) => !used.has(j) && re.test(String(x).trim())); if (i >= 0) { map[k] = i; used.add(i); } });
+  return map;
+}
 export async function readTable(file) {
   if (/\.csv$/i.test(file.name)) return (await file.text()).split(/\r?\n/).filter((l) => l.trim()).map((l) => l.split(/,|\t/).map((c) => c.replace(/^"|"$/g, '').trim()));
-  const { _test } = await import('./shabbos.js?v=597');
+  const { _test } = await import('./shabbos.js?v=598');
   const files = Object.fromEntries(await _test.unzip(await file.arrayBuffer()));
   const dec = new TextDecoder(); const P = (k) => (files[k] ? new DOMParser().parseFromString(dec.decode(files[k]), 'application/xml') : null);
   const shared = [...(P('xl/sharedStrings.xml')?.getElementsByTagName('si') || [])].map((si) => [...si.getElementsByTagName('t')].map((t) => t.textContent).join(''));
@@ -254,11 +292,16 @@ function importXl(rer) {
     try {
       const t = await readTable(f); if (t.length < 2) { X.toast('הקובץ ריק.', 'err'); return; }
       const head = t[0].map(String);
-      const map = Object.fromEntries(Object.entries(HEAD).map(([k, re]) => [k, head.findIndex((x) => re.test(x))]).filter(([, i]) => i >= 0));
-      if (!('product_name' in map)) { X.toast('לא נמצאה עמודת "שם המוצר".', 'err'); return; }
+      const map = mapHeads(head, HEAD);
+      if (!('product_name' in map)) {
+        // אולי זה קובץ של ספקים?
+        if ('supplier_name' in map || head.some((x) => /טלפון|phone/i.test(x))) { if (window.confirm('נראה שזה קובץ של ספקים (אין עמודת "שם המוצר"). לייבא אותו לרשימת הספקים?')) { await importSuppliers(t); rer(); } return; }
+        X.toast('לא נמצאה עמודת "שם המוצר".', 'err'); return;
+      }
+      const perWeek = 'daily_use' in map && !/יום|daily/i.test(head[map.daily_use]);
       const xlDate = (v) => (/^\d{5}$/.test(String(v)) ? new Date(Date.UTC(1899, 11, 30) + Number(v) * 86400000).toISOString().slice(0, 10) : String(v).slice(0, 10));
       const have = Object.fromEntries((K.d.items || []).map((it) => [it.product_name.trim(), it.product_id]));
-      const rows = t.slice(1).map((r) => { const o = {}; Object.entries(map).forEach(([k, i]) => { o[k] = k === 'expiry_date' ? xlDate(r[i] || '') : String(r[i] ?? '').trim(); }); o.product_id = have[o.product_name] || ''; return o; }).filter((o) => o.product_name);
+      const rows = t.slice(1).map((r) => { const o = {}; Object.entries(map).forEach(([k, i]) => { o[k] = k === 'expiry_date' ? xlDate(r[i] || '') : String(r[i] ?? '').trim(); }); if (perWeek && o.daily_use !== '' && o.daily_use != null) o.daily_use = String(Math.round((n(o.daily_use) / 7) * 1000) / 1000); o.product_id = have[o.product_name] || ''; return o; }).filter((o) => o.product_name);
       if (!window.confirm(`לייבא ${rows.length} פריטים? (${rows.filter((r) => r.product_id).length} קיימים יעודכנו לפי השם)`)) return;
       await X.call(X.KEY, 'kitchenSave', { rows }); await load(); rer(); X.toast('יובא.');
     } catch (err) { X.toast(X.msg(err), 'err'); }
@@ -374,4 +417,55 @@ function prepEvent(e, body, rer) {
     X.$('#kp-xl', body).onclick = () => downloadXlsx(`הזמנה ${e.name}`, ['ספק', 'מוצר', 'כמות', 'יחידה'], sups.flatMap((sp) => linesOf(sp).map((x) => [sp, x.name, x.qty, x.unit])), { rtl: true });
   };
   draw();
+}
+
+// ---------- 🚚 ספקים: שם, טלפון (לוואטסאפ ישיר), איש קשר, מייל, ימי הזמנה ----------
+const SUP_HEAD = { name: /ספק|שם|name|supplier|vendor/i, phone: /טלפון|נייד|phone|tel|mobile|וואטסאפ|whatsapp/i, contact: /איש קשר|contact/i, email: /מייל|email|e-mail/i, days: /ימי|ימים|days/i, note: /הערה|note/i };
+async function importSuppliers(t) {
+  const head = t[0].map(String);
+  const map = {}; const used = new Set();
+  ['phone', 'email', 'contact', 'days', 'note', 'name'].forEach((k) => { const i = head.findIndex((x, j) => !used.has(j) && SUP_HEAD[k].test(x.trim())); if (i >= 0) { map[k] = i; used.add(i); } });
+  if (!('name' in map)) { X.toast('לא נמצאה עמודת שם הספק.', 'err'); return; }
+  const cur = [...supsList()];
+  let added = 0; let upd = 0;
+  t.slice(1).forEach((r) => {
+    const o = Object.fromEntries(Object.entries(map).map(([k, i]) => [k, String(r[i] ?? '').trim()]));
+    if (!o.name) return;
+    const ex = cur.find((x) => x.name === o.name);
+    if (ex) { Object.entries(o).forEach(([k, v]) => { if (v) ex[k] = v; }); upd += 1; } else { cur.push({ name: o.name, phone: o.phone || '', contact: o.contact || '', email: o.email || '', days: o.days || '', note: o.note || '' }); added += 1; }
+  });
+  const r = await X.call(X.KEY, 'kitchenSuppliersSave', { suppliers: cur });
+  K.d.suppliers = r.suppliers || cur;
+  X.toast(`ספקים: ${added} חדשים, ${upd} עודכנו.`);
+}
+function suppliersDialog(after) {
+  const { h } = X;
+  let list = supsList().map((x) => ({ ...x }));
+  // ספקים שמופיעים במוצרים ואין להם עדיין כרטיס
+  (K.d.items || []).forEach((it) => { if (it.supplier_name && !list.some((x) => x.name === it.supplier_name)) list.push({ name: it.supplier_name, phone: '', contact: '', email: '', days: '', note: '', _new: true }); });
+  const cnt = (name) => (K.d.items || []).filter((it) => it.supplier_name === name).length;
+  const d = X.dialog(`<h2>🚚 ספקים</h2>
+    <p class="muted small">טלפון — לוואטסאפ ישיר מרשימת הקניות. ספקים מהמוצרים שאין להם עדיין כרטיס — מופיעים כאן (שמירה מוסיפה אותם). ייבוא מאקסל: שורה ראשונה = כותרות (שם הספק, טלפון, איש קשר, מייל…).</p>
+    <div class="ms-wrap"><table class="ms-table"><thead><tr><th>ספק</th><th>טלפון</th><th>איש קשר</th><th>מייל</th><th>ימי הזמנה</th><th>הערה</th><th>מוצרים</th><th></th></tr></thead><tbody id="ksp-rows"></tbody></table></div>
+    <div class="actions"><button type="button" class="btn" id="ksp-add">＋ ספק</button><button type="button" class="btn" id="ksp-imp">⬆ ייבוא ספקים מאקסל</button><span class="spacer"></span><button type="button" class="btn" data-x>ביטול</button><button type="button" class="btn primary" id="ksp-save">💾 שמירה</button></div>`);
+  const tb = X.$('#ksp-rows', d);
+  const read = () => { list = X.$$('tr', tb).map((tr) => Object.fromEntries(['name', 'phone', 'contact', 'email', 'days', 'note'].map((k) => [k, X.S(X.$(`[data-k="${k}"]`, tr).value)]))); };
+  const draw = () => {
+    tb.innerHTML = list.map((x, i) => `<tr><td><input data-k="name" value="${h(x.name)}"></td><td><input data-k="phone" dir="ltr" style="width:9em" value="${h(x.phone)}"></td><td><input data-k="contact" style="width:8em" value="${h(x.contact)}"></td>
+      <td><input data-k="email" dir="ltr" style="width:10em" value="${h(x.email)}"></td><td><input data-k="days" style="width:7em" value="${h(x.days)}" placeholder="א, ד"></td><td><input data-k="note" value="${h(x.note)}"></td>
+      <td class="c">${cnt(x.name) || ''}</td><td><button type="button" class="btn small-btn" data-rm="${i}">✕</button></td></tr>`).join('');
+    X.$$('[data-rm]', tb).forEach((b) => { b.onclick = () => { read(); list.splice(Number(b.dataset.rm), 1); draw(); }; });
+  };
+  draw();
+  X.$$('[data-x]', d).forEach((b) => { b.onclick = () => d.close(); });
+  X.$('#ksp-add', d).onclick = () => { read(); list.push({ name: '', phone: '', contact: '', email: '', days: '', note: '' }); draw(); X.$$('[data-k="name"]', tb).pop().focus(); };
+  X.$('#ksp-imp', d).onclick = () => {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.xlsx,.csv';
+    inp.onchange = async () => { const f = inp.files[0]; if (!f) return; try { read(); K.d.suppliers = list.filter((x) => x.name); const t = await readTable(f); if (t.length < 2) { X.toast('הקובץ ריק.', 'err'); return; } await importSuppliers(t); d.close(); suppliersDialog(after); } catch (err) { X.toast(X.msg(err), 'err'); } };
+    inp.click();
+  };
+  X.$('#ksp-save', d).onclick = async () => {
+    read();
+    try { const r = await X.call(X.KEY, 'kitchenSuppliersSave', { suppliers: list.filter((x) => x.name) }); K.d.suppliers = r.suppliers; d.close(); X.toast('נשמר.'); after(); } catch (err) { X.toast(X.msg(err), 'err'); }
+  };
 }

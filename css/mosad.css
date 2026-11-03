@@ -346,3 +346,19 @@ td.ltr, .ltr { direction: ltr; text-align: end; }
 @media print { .ms-ask-btn, .ms-ask-box { display: none !important; } }
 .kc-evs { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
 .kc-ev { border: 1px solid var(--line, #ddd); border-radius: 12px; padding: 10px 12px; background: var(--card); display: flex; flex-direction: column; gap: 6px; }
+
+/* 🗓 לוח חודשי לפי בחור (סדר בוקר) */
+.jc-head { margin: 10px 0 6px; font-size: 1.05rem; }
+.jc-grid { width: 100%; max-width: 820px; border-collapse: collapse; table-layout: fixed; margin-bottom: 18px; }
+.jc-grid th { background: var(--surface-2, #e9e4d8); padding: 6px 2px; font-size: .9rem; border: 1px solid var(--line, #cfc6b4); }
+.jc-grid td { height: 64px; vertical-align: top; border: 1px solid var(--line, #cfc6b4); padding: 3px 5px; position: relative; }
+.jc-d { cursor: pointer; background: var(--surface, #fff); }
+.jc-d:hover { outline: 2px solid var(--accent, #7a1219); outline-offset: -2px; }
+.jc-d.jc-on { background: #d9f2dc; }
+.jc-off { background: repeating-linear-gradient(45deg, #f0ede6, #f0ede6 6px, #e8e3d8 6px, #e8e3d8 12px); cursor: default; color: #999; }
+.jc-x { background: transparent; border-color: transparent !important; }
+.jc-n { font-weight: 700; font-size: 1.05rem; }
+.jc-v { position: absolute; inset-inline-start: 6px; bottom: 4px; font-size: 1.6rem; color: #1b7a2b; line-height: 1; }
+.jc-t { display: block; font-size: .72rem; color: #8a5a14; }
+.jc-t.jc-hol { color: #a0182a; }
+tr.st-paid td { background: #eef8ef; }
