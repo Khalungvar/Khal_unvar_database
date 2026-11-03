@@ -2,6 +2,7 @@
 // א שיינער אימעיל מיטן באנער / לאגא פונעם ארגון, בילדער, צוגעלייגטע טעקעס (למשל גליונות פרשת השבוע),
 // צו איינעם (פון כרטיס) אדער צו א רשימה. אלעס ווערט פארשריבן אין לשונית EmailLog.
 import { state, orgDetailsOf, orgLogo } from './data.js';
+import { CONFIG } from './config.js';
 import { gmailSend, ensureGmailScope, hasGmailScope, appendRows, readTabs } from './google.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, mailingName, shrinkImage, nowStamp } from './util.js';
@@ -137,6 +138,10 @@ ${foot || h(he)}<br><span dir="rtl">${h(t('mailFootStop'))}</span></td></tr>
 }
 
 // ---------- שיקן ----------
+/** מאיזו כתובת המייל יוצא: מחשבון הדאטאבייס — בשם המוסד (office@ungvar.org); מכל חשבון אחר — מהחשבון עצמו. */
+export function senderAddress() {
+  return state.email === CONFIG.DATABASE_ACCOUNT && CONFIG.ORG_EMAIL ? CONFIG.ORG_EMAIL : state.email;
+}
 let logCache = null;
 async function sentToday() {
   try {
@@ -162,7 +167,8 @@ export async function sendJobs(jobs, { onProgress = () => {}, isCancelled = () =
     if (isCancelled()) break;
     let status = 'sent'; let error = '';
     try {
-      await gmailSend(buildMime({ ...j, from: state.email, fromName }));
+      const from = senderAddress();
+      await gmailSend(buildMime({ ...j, from, replyTo: j.replyTo || (from !== state.email ? from : ''), fromName }));
     } catch (err) {
       status = 'error'; error = String(err.message || err).slice(0, 200); errors += 1;
       if (err.status === 429 || /limit|quota/i.test(error)) { rows.push([nowStamp(), state.email, state.email, j.to, j.contact_id || '', j.kind || '', j.subject, j.org || '', status, error]); break; }
@@ -225,7 +231,7 @@ export function openCompose(opts = {}) {
     <h2>✉ ${h(t('mailTitle'))}</h2>
     <div class="ml-layout">
       <div class="ml-fields">
-        <p class="ml-from">${h(t('mailFrom'))}: <b dir="ltr">${h(state.email)}</b>
+        <p class="ml-from">${h(t('mailFrom'))}: <b dir="ltr">${h(senderAddress())}</b>
           ${state.email !== 'khalungvardatabase@gmail.com' ? `<span class="hint-line">${h(t('mailFromHint'))}</span>` : ''}</p>
         <label>${h(t('mailOrg'))}<select id="ml-org">${allOrgs().map((o) => `<option${o === st.org ? ' selected' : ''}>${h(o)}</option>`).join('')}</select></label>
         <label>${h(t('mailTo'))}<select id="ml-list"><option value="">—</option>${listOptions().map(([k, l]) => `<option value="${h(k)}"${k === st.listKey ? ' selected' : ''}>${h(l)}</option>`).join('')}</select></label>

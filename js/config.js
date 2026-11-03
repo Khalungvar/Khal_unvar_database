@@ -35,6 +35,9 @@ export const CONFIG = {
   // חשבון "דאטאבייס" (חשבון הפרויקט): כשמעלים תמונות / לוגאס כשמחוברים איתו,
   // הקובץ המקורי נשמר בדרייב שלו, בתיקייה הזאת (עם תת-תיקיות Logos / Photos).
   DATABASE_ACCOUNT: 'khalungvardatabase@gmail.com',
+  // מיילים שיוצאים מחשבון הדאטאבייס — בשם הכתובת של המוסד ("שליחה בשם" ב-Gmail של הדאטאבייס).
+  // אם הכתובת עוד לא אושרה שם, Gmail שולח אוטומטית מהדאטאבייס עצמו — שום מייל לא נתקע.
+  ORG_EMAIL: 'office@ungvar.org',
   DRIVE_FOLDER: 'Khal Ungvar – Database',
 
   // נומער פונעם פראיעקט אין Google Cloud (דער אנהייב פונעם CLIENT_ID) — פאר דעם "קלייבן א טעקע" פענצטער (Picker)
