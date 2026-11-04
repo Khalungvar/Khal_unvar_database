@@ -1,8 +1,8 @@
 // אתר פון א מוסד — די ישיבה: תלמידים, בוגרים, הורים, שכר לימוד און קבלות (אלעס אינעם גיליון פונעם מוסד, דורכן שומר).
-import { letterhead, LH_CSS, heDate } from './brand.js?v=598';
-import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=598';
-import { downloadXlsx } from '../excel.js?v=598';
-import { colFilters } from '../sorttables.js?v=598';
+import { letterhead, LH_CSS, heDate } from './brand.js?v=599';
+import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=599';
+import { downloadXlsx } from '../excel.js?v=599';
+import { colFilters } from '../sorttables.js?v=599';
 
 let X = null; // די כלים פון app.js: { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render }
 export function initSchool(ctx) { X = ctx; }
@@ -223,7 +223,7 @@ function abroadImport(all, after) {
   inp.onchange = async () => {
     const f = inp.files[0]; if (!f) return;
     let t;
-    try { const { readTable } = await import('./kitchen.js?v=598'); t = await readTable(f); } catch (err) { X.toast(X.msg(err), 'err'); return; }
+    try { const { readTable } = await import('./kitchen.js?v=599'); t = await readTable(f); } catch (err) { X.toast(X.msg(err), 'err'); return; }
     const hi = t.findIndex((r) => r.some((c) => /משפחה/.test(String(c))));
     if (hi < 0) { X.toast('לא נמצאה שורת כותרות (שם, משפחה, טלפון).', 'err'); return; }
     const head = t[hi].map(String); const ci = (re) => head.findIndex((c) => re.test(c));

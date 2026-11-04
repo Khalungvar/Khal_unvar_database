@@ -1,7 +1,7 @@
 // 🍳 מלאי המטבח — על הגיליון של המוסד (Kitchen, KitchenOrders), לא Firebase.
 // התראות: מתחת למינימום / לפני שייגמר (ימי אספקה × צריכה יומית) / תוקף (5 ימים לפני) · רשימת קניות לפי ספק · הזמנות קבועות לפי יום בשבוע.
-import { downloadXlsx } from '../excel.js?v=598';
-import { colFilters } from '../sorttables.js?v=598';
+import { downloadXlsx } from '../excel.js?v=599';
+import { colFilters } from '../sorttables.js?v=599';
 
 let X = null;
 const K = { d: null, tab: 'stock', cat: '', sup: '', q: '', sort: 'name', card: '', frozen: false };
@@ -80,13 +80,15 @@ export async function renderKitchen(box) {
         <button type="button" class="btn small-btn primary" data-ok="${h(r.req_id)}">✓ לאשר</button><button type="button" class="btn small-btn" data-no="${h(r.req_id)}">✗ לדחות</button></div>`; }).join('')}</div>` : ''}
     ${todays.length ? `<p class="ms-note">📅 היום יום הזמנה קבועה: ${todays.map((it) => `<b>${h(it.product_name)}</b> (${orderQty(it, true)} ${h(it.unit || '')})`).join(' · ')} <button type="button" class="btn small-btn" id="kc-rec">🛒 לרשימת הקניות</button></p>` : ''}
     <nav class="ms-subtabs">${[['stock', '📦 מלאי'], ['shop', '🛒 רשימת קניות'], ['events', '🎉 הזמנות מיוחדות'], ['hist', '📜 היסטוריית הזמנות']].map(([k, l]) => `<button type="button" data-kt="${k}" class="${K.tab === k ? 'on' : ''}">${h(l)}</button>`).join('')}
-      <span class="spacer"></span>${kw() ? '' : '<button type="button" class="linkish" id="kc-sups">🚚 ספקים</button><button type="button" class="linkish" id="kc-workers">🔑 אנשי המטבח וסיסמאות</button>'}<button type="button" class="linkish" id="kc-reload">⟳ רענון</button></nav>
+      <span class="spacer"></span>${kw() ? '' : '<button type="button" class="linkish" id="kc-sups">🚚 ספקים</button><button type="button" class="linkish" id="kc-workers">🔑 אנשי המטבח וסיסמאות</button>'}${X.isAdmin?.() ? '<button type="button" class="linkish" id="kc-phone">📞 קו טלפון</button>' : ''}<button type="button" class="linkish" id="kc-nums">🖨 מספרי מוצרים</button><button type="button" class="linkish" id="kc-reload">⟳ רענון</button></nav>
     <div id="kc-body"></div>`;
   X.$$('[data-kt]', box).forEach((b) => { b.onclick = () => { K.tab = b.dataset.kt; renderKitchen(box); }; });
   X.$$('[data-card]', box).forEach((b) => { b.onclick = () => { K.card = b.dataset.card === 'value' ? '' : (K.card === b.dataset.card ? '' : b.dataset.card); K.tab = K.card === 'order' ? 'shop' : 'stock'; renderKitchen(box); }; });
   X.$('#kc-reload', box).onclick = () => { K.d = null; renderKitchen(box); };
   X.$('#kc-workers', box)?.addEventListener('click', () => workersDialog(() => { K.d = null; renderKitchen(box); }));
   X.$('#kc-sups', box)?.addEventListener('click', () => suppliersDialog(() => renderKitchen(box)));
+  X.$('#kc-phone', box)?.addEventListener('click', () => phoneDialog());
+  X.$('#kc-nums', box)?.addEventListener('click', () => printNums());
   const decide = async (id, approve) => { try { await X.call(X.KEY, 'kitchenReqDecide', { id, approve }); await load(); renderKitchen(box); X.toast(approve ? 'אושר.' : 'נדחה.'); } catch (err) { X.toast(X.msg(err), 'err'); } };
   X.$$('[data-ok]', box).forEach((b) => { b.onclick = () => decide(b.dataset.ok, true); });
   X.$$('[data-no]', box).forEach((b) => { b.onclick = () => decide(b.dataset.no, false); });
@@ -134,8 +136,8 @@ function stockTab(body, rer) {
       <button type="button" class="btn primary" id="kc-new">${kw() ? '＋ בקשה לפריט חדש' : '＋ פריט חדש'}</button>
       ${kw() ? '' : '<button type="button" class="btn" id="kc-imp">⬆ ייבוא מאקסל</button>'}<button type="button" class="btn" id="kc-xl">⬇ Excel</button>
     </div>
-    ${list.length ? `<div class="ms-wrap"><table class="ms-table col-filter" data-fkey="kitchen"><thead><tr><th>מוצר</th><th>קטגוריה</th><th>במלאי</th><th>מינימום</th><th>תוקף</th><th>ספק</th>${showPrices() ? '<th>מחיר</th>' : ''}<th>מצב</th><th></th></tr></thead><tbody>
-      ${list.map((it) => `<tr><td><b>${h(it.product_name)}</b>${it.note ? `<div class="muted small">${h(it.note)}</div>` : ''}</td><td>${h(it.category)}</td>
+    ${list.length ? `<div class="ms-wrap"><table class="ms-table col-filter" data-fkey="kitchen"><thead><tr><th class="c" title="מספר המוצר — להקשה בקו הטלפון">📞#</th><th>מוצר</th><th>קטגוריה</th><th>במלאי</th><th>מינימום</th><th>תוקף</th><th>ספק</th>${showPrices() ? '<th>מחיר</th>' : ''}<th>מצב</th><th></th></tr></thead><tbody>
+      ${list.map((it) => `<tr><td class="c num" data-v="${pnum(it)}"><b>${pnum(it)}</b></td><td><b>${h(it.product_name)}</b>${it.note ? `<div class="muted small">${h(it.note)}</div>` : ''}</td><td>${h(it.category)}</td>
         <td class="c" data-v="${n(it.current_stock)}"><button type="button" class="btn small-btn" data-dec="${h(it.product_id)}">−</button> <b>${h(String(n(it.current_stock)))}</b> ${h(it.unit || '')} <button type="button" class="btn small-btn" data-inc="${h(it.product_id)}">+</button>${pack(it) > 1 ? `<div class="muted small">≈ ${Math.floor(n(it.current_stock) / pack(it))} אריזות של ${pack(it)}</div>` : ''}</td>
         <td class="c">${h(it.min_threshold)}</td><td class="small" data-v="${h(it.expiry_date || '')}">${h(it.expiry_date || '')}</td><td>${h(it.supplier_name)}</td>${showPrices() ? `<td class="num">${it.unit_price !== '' ? h(money(it.unit_price)) : ''}</td>` : ''}
         <td>${badge(it)}</td><td class="ms-acts"><button type="button" class="btn small-btn" data-ed="${h(it.product_id)}">✎</button>${kw() ? '' : ` <button type="button" class="btn small-btn" data-frz="${h(it.product_id)}" title="${isFrozen(it) ? 'להפשיר (להחזיר לשימוש)' : 'להקפיא (לא בשימוש כרגע — בלי התראות והזמנות)'}">${isFrozen(it) ? '♨' : '🧊'}</button>`}</td></tr>`).join('')}
@@ -276,7 +278,7 @@ function mapHeads(head, spec) {
 }
 export async function readTable(file) {
   if (/\.csv$/i.test(file.name)) return (await file.text()).split(/\r?\n/).filter((l) => l.trim()).map((l) => l.split(/,|\t/).map((c) => c.replace(/^"|"$/g, '').trim()));
-  const { _test } = await import('./shabbos.js?v=598');
+  const { _test } = await import('./shabbos.js?v=599');
   const files = Object.fromEntries(await _test.unzip(await file.arrayBuffer()));
   const dec = new TextDecoder(); const P = (k) => (files[k] ? new DOMParser().parseFromString(dec.decode(files[k]), 'application/xml') : null);
   const shared = [...(P('xl/sharedStrings.xml')?.getElementsByTagName('si') || [])].map((si) => [...si.getElementsByTagName('t')].map((t) => t.textContent).join(''));
@@ -437,6 +439,56 @@ async function importSuppliers(t) {
   const r = await X.call(X.KEY, 'kitchenSuppliersSave', { suppliers: cur });
   K.d.suppliers = r.suppliers || cur;
   X.toast(`ספקים: ${added} חדשים, ${upd} עודכנו.`);
+}
+// 📞 מספר מוצר לקו הטלפון = הספרות של product_id (K12 → 12)
+const pnum = (it) => String(it.product_id || '').replace(/\D/g, '');
+/** 🖨 דף לתלייה במטבח: מספר מוצר ← שם, לפי קטגוריה */
+function printNums() {
+  const { h } = X;
+  const items = (K.d?.items || []).filter((it) => it.product_name && !(String(it.frozen).toUpperCase() === 'TRUE'));
+  const cats = [...new Set(items.map((it) => it.category || 'כללי'))].sort((a, b) => a.localeCompare(b, 'he'));
+  X.printWin?.('📞 מספרי מוצרים — לעדכון בטלפון', 'מחייגים לקו ← מקישים מספר מוצר וסולמית ← 1 עדכון כמות · 2 נגמר · 3 הגיעה סחורה', cats.map((c) => `<h3>${h(c)}</h3><table><thead><tr><th style="width:18mm;text-align:center">מס׳</th><th>מוצר</th><th>יחידה</th></tr></thead><tbody>
+    ${items.filter((it) => (it.category || 'כללי') === c).sort((a, b) => Number(pnum(a)) - Number(pnum(b))).map((it) => `<tr><td style="text-align:center"><b>${pnum(it)}</b></td><td>${h(it.product_name)}</td><td>${h(it.unit || '')}${Number(it.pack_size) > 1 ? ` (${Number(it.pack_size)} בקרטון)` : ''}</td></tr>`).join('')}</tbody></table>`).join(''));
+}
+/** 📞 הגדרת הקו (רק מנהל): טלפונים מורשים + הכתובת לשלוחת API בימות המשיח */
+async function phoneDialog() {
+  const { h } = X;
+  let info;
+  try { info = await X.call(X.KEY, 'kPhoneInfo'); } catch (err) { X.toast(X.msg(err), 'err'); return; }
+  let phones = info.phones || [];
+  const d = X.dialog(`<h2>📞 קו טלפון לעדכון המלאי (ימות המשיח)</h2>
+    <h3>1. טלפונים מורשים</h3><p class="muted small">רק ממספרים אלה אפשר לעדכן. ממספר אחר — הקו עונה "אינו מורשה".</p>
+    <table class="ms-table"><thead><tr><th>טלפון</th><th>שם</th><th></th></tr></thead><tbody id="kp-rows"></tbody></table>
+    <div class="ms-bar"><button type="button" class="btn small-btn" id="kp-add">＋ טלפון</button><span class="spacer"></span><button type="button" class="btn primary" id="kp-save">💾 שמירת הטלפונים</button></div>
+    <h3>2. הכתובת לשלוחה בימות המשיח</h3>
+    <div id="kp-link"></div>
+    <details><summary>איך מגדירים בימות המשיח</summary><ol class="small">
+      <li>באתר הניהול של ימות המשיח ← בוחרים שלוחה (למשל השלוחה הראשית, או שלוחה 1).</li>
+      <li>בהגדרות המתקדמות של השלוחה (ext.ini) כותבים בדיוק 3 שורות:<pre dir="ltr" style="white-space:pre-wrap">type=api
+api_link=&lt;הכתובת שלמעלה&gt;
+api_hangup_send=no</pre></li>
+      <li>שומרים, ומחייגים מאחד הטלפונים המורשים.</li></ol></details>
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>סגירה</button></div>`);
+  const drawRows = () => {
+    X.$('#kp-rows', d).innerHTML = phones.map((p, i) => `<tr><td><input data-i="${i}" data-f="phone" value="${h(p.phone)}" dir="ltr" placeholder="0501234567"></td><td><input data-i="${i}" data-f="name" value="${h(p.name)}"></td><td><button type="button" class="linkish" data-rm="${i}">🗑</button></td></tr>`).join('') || '<tr><td colspan="3" class="muted">עוד אין.</td></tr>';
+    X.$$('[data-f]', d).forEach((inp) => { inp.oninput = () => { phones[Number(inp.dataset.i)][inp.dataset.f] = inp.value; }; });
+    X.$$('[data-rm]', d).forEach((b) => { b.onclick = () => { phones.splice(Number(b.dataset.rm), 1); drawRows(); }; });
+  };
+  const drawLink = () => {
+    X.$('#kp-link', d).innerHTML = info.link
+      ? `<p class="small">העתיקו את הכתובת הזאת לשורה api_link (היא כוללת מפתח סודי — לא לפרסם):</p><textarea readonly rows="3" dir="ltr" style="width:100%" id="kp-url">${h(info.link)}</textarea>
+         <div class="ms-bar"><button type="button" class="btn small-btn" id="kp-copy">📋 העתקה</button><button type="button" class="linkish small" id="kp-new">מפתח חדש (הכתובת הישנה תפסיק לעבוד)</button></div>`
+      : '<button type="button" class="btn primary" id="kp-new">🔑 יצירת כתובת לשלוחה</button>';
+    X.$('#kp-copy', d)?.addEventListener('click', async () => { try { await navigator.clipboard.writeText(info.link); X.toast('הועתק.'); } catch { X.$('#kp-url', d).select(); } });
+    X.$('#kp-new', d).onclick = async () => {
+      if (info.link && !window.confirm('ליצור מפתח חדש? הכתובת הקודמת בימות המשיח תפסיק לעבוד עד שתעדכנו אותה.')) return;
+      try { info = await X.call(X.KEY, 'kPhoneInfo', { newKey: true }); drawLink(); } catch (err) { X.toast(X.msg(err), 'err'); }
+    };
+  };
+  drawRows(); drawLink();
+  X.$('#kp-add', d).onclick = () => { phones.push({ phone: '', name: '' }); drawRows(); };
+  X.$('#kp-save', d).onclick = async () => { try { const r = await X.call(X.KEY, 'kPhoneSave', { phones }); phones = r.phones; drawRows(); X.toast(`נשמר (${phones.length}).`); } catch (err) { X.toast(X.msg(err), 'err'); } };
+  X.$$('[data-x]', d).forEach((b) => { b.onclick = () => d.close(); });
 }
 function suppliersDialog(after) {
   const { h } = X;

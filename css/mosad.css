@@ -362,3 +362,24 @@ td.ltr, .ltr { direction: ltr; text-align: end; }
 .jc-t { display: block; font-size: .72rem; color: #8a5a14; }
 .jc-t.jc-hol { color: #a0182a; }
 tr.st-paid td { background: #eef8ef; }
+
+/* תיבות סימון בטבלאות — בגודל של משבצות ההשתתפות */
+.ms-table input[type="checkbox"], .je-ck, .je-h { width: 22px !important; height: 22px; cursor: pointer; vertical-align: middle; }
+.err-txt { color: #a11; }
+/* ⏎ אנטר — המשבצת הפעילה */
+.ja-cell:focus-visible, .ms-table input[type="checkbox"]:focus-visible { outline: 3px solid #c9a24a; outline-offset: 1px; }
+.ok-txt { color: #1f6b1c; }
+/* 📆 מאזן */
+.bd-sum { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0; }
+.bd-sum > div { flex: 1 1 140px; border: 1px solid #e3dccb; border-radius: 10px; padding: 8px 10px; background: #fbf8f1; display: flex; flex-direction: column; gap: 2px; }
+.bd-sum > div span { font-size: 12px; color: #6b5a3a; } .bd-sum > div b { font-size: 18px; }
+tr.bd-day td { border-top: 2px solid #e3dccb; }
+/* 🌙 נוכחות בפנימייה */
+.da-table tr.da-room th { background: #f1ece0; text-align: right; }
+/* 📋 משימות — סטטוס */
+.tk-st { font-size: 13px; padding: 2px 4px; border-radius: 6px; }
+.tk-st.st-doing { background: #fff4d6; } .tk-st.st-done { background: #e3f4e1; }
+@media (prefers-color-scheme: dark) {
+  .bd-sum > div { background: #2a2420; border-color: #4a3c34; } .bd-sum > div span { color: #c9b89a; }
+  .da-table tr.da-room th { background: #2f2822; }
+}

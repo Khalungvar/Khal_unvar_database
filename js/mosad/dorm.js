@@ -3,10 +3,10 @@
 // די בילד פון א מבנה: Settings "dormimg:<id>" (נאר דורך "dormImg" — נישט מיט די אלגעמיינע הגדרות)
 // א זמן: Settings "dorm:<זמן>" = { b: מבנה, beds: { bedId: contact_id }, apts: [{ id, name, beds, ids: [contact_id|''] }] }
 // אן אלטער זמן בלייבט מיט זיין מבנה — אויך ווען מ'מאכט שפעטער א נייעם (א נייער בנין).
-import { downloadXlsx } from '../excel.js?v=598';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=598';
-import { heDate, letterhead } from './brand.js?v=598';
-import { todayIso } from '../hebdate.js?v=598';
+import { downloadXlsx } from '../excel.js?v=599';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=599';
+import { heDate, letterhead } from './brand.js?v=599';
+import { todayIso } from '../hebdate.js?v=599';
 
 let X = null;
 export function initDorm(ctx) { X = ctx; }
@@ -404,4 +404,13 @@ function printMap(doc, b, img, none) {
     <div class="bar"><button class="pr" onclick="window.print()">🖨 הדפסה / PDF</button><button onclick="window.close()">סגירה</button></div>
     ${sheet(title, map)}${page2.trim() ? sheet(`${title} — דירות`, page2) : ''}</body></html>`);
   w.document.close();
+}
+
+/** 🌙 פאר "נוכחות בפנימייה": דער חדר / דירה פון א בחור אינעם יעצטיגן זמן ('' = נישט משובץ) */
+export function roomOfFn() {
+  const z = currentZman();
+  const doc = loadDoc(z);
+  const bs = buildings();
+  const b = bs.find((x) => x.id === doc.b) || bs[bs.length - 1] || null;
+  return (cid) => placeName(doc, b, cid);
 }

@@ -97,13 +97,23 @@ export function issueTitle(key) {
 const contactOf = (id) => (id ? ui.contactById(id) : null);
 const bySort = (a, b) => (Number(a.sort) || 0) - (Number(b.sort) || 0) || Number(a.simcha_id) - Number(b.simcha_id);
 const isOn = (v) => v === true || String(v).toUpperCase() === 'TRUE';
+// 🏛 צו וועלכן מוסד געהערט די שמחה: '' = ק"ק אונגוואר; אנדערע — אונטער אן אייגענעם קעפל אינעם גליון (נאך די פון ק"ק)
+export const BRANCHES = [['', 'ק"ק אונגוואר'], ['yeshiva', 'ישיבת בית שערים'], ['jlm', 'ק"ק אונגוואר ירושלים']];
+const BR_HEAD = { yeshiva: 'משמחות ישיבתנו הק\' בית שערים', jlm: 'משמחות ק"ק אונגוואר ירושלים' };
+const brOrder = (s) => Math.max(0, BRANCHES.findIndex(([k]) => k === String(s.branch || '')));
+/** פאר דעם גליון: א קעפל פאר יעדער גרופע פון א צווייג */
+const withHeads = (list) => {
+  const out = []; let last = '';
+  list.forEach((s) => { const b = String(s.branch || ''); if (b && b !== last && BR_HEAD[b]) out.push({ simcha_id: `h-${b}`, type: 'special', special: `<b>${BR_HEAD[b]}</b>`, _head: true }); last = b; out.push(s); });
+  return out;
+};
 /** די שמחות פון א וואך: ערשט די וואס זענען אריינגעקומען ערב שבת די פאריגע וואך (_carried), דערנאך די פון די וואך */
 const ownOf = (week) => (state.simchos || []).filter((s) => s.week === week).sort(bySort);
 // דער סדר אין דער וואך: "sort" פאר די אייגענע, "sort_next" פאר די וואס קומען פון ערב שבת (ליידיג = אויבן)
 const simchosOf = (week) => {
   const carried = (state.simchos || []).filter((s) => isOn(s.also_next) && nextIssue(s.week) === week).sort(bySort).map((s) => ({ ...s, _carried: true }));
   const key = (s) => (s._carried ? Number(s.sort_next) || 0 : Number(s.sort) || 0);
-  return [...carried, ...ownOf(week)].map((s, i) => ({ s, i })).sort((a, b) => key(a.s) - key(b.s) || a.i - b.i).map((x) => x.s);
+  return [...carried, ...ownOf(week)].map((s, i) => ({ s, i })).sort((a, b) => brOrder(a.s) - brOrder(b.s) || key(a.s) - key(b.s) || a.i - b.i).map((x) => x.s);
 };
 /** פרייטאג פון 6 אינדערפרי ביז שבת: וואס מ'לייגט אריין די וואך ווייזט זיך אויך די קומענדיגע וואך */
 /** ערב שבת / ערב יום טוב (פון 6 אינדערפרי) ביזן סוף: וואס מ'לייגט אריין ווייזט זיך אויך אינעם קומענדיגן גליון */
@@ -234,6 +244,7 @@ export function cleanRich(html) {
 }
 
 export function simchaHtml(s) {
+  if (s._head) return `<div class="sg-entry sg-special sg-branch-head">${s.special}</div>`;
   if (s.type === 'special') return `<div class="sg-entry sg-special">${cleanRich(s.special)}</div>`;
   const { rows, rel } = compose(s);
   const ty = TYPES[s.type] || TYPES.birth;
@@ -557,7 +568,7 @@ export function renderSimchos() {
     </div>
     <div class="sg-wrap">
       <div class="sg-list">${list.length ? list.map((s, i) => `<div class="sg-item">
-          <div class="sg-item-text">${simchaHtml(s)}${s._carried ? `<div class="sg-late">↩ ${h(t('sgCarried'))}</div>` : isOn(s.also_next) ? `<div class="sg-late">↪ ${h(t('sgAlsoNext'))}</div>` : ''}${addedByHtml(s)}</div>
+          <div class="sg-item-text">${s.branch && BR_HEAD[s.branch] ? `<span class="badge sg-br">🏛 ${h((BRANCHES.find(([k]) => k === s.branch) || [])[1] || '')}</span>` : ''}${simchaHtml(s)}${s._carried ? `<div class="sg-late">↩ ${h(t('sgCarried'))}</div>` : isOn(s.also_next) ? `<div class="sg-late">↪ ${h(t('sgAlsoNext'))}</div>` : ''}${addedByHtml(s)}</div>
           <div class="sg-item-acts">
             <button type="button" class="btn small-btn" data-sg-edit="${h(s.simcha_id)}" title="${h(t('scEdit'))}">✎</button>
             <button type="button" class="btn small-btn" data-sg-up="${h(s.simcha_id)}"${i ? '' : ' disabled'}>▲</button>
@@ -567,7 +578,7 @@ export function renderSimchos() {
       <div class="sg-preview-wrap"><div class="sg-preview" id="sg-preview"></div><p class="muted small" id="sg-layout"></p></div>
     </div>`;
   LAY = layoutFor(cur.week);
-  lastPages = list.length ? finalize(paginate(list)) : [{ list: [], cols: 1, pt: MAX_PT }];
+  lastPages = list.length ? finalize(paginate(withHeads(list))) : [{ list: [], cols: 1, pt: MAX_PT }];
   $('#sg-preview', main).innerHTML = pagesHtml(lastPages);
   $('#sg-preview', main).style.setProperty('--pages', lastPages.length);
   $('#sg-layout', main).textContent = list.length ? t('sgLayout', { p: lastPages.length, c: lastPages.map((p) => p.cols).join('/'), s: lastPages.map((p) => Math.round(p.pt * SCALE * 10) / 10).join('/') }) : '';
@@ -819,6 +830,7 @@ export function openSimchaForm(s = {}) {
       <div class="sg-toprow">
         <div class="sg-types">${[...Object.entries(TYPES), ['special', { label: t('sgSpecial') }]].map(([k, v]) => `<label class="chip-radio big"><input type="radio" name="type" value="${k}"${rec.type === k ? ' checked' : ''}> ${h(v.label)}</label>`).join('')}</div>
         <span class="spacer"></span>
+        <label class="small sg-branch">🏛 <select name="branch">${BRANCHES.map(([k, l]) => `<option value="${k}"${String(rec.branch || '') === k ? ' selected' : ''}>${h(l)}</option>`).join('')}</select></label>
         <label class="sg-screen" title="${h(t('sgScreenTip'))}"><input type="checkbox" name="screen"${rec.screen === 'FALSE' ? '' : ' checked'}> 📺 ${h(t('sgScreen'))}</label>
         <span class="sg-when"><button type="button" class="btn small-btn" id="sg-when">📅 ${h(rec.week === weekNow() ? t('sgThisWeek') : weekLabel(rec.week))}</button>
           <input type="date" id="sg-when-date" hidden value="${h(rec.week)}"></span>
@@ -865,6 +877,7 @@ export function openSimchaForm(s = {}) {
     rec.text_override = form.elements.text_override.value.trim();
     rec.after_note = form.elements.after_note.value.trim();
     if (form.elements.screen) rec.screen = form.elements.screen.checked ? '' : 'FALSE';
+    if (form.elements.branch) rec.branch = form.elements.branch.value;
     if ($('#sg-rich', form)) rec.special = cleanRich($('#sg-rich', form).innerHTML);
     hs = $$('.sg-h', form).map((fs, i) => {
       const pk = $('.sg-pick', fs);

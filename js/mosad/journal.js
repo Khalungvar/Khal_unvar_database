@@ -1,13 +1,13 @@
 // אתר פון א מוסד — יומנים: 🤝 חברותות, ✅ השתתפות (מיט ⏱ כניסה/יציאה פון אברכים), 🏥 ביטוח בריאות, 📞 יומן מיט טעלעפאנען.
 // אלעס ווערט געדרוקט ווי די דפים פון דער ישיבה: צוויי זיילן מיט נומערירטע נעמען, "פרשת ...", טעג א–ה.
 // דער לוח (פרשיות) — לויט די הגדרות פונעם מוסד (ארץ ישראל / חוץ לארץ).
-import { downloadXlsx } from '../excel.js?v=598';
-import { colFilters } from '../sorttables.js?v=598';
-import { todayIso, isoToHebrewText, toHebrew, fromHebrew, monthHe, yearLabel } from '../hebdate.js?v=598';
-import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=598';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=598';
-import { letterhead, heShort } from './brand.js?v=598';
-import { dayInfo, rulesOf } from './hdays.js?v=598';
+import { downloadXlsx } from '../excel.js?v=599';
+import { colFilters } from '../sorttables.js?v=599';
+import { todayIso, isoToHebrewText, toHebrew, fromHebrew, monthHe, yearLabel } from '../hebdate.js?v=599';
+import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=599';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=599';
+import { letterhead, heShort } from './brand.js?v=599';
+import { dayInfo, rulesOf } from './hdays.js?v=599';
 
 let X = null;
 export function initJournal(ctx) { X = ctx; }
@@ -904,7 +904,7 @@ function stipTypesDialog(after) {
     wrap.innerHTML = list.map((t, i) => `<fieldset class="stt" data-i="${i}" style="border:1px solid #ccc;border-radius:8px;padding:8px;margin-bottom:10px">
       <legend><input data-f="name" value="${h(t.name)}" placeholder="שם הסוג (למשל: סדר בוקר)"> <button type="button" class="linkish" data-del="${i}">🗑</button></legend>
       <div>סדרים: ${ss.map((s) => `<label class="check"><input type="checkbox" data-s="${h(s.key)}"${t.sedarim.includes(s.key) ? ' checked' : ''}> ${h(s.name)}</label>`).join(' ')}</div>
-      <div class="stt-bg">🖼 בלאנק לפתק: ${X.st.settings?.[`asset:stipbg:${t.id}`] ? '<b>✓ בלאנק משלו</b> <button type="button" class="linkish" data-bgrm>הסרה (חזרה לבלאנק הכללי)</button>' : '<span class="muted">הבלאנק הכללי</span>'}
+      <div class="stt-bg">🖼 בלאנק לפתק: ${X.st.settings?.[`asset:stipbg:${t.id}`] ? '<b>✓ יש בלאנק</b> <button type="button" class="linkish" data-bgrm>הסרה</button>' : '<b class="err-txt">⚠ אין בלאנק — אי אפשר להדפיס פתקים לסוג הזה</b>'}
         <label class="btn small-btn">⬆ העלאת בלאנק (תמונה A4)<input type="file" accept="image/*" data-bgup hidden></label>
         <span class="muted small">תמונה של הדף (JPG / PNG), הטקסט נכתב עליו באמצע.</span></div>
       <details><summary>נוסח הפתק</summary>
@@ -1024,14 +1024,17 @@ function cashSheet(title, ids, D) {
 /** ✉ פתק לכל בחור (A4, למעטפה עם חלון) — לפי התבנית של הישיבה */
 async function stipNotes(mon, ids, D, type) {
   const { h } = X;
+  // 🖼 כל סוג מלגה — עם הבלאנק שלו (⚙️ סוגי מלגות). אין בלאנק כללי.
+  if (!type?.id || !X.st.settings?.[`asset:stipbg:${type.id}`]) {
+    X.toast(type?.id ? `לסוג "${type.name}" עוד לא הועלה בלאנק — ⚙️ סוגי מלגות ← ⬆ העלאת בלאנק.` : 'בחר סוג מלגה (לכל סוג — הבלאנק שלו).', 'err');
+    return;
+  }
   const w = window.open('', '_blank');
   if (!w) { X.toast('הדפדפן חסם חלון חדש — אפשר חלונות קופצים לאתר הזה.', 'err'); return; }
   w.document.write('<p style="font:16px Arial;text-align:center;margin-top:40px">טוען…</p>');
-  // 🖼 בלאנק משלו לסוג המלגה (⚙️ סוגי מלגות) — אחרת הבלאנק הכללי
-  let bg = X.KEY === 'yeshiva' ? new URL('../img/mosad/yeshiva/stipend-bg.jpg', location.href).href : '';
-  if (type?.id && X.st.settings?.[`asset:stipbg:${type.id}`]) {
-    try { bg = (await X.call(X.KEY, 'assetGet', { kind: 'stipbg', id: type.id })).data || bg; } catch { /* הכללי */ }
-  }
+  let bg = '';
+  try { bg = (await X.call(X.KEY, 'assetGet', { kind: 'stipbg', id: type.id })).data || ''; } catch (err) { w.close(); X.toast(X.msg(err), 'err'); return; }
+  if (!bg) { w.close(); X.toast('הבלאנק לא נמצא — העלה אותו שוב.', 'err'); return; }
   const lh = !bg ? letterhead(X.KEY) : null;
   const nm = (id) => [first(id), last(id)].filter(Boolean).join(' ');
   const T = { ...STIP_TPL, ...(D.tpl || {}) };

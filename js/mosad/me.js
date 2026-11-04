@@ -1,7 +1,7 @@
 // אתר פון א מוסד — 👤 אזור אישי (פרטים, ⏱ שעון נוכחות, 📋 משימות, 📜 הפעולות שלי, ✉️ מייל — שפעטער),
 // 📜 יומן פעולות (בעלים / מנהל), 📜 היסטוריה פון א רשומה, און 🗂 גיבויים.
-import { downloadXlsx } from '../excel.js?v=598';
-import { todayIso } from '../hebdate.js?v=598';
+import { downloadXlsx } from '../excel.js?v=599';
+import { todayIso } from '../hebdate.js?v=599';
 
 let X = null;
 export function initMe(ctx) { X = ctx; }
@@ -95,6 +95,18 @@ export async function renderMe(box) {
     try { const r = await X.call(X.KEY, 'log', { mine: true }); el.innerHTML = logTable(r.log.slice(0, 300)); } catch (err) { el.innerHTML = `<p class="ms-note err">${h(X.msg(err))}</p>`; }
   };
 }
+/** 📋 דף משימות: עבורי + שהשארתי לאחרים, עם סטטוס */
+export async function renderTasks(box) {
+  const { h, st } = X;
+  box.innerHTML = '<p class="muted">טוען…</p>';
+  try {
+    await users();
+    const r = await X.call(X.KEY, 'tasks');
+    U.tasks = r.tasks; st.openTasks = U.tasks.filter((x) => x.status !== 'done' && x.assigned_to === st.me.email).length;
+  } catch (err) { box.innerHTML = `<p class="ms-note err">${h(X.msg(err))}</p>`; return; }
+  box.innerHTML = '<h2 class="ms-h">📋 משימות</h2><p class="muted small">משימה שהשארת למישהו — הוא רואה אותה אצלו, ואתה רואה מתי הוא סימן "בטיפול" או "בוצע".</p><section class="me-card"><div id="tk-page"></div></section>';
+  tasksBox(X.$('#tk-page', box));
+}
 function clockBox(el) {
   const { h, st } = X;
   const c = st.clock || {};
@@ -117,22 +129,27 @@ function tasksBox(el) {
   const given = list.filter((t) => t.assigned_to !== me && t.from_email === me);
   const others = list.filter((t) => t.assigned_to !== me && t.from_email !== me);
   const row = (t) => `<div class="tk-row${t.status === 'done' ? ' done' : ''}${t.status !== 'done' && t.due && t.due < today ? ' late' : ''}">
-      <input type="checkbox" data-done="${h(t.task_id)}"${t.status === 'done' ? ' checked' : ''} title="בוצע">
+      <select class="tk-st st-${h(t.status || 'open')}" data-st="${h(t.task_id)}" title="סטטוס">${[['open', '⬜ פתוח'], ['doing', '⏳ בטיפול'], ['done', '✅ בוצע']].map(([k, l]) => `<option value="${k}"${(t.status || 'open') === k ? ' selected' : ''}>${l}</option>`).join('')}</select>
       <span class="tk-text">${t.urgent === 'TRUE' ? '<b class="tk-urgent">דחוף</b> ' : ''}${h(t.text)}
         ${t.contact_id && X.pById(t.contact_id) ? ` · <a href="#" data-open="${h(t.contact_id)}">${h(X.nameOf(X.pById(t.contact_id)))}</a>` : ''}</span>
-      <span class="muted small">${t.due ? `עד ${h(t.due)}` : ''}${t.assigned_to !== me ? ` · ל${h(userName(t.assigned_to))}` : ''}${t.from_email !== me ? ` · מ${h(userName(t.from_email))}` : ''}</span>
+      <span class="muted small">${t.status === 'done' && t.done_by ? `✅ ${h(userName(t.done_by))}${t.done_at ? ` ${h(String(t.done_at).slice(0, 10))}` : ''} · ` : ''}${t.due ? `עד ${h(t.due)}` : ''}${t.assigned_to !== me ? ` · ל${h(userName(t.assigned_to))}` : ''}${t.from_email !== me ? ` · מ${h(userName(t.from_email))}` : ''}</span>
       ${t.from_email === me || st.me.role === 'owner' || st.me.role === 'admin' ? `<button type="button" class="linkish" data-ed="${h(t.task_id)}" title="עריכה">✎</button><button type="button" class="linkish" data-del="${h(t.task_id)}" title="מחיקה">🗑</button>` : ''}
     </div>`;
   el.innerHTML = `<div class="ms-bar"><button type="button" class="btn primary" id="tk-new">➕ משימה חדשה</button>
       <label class="check"><input type="checkbox" id="tk-showdone"${U.showDone ? ' checked' : ''}> הצג גם שבוצעו</label></div>
-    <h4>שלי (${mine.filter((t) => t.status !== 'done').length})</h4>${mine.map(row).join('') || '<p class="muted small">אין.</p>'}
-    <h4>נתתי לאחרים</h4>${given.map(row).join('') || '<p class="muted small">אין.</p>'}
+    <h4>📥 משימות עבורי (${mine.filter((t) => t.status !== 'done').length} פתוחות)</h4>${mine.map(row).join('') || '<p class="muted small">אין.</p>'}
+    <h4>📤 משימות שהשארתי לאחרים (${given.filter((t) => t.status !== 'done').length} פתוחות)</h4>${given.map(row).join('') || '<p class="muted small">אין.</p>'}
     ${others.length ? `<h4>משימות של אחרים</h4>${others.map(row).join('')}` : ''}`;
   X.$('#tk-new', el).onclick = () => taskDialog(null, el);
   X.$('#tk-showdone', el).onchange = (e) => { U.showDone = e.target.checked; tasksBox(el); };
-  X.$$('[data-done]', el).forEach((c) => {
+  X.$$('[data-st]', el).forEach((c) => {
     c.onchange = async () => {
-      try { await X.call(X.KEY, 'taskDone', { task_id: c.dataset.done, undo: !c.checked }); const t = U.tasks.find((x) => x.task_id === c.dataset.done); t.status = c.checked ? 'done' : 'open'; st.openTasks = U.tasks.filter((x) => x.status !== 'done' && x.assigned_to === me).length; tasksBox(el); } catch (err) { c.checked = !c.checked; X.toast(X.msg(err), 'err'); }
+      const t = U.tasks.find((x) => x.task_id === c.dataset.st); const was = t.status || 'open'; const v = c.value;
+      try {
+        await X.call(X.KEY, 'taskDone', v === 'doing' ? { task_id: t.task_id, status: 'doing' } : { task_id: t.task_id, undo: v !== 'done' });
+        t.status = v; if (v === 'done') { t.done_by = me; t.done_at = todayIso(); }
+        st.openTasks = U.tasks.filter((x) => x.status !== 'done' && x.assigned_to === me).length; tasksBox(el);
+      } catch (err) { c.value = was; X.toast(X.msg(err), 'err'); }
     };
   });
   X.$$('[data-ed]', el).forEach((b) => { b.onclick = () => taskDialog(U.tasks.find((x) => x.task_id === b.dataset.ed), el); });

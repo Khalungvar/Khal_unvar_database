@@ -1,8 +1,8 @@
 // 🎉 עדכון שמחות: שמחה של בחור / איש צוות → (1) נכנסת לרשימת השמחות של אונגוואר (מערכת האם, לשונית Simchos)
 // (2) דף "מזל טוב" מעוצב על הבלאנק של המוסד — מוכן להדפסה / PDF.
-import { letterhead } from './brand.js?v=598';
-import { todayIso, isoToHebrewText } from '../hebdate.js?v=598';
-import { shabbatTitle } from '../parasha.js?v=598';
+import { letterhead } from './brand.js?v=599';
+import { todayIso, isoToHebrewText } from '../hebdate.js?v=599';
+import { shabbatTitle } from '../parasha.js?v=599';
 
 let X = null;
 export function initSimcha(ctx) { X = ctx; }
@@ -13,11 +13,15 @@ const TYPES = [
 const add = (iso, n) => new Date(Date.parse(`${iso}T12:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 const satOf = (iso) => add(iso, (6 - new Date(`${iso}T12:00:00Z`).getUTCDay() + 7) % 7);
 const hasKind = (p, k) => (p?.kinds || [p?.kind]).includes(k);
+// 🏛 לאן נכנסת השמחה ברשימה של אונגוואר: תחת "ישיבת בית שערים", או תחת "ק"ק אונגוואר ירושלים" (ביהמ"ד מוסיאוף — לא קשור לישיבה)
+const BRANCH = [['yeshiva', 'ישיבת בית שערים'], ['jlm', 'ק"ק אונגוואר ירושלים (ביהמ"ד מוסיאוף)']];
+let BR = 'yeshiva';
 
 /** הנוסח של דף המזל טוב */
 function textOf(type, p, child, other) {
   const { nameOf, fatherOf } = X;
-  const nm = nameOf(p);
+  if (!p.contact_id) p = { ...p, kinds: ['other'] };
+  const nm = p.contact_id ? nameOf(p) : p.name;
   const stud = hasKind(p, 'student');
   const f = stud ? fatherOf(p) : null;
   const to = stud ? `לידידנו הבה"ח החשוב ${nm} נ"י${f ? `\nולהוריו הנכבדים ${nameOf(f)} שליט"א` : ''}` : `לידידנו ${nm} שליט"א`;
@@ -32,14 +36,16 @@ function textOf(type, p, child, other) {
 
 export function renderSimcha(box) {
   const { h, st } = X;
-  const people = st.people.filter((p) => ['student', 'staff', 'avreich'].some((k) => hasKind(p, k)))
+  const people = st.people.filter((p) => BR === 'jlm' || ['student', 'staff', 'avreich'].some((k) => hasKind(p, k)))
     .sort((a, b) => X.S(a.last_name_he).localeCompare(X.S(b.last_name_he), 'he') || X.S(a.first_name_he).localeCompare(X.S(b.first_name_he), 'he'));
   const label = (p) => `${X.nameOf(p)} (#${p.contact_id})`;
   box.innerHTML = `<h2 class="ms-h">🎉 עדכון שמחות</h2>
     <p class="muted small">בלחיצה אחת: השמחה נכנסת לרשימת השמחות של אונגוואר (הגבאים שם רואים אותה ומשבצים לגליון ולמסך), ונפתח דף "מזל טוב" מעוצב — להדפסה או לשמירה כ-PDF.</p>
+    <nav class="ms-subtabs">${BRANCH.map(([k, l]) => `<button type="button" data-br="${k}" class="${k === BR ? 'on' : ''}">🏛 ${h(l)}</button>`).join('')}</nav>
+    <p class="muted small">${BR === 'jlm' ? 'שמחה בק"ק אונגוואר ירושלים — נכנסת לרשימה של אונגוואר תחת "ק"ק אונגוואר ירושלים". אפשר לבחור מהרשימה, או להקליד שם מלא של מי שלא ברשימה.' : 'שמחה של בחור / איש צוות / אברך — נכנסת לרשימה של אונגוואר תחת "ישיבת בית שערים".'}</p>
     <form class="ms-form" id="sm-form" autocomplete="off"><div class="grid">
       <label>סוג השמחה<select name="type">${TYPES.map(([k, l]) => `<option value="${k}">${h(l)}</option>`).join('')}</select></label>
-      <label class="wide">בעל השמחה (בחור / איש צוות / אברך)<input name="who" list="sm-dl" placeholder="מקלידים שם…" required></label>
+      <label class="wide">בעל השמחה ${BR === 'jlm' ? '(מהרשימה, או שם מלא עם תואר)' : '(בחור / איש צוות / אברך)'}<input name="who" list="sm-dl" placeholder="מקלידים שם…" required></label>
       <datalist id="sm-dl">${people.map((p) => `<option value="${h(label(p))}">`).join('')}</datalist>
       <label>שם הילד / החתן (לא חובה)<input name="child" placeholder="למשל: יעקב"></label>
       <label>הצד השני (באירוסין / נישואין)<input name="other" placeholder="למשל: בת הרה&quot;ח ר' … שליט&quot;א"></label>
@@ -50,12 +56,15 @@ export function renderSimcha(box) {
     <div class="actions"><button type="button" class="btn" id="sm-auto">↻ נוסח אוטומטי</button><span class="spacer"></span>
       <button type="button" class="btn" id="sm-page">🖨 רק דף מזל טוב</button>
       <button type="submit" class="btn primary">🎉 עדכון באונגוואר + דף מזל טוב</button></div></form>`;
+  X.$$('[data-br]', box).forEach((b) => { b.onclick = () => { BR = b.dataset.br; renderSimcha(box); }; });
   const form = X.$('#sm-form', box);
-  const person = () => { const m = X.S(form.elements.who.value).match(/\(#(\d+)\)$/); return m ? X.pById(m[1]) : null; };
+  // בירושלים: גם שם חופשי (מי שלא ברשימה) — { name }
+  const person = () => { const v = X.S(form.elements.who.value); const m = v.match(/\(#(\d+)\)$/); return m ? X.pById(m[1]) : (BR === 'jlm' && v.length > 2 ? { name: v } : null); };
   const auto = () => { const p = person(); if (!p) return; form.elements.text.value = textOf(form.elements.type.value, p, X.S(form.elements.child.value), X.S(form.elements.other.value)); };
   const info = () => {
     const p = person(); const el = X.$('#sm-who', box);
     if (!p) { el.textContent = ''; return; }
+    if (!p.contact_id) { el.textContent = `באונגוואר: בעל השמחה — "${p.name}" (שם חופשי, בלי כרטיס).`; return; }
     const f = hasKind(p, 'student') ? X.fatherOf(p) : null;
     el.textContent = hasKind(p, 'student') ? (f ? `באונגוואר: בעל השמחה — האבא, ${X.nameOf(f)}, והבחור ${X.nameOf(p)} כ"ילד".` : '⚠ לא רשום אבא לבחור — באונגוואר יירשם הבחור עצמו. (אפשר להוסיף את האבא בכרטיס שלו)') : `באונגוואר: בעל השמחה — ${X.nameOf(p)}.`;
   };
@@ -68,14 +77,14 @@ export function renderSimcha(box) {
     if (!form.elements.text.value.trim()) auto();
     const T = TYPES.find(([k]) => k === form.elements.type.value);
     const stud = hasKind(p, 'student'); const f = stud ? X.fatherOf(p) : null;
-    const hon = f ? [{ id: f.contact_id, title: X.S(f.title_he), suffix: 'שליט"א', toChild: true }] : [{ id: p.contact_id, title: X.S(p.title_he), suffix: stud ? 'נ"י' : 'שליט"א' }];
+    const hon = !p.contact_id ? [{ name: p.name, suffix: 'שליט"א' }] : f ? [{ id: f.contact_id, title: X.S(f.title_he), suffix: 'שליט"א', toChild: true }] : [{ id: p.contact_id, title: X.S(p.title_he), suffix: stud ? 'נ"י' : 'שליט"א' }];
     const req = { type: T[2], gender: T[3], honorees: hon, child_name: f ? X.S(p.first_name_he) || X.S(form.elements.child.value) : X.S(form.elements.child.value),
-      child_id: f ? p.contact_id : '', other_side: X.S(form.elements.other.value), week: form.elements.week.value };
+      child_id: f ? p.contact_id : '', other_side: X.S(form.elements.other.value), week: form.elements.week.value, branch: BR };
     const w = window.open('', '_blank'); // לפני ה-await — כדי שהדפדפן לא יחסום
     const btn = X.$('button[type=submit]', form); btn.disabled = true;
     try {
       const r = await X.call(X.KEY, 'simchaAdd', req);
-      X.toast(`נוסף לרשימת השמחות באונגוואר (#${r.id}).`);
+      X.toast(`נוסף לרשימת השמחות באונגוואר תחת "${BRANCH.find(([k]) => k === BR)[1]}" (#${r.id}).`);
       mazelTov(form.elements.text.value, w);
     } catch (err) { if (w) w.close(); X.toast(X.msg(err), 'err'); } finally { btn.disabled = false; }
   };
@@ -105,7 +114,7 @@ function mazelTov(text, w0) {
     <div class="pg">${lh ? `<div class="top"><img src="${lh.top}" alt=""></div>` : `<h2 style="text-align:center">${h(X.st.mosad?.name || '')}</h2>`}
       <div class="mt">מזל טוב</div><div class="orn">✦ ✦ ✦</div>
       <div class="tx">${body}</div>
-      <div class="sig">${h(X.KEY === 'yeshiva' ? 'הנהלת הישיבה' : `הנהלת ${X.st.mosad?.name || 'המוסד'}`)}</div>
+      <div class="sig">${h(BR === 'jlm' ? 'גבאי ק"ק אונגוואר ירושלים' : X.KEY === 'yeshiva' ? 'הנהלת הישיבה' : `הנהלת ${X.st.mosad?.name || 'המוסד'}`)}</div>
       <div class="dt">${h(isoToHebrewText(todayIso()))} · ${h(shabbatTitle(satOf(todayIso()), true))}</div>
       ${lh ? `<div class="bot"><img src="${lh.bottom}" alt=""></div>` : ''}</div></body></html>`);
   w.document.close();

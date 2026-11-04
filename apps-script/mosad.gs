@@ -15,7 +15,7 @@ const MAIN_ID = '16gyhQ4W7p2DHjPMtdXldFynG1KUzDypGvTvYlS7cnJY';
 const CLIENT_ID = '73541082309-bb0bc3jv1dchtpgsr129m5bbertk79ua.apps.googleusercontent.com';
 const FIRST_CONTACT_ID = 2001;
 // יעדער כפתור אויפן ערשטן בלאט איז א הרשאה; people_edit = צולייגן / טוישן אנשי קשר (שרייבט אינעם הויפט-מאגר)
-const PERMS = ['students', 'alumni', 'staff_list', 'tuition', 'insurance', 'parents', 'chavrusas', 'attendance', 'donations', 'finance', 'people_edit', 'dorm', 'stipends', 'kitchen', 'manager', 'salary', 'shabbos', 'simchos'];
+const PERMS = ['students', 'alumni', 'staff_list', 'tuition', 'insurance', 'parents', 'chavrusas', 'attendance', 'donations', 'finance', 'people_edit', 'dorm', 'dorm_att', 'stipends', 'kitchen', 'manager', 'salary', 'shabbos', 'simchos', 'budget'];
 // 👑 מנהל מוסד / טכני: משכורות (salary), שכר לימוד (tuition), נדבות וקבלות (donations) — נאר מיט דער הרשאה (אדמין / בעלים: אלעס)
 const MGR_PERMS = ['tuition', 'donations', 'salary'];
 // וואס דער מוסד מעג זען / טוישן אין א קאנטאקט
@@ -181,7 +181,7 @@ function dropCaches(M, ppl, names, don) {
   if (ks.length) unstore(M, ks);
 }
 // אקציעס וואס לייענען נאר; יעדע אנדערע (א שרייבונג) מעקט אויס דעם cache פון די מענטשן
-const READS = { ask: 1, kitchen: 1, dormImg: 1, batch: 1, me: 1, people: 1, find: 1, school: 1, whereIs: 1, gifts: 1, chav: 1, att: 1, hours: 1, ins: 1, team: 1, clock: 0, users: 1, tasks: 1, log: 1, history: 1, fin: 1, fileGet: 1, backups: 1, staff: 1, assetGet: 1 };
+const READS = { budgetGet: 1, ask: 1, kitchen: 1, dormImg: 1, batch: 1, me: 1, people: 1, find: 1, school: 1, whereIs: 1, gifts: 1, chav: 1, att: 1, hours: 1, ins: 1, team: 1, clock: 0, users: 1, tasks: 1, log: 1, history: 1, fin: 1, fileGet: 1, backups: 1, staff: 1, assetGet: 1 };
 
 function doPost(e) {
   try {
@@ -1083,6 +1083,22 @@ const ACTIONS = {
       return { ok: true };
     } finally { lock.releaseLock(); }
   },
+  /** 📞 קו טלפון (ימות המשיח): טלפונים מורשים + הכתובת לשלוחת ה-API — רק מנהל */
+  kPhoneInfo: function (M, me, req) {
+    if (!isAdminRole(me)) throw new Error('no-permission');
+    const props = PropertiesService.getScriptProperties();
+    let key = props.getProperty('YEMOT_KEY_' + M.key);
+    if (req && req.newKey) { key = Utilities.getUuid().replace(/-/g, ''); props.setProperty('YEMOT_KEY_' + M.key, key); logIt(M, me, 'settings', '', 'yemot key'); }
+    const url = ScriptApp.getService().getUrl();
+    return { phones: kPhones(M), link: key ? url + '?yemot=1&m=' + encodeURIComponent(M.key) + '&k=' + key : '' };
+  },
+  kPhoneSave: function (M, me, req) {
+    if (!isAdminRole(me)) throw new Error('no-permission');
+    const list = [].concat(req.phones || []).slice(0, 50).map(function (x) { return { phone: phoneKey(x.phone), name: S(x.name).slice(0, 60) }; }).filter(function (x) { return x.phone.length >= 9; });
+    putSetting(M, me, 'k_phones', JSON.stringify(list));
+    logIt(M, me, 'settings', '', 'k_phones ' + list.length);
+    return { ok: true, phones: list };
+  },
   /** הזמנה: נרשמת בהיסטוריה; received = true → המלאי עולה */
   kitchenOrder: function (M, me, req) {
     need(me, 'kitchen');
@@ -1250,7 +1266,9 @@ const ACTIONS = {
     need(me, 'simchos');
     const types = { birth: 1, upsherin: 1, barmitzvah: 1, erusin: 1, nisuin: 1 };
     const type = types[S(req.type)] ? S(req.type) : 'birth';
-    const hon = [].concat(req.honorees || []).slice(0, 4).map(function (x) { return { id: S(x.id).replace(/\D/g, ''), name: '', title: S(x.title).slice(0, 30), suffix: S(x.suffix).slice(0, 20) || 'שליט"א', noteOn: false, note: '', toChild: x.toChild ? '1' : '' }; }).filter(function (x) { return x.id; });
+    const hon = [].concat(req.honorees || []).slice(0, 4).map(function (x) { const id = S(x.id).replace(/\D/g, ''); return { id: id, name: id ? '' : S(x.name).slice(0, 80), title: S(x.title).slice(0, 30), suffix: S(x.suffix).slice(0, 20) || 'שליט"א', noteOn: false, note: '', toChild: x.toChild ? '1' : '' }; }).filter(function (x) { return x.id || x.name; });
+    if (!hon.length) throw new Error('need-honoree');
+    const branch = { yeshiva: 1, jlm: 1 }[S(req.branch)] ? S(req.branch) : 'yeshiva';
     const week = /^\d{4}-\d{2}-\d{2}$/.test(S(req.week)) ? S(req.week) : '';
     if (!week) throw new Error('bad-date');
     const lock = LockService.getScriptLock(); lock.waitLock(20000);
@@ -1260,11 +1278,35 @@ const ACTIONS = {
       let max = 0; objs(sh).forEach(function (x) { const n = Number(x.simcha_id); if (n > max) max = n; });
       const o = { simcha_id: max + 1, week: "'" + week, type: type, honorees: JSON.stringify(hon), child_gender: S(req.gender) === 'f' ? 'f' : 'm', child_name: S(req.child_name).slice(0, 60),
         child_contact_id: S(req.child_id).replace(/\D/g, ''), other_side: S(req.other_side).slice(0, 200), text_override: S(req.text).slice(0, 2000), sort: '',
-        created_at: now(), created_by: me.email + ' (' + (S(M.name) || M.key) + ')', updated_at: now(), updated_by: me.email };
+        created_at: now(), created_by: me.email + ' (' + (S(M.name) || M.key) + ')', updated_at: now(), updated_by: me.email, branch: branch };
       appendObj(sh, o);
       logIt(M, me, 'simcha', o.child_contact_id, type + ' #' + o.simcha_id);
       return { ok: true, id: max + 1 };
     } finally { lock.releaseLock(); }
+  },
+  // ---------- 📆 הוצאות והכנסות קבועות + מאזן — הרשאה נפרדת "budget" (לא נשלח עם ההגדרות הכלליות) ----------
+  // { opening: { date, amount }, items: [{ id, kind: 'exp'|'inc', name, amount, freq: 'week'|'heb'|'greg'|'once', dow, hday, gday, date, from, to, note }] }
+  budgetGet: function (M, me) {
+    need(me, 'budget');
+    const ex = objs(M.book.getSheetByName('Settings')).filter(function (x) { return S(x.key) === 'budget'; })[0];
+    let v = { opening: { date: '', amount: '' }, items: [] };
+    try { if (ex && S(ex.value)) v = JSON.parse(S(ex.value)); } catch (err) { /* */ }
+    return { budget: v };
+  },
+  budgetSave: function (M, me, req) {
+    need(me, 'budget');
+    const b = req.budget || {};
+    const num = function (v) { const n = Number(v); return isFinite(n) ? Math.round(n * 100) / 100 : 0; };
+    const d10 = function (v) { return /^\d{4}-\d{2}-\d{2}$/.test(S(v)) ? S(v) : ''; };
+    const items = [].concat(b.items || []).slice(0, 300).map(function (x, i) {
+      return { id: S(x.id).slice(0, 30) || ('b' + i), kind: S(x.kind) === 'inc' ? 'inc' : 'exp', name: S(x.name).slice(0, 120) || '—', amount: num(x.amount),
+        freq: { week: 1, heb: 1, greg: 1, once: 1 }[S(x.freq)] ? S(x.freq) : 'greg', dow: Math.max(0, Math.min(6, Number(x.dow) || 0)), hday: Math.max(1, Math.min(30, Number(x.hday) || 1)),
+        gday: Math.max(1, Math.min(31, Number(x.gday) || 1)), date: d10(x.date), from: d10(x.from), to: d10(x.to), note: S(x.note).slice(0, 300) };
+    });
+    const v = { opening: { date: d10(b.opening && b.opening.date), amount: b.opening && S(b.opening.amount) !== '' ? num(b.opening.amount) : '' }, items: items };
+    putSetting(M, me, 'budget', JSON.stringify(v));
+    logIt(M, me, 'budget', '', items.length + ' items');
+    return { ok: true, budget: v };
   },
   /** 🎖 סוגי מלגות: [{ id, name, sedarim: [keys], tpl: { to: [], bless, intro, amount, quotes: [] } }] */
   stipTypesSave: function (M, me, req) {
@@ -1405,14 +1447,16 @@ const ACTIONS = {
   // ---------- ✅ השתתפות: א שורה פאר וואך + סדר + בחור; marks = { "0": "v", "0b": "x" } (טאג 0=זונטאג; b = די צווייטע משבצת) ----------
   att: function (M, me, req) {
     // השתתפות; גם 🎖 מלגות (לקרוא) ו-🧹 ימי עבודה במשכורות
-    if (!isAdminRole(me) && ['attendance', 'stipends', 'salary'].every(function (p) { return me.perms.indexOf(p) < 0; })) throw new Error('no-permission');
+    // 🌙 נוכחות בפנימייה (seder "_dorm") — גם עם הרשאה dorm_att בלבד
+    const dormOnly = !isAdminRole(me) && ['attendance', 'stipends', 'salary'].every(function (p) { return me.perms.indexOf(p) < 0; });
+    if (dormOnly && me.perms.indexOf('dorm_att') < 0) throw new Error('no-permission');
     const from = S(req.from); const to = S(req.to) || from;
-    return { rows: objs(M.book.getSheetByName('Attendance')).filter(function (x) { const w = S(x.week).slice(0, 10); return w >= from && w <= to; })
+    return { rows: objs(M.book.getSheetByName('Attendance')).filter(function (x) { const w = S(x.week).slice(0, 10); return w >= from && w <= to && (!dormOnly || S(x.seder) === '_dorm'); })
       .map(function (x) { return { week: S(x.week).slice(0, 10), seder: S(x.seder), contact_id: S(x.contact_id), marks: S(x.marks), note: S(x.note) }; }) };
   },
   attSave: function (M, me, req) {
     const week = S(req.week).slice(0, 10); const seder = S(req.seder);
-    need(me, seder === '_work' && me.perms.indexOf('salary') >= 0 ? 'salary' : 'attendance');
+    need(me, seder === '_dorm' ? 'dorm_att' : seder === '_work' && me.perms.indexOf('salary') >= 0 ? 'salary' : 'attendance');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(week) || !seder) throw new Error('bad-week');
     const lock = LockService.getScriptLock(); lock.waitLock(20000);
     try {
@@ -1579,7 +1623,8 @@ const ACTIONS = {
       if (!ex) throw new Error('not-found');
       if (!isAdminRole(me) && [S(ex.assigned_to).toLowerCase(), S(ex.from_email).toLowerCase()].indexOf(me.email) < 0) throw new Error('no-permission');
       if (req.del) { if (!isAdminRole(me) && S(ex.from_email).toLowerCase() !== me.email) throw new Error('no-permission'); delRow(sh, ex._row); return { ok: true }; }
-      setCells(sh, ex._row, req.undo ? { status: 'open', done_at: '', done_by: '' } : { status: 'done', done_at: now(), done_by: me.email });
+      if (req.status === 'doing') setCells(sh, ex._row, { status: 'doing', done_at: '', done_by: '', updated_at: now(), updated_by: me.email });
+      else setCells(sh, ex._row, req.undo ? { status: 'open', done_at: '', done_by: '' } : { status: 'done', done_at: now(), done_by: me.email });
       return { ok: true };
     } finally { lock.releaseLock(); }
   },
@@ -2032,7 +2077,7 @@ function settingsOf(M) {
     if (k === 'sedarim' || k === 'exp_cats' || k === 'inc_cats') { try { const v = JSON.parse(S(x.value)); if (v && v.length) o[k] = v; } catch (err) { /* */ } }
     else if (k === 'rooms') { try { const v = JSON.parse(S(x.value)); if (Array.isArray(v)) o.rooms = v; } catch (err) { /* */ } }
     else if (k === 'dorm_bld') { try { const v = JSON.parse(S(x.value)); if (Array.isArray(v)) o.dorm_bld = v; } catch (err) { /* */ } }
-    else if (k && k.indexOf('dormimg:') !== 0 && k !== 'reg' && k.indexOf('reg_txt:') !== 0 && k !== 'kitchen_workers') o[k] = S(x.value); // kitchen_workers (סיסמאות) — קיינמאל נישט צום אתר
+    else if (k && k.indexOf('dormimg:') !== 0 && k !== 'reg' && k.indexOf('reg_txt:') !== 0 && k !== 'kitchen_workers' && k !== 'budget' && k !== 'k_phones') o[k] = S(x.value); // budget — רק עם הרשאה (budgetGet); k_phones — טלפונים מורשים לקו // kitchen_workers (סיסמאות) — קיינמאל נישט צום אתר
   });
   return o;
 }
@@ -2888,3 +2933,65 @@ function staffDupFix() {
 }
 /** פונעם עדיטאר: די סקיצע פון דער פנימייה — חדר 107 אן דער וואנט אינמיטן */
 function dormImg107Fix() { const x = regDevMe_(); putSetting(x.M, x.me, 'dormimg:B1', 'data:image/webp;base64,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'); Logger.log('ok ' + 'data:image/webp;base64,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'.length); }
+
+// =====================================================================
+// 📞 קו טלפון למלאי המטבח — ימות המשיח, שלוחה מסוג API (type=api)
+// ימות המשיח שולחים GET לכתובת: ...exec?yemot=1&m=<מוסד>&k=<מפתח> + ApiPhone, ApiCallId, ApiExtension,
+// וכל מה שהמתקשר כבר הקיש (P = מספר מוצר, A = פעולה, Q = כמות). התשובה — טקסט פקודות של ימות.
+// מספר מוצר = הספרות של product_id (K12 → 12). רק טלפונים מורשים (Settings "k_phones" = [{ phone, name }]).
+// המפתח: Script Properties "YEMOT_KEY_<מוסד>" — נוצר מהאתר (⚙ קו טלפון), לא בקוד.
+// =====================================================================
+function doGet(e) {
+  const p = (e && e.parameter) || {};
+  if (p.yemot) { try { return yemotText(yemotCall(p)); } catch (err) { return yemotText('id_list_message=t-' + ytts('אירעה שגיאה, נסו שוב מאוחר יותר') + '&go_to_folder=hangup'); } }
+  return out({ ok: true });
+}
+function yemotText(s) { return ContentService.createTextOutput(s).setMimeType(ContentService.MimeType.TEXT); }
+/** טקסט להקראה: בלי התווים שימות לא מקבל (. - " ' & | , =) */
+function ytts(s) { return S(s).replace(/[.\-"'&|,=]/g, ' ').replace(/\s+/g, ' ').trim(); }
+const yNum = function (n) { const v = Math.round(Number(n) * 100) / 100; return v % 1 ? ytts(String(v).replace('.', ' נקודה ')) : 'n-' + v; };
+function phoneKey(v) { let d = S(v).replace(/\D/g, ''); if (d.indexOf('972') === 0) d = '0' + d.slice(3); return d; }
+function kPhones(M) {
+  try { const r = objs(M.book.getSheetByName('Settings')).filter(function (x) { return S(x.key) === 'k_phones'; })[0]; const v = JSON.parse(S(r && r.value) || '[]'); return Array.isArray(v) ? v : []; } catch (err) { return []; }
+}
+function yemotCall(p) {
+  const M = mosadOf(p.m);
+  if (!M) return 'go_to_folder=hangup';
+  const key = PropertiesService.getScriptProperties().getProperty('YEMOT_KEY_' + M.key);
+  if (!key || S(p.k) !== key) return 'go_to_folder=hangup';
+  if (S(p.hangup) === 'yes') return '';
+  const ext = S(p.ApiExtension);
+  const again = ext ? '&go_to_folder=/' + ext : '&go_to_folder=hangup';
+  const who = kPhones(M).filter(function (x) { return phoneKey(x.phone) && phoneKey(x.phone) === phoneKey(p.ApiPhone); })[0];
+  if (!who) return 'id_list_message=t-' + ytts('המספר שלך אינו מורשה לעדכן את המלאי') + '&go_to_folder=hangup';
+  const P = S(p.P).replace(/\D/g, ''); const A = S(p.A).replace(/\D/g, ''); const Q = S(p.Q).replace(/[^\d*]/g, '').replace('*', '.');
+  // קלט מספר: P,לא לשאול שוב,מקסימום,מינימום,שניות,הקראה,חסום כוכבית,חסום אפס,,ספרות מותרות,ניסיונות,ריק,ערך ריק
+  if (!P) return 'read=t-' + ytts('שלום ' + S(who.name)) + '.t-' + ytts('הקישו את מספר המוצר ובסיומו סולמית') + '=P,no,5,1,10,Number,yes,no,,,,,';
+  const ks = ensureTab(M.book, 'Kitchen', TABS.Kitchen);
+  const all = objs(ks);
+  const it = all.filter(function (x) { return S(x.product_id).replace(/\D/g, '') === P && S(x.product_name); })[0];
+  if (!it) return 'id_list_message=t-' + ytts('מוצר מספר') + '.n-' + P + '.t-' + ytts('לא נמצא') + again;
+  const name = ytts(it.product_name); const unit = ytts(it.unit || 'יחידות'); const pack = Math.max(1, Number(it.pack_size) || 1);
+  const stock = Number(it.current_stock) || 0;
+  if (!A) {
+    return 'read=t-' + name + '.t-' + ytts('במלאי') + '.' + yNum(stock) + '.t-' + unit +
+      '.t-' + ytts('לעדכון הכמות שיש במלאי הקישו 1') + '.t-' + ytts('לדיווח שהמוצר נגמר הקישו 2') + '.t-' + ytts('להוספת סחורה שהגיעה הקישו 3') +
+      '=A,no,1,1,10,No,yes,no,,1.2.3,,,';
+  }
+  const meK = { email: 'phone:' + phoneKey(p.ApiPhone) + ' (' + S(who.name) + ')', perms: ['kitchen'], role: 'staff' };
+  const done = function (newStock, what) {
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try { setCells(ks, it._row, { current_stock: newStock, updated_at: now(), updated_by: meK.email }); } finally { lock.releaseLock(); }
+    logIt(M, meK, 'kitchen-phone', '', S(it.product_name) + ': ' + what + ' → ' + newStock);
+    return 'id_list_message=t-' + ytts('עודכן') + '.t-' + name + '.t-' + ytts('במלאי עכשיו') + '.' + yNum(newStock) + '.t-' + unit + '.t-' + ytts('תודה') + again;
+  };
+  if (A === '2') return done(0, 'נגמר');
+  if (A !== '1' && A !== '3') return 'go_to_folder=hangup';
+  if (!Q) {
+    const ask = A === '1' ? 'כמה ' + S(it.unit || 'יחידות') + ' יש עכשיו במלאי' : pack > 1 ? 'כמה קרטונים הגיעו' : 'כמה ' + S(it.unit || 'יחידות') + ' הגיעו';
+    return 'read=t-' + ytts(ask) + '.t-' + ytts('הקישו מספר ובסיומו סולמית') + '=Q,no,6,1,10,Number,no,no,,,,,';
+  }
+  const q = Number(Q) || 0;
+  if (A === '1') return done(q, 'עדכון כמות');
+  return done(stock + q * pack, 'הגיע ' + q + (pack > 1 ? ' קרטונים' : ''));
+}
