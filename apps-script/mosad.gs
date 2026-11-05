@@ -2943,7 +2943,14 @@ function dormImg107Fix() { const x = regDevMe_(); putSetting(x.M, x.me, 'dormimg
 // =====================================================================
 function doGet(e) {
   const p = (e && e.parameter) || {};
-  if (p.yemot) { try { return yemotText(yemotCall(p)); } catch (err) { return yemotText('id_list_message=t-' + ytts('אירעה שגיאה, נסו שוב מאוחר יותר') + '&go_to_folder=hangup'); } }
+  if (p.yemot) {
+    // 🔎 יומן לבדיקה (בלי המפתח): רואים ב"הפעלות" של הפרויקט
+    const safe = {}; Object.keys(p).forEach(function (k) { if (k !== 'k') safe[k] = p[k]; });
+    let res;
+    try { res = yemotCall(p); } catch (err) { console.error('yemot error', err && err.stack || err); res = 'id_list_message=t-' + ytts('אירעה שגיאה, נסו שוב מאוחר יותר') + '&go_to_folder=hangup'; }
+    console.log('yemot in: ' + JSON.stringify(safe) + ' | key ok: ' + (S(p.k) === S(PropertiesService.getScriptProperties().getProperty('YEMOT_KEY_' + S(p.m))) && !!S(p.k)) + ' | out: ' + res);
+    return yemotText(res);
+  }
   return out({ ok: true });
 }
 const YEMOT_PROXY = 'https://ungvar-sms.8510089.workers.dev/yemot';
