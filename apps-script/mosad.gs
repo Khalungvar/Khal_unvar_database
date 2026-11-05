@@ -1089,8 +1089,8 @@ const ACTIONS = {
     const props = PropertiesService.getScriptProperties();
     let key = props.getProperty('YEMOT_KEY_' + M.key);
     if (req && req.newKey) { key = Utilities.getUuid().replace(/-/g, ''); props.setProperty('YEMOT_KEY_' + M.key, key); logIt(M, me, 'settings', '', 'yemot key'); }
-    const url = ScriptApp.getService().getUrl();
-    return { phones: kPhones(M), link: key ? url + '?yemot=1&m=' + encodeURIComponent(M.key) + '&k=' + key : '' };
+    // ימות לא עוקבים אחרי הפניה של Apps Script — הכתובת דרך ה-Worker (שמעביר לכאן)
+    return { phones: kPhones(M), link: key ? YEMOT_PROXY + '?m=' + encodeURIComponent(M.key) + '&k=' + key : '' };
   },
   kPhoneSave: function (M, me, req) {
     if (!isAdminRole(me)) throw new Error('no-permission');
@@ -2946,6 +2946,7 @@ function doGet(e) {
   if (p.yemot) { try { return yemotText(yemotCall(p)); } catch (err) { return yemotText('id_list_message=t-' + ytts('אירעה שגיאה, נסו שוב מאוחר יותר') + '&go_to_folder=hangup'); } }
   return out({ ok: true });
 }
+const YEMOT_PROXY = 'https://ungvar-sms.8510089.workers.dev/yemot';
 function yemotText(s) { return ContentService.createTextOutput(s).setMimeType(ContentService.MimeType.TEXT); }
 /** טקסט להקראה: בלי התווים שימות לא מקבל (. - " ' & | , =) */
 function ytts(s) { return S(s).replace(/[.\-"'&|,=]/g, ' ').replace(/\s+/g, ' ').trim(); }

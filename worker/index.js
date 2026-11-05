@@ -10,6 +10,8 @@
  *   STRIPE_WEBHOOK_SECRET  — whsec_... פון Stripe (Developers → Webhooks)
  */
 const enc = new TextEncoder();
+// דער שומר פון די מוסדות (Mosdos Ungvar Guard) — די זעלבע /exec אדרעס ווי MOSAD_URL אין js/config.js (נישט סודי)
+const MOSAD_URL = 'https://script.google.com/macros/s/AKfycby-iqDa2VyvWnGuPU70FYCPlyVgIFRGv3UbOgU8vQBsrjtWHB-UxXqMEJbJHQg_TnQv/exec';
 const xml = (s) => new Response(s, { headers: { 'Content-Type': 'application/xml; charset=utf-8' } });
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json' } });
 const b64bytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
@@ -107,6 +109,22 @@ export default {
       const res = new Response(b64bytes(r.b64), { headers: { 'Content-Type': r.mime || 'audio/mpeg', 'Cache-Control': 'public, max-age=86400' } });
       ctx.waitUntil(cache.put(key, res.clone()));
       return res;
+    }
+
+    // ---- 📞 ימות המשיח (קו טלפון למלאי המטבח בישיבה) ----
+    // ימות לא עוקבים אחרי הפניה (302) של Apps Script — לכן הם פונים לכאן, ואנחנו מעבירים לשומר (Mosdos Guard) ומחזירים את הטקסט ישר.
+    // כל הפרמטרים (כולל המפתח k) עוברים כמו שהם; הבדיקה — בשומר.
+    if (path === '/yemot') {
+      const q = new URLSearchParams(url.search);
+      if (req.method === 'POST') { try { const f = await formOf(req); Object.entries(f).forEach(([k, v]) => { if (!q.has(k)) q.set(k, String(v)); }); } catch { /* */ } }
+      q.set('yemot', '1');
+      try {
+        const r = await fetch(`${MOSAD_URL}?${q.toString()}`, { redirect: 'follow' });
+        const t = await r.text();
+        return new Response(r.ok && !t.trim().startsWith('<') ? t : 'id_list_message=t-השרת אינו זמין כרגע&go_to_folder=hangup', { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+      } catch {
+        return new Response('id_list_message=t-השרת אינו זמין כרגע&go_to_folder=hangup', { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+      }
     }
 
     // ---- Stripe ----
