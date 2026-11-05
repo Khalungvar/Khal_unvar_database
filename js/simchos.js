@@ -98,8 +98,9 @@ const contactOf = (id) => (id ? ui.contactById(id) : null);
 const bySort = (a, b) => (Number(a.sort) || 0) - (Number(b.sort) || 0) || Number(a.simcha_id) - Number(b.simcha_id);
 const isOn = (v) => v === true || String(v).toUpperCase() === 'TRUE';
 // 🏛 צו וועלכן מוסד געהערט די שמחה: '' = ק"ק אונגוואר; אנדערע — אונטער אן אייגענעם קעפל אינעם גליון (נאך די פון ק"ק)
-export const BRANCHES = [['', 'ק"ק אונגוואר'], ['yeshiva', 'ישיבת בית שערים'], ['jlm', 'ק"ק אונגוואר ירושלים']];
-const BR_HEAD = { yeshiva: 'משמחות ישיבתנו הק\' בית שערים' }; // ירושלים — בלי קעפל
+// סדר = סדר אין גליון: ק"ק, ירושלים (אן קעפל), און די ישיבה אלעמאל צום סוף (מיט א קעפל — נאר אין גליון, נישט אויפן מסך)
+export const BRANCHES = [['', 'ק"ק אונגוואר'], ['jlm', 'ק"ק אונגוואר ירושלים'], ['yeshiva', 'ישיבת בית שערים']];
+const BR_HEAD = { yeshiva: 'ישיבת בית שערים ירושלים עיה"ק' };
 const brOrder = (s) => Math.max(0, BRANCHES.findIndex(([k]) => k === String(s.branch || '')));
 /** פאר דעם גליון: א קעפל פאר יעדער גרופע פון א צווייג */
 const withHeads = (list) => {
@@ -572,7 +573,7 @@ export function renderSimchos() {
     </div>
     </div>
     <div class="sg-wrap">
-      <div class="sg-list">${list.length ? list.map((s, i) => `<div class="sg-item">
+      <div class="sg-list">${list.length ? list.map((s, i) => `${BR_HEAD[s.branch] && String(list[i - 1]?.branch || '') !== s.branch ? `<div class="sg-list-head">${h(BR_HEAD[s.branch])}</div>` : ''}<div class="sg-item">
           <div class="sg-item-text">${s.branch && BRANCHES.some(([k]) => k && k === s.branch) ? `<span class="badge sg-br">🏛 ${h((BRANCHES.find(([k]) => k === s.branch) || [])[1] || '')}</span>` : ''}${simchaHtml(s)}${s._carried ? `<div class="sg-late">↩ ${h(t('sgCarried'))}</div>` : isOn(s.also_next) ? `<div class="sg-late">↪ ${h(t('sgAlsoNext'))}</div>` : ''}${addedByHtml(s)}</div>
           <div class="sg-item-acts">
             <button type="button" class="btn small-btn" data-sg-edit="${h(s.simcha_id)}" title="${h(t('scEdit'))}">✎</button>
