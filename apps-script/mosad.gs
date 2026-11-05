@@ -2948,7 +2948,9 @@ function doGet(e) {
     const safe = {}; Object.keys(p).forEach(function (k) { if (k !== 'k') safe[k] = p[k]; });
     let res;
     try { res = yemotCall(p); } catch (err) { console.error('yemot error', err && err.stack || err); res = 'id_list_message=t-' + ytts('אירעה שגיאה, נסו שוב מאוחר יותר') + '&go_to_folder=hangup'; }
-    console.log('yemot in: ' + JSON.stringify(safe) + ' | key ok: ' + (S(p.k) === S(PropertiesService.getScriptProperties().getProperty('YEMOT_KEY_' + S(p.m))) && !!S(p.k)) + ' | out: ' + res);
+    const keyOk = !!S(p.k) && S(p.k) === S(PropertiesService.getScriptProperties().getProperty('YEMOT_KEY_' + S(p.m)));
+    console.log('yemot in: ' + JSON.stringify(safe) + ' | key ok: ' + keyOk + ' | out: ' + res);
+    try { const M0 = mosadOf(p.m); if (M0) ensureTab(M0.book, 'YemotLog', ['at', 'params', 'key_ok', 'out']).appendRow([now(), JSON.stringify(safe).slice(0, 1000), keyOk ? 'yes' : 'NO', String(res).slice(0, 1000)]); } catch (err) { /* */ }
     return yemotText(res);
   }
   return out({ ok: true });
