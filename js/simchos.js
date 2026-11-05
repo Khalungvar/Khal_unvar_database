@@ -101,11 +101,12 @@ const isOn = (v) => v === true || String(v).toUpperCase() === 'TRUE';
 // סדר = סדר אין גליון: ק"ק, ירושלים (אן קעפל), און די ישיבה אלעמאל צום סוף (מיט א קעפל — נאר אין גליון, נישט אויפן מסך)
 export const BRANCHES = [['', 'ק"ק אונגוואר'], ['jlm', 'ק"ק אונגוואר ירושלים'], ['yeshiva', 'ישיבת בית שערים']];
 const BR_HEAD = { yeshiva: 'ישיבת בית שערים ירושלים עיה"ק' };
+const BR_SUB = { yeshiva: 'בנשיאות כ"ק מרן אדמו"ר שליט"א' }; // אונטערן קעפל, 20% קלענער
 const brOrder = (s) => Math.max(0, BRANCHES.findIndex(([k]) => k === String(s.branch || '')));
 /** פאר דעם גליון: א קעפל פאר יעדער גרופע פון א צווייג */
 const withHeads = (list) => {
   const out = []; let last = '';
-  list.forEach((s) => { const b = String(s.branch || ''); if (b && b !== last && BR_HEAD[b]) out.push({ simcha_id: `h-${b}`, type: 'special', special: `<b>${BR_HEAD[b]}</b>`, _head: true }); last = b; out.push(s); });
+  list.forEach((s) => { const b = String(s.branch || ''); if (b && b !== last && BR_HEAD[b]) out.push({ simcha_id: `h-${b}`, type: 'special', special: `<b>${BR_HEAD[b]}</b>${BR_SUB[b] ? `<div class="sg-head-sub">${BR_SUB[b]}</div>` : ''}`, _head: true }); last = b; out.push(s); });
   return out;
 };
 /** די שמחות פון א וואך: ערשט די וואס זענען אריינגעקומען ערב שבת די פאריגע וואך (_carried), דערנאך די פון די וואך */
@@ -571,7 +572,7 @@ export function renderSimchos() {
     </div>
     </div>
     <div class="sg-wrap">
-      <div class="sg-list">${list.length ? list.map((s, i) => `${BR_HEAD[s.branch] && String(list[i - 1]?.branch || '') !== s.branch ? `<div class="sg-list-head">${h(BR_HEAD[s.branch])}</div>` : ''}<div class="sg-item">
+      <div class="sg-list">${list.length ? list.map((s, i) => `${BR_HEAD[s.branch] && String(list[i - 1]?.branch || '') !== s.branch ? `<div class="sg-list-head">${h(BR_HEAD[s.branch])}${BR_SUB[s.branch] ? `<div class="sg-head-sub">${h(BR_SUB[s.branch])}</div>` : ''}</div>` : ''}<div class="sg-item">
           <div class="sg-item-text">${s.branch && BRANCHES.some(([k]) => k && k === s.branch) ? `<span class="badge sg-br">🏛 ${h((BRANCHES.find(([k]) => k === s.branch) || [])[1] || '')}</span>` : ''}${simchaHtml(s)}${s._carried ? `<div class="sg-late">↩ ${h(t('sgCarried'))}</div>` : isOn(s.also_next) ? `<div class="sg-late">↪ ${h(t('sgAlsoNext'))}</div>` : ''}${addedByHtml(s)}</div>
           <div class="sg-item-acts">
             <button type="button" class="btn small-btn" data-sg-edit="${h(s.simcha_id)}" title="${h(t('scEdit'))}">✎</button>

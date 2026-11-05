@@ -1240,6 +1240,7 @@ html[dir="ltr"] .sg-preview { transform-origin: top left; margin-left: 0; margin
 .sg-pageno { position: absolute; bottom: 0.22in; left: 0; right: 0; text-align: center; font-size: 8pt; color: #777; }
 .sg-entry.sg-special { border: 1px solid #595959; }
 .sg-entry.sg-branch-head { border: 0 !important; background: none !important; box-shadow: none !important; border-radius: 0; padding: .2em 0 0; margin-top: .5em; text-align: center; font-size: 1.1em; font-weight: 700; grid-column: 1 / -1; justify-self: stretch; width: auto !important; }
+.sg-head-sub { font-size: .8em; font-weight: 400; margin-top: 1px; }
 .sg-list-head { text-align: center; font-weight: 700; margin: 10px 0 4px; padding-top: 8px; border-top: 2px solid currentColor; opacity: .85; }
 .sg-br { display: inline-block; margin-bottom: 4px; }
 .sg-entry .sg-after { font-size: .9em; }
