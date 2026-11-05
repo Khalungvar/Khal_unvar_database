@@ -3030,7 +3030,7 @@ function sgBold_(text, surname) {
   const fl = sgSplitLast_(rest); return sgName_(title, fl[0], fl[1], '');
 }
 /** געגנט נאכן סיומת — נאר ביי שליט"א / הי"ו (נישט ביי ני"ו / נ"י) */
-function sgArea_(suffix, area) { return S(area) && !/נ"י|ני"ו/.test(S(suffix)) ? ' ' + sgEsc_(area) : ''; }
+function sgArea_(suffix, area) { return ''; } // געגנט — אראפגענומען (ער באבעטן)
 function screenPush_(o, hon) {
   const ids = {}; hon.forEach(function (x) { if (x.id) ids[x.id] = 1; });
   const cs = {};

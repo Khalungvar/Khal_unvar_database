@@ -1,0 +1,609 @@
+/* Frank Ruhl Libre (ציפערן): פון אונזער אייגענעם אתר — אויב Google Fonts איז פארשפארט (ווי אויפן מחשב התצוגה), זאלן די ציפערן נישט פאלן אויף אן אנדער שריפט */
+@font-face { font-family: 'Frank Ruhl Libre'; font-style: normal; font-weight: 300 900; font-display: swap; src: url('../fonts/frank-ruhl-libre-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+/* תצוגת בית הכנסת — 1920×1080, קלאסיש: טונקל-בלוי מיט גאלד */
+:root {
+  --navy: #0f2140; --navy2: #17305a; --gold: #c9a24c; --gold2: #f3dc9a; --gold3: #8a6a2a;
+  --paper: #fbf5e6; --ink: #1d1a14; --muted: #6b5a3a;
+  --serif: 'Livorna', 'Frank Ruhl Libre', 'David Libre', serif;
+  --body: 'PFT_Vilna', 'Frank Ruhl Libre', 'David Libre', serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+#stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+#screen {
+  width: 1920px; height: 1080px; position: relative; direction: rtl; color: var(--ink); font-family: var(--body);
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.06), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.018) 0 2px, transparent 2px 14px),
+    linear-gradient(180deg, var(--navy2), var(--navy) 60%, #0a1830);
+  transform-origin: center center; overflow: hidden;
+  flex: none; /* אויף א מסך שמאלער פון 1920 זאל ער זיך נישט צוזאמענדריקן (אנדערש פאלן די קעסטלעך איינס אויפן צווייטן) */
+}
+
+/* גאלדענע ראמען */
+.frame { position: absolute; background: var(--paperbg); border-radius: 18px;
+  box-shadow: 0 0 0 3px var(--gold3), 0 0 0 7px var(--gold), 0 0 0 9px var(--gold3), 0 10px 30px rgba(0,0,0,.45); }
+.frame::before { content: ''; position: absolute; inset: 8px; border: 1.5px solid rgba(138,106,42,.55); border-radius: 12px; pointer-events: none; }
+.ttl { font-family: var(--serif); font-weight: 900; text-align: center; color: var(--paper);
+  background: linear-gradient(180deg, #1c3a6b, var(--navy)); border-bottom: 3px solid var(--gold);
+  border-radius: 14px 14px 0 0; padding: 8px 0 10px; letter-spacing: .5px; }
+
+/* אויבן */
+.top { position: absolute; top: 18px; left: 44px; right: 44px; height: 120px; display: flex; align-items: center; justify-content: space-between; color: var(--gold2); }
+.top .logo { position: absolute; left: 50%; top: -6px; transform: translateX(-50%); text-align: center; }
+.top .logo img { height: 112px; filter: drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
+.top .logo b { display: block; font-family: var(--serif); font-weight: 900; font-size: 52px; color: var(--gold2); line-height: 1; margin-top: -2px; text-shadow: 0 2px 4px rgba(0,0,0,.6); }
+.top .logo i { display: block; font-style: normal; font-family: var(--serif); font-weight: 700; font-size: 28px; color: #e9d9ad; margin-top: 4px; white-space: nowrap; }
+.top .day { font-family: var(--serif); font-weight: 900; font-size: 50px; line-height: 1.02; text-align: right; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+.top .day small { display: block; font-size: 30px; font-weight: 700; color: #e9d9ad; }
+.top .day small.sp { font-size: 36px; font-weight: 900; color: #ffd36b; text-shadow: 0 0 12px rgba(255,200,80,.35), 0 2px 6px rgba(0,0,0,.6); }
+.top .clock { direction: ltr; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 92px; line-height: 1; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.6); }
+.top .clock span { font-size: 40px; color: var(--gold2); margin-left: 10px; }
+.top .clock small { display: block; font-size: 26px; color: #e9d9ad; text-align: center; letter-spacing: 1px; }
+
+/* פלאן: 3 שפאלטן, 36px ראנד, 28px צווישן; אינהאלט 160–958 */
+
+/* רעכטס: זמני היום */
+.zm { top: 164px; right: 44px; width: 633px; height: 410px; }
+.zm .ttl { font-size: 34px; padding: 5px 0 7px; }
+.zm table { width: calc(100% - 52px); margin: 4px 26px 0; border-collapse: collapse; font-size: 28px; line-height: 1.12; }
+.zm td { padding: 0 4px; border-bottom: 1px dashed rgba(138,106,42,.45); }
+.zm td + td { text-align: left; direction: ltr; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; color: var(--navy); white-space: nowrap; }
+.pr { display: inline-flex; align-items: baseline; gap: 4px; width: 112px; direction: ltr; }
+.pr + .pr { margin-left: 10px; }
+.pr i { font-style: normal; font-family: var(--serif); font-size: 16px; font-weight: 700; color: var(--muted); direction: rtl; }
+.zm td:first-child { font-weight: 500; }
+.zm tr.nx td { background: linear-gradient(180deg, #f3dc9a, #c9a24c); color: #2a1709; font-weight: 900; }
+.zm tr.nx td:first-child { border-radius: 0 10px 10px 0; padding-right: 10px; }
+.zm tr.nx td:last-child { border-radius: 10px 0 0 10px; padding-left: 10px; }
+.zm tr.nx td + td, .zm tr.nx .pr i { color: #2a1709; }
+.zm .note { margin: 6px 18px 0; text-align: center; font-family: var(--serif); font-weight: 700; font-size: 24px; color: var(--navy); line-height: 1.2; }
+.zm .note .chg { color: #fff; background: #a3191b; font-weight: 900; font-size: 28px; padding: 0 12px 2px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+.zm .omer { margin: 2px 18px 0; text-align: center; font-family: var(--serif); font-weight: 700; font-size: 21px; color: #8b1a1a; line-height: 1.15; }
+
+/* רעכטס אונטן: מצוה יומית | דף יומי + שיעורים */
+.lrn { top: 614px; right: 44px; width: 633px; height: 316px; display: flex; padding: 12px 14px; }
+.lrn h4 { margin: 0 0 2px; font-family: var(--serif); font-size: 25px; color: var(--muted); font-weight: 700; }
+.lrn .mzy { flex: 0 0 40%; text-align: center; padding: 0 8px; display: flex; flex-direction: column; }
+.lrn .mzy .num { font-family: var(--serif); font-weight: 900; font-size: 46px; color: var(--navy); line-height: 1.05; }
+.lrn .mzy .txt { font-family: var(--serif); font-weight: 700; font-size: 28px; line-height: 1.2; margin-top: 4px; }
+.lrn .mzy .kol { margin-top: auto; font-family: var(--serif); font-size: 18px; color: var(--muted); line-height: 1.2; }
+.lrn .mzy .kol b { display: block; direction: ltr; font-family: 'Frank Ruhl Libre', serif; font-size: 24px; color: var(--navy); }
+.lrn .side { flex: 1; border-right: 2px solid rgba(138,106,42,.45); padding: 0 12px; text-align: center; display: flex; flex-direction: column; }
+.lrn .daf p { margin: 0; font-family: var(--serif); font-weight: 900; font-size: 38px; color: var(--navy); line-height: 1.1; }
+.lrn .shiur { margin-top: 4px; border-top: 2px solid rgba(138,106,42,.45); padding-top: 3px; font-family: var(--serif); }
+.lrn .shiur > div { color: #9a8f78; line-height: 1.15; margin-top: 4px; }
+.lrn .shiur > div.ln { font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lrn .shiur > div.ln b { font-family: 'Frank Ruhl Libre', serif; font-size: 21px; }
+.lrn .shiur > div.nx { color: var(--navy); font-size: 25px; font-weight: 700; margin: 6px 0; }
+.lrn .shiur > div.nx b { font-family: 'Frank Ruhl Libre', serif; font-size: 32px; }
+.lrn .shiur > div.nx span { display: block; }
+
+/* לינקס: לוח המניינים */
+.pos-main { top: 164px; left: 44px; width: 633px; height: 500px; }
+.pos-side { top: 246px; left: 725px; width: 470px; height: 330px; }
+.mny .ttl { font-size: 34px; padding: 5px 0 7px; }
+.mny .grp { margin: 8px 22px 0; }
+.mny .grp h3 { margin: 0; font-family: var(--serif); font-weight: 900; font-size: 29px; color: var(--paper); text-align: center;
+  background: linear-gradient(90deg, transparent, var(--navy) 18%, var(--navy) 82%, transparent); border-radius: 6px; padding: 0 0 3px; }
+.mny .grp h3 small { font-size: 20px; font-weight: 700; color: var(--gold2); }
+.mny .times { display: flex; flex-wrap: wrap; justify-content: center; gap: 0; padding: 4px 0 2px; direction: rtl; }
+.mny .times span { font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 30px; line-height: 1.18; color: var(--ink); padding: 0 12px; direction: ltr; position: relative; }
+.mny .times span + span::before { content: '•'; position: absolute; right: -5px; color: var(--gold3); }
+.mny .times span.nx { color: #8b1a1a; text-decoration: underline; text-decoration-color: var(--gold); text-underline-offset: 6px; }
+
+/* לינקס אונטן: דער קומענדיגער מנין — ווייס, בולט */
+.next { top: 700px; left: 44px; width: 633px; height: 230px; text-align: center; background: #fff; }
+.next .row1 { display: flex; align-items: center; justify-content: center; gap: 24px; margin-top: 22px; }
+.next .lbl { font-family: var(--serif); font-weight: 700; font-size: 34px; color: var(--muted); }
+.next .lbl::before, .next .lbl::after { content: ' ❧ '; color: var(--gold); }
+.next .cd { direction: ltr; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 34px; color: #8b1a1a;
+  border: 2px solid rgba(139,26,26,.35); border-radius: 40px; padding: 0 22px; background: #fff3f0; }
+.next .big { display: flex; align-items: baseline; justify-content: center; gap: 30px; margin-top: 2px; line-height: 1.05; color: var(--navy); }
+.next .name { font-family: var(--serif); font-weight: 900; font-size: 92px; }
+.next .time { font-family: 'Frank Ruhl Libre', serif; font-weight: 900; font-size: 92px; direction: ltr; }
+.next .room { font-family: var(--serif); font-weight: 700; font-size: 28px; color: var(--muted); }
+
+/* מיטן */
+.last { position: absolute; top: 586px; left: 100px; width: 521px; height: 60px; z-index: 2; display: flex; align-items: center; justify-content: center; gap: 18px;
+  background: linear-gradient(180deg, #1c3a6b, var(--navy)); border: 3px solid var(--gold); border-radius: 40px; color: var(--gold2);
+  font-family: var(--serif); font-weight: 900; font-size: 36px; box-shadow: 0 8px 20px rgba(0,0,0,.4); }
+.last b { color: #fff; font-family: 'Frank Ruhl Libre', serif; direction: ltr; }
+/* שבת קודש — אנדערש: טונקל בורדא מיט גאלד, גרויסע אותיות */
+.shab { position: absolute; border-radius: 18px; padding: 8px 22px 0; color: #f6e7c0;
+  background: linear-gradient(rgba(0,0,0,.08), rgba(0,0,0,.2)), url('../img/display/wood.jpg') center / cover;
+  box-shadow: 0 0 0 3px var(--gold3), 0 0 0 7px var(--gold), 0 0 0 9px var(--gold3), 0 10px 30px rgba(0,0,0,.45); }
+.shab::before { content: ''; position: absolute; inset: 8px; border: 1.5px solid rgba(243,220,154,.45); border-radius: 12px; pointer-events: none; }
+.sh-t { text-align: center; font-family: var(--serif); font-weight: 900; font-size: 36px; line-height: 1; color: var(--gold2); text-shadow: 0 2px 4px rgba(0,0,0,.5); margin-top: 6px; }
+.sh-t small { display: block; font-size: 22px; font-weight: 700; color: #f6e7c0; margin: 0 0 3px; }
+.sh-r { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--serif); font-size: 27px; font-weight: 700; line-height: 1.12; padding: 0 6px; }
+.sh-r b { font-family: 'Frank Ruhl Libre', serif; font-size: 33px; color: #fff; direction: ltr; white-space: nowrap; }
+.sh-r b.sm { font-size: 27px; }
+.sh-r .pr { width: auto; } .sh-r .pr i { color: #e0c78a; }
+.sh-r.big { margin: 2px -8px; padding: 1px 14px 3px; border-radius: 10px; background: linear-gradient(180deg, #f3dc9a, #c9a24c); color: #2a1709; font-size: 28px; font-weight: 900; }
+.sh-r.big b { color: #2a1709; font-size: 33px; }
+
+/* מזל טוב — אין דעם זעלבן סטיל ווי די אנדערע, מיט דער כותרת פונעם גליון */
+.mzl { top: 616px; left: 725px; width: 470px; height: 314px; text-align: center; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
+.mzl .head { display: block; width: 230px; height: 49px; margin: 10px auto 0; mix-blend-mode: multiply; flex: none; }
+.mzl .wk { flex: none; margin-top: 1px; padding: 0 18px 1px; border: 1.5px solid var(--navy); border-radius: 10px; background: #fff;
+  color: var(--navy); font-family: var(--serif); font-weight: 700; font-size: 19px; line-height: 1.25; }
+.mzl .list { flex: 1 1 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 6px 18px 20px; overflow: hidden; }
+.mzl .mz-e { background: #fff; border-radius: 10px; box-shadow: 0 1px 5px rgba(60,40,10,.25); padding: 4px 12px; font-family: var(--serif); font-size: 21px; line-height: 1.13; color: #111; flex: none; }
+.mzl .mz-e b { color: var(--navy); }
+.mzl .dots { position: absolute; bottom: 9px; left: 0; right: 0; line-height: 0; }
+.mzl .dots i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: rgba(138,106,42,.35); margin: 0 4px; }
+.mzl .dots i.on { background: var(--gold3); }
+
+/* מודעה 8.5×11 — דעקט צו 264–958 אין מיטן */
+.ad { position: absolute; top: 164px; height: 766px; width: 592px; right: calc(44px + (633px - 592px) / 2); background: #fff; overflow: hidden;
+  box-shadow: 0 0 0 3px var(--gold3), 0 0 0 7px var(--gold), 0 10px 30px rgba(0,0,0,.45); }
+.ad img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.ad video { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; background: #000; } /* ממלא מלמעלה למטה, רואים את המרכז */
+.ad-demo { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--serif); font-size: 60px; color: #999; border: 6px dashed #ccc; }
+.ad-demo b { font-size: 90px; color: #8b1a1a; }
+.ad-demo small { font-size: 26px; text-align: center; margin-top: 20px; }
+
+/* אונטן */
+.safe { position: absolute; inset: 0; z-index: 1; transform-origin: 50% 0; transform: translateY(var(--safe, 0px)) scale(var(--safe-s, 1)); }
+.bottom { position: absolute; bottom: 0; left: 0; right: 0; height: calc(1080px - var(--safe, 0px) - 979px * var(--safe-s, 1)); display: flex; align-items: center; justify-content: space-between;
+  padding: 43px calc(50px + var(--safe, 0px) * 1.6) var(--safe, 0px); color: var(--gold2);
+  background: url('../img/display/molding.jpg') top center / 100% 43px no-repeat, url('../img/display/wood.jpg') 0 43px / 100% calc(100% - 43px) no-repeat, #2a1709; }
+.bottom .hd { font-family: var(--serif); font-weight: 900; font-size: 46px; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+.bottom .kol { font-family: var(--serif); font-weight: 900; font-size: 30px; text-align: center; line-height: 1; white-space: nowrap; }
+.bottom .kol b { display: inline-block; margin-right: 10px; direction: ltr; font-family: 'Frank Ruhl Libre', serif; font-size: 30px; color: #fff; letter-spacing: 2px; }
+.bottom .greg { direction: ltr; font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: 36px; color: #e9d9ad; }
+.sample { position: absolute; top: 4px; left: 4px; background: #c0392b; color: #fff; font: 700 16px Arial; padding: 2px 10px; border-radius: 0 0 6px 6px; z-index: 5; }
+
+/* שבת/יו"ט לוח אין לוח המניינים */
+.mny .grp.hg h3 { background: linear-gradient(90deg, transparent, #4a2a12 18%, #4a2a12 82%, transparent); }
+.mny .grp.hg .times span { font-size: 40px; }
+
+/* שבת גרויס (אויפן ארט פון זמני התפילות) */
+.shab.pos-main { padding: 12px 34px 0; }
+.shab.pos-main .sh-t { font-size: 42px; }
+.shab.pos-main .sh-t small { font-size: 26px; margin-bottom: 6px; }
+.shab.pos-main .sh-r { font-size: 31px; line-height: 1.12; }
+.shab.pos-main .sh-r b { font-size: 35px; }
+.shab.pos-main .sh-r b.sm { font-size: 30px; }
+.shab.pos-main .sh-r.big { font-size: 32px; margin: 3px -10px; }
+.shab.pos-main .sh-r.big b { font-size: 37px; }
+/* זמני התפילות קליין (אויפן ארט פון שבת) */
+.mny.pos-side .ttl { font-size: 28px; }
+.mny.pos-side .ttl small { font-size: 22px; color: var(--gold2); }
+.mny.pos-side .grp { margin: 8px 14px 0; }
+.mny.pos-side .grp h3 { font-size: 24px; }
+.mny.pos-side .grp h3 small { font-size: 16px; }
+.mny.pos-side .times span { font-size: 24px; padding: 0 8px; }
+
+/* זמני היום קליין (ווען א מודעה דעקט צו דעם רעכטן טור) */
+.zm.zm-c { top: 246px; left: 725px; right: auto; width: 470px; height: 330px; }
+.zm.zm-c .ttl { font-size: 24px; padding: 2px 0 4px; }
+.zm.zm-c table { margin: 2px 18px 0; width: calc(100% - 36px); font-size: 18px; line-height: 1.05; }
+.zm.zm-c .pr { width: 74px; } .zm.zm-c .pr + .pr { margin-left: 6px; } .zm.zm-c .pr i { font-size: 11px; }
+.zm.zm-c tr.nx td:first-child { padding-right: 6px; } .zm.zm-c tr.nx td:last-child { padding-left: 6px; }
+.zm.zm-c .note { margin: 3px 10px 0; font-size: 15px; } .zm.zm-c .note .chg { font-size: 16px; padding: 0 6px 1px; border-radius: 5px; }
+.zm.zm-c .omer { font-size: 13px; margin-top: 1px; }
+.zm.zm-c .lc { display: flex; margin: 4px 18px 0; border-top: 1.5px solid rgba(138,106,42,.45); padding-top: 2px; text-align: center; font-family: var(--serif); }
+.zm.zm-c .lc > div { flex: 1; } .zm.zm-c .lc > div + div { border-right: 1.5px solid rgba(138,106,42,.45); }
+.zm.zm-c .lc h4 { margin: 0; font-size: 13px; color: var(--muted); }
+.zm.zm-c .lc p { margin: 0; font-size: 20px; font-weight: 900; color: var(--navy); line-height: 1.05; }
+.zm.zm-c .lc small { display: block; font-size: 13px; font-weight: 700; line-height: 1.1; }
+
+/* שינוי זמן: הודעה מראש + "חדש" */
+.chg-note { margin: 8px 20px 0; text-align: center; font-family: var(--serif); font-size: 23px; white-space: normal; line-height: 1.25; font-weight: 700; color: #fff;
+  background: linear-gradient(180deg, #b0241f, #7f1512); border: 2px solid var(--gold); border-radius: 10px; padding: 3px 10px 5px; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+.chg-note b { color: #ffe39a; font-family: 'Frank Ruhl Libre', var(--serif); }
+.mny .times span.new { color: #0d6b3a; background: #e3f6e9; border-radius: 8px; outline: 2px solid #2e9e5b; margin: 2px 4px; }
+.mny .times span.new em { font-style: normal; font-family: var(--serif); font-size: 15px; font-weight: 900; color: #fff; background: #2e9e5b; border-radius: 6px; padding: 0 5px; margin-left: 4px; vertical-align: middle; }
+.mny.has-chg .grp { margin-top: 5px; } .mny.has-chg .times span { font-size: 28px; line-height: 1.12; } .mny.has-chg .grp h3 { font-size: 26px; }
+
+/* שבת-קעסטל: ווען פיל שורות — קלענער */
+.shab.dense .sh-r { font-size: calc(27px * 7 / var(--n)); line-height: 1.1; }
+.shab.dense .sh-r b { font-size: calc(31px * 7 / var(--n)); }
+.shab.dense .sh-r.big { margin: 1px -8px; }
+.shab.pos-main.dense .sh-r { font-size: calc(31px * 8 / var(--n)); } .shab.pos-main.dense .sh-r b { font-size: calc(35px * 8 / var(--n)); }
+.next .big.long .name { font-size: 58px; }
+.next .big.long .time { font-size: 80px; }
+
+.sh-t small.pre { display: block; font-size: 24px; margin: 0 0 2px; color: #e9d9ad; }
+.mny .ttl { font-size: 30px !important; }
+.mny.pos-side .ttl { font-size: 22px !important; }
+.shab:not(.pos-main) .sh-t { font-size: 29px; }
+.shab:not(.pos-main) .sh-t small.pre { display: inline; font-size: inherit; color: inherit; margin: 0 0 0 8px; }
+.shab:not(.pos-main) .sh-t small { margin-bottom: 2px; }
+/* המנין הבא — לויט דער סקיצע: ספירה לאחור אין ווינקל, קליינער טיטל, גרויס, חדר */
+.next .row1 { display: block; margin-top: 18px; }
+.next .lbl { font-size: 26px; }
+.next .lbl::before, .next .lbl::after { content: none; }
+.next .cd { position: absolute; top: -10px; left: 18px; font-size: 32px; padding: 0 18px; border: 2px solid rgba(139,26,26,.35); background: #fff3f0; box-shadow: 0 2px 6px rgba(0,0,0,.18); z-index: 2; }
+.next .big { margin-top: 6px; }
+.next .name, .next .time { font-size: 100px; }
+.next .room { font-size: 30px; margin-top: 2px; }
+
+/* מנין כ"ק — אין לוח המניינים */
+.mny .grp.rb h3 { background: linear-gradient(90deg, transparent, #7a5a1c 15%, #7a5a1c 85%, transparent); font-size: 25px; }
+.mny .times.rbt { gap: 0 36px; }
+.mny .times.rbt span::before { content: none !important; }
+.mny .times.rbt i { font-style: normal; font-family: var(--serif); font-size: 26px; color: var(--muted); direction: rtl; }
+.mny .times.rbt i small { font-size: 18px; }
+.mny.pos-side .times.rbt i { font-size: 18px; } .mny.pos-side .grp.rb h3 { font-size: 18px; }
+.next { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.next .row1 { margin-top: 0; }
+.next .lbl { font-size: 32px; }
+.next .room { font-size: 36px; }
+.next .big { margin-top: 0; }
+
+.lrn .side { overflow: hidden; min-width: 0; }
+.lrn .shiur > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lrn .shiur > div.nx span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 20px; }
+.lrn .shiur > div.nx { font-size: 22px; } .lrn .shiur > div.nx b { font-size: 28px; }
+.lrn .shiur h4 { font-size: 20px; }
+/* דף היומי + שיעורים (לויט דער באשרייבונג) */
+.lrn .side { text-align: right; padding: 0 14px 0 6px; }
+.lrn .daf p { font-size: 34px; text-align: center; white-space: nowrap; }
+.lrn .daf p span { font-size: 26px; color: var(--muted); font-weight: 700; }
+.lrn .shiur.sh-daf { border-top: 0; margin-top: 10px; padding-top: 0; }
+.lrn .shiur.sh-oth { margin: 8px -6px 0 -14px; padding: 6px 14px 0 6px; border-top: 2px solid rgba(138,106,42,.45); }
+.lrn .shiur h4 { font-size: 19px; color: #7a5a1c; font-weight: 900; margin-bottom: 1px; }
+.lrn .shiur > div, .lrn .shiur > div.ln, .lrn .shiur > div.nx { white-space: normal; overflow: visible; font-size: 17px; line-height: 1.18; margin: 2px 0 0; font-weight: 400; }
+.lrn .shiur > div b, .lrn .shiur > div.ln b, .lrn .shiur > div.nx b { font-size: 19px; font-family: 'Frank Ruhl Libre', serif; }
+.lrn .shiur > div small { font-size: 15px; }
+.lrn .shiur > div.nx { color: var(--navy); font-weight: 700; }
+.lrn .shiur > div.nx b { font-size: 21px; }
+.lrn .mzy { flex: 0 0 35%; } .lrn .mzy .txt { font-size: 25px; } .lrn .mzy .num { font-size: 42px; }
+
+/* צוויי באזונדערע ראמען: מצוה יומית + דף יומי (רעכטס), שיעורי תורה (לינקס) */
+.lrn-m { top: 614px; right: 44px; width: 232px; height: 316px; text-align: center; padding: 12px 12px; display: flex; flex-direction: column; }
+.lrn-m h4 { margin: 0; font-family: var(--serif); font-size: 21px; color: var(--muted); font-weight: 700; }
+.lrn-m .num { font-family: var(--serif); font-weight: 900; font-size: 36px; color: var(--navy); line-height: 1.05; }
+.lrn-m .txt { font-family: var(--serif); font-weight: 700; font-size: 21px; line-height: 1.15; margin-top: 2px; }
+.lrn-m .kol { font-family: var(--serif); font-size: 14px; color: var(--muted); line-height: 1.2; margin-top: 4px; }
+.lrn-m .kol b { direction: ltr; display: inline-block; font-family: 'Frank Ruhl Libre', serif; font-size: 16px; color: var(--navy); }
+.lrn-m .rule { border-top: 2px solid rgba(138,106,42,.45); margin: 8px -12px 6px; }
+.lrn-m .num.daf { font-size: 34px; }
+.lrn-s { top: 614px; right: calc(44px + 232px + 28px); width: 373px; height: 316px; }
+.lrn-s .ttl { font-size: 28px; padding: 3px 0 5px; }
+.lrn-s .shiur { margin: 0; padding: 6px 16px 0; font-family: var(--serif); text-align: right; }
+.lrn-s .shiur.sh-oth { border-top: 2px solid rgba(138,106,42,.45); margin-top: 6px; }
+.lrn-s .shiur h4 { margin: 0 0 2px; font-size: 18px; color: #7a5a1c; font-weight: 900; }
+.lrn-s .shiur > div { color: #9a8f78; font-size: 17px; line-height: 1.18; margin-top: 2px; }
+.lrn-s .shiur > div b { font-family: 'Frank Ruhl Libre', serif; font-size: 19px; }
+.lrn-s .shiur > div small { font-size: 15px; }
+.lrn-s .shiur > div.nx { color: var(--navy); font-weight: 700; } .lrn-s .shiur > div.nx b { font-size: 21px; }
+.lrn-m .txt { font-size: 23px; } .lrn-m .num { font-size: 40px; } .lrn-m .num.daf { font-size: 38px; } .lrn-m { justify-content: center; } .lrn-m .rule { margin: 14px -12px 10px; }
+.lrn-m { height: 144px; padding: 8px 10px; } .lrn-m.lrn-d { top: calc(614px + 144px + 28px); }
+.lrn-m .num { font-size: 36px; } .lrn-m .txt { font-size: 21px; }
+/* LAYOUT-B (דוגמה): זמני היום · צוויי קליינע ראמען · שיעורי תורה איבער דער גאנצער ברייט */
+.zm:not(.zm-c) { height: 372px; }
+.zm:not(.zm-c) table { font-size: 26px; line-height: 1.1; }
+.zm:not(.zm-c) .ttl { font-size: 30px; padding: 3px 0 5px; }
+.zm:not(.zm-c) .note { margin-top: 4px; font-size: 22px; }
+.lrn-m { top: 564px; width: 302px; height: 112px; padding: 6px 10px; }
+.lrn-m.lrn-d { top: 564px; right: calc(44px + 302px + 29px); }
+.lrn-m h4 { font-size: 18px; } .lrn-m .num { font-size: 32px; } .lrn-m .num.daf { font-size: 32px; } .lrn-m .txt { font-size: 18px; }
+.lrn-s { top: 704px; right: 44px; width: 633px; height: 226px; }
+.lrn-s .ttl { font-size: 24px; padding: 2px 0 4px; }
+.lrn-s .shiur > div { font-size: 18px; } .lrn-s .shiur h4 { font-size: 17px; }
+/* זמני היום פילט אויס די מסגרת: ווייניגער שורות = גרעסער */
+.zm.zx0 table { font-size: 28px; line-height: 1.17; }
+.zm.zx1 table { font-size: 27px; line-height: 1.12; }
+.zm.zx2 table { font-size: 26px; line-height: 1.08; }
+.zm.zx0 .note { font-size: 24px; margin-top: 6px; }
+/* מצוה יומית (⅔) + דף היומי (⅓): צוויי שורות יעדע */
+.lrn-m { top: 564px; right: 44px; width: 400px; height: 96px; padding: 8px 14px; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+.lrn-m.lrn-d { top: 564px; right: calc(44px + 400px + 29px); width: 204px; }
+.lrn-m .l1 { font-family: var(--serif); font-weight: 900; font-size: 26px; color: var(--navy); line-height: 1.1; white-space: nowrap; }
+.lrn-m .l1 span { color: var(--muted); font-weight: 700; font-size: 22px; }
+.lrn-m .l2 { font-family: var(--serif); font-weight: 900; color: var(--ink); line-height: 1.15; white-space: nowrap; overflow: hidden; }
+.lrn-m.lrn-d .l2 { color: var(--navy); }
+.lrn-s { top: 688px; height: 242px; }
+.next .lbl { font-size: 40px; } .next .room { font-size: 45px; }
+
+/* שיעורי תורה — שיכט פאר זיך, מיט קרייז-שקראל */
+.lrn-s .shv { position: absolute; top: 44px; bottom: 12px; left: 10px; right: 10px; overflow: hidden; }
+.lrn-s .shin { will-change: transform; }
+.lrn-s .shiur { padding: 4px 8px 0; }
+.lrn-s .shiur > div { white-space: nowrap; overflow: hidden; line-height: 1.2; margin-top: 3px; color: #8a7e66; }
+.lrn-s .shiur > div.ps { color: #b9ad94; }
+.lrn-s .shiur > div.ln { color: #5c513c; }
+.lrn-s .shiur > div.nx { color: var(--navy); font-weight: 700; }
+.lrn-s .shiur > div b { font-size: 1.1em; } .lrn-s .shiur > div small { font-size: .8em; }
+.lrn-s .shiur h4 { font-size: 21px; }
+.lrn-s .shgap { height: 30px; border-top: 2px dashed rgba(138,106,42,.35); margin-top: 14px; }
+@keyframes shscroll { from { transform: translateY(0); } to { transform: translateY(calc(-1 * var(--sh))); } }
+/* שמחות פונעם גיליון (דער זעלבער טעקסט ווי אין גליון) */
+.mzl .mz-e .sg-note, .mzl .mz-e .sg-after { font-size: 17px; color: #444; }
+.mzl .mz-e .sg-for { margin-top: 1px; }
+.mzl .mz-e .sg-name { font-size: 1.15em; } /* שמות +15% */
+/* שמחות: "1 מתוך 3" אנשטאט די פינטלעך */
+.mzl .pg { position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); font-family: var(--serif); font-size: 16px; font-weight: 700; color: #7a5a1c; background: #fff; border: 1.5px solid rgba(138,106,42,.6); border-radius: 10px; padding: 0 12px; line-height: 1.35; white-space: nowrap; }
+.mzl .pg { left: 22px; transform: none; bottom: 4px; font-size: 15px; }
+.mzl .dots { bottom: 17px; } .mzl .dots i { width: 12px; height: 12px; margin: 0 5px; }
+.mzl .pg { bottom: 13px; left: 26px; }
+.mzl .list { padding-bottom: 32px; }
+
+/* פריטים פון "תצוגת והגדרות המסך": תמונות / טעקסטן / דפים — אויף א משבצת, איבערן גאנצן מסך, אדער פריי */
+#ovl { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
+.ovi { position: absolute; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.ovi.ovf { padding: 14px; }
+.ovi.ovf::before { z-index: 1; }
+.ovi img, .ovi video { width: 100%; height: 100%; display: block; object-fit: contain; border-radius: 8px; }
+.ovi video { background: #000; }
+.ovt { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; padding: 12px 18px; white-space: normal; font-family: var(--serif); line-height: 1.25; border-radius: 10px; box-sizing: border-box; }
+.ovs { width: 100%; height: 100%; position: relative; overflow: hidden; display: flex; justify-content: center; }
+.ovs-in { transform-origin: top center; flex: none; }
+.ad .ovt, .ad .ovs { height: 100%; }
+.ov-covered { visibility: hidden !important; }
+.chg-note.ntc { white-space: normal; line-height: 1.2; }
+.shab.has-ntc .chg-note { margin: 4px 10px 2px; font-size: 21px; }
+.ttl { background: linear-gradient(180deg, var(--navy2), var(--navy)); }
+.mzl .head { width: 300px; height: 38px; margin: 14px auto 2px; object-fit: contain; }
+.ovi.clr, .ovi.clr.frame { background: transparent !important; box-shadow: none !important; } .ovi.clr.frame::before { display: none; }
+.ad.clr { background: transparent !important; box-shadow: none !important; }
+/* זמני שבת: השמות בגודל השעות (שם ארוך מתכווץ לבד) */
+.sh-r > span { font-size: 33px; white-space: nowrap; overflow: hidden; min-width: 0; flex: 1 1 auto; }
+.sh-r > b { flex: 0 0 auto; margin-inline-start: 10px; }
+.sh-r.big > span { font-size: 33px; }
+.shab.pos-main .sh-r > span, .shab.pos-main .sh-r.big > span { font-size: 36px; }
+.shab.dense .sh-r > span { font-size: calc(31px * 7 / var(--n)); }
+.shab.pos-main.dense .sh-r > span { font-size: calc(35px * 8 / var(--n)); }
+/* שולחן הטהור ודרשות: פס בין האירוע לזמני השבת */
+.sh-sep { height: 0; border-top: 2px solid rgba(243,220,154,.6); margin: 4px 10px; }
+/* פסח / תשרי: משבצת אחת גדולה בשלושה טורים; "שמחה במעונם" בגובה של "המנין הבא" */
+.frame.per { top: 164px; left: 44px; width: 1151px; height: 512px; display: flex; flex-direction: column; }
+.per .ttl { font-size: 32px; padding: 4px 0 6px; flex: none; }
+.per .pcols { flex: 1 1 auto; min-height: 0; column-count: 3; column-gap: 26px; column-rule: 1.5px solid rgba(138,106,42,.45); column-fill: balance; padding: 8px 22px 12px; direction: rtl; overflow: hidden; font-size: 30px; }
+.per .pd { break-inside: avoid; margin-bottom: .35em; }
+.per .pd-h { font-family: var(--serif); font-weight: 900; font-size: .95em; color: var(--paper); background: linear-gradient(90deg, transparent, var(--navy) 12%, var(--navy) 88%, transparent); text-align: center; border-radius: 6px; padding: 0 6px; line-height: 1.3; }
+.per .pd-h small { font-size: .65em; font-weight: 700; color: var(--gold2); }
+.per .pd-r { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; column-gap: .4em; font-family: var(--serif); font-weight: 700; font-size: .78em; line-height: 1.25; color: var(--ink); padding: 0 .2em; }
+.per .pd-r.t span { color: var(--navy); }
+.per .pd-r span { flex: 0 0 auto; }
+.per .pd-r b { font-family: 'Frank Ruhl Libre', serif; direction: rtl; text-align: right; flex: 1 1 0; min-width: 5em; font-weight: 700; word-spacing: -1px; }
+.per .pd-r b i { font-style: normal; font-family: var(--serif); font-size: .75em; color: var(--muted); }
+.per-on .mzl { top: 700px; height: 230px; }
+.per-on .mzl .head { width: 190px; height: 40px; margin-top: 6px; }
+.mzl.mzl-per, .per-on .mzl { height: 230px; } .mzl.mzl-per .head { width: 190px; height: 40px; margin-top: 6px; }
+.per .pd-r span small { font-size: .7em; color: var(--muted); font-weight: 500; }
+
+/* פסח/תשרי: אן "קהל אונגוואר" און "בנשיאות" — די קרוין בלייבט */
+.per-on .top .logo b, .per-on .top .logo i { display: none; }
+
+/* כותרות (שחרית/מנחה/מעריב, און די טעג אין פסח/תשרי): א בלויע טאוול מיט א גאלדענער ראם, די ווערטער גרויס און פעט */
+.mny .grp h3, .mny .grp.hg h3, .mny .grp.rb h3, .per .pd-h {
+  display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; margin: 0; padding: 0 10px 1px; line-height: .98;
+  font-weight: 900; -webkit-text-stroke: .6px #f3dc9a; color: #f3dc9a; letter-spacing: .5px; text-shadow: 0 2px 3px rgba(0,0,0,.55);
+  background: linear-gradient(180deg, #1f4278 0%, #0f2140 100%); border: 2px solid #c9a24c; outline: 1px solid #8a6a2a; outline-offset: 2px; border-radius: 8px; box-shadow: 0 4px 8px rgba(10,20,40,.35); }
+.mny .grp h3, .mny.has-chg .grp h3 { font-size: 36px; }
+.mny.pos-side .grp h3 { font-size: 21px; border-width: 1.5px; outline-offset: 1px; } .mny.pos-side .grp h3::before, .mny.pos-side .grp h3::after { margin: 0 8px; }
+.mny.pos-side .grp h3 small { font-size: 13px; }
+.mny .grp.rb h3, .mny.has-chg .grp.rb h3 { font-size: 31px; background: linear-gradient(180deg, #6a1a1a, #3a0a0a); }
+.mny.pos-side .grp.rb h3 { font-size: 17px; }
+.mny .grp.hg h3 { background: linear-gradient(180deg, #5a3418, #2e1808); }
+.mny .grp h3::before, .mny .grp h3::after, .per .pd-h::before, .per .pd-h::after { content: '❖'; flex: none; width: auto; height: auto; border: 0; margin: 0 14px; color: #c9a24c; font-size: .55em; -webkit-text-stroke: 0; }
+.mny .grp h3 small { color: #e9d9ad; -webkit-text-stroke: 0; font-weight: 700; margin-right: 8px; font-size: 20px; }
+.per .pd-h { font-size: 1.02em; margin: 0 6px 4px; padding: 1px 4px 2px; line-height: 1.08; }
+.per .pd-h::before, .per .pd-h::after { margin: 0 6px; }
+.per .pd-h { white-space: nowrap; }
+.per .pd-r b em { font-style: normal; white-space: nowrap; unicode-bidi: isolate; }
+.per .pd-r b em:not(:last-child):not(.dn)::after { content: ' ·'; color: var(--gold3); }
+.per .pd-r b em.dn { margin-left: .5em; }
+
+/* לוח המניינים של ימות החול: רקע ווייס, ווי "המנין הבא" */
+.frame.mny { background: #fff; }
+
+/* כל קבוצה (שחרית/מנחה/...; א טאג אין פסח/תשרי) אין א אייגענער ראם; די כותרת זיצט אויפן אויבערשטן קו, אין דער מיט */
+.mny .grp { position: relative; border: 2px solid #c9a24c; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 1px rgba(138,106,42,.25), 0 2px 5px rgba(60,40,10,.12);
+  margin: 26px 22px 0 !important; padding: 20px 8px 4px; }
+.mny .grp:first-of-type { margin-top: 24px !important; }
+.mny .grp h3, .mny.has-chg .grp h3 { position: absolute; top: -19px; left: 50%; transform: translateX(-50%); width: 62%; height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; font-size: 32px; }
+.mny .grp h3 small { font-size: 17px; }
+.mny .grp.rb h3, .mny.has-chg .grp.rb h3 { width: 86%; font-size: 26px; background: linear-gradient(180deg, #1f4278 0%, #0f2140 100%); }
+.mny .grp h3::before, .mny .grp h3::after, .per .pd-h::before, .per .pd-h::after { content: none; display: none; }
+.mny .times { padding-top: 2px; }
+.mny.pos-side .grp { margin: 18px 12px 0 !important; padding: 14px 4px 2px; border-radius: 12px; }
+.mny.pos-side .grp:first-of-type { margin-top: 16px !important; }
+.mny.pos-side .grp h3 { top: -14px; height: 27px; font-size: 21px; border-radius: 9px; }
+.mny.pos-side .grp.rb h3 { font-size: 17px; }
+.per .pd { border: 2px solid #c9a24c; border-radius: 14px; background: #fff; margin: 1.05em 2px .55em; padding: 0 6px 4px; }
+.per .pd-h { width: 82%; margin: -.62em auto 4px; border-radius: 11px; }
+.per .pcols { padding-top: 16px; }
+
+/* שהשמחה במעונם: א שטיק נאמען וואס ווערט נישט צעבראכן */
+.mzl .nb { white-space: nowrap; }
+
+/* אויבן: רעכטס — טאג, פרשה, העברעישע דאטום, באשרייבונג; לינקס — דער זייגער (קלענער) מיט דער ענגלישער דאטום. אונטן — פריי פאר אנדערע זאכן */
+.top .day { font-size: 44px; line-height: 1; }
+.top .day small { font-size: 27px; line-height: 1.1; }
+.top .day small.hd { color: #fff; font-weight: 900; }
+.top .day small.sp { font-size: 30px; }
+.top .clock { font-size: 80px; }
+.top .clock span { font-size: 34px; }
+.top .clock small.greg { display: block; font-size: 30px; font-weight: 700; color: #e9d9ad; text-align: left; letter-spacing: .5px; margin-top: 4px; }
+.bottom { justify-content: center; }
+.top .day { font-size: 40px; white-space: nowrap; }
+.top .day { color: #fff; }
+.top .day small.hd { color: #e9d9ad; font-weight: 700; white-space: nowrap; }
+.top .clock span { color: #fff; margin-left: 0; }
+.top .day { font-size: 54px; }
+.top .day small.hd { font-size: 32px; margin-top: 2px; }
+.top .day small.hd { font-size: 40px; }
+/* א ביסל מער פלאץ צווישן דער כותרת און די זמנים */
+.mny .grp { padding-top: 27px; }
+.mny.pos-side .grp { padding-top: 19px; }
+.per .pd-h { margin-bottom: 9px; }
+.mny .times span, .mny.has-chg .times span { line-height: 1.26; }
+
+/* the display shows no mouse pointer */
+html, body, * { cursor: none !important; }
+
+/* ===== 30.10: שיפורי גרפיקה ===== */
+/* 6. אלעס (חוץ פונעם פאס אונטן) א ביסל ארויף — אונטן איז געווען צו ענג */
+#dyn, #shl, #adlayer { transform: translateY(-25px); }
+
+/* 1. המנין הבא: נידעריגער, די אפשטאנדן האלב אזוי גרויס; דער לוח אויבן ווערט העכער */
+.next { top: 752px; height: 178px; padding: 0; }
+.next .row1 { margin: 0; }
+.next .lbl { line-height: 1; }
+.next .big { line-height: .86; margin: 0; }
+.next .name { font-size: 100px; }
+.next .time { font-size: 81px; } /* לועזישע ציפערן זענען העכער — 0.81 גלייכט אויס מיט די העברעישע אותיות */
+.next .big.long .name { font-size: 58px; } .next .big.long .time { font-size: 47px; }
+.next .room { line-height: 1; margin-top: 2px; }
+.next .cd { top: -12px; }
+.pos-main { height: 540px; }
+/* פסח/תשרי: שהשמחה במעונם אין דער זעלבער שורה; די גרויסע משבצת ביז אהין */
+.per-on .mzl, .mzl.mzl-per { top: 752px; height: 178px; }
+.frame.per { height: 564px; }
+
+/* 2. ימות החול: מער פלאץ פאר די זמנים */
+.mny .grp { margin: 22px 18px 0 !important; padding: 19px 6px 2px; }
+.mny .grp:first-of-type { margin-top: 20px !important; }
+.mny .grp h3, .mny.has-chg .grp h3 { top: -17px; height: 32px; font-size: 30px; }
+.mny .grp h3 small { font-size: 16px; }
+.mny .grp.rb h3, .mny.has-chg .grp.rb h3 { font-size: 25px; }
+.mny .times { padding: 0; }
+.mny .times span, .mny.has-chg .times span { font-size: 34px; line-height: 1.16; padding: 0 13px; }
+.mny .times.rbt i, .mny.has-chg .times.rbt i { font-size: 26px; }
+
+/* 7. דער רויטער פאס זיצט אויפן אונטערשטן ראם פון דער משבצת */
+.mny .bnotes { position: absolute; left: 18px; right: 18px; bottom: -21px; z-index: 3; display: flex; gap: 8px; }
+.mny .bnotes .chg-note { flex: 1 1 0; min-width: 0; margin: 0; height: 40px; line-height: 34px; padding: 0 12px; white-space: nowrap; overflow: hidden; font-size: 23px; }
+.frame.mny { overflow: visible; }
+
+/* 5. כותרות: זמני היום, שיעורי תורה — אזוי גרויס ווי ימות החול */
+.mny.pos-main .ttl, .zm:not(.zm-c) .ttl, .lrn-s .ttl { font-size: 30px; padding: 4px 0 6px; line-height: 1.2; }
+
+/* 8. שבת: איין שורה */
+.sh-t.one { white-space: nowrap; overflow: hidden; font-size: 30px; line-height: 1.2; margin: 6px 0 4px; }
+.shab:not(.pos-main) .sh-t.one { font-size: 26px; }
+.shab.pos-main .sh-t.one { font-size: 34px; margin-bottom: 8px; }
+
+/* 3. מצוה יומית: אויבערשטע שורה אזוי גרויס ווי די אונטערשטע; ענגער */
+.lrn-m { justify-content: center; }
+.lrn-m .l1, .lrn-m .l2 { line-height: 1.08; }
+.lrn-m:not(.lrn-d) .l1 span { font-size: 1em; }
+/* 4. דף היומי: "דף היומי:" 30% גרעסער */
+.lrn-m.lrn-d .l1 span { font-size: 28.6px; }
+
+/* 10. דער לאגא: נאך א שורה (נתייסד ע"י), די זעלבע גרייסן — ענגערע אפשטאנדן */
+.top .logo b { margin-top: -6px; line-height: .95; }
+.top .logo i { margin-top: 0; line-height: 1.08; }
+
+/* שבת: אלע שורות גלייך — קיין גאלדענע קעסטלעך ביי די תפילות */
+.sh-r.big, .shab.pos-main .sh-r.big, .shab.dense .sh-r.big { background: none; margin: 0; padding: 0 6px; border-radius: 0; color: inherit; font-weight: 700; box-shadow: none; }
+.sh-r.big b, .shab.pos-main .sh-r.big b { color: #fff; }
+.sh-r.big > span { font-size: inherit; }
+.shab:not(.pos-main) .sh-r.big { font-size: 27px; }
+.shab.pos-main .sh-r.big { font-size: 31px; }
+
+/* ===== לוח ימות החול: דריי טורים ===== */
+.mny .gsub { display: none; }
+.mny.c3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: auto minmax(0, 1fr) auto; grid-auto-rows: auto; column-gap: 10px; padding: 0 14px 12px; }
+.mny.c3 > .ttl { grid-column: 1 / -1; margin: 0 -14px; }
+.mny.c3 .grp { margin: 24px 0 0 !important; padding: 22px 4px 6px; display: flex; flex-direction: column; min-height: 0; background: transparent; box-shadow: none; }
+.mny.c3 .grp h3 { width: 88%; font-size: 26px; }
+.mny.c3 .grp h3 small { display: none; }
+.mny.c3 .gsub { display: block; font-family: var(--serif); font-size: 17px; font-weight: 700; color: var(--muted); text-align: center; margin: -4px 0 2px; white-space: nowrap; }
+.mny.c3 .g-shacharis { grid-column: 1; grid-row: 2 / 4; }
+.mny.c3 .g-mincha { grid-column: 2; grid-row: 2; }
+.mny.c3 .g-maariv { grid-column: 3; grid-row: 2; }
+.mny.c3 .g-rb { grid-column: 2 / 4; grid-row: 3; }
+.mny.c3 .g-rb h3 { width: 94%; font-size: 22px; }
+.mny.c3 .g-x { grid-column: 1 / -1; }
+.mny.c3.no-rb .g-mincha, .mny.c3.no-rb .g-maariv { grid-row: 2 / 4; }
+.mny.c3.no-ma .g-mincha { grid-column: 2 / 4; }
+.mny.c3 .grp:not(.g-rb):not(.g-x) .times { display: flex; flex-direction: column; flex-wrap: nowrap; align-items: center; justify-content: flex-start; flex: 1; padding-top: 4px; }
+.mny.c3 .times span { line-height: 1.12; padding: 0 4px; }
+.mny.c3 .grp:not(.g-x) .times span::before { content: none; }
+.mny.c3 .times.rbt { gap: 0 26px; }
+.mny.c3 .bnotes { left: 14px; right: 14px; }
+.mny.c3.has-chg { padding-bottom: 26px; }
+/* דער רעקע: בעזש; דער טור מיטן קומענדיגן מנין — ווייס; מנין כ"ק — אלעמאל ווייס */
+.frame.mny.c3 { background: var(--paperbg); }
+.mny.c3 .grp.g-rb, .mny.c3 .grp.act { background: #fff; box-shadow: inset 0 0 0 1px rgba(138,106,42,.25), 0 2px 6px rgba(60,40,10,.18); }
+.shab.pos-main .sh-r.big > span { font-size: 36px; }
+.shab.pos-main.dense .sh-r.big > span { font-size: calc(35px * 8 / var(--n)); }
+/* די בילדער/טעקסטן וואס מ'לייגט ארויף — ארויף מיטן גאנצן מסך */
+#ovl { transform: translateY(-25px); }
+/* לאגא: "נתייסד" און "בנשיאות" נענטער (אפשטאנד 65% קלענער) */
+.top .logo i { line-height: 1; }
+.top .logo i.s2 + i { margin-top: -3px; }
+/* דער גאלדענער פאס פון אונטן גייט ארויף 25px צוזאמען מיט אלעס */
+.bottom { height: calc(1080px - var(--safe, 0px) - 979px * var(--safe-s, 1) + 25px * var(--safe-s, 1)); padding-bottom: calc(var(--safe, 0px) + 25px * var(--safe-s, 1)); }
+/* בהירות כללית 120% */
+#stage { filter: brightness(1.2); } /* על #stage ולא על #screen: פילטר על אלמנט מוקטן גורם לאותיות מפוקסלות */
+/* 3 טורים אין דער קליינער קעסטל */
+.mny.c3.pos-side { padding: 0 10px 8px; column-gap: 8px; }
+.mny.c3.pos-side > .ttl { margin: 0 -10px; }
+.mny.c3.pos-side .grp { margin: 16px 0 0 !important; padding: 15px 2px 3px; }
+.mny.c3.pos-side .grp h3 { font-size: 19px; }
+.mny.c3.pos-side .g-rb h3 { font-size: 16px; }
+.mny.c3.pos-side .gsub { font-size: 12px; margin: -3px 0 0; }
+.mny.c3.pos-side .times span { line-height: 1.0; }
+.mny.c3.pos-side .grp:not(.g-rb):not(.g-x) .times { padding-top: 1px; }
+/* בייזש: 8% טונקלער (נאך די 120% בהירות) */
+:root { --paperbg: #c1bcb1; }
+/* פסח / תשרי: די שעות אין א טבלה (אלע אין דער זעלבער ברייט, אן פונקטן — קיין פונקט בלייבט נישט הענגען אין סוף שורה); די כותרת פון א קעסטל ווערט נישט אפגעשניטן אויבן */
+.per .pcols { padding-top: .8em; }
+.per .pd-r b { display: grid; grid-template-columns: repeat(auto-fill, 2.45em); column-gap: .4em; justify-content: start; }
+.per .pd-r b em { text-align: center; }
+.per .pd-r b em:not(:last-child):not(.dn)::after { content: none; }
+.per .pd-r b em.dn { margin-left: 0; text-align: right; }
+/* לוח החול (3 טורים): מנחה / מעריב מיט אסאך מניינים — 2 שעות אין א שורה, מיט א מרווח */
+.mny.c3 .grp.two:not(.g-rb):not(.g-x) .times { flex-direction: row; flex-wrap: wrap; justify-content: center; align-content: flex-start; align-items: baseline; }
+.mny.c3 .grp.two .times span { width: 50%; box-sizing: border-box; text-align: center; padding: 0 .22em; }
+/* "(חוץ מיום א')" אונטער דער שעה, קליין, אין איין שורה */
+.mny.c3 .grp:not(.g-rb) .times span small { display: block; font-size: .5em !important; line-height: 1; white-space: nowrap; direction: rtl; unicode-bidi: isolate; color: var(--muted); }
+/* א שורה אין זמני שבת / פורים / ת"ב: אלעמאל א רווח צווישן דעם נאמען און דער שעה */
+.sh-r { column-gap: .45em; }
+.times span small { unicode-bidi: isolate; direction: rtl; }
+/* "נתייסד" / "בנשיאות": 15% קלענער, ענג צווישן די שורות */
+.top .logo i { font-size: 23.8px; line-height: 1; }
+/* מנין כ"ק: ווייניקער רווח צווישן מנחה און מעריב, די מסגרת 10% העכער (ארויף) */
+.mny.c3:not(.pos-side) .times.rbt { gap: 0 12px; padding-top: 6px; }
+.mny.c3:not(.pos-side) .g-rb { padding-top: 26px; }
+/* מצוה יומית / דף היומי: דער "ל" און די סופיות ווערן נישט אפגעשניטן */
+.lrn-m .l1, .lrn-m .l2 { overflow: visible; padding: .12em 0 .1em; line-height: 1.1; }
+.lrn-m { overflow: visible; }
+/* שיעורי תורה אין צוויי טורים: דף היומי (רעכטס) / די אנדערע (לינקס) */
+.lrn-s .shin.two { display: grid; grid-template-columns: 1fr 1fr; column-gap: 0; }
+.lrn-s .shin.two .shiur { margin: 0 !important; padding: 2px 8px 0 !important; border-top: 0; }
+.lrn-s .shin.two .shiur.sh-oth { border-right: 2px solid rgba(138,106,42,.45); }
+.lrn-s .shin.two .shiur > div { white-space: normal; overflow: visible; }
+.mny.c3:not(.pos-side) .times.rbt { gap: 0 4px; }
+.lrn-s .shin.two { padding-top: 6px; }
+.lrn-s .shiur > div .who { display: block; padding-right: .6em; font-size: 1.1em; font-weight: 700; color: #5c513c; }
+/* מצוה יומית / דף היומי: חצי מהרווח בין השורות; "מצוה יומית:" באותו גודל כמו "דף היומי:" */
+.lrn-m .l1, .lrn-m .l2 { padding: 0; line-height: .78; }
+.lrn-m:not(.lrn-d) .l1 span { font-size: 28.6px; }
+/* מצוה יומית + דף היומי — אותו מראה: כותרת קטנה, ומתחת המצוה / הדף באותו גודל וצבע; בצד: "מצוה" + המספר */
+.lrn-m.lv2 { display: flex; flex-direction: row; align-items: stretch; padding: 6px 12px; }
+.lv2 .pvn { flex: 0 0 auto; display: flex; flex-direction: column; justify-content: center; align-items: center; padding-left: 12px; margin-left: 12px; border-left: 2px solid rgba(138,106,42,.45); font-family: var(--serif); font-weight: 900; color: #8a5a14; font-size: 38px; line-height: 1.02; white-space: nowrap; }
+.lv2 .pvb { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+.lv2 .pl { font-family: var(--serif); font-weight: 700; color: var(--muted); font-size: 22px; line-height: 1; white-space: nowrap; }
+.lv2 .pt { font-family: var(--serif); font-weight: 900; color: var(--navy); font-size: 40px; line-height: 1.05; white-space: nowrap; margin-top: 4px; padding: .05em 0; }
+/* "מצוה" / המספר: חצי רווח; הכותרות 15% יותר גדולות — השורה מתחת נשארת במקום (הכותרת גדלה למעלה) */
+.lv2 .pvn { line-height: .76; }
+.lv2 .pl { font-size: 25.3px; margin-top: -.1304em; }
+/* צבעים מוחלפים: המצוה / הדף בחום־זהב, "מצוה צ'" בכחול; הכותרות קרובות יותר לטקסט (בלי להזיז אותו) */
+.lv2 .pt { color: #8a5a14; }
+.lv2 .pvn { color: var(--navy); }
+.lv2 .pl { position: relative; top: .15em; }
+/* שהשמחה במעונם: חד וקריא מרחוק — אותיות עבות וכהות, בלי צל מטושטש */
+.mzl .mz-e { font-weight: 700; color: #000; box-shadow: 0 0 0 1.5px rgba(138,106,42,.55); -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; }
+.mzl .mz-e b { font-weight: 900; }
+.mzl .mz-e .sg-note, .mzl .mz-e .sg-after { color: #1a1a1a; font-weight: 700; font-size: 18px; }
+.mzl .wk { font-weight: 900; font-size: 21px; }
+.mzl .pg { font-weight: 900; color: #5a3d0f; }
+/* חדות מרחוק: הטקסטים הקטנים/האפורים כהים יותר + קו מתאר דק שמעבה את האותיות (בלי לשנות גדלים ומיקומים) */
+#screen { --muted: #4a3c22; }
+.lrn-s .shiur > div { color: #3a2f1c; }
+.lrn-s .shiur > div.ps { color: #6b5d44; }
+.lrn-s .shiur > div.ln { color: #241c0f; }
+.lrn-s .shiur h4 { color: #5e420f; }
+.lrn-s .shiur, .mzl .mz-e, .mzl .wk, .mzl .pg, .zm .note, .zm table, .pr i, .lv2 .pl, .times small, .times i, .shab, .mny small, .bottom {
+  -webkit-text-stroke: .45px currentColor; }
+.lrn-s .shiur > div small, .zm small, .times small { -webkit-text-stroke: .35px currentColor; }

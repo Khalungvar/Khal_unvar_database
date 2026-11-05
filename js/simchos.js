@@ -244,8 +244,6 @@ export function cleanRich(html) {
   return out.replace(/<\/b><b>/g, '').replace(/(<br>\s*)+$/, '').trim();
 }
 
-/** 📺 פארן מסך: געגנט נאכן סיומת (שליט"א / הי"ו) — נישט ביי ני"ו, נישט אין דער אונטערשטער שורה, נישט אינעם גליון */
-const areaAfter = (suffix, c) => (c?.area && !/נ"י|ני"ו/.test(String(suffix || '')) ? ` ${h(String(c.area).trim())}` : '');
 export function simchaHtml(s, opt = {}) {
   if (s._head) return `<div class="sg-entry sg-special sg-branch-head">${s.special}</div>`;
   if (s.type === 'special') return `<div class="sg-entry sg-special">${cleanRich(s.special)}</div>`;
@@ -255,7 +253,7 @@ export function simchaHtml(s, opt = {}) {
     const c = contactOf(x.id) || {};
     const [first, last] = x.id.startsWith('n:') ? splitLast(x.id.slice(2)) : [String(c.first_name_he || '').trim(), String(c.last_name_he || '').trim()];
     const name = nameParts(x.title, first, last, x.suffix);
-    return `<div class="sg-name">${name}${opt.screen && !String(x.id).startsWith('n:') ? areaAfter(x.suffix, c) : ''}</div>${x.noteOn && x.note ? `<div class="sg-note">${h(x.note)}</div>` : ''}`;
+    return `<div class="sg-name">${name}</div>${x.noteOn && x.note ? `<div class="sg-note">${h(x.note)}</div>` : ''}`;
   }).join('');
   const self = isSelf(s);
   const forLine = String(s.text_override || '').trim() ? h(s.text_override)
