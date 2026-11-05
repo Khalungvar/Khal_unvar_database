@@ -1282,6 +1282,7 @@ const ACTIONS = {
         created_at: now(), created_by: me.email + ' (' + (S(M.name) || M.key) + ')', updated_at: now(), updated_by: me.email, branch: branch };
       appendObj(sh, o);
       logIt(M, me, 'simcha', o.child_contact_id, type + ' #' + o.simcha_id);
+      try { screenPush_(o, hon); } catch (err) { console.warn('screen push', err); } // 📺 גלייך אויפן מסך אין בית המדרש
       return { ok: true, id: max + 1 };
     } finally { lock.releaseLock(); }
   },
@@ -3005,4 +3006,50 @@ function yemotCall(p) {
   const q = Number(Q) || 0;
   if (A === '1') return done(q, 'עדכון כמות');
   return done(stock + q * pack, 'הגיע ' + q + (pack > 1 ? ' קרטונים' : ''));
+}
+
+// =====================================================================
+// 📺 א שמחה פון א מוסד → גלייך אויפן מסך אין בית המדרש (גיליון פון דער תצוגה, לשונית Simchos: simcha_id | html | until | updated_at)
+// דער זעלבער אויסזען ווי simchaHtml אינעם הויפט-אתר (+ געגנט נאך שליט"א/הי"ו, נישט ביי ני"ו). ווען א גבאי עפנט "שהשמחה במעונם", שרייבט דער אתר אלעס איבער.
+// =====================================================================
+const DISPLAY_SHEET = '1hhrsXNhDCK7OGXOClTPE8pxOJ3EjmTmndH0r_qrms70';
+const SG_TYPES = { birth: ['לרגל הולדת', ''], upsherin: ['לרגל שמחת האפשערן של', ''], barmitzvah: ['לרגל הכנסת', 'לעול התורה והמצוות'], erusin: ['לרגל אירוסי', '', 1], nisuin: ['לרגל נישואי', '', 1] };
+function sgEsc_(v) { return S(v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function sgNb_(x) { return x ? '<span class="nb">' + x + '</span>' : ''; }
+function sgName_(title, first, last, suffix) {
+  const a = [sgEsc_(title), first ? '<b>' + sgEsc_(first) + '</b>' : ''].filter(Boolean).join(' ');
+  const b = [last ? '<b>' + sgEsc_(last) + '</b>' : '', sgEsc_(suffix)].filter(Boolean).join(' ');
+  return [sgNb_(a), sgNb_(b)].filter(Boolean).join(' ');
+}
+function sgSplitLast_(nm) { const w = S(nm).split(/\s+/).filter(Boolean); return w.length > 1 ? [w.slice(0, -1).join(' '), w[w.length - 1]] : [w.join(' '), '']; }
+function sgBold_(text, surname) {
+  const t = S(text); if (!t) return '';
+  const m = /^(\S*["״'׳]\S*)\s+(.+)$/.exec(t);
+  const title = m ? m[1] : ''; const rest = m ? m[2] : t;
+  if (!surname) return sgName_(title, rest, '', '');
+  const fl = sgSplitLast_(rest); return sgName_(title, fl[0], fl[1], '');
+}
+/** געגנט נאכן סיומת — נאר ביי שליט"א / הי"ו (נישט ביי ני"ו / נ"י) */
+function sgArea_(suffix, area) { return S(area) && !/נ"י|ני"ו/.test(S(suffix)) ? ' ' + sgEsc_(area) : ''; }
+function screenPush_(o, hon) {
+  const ids = {}; hon.forEach(function (x) { if (x.id) ids[x.id] = 1; });
+  const cs = {};
+  if (Object.keys(ids).length) objsCols(main().getSheetByName('Contacts'), ['contact_id', 'first_name_he', 'last_name_he', 'area']).forEach(function (c) { if (ids[S(c.contact_id)]) cs[S(c.contact_id)] = c; });
+  const lines = hon.map(function (x) {
+    const c = cs[x.id] || {};
+    const fl = x.id ? [S(c.first_name_he), S(c.last_name_he)] : sgSplitLast_(x.name);
+    return '<div class="sg-name">' + sgName_(x.title, fl[0], fl[1], x.suffix) + sgArea_(x.suffix, x.id ? c.area : '') + '</div>';
+  }).join('');
+  const ty = SG_TYPES[o.type] || SG_TYPES.birth;
+  const rel = hon.length > 1 ? 'צאצאיהם' : (o.child_gender === 'f' ? 'בתו' : 'בנו');
+  const forLine = [sgEsc_(ty[0]), rel, sgBold_(o.child_name), ty[2] && S(o.other_side) ? ('עב"ג ' + sgBold_(o.other_side, true)) : '', sgEsc_(ty[1]), 'בשעטו"מ'].filter(function (x) { return S(x); }).join(' ');
+  const html = '<div class="sg-entry">' + lines + '<div class="sg-for">' + forLine + '</div></div>';
+  const until = String(Date.now() + 7 * 864e5);
+  const sh = SpreadsheetApp.openById(DISPLAY_SHEET).getSheetByName('Simchos');
+  if (!sh) return;
+  const last = sh.getLastRow();
+  const idsCol = last > 1 ? sh.getRange(2, 1, last - 1, 1).getValues().map(function (r) { return S(r[0]); }) : [];
+  const i = idsCol.indexOf(String(o.simcha_id));
+  const row = i >= 0 ? i + 2 : Math.max(2, last + 1);
+  sh.getRange(row, 1, 1, 4).setNumberFormat('@').setValues([[String(o.simcha_id), html, until, now()]]);
 }

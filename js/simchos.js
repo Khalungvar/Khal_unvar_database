@@ -243,7 +243,9 @@ export function cleanRich(html) {
   return out.replace(/<\/b><b>/g, '').replace(/(<br>\s*)+$/, '').trim();
 }
 
-export function simchaHtml(s) {
+/** 📺 פארן מסך: געגנט נאכן סיומת (שליט"א / הי"ו) — נישט ביי ני"ו, נישט אין דער אונטערשטער שורה, נישט אינעם גליון */
+const areaAfter = (suffix, c) => (c?.area && !/נ"י|ני"ו/.test(String(suffix || '')) ? ` ${h(String(c.area).trim())}` : '');
+export function simchaHtml(s, opt = {}) {
   if (s._head) return `<div class="sg-entry sg-special sg-branch-head">${s.special}</div>`;
   if (s.type === 'special') return `<div class="sg-entry sg-special">${cleanRich(s.special)}</div>`;
   const { rows, rel } = compose(s);
@@ -252,7 +254,7 @@ export function simchaHtml(s) {
     const c = contactOf(x.id) || {};
     const [first, last] = x.id.startsWith('n:') ? splitLast(x.id.slice(2)) : [String(c.first_name_he || '').trim(), String(c.last_name_he || '').trim()];
     const name = nameParts(x.title, first, last, x.suffix);
-    return `<div class="sg-name">${name}</div>${x.noteOn && x.note ? `<div class="sg-note">${h(x.note)}</div>` : ''}`;
+    return `<div class="sg-name">${name}${opt.screen && !String(x.id).startsWith('n:') ? areaAfter(x.suffix, c) : ''}</div>${x.noteOn && x.note ? `<div class="sg-note">${h(x.note)}</div>` : ''}`;
   }).join('');
   const self = isSelf(s);
   const forLine = String(s.text_override || '').trim() ? h(s.text_override)
@@ -534,7 +536,10 @@ export function openSimchos() {
   ui.showView('simchos');
 }
 
+// 📺 איינמאל אין א סעסיע (ווען מ'עפנט "שהשמחה במעונם"): דאס מסך באקומט אלע שמחות — אויך די וואס זענען אריינגעקומען פון די מוסדות
+let screenSynced = false;
 export function renderSimchos() {
+  if (!screenSynced && (state.simchos || []).length) { screenSynced = true; syncScreen(true); }
   const main = $('#simchos-main');
   if (!main) return;
   if (bgSet === null) { bgSet = {}; loadBg().then(() => { if ($('#simchos-main')) renderSimchos(); }); }
@@ -707,7 +712,7 @@ async function toggleYt(start, on, cb) {
 // ---------- דער מסך אין בית המדרש: די שמחות גייען אויך אין גיליון פון דער תצוגה (לשונית Simchos) ----------
 // נאר דער טעקסט פון דער שמחה (ווי אין גליון) — קיין טעלעפאנען/אדרעסן. א שמחה ווייזט זיך פונקט א וואך פון ווען מ'האט זי אריינגעלייגט.
 const SCREEN_DAYS = 7;
-export async function syncScreen() {
+export async function syncScreen(quiet = false) {
   try {
     const now = Date.now();
     const rows = (state.simchos || [])
@@ -715,12 +720,12 @@ export async function syncScreen() {
       .map((s) => ({ s, from: new Date(String(s.created_at).replace(' ', 'T')).getTime() }))
       .filter((x) => Number.isFinite(x.from) && x.from + SCREEN_DAYS * 864e5 > now)
       .sort((a, b) => a.from - b.from)
-      .map(({ s, from }) => [String(s.simcha_id), simchaHtml(s), String(from + SCREEN_DAYS * 864e5), nowStamp()]);
+      .map(({ s, from }) => [String(s.simcha_id), simchaHtml(s, { screen: true }), String(from + SCREEN_DAYS * 864e5), nowStamp()]);
     // דורך דעם SMS סקריפט (ער שרייבט אין גיליון פון דער תצוגה) — אזוי דארף א גבאי נישט קיין רשות אויפן גיליון
     const res = await fetch(CONFIG.SMS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'screen_simchos', rows, token: currentToken() }) });
     const r = await res.json();
     if (r.error || !r.ok) throw new Error(r.error || 'screen');
-  } catch (err) { console.warn('screen simchos', err); ui?.toast?.(t('sgScreenFail'), 'error'); }
+  } catch (err) { console.warn('screen simchos', err); if (!quiet) ui?.toast?.(t('sgScreenFail'), 'error'); }
 }
 
 // ---------- אויסמעקן: אויך וואס די שמחה האט אריינגעלייגט אין די כרטיסן (קשרים, הערה נאכן נאמען) ----------
