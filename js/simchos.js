@@ -99,7 +99,7 @@ const bySort = (a, b) => (Number(a.sort) || 0) - (Number(b.sort) || 0) || Number
 const isOn = (v) => v === true || String(v).toUpperCase() === 'TRUE';
 // 🏛 צו וועלכן מוסד געהערט די שמחה: '' = ק"ק אונגוואר; אנדערע — אונטער אן אייגענעם קעפל אינעם גליון (נאך די פון ק"ק)
 export const BRANCHES = [['', 'ק"ק אונגוואר'], ['yeshiva', 'ישיבת בית שערים'], ['jlm', 'ק"ק אונגוואר ירושלים']];
-const BR_HEAD = { yeshiva: 'משמחות ישיבתנו הק\' בית שערים', jlm: 'משמחות ק"ק אונגוואר ירושלים' };
+const BR_HEAD = { yeshiva: 'משמחות ישיבתנו הק\' בית שערים' }; // ירושלים — בלי קעפל
 const brOrder = (s) => Math.max(0, BRANCHES.findIndex(([k]) => k === String(s.branch || '')));
 /** פאר דעם גליון: א קעפל פאר יעדער גרופע פון א צווייג */
 const withHeads = (list) => {
@@ -568,7 +568,7 @@ export function renderSimchos() {
     </div>
     <div class="sg-wrap">
       <div class="sg-list">${list.length ? list.map((s, i) => `<div class="sg-item">
-          <div class="sg-item-text">${s.branch && BR_HEAD[s.branch] ? `<span class="badge sg-br">🏛 ${h((BRANCHES.find(([k]) => k === s.branch) || [])[1] || '')}</span>` : ''}${simchaHtml(s)}${s._carried ? `<div class="sg-late">↩ ${h(t('sgCarried'))}</div>` : isOn(s.also_next) ? `<div class="sg-late">↪ ${h(t('sgAlsoNext'))}</div>` : ''}${addedByHtml(s)}</div>
+          <div class="sg-item-text">${s.branch && BRANCHES.some(([k]) => k && k === s.branch) ? `<span class="badge sg-br">🏛 ${h((BRANCHES.find(([k]) => k === s.branch) || [])[1] || '')}</span>` : ''}${simchaHtml(s)}${s._carried ? `<div class="sg-late">↩ ${h(t('sgCarried'))}</div>` : isOn(s.also_next) ? `<div class="sg-late">↪ ${h(t('sgAlsoNext'))}</div>` : ''}${addedByHtml(s)}</div>
           <div class="sg-item-acts">
             <button type="button" class="btn small-btn" data-sg-edit="${h(s.simcha_id)}" title="${h(t('scEdit'))}">✎</button>
             <button type="button" class="btn small-btn" data-sg-up="${h(s.simcha_id)}"${i ? '' : ' disabled'}>▲</button>
