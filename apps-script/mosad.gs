@@ -1090,7 +1090,8 @@ const ACTIONS = {
     let key = props.getProperty('YEMOT_KEY_' + M.key);
     if (req && req.newKey) { key = Utilities.getUuid().replace(/-/g, ''); props.setProperty('YEMOT_KEY_' + M.key, key); logIt(M, me, 'settings', '', 'yemot key'); }
     // ימות לא עוקבים אחרי הפניה של Apps Script — הכתובת דרך ה-Worker (שמעביר לכאן)
-    return { phones: kPhones(M), link: key ? YEMOT_PROXY + '?m=' + encodeURIComponent(M.key) + '&k=' + key : '' };
+    // בלי & ובלי = — ימות המשיח מוחקים & מתוך api_link
+    return { phones: kPhones(M), link: key ? YEMOT_PROXY + '/' + encodeURIComponent(M.key) + '/' + key : '' };
   },
   kPhoneSave: function (M, me, req) {
     if (!isAdminRole(me)) throw new Error('no-permission');

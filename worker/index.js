@@ -114,8 +114,12 @@ export default {
     // ---- 📞 ימות המשיח (קו טלפון למלאי המטבח בישיבה) ----
     // ימות לא עוקבים אחרי הפניה (302) של Apps Script — לכן הם פונים לכאן, ואנחנו מעבירים לשומר (Mosdos Guard) ומחזירים את הטקסט ישר.
     // כל הפרמטרים (כולל המפתח k) עוברים כמו שהם; הבדיקה — בשומר.
-    if (path === '/yemot') {
+    // הכתובת: /yemot/<מוסד>/<מפתח> — בלי & (ימות המשיח מוחקים & מתוך api_link). נתמך גם ?m=&k=
+    if (path.startsWith('/yemot')) {
       const q = new URLSearchParams(url.search);
+      const pp = path.split('/');
+      if (pp[2]) q.set('m', decodeURIComponent(pp[2]));
+      if (pp[3]) q.set('k', decodeURIComponent(pp[3]));
       if (req.method === 'POST') { try { const f = await formOf(req); Object.entries(f).forEach(([k, v]) => { if (!q.has(k)) q.set(k, String(v)); }); } catch { /* */ } }
       q.set('yemot', '1');
       try {

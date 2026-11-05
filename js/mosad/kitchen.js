@@ -465,7 +465,7 @@ async function phoneDialog() {
     <details><summary>איך מגדירים בימות המשיח</summary><ol class="small">
       <li>באתר הניהול של ימות המשיח ← בוחרים שלוחה (למשל השלוחה הראשית, או שלוחה 1).</li>
       <li>בהגדרות המתקדמות של השלוחה (ext.ini) כותבים בדיוק 3 שורות:<pre dir="ltr" style="white-space:pre-wrap">type=api
-api_link=&lt;הכתובת שלמעלה&gt;
+api_link=&lt;הכתובת שלמעלה — בלי שינוי, בלי &amp; ובלי רווחים&gt;
 api_hangup_send=no</pre></li>
       <li>שומרים, ומחייגים מאחד הטלפונים המורשים.</li></ol></details>
     <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>סגירה</button></div>`);
