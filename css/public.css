@@ -206,4 +206,4 @@ a[href^="tel:"], .pb-kol b { white-space: nowrap; }
   .pb-mh .pb-btn { margin-inline-start: 0; }
 }
 /* ימות החול באותו גובה כמו שבת; מעריב וכפתור ה-SMS למטה */
-@media (min-width: 641px) { #pb-week { align-self: stretch; display: flex; flex-direction: column; } #pb-week > .pb-wk-end { margin-top: auto; } }
+@media (min-width: 641px) { #pb-week { align-self: stretch; position: relative; padding-bottom: 18px; } #pb-week .pb-wk-end { position: static; } #pb-week .pb-wk-end > .pb-smsr { bottom: 16px; inset-inline-end: 16px; } #pb-week .pb-wk-end.flow > .pb-smsr { position: static; } }
