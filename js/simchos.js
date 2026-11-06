@@ -712,12 +712,18 @@ async function toggleYt(start, on, cb) {
 // ---------- דער מסך אין בית המדרש: די שמחות גייען אויך אין גיליון פון דער תצוגה (לשונית Simchos) ----------
 // נאר דער טעקסט פון דער שמחה (ווי אין גליון) — קיין טעלעפאנען/אדרעסן. א שמחה ווייזט זיך פונקט א וואך פון ווען מ'האט זי אריינגעלייגט.
 const SCREEN_DAYS = 7;
+// created_at: טעקסט "2026-11-05 06:13" — אדער א נומער פון גוגל שיטס (46331.25…), ווען גוגל האט עס פארוואנדלט אין א דאטום
+function stampMs(v) {
+  const n = typeof v === 'number' ? v : (/^\d{5}(\.\d+)?$/.test(String(v).trim()) ? Number(v) : NaN);
+  if (Number.isFinite(n)) { const d = new Date(Math.round((n - 25569) * 864e5)); return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()).getTime(); }
+  return new Date(String(v || '').trim().replace(' ', 'T')).getTime();
+}
 export async function syncScreen(quiet = false) {
   try {
     const now = Date.now();
     const rows = (state.simchos || [])
       .filter((s) => s.screen !== 'FALSE' && String(s.screen).toUpperCase() !== 'FALSE' && s.created_at)
-      .map((s) => ({ s, from: new Date(String(s.created_at).replace(' ', 'T')).getTime() }))
+      .map((s) => ({ s, from: stampMs(s.created_at) }))
       .filter((x) => Number.isFinite(x.from) && x.from + SCREEN_DAYS * 864e5 > now)
       .sort((a, b) => a.from - b.from)
       .map(({ s, from }) => [String(s.simcha_id), simchaHtml(s, { screen: true }), String(from + SCREEN_DAYS * 864e5), nowStamp()]);
