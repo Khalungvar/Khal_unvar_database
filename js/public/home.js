@@ -47,6 +47,8 @@ let LOC = applyShul(CFG);
 let SIMCHOS = [];
 let DOWNLOADS = [];
 let HAVE = false; // הגיעו נתונים אמיתיים (לא ברירת מחדל)
+// טקסטים מהגדרות המסך (לשונית Screen) — כמו בתצוגה
+let TXT = { kolText: 'קול אונגוואר', kolPhone: '605-477-4427', tShDaf: 'שיעורי דף היומי בבית מדרשינו:', tShOth: 'שיעורים הנלמדים בביהמ"ד:' };
 
 function useRows(name, rows) {
   if (!rows) return;
@@ -56,10 +58,11 @@ function useRows(name, rows) {
     const dt = (v) => { const a = /^(\d{4})-(\d{2})-(\d{2})/.exec(v || ''); if (a) return a[0]; const b = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(v || ''); return b ? `${b[3]}-${b[1].padStart(2, '0')}-${b[2].padStart(2, '0')}` : ''; };
     DATA.rebbeAway = rows.slice(1).map((x) => ({ from: dt(x[0]), to: dt(x[1]) })).filter((x) => x.from && x.to);
   }
+  if (name === 'Screen') { const j = partsJson(rows); if (j?.texts) Object.keys(TXT).forEach((k) => { if (j.texts[k]) TXT[k] = String(j.texts[k]); }); }
   if (name === 'Simchos' && rows[0]?.[0] === 'simcha_id') SIMCHOS = rows.slice(1).filter((x) => x[0] && x[1]).map((x) => ({ id: x[0], html: x[1], until: Number(x[2]) || 0 }));
   if (name === 'SiteDownloads' && rows[0]?.[0] === 'key') DOWNLOADS = rows.slice(1).filter((x) => x[0] && x[2]).map((x) => ({ key: x[0], label: x[1], url: x[2] }));
 }
-const TABS = ['ShulConfig', 'Minyanim', 'RebbeAway', 'Simchos', 'SiteDownloads'];
+const TABS = ['ShulConfig', 'Minyanim', 'RebbeAway', 'Simchos', 'SiteDownloads', 'Screen'];
 
 // ---------- היום ----------
 const DAYN = ['יום ראשון', 'יום שני', 'יום שלישי', 'יום רביעי', 'יום חמישי', 'יום שישי', 'שבת קודש'];
@@ -147,22 +150,16 @@ function renderZmanim(I) {
     <div class="pb-rows">${rows.map(([l, a, b]) => `<div class="pb-row"><span>${l}</span><i></i><b>${b != null ? `<small>מג"א</small> ${tm(a)} <small>גר"א</small> ${tm(b)}` : tm(a)}</b></div>`).join('')}</div>`;
 }
 
-const HDW = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", 'ש"ק'];
-function daysText(ds) {
-  const s = [...new Set((ds || []).map(Number))].sort();
-  if (s.length === 7) return 'כל יום';
-  if (s.join() === '0,1,2,3,4,5') return 'א\'–ו\'';
-  if (s.join() === '0,1,2,3,4') return 'א\'–ה\'';
-  return s.map((d) => HDW[d]).join(' ');
-}
+// כמו בתצוגה: דף היומי / שאר השיעורים — שעה, שם השיעור (לא בדף היומי), מקום; ובשורה שנייה המגיד שיעור
 function renderShiurim(I) {
   const list = computeShiurim(DATA, I.n, LOC, true);
-  const byId = new Map((DATA.shiurim?.rows || []).map((r) => [r.id, r]));
+  const daf = list.filter((x) => x.type === 'daf'); const oth = list.filter((x) => x.type !== 'daf');
+  const row = (x) => `<div class="pb-sh"><b>${x.min == null ? h(x.note || '') : `${tm(x.min)} <small>${partOfDay(x.min)}</small>`}</b>
+      <span>${h([x.type === 'daf' ? '' : x.title, x.room].filter(Boolean).join(' - '))}${x.who ? `<small class="who">${h(x.who)}</small>` : ''}</span></div>`;
+  const sec = (t, a) => (a.length ? `<h3 class="pb-sht">${h(t)}</h3><div class="pb-shl">${a.map(row).join('')}</div>` : '');
   $('#pb-shiur').innerHTML = `<h2>📖 שיעורים</h2>
-    <a class="pb-kol" href="tel:+16054774427">🎧 קול אונגוואר — שיעורים בטלפון: <b dir="ltr">605-477-4427</b></a>
-    ${list.length ? `<div class="pb-shl">${list.map((x) => `<div class="pb-sh"><b>${x.min == null ? h(x.note || '') : `${tm(x.min)} <small>${partOfDay(x.min)}</small>`}</b>
-      <span>${h([x.type === 'daf' ? 'דף היומי' : x.title, x.room].filter(Boolean).join(' · '))}${x.who ? `<small class="who">${h(x.who)}</small>` : ''}</span>
-      <em>${h(daysText(byId.get(x.id)?.days))}</em></div>`).join('')}</div>` : '<p class="muted">רשימת השיעורים תתעדכן בקרוב.</p>'}`;
+    <a class="pb-kol" href="tel:+16054774427"><span>🎧 ${h(TXT.kolText)} — שיעורים בטלפון</span><b dir="ltr">${h(TXT.kolPhone)}</b></a>
+    ${list.length ? sec(TXT.tShDaf, daf) + sec(TXT.tShOth, oth) : '<p class="muted">רשימת השיעורים תתעדכן בקרוב.</p>'}`;
 }
 
 function curMonth(n) {
@@ -240,7 +237,7 @@ export async function loadBooks(box, limit = 0) {
       return `<div class="pb-book">${img ? `<img src="${h(img)}" alt="" loading="lazy">` : '<div class="pb-noimg">📖</div>'}
         <div><b>${h(b.name)}</b>${b.subtitle || Number(b.volumes) > 1 ? `<small>${h([b.subtitle, Number(b.volumes) > 1 && !/כרכים|חלקים/.test(b.subtitle || '') ? `${b.volumes} כרכים` : ''].filter(Boolean).join(' · '))}</small>` : ''}
         <div class="pb-price">${p.now != null ? money(p.now) : ''}${p.was != null && p.was !== p.now ? ` <s>${money(p.was)}</s> <span class="pb-sale">מבצע</span>` : ''}</div>${extra ? `<small>${h(extra)}</small>` : ''}</div></div>`;
-    }).join('')}</div>${limit && all.length > limit ? `<p class="pb-more"><a href="machon.html">לכל ${all.length} הספרים ←</a></p>` : ''}` : '<p class="muted">רשימת הספרים תתעדכן בקרוב.</p>';
+    }).join('')}</div>` : '<p class="muted">רשימת הספרים תתעדכן בקרוב.</p>';
   };
   draw();
   try {
