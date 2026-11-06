@@ -44,7 +44,7 @@ const T = {
     machon: 'מכון משנה הלכות', machonSub: 'ספרי רבותינו', allBooks: 'לכל הספרים ←', noBooks: '', vol: 'כרך בודד', old: 'מהדורה קודמת', vols: (n) => `${n} כרכים`, sale: 'מבצע', home: '← לדף הבית',
     machonInfo: 'להזמנות ולפרטים: (718) 851-0806 · office@ungvar.org · איסוף מהמשרד 1578 53rd St, או משלוח בתיאום.', policy: 'מדיניות החזרות ומשלוחים',
     smsH: 'קבלת זמני התפילות בהודעת SMS', smsSub: 'זמני התפילה של בית המדרש בבארא פארק, זמני היום והודעות הקהילה — ישר לטלפון.', name: 'שם', opt: '(לא חובה)', phone: 'מספר טלפון נייד',
-    signup: 'הרשמה', cancel: 'ביטול', close: 'סגירה', badPhone: 'נא להקליד מספר טלפון אמריקאי של 10 ספרות.', needOk: 'נא לסמן את ההסכמה לקבלת הודעות.', sending: 'שולח…',
+    signup: 'הרשמה', cancel: 'ביטול', close: 'סגירה', needName: 'נא לכתוב שם.', badPhone: 'נא להקליד מספר טלפון אמריקאי של 10 ספרות.', needOk: 'נא לסמן את ההסכמה לקבלת הודעות.', sending: 'שולח…',
     thanks: 'תודה! ההרשמה התקבלה', thanksTxt: (p) => `בקרוב תגיע הודעה למספר <b dir="ltr">${p}</b> לאישור ההרשמה — יש להשיב <b dir="ltr">YES</b>, ומאז יתחילו להגיע ההודעות.`,
     invalid: 'המספר אינו תקין.', tooMany: 'יותר מדי בקשות כרגע — נסו שוב מאוחר יותר.', failed: 'לא הצלחנו לשלוח. נסו שוב',
     donH: 'תרומה לקהל אונגוואר', donTxt: 'התרומה באתר תיפתח בקרוב בעז"ה.', donAlt: 'בינתיים אפשר לתרום בטלפון <a href="tel:+17188510806" dir="ltr">(718) 851-0806</a> או במייל <a href="mailto:office@ungvar.org">office@ungvar.org</a>.',
@@ -63,7 +63,7 @@ const T = {
     machon: 'מכון משנה הלכות', machonSub: 'ספרי רבותינו', allBooks: 'צו אלע ספרים ←', noBooks: '', vol: 'איין באנד', old: 'פריערדיגע מהדורה', vols: (n) => `${n} בענדער`, sale: 'מבצע', home: '← Home',
     machonInfo: 'צו באשטעלן: (718) 851-0806 · office@ungvar.org · אפנמען אין אפיס 1578 53rd St, אדער אויפ\'ן פאסט.', policy: 'Refund & Shipping Policy',
     smsH: 'באקומען זמני תפילה אויף SMS', smsSub: 'די זמני תפילה פונעם בית המדרש אין בארא פארק, זמני היום און הודעות פון קהל — גלייך צום טעלעפאן.', name: 'נאמען', opt: '(נישט נויטיג)', phone: 'סעל נומבער',
-    signup: 'Sign up', cancel: 'Cancel', close: 'Close', badPhone: 'ביטע שרייבט אן אמעריקאנער נומער פון 10 נומבער\'ס.', needOk: 'ביטע צייכנט אן אז איר זענט מסכים צו באקומען מעסעדזשעס.', sending: 'שיקט…',
+    signup: 'Sign up', cancel: 'Cancel', close: 'Close', needName: 'ביטע שרייבט א נאמען.', badPhone: 'ביטע שרייבט אן אמעריקאנער נומער פון 10 נומבער\'ס.', needOk: 'ביטע צייכנט אן אז איר זענט מסכים צו באקומען מעסעדזשעס.', sending: 'שיקט…',
     thanks: 'א דאנק! איר זענט איינגעשריבן', thanksTxt: (p) => `באלד וועט אנקומען א מעסעדזש צו <b dir="ltr">${p}</b> צו באשטעטיגן — ענטפערט <b dir="ltr">YES</b>, און פון דעמאלט אן וועט איר באקומען די מעסעדזשעס.`,
     invalid: 'דער נומער איז נישט ריכטיג.', tooMany: 'צופיל בקשות יעצט — פרובירט שפעטער.', failed: 'נישט געלונגען. פרובירט נאכאמאל',
     donH: 'נדבה פאר קהל אונגוואר', donTxt: 'Online donations are coming soon.', donAlt: 'דערווייל קען מען געבן דורכן טעלעפאן <a href="tel:+17188510806" dir="ltr">(718) 851-0806</a> אדער אימעיל <a href="mailto:office@ungvar.org">office@ungvar.org</a>.',
@@ -82,7 +82,7 @@ const T = {
     machon: 'Machon Mishne Halachos', machonSub: 'Seforim of our Rabbes', allBooks: 'All seforim →', noBooks: '', vol: 'single volume', old: 'previous edition', vols: (n) => `${n} volumes`, sale: 'Sale', home: '← Home',
     machonInfo: 'To order: (718) 851-0806 · office@ungvar.org · pickup at our office, 1578 53rd St, or shipping by arrangement.', policy: 'Refund & Shipping Policy',
     smsH: 'Davening times by SMS', smsSub: 'Boro Park beis medrash davening times, daily zmanim and community updates — straight to your phone.', name: 'Name', opt: '(optional)', phone: 'Mobile number',
-    signup: 'Sign up', cancel: 'Cancel', close: 'Close', badPhone: 'Please enter a 10-digit US phone number.', needOk: 'Please check the consent box.', sending: 'Sending…',
+    signup: 'Sign up', cancel: 'Cancel', close: 'Close', needName: 'Please enter your name.', badPhone: 'Please enter a 10-digit US phone number.', needOk: 'Please check the consent box.', sending: 'Sending…',
     thanks: 'Thank you! You are signed up', thanksTxt: (p) => `You will soon receive a text at <b>${p}</b> to confirm — reply <b>YES</b> and the messages will start.`,
     invalid: 'That number is not valid.', tooMany: 'Too many requests right now — please try later.', failed: 'Could not send. Please try again',
     donH: 'Donate to Khal Ungvar', donTxt: 'Online donations are coming soon.', donAlt: 'Meanwhile you can donate by phone <a href="tel:+17188510806">(718) 851-0806</a> or email <a href="mailto:office@ungvar.org">office@ungvar.org</a>.',
@@ -442,7 +442,7 @@ function smsDialog() {
     <button type="button" class="pb-x" aria-label="${h(L().close)}">✕</button>
     <h3>${h(L().smsH)}</h3>
     <p class="pb-sub">${h(L().smsSub)}</p>
-    <label>${h(L().name)} <small>${h(L().opt)}</small><input name="name" autocomplete="name" maxlength="60"></label>
+    <label>${h(L().name)}<input name="name" autocomplete="name" maxlength="60" required></label>
     <label>${h(L().phone)}<input name="phone" type="tel" inputmode="tel" autocomplete="tel" dir="ltr" placeholder="(718) 555-0123" required></label>
     <input name="website" tabindex="-1" autocomplete="off" class="pb-hp" aria-hidden="true">
     <label class="pb-consent" dir="ltr"><input type="checkbox" name="ok"> <span>I agree to receive recurring automated text messages from <b>Khal Ungvar</b> (prayer times, zmanim and community updates) at the number above. Consent is not a condition of any purchase. Msg frequency varies. Msg &amp; data rates may apply. Reply <b>STOP</b> to cancel, <b>HELP</b> for help. See our <a href="sms.html" target="_blank">SMS Terms</a> and <a href="privacy.html" target="_blank">Privacy Policy</a>.</span></label>
@@ -456,6 +456,7 @@ function smsDialog() {
   f.onsubmit = async (e) => {
     e.preventDefault();
     const phone = f.phone.value.replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
+    if (!f.name.value.trim()) { msg.textContent = L().needName; f.name.focus(); return; }
     if (phone.length !== 10) { msg.textContent = L().badPhone; return; }
     if (!f.ok.checked) { msg.textContent = L().needOk; return; }
     const btn = $('[type=submit]', f); btn.disabled = true; msg.textContent = L().sending;
@@ -470,7 +471,7 @@ function smsDialog() {
       $('.pb-x', dlg).onclick = close; $('.pb-cancel', dlg).onclick = close;
     } catch (err) {
       btn.disabled = false;
-      msg.textContent = /bad-phone/.test(err.message) ? L().invalid : /too-many/.test(err.message) ? L().tooMany : L().failed;
+      msg.textContent = /bad-phone/.test(err.message) ? L().invalid : /need-name/.test(err.message) ? L().needName : /too-many/.test(err.message) ? L().tooMany : L().failed;
     }
   };
 }

@@ -3063,6 +3063,7 @@ const WEB_CONSENT = 'I agree to receive recurring automated text messages from K
 function webSignup_(req) {
   if (S(req.website)) return { ok: true }; // הוניג-טאפ פאר ראבאטן
   if (req.consent !== true) return { error: 'need-consent' };
+  if (!String(req.name || '').trim()) return { error: 'need-name' };
   let d = String(req.phone || '').replace(/\D/g, '');
   if (d.length === 11 && d.charAt(0) === '1') d = d.slice(1);
   if (d.length !== 10 || /^[01]/.test(d)) return { error: 'bad-phone' };
