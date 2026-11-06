@@ -34,8 +34,9 @@ a { color: var(--accent); }
 .pb-login:hover { color: #fff; text-decoration: underline; }
 .pb-donate { font: inherit; font-weight: 700; font-size: 15px; background: #c9a23f; color: #2a1210; border: 0; border-radius: 999px; padding: 7px 22px; cursor: pointer; }
 .pb-donate:hover { background: #e0b860; }
-.pb-top { text-align: center; padding: 18px 0 8px; }
-.pb-top img { width: 190px; max-width: 52vw; height: auto; display: block; margin: 0 auto; }
+.pb-top { text-align: center; padding: 0 0 8px; }
+/* הכתר מתחיל כבר על הפס הבורדו */
+.pb-top img { width: 190px; max-width: 52vw; height: auto; display: block; margin: -40px auto 0; position: relative; z-index: 2; filter: drop-shadow(0 3px 6px rgba(40, 10, 10, .25)); }
 .pb-top h1 { font-family: var(--serif); color: var(--accent); margin: 4px 0 0; font-size: 30px; line-height: 1.2; }
 .pb-addr { color: var(--muted); font-size: 15px; margin-top: 2px; }
 /* כפתור SMS עגול — בפינה הפנויה של ימות החול, צמוד לשבת */
@@ -198,6 +199,7 @@ a[href^="tel:"], .pb-kol b { white-space: nowrap; }
   .pb-donate { padding: 6px 16px; }
   .pb-card { padding: 14px; }
   .pb-top h1 { font-size: 25px; }
+  .pb-top img { margin-top: 10px; max-width: 46vw; } /* בטלפון הפס צר — הכתר מתחת לפס */
   .pb-date { font-size: 15.5px; }
   .pb-date .sep { margin: 0 4px; }
   .pb-date-don { position: static; transform: none; display: block; width: 100%; margin-top: 8px; }
