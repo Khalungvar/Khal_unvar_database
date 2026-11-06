@@ -22,21 +22,33 @@ a { color: var(--accent); }
 .pb-wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
 
 /* ---- כותרת ---- */
-.pb-top { position: relative; text-align: center; padding: 22px 0 10px; }
-.pb-top img { width: 210px; max-width: 58vw; height: auto; display: block; margin: 0 auto; }
+/* פס בורדו למעלה: שפה · כניסה · תרומה */
+.pb-bar { background: #7a1219; color: #fff8ea; }
+.pb-bar-in { display: flex; align-items: center; justify-content: space-between; min-height: 52px; gap: 12px; }
+.pb-langs { display: flex; align-items: center; gap: 2px; }
+.pb-langs span { color: #f3e3b8; opacity: .45; }
+.pb-langs button { font: inherit; font-size: 14px; border: 0; background: none; color: #f3e3b8; padding: 2px 7px; cursor: pointer; }
+.pb-langs button.on { color: #fff; font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
+.pb-bar-act { display: flex; align-items: center; gap: 14px; }
+.pb-login { font-size: 14px; color: #f3e3b8; text-decoration: none; }
+.pb-login:hover { color: #fff; text-decoration: underline; }
+.pb-donate { font: inherit; font-weight: 700; font-size: 15px; background: #c9a23f; color: #2a1210; border: 0; border-radius: 999px; padding: 7px 22px; cursor: pointer; }
+.pb-donate:hover { background: #e0b860; }
+.pb-top { text-align: center; padding: 18px 0 8px; }
+.pb-top img { width: 190px; max-width: 52vw; height: auto; display: block; margin: 0 auto; }
 .pb-top h1 { font-family: var(--serif); color: var(--accent); margin: 4px 0 0; font-size: 30px; line-height: 1.2; }
-.pb-addr { color: var(--muted); font-size: 15px; line-height: 1.35; margin-top: 2px; }
-.pb-side { position: absolute; top: 14px; display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: 290px; }
-.pb-s-end { inset-inline-end: 0; }
-.pb-s-start { inset-inline-start: 0; }
-.pb-s-end .pb-login { align-self: flex-end; }
-.pb-s-start .pb-langs { align-self: flex-start; }
-.pb-btn.big { font-size: 18px; padding: 14px 18px; justify-content: center; border-radius: 12px; box-shadow: 0 2px 6px rgba(60, 30, 10, .15); }
-.pb-langs { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
-.pb-langs button { font: inherit; font-size: 13px; border: 0; background: none; color: var(--muted); padding: 4px 11px; cursor: pointer; }
-.pb-langs button.on { background: var(--accent); color: var(--accent-ink); }
-.pb-login { font-size: 13px; text-decoration: none; color: var(--muted); border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 12px; }
-.pb-login:hover { color: var(--accent); border-color: var(--accent); }
+.pb-addr { color: var(--muted); font-size: 15px; margin-top: 2px; }
+/* כפתור SMS עגול — בפינה הפנויה של ימות החול, צמוד לשבת */
+.pb-wk-end { position: relative; }
+.pb-wk-last { padding-inline-end: 146px; }
+.pb-wk-end .pb-grp { margin-bottom: 0; }
+.pb-wk-end > .pb-smsr { position: absolute; bottom: 0; inset-inline-end: 0; }
+.pb-wk-end.flow .pb-wk-last { padding-inline-end: 0; }
+.pb-wk-end.flow > .pb-smsr { position: static; margin: 12px auto 0; }
+.pb-smsr { width: 128px; height: 128px; border-radius: 50%; border: 0; background: #7a1219; color: #fff8ea; font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 10px; box-shadow: 0 4px 12px rgba(122, 18, 25, .3), inset 0 0 0 3px #c9a23f; text-align: center; line-height: 1.2; }
+.pb-smsr b { font-size: 26px; letter-spacing: .04em; }
+.pb-smsr span { font-size: 13px; font-weight: 600; }
+.pb-smsr:hover { transform: scale(1.04); }
 
 .pb-date { text-align: center; background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 12px; padding: 10px 14px; font-size: 18px; margin: 8px 0 12px; }
 .pb-date .sep { color: var(--gold); margin: 0 8px; }
@@ -170,13 +182,7 @@ a[href^="tel:"], .pb-kol b { white-space: nowrap; }
   .pb-row3 .pb-col:last-child { grid-column: 1 / -1; }
   #pb-sgl .pb-pgv { height: 460px; flex: none; }
   #pb-books .pb-pgv { height: 470px; flex: none; }
-  .pb-top { padding-top: 50px; }
-  .pb-top { display: flex; flex-direction: column; align-items: center; }
-  .pb-side { position: static; width: 100%; max-width: 420px; margin: 10px auto 0; order: 9; }
-  .pb-s-end { order: 10; }
   .pb-col .pb-fill { flex: none; }
-  .pb-side .pb-login { position: absolute; top: 14px; inset-inline-end: 0; }
-  .pb-side .pb-langs { position: absolute; top: 14px; inset-inline-start: 0; }
   .pb-fgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 640px) {
@@ -184,7 +190,11 @@ a[href^="tel:"], .pb-kol b { white-space: nowrap; }
   .pb-grid { grid-template-columns: 1fr; gap: 12px; }
   .pb-card.wide { grid-column: auto; }
   .pb-row3 { grid-template-columns: 1fr; gap: 12px; }
-  .pb-btn.big { font-size: 16px; }
+  .pb-wk-last { padding-inline-end: 0; }
+  .pb-wk-end > .pb-smsr { position: static; }
+  .pb-smsr { margin: 12px auto 0; width: 116px; height: 116px; }
+  .pb-langs button { font-size: 13px; padding: 2px 4px; }
+  .pb-donate { padding: 6px 16px; }
   .pb-card { padding: 14px; }
   .pb-top h1 { font-size: 25px; }
   .pb-date { font-size: 15.5px; }
@@ -193,3 +203,5 @@ a[href^="tel:"], .pb-kol b { white-space: nowrap; }
   .pb-fgrid { grid-template-columns: 1fr; }
   .pb-mh .pb-btn { margin-inline-start: 0; }
 }
+/* ימות החול באותו גובה כמו שבת; מעריב וכפתור ה-SMS למטה */
+@media (min-width: 641px) { #pb-week { align-self: stretch; display: flex; flex-direction: column; } #pb-week > .pb-wk-end { margin-top: auto; } }

@@ -32,7 +32,7 @@ function pickLang() {
 let LANG = pickLang();
 const T = {
   he: {
-    title: 'קהל אונגוואר', login: 'כניסה', donate: 'תרומה', sms: 'לקבלת זמני התפילות בהודעת SMS',
+    title: 'קהל אונגוואר', login: 'כניסה', donate: 'תרומה', sms: 'לקבלת זמני התפילות בהודעת SMS', smsR: 'לקבלת זמני התפילות',
     days: ['יום ראשון', 'יום שני', 'יום שלישי', 'יום רביעי', 'יום חמישי', 'יום שישי', 'שבת קודש'], eve: (d) => `אור ל${d}`,
     parsha: (p) => `פרשת ${p}`, week: 'זמני תפילה ימות החול', g: { shacharis: 'שחרית', mincha: 'מנחה', maariv: 'מעריב' },
     rebbe: 'מנין אד"ש', approx: '(בערך)', yt: 'היום: לפי זמני יום טוב', soon: 'הזמנים יעודכנו בקרוב.',
@@ -51,7 +51,7 @@ const T = {
     prev: 'הקודם', next: 'הבא', loading: 'טוען…',
   },
   yi: {
-    title: 'קהל אונגוואר', login: 'לאגין', donate: 'נדבה', sms: 'באקומען זמני תפילה אויף SMS',
+    title: 'קהל אונגוואר', login: 'לאגין', donate: 'נדבה', sms: 'באקומען זמני תפילה אויף SMS', smsR: 'באקומען זמני תפילה',
     days: ['זונטאג', 'מאנטאג', 'דינסטאג', 'מיטוואך', 'דאנערשטאג', 'פרייטאג', 'שבת קודש'], eve: (d) => `אור ל${d}`,
     parsha: (p) => `פרשת ${p}`, week: 'זמני תפילה ימות החול', g: { shacharis: 'שחרית', mincha: 'מנחה', maariv: 'מעריב' },
     rebbe: 'מנין אד"ש', approx: '(בערך)', yt: 'היינט: לויט די זמני יום טוב', soon: 'Times will be updated soon.',
@@ -70,7 +70,7 @@ const T = {
     prev: 'פריער', next: 'ווייטער', loading: 'Loading…',
   },
   en: {
-    title: 'Khal Ungvar', login: 'Sign in', donate: 'Donate', sms: 'Get davening times by SMS',
+    title: 'Khal Ungvar', login: 'Sign in', donate: 'Donate', sms: 'Get davening times by SMS', smsR: 'Get davening times',
     days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Shabbos'], eve: (d) => `${d} eve`,
     parsha: (p) => `Parshas ${p}`, week: 'Weekday Davening Times', g: { shacharis: 'Shacharis', mincha: 'Mincha', maariv: 'Maariv' },
     rebbe: 'Rebbe\'s minyan', approx: '(approx.)', yt: 'Today: Yom Tov schedule', soon: 'Times will be updated soon.',
@@ -217,14 +217,26 @@ function renderWeekday(I) {
   const all = today ? ['shacharis', 'mincha', 'maariv'].flatMap((g) => (w[g] || []).map((m) => ({ g, m }))) : [];
   const nx = all.filter((x) => x.m.min >= I.nowMin).sort((a, b) => a.m.min - b.m.min)[0]?.m || null;
   const chip = (g, m) => `<span class="pb-chip${m === nx ? ' nx' : ''}" title="${h([m.room, m.note].filter(Boolean).join(' · '))}">${tm(m.min)}${m.rebbe ? `<small>${h(L().rebbe)}${g === 'maariv' ? ` ${h(L().approx)}` : ''}</small>` : ''}</span>`;
-  const rows = ['shacharis', 'mincha', 'maariv'].map((g) => {
+  const grp = (g) => {
     const list = w[g] || [];
     if (!list.length) return '';
     return `<div class="pb-grp"><div class="pb-gh">${h(L().g[g])}${notes[g] ? ` <small><bdi>(${h(notes[g])})</bdi></small>` : ''}</div><div class="pb-chips">${list.map((m) => chip(g, m)).join('')}</div></div>`;
-  }).join('');
+  };
+  const rows = ['shacharis', 'mincha', 'maariv'].map(grp).join('');
   const p = parshaOf(k - dowOf(k) + 6);
+  // מעריב והזמנים המיוחדים — בשורה אחת עם כפתור ה-SMS העגול (בפינה הפנויה, צמוד לשבת)
   $('#pb-week').innerHTML = `<h2>${h(L().week)}${p ? ` <span class="pb-hp2"><bdi>${h(p)}</bdi></span>` : ''}</h2>
-    ${rows || `<p class="muted">${h(L().soon)}</p>`}${specialHtml(I)}`;
+    ${rows ? grp('shacharis') + grp('mincha') : `<p class="muted">${h(L().soon)}</p>`}
+    <div class="pb-wk-end"><div class="pb-wk-last">${rows ? grp('maariv') : ''}${specialHtml(I)}</div>
+    <button type="button" class="pb-smsr" data-sms><b>SMS</b><span>${h(L().smsR)}</span></button></div>`;
+  $('#pb-week .pb-smsr').onclick = smsDialog;
+  // אם הכפתור העגול נוגע במנחה (הרבה מניינים) — יורד מתחת לשורה
+  requestAnimationFrame(() => {
+    const b = $('#pb-week .pb-smsr'); if (!b || getComputedStyle(b).position !== 'absolute') return;
+    const r = b.getBoundingClientRect();
+    const hit = $$('#pb-week .pb-chip, #pb-week .pb-gh').some((c) => { const q = c.getBoundingClientRect(); return q.left < r.right && r.left < q.right && q.top < r.bottom && r.top < q.bottom; });
+    if (hit) b.parentElement.classList.add('flow');
+  });
 }
 
 // ---------- זמנים מיוחדים בימות החול (חנוכה, תעניות, פורים, תשעה באב, חול המועד, ימי דפגרא) — לשבוע הקרוב, כמו בתצוגה ----------

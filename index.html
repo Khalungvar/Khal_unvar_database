@@ -9,36 +9,32 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700&family=Frank+Ruhl+Libre:wght@400;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="img/favicon.png">
-  <link rel="stylesheet" href="css/public.css?v=637">
+  <link rel="stylesheet" href="css/public.css?v=638">
   <script type="importmap">
   {"imports": {
-    "./js/hebdate.js": "./js/hebdate.js?v=637",
-    "./js/luach/zmanim.js": "./js/luach/zmanim.js?v=637",
-    "./js/luach/mitzvos.js": "./js/luach/mitzvos.js?v=637",
-    "./js/luach/engine.js": "./js/luach/engine.js?v=637",
-    "./js/luach/minyanim.js": "./js/luach/minyanim.js?v=637",
-    "./js/luach/shul.js": "./js/luach/shul.js?v=637",
-    "./js/config.js": "./js/config.js?v=637",
-    "./js/public/home.js": "./js/public/home.js?v=637"
+    "./js/hebdate.js": "./js/hebdate.js?v=638",
+    "./js/luach/zmanim.js": "./js/luach/zmanim.js?v=638",
+    "./js/luach/mitzvos.js": "./js/luach/mitzvos.js?v=638",
+    "./js/luach/engine.js": "./js/luach/engine.js?v=638",
+    "./js/luach/minyanim.js": "./js/luach/minyanim.js?v=638",
+    "./js/luach/shul.js": "./js/luach/shul.js?v=638",
+    "./js/config.js": "./js/config.js?v=638",
+    "./js/public/home.js": "./js/public/home.js?v=638"
   }}
   </script>
   <script>if (/[?&]credits=/.test(location.search)) location.replace('login/' + location.search);</script>
   <script type="module">import { startHome } from './js/public/home.js'; startHome();</script>
 </head>
 <body>
+  <div class="pb-bar"><div class="pb-wrap pb-bar-in">
+    <nav class="pb-langs" aria-label="Language"><button type="button" data-lang="yi">אידיש</button><span>|</span><button type="button" data-lang="he">עברית</button><span>|</span><button type="button" data-lang="en">English</button></nav>
+    <div class="pb-bar-act"><a class="pb-login" href="login/" data-t="login">כניסה</a><button type="button" class="pb-donate" data-donate data-t="donate">תרומה</button></div>
+  </div></div>
   <div class="pb-wrap">
     <header class="pb-top">
-      <div class="pb-side pb-s-end">
-        <a class="pb-login" href="login/" data-t="login">כניסה</a>
-        <button type="button" class="pb-btn gold big" data-donate data-t="donate">תרומה</button>
-      </div>
-      <div class="pb-side pb-s-start">
-        <div class="pb-langs" role="group" aria-label="Language"><button type="button" data-lang="yi">אידיש</button><button type="button" data-lang="he">עברית</button><button type="button" data-lang="en">English</button></div>
-        <button type="button" class="pb-btn primary big" data-sms data-t="sms">לקבלת זמני התפילות בהודעת SMS</button>
-      </div>
-      <img src="img/logo.png" alt="קהל אונגוואר" width="210">
+      <img src="img/logo.png" alt="קהל אונגוואר" width="190">
       <h1 data-t="title">קהל אונגוואר</h1>
-      <div class="pb-addr" dir="ltr">5306 16th Ave<br>Brooklyn, NY</div>
+      <div class="pb-addr" dir="ltr">5306 16th Ave · Brooklyn, NY 11204</div>
     </header>
     <div class="pb-date" id="pb-date">&nbsp;</div>
     <main class="pb-grid">
