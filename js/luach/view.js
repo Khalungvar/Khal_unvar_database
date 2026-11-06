@@ -72,11 +72,11 @@ async function loadData() {
   loaded = true;
 }
 
-function build(Y) {
+function build(Y, lk = locKey) {
   const extra = {};
-  const here = edits.filter((e) => e.loc === locKey); // יעדער ארט (בארא פארק / ירושלים) האט זיינע אייגענע ענדערונגען
+  const here = edits.filter((e) => e.loc === lk); // יעדער ארט (בארא פארק / ירושלים) האט זיינע אייגענע ענדערונגען
   here.filter((e) => !e.action).forEach((e) => { (extra[e.iso] = extra[e.iso] || []).push({ kind: e.kind, text: e.text, edit: true }); });
-  const b = buildYear(Y, extra, { loc: LOC() });
+  const b = buildYear(Y, extra, { loc: LOCATIONS[lk] || LOCATIONS.bp });
   // באהאלטענע שורות
   const hide = new Set(here.filter((e) => e.action === 'hide').map((e) => `${e.iso}|${e.text}`));
   b.days.forEach((d) => { d.items = d.items.filter((x) => !hide.has(`${d.iso}|${x.text}`)); if (hide.has(`${d.iso}|${d.parsha}`)) d.parsha = ''; });
@@ -471,10 +471,11 @@ async function saveEdit(e) {
     const id = `${Date.now()}`;
     await appendRow('LuachEdits', [id, e.iso, e.kind, e.text, e.action, nowStamp(), state.email, locKey]);
     loaded = false; edits = [];
+    import('../sitepub.js').then((m) => m.sitePubSoon(ui.toast)).catch(() => {});
   } catch (err) { ui.toast?.(ui.friendlyError ? ui.friendlyError(err) : String(err), 'error'); }
 }
 async function delEdit(row) {
-  try { await updateRange(`LuachEdits!A${row}:H${row}`, [['', '', '', '', '', nowStamp(), state.email, '']]); loaded = false; edits = []; } catch (err) { ui.toast?.(String(err), 'error'); }
+  try { await updateRange(`LuachEdits!A${row}:H${row}`, [['', '', '', '', '', nowStamp(), state.email, '']]); loaded = false; edits = []; import('../sitepub.js').then((m) => m.sitePubSoon(ui.toast)).catch(() => {}); } catch (err) { ui.toast?.(String(err), 'error'); }
 }
 
 // ---------- PDF (דרוקן) ----------
@@ -514,6 +515,43 @@ function printPages(list) {
     fitCells(area); fitAll(area); area.style.cssText = '';
     setTimeout(() => window.print(), 200);
   });
+}
+
+// ---------- 🌐 האתר הציבורי: PDF פון א חודש (ישר, אן א דרוק-פענצטער) ----------
+// די שריפטן זענען נאר אינעם אתר פון די גבאים — דערפאר ווערט דער PDF געמאכט דא און ארויפגעלייגט (sitepub.js)
+/** [{ key, label, sig, build }] — דער יעצטיגער חודש און דער קומענדיגער (בארא פארק) */
+export async function luachTargets() {
+  loaded = false; await loadData();
+  const [Y, ix] = (() => { const iso = todayIso(); for (let y = 5780; y < 5900; y += 1) { const b = buildYear(y, {}, { loc: LOCATIONS.bp }); const i = b.pages.findIndex((p) => p.monthDays.some((d) => d.iso === iso)); if (i >= 0) return [y, i]; } return [5787, 0]; })();
+  const list = [{ Y, ix }];
+  const nb = buildYear(Y, {}, { loc: LOCATIONS.bp });
+  list.push(ix + 1 < nb.pages.length ? { Y, ix: ix + 1 } : { Y: Y + 1, ix: 0 });
+  return list.map(({ Y: y, ix: i }) => {
+    const b = build(y, 'bp'); const p = b.pages[i];
+    const isos = new Set(p.days.map((d) => d.iso));
+    const sig = JSON.stringify(['lx1', edits.filter((e) => e.loc === 'bp' && isos.has(e.iso)).map((e) => [e.iso, e.kind, e.text, e.action])]);
+    return { key: `luach|${y}|${p.key}`, label: `${p.he === 'אב' ? 'מנחם-אב' : p.he} ${hebrewNumber(y % 1000)}`, sig, file: `לוח אונגוואר - ${p.he} ${hebrewNumber(y % 1000).replace(/["']/g, '')}.pdf`, build: () => luachMonthPdf(y, i) };
+  });
+}
+/** PDF פון איין חודש (8.5 × 6.85 אינטש מיט bleed) — Uint8Array */
+export async function luachMonthPdf(Y, ix) {
+  await loadData();
+  const p = build(Y, 'bp').pages[ix];
+  const PL = await import('../vendor/pdf-lib.esm.min.js');
+  const { drawDomPage, fontSet } = await import('../pdfvec.js');
+  const doc = await PL.PDFDocument.create(); doc.setTitle(`לוח אונגוואר – ${p.he} ${hebrewNumber(Y % 1000)}`);
+  const fs = fontSet(PL, doc);
+  const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-30000px;top:0';
+  document.body.append(host);
+  try {
+    host.innerHTML = pageHtml(p, true);
+    await Promise.all($$('img', host).map((im) => (im.complete ? 0 : new Promise((r) => { im.onload = r; im.onerror = r; }))));
+    try { await document.fonts.ready; } catch { /* */ }
+    fitCells(host); fitAll(host);
+    await drawDomPage(PL, doc, fs, $('.lx-page', host), { widthPt: PAGE_W, heightPt: PAGE_H });
+    fs.finalize();
+    return await doc.save();
+  } finally { host.remove(); }
 }
 
 // ---------- מנהל: גופנים ----------

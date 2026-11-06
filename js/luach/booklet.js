@@ -23,6 +23,8 @@ let loaded = false;
 let settings = {}; // key → { value, row }
 let deds = []; // [{ row, id, month, sort, kind, name, text, contact_id, amount }]
 
+// 🌐 אחרי א שינוי — דער קונטרס / לוח המחזור אויפן אתר ווערט דערהיינטיגט (ברקע)
+export const pubSoon = () => { import('../sitepub.js').then((m) => m.sitePubSoon(ui.toast)).catch(() => {}); };
 export async function loadData(force = false) {
   if (loaded && !force) return;
   const t = await readTabs(['Booklet', 'BookletDedications']);
@@ -43,6 +45,7 @@ export async function saveSetting(k, v) {
   const row = [k, v, nowStamp(), state.email];
   if (settings[k]) await updateRange(`Booklet!A${settings[k].row}:D${settings[k].row}`, [row]);
   else await appendRow('Booklet', row);
+  pubSoon();
   await loadData(true);
 }
 
@@ -310,6 +313,16 @@ const PW = 396; const PH = 612; // pt
 const A4H = 841.89;
 
 /** בויט די חוברת. גיט צוריק { bytes, pages, blanks } */
+// 🌐 האתר הציבורי: דער קונטרס פון דעם חודש און פונעם קומענדיגן — [{ key, label, sig, file, build }]
+export async function bookletTargets() {
+  await loadData(true);
+  const now = currentMonth(); const nx = nextMonth(now);
+  return [now, nx].map((m) => {
+    const p = pageOf(m); const key = monthKey(m);
+    return { key: `booklet|${key}`, label: `${monthName(p)} ${yearHe(m.Y)}`, sig: JSON.stringify(['bk1', sigOf(key)]), file: `מצוה יומית - ${monthName(p)} ${yearHe(m.Y).replace(/"/g, '')}.pdf`, build: async () => (await buildBooklet(m)).bytes };
+  });
+}
+
 async function buildBooklet(m, progress = () => {}) {
   const PL = await pdfLib(); const { PDFDocument, rgb } = PL;
   const p = pageOf(m); p.Y = p.Y || m.Y; const key = monthKey(m);
@@ -501,7 +514,7 @@ function render(main) {
     if (!prev.length) { ui.toast?.('אין הנצחות בחודש הקודם'); return; }
     try {
       for (const d of prev) await appendRow('BookletDedications', [newId(), key, d.sort, d.kind, d.name, d.text, d.contact_id, '', nowStamp(), state.email, '']);
-      await loadData(true); render(main); ui.toast?.(`הועתקו ${prev.length}`);
+      await loadData(true); render(main); ui.toast?.(`הועתקו ${prev.length}`); pubSoon();
     } catch (err) { ui.toast?.(String(err.message || err), 'error'); }
   };
   $('#bk-noded', main).onchange = async (e) => {
@@ -714,7 +727,7 @@ function dedDialog(main, d, key) {
   const write = async (vals) => {
     if (isNew) await appendRow('BookletDedications', vals);
     else await updateRange(`BookletDedications!A${d.row}:K${d.row}`, [vals]);
-    await loadData(true); close(); render(main);
+    await loadData(true); close(); render(main); pubSoon();
   };
   $('[data-a=save]', dlg).onclick = async (e) => {
     const f = (n) => $(`[name=${n}]`, dlg).value.trim();

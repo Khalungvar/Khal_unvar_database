@@ -125,7 +125,9 @@ async function enterApp() {
     throw err;
   }
   restoreScope();
-  loadFonts().catch(() => {}); // די ארויפגעלייגטע שריפטן — אין הינטערגרונט
+  const fontsP = loadFonts().catch(() => {}); // די ארויפגעלייגטע שריפטן — אין הינטערגרונט
+  // 🌐 ungvar.org: קונטרס / לוח חודשי / לוח המחזור — עולים לבד כשמשהו השתנה (מנהל עם הרשאת דרייב)
+  if (state.isAdmin) fontsP.then(() => setTimeout(() => { import('./sitepub.js').then((m) => m.autoPublish({ toast })).catch(() => {}); }, 15000));
   $('#login-msg').hidden = true;
 
   $('#login-view').hidden = true;

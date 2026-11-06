@@ -196,6 +196,30 @@ function render(main) {
   const tx = $('#cy-txt', main); if (tx) tx.onclick = () => textDialog(main);
 }
 
+// 🌐 האתר הציבורי: PDF פונעם מחזור (153×198pt), ישר — אן א דרוק-פענצטער
+export async function cycleTarget(k = currentCycle()) {
+  try { await loadData(); } catch { /* */ }
+  return { key: `cycle|${k}`, label: `מחזור ${hebrewNumber(k)}`, sig: JSON.stringify(['cy1', k, setting('cycle_p2_text'), setting('cycle_end_text')]), file: `לוח מצוה יומית - מחזור ${plain(k)}.pdf`, build: () => cyclePdf(k) };
+}
+export async function cyclePdf(k = currentCycle()) {
+  try { await loadData(); } catch { /* */ }
+  const PL = await import('../vendor/pdf-lib.esm.min.js');
+  const { drawDomPage, fontSet } = await import('../pdfvec.js');
+  const doc = await PL.PDFDocument.create(); doc.setTitle(`לוח מצוה יומית – מחזור ${hebrewNumber(k)}`);
+  const fs = fontSet(PL, doc);
+  const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-30000px;top:0';
+  document.body.append(host);
+  try {
+    host.innerHTML = `<style>${CSS}</style>${pagesHtml(k).join('')}`;
+    await Promise.all($$('img', host).map((im) => (im.complete ? 0 : new Promise((r) => { im.onload = r; im.onerror = r; }))));
+    try { await document.fonts.ready; } catch { /* */ }
+    squeeze(host);
+    for (const pg of $$('.cy-pg', host)) await drawDomPage(PL, doc, fs, pg, { widthPt: 153, heightPt: 198 }); // eslint-disable-line no-await-in-loop
+    fs.finalize();
+    return await doc.save();
+  } finally { host.remove(); }
+}
+
 function printIt(main) {
   squeeze(main);
   let area = $('#cy-print-area');
