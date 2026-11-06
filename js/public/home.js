@@ -4,7 +4,7 @@
 import { buildYear, isoOf, nOf, dowOf, hdOf, mitzvaYomis } from '../luach/engine.js';
 import { MITZVA_ANCHOR } from '../luach/mitzvos.js';
 import { zmanim, hhmm } from '../luach/zmanim.js';
-import { defaults, normData, computeWeekday, computeShabbos, computeShiurim, partOfDay, chagOn } from '../luach/minyanim.js';
+import { defaults, normData, computeWeekday, computeShiurim, computeHoly, computeSpecial, maarivNight, partOfDay, chagOn } from '../luach/minyanim.js';
 import { SHULS, DEFAULT_SHUL, normShul, applyShul } from '../luach/shul.js';
 import { isoToHebrewText, hebrewNumber, toHebrew } from '../hebdate.js';
 import { CONFIG } from '../config.js';
@@ -36,55 +36,55 @@ const T = {
     days: ['יום ראשון', 'יום שני', 'יום שלישי', 'יום רביעי', 'יום חמישי', 'יום שישי', 'שבת קודש'], eve: (d) => `אור ל${d}`,
     parsha: (p) => `פרשת ${p}`, week: 'זמני תפילה ימות החול', g: { shacharis: 'שחרית', mincha: 'מנחה', maariv: 'מעריב' },
     rebbe: 'מנין אד"ש', approx: '(בערך)', yt: 'היום: לפי זמני יום טוב', soon: 'הזמנים יעודכנו בקרוב.',
-    shab: 'זמני שבת קודש', zm: 'זמני היום', brooklyn: 'ברוקלין',
+    shab: 'זמני שבת קודש', ytT: 'זמני יום טוב', special: 'זמנים מיוחדים', zm: 'זמני היום', brooklyn: 'ברוקלין',
     Z: ['עלות השחר', 'זמן טלית ותפילין', 'נץ החמה', 'סוף זמן קריאת שמע', 'סוף זמן תפילה', 'חצות היום', 'שקיעת החמה', 'צאת הכוכבים לר"ת', 'הדלקת נרות'], ma: 'מג"א', gra: 'גר"א',
     shiur: 'שיעורים', noShiur: 'רשימת השיעורים תתעדכן בקרוב.', pod: null,
     mitzva: 'מצוה יומית', mz: (n, t) => `מצוה ${hebrewNumber(n)} - ${t}`, kThis: 'קונטרס לחודש זה', kNext: 'קונטרס לחודש הבא', soonW: 'בקרוב', year: 'לוח חודשי', pocket: (k) => `לוח מחזור ${hebrewNumber(k)}`,
-    simchos: 'שמחה במעונם', noSimchos: 'אין כרגע שמחות להצגה.',
-    machon: 'מכון משנה הלכות', machonSub: 'ספרי רבותינו', allBooks: 'לכל הספרים ←', noBooks: 'רשימת הספרים תתעדכן בקרוב.', vol: 'כרך בודד', old: 'מהדורה קודמת', vols: (n) => `${n} כרכים`, sale: 'מבצע', home: '← לדף הבית',
+    simchos: 'שהשמחה במעונם', noSimchos: '',
+    machon: 'מכון משנה הלכות', machonSub: 'ספרי רבותינו', allBooks: 'לכל הספרים ←', noBooks: '', vol: 'כרך בודד', old: 'מהדורה קודמת', vols: (n) => `${n} כרכים`, sale: 'מבצע', home: '← לדף הבית',
     machonInfo: 'להזמנות ולפרטים: (718) 851-0806 · office@ungvar.org · איסוף מהמשרד 1578 53rd St, או משלוח בתיאום.', policy: 'מדיניות החזרות ומשלוחים',
     smsH: 'קבלת זמני התפילות בהודעת SMS', smsSub: 'זמני התפילה של בית המדרש בבארא פארק, זמני היום והודעות הקהילה — ישר לטלפון.', name: 'שם', opt: '(לא חובה)', phone: 'מספר טלפון נייד',
     signup: 'הרשמה', cancel: 'ביטול', close: 'סגירה', badPhone: 'נא להקליד מספר טלפון אמריקאי של 10 ספרות.', needOk: 'נא לסמן את ההסכמה לקבלת הודעות.', sending: 'שולח…',
     thanks: 'תודה! ההרשמה התקבלה', thanksTxt: (p) => `בקרוב תגיע הודעה למספר <b dir="ltr">${p}</b> לאישור ההרשמה — יש להשיב <b dir="ltr">YES</b>, ומאז יתחילו להגיע ההודעות.`,
-    invalid: 'המספר אינו תקין.', tooMany: 'יותר מדי בקשות כרגע — נסו שוב מאוחר יותר.', failed: 'לא הצלחנו לשלוח. נסו שוב, או התקשרו (718) 851-0806.',
+    invalid: 'המספר אינו תקין.', tooMany: 'יותר מדי בקשות כרגע — נסו שוב מאוחר יותר.', failed: 'לא הצלחנו לשלוח. נסו שוב',
     donH: 'תרומה לקהל אונגוואר', donTxt: 'התרומה באתר תיפתח בקרוב בעז"ה.', donAlt: 'בינתיים אפשר לתרום בטלפון <a href="tel:+17188510806" dir="ltr">(718) 851-0806</a> או במייל <a href="mailto:office@ungvar.org">office@ungvar.org</a>.',
     prev: 'הקודם', next: 'הבא', loading: 'טוען…',
   },
   yi: {
-    title: 'קהל אונגוואר', login: 'אריינגיין', donate: 'נדבה', sms: 'באקומען זמני תפילה אין SMS',
+    title: 'קהל אונגוואר', login: 'לאגין', donate: 'נדבה', sms: 'באקומען זמני תפילה אויף SMS',
     days: ['זונטאג', 'מאנטאג', 'דינסטאג', 'מיטוואך', 'דאנערשטאג', 'פרייטאג', 'שבת קודש'], eve: (d) => `אור ל${d}`,
-    parsha: (p) => `פרשת ${p}`, week: 'זמני תפילה וואכנטאג', g: { shacharis: 'שחרית', mincha: 'מנחה', maariv: 'מעריב' },
-    rebbe: 'מנין אד"ש', approx: '(בערך)', yt: 'היינט: לויט די זמני יום טוב', soon: 'די זמנים וועלן באלד דערהיינטיגט ווערן.',
-    shab: 'זמני שבת קודש', zm: 'זמני היום', brooklyn: 'ברוקלין',
+    parsha: (p) => `פרשת ${p}`, week: 'זמני תפילה ימות החול', g: { shacharis: 'שחרית', mincha: 'מנחה', maariv: 'מעריב' },
+    rebbe: 'מנין אד"ש', approx: '(בערך)', yt: 'היינט: לויט די זמני יום טוב', soon: 'Times will be updated soon.',
+    shab: 'זמני שבת קודש', ytT: 'זמני יום טוב', special: 'זמנים מיוחדים', zm: 'זמני היום', brooklyn: 'ברוקלין',
     Z: ['עלות השחר', 'זמן טלית ותפילין', 'נץ החמה', 'סוף זמן קריאת שמע', 'סוף זמן תפילה', 'חצות היום', 'שקיעת החמה', 'צאת הכוכבים לר"ת', 'הדלקת נרות'], ma: 'מג"א', gra: 'גר"א',
-    shiur: 'שיעורים', noShiur: 'די רשימה פון שיעורים וועט באלד דערהיינטיגט ווערן.', pod: { 'לפנות בוקר': 'פארטאגס', 'בבוקר': 'אינדערפרי', 'בצהריים': 'נאכמיטאג', 'בערב': 'פארנאכט', 'בלילה': 'ביינאכט' },
-    mitzva: 'מצוה יומית', mz: (n, t) => `מצוה ${hebrewNumber(n)} - ${t}`, kThis: 'קונטרס פאר דעם חודש', kNext: 'קונטרס פאר קומענדיגן חודש', soonW: 'באלד', year: 'לוח חודשי', pocket: (k) => `לוח מחזור ${hebrewNumber(k)}`,
-    simchos: 'שמחה במעונם', noSimchos: 'יעצט זענען נישטא קיין שמחות.',
-    machon: 'מכון משנה הלכות', machonSub: 'ספרי רבותינו', allBooks: 'אלע ספרים ←', noBooks: 'די רשימה פון ספרים וועט באלד דערהיינטיגט ווערן.', vol: 'איין באנד', old: 'פריערדיגע אויסגאבע', vols: (n) => `${n} בענד`, sale: 'מבצע', home: '← צום היים-בלאט',
-    machonInfo: 'צו באשטעלן: (718) 851-0806 · office@ungvar.org · אפהאלטן אין אפיס 1578 53rd St, אדער שיקן לויט אפמאך.', policy: 'פאליסי פון צוריקגעבן און שיקן',
-    smsH: 'באקומען זמני תפילה אין SMS', smsSub: 'די זמני תפילה פונעם בית המדרש אין בארא פארק, זמני היום און הודעות פון קהל — גלייך צום טעלעפאן.', name: 'נאמען', opt: '(נישט נויטיג)', phone: 'סעל טעלעפאן נומער',
-    signup: 'איינשרייבן', cancel: 'צוריק', close: 'פארמאכן', badPhone: 'ביטע שרייבט אן אמעריקאנער נומער פון 10 ציפערן.', needOk: 'ביטע צייכנט אן אז איר זענט מסכים צו באקומען מעסעדזשעס.', sending: 'שיקט…',
+    shiur: 'שיעורים', noShiur: 'The shiurim list will be updated soon.', pod: { 'לפנות בוקר': 'פארטאגס', 'בבוקר': 'אינדערפרי', 'בצהריים': 'נאכמיטאג', 'בערב': 'פארנאכט', 'בלילה': 'ביינאכט' },
+    mitzva: 'מצוה יומית', mz: (n, t) => `מצוה ${hebrewNumber(n)} - ${t}`, kThis: 'קונטרס פאר דעם חודש', kNext: 'קונטרס פאר קומענדיגן חודש', soonW: 'בקרוב', year: 'לוח פאר די חודש', pocket: (k) => `לוח מחזור ${hebrewNumber(k)}`,
+    simchos: 'שהשמחה במעונם', noSimchos: '',
+    machon: 'מכון משנה הלכות', machonSub: 'ספרי רבותינו', allBooks: 'צו אלע ספרים ←', noBooks: '', vol: 'איין באנד', old: 'פריערדיגע מהדורה', vols: (n) => `${n} בענדער`, sale: 'מבצע', home: '← Home',
+    machonInfo: 'צו באשטעלן: (718) 851-0806 · office@ungvar.org · אפנמען אין אפיס 1578 53rd St, אדער אויפ\'ן פאסט.', policy: 'Refund & Shipping Policy',
+    smsH: 'באקומען זמני תפילה אויף SMS', smsSub: 'די זמני תפילה פונעם בית המדרש אין בארא פארק, זמני היום און הודעות פון קהל — גלייך צום טעלעפאן.', name: 'נאמען', opt: '(נישט נויטיג)', phone: 'סעל נומבער',
+    signup: 'Sign up', cancel: 'Cancel', close: 'Close', badPhone: 'ביטע שרייבט אן אמעריקאנער נומער פון 10 נומבער\'ס.', needOk: 'ביטע צייכנט אן אז איר זענט מסכים צו באקומען מעסעדזשעס.', sending: 'שיקט…',
     thanks: 'א דאנק! איר זענט איינגעשריבן', thanksTxt: (p) => `באלד וועט אנקומען א מעסעדזש צו <b dir="ltr">${p}</b> צו באשטעטיגן — ענטפערט <b dir="ltr">YES</b>, און פון דעמאלט אן וועט איר באקומען די מעסעדזשעס.`,
-    invalid: 'דער נומער איז נישט ריכטיג.', tooMany: 'צופיל בקשות יעצט — פרובירט שפעטער.', failed: 'ס\'האט נישט געקלאפט. פרובירט נאכאמאל, אדער רופט (718) 851-0806.',
-    donH: 'נדבה פאר קהל אונגוואר', donTxt: 'נדבות דורכן אתר וועלן באלד אויפגעמאכט ווערן בעז"ה.', donAlt: 'דערווייל קען מען געבן דורכן טעלעפאן <a href="tel:+17188510806" dir="ltr">(718) 851-0806</a> אדער אימעיל <a href="mailto:office@ungvar.org">office@ungvar.org</a>.',
-    prev: 'פריער', next: 'ווייטער', loading: 'לאדנט…',
+    invalid: 'דער נומער איז נישט ריכטיג.', tooMany: 'צופיל בקשות יעצט — פרובירט שפעטער.', failed: 'נישט געלונגען. פרובירט נאכאמאל',
+    donH: 'נדבה פאר קהל אונגוואר', donTxt: 'Online donations are coming soon.', donAlt: 'דערווייל קען מען געבן דורכן טעלעפאן <a href="tel:+17188510806" dir="ltr">(718) 851-0806</a> אדער אימעיל <a href="mailto:office@ungvar.org">office@ungvar.org</a>.',
+    prev: 'פריער', next: 'ווייטער', loading: 'Loading…',
   },
   en: {
     title: 'Khal Ungvar', login: 'Sign in', donate: 'Donate', sms: 'Get davening times by SMS',
     days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Shabbos'], eve: (d) => `${d} eve`,
     parsha: (p) => `Parshas ${p}`, week: 'Weekday Davening Times', g: { shacharis: 'Shacharis', mincha: 'Mincha', maariv: 'Maariv' },
     rebbe: 'Rebbe\'s minyan', approx: '(approx.)', yt: 'Today: Yom Tov schedule', soon: 'Times will be updated soon.',
-    shab: 'Shabbos Times', zm: 'Zmanim Today', brooklyn: 'Brooklyn',
+    shab: 'Shabbos Times', ytT: 'Yom Tov Times', special: 'Special times', zm: 'Zmanim Today', brooklyn: 'Brooklyn',
     Z: ['Alos Hashachar', 'Talis & Tefillin', 'Netz (sunrise)', 'Sof Zman Krias Shema', 'Sof Zman Tefila', 'Chatzos', 'Shkia (sunset)', 'Tzeis (Rabbeinu Tam)', 'Candle lighting'], ma: 'MA', gra: 'GRA',
     shiur: 'Shiurim', noShiur: 'The shiurim list will be updated soon.', pod: { 'לפנות בוקר': 'early am', 'בבוקר': 'am', 'בצהריים': 'pm', 'בערב': 'pm', 'בלילה': 'night' },
     mitzva: 'Mitzva Yomis', mz: (n, t) => `Mitzva ${n} - ${t}`, kThis: 'This month\'s booklet', kNext: 'Next month\'s booklet', soonW: 'coming soon', year: 'Monthly luach', pocket: (k) => `Cycle ${k} luach`,
-    simchos: 'Simchos', noSimchos: 'No simchos to show right now.',
-    machon: 'Machon Mishne Halachos', machonSub: 'Seforim of our Rabbonim', allBooks: 'All seforim →', noBooks: 'The seforim list will be updated soon.', vol: 'single volume', old: 'previous edition', vols: (n) => `${n} volumes`, sale: 'Sale', home: '← Home',
+    simchos: 'Simchos', noSimchos: '',
+    machon: 'Machon Mishne Halachos', machonSub: 'Seforim of our Rabbes', allBooks: 'All seforim →', noBooks: '', vol: 'single volume', old: 'previous edition', vols: (n) => `${n} volumes`, sale: 'Sale', home: '← Home',
     machonInfo: 'To order: (718) 851-0806 · office@ungvar.org · pickup at our office, 1578 53rd St, or shipping by arrangement.', policy: 'Refund & Shipping Policy',
     smsH: 'Davening times by SMS', smsSub: 'Boro Park beis medrash davening times, daily zmanim and community updates — straight to your phone.', name: 'Name', opt: '(optional)', phone: 'Mobile number',
     signup: 'Sign up', cancel: 'Cancel', close: 'Close', badPhone: 'Please enter a 10-digit US phone number.', needOk: 'Please check the consent box.', sending: 'Sending…',
     thanks: 'Thank you! You are signed up', thanksTxt: (p) => `You will soon receive a text at <b>${p}</b> to confirm — reply <b>YES</b> and the messages will start.`,
-    invalid: 'That number is not valid.', tooMany: 'Too many requests right now — please try later.', failed: 'Could not send. Please try again, or call (718) 851-0806.',
+    invalid: 'That number is not valid.', tooMany: 'Too many requests right now — please try later.', failed: 'Could not send. Please try again',
     donH: 'Donate to Khal Ungvar', donTxt: 'Online donations are coming soon.', donAlt: 'Meanwhile you can donate by phone <a href="tel:+17188510806">(718) 851-0806</a> or email <a href="mailto:office@ungvar.org">office@ungvar.org</a>.',
     prev: 'Previous', next: 'Next', loading: 'Loading…',
   },
@@ -206,8 +206,10 @@ function renderDate(I) {
 }
 
 function renderWeekday(I) {
-  const dw = dowOf(I.n);
-  const k = dw <= 4 ? I.n : I.n - dw + 7; // שישי/שבת → השבוע הבא
+  const holy = (x) => dowOf(x) === 6 || chagOn(DATA, x);
+  // יום טוב באמצע השבוע — מהיום הראשון שאינו יו"ט; שישי/שבת → השבוע הבא
+  let k = I.n; while (holy(k)) k += 1;
+  if (dowOf(k) >= 5) k = k - dowOf(k) + 7;
   const w = computeWeekday(DATA, k, LOC, { plain: true });
   const today = k === I.n;
   const notes = { shacharis: w.shacharisNote, mincha: w.minchaNote, maariv: w.maarivNote };
@@ -222,14 +224,65 @@ function renderWeekday(I) {
   }).join('');
   const p = parshaOf(k - dowOf(k) + 6);
   $('#pb-week').innerHTML = `<h2>${h(L().week)}${p ? ` <span class="pb-hp2"><bdi>${h(p)}</bdi></span>` : ''}</h2>
-    ${chagOn(DATA, I.n) ? `<p class="pb-sub"><b>${h(L().yt)}</b></p>` : ''}
-    ${rows || `<p class="muted">${h(L().soon)}</p>`}`;
+    ${rows || `<p class="muted">${h(L().soon)}</p>`}${specialHtml(I)}`;
 }
 
+// ---------- זמנים מיוחדים בימות החול (חנוכה, תעניות, פורים, תשעה באב, חול המועד, ימי דפגרא) — לשבוע הקרוב, כמו בתצוגה ----------
+function specialHtml(I) {
+  const holy = (x) => dowOf(x) === 6 || chagOn(DATA, x);
+  const days = [];
+  for (let d = I.n; d <= I.n + 6; d += 1) {
+    if (holy(d)) continue;
+    const list = [];
+    computeSpecial(DATA, d, LOC).forEach((bk) => bk.rows.filter((r) => r.screen !== false && r.place === 'weekday' && r.mins.length).forEach((r) => list.push({ label: r.label, note: r.note, mins: r.mins })));
+    const mn = maarivNight(DATA, d);
+    if (mn) { const ms = computeWeekday(DATA, d, LOC).maariv.map((m) => m.min).filter((m) => m != null); if (ms.length) list.push({ label: mn.label, note: '', mins: ms }); }
+    // היום: רק מה שעוד לא עבר
+    const keep = d === I.n ? list.filter((r) => Math.max(...r.mins) >= I.nowMin - 30) : list;
+    if (keep.length) days.push({ d, list: keep });
+  }
+  if (!days.length) return '';
+  return `<div class="pb-spec"><div class="pb-gh">${h(L().special)}</div>${days.map(({ d, list }) => `<div class="pb-spd"><b>${h(L().days[dowOf(d)])}</b> <small><bdi>${h(hebDate(isoOf(d)))}</bdi></small>
+    ${list.map((r) => `<div class="pb-row"><span dir="auto">${h(r.label)}${r.note ? ` <small>(${h(r.note)})</small>` : ''}</span><i></i><b>${r.mins.map(tm).join(' · ')}</b></div>`).join('')}</div>`).join('')}</div>`;
+}
+
+// שבת / יום טוב: מהערב ועד מוצאי היום האחרון (שבת ויו"ט סמוכים — ביחד), כמו בתצוגה
 function renderShabbos(I) {
-  const rows = computeShabbos(DATA, I.fri, LOC).filter((r) => r.min != null && r.screen !== false);
-  $('#pb-shab').innerHTML = `<h2>${h(L().shab)}</h2><p class="pb-sub"><bdi>${h(parshaOf(I.sat))}</bdi> · <bdi>${h(hebDate(isoOf(I.sat)))}</bdi></p>
-    <div class="pb-rows">${rows.map((r) => `<div class="pb-row${r.kind === 'zman' ? ' z' : ''}"><span dir="auto">${h(r.label)}${r.note ? ` <small>(${h(r.note)})</small>` : ''}</span><i></i><b>${tm(r.min)}</b></div>`).join('')}</div>`;
+  const holy = (x) => dowOf(x) === 6 || chagOn(DATA, x);
+  const spanFrom = (s0) => { let st = s0; while (!holy(st)) st += 1; while (holy(st - 1) && st - 1 >= I.n) st -= 1; let en = st; while (holy(en + 1)) en += 1; return [st, en]; };
+  let st; let en;
+  if (holy(I.n)) { st = I.n; while (holy(st - 1)) st -= 1; en = I.n; while (holy(en + 1)) en += 1; if (I.n === en && I.nowMin > zmanim(isoOf(en), LOC).motzei + 60) [st, en] = spanFrom(I.n + 1); }
+  else [st, en] = spanFrom(I.n + 1);
+  const eve = st - 1;
+  const seen = new Set(); const rows = [];
+  for (let k = eve; k < en; k += 1) {
+    computeHoly(DATA, k, LOC).filter((r) => r.place === 'shab' && r.screen !== false && r.min != null).forEach((r) => {
+      const day = k + (r.day || 0); const key = `${day}|${r.label}|${r.min}`;
+      if (seen.has(key)) return; seen.add(key); rows.push({ ...r, abs: day });
+    });
+  }
+  rows.sort((a, b) => a.abs - b.abs || a.min - b.min);
+  const chag = [];
+  for (let k = st; k <= en; k += 1) if (chagOn(DATA, k)) chag.push(k);
+  let title = L().shab;
+  if (chag.length) {
+    const nm = [eve, ...chag].map((k) => computeSpecial(DATA, k, LOC).find((bk) => bk.type === 'chag')?.title).find(Boolean)
+      || dayOf(chag[0])?.items.find((i) => i.kind === 'hol' && i.yt)?.text || '';
+    title = `${L().ytT}${nm ? ` - ${nm}` : ''}`;
+  }
+  let sat = st; while (sat <= en && dowOf(sat) !== 6) sat += 1;
+  const sub = [sat <= en ? parshaOf(sat) : '', hebDate(isoOf(st)) + (en > st ? ` – ${hebDate(isoOf(en))}` : '')].filter(Boolean);
+  const multi = en > st;
+  const line = (r) => `<div class="pb-row${r.kind === 'zman' ? ' z' : ''}"><span dir="auto">${h(r.label)}${r.note ? ` <small>(${h(r.note)})</small>` : ''}</span><i></i><b>${[r.min, ...(r.more || [])].map(tm).join(' · ')}</b></div>`;
+  let body = '';
+  if (!multi) body = rows.map(line).join('');
+  else {
+    let cur = null;
+    rows.forEach((r) => { if (r.abs !== cur) { cur = r.abs; body += `<div class="pb-dh">${h(L().days[dowOf(r.abs)])} <small><bdi>${h(hebDate(isoOf(r.abs)))}</bdi></small></div>`; } body += line(r); });
+  }
+  const card = $('#pb-shab');
+  card.classList.toggle('pb-multi', multi);
+  card.innerHTML = `<h2><bdi>${h(title)}</bdi></h2><p class="pb-sub">${sub.map((x) => `<bdi>${h(x)}</bdi>`).join(' · ')}</p><div class="pb-rows">${body}</div>`;
 }
 
 function renderZmanim(I) {
