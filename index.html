@@ -9,17 +9,17 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700&family=Frank+Ruhl+Libre:wght@400;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="img/favicon.png">
-  <link rel="stylesheet" href="css/public.css?v=638">
+  <link rel="stylesheet" href="css/public.css?v=639">
   <script type="importmap">
   {"imports": {
-    "./js/hebdate.js": "./js/hebdate.js?v=638",
-    "./js/luach/zmanim.js": "./js/luach/zmanim.js?v=638",
-    "./js/luach/mitzvos.js": "./js/luach/mitzvos.js?v=638",
-    "./js/luach/engine.js": "./js/luach/engine.js?v=638",
-    "./js/luach/minyanim.js": "./js/luach/minyanim.js?v=638",
-    "./js/luach/shul.js": "./js/luach/shul.js?v=638",
-    "./js/config.js": "./js/config.js?v=638",
-    "./js/public/home.js": "./js/public/home.js?v=638"
+    "./js/hebdate.js": "./js/hebdate.js?v=639",
+    "./js/luach/zmanim.js": "./js/luach/zmanim.js?v=639",
+    "./js/luach/mitzvos.js": "./js/luach/mitzvos.js?v=639",
+    "./js/luach/engine.js": "./js/luach/engine.js?v=639",
+    "./js/luach/minyanim.js": "./js/luach/minyanim.js?v=639",
+    "./js/luach/shul.js": "./js/luach/shul.js?v=639",
+    "./js/config.js": "./js/config.js?v=639",
+    "./js/public/home.js": "./js/public/home.js?v=639"
   }}
   </script>
   <script>if (/[?&]credits=/.test(location.search)) location.replace('login/' + location.search);</script>
@@ -28,7 +28,7 @@
 <body>
   <div class="pb-bar"><div class="pb-wrap pb-bar-in">
     <nav class="pb-langs" aria-label="Language"><button type="button" data-lang="yi">אידיש</button><span>|</span><button type="button" data-lang="he">עברית</button><span>|</span><button type="button" data-lang="en">English</button></nav>
-    <div class="pb-bar-act"><a class="pb-login" href="login/" data-t="login">כניסה</a><button type="button" class="pb-donate" data-donate data-t="donate">תרומה</button></div>
+    <div class="pb-bar-act"><a class="pb-login" href="login/" data-t="login">כניסה</a></div>
   </div></div>
   <div class="pb-wrap">
     <header class="pb-top">
@@ -36,7 +36,7 @@
       <h1 data-t="title">קהל אונגוואר</h1>
       <div class="pb-addr" dir="ltr">5306 16th Ave · Brooklyn, NY 11204</div>
     </header>
-    <div class="pb-date" id="pb-date">&nbsp;</div>
+    <div class="pb-date"><div id="pb-date">&nbsp;</div><button type="button" class="pb-donate pb-date-don" data-donate data-t="donate">תרומה</button></div>
     <main class="pb-grid">
       <section class="pb-card wide" id="pb-week"><h2></h2></section>
       <section class="pb-card" id="pb-shab"><h2></h2></section>
