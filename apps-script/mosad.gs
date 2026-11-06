@@ -3091,11 +3091,11 @@ function webSignup_(req) {
 /** ספרים ומחירים (בלי מלאי): מתוך הלשונית Books של המאגר הראשי. מטמון 10 דקות. */
 function webBooks_() {
   const cache = CacheService.getScriptCache();
-  const hit = cache.get('webbooks'); if (hit) return JSON.parse(hit);
+  const hit = cache.get('webbooks2'); if (hit) return JSON.parse(hit);
   const sh = SpreadsheetApp.openById(MAIN_ID).getSheetByName('Books');
   if (!sh) return { books: [] };
   const v = sh.getDataRange().getValues(); const hd = (v.shift() || []).map(S);
-  const F = ['book_id', 'name', 'subtitle', 'volumes', 'price', 'vol_price', 'old_price', 'sale_price', 'sale_from', 'sale_to', 'category', 'sort', 'image', 'active'];
+  const F = ['book_id', 'name', 'subtitle', 'volumes', 'price', 'vol_price', 'old_price', 'sale_price', 'sale_from', 'sale_to', 'category', 'sort', 'image', 'active', 'name_en', 'subtitle_en'];
   const day = (x) => (x instanceof Date ? Utilities.formatDate(x, 'America/New_York', 'yyyy-MM-dd') : S(x));
   const books = v.map(function (r) {
     const o = {}; F.forEach(function (f) { const i = hd.indexOf(f); if (i >= 0) o[f] = /^sale_(from|to)$/.test(f) ? day(r[i]) : r[i]; });
@@ -3103,6 +3103,6 @@ function webBooks_() {
     return o;
   }).filter(function (o) { return S(o.name) || o.category === '__all__'; }).filter(function (o) { return o.active === undefined || o.active === '' || o.active === true || S(o.active) === '1' || S(o.active).toUpperCase() === 'TRUE'; });
   const res = { books: books, at: now() };
-  try { cache.put('webbooks', JSON.stringify(res), 600); } catch (e) { /* גדול מדי */ }
+  try { cache.put('webbooks2', JSON.stringify(res), 600); } catch (e) { /* גדול מדי */ }
   return res;
 }

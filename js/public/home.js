@@ -79,7 +79,7 @@ const T = {
     shiur: 'Shiurim', noShiur: 'The shiurim list will be updated soon.', pod: { 'לפנות בוקר': 'early am', 'בבוקר': 'am', 'בצהריים': 'pm', 'בערב': 'pm', 'בלילה': 'night' },
     mitzva: 'Mitzva Yomis', mz: (n, t) => `Mitzva ${n} - ${t}`, kThis: 'This month\'s booklet', kNext: 'Next month\'s booklet', soonW: 'coming soon', year: 'Monthly luach', pocket: (k) => `Cycle ${k} luach`,
     simchos: 'Simchos', noSimchos: '',
-    machon: 'Machon Mishne Halachos', machonSub: 'Seforim of our Rabbes', allBooks: 'All seforim →', noBooks: '', vol: 'single volume', old: 'previous edition', vols: (n) => `${n} volumes`, sale: 'Sale', home: '← Home',
+    machon: 'Machon Mishnah Halachot', machonSub: 'Seforim of our Rabbes', allBooks: 'All seforim →', noBooks: '', vol: 'single volume', old: 'previous edition', vols: (n) => `${n} volumes`, sale: 'Sale', home: '← Home',
     machonInfo: 'To order: (718) 851-0806 · office@ungvar.org · pickup at our office, 1578 53rd St, or shipping by arrangement.', policy: 'Refund & Shipping Policy',
     smsH: 'Davening times by SMS', smsSub: 'Boro Park beis medrash davening times, daily zmanim and community updates — straight to your phone.', name: 'Name', opt: '(optional)', phone: 'Mobile number',
     signup: 'Sign up', cancel: 'Cancel', close: 'Close', needName: 'Please enter your name.', badPhone: 'Please enter a 10-digit US phone number.', needOk: 'Please check the consent box.', sending: 'Sending…',
@@ -417,11 +417,12 @@ async function loadBooks(box, paged) {
     const day = new Date().toISOString().slice(0, 10);
     const g = books.find((b) => b.category === '__all__');
     const all = books.filter((b) => b.category !== '__all__' && b.name).sort((a, b) => (Number(a.sort) || 0) - (Number(b.sort) || 0) || Number(a.book_id) - Number(b.book_id));
+    const EN = LANG === 'en'; // באנגלית: תעתיק ישיבתי של שם הספר (name_en) ותרגום התת-כותרת (subtitle_en) — מהגיליון
     const items = all.map((b) => {
       const p = priceOf(b, g, day); const img = String(b.image || '').replace(/^(img\/books\/\d+)\.jpg$/, '$1.webp');
       const extra = [num(b.vol_price) != null ? `${L().vol} ${money(b.vol_price)}` : '', num(b.old_price) != null ? `${L().old} ${money(b.old_price)}` : ''].filter(Boolean).join(' · ');
       return `<div class="pb-book">${img ? `<img src="${h(img)}" alt="" loading="lazy">` : '<div class="pb-noimg"></div>'}
-        <div dir="auto"><b>${h(b.name)}</b>${b.subtitle || Number(b.volumes) > 1 ? `<small>${h([b.subtitle, Number(b.volumes) > 1 && !/כרכים|חלקים/.test(b.subtitle || '') ? L().vols(b.volumes) : ''].filter(Boolean).join(' · '))}</small>` : ''}
+        <div dir="auto"><b>${h(EN && b.name_en ? b.name_en : b.name)}</b>${EN && b.name_en ? (b.subtitle_en ? `<small>${h(b.subtitle_en)}</small>` : '') : b.subtitle || Number(b.volumes) > 1 ? `<small>${h([b.subtitle, Number(b.volumes) > 1 && !/כרכים|חלקים/.test(b.subtitle || '') ? L().vols(b.volumes) : ''].filter(Boolean).join(' · '))}</small>` : ''}
         <div class="pb-price">${p.now != null ? money(p.now) : ''}${p.was != null && p.was !== p.now ? ` <s>${money(p.was)}</s> <span class="pb-sale">${h(L().sale)}</span>` : ''}</div>${extra ? `<small>${h(extra)}</small>` : ''}</div></div>`;
     });
     if (paged) pager(box, 'bk', items, L().noBooks);
