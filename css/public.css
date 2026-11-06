@@ -26,10 +26,13 @@ a { color: var(--accent); }
 .pb-top img { width: 210px; max-width: 58vw; height: auto; display: block; margin: 0 auto; }
 .pb-top h1 { font-family: var(--serif); color: var(--accent); margin: 4px 0 0; font-size: 30px; line-height: 1.2; }
 .pb-addr { color: var(--muted); font-size: 15px; line-height: 1.35; margin-top: 2px; }
-.pb-side { position: absolute; top: 14px; inset-inline-end: 0; display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: 290px; }
-.pb-side .pb-login { align-self: flex-end; }
+.pb-side { position: absolute; top: 14px; display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: 290px; }
+.pb-s-end { inset-inline-end: 0; }
+.pb-s-start { inset-inline-start: 0; }
+.pb-s-end .pb-login { align-self: flex-end; }
+.pb-s-start .pb-langs { align-self: flex-start; }
 .pb-btn.big { font-size: 18px; padding: 14px 18px; justify-content: center; border-radius: 12px; box-shadow: 0 2px 6px rgba(60, 30, 10, .15); }
-.pb-langs { position: absolute; top: 14px; inset-inline-start: 0; display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
+.pb-langs { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
 .pb-langs button { font: inherit; font-size: 13px; border: 0; background: none; color: var(--muted); padding: 4px 11px; cursor: pointer; }
 .pb-langs button.on { background: var(--accent); color: var(--accent-ink); }
 .pb-login { font-size: 13px; text-decoration: none; color: var(--muted); border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 12px; }
@@ -163,9 +166,11 @@ a[href^="tel:"], .pb-kol b { white-space: nowrap; }
   #pb-books .pb-pgv { height: 470px; flex: none; }
   .pb-top { padding-top: 50px; }
   .pb-top { display: flex; flex-direction: column; align-items: center; }
-  .pb-side { position: static; width: 100%; max-width: 420px; margin: 12px auto 0; order: 9; }
+  .pb-side { position: static; width: 100%; max-width: 420px; margin: 10px auto 0; order: 9; }
+  .pb-s-end { order: 10; }
   .pb-col .pb-fill { flex: none; }
   .pb-side .pb-login { position: absolute; top: 14px; inset-inline-end: 0; }
+  .pb-side .pb-langs { position: absolute; top: 14px; inset-inline-start: 0; }
   .pb-fgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 640px) {

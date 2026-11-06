@@ -571,7 +571,7 @@ function printDialog(entry, name, pub = null) {
     <p style="display:flex;flex-direction:column;gap:8px">
       <button type="button" class="btn primary" data-a="single">⬇ PDF — עמודים בודדים (לבית דפוס / למייל)</button>
       <button type="button" class="btn" data-a="imposed">⬇ PDF להדפסה בבית — 2 עמודים על דף Letter, בסדר של חוברת</button>
-      ${pub ? '<button type="button" class="btn" data-a="pub">🌐 פרסום באתר ungvar.org (להורדה לציבור)</button><button type="button" class="linkish" data-a="pubs">🌐 כל ההורדות באתר (לוח שנתי / לוח כיס)</button>' : ''}</p>
+      ${pub ? '<button type="button" class="btn" data-a="pub">🌐 פרסום באתר ungvar.org (להורדה לציבור)</button><button type="button" class="linkish" data-a="pubs">🌐 כל ההורדות באתר</button>' : ''}</p>
     <p class="muted small">בהדפסה בבית: דו-צדדי, "הפיכה בצד הקצר" (Flip on short edge), מקפלים באמצע ומהדקים.</p>
     <p id="bk-mmsg" class="muted"></p>
     <p><button type="button" class="btn ghost" data-a="close">סגירה</button></p>`);

@@ -39,7 +39,7 @@ const T = {
     shab: 'זמני שבת קודש', zm: 'זמני היום', brooklyn: 'ברוקלין',
     Z: ['עלות השחר', 'זמן טלית ותפילין', 'נץ החמה', 'סוף זמן קריאת שמע', 'סוף זמן תפילה', 'חצות היום', 'שקיעת החמה', 'צאת הכוכבים לר"ת', 'הדלקת נרות'], ma: 'מג"א', gra: 'גר"א',
     shiur: 'שיעורים', noShiur: 'רשימת השיעורים תתעדכן בקרוב.', pod: null,
-    mitzva: 'מצוה יומית', mz: (n, t) => `מצוה ${hebrewNumber(n)} - ${t}`, kThis: 'קונטרס לחודש זה', kNext: 'קונטרס לחודש הבא', soonW: 'בקרוב', year: 'לוח חודשי', pocket: 'לוח כיס',
+    mitzva: 'מצוה יומית', mz: (n, t) => `מצוה ${hebrewNumber(n)} - ${t}`, kThis: 'קונטרס לחודש זה', kNext: 'קונטרס לחודש הבא', soonW: 'בקרוב', year: 'לוח חודשי', pocket: (k) => `לוח מחזור ${hebrewNumber(k)}`,
     simchos: 'שמחה במעונם', noSimchos: 'אין כרגע שמחות להצגה.',
     machon: 'מכון משנה הלכות', machonSub: 'ספרי רבותינו', allBooks: 'לכל הספרים ←', noBooks: 'רשימת הספרים תתעדכן בקרוב.', vol: 'כרך בודד', old: 'מהדורה קודמת', vols: (n) => `${n} כרכים`, sale: 'מבצע', home: '← לדף הבית',
     machonInfo: 'להזמנות ולפרטים: (718) 851-0806 · office@ungvar.org · איסוף מהמשרד 1578 53rd St, או משלוח בתיאום.', policy: 'מדיניות החזרות ומשלוחים',
@@ -58,7 +58,7 @@ const T = {
     shab: 'זמני שבת קודש', zm: 'זמני היום', brooklyn: 'ברוקלין',
     Z: ['עלות השחר', 'זמן טלית ותפילין', 'נץ החמה', 'סוף זמן קריאת שמע', 'סוף זמן תפילה', 'חצות היום', 'שקיעת החמה', 'צאת הכוכבים לר"ת', 'הדלקת נרות'], ma: 'מג"א', gra: 'גר"א',
     shiur: 'שיעורים', noShiur: 'די רשימה פון שיעורים וועט באלד דערהיינטיגט ווערן.', pod: { 'לפנות בוקר': 'פארטאגס', 'בבוקר': 'אינדערפרי', 'בצהריים': 'נאכמיטאג', 'בערב': 'פארנאכט', 'בלילה': 'ביינאכט' },
-    mitzva: 'מצוה יומית', mz: (n, t) => `מצוה ${hebrewNumber(n)} - ${t}`, kThis: 'קונטרס פאר דעם חודש', kNext: 'קונטרס פאר קומענדיגן חודש', soonW: 'באלד', year: 'לוח חודשי', pocket: 'לוח כיס',
+    mitzva: 'מצוה יומית', mz: (n, t) => `מצוה ${hebrewNumber(n)} - ${t}`, kThis: 'קונטרס פאר דעם חודש', kNext: 'קונטרס פאר קומענדיגן חודש', soonW: 'באלד', year: 'לוח חודשי', pocket: (k) => `לוח מחזור ${hebrewNumber(k)}`,
     simchos: 'שמחה במעונם', noSimchos: 'יעצט זענען נישטא קיין שמחות.',
     machon: 'מכון משנה הלכות', machonSub: 'ספרי רבותינו', allBooks: 'אלע ספרים ←', noBooks: 'די רשימה פון ספרים וועט באלד דערהיינטיגט ווערן.', vol: 'איין באנד', old: 'פריערדיגע אויסגאבע', vols: (n) => `${n} בענד`, sale: 'מבצע', home: '← צום היים-בלאט',
     machonInfo: 'צו באשטעלן: (718) 851-0806 · office@ungvar.org · אפהאלטן אין אפיס 1578 53rd St, אדער שיקן לויט אפמאך.', policy: 'פאליסי פון צוריקגעבן און שיקן',
@@ -77,7 +77,7 @@ const T = {
     shab: 'Shabbos Times', zm: 'Zmanim Today', brooklyn: 'Brooklyn',
     Z: ['Alos Hashachar', 'Talis & Tefillin', 'Netz (sunrise)', 'Sof Zman Krias Shema', 'Sof Zman Tefila', 'Chatzos', 'Shkia (sunset)', 'Tzeis (Rabbeinu Tam)', 'Candle lighting'], ma: 'MA', gra: 'GRA',
     shiur: 'Shiurim', noShiur: 'The shiurim list will be updated soon.', pod: { 'לפנות בוקר': 'early am', 'בבוקר': 'am', 'בצהריים': 'pm', 'בערב': 'pm', 'בלילה': 'night' },
-    mitzva: 'Mitzva Yomis', mz: (n, t) => `Mitzva ${n} - ${t}`, kThis: 'This month\'s booklet', kNext: 'Next month\'s booklet', soonW: 'coming soon', year: 'Monthly luach', pocket: 'Pocket luach',
+    mitzva: 'Mitzva Yomis', mz: (n, t) => `Mitzva ${n} - ${t}`, kThis: 'This month\'s booklet', kNext: 'Next month\'s booklet', soonW: 'coming soon', year: 'Monthly luach', pocket: (k) => `Cycle ${k} luach`,
     simchos: 'Simchos', noSimchos: 'No simchos to show right now.',
     machon: 'Machon Mishne Halachos', machonSub: 'Seforim of our Rabbonim', allBooks: 'All seforim →', noBooks: 'The seforim list will be updated soon.', vol: 'single volume', old: 'previous edition', vols: (n) => `${n} volumes`, sale: 'Sale', home: '← Home',
     machonInfo: 'To order: (718) 851-0806 · office@ungvar.org · pickup at our office, 1578 53rd St, or shipping by arrangement.', policy: 'Refund & Shipping Policy',
@@ -281,7 +281,7 @@ function renderMitzva(I) {
   $('#pb-mitzva').innerHTML = `<h2>${h(L().mitzva)}</h2>
     <p class="pb-today"><b>${h(L().mz(mz.n, mz.text))}</b></p>
     <div class="pb-dls">${big(a, L().kThis)}${big(b, L().kNext)}</div>
-    <div class="pb-dls sm">${lx ? `<a class="pb-dl" href="${h(view(lx))}" target="_blank" rel="noopener">${h(L().year)}</a>` : `<span class="pb-dl off">${h(L().year)} <small>(${h(L().soonW)})</small></span>`}${cy ? `<a class="pb-dl" href="${h(cy.url)}" target="_blank" rel="noopener">${h(L().pocket)}</a>` : `<span class="pb-dl off">${h(L().pocket)} <small>(${h(L().soonW)})</small></span>`}</div>`;
+    <div class="pb-dls sm">${lx ? `<a class="pb-dl" href="${h(view(lx))}" target="_blank" rel="noopener">${h(L().year)}</a>` : `<span class="pb-dl off">${h(L().year)} <small>(${h(L().soonW)})</small></span>`}${cy ? `<a class="pb-dl" href="${h(cy.url)}" target="_blank" rel="noopener">${h(L().pocket(cyN))}</a>` : `<span class="pb-dl off">${h(L().pocket(cyN))} <small>(${h(L().soonW)})</small></span>`}</div>`;
 }
 
 // ---------- דפדוף: רשימה שלא נכנסת במסגרת → חיצים ----------
