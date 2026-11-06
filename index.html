@@ -9,17 +9,17 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700&family=Frank+Ruhl+Libre:wght@400;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="img/favicon.png">
-  <link rel="stylesheet" href="css/public.css?v=632">
+  <link rel="stylesheet" href="css/public.css?v=633">
   <script type="importmap">
   {"imports": {
-    "./js/hebdate.js": "./js/hebdate.js?v=632",
-    "./js/luach/zmanim.js": "./js/luach/zmanim.js?v=632",
-    "./js/luach/mitzvos.js": "./js/luach/mitzvos.js?v=632",
-    "./js/luach/engine.js": "./js/luach/engine.js?v=632",
-    "./js/luach/minyanim.js": "./js/luach/minyanim.js?v=632",
-    "./js/luach/shul.js": "./js/luach/shul.js?v=632",
-    "./js/config.js": "./js/config.js?v=632",
-    "./js/public/home.js": "./js/public/home.js?v=632"
+    "./js/hebdate.js": "./js/hebdate.js?v=633",
+    "./js/luach/zmanim.js": "./js/luach/zmanim.js?v=633",
+    "./js/luach/mitzvos.js": "./js/luach/mitzvos.js?v=633",
+    "./js/luach/engine.js": "./js/luach/engine.js?v=633",
+    "./js/luach/minyanim.js": "./js/luach/minyanim.js?v=633",
+    "./js/luach/shul.js": "./js/luach/shul.js?v=633",
+    "./js/config.js": "./js/config.js?v=633",
+    "./js/public/home.js": "./js/public/home.js?v=633"
   }}
   </script>
   <script>if (/[?&]credits=/.test(location.search)) location.replace('login/' + location.search);</script>
@@ -28,28 +28,30 @@
 <body>
   <div class="pb-wrap">
     <header class="pb-top">
-      <a class="pb-login" href="login/">🔒 כניסה</a>
+      <div class="pb-langs" role="group" aria-label="Language"><button type="button" data-lang="yi">אידיש</button><button type="button" data-lang="he">עברית</button><button type="button" data-lang="en">English</button></div>
+      <div class="pb-side">
+        <a class="pb-login" href="login/" data-t="login">🔒 כניסה</a>
+        <button type="button" class="pb-btn gold big" data-donate data-t="donate">💝 תרומה</button>
+        <button type="button" class="pb-btn primary big" data-sms data-t="sms">📱 לקבלת זמני התפילות בהודעת SMS</button>
+      </div>
       <img src="img/logo.png" alt="קהל אונגוואר" width="210">
-      <h1>קהל אונגוואר</h1>
-      <div class="en" dir="ltr">Khal Ungvar · Brooklyn, NY</div>
+      <h1 data-t="title">קהל אונגוואר</h1>
+      <div class="pb-addr" dir="ltr">5306 16th Ave<br>Brooklyn, NY</div>
     </header>
     <div class="pb-date" id="pb-date">&nbsp;</div>
-    <div class="pb-actions">
-      <button type="button" class="pb-btn primary" data-sms>📱 הרשמה לקבלת SMS</button>
-      <button type="button" class="pb-btn gold" data-donate>💝 תרומה</button>
-    </div>
     <main class="pb-grid">
-      <section class="pb-card wide" id="pb-week"><h2>🕍 זמני תפילה</h2><p class="muted">טוען…</p></section>
-      <section class="pb-card" id="pb-shab"><h2>🕯 זמני שבת קודש</h2><p class="muted">טוען…</p></section>
-      <div class="pb-col"><section class="pb-card" id="pb-zm"><h2>☀ זמני היום</h2></section></div>
-      <div class="pb-col"><section class="pb-card" id="pb-shiur"><h2>📖 שיעורים</h2></section></div>
-      <div class="pb-col"><section class="pb-card" id="pb-mitzva"><h2>📘 מצוה יומית</h2></section>
-        <section class="pb-card pb-machon">
-          <div class="pb-mh"><img src="img/mishne-halachos-logo.png" alt=""><div><h2>מכון משנה הלכות</h2><p class="pb-sub">ספרים ומחירים</p></div></div>
-          <div id="pb-books"><p class="muted">טוען…</p></div>
-          <p class="pb-more"><a class="pb-btn" href="machon.html">לכל הספרים ←</a></p>
-        </section></div>
-      <section class="pb-card full" id="pb-simchos" hidden></section>
+      <section class="pb-card wide" id="pb-week"><h2>🕍</h2></section>
+      <section class="pb-card" id="pb-shab"><h2>🕯</h2></section>
+      <div class="pb-row3">
+        <div class="pb-col"><section class="pb-card pb-fill" id="pb-simchos"></section></div>
+        <div class="pb-col"><section class="pb-card" id="pb-shiur"></section><section class="pb-card" id="pb-zm"></section></div>
+        <div class="pb-col"><section class="pb-card" id="pb-mitzva"></section>
+          <section class="pb-card pb-machon pb-fill">
+            <div class="pb-mh"><img src="img/mishne-halachos-logo.png" alt=""><div><h2 data-t="machon">מכון משנה הלכות</h2><p class="pb-sub" data-t="machonSub">ספרי רבותינו</p></div></div>
+            <div class="pb-pg" id="pb-books"></div>
+            <p class="pb-more"><a class="pb-btn" href="machon.html" data-t="allBooks">לכל הספרים ←</a></p>
+          </section></div>
+      </div>
     </main>
   </div>
   <footer class="pb-foot" dir="ltr">
