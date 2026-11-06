@@ -32,7 +32,7 @@ function pickLang() {
 let LANG = pickLang();
 const T = {
   he: {
-    title: 'קהל אונגוואר', login: 'כניסה', donate: 'תרומה', sms: 'לקבלת זמני התפילות בהודעת SMS', smsR: 'לקבלת זמני התפילות',
+    title: 'קהל אונגוואר', login: 'כניסת מנהלים', donate: 'תרומה', sms: 'לקבלת זמני התפילות בהודעת SMS', smsR: 'לקבלת זמני התפילות',
     days: ['יום ראשון', 'יום שני', 'יום שלישי', 'יום רביעי', 'יום חמישי', 'יום שישי', 'שבת קודש'], eve: (d) => `אור ל${d}`,
     parsha: (p) => `פרשת ${p}`, week: 'זמני תפילה ימות החול', g: { shacharis: 'שחרית', mincha: 'מנחה', maariv: 'מעריב' },
     rebbe: 'מנין אד"ש', approx: '(בערך)', yt: 'היום: לפי זמני יום טוב', soon: 'הזמנים יעודכנו בקרוב.',
@@ -51,7 +51,7 @@ const T = {
     prev: 'הקודם', next: 'הבא', loading: 'טוען…',
   },
   yi: {
-    title: 'קהל אונגוואר', login: 'לאגין', donate: 'נדבה', sms: 'באקומען זמני תפילה אויף SMS', smsR: 'באקומען זמני תפילה',
+    title: 'קהל אונגוואר', login: 'כניסת מנהלים', donate: 'נדבה', sms: 'באקומען זמני תפילה אויף SMS', smsR: 'באקומען זמני תפילה',
     days: ['זונטאג', 'מאנטאג', 'דינסטאג', 'מיטוואך', 'דאנערשטאג', 'פרייטאג', 'שבת קודש'], eve: (d) => `אור ל${d}`,
     parsha: (p) => `פרשת ${p}`, week: 'זמני תפילה ימות החול', g: { shacharis: 'שחרית', mincha: 'מנחה', maariv: 'מעריב' },
     rebbe: 'מנין אד"ש', approx: '(בערך)', yt: 'היינט: לויט די זמני יום טוב', soon: 'Times will be updated soon.',
@@ -70,7 +70,7 @@ const T = {
     prev: 'פריער', next: 'ווייטער', loading: 'Loading…',
   },
   en: {
-    title: 'Khal Ungvar', login: 'Sign in', donate: 'Donate', sms: 'Get davening times by SMS', smsR: 'Get davening times',
+    title: 'Khal Ungvar', login: 'Admin login', donate: 'Donate', sms: 'Get davening times by SMS', smsR: 'Get davening times',
     days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Shabbos'], eve: (d) => `${d} eve`,
     parsha: (p) => `Parshas ${p}`, week: 'Weekday Davening Times', g: { shacharis: 'Shacharis', mincha: 'Mincha', maariv: 'Maariv' },
     rebbe: 'Rebbe\'s minyan', approx: '(approx.)', yt: 'Today: Yom Tov schedule', soon: 'Times will be updated soon.',
