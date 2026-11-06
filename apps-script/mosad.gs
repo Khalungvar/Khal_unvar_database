@@ -187,6 +187,8 @@ function doPost(e) {
   try {
     const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (req.action === 'brand') return out(brandOf(req.mosad)); // פארן לאגאין: נאר נאמען + לאגא
+    if (req.action === 'webSignup') return out(webSignup_(req)); // 🌐 ungvar.org: הרשמה ל-SMS (בלי כניסה)
+    if (req.action === 'webBooks') return out(webBooks_()); // 🌐 ungvar.org: ספרים ומחירים (בלי כניסה)
     if (KPUB[req.action]) { const KM = mosadOf(req.mosad); if (!KM) return out({ error: 'no-mosad' }); return out(KPUB[req.action](KM, req)); } // 🍳 דף המטבח (סיסמה, אן גוגל)
     if (PUBLIC[req.action]) { const PM = mosadOf(req.mosad); if (!PM) return out({ error: 'no-mosad' }); return out(PUBLIC[req.action](PM, req)); } // דער טופס רישום (אן לאגאין)
     const email = whoIs(req.token);
@@ -3052,4 +3054,54 @@ function screenPush_(o, hon) {
   const i = idsCol.indexOf(String(o.simcha_id));
   const row = i >= 0 ? i + 2 : Math.max(2, last + 1);
   sh.getRange(row, 1, 1, 4).setNumberFormat('@').setValues([[String(o.simcha_id), html, until, now()]]);
+}
+
+
+// ====================================================================== 🌐 האתר הציבורי ungvar.org (בלי כניסה)
+/** הרשמה ל-SMS מהאתר: נשמר "pending" בלשונית WebSignups של המאגר הראשי. אחרי אישור Telnyx — הודעת אישור כפול (YES). */
+const WEB_CONSENT = 'I agree to receive recurring automated text messages from Khal Ungvar (prayer times, zmanim and community updates) at this number. Consent is not a condition of any purchase. Msg frequency varies. Msg & data rates may apply. Reply STOP to cancel, HELP for help. Terms: ungvar.org/sms.html · Privacy: ungvar.org/privacy.html';
+function webSignup_(req) {
+  if (S(req.website)) return { ok: true }; // הוניג-טאפ פאר ראבאטן
+  if (req.consent !== true) return { error: 'need-consent' };
+  let d = String(req.phone || '').replace(/\D/g, '');
+  if (d.length === 11 && d.charAt(0) === '1') d = d.slice(1);
+  if (d.length !== 10 || /^[01]/.test(d)) return { error: 'bad-phone' };
+  const phone = '+1' + d;
+  const cache = CacheService.getScriptCache();
+  const tot = Number(cache.get('websig:all') || 0);
+  if (tot > 60) return { error: 'too-many' };
+  if (cache.get('websig:' + phone)) return { ok: true, again: true };
+  cache.put('websig:all', String(tot + 1), 3600);
+  cache.put('websig:' + phone, '1', 600);
+  const clean = function (v, n) { v = String(v || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, n); return /^[=+\-@]/.test(v) ? "'" + v : v; };
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const book = SpreadsheetApp.openById(MAIN_ID);
+    let sh = book.getSheetByName('WebSignups');
+    const H = ['at', 'phone', 'name', 'list', 'status', 'consent_text', 'source'];
+    if (!sh) { sh = book.insertSheet('WebSignups'); sh.getRange(1, 1, 1, H.length).setValues([H]); sh.setFrozenRows(1); }
+    const last = sh.getLastRow();
+    const have = last > 1 ? sh.getRange(2, 2, last - 1, 4).getValues() : [];
+    if (have.some(function (r) { return S(r[0]) === phone && S(r[3]) === 'pending'; })) return { ok: true, again: true };
+    sh.getRange(last + 1, 1, 1, H.length).setNumberFormat('@').setValues([[now(), phone, clean(req.name, 60), 'zmanim-bp', 'pending', WEB_CONSENT, 'ungvar.org']]);
+  } finally { lock.releaseLock(); }
+  return { ok: true };
+}
+/** ספרים ומחירים (בלי מלאי): מתוך הלשונית Books של המאגר הראשי. מטמון 10 דקות. */
+function webBooks_() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('webbooks'); if (hit) return JSON.parse(hit);
+  const sh = SpreadsheetApp.openById(MAIN_ID).getSheetByName('Books');
+  if (!sh) return { books: [] };
+  const v = sh.getDataRange().getValues(); const hd = (v.shift() || []).map(S);
+  const F = ['book_id', 'name', 'subtitle', 'volumes', 'price', 'vol_price', 'old_price', 'sale_price', 'sale_from', 'sale_to', 'category', 'sort', 'image', 'active'];
+  const day = (x) => (x instanceof Date ? Utilities.formatDate(x, 'America/New_York', 'yyyy-MM-dd') : S(x));
+  const books = v.map(function (r) {
+    const o = {}; F.forEach(function (f) { const i = hd.indexOf(f); if (i >= 0) o[f] = /^sale_(from|to)$/.test(f) ? day(r[i]) : r[i]; });
+    if (!/^img\//.test(S(o.image))) o.image = ''; // רק תמונות מהאתר (לא מהדרייב)
+    return o;
+  }).filter(function (o) { return S(o.name) || o.category === '__all__'; }).filter(function (o) { return o.active === undefined || o.active === '' || o.active === true || S(o.active) === '1' || S(o.active).toUpperCase() === 'TRUE'; });
+  const res = { books: books, at: now() };
+  try { cache.put('webbooks', JSON.stringify(res), 600); } catch (e) { /* גדול מדי */ }
+  return res;
 }

@@ -28,7 +28,7 @@ export function show() {
 async function check() {
   if (!MYV || shown || document.hidden) return;
   try {
-    const r = await fetch(`index.html?chk=${Date.now()}`, { cache: 'no-store' });
+    const r = await fetch(`login/index.html?chk=${Date.now()}`, { cache: 'no-store' });
     if (!r.ok) return;
     const v = ((await r.text()).match(/\?v=(\d+)/) || [])[1];
     if (v && v !== MYV && Number(v) > Number(MYV)) show();

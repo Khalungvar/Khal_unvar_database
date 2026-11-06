@@ -11,6 +11,7 @@ import { state, saveDonation } from '../data.js';
 import { escapeHtml as h, nowStamp } from '../util.js';
 import { drawDomPage, drawPlainText, fontSet } from '../pdfvec.js';
 import { showPdfIn } from '../pdfview.js';
+import { publishDownload, openSiteDownloads } from '../sitedl.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -540,7 +541,7 @@ async function showPdf(main, m, key, p) {
   const name = `מצוה יומית - ${monthName(p)} ${yearHe(m.Y).replace(/"/g, '')}`;
   const pr = $('#bk-print', main); const ml = $('#bk-mail', main);
   pr.disabled = false; ml.disabled = false;
-  pr.onclick = () => printDialog(entry, name);
+  pr.onclick = () => printDialog(entry, name, { key: `booklet|${key}`, label: `${monthName(p)} ${yearHe(m.Y)}` });
   ml.onclick = () => {
     if (!ui.openCompose) { ui.toast?.('שליחה במייל לא זמינה כאן'); return; }
     ui.openCompose({
@@ -551,17 +552,27 @@ async function showPdf(main, m, key, p) {
   };
 }
 
-function printDialog(entry, name) {
+function printDialog(entry, name, pub = null) {
   const { dlg, close } = dialog(`<h3>🖨 ${h(name)}</h3>
     <p class="muted small">${entry.pages} עמודים · ${Math.round(entry.bytes.length / 1024 / 102.4) / 10}MB</p>
     <p style="display:flex;flex-direction:column;gap:8px">
       <button type="button" class="btn primary" data-a="single">⬇ PDF — עמודים בודדים (לבית דפוס / למייל)</button>
-      <button type="button" class="btn" data-a="imposed">⬇ PDF להדפסה בבית — 2 עמודים על דף Letter, בסדר של חוברת</button></p>
+      <button type="button" class="btn" data-a="imposed">⬇ PDF להדפסה בבית — 2 עמודים על דף Letter, בסדר של חוברת</button>
+      ${pub ? '<button type="button" class="btn" data-a="pub">🌐 פרסום באתר ungvar.org (להורדה לציבור)</button><button type="button" class="linkish" data-a="pubs">🌐 כל ההורדות באתר (לוח שנתי / לוח כיס)</button>' : ''}</p>
     <p class="muted small">בהדפסה בבית: דו-צדדי, "הפיכה בצד הקצר" (Flip on short edge), מקפלים באמצע ומהדקים.</p>
     <p id="bk-mmsg" class="muted"></p>
     <p><button type="button" class="btn ghost" data-a="close">סגירה</button></p>`);
   $('[data-a=close]', dlg).onclick = close;
   $('[data-a=single]', dlg).onclick = () => download(entry.bytes, `${name}.pdf`);
+  const pb = $('[data-a=pub]', dlg);
+  if (pb) {
+    pb.onclick = async () => {
+      pb.disabled = true; $('#bk-mmsg', dlg).textContent = 'מעלה לאתר…';
+      try { await publishDownload(pub.key, pub.label, entry.bytes, `${name}.pdf`, state.email || ''); $('#bk-mmsg', dlg).textContent = '✅ פורסם — מופיע בדף הבית של ungvar.org'; } catch (err) { $('#bk-mmsg', dlg).textContent = `❌ ${err.message || err}`; }
+      pb.disabled = false;
+    };
+    $('[data-a=pubs]', dlg).onclick = () => { close(); openSiteDownloads((t) => ui.toast?.(t)); };
+  }
   $('[data-a=imposed]', dlg).onclick = async (e) => {
     e.target.disabled = true; $('#bk-mmsg', dlg).textContent = 'מסדר להדפסה…';
     try { download(await impose(entry.bytes), `${name} - להדפסה.pdf`); $('#bk-mmsg', dlg).textContent = '✅'; } catch (err) { $('#bk-mmsg', dlg).textContent = `❌ ${err.message || err}`; }
