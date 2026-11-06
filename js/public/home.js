@@ -207,16 +207,23 @@ function renderDate(I) {
 
 function renderWeekday(I) {
   const holy = (x) => dowOf(x) === 6 || chagOn(DATA, x);
-  // יום טוב באמצע השבוע — מהיום הראשון שאינו יו"ט; שישי/שבת → השבוע הבא
-  let k = I.n; while (holy(k)) k += 1;
-  if (dowOf(k) >= 5) k = k - dowOf(k) + 7;
+  // כמו בתצוגה: שחרית נשאר "המנין הבא" עוד X דקות אחרי ההתחלה (הודו +10 — לפי ההערה של שחרית; בלי הערה: 10)
+  const grace = (() => { const mm = /\+\s*(\d+)/.exec(String(DATA?.weekday?.shacharisNote || '')); return mm ? Math.min(60, Number(mm[1])) : 10; })();
+  let k = I.n; while (holy(k)) k += 1; // יום טוב באמצע השבוע — מהיום הראשון שאינו יו"ט
+  // יום שישי: הלוח של השבוע הזה עד אחרי מנין השחרית האחרון; אחר כך (ובשבת) — השבוע הבא
+  const friSh = dowOf(k) === 5 ? computeWeekday(DATA, k, LOC).shacharis : [];
+  const friOpen = k === I.n && friSh.some((m) => m.min + grace >= I.nowMin);
+  if (dowOf(k) === 6 || (dowOf(k) === 5 && !friOpen)) k = k - dowOf(k) + 7;
   const w = computeWeekday(DATA, k, LOC, { plain: true });
   const today = k === I.n;
   const notes = { shacharis: w.shacharisNote, mincha: w.minchaNote, maariv: w.maarivNote };
-  // המנין הבא: הראשון (בכל התפילות) שעוד לא עבר — רק כשהלוח הוא של היום
-  const all = today ? ['shacharis', 'mincha', 'maariv'].flatMap((g) => (w[g] || []).map((m) => ({ g, m }))) : [];
-  const nx = all.filter((x) => x.m.min >= I.nowMin).sort((a, b) => a.m.min - b.m.min)[0]?.m || null;
-  const chip = (g, m) => `<span class="pb-chip${m === nx ? ' nx' : ''}" title="${h([m.room, m.note].filter(Boolean).join(' · '))}">${tm(m.min)}${m.rebbe ? `<small>${h(L().rebbe)}${g === 'maariv' ? ` ${h(L().approx)}` : ''}</small>` : ''}</span>`;
+  // המנין הבא: היום — הראשון שעוד לא עבר (ביום שישי רק מניני שחרית של שישי); אחרי מעריב האחרון — שחרית הראשון של מחר
+  const pool = !today ? [] : dowOf(I.n) === 5 ? friSh.map((m) => ({ g: 'shacharis', min: m.min }))
+    : ['shacharis', 'mincha', 'maariv'].flatMap((g) => (w[g] || []).map((m) => ({ g, min: m.min })));
+  let nxKey = pool.filter((x) => x.min + (x.g === 'shacharis' ? grace : 0) >= I.nowMin).sort((a, b) => a.min - b.min)[0] || null;
+  if (!nxKey && today && dowOf(I.n) <= 4 && !holy(I.n + 1) && w.shacharis?.length) nxKey = { g: 'shacharis', min: Math.min(...w.shacharis.map((m) => m.min)) };
+  const isNx = (g, m) => !!nxKey && nxKey.g === g && Math.round(nxKey.min) === Math.round(m.min);
+  const chip = (g, m) => `<span class="pb-chip${isNx(g, m) ? ' nx' : ''}" title="${h([m.room, m.note].filter(Boolean).join(' · '))}">${tm(m.min)}${m.rebbe ? `<small>${h(L().rebbe)}${g === 'maariv' ? ` ${h(L().approx)}` : ''}</small>` : ''}</span>`;
   const grp = (g) => {
     const list = w[g] || [];
     if (!list.length) return '';
