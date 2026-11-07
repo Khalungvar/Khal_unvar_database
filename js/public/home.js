@@ -33,7 +33,7 @@ let LANG = pickLang();
 const T = {
   he: {
     title: 'קהל אונגוואר', login: 'כניסת מנהלים', donate: 'תרומה', sms: 'לקבלת זמני התפילות בהודעת SMS', smsR: 'לקבלת זמני התפילות',
-    days: ['יום ראשון', 'יום שני', 'יום שלישי', 'יום רביעי', 'יום חמישי', 'יום שישי', 'שבת קודש'], eve: (d) => `אור ל${d}`,
+    days: ['יום ראשון', 'יום שני', 'יום שלישי', 'יום רביעי', 'יום חמישי', 'יום שישי', 'שבת קודש'], eve: (d) => `אור ל${d}`, motzei: 'מוצאי שבת קודש',
     parsha: (p) => `פרשת ${p}`, week: 'זמני תפילה ימות החול', g: { shacharis: 'שחרית', mincha: 'מנחה', maariv: 'מעריב' },
     rebbe: 'מנין אד"ש', approx: '(בערך)', yt: 'היום: לפי זמני יום טוב', soon: 'הזמנים יעודכנו בקרוב.',
     shab: 'זמני שבת קודש', ytT: 'זמני יום טוב', special: 'זמנים מיוחדים', zm: 'זמני היום', brooklyn: 'ברוקלין',
@@ -52,7 +52,7 @@ const T = {
   },
   yi: {
     title: 'קהל אונגוואר', login: 'כניסת מנהלים', donate: 'נדבה', sms: 'באקומען זמני תפילה אויף SMS', smsR: 'באקומען זמני תפילה',
-    days: ['זונטאג', 'מאנטאג', 'דינסטאג', 'מיטוואך', 'דאנערשטאג', 'פרייטאג', 'שבת קודש'], eve: (d) => `אור ל${d}`,
+    days: ['זונטאג', 'מאנטאג', 'דינסטאג', 'מיטוואך', 'דאנערשטאג', 'פרייטאג', 'שבת קודש'], eve: (d) => `אור ל${d}`, motzei: 'מוצאי שבת קודש',
     parsha: (p) => `פרשת ${p}`, week: 'זמני תפילה ימות החול', g: { shacharis: 'שחרית', mincha: 'מנחה', maariv: 'מעריב' },
     rebbe: 'מנין אד"ש', approx: '(בערך)', yt: 'היינט: לויט די זמני יום טוב', soon: 'Times will be updated soon.',
     shab: 'זמני שבת קודש', ytT: 'זמני יום טוב', special: 'זמנים מיוחדים', zm: 'זמני היום', brooklyn: 'ברוקלין',
@@ -71,7 +71,7 @@ const T = {
   },
   en: {
     title: 'Khal Ungvar', login: 'Admin login', donate: 'Donate', sms: 'Get davening times by SMS', smsR: 'Get davening times',
-    days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Shabbos'], eve: (d) => `${d} eve`,
+    days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Shabbos'], eve: (d) => `${d} eve`, motzei: 'Motzei Shabbos',
     parsha: (p) => `Parshas ${p}`, week: 'Weekday Davening Times', g: { shacharis: 'Shacharis', mincha: 'Mincha', maariv: 'Maariv' },
     rebbe: 'Rebbe\'s minyan', approx: '(approx.)', yt: 'Today: Yom Tov schedule', soon: 'Times will be updated soon.',
     shab: 'Shabbos Times', ytT: 'Yom Tov Times', special: 'Special times', zm: 'Zmanim Today', brooklyn: 'Brooklyn',
@@ -198,9 +198,13 @@ function renderDate(I) {
   const civil = I.d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const hol = (dayOf(I.n)?.items || []).filter((i) => i.kind === 'hol').map((i) => i.text).join(' · ');
   const D = L().days;
-  const dl = I.night ? L().eve(D[dowOf(I.n + 1)]) : D[dowOf(I.n)];
-  const p = parshaOf(I.sat);
-  $('#pb-date').innerHTML = `<b class="pb-parsha">${h(dl)}${p ? ` <bdi>${h(p)}</bdi>` : ''}</b><span class="sep">·</span><span>${h(hebDate(isoOf(I.night ? I.n + 1 : I.n)))}</span>
+  // שבת אחרי השקיעה: עד צאת השבת — "שבת קודש"; מצאת השבת עד חצות — "מוצאי שבת קודש" עם הפרשה שיצאה; מחצות — יום ראשון והפרשה החדשה
+  const sat = dowOf(I.n) === 6 && I.night;
+  const out = sat && I.nowMin >= I.z.motzei;
+  const heb = sat ? (out ? I.n + 1 : I.n) : (I.night ? I.n + 1 : I.n);
+  const dl = sat ? (out ? L().motzei : D[6]) : I.night ? L().eve(D[dowOf(I.n + 1)]) : D[dowOf(I.n)];
+  const p = parshaOf(sat ? I.n : I.sat);
+  $('#pb-date').innerHTML = `<b class="pb-parsha">${h(dl)}${p ? ` <bdi>${h(p)}</bdi>` : ''}</b><span class="sep">·</span><span>${h(hebDate(isoOf(heb)))}</span>
     <span class="sep">·</span><span dir="ltr">${h(civil)}</span>
     ${hol ? `<div class="pb-hol">${h(hol)}</div>` : ''}`;
 }
