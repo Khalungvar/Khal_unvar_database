@@ -675,6 +675,9 @@ async function memSet(k, v) {
 
 function wireBuilder(main, rows, ch, P) {
   const edit = canEdit(current.list_id ? listById(current.list_id) : null);
+  // דער קליק-האנדלער פון דער איבערזיכט (main.onclick) בלייבט הענגען אויפן זעלבן main — אויסמעקן,
+  // אנדערש עפנט א קליק אויף א נאמען אין דער רשימה אויך "א נייע רשימה" (הגדרות) און מען פליט ארויס פון דער רשימה
+  main.onclick = null;
   $('#lb-back', main).onclick = openOverview;
   $$('[data-ltab]', main).forEach((b) => { b.onclick = () => { current.tab = b.dataset.ltab; renderBuilder(); }; });
   $('#l2-settings', main)?.addEventListener('click', () => openSettings());
