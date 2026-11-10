@@ -101,7 +101,7 @@ h3{font-size:12.5px;text-align:center;letter-spacing:1px;margin:12px 0 4px;backg
 .pf-g{display:grid;grid-template-columns:1fr 1fr;gap:3px 18px}.pf-r{display:flex;gap:6px;border-bottom:1px solid #bbb;padding:2px 0;min-height:21px}.pf-r.w{grid-column:1/-1}
 .pf-r span{color:#444;white-space:nowrap}.pf-r b{font-weight:600;flex:1}
 .pf-docs{columns:2;font-size:11.5px;margin:4px 0}.pf-sig{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:18px;page-break-inside:avoid}
-.pf-box{background:#ececec;border:1px solid #9a9a9a;border-radius:6px;height:1.35in;position:relative;display:flex;align-items:center;justify-content:center;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pf-box{background:#fff;border:1.5px solid #9a9a9a;border-radius:6px;height:1.35in;position:relative;display:flex;align-items:center;justify-content:center;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pf-box img{max-height:1.2in;max-width:95%}.pf-typed{font:italic 24px 'Brush Script MT',cursive}
 .pf-sl{display:flex;justify-content:space-between;font-size:11px;margin-top:4px}
 .pf-dt{color:#999;letter-spacing:1px}.pf-note{font-size:11px;text-align:center;margin:6px 0}.pf-doc{page-break-before:always;text-align:center}.pf-doc img{max-width:100%;max-height:9.3in}.pf-doc p{font-weight:700;margin:0 0 6px}

@@ -1,7 +1,7 @@
 // 🕍 מרכז הכוללים אונגוואר — טופס הרשמה (ungvar.org/kollel/register). English / אידיש.
 //    כניסה עם אימייל + קוד (בלי גוגל) · טיוטה נשמרת · מסמכים → 🤖 Gemini ממלא את השדות · חתימה (ציור או הקלדה).
 import { CONFIG } from '../config.js?v=653';
-import { SECTIONS, docsList, MARITAL, YESNO, printHtml } from './kollelfields.js?v=655';
+import { SECTIONS, docsList, MARITAL, YESNO, printHtml } from './kollelfields.js?v=656';
 
 const MOSAD = 'kollel';
 const $ = (s, r = document) => r.querySelector(s);
