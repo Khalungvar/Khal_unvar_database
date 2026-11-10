@@ -103,7 +103,7 @@ function heroHtml(c) {
   const img = c.image ? `style="background-image:linear-gradient(180deg,rgba(40,10,10,.05),rgba(40,10,10,.65)),url('${h(c.image)}')"` : '';
   return `<section class="pb-card cp-hero">
     <div class="cp-pic${c.image ? ' has-img' : ''}" ${img}><div><small>${h(tr(c, 'sub'))}</small><h1>${h(tr(c, 'title'))}</h1></div></div>
-    <div class="cp-hb">${tr(c, 'desc') ? `<p class="cp-desc">${h(tr(c, 'desc')).replace(/\n/g, '<br>')}</p>` : ''}
+    <div class="cp-hb">${tr(c, 'desc') ? `<p class="cp-desc" dir="auto">${h(tr(c, 'desc')).replace(/\n/g, '<br>')}</p>` : ''}
       ${c.donors_mode === 'none' && !goal ? '' : `<div class="cp-prog"><span class="cp-big">${money(DATA.raised)}</span>
         <span>${goal ? `${h(L().raised)} ${h(L().of)} <b>${money(goal)}</b>` : h(L().raised)}</span></div>
       ${goal ? `<div class="cp-track"><i style="width:${pct}%"></i></div>` : ''}
@@ -115,14 +115,14 @@ function pkgsHtml(c) {
   return `<section class="pb-card"><h2 class="cp-h">${h(L().pkgs)}</h2><div class="cp-pkgs">${c.packages.map((p) => {
     const lim = Number(p.limit) || 0; const used = DATA.taken[p.id] || 0; const full = lim && used >= lim;
     return `<button type="button" class="cp-pkg${F.pkg === p.id ? ' on' : ''}${full ? ' taken' : ''}" data-pkg="${h(p.id)}"${full ? ' disabled' : ''}>
-      <b>${h(tr(p, 'name'))}</b><span>${money(p.amount)}</span><em>${full ? h(L().taken) : h(tr(p, 'note'))}</em></button>`;
+      <b dir="auto">${h(tr(p, 'name'))}</b><span>${money(p.amount)}</span><em dir="auto">${full ? h(L().taken) : h(tr(p, 'note'))}</em></button>`;
   }).join('')}</div></section>`;
 }
 function recentHtml(c) {
   if (c.donors_mode === 'none' || !DATA.recent.length) return '';
   return `<section class="pb-card"><h2 class="cp-h">${h(L().recent)}</h2><div class="cp-wall">${DATA.recent.map((d) => {
     const nm = d.anon ? L().anonName : (LANG === 'en' ? d.en || d.he : d.he || d.en);
-    return `<div class="cp-dn"><div><b><bdi>${h(nm)}</bdi></b>${d.ded ? `<small><bdi>${h(d.ded)}</bdi></small>` : ''}</div>${d.amount != null ? `<span class="cp-amt">${money(d.amount)}${d.monthly ? h(L().perMonth) : ''}</span>` : ''}</div>`;
+    return `<div class="cp-dn"><div><b><bdi>${h(nm)}</bdi></b>${d.ded ? `<small dir="auto">${h(d.ded)}</small>` : ''}</div>${d.amount != null ? `<span class="cp-amt">${money(d.amount)}${d.monthly ? h(L().perMonth) : ''}</span>` : ''}</div>`;
   }).join('')}</div></section>`;
 }
 const feeOf = (a) => Math.round(a * 0.03 * 100) / 100;
