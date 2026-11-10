@@ -1,39 +1,134 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>About – Khal Ungvar</title>
-<style>
-  body { font-family: Arial, sans-serif; max-width: 760px; margin: 0 auto; padding: 24px 16px; line-height: 1.6; color: #2a1d1a; background: #fffdf8; }
-  h1 { color: #7a1219; margin-bottom: 4px; }
-  .logo { display: block; margin: 0 auto 16px; max-width: 200px; height: auto; }
-  .card { border: 1px solid #e8dcc4; border-radius: 8px; padding: 12px 16px; background: #fff; }
-  .card p { margin: 4px 0; }
-  .yi { direction: rtl; text-align: right; border-top: 1px solid #e8dcc4; margin-top: 28px; padding-top: 12px; }
-  a { color: #7a1219; }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>About Us – Khal Ungvar</title>
+  <meta name="description" content="Khal Ungvar Dba Mishne Halachoth Gedoloth – a Jewish religious nonprofit founded in 1946 by Holocaust survivors. Synagogues, kollelim, Torah programs and charity. 501(c)(3), EIN 11-2330829.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700&family=Frank+Ruhl+Libre:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="img/favicon.png">
+  <link rel="stylesheet" href="css/public.css?v=650">
+  <style>
+    .ab { max-width: 900px; margin: 0 auto 40px; }
+    .ab h1 { font-family: 'Frank Ruhl Libre', serif; color: var(--accent, #7a1219); font-size: 38px; margin: 8px 0 4px; text-align: center; }
+    .ab .lead { text-align: center; color: #7a6a5c; margin: 0 0 22px; }
+    .ab h2 { font-family: 'Frank Ruhl Libre', serif; color: var(--accent, #7a1219); font-size: 24px; margin: 0 0 10px; }
+    .ab section { background: #fffdf8; border: 1px solid #e8dcc4; border-radius: 16px; padding: 20px 22px; margin: 14px 0; line-height: 1.65; }
+    .ab .mission { font-size: 18px; border-inline-start: 5px solid #c9a23f; }
+    .ab-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+    .ab-stats div { background: #f6e5d5; border-radius: 12px; padding: 12px; text-align: center; color: #7a6a5c; font-size: 14px; }
+    .ab-stats b { display: block; font-family: 'Frank Ruhl Libre', serif; font-size: 32px; color: #7a1219; }
+    .ab-prog { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+    .ab-prog div { border: 1px solid #e8dcc4; border-radius: 12px; padding: 12px 14px; background: #fff; }
+    .ab-prog h3 { margin: 0 0 4px; font-size: 17px; }
+    .ab-prog p { margin: 0; font-size: 15px; }
+    .ab dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }
+    .ab dt { font-weight: 700; } .ab dd { margin: 0; }
+    .ab [lang=yi] { direction: rtl; text-align: right; font-family: 'Frank Ruhl Libre', serif; font-size: 18px; }
+    .ab-hide { display: none !important; }
+    @media (max-width: 600px) { .ab dl { grid-template-columns: 1fr; } .ab h1 { font-size: 30px; } }
+  </style>
 </head>
 <body>
-  <img class="logo" src="img/logo.png" alt="Khal Ungvar">
-  <h1>Khal Ungvar</h1>
-  <p><b>Khal Ungvar Dba Mishne Halachoth Gedoloth</b> is a Jewish religious nonprofit organization in Brooklyn, New York. We operate synagogues (batei medrash), Torah study programs (kollelim) and community institutions, providing prayer services, Torah education, and charitable support for our community.</p>
-  <div class="card">
-    <p><b>Legal name:</b> Khal Ungvar Dba Mishne Halachoth Gedoloth</p>
-    <p><b>Status:</b> 501(c)(3) tax-exempt nonprofit organization · EIN 11-2330829</p>
-    <p><b>Address:</b> 1578 53rd St, Brooklyn, NY 11219, United States</p>
-    <p><b>Email:</b> <a href="mailto:office@ungvar.org">office@ungvar.org</a></p>
+  <div class="pb-bar"><div class="pb-wrap pb-bar-in">
+    <nav class="pb-langs" aria-label="Language"><button type="button" data-l="yi">אידיש</button><span>|</span><button type="button" data-l="en">English</button></nav>
+    <div class="pb-bar-act"><a class="pb-login" href="./">← Home</a></div>
+  </div></div>
+  <div class="pb-wrap">
+    <header class="pb-top"><a href="./"><img src="img/logo.png" alt="Khal Ungvar"></a></header>
+    <main class="ab">
+      <!-- ===================== English ===================== -->
+      <div data-lang-block="en">
+        <h1>About Khal Ungvar</h1>
+        <p class="lead">Khal Ungvar Dba Mishne Halachoth Gedoloth · A 501(c)(3) nonprofit religious organization · Founded 1946</p>
+
+        <section class="mission"><h2>Our Mission</h2>
+          <p>Khal Ungvar's mission is to sustain a vibrant Torah community: to maintain synagogues for prayer and Torah study, to support full-time Torah scholars in our kollelim, to make Torah learning and Jewish law accessible to the entire public, and to provide charity and personal support to families in need.</p></section>
+
+        <section><h2>Our History</h2>
+          <p>Khal Ungvar was founded in 1946 by the Ungvarer Rebbe zt"l, author of the <i>Mishneh Halachos</i> responsa, together with fellow Holocaust survivors who had immigrated to the United States after the war. Out of the destruction of the Jewish community of Ungvar (Uzhhorod), they rebuilt a home for Torah, prayer and mutual help in America.</p>
+          <p>The congregation was formally incorporated in the State of New York in 1974 as Khal Ungvar, and also operates under the name Mishne Halachoth Gedoloth. Over the decades it has grown into a network of synagogues, kollelim and community programs in Brooklyn, Monsey and Jerusalem.</p></section>
+
+        <section><h2>Our Impact</h2>
+          <div class="ab-stats">
+            <div><b>3</b>synagogues (batei medrash)</div>
+            <div><b>8</b>kollelim (Torah study programs)</div>
+            <div><b>~200</b>full-time Torah scholars supported</div>
+            <div><b>1946</b>serving the community since</div>
+          </div></section>
+
+        <section><h2>Our Programs</h2>
+          <div class="ab-prog">
+            <div><h3>Synagogues</h3><p>Three batei medrash – in Boro Park (Brooklyn, NY), Monsey (NY) and Jerusalem – with daily prayer services open to the public.</p></div>
+            <div><h3>Kollelim</h3><p>Eight kollelim across our three locations, where about 200 married scholars (avreichim) study Torah full time with stipend support.</p></div>
+            <div><h3>Shiurim &amp; Kol Ungvar</h3><p>Regular Torah classes in every synagogue, and the "Kol Ungvar" phone line where anyone can listen to all the shiurim by phone: <a href="tel:+16054774427">605-477-4427</a>.</p></div>
+            <div><h3>Mitzvah Yomis</h3><p>A public program for learning one mitzvah every day, with a monthly study booklet and yearly calendars distributed to the community.</p></div>
+            <div><h3>Kehalchaso</h3><p>A public program for learning one page of halacha (Jewish law) every day, with monthly written exams.</p></div>
+            <div><h3>Tzedakah &amp; Chesed</h3><p>Holiday assistance for families in need before each festival, and financial help and personal guidance for families facing the costs of weddings, bar mitzvahs and other simchas.</p></div>
+            <div><h3>Neshei Ungvar</h3><p>Our women's organization, offering programs and activities for the women of the community.</p></div>
+            <div><h3>Machon Mishne Halachos</h3><p>Publishing and distributing the seforim (Torah books) of the <i>Mishneh Halachos</i> – <a href="machon.html">see the seforim</a>.</p></div>
+          </div></section>
+
+        <section><h2>Organization Details</h2>
+          <dl>
+            <dt>Legal name</dt><dd>Khal Ungvar Dba Mishne Halachoth Gedoloth</dd>
+            <dt>Tax status</dt><dd>501(c)(3) tax-exempt nonprofit organization</dd>
+            <dt>EIN</dt><dd>11-2330829</dd>
+            <dt>Incorporated</dt><dd>State of New York, 1974 (community founded 1946)</dd>
+            <dt>Office</dt><dd>1578 53rd St, Brooklyn, NY 11219</dd>
+            <dt>Main synagogue</dt><dd>5306 16th Ave, Brooklyn, NY 11204</dd>
+            <dt>Phone</dt><dd><a href="tel:+17188510806">(718) 851-0806</a></dd>
+            <dt>Email</dt><dd><a href="mailto:office@ungvar.org">office@ungvar.org</a></dd>
+            <dt>Website</dt><dd><a href="https://ungvar.org">ungvar.org</a> – the official website of Khal Ungvar</dd>
+          </dl>
+          <p class="muted small">Donations to Khal Ungvar are tax-deductible to the extent allowed by law.</p></section>
+      </div>
+
+      <!-- ===================== אידיש ===================== -->
+      <div data-lang-block="yi" lang="yi" class="ab-hide">
+        <h1>וועגן קהל אונגוואר</h1>
+        <p class="lead">קהל אונגוואר · משנה הלכות גדולות · געגרינדעט תש"ו (1946)</p>
+        <section class="mission"><h2>אונזער ציל</h2>
+          <p>אויפצוהאלטן א לעבעדיגע קהילה פון תורה און תפילה: בתי מדרשים פאר תפילה און לימוד התורה, כוללים פאר אברכים וואס לערנען אינגאנצן, לימוד התורה און הלכה פאר'ן גאנצן ציבור, און צדקה וחסד פאר משפחות וואס דארפן הילף.</p></section>
+        <section><h2>היסטאריע</h2>
+          <p>קהל אונגוואר איז געגרינדעט געווארן אין יאר תש"ו (1946) דורך כ"ק אדמו"ר בעל משנה הלכות מאונגוואר זצוקללה"ה, צוזאמען מיט פליטי השואה וואס זענען אנגעקומען קיין אמעריקע נאך דער מלחמה. די קהילה איז אפיציעל רעגיסטרירט אין ניו יארק אין 1974.</p></section>
+        <section><h2>די מוסדות</h2>
+          <p>3 בתי מדרשים — בארא פארק, מאנסי און ירושלים · 8 כוללים מיט בערך 200 אברכים · שיעורים אין יעדן בית המדרש און דער קו "קול אונגוואר" · מפעל מצוה יומית · מסגרת כהלכתו (עמוד הלכה א טאג מיט מבחנים) · צדקה וחסד: הילף פאר משפחות פאר די יום טובים, און געלט־הילף מיט פערזענליכע באגלייטונג פאר חתונות און בר מצוות · נשי אונגוואר · מכון משנה הלכות.</p></section>
+      </div>
+    </main>
   </div>
-  <div class="card" style="margin-top:12px">
-    <p><b>Beis Medrash (synagogue):</b> 5306 16th Ave, Brooklyn, NY 11204</p>
-    <p><b>Phone:</b> (718) 851-0806</p>
-  </div>
-  <p>This website (<a href="./">ungvar.org</a>) shows our public prayer times, zmanim, shiurim, Mitzva Yomis study booklets, simchos and the seforim of Machon Mishne Halachos. It also hosts the community's private database (<a href="login/">ungvar.org/login</a>), used only by the organization's administrators and gabbaim.</p>
-  <p><a href="./">Home</a> · <a href="privacy.html">Privacy Policy</a> · <a href="terms.html">Terms of Use</a> · <a href="sms.html">Text Message &amp; Call Terms</a> · <a href="refund.html">Refund &amp; Shipping Policy</a> · <a href="login/">Staff sign-in</a></p>
-  <div class="yi">
-    <h2>קהל אונגוואר</h2>
-    <p>קהל אונגוואר (מוסדות אונגוואר) — בתי מדרש, כוללים און מוסדות פאר דער קהילה אין ברוקלין, ניו יארק.</p>
-    <p>1578 53rd St, Brooklyn, NY 11219 · <a href="mailto:office@ungvar.org">office@ungvar.org</a></p>
-  </div>
+  <footer class="pb-foot" dir="ltr">
+    <div class="pb-wrap">
+      <div class="pb-fgrid">
+        <div><h4>Khal Ungvar</h4>
+          <p>Khal Ungvar Dba Mishne Halachoth Gedoloth</p>
+          <p>A 501(c)(3) tax-exempt nonprofit organization · EIN 11-2330829</p></div>
+        <div><h4>Beis Medrash</h4>
+          <p>5306 16th Ave</p><p>Brooklyn, NY 11204</p>
+          <h4 style="margin-top:10px">Office</h4>
+          <p>1578 53rd St</p><p>Brooklyn, NY 11219</p></div>
+        <div><h4>Contact</h4>
+          <p>Phone: <a href="tel:+17188510806">(718) 851-0806</a></p>
+          <p>Email: <a href="mailto:office@ungvar.org">office@ungvar.org</a></p>
+          <p>Kol Ungvar (shiurim by phone): <a href="tel:+16054774427">605-477-4427</a></p></div>
+        <div><h4>Information</h4>
+          <ul><li><a href="about.html">About Us</a></li><li><a href="privacy.html">Privacy Policy</a></li><li><a href="terms.html">Terms of Use</a></li>
+            <li><a href="sms.html">Text Message (SMS) &amp; Call Terms</a></li><li><a href="refund.html">Refund, Return &amp; Shipping Policy</a></li>
+            <li><a href="machon.html">Machon Mishnah Halachot – Seforim</a></li><li><a href="login/">Admin login</a></li></ul></div>
+      </div>
+      <div class="pb-legal">
+        <p>Donations to Khal Ungvar are tax-deductible to the extent allowed by law.</p>
+        <p>© <span class="pb-year">2026</span> Khal Ungvar Dba Mishne Halachoth Gedoloth. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+  <script>
+    document.querySelectorAll('.pb-year').forEach((e) => { e.textContent = new Date().getFullYear(); });
+    const setL = (l) => { document.querySelectorAll('[data-lang-block]').forEach((b) => b.classList.toggle('ab-hide', b.dataset.langBlock !== l)); document.querySelectorAll('[data-l]').forEach((b) => b.classList.toggle('on', b.dataset.l === l)); };
+    document.querySelectorAll('[data-l]').forEach((b) => { b.onclick = () => setL(b.dataset.l); });
+    setL(new URLSearchParams(location.search).get('lang') === 'yi' ? 'yi' : 'en');
+  </script>
 </body>
 </html>
