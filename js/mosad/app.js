@@ -58,26 +58,27 @@ const hasKind = (p, k) => (p?.kinds || [p?.kind]).includes(k);
 const kindBadges = (p) => (p.kinds || [p.kind]).map((k) => `<span class="ms-kind k-${h(k)}">${h(kindName(k))}</span>`).join(' ');
 // הכפתורים בדף הפתיחה — כל כפתור הוא גם הרשאה
 const TILES = [
-  { k: 'students', ic: '🎓', t: 'תלמידי הישיבה', sub: 'כולל טלפון בארץ' },
-  { k: 'staff_list', ic: '👔', t: 'אנשי צוות ואברכים', sub: 'כולל אברכים שלומדים עם בחורים' },
-  { k: 'tuition', ic: '💲', t: 'שכר לימוד', sub: 'תשלומים וקבלות' },
-  { k: 'insurance', ic: '🏥', t: 'ביטוח בריאות', sub: 'קופה, מספר חבר, חובות' },
-  { k: 'attendance', ic: '✅', t: 'השתתפות', sub: 'יומנים, כניסה ויציאה של אברכים' },
-  { k: 'stipends', ic: '🎖', t: 'מלגות', sub: 'לפי סוג מלגה, פתקים ומזומן' },
+  { k: 'students', ic: '🎓', t: 'תלמידי הישיבה', sub: 'כולל טלפון בארץ', not: 'kollel' },
+  { k: 'staff_list', ic: '👔', t: 'אנשי צוות ואברכים', sub: 'כולל אברכים שלומדים עם בחורים', not: 'kollel' },
+  { k: 'tuition', ic: '💲', t: 'שכר לימוד', sub: 'תשלומים וקבלות', not: 'kollel' },
+  { k: 'insurance', ic: '🏥', t: 'ביטוח בריאות', sub: 'קופה, מספר חבר, חובות', not: 'kollel' },
+  { k: 'attendance', ic: '✅', t: 'השתתפות', sub: 'יומנים, כניסה ויציאה של אברכים', not: 'kollel' },
+  { k: 'stipends', ic: '🎖', t: 'מלגות', sub: 'לפי סוג מלגה, פתקים ומזומן', not: 'kollel' },
   { k: 'shabbos', ic: '🕯', t: 'דפים קבועים', sub: 'זמני השבת, שיעור ליל שישי ותבניות', only: 'yeshiva' },
-  { k: 'simchos', ic: '🎉', t: 'עדכון שמחות', sub: 'לאונגוואר + דף מזל טוב' },
-  { k: 'kitchen', ic: '🍳', t: 'מלאי המטבח', sub: 'התראות, רשימת קניות לפי ספק' },
-  { k: 'chavrusas', ic: '🤝', t: 'חברותות', sub: 'לכל סדר, כולל אברכים' },
-  { k: 'donations', ic: '💝', t: 'נדבות וקבלות', sub: 'כולל קבלות אמריקאיות' },
-  { k: 'finance', ic: '💰', t: 'משכורות והוצאות', sub: 'חובות, הוצאות; משכורות — למנהל מוסד' },
-  { k: 'alumni', ic: '🚪', t: 'בוגרי הישיבה', sub: 'וההורים שלהם' },
-  { k: 'parents', ic: '👪', t: 'הורי התלמידים', sub: 'תלמידי הישיבה ובוגרים' },
-  { k: 'dorm', ic: '🛏', t: 'פנימייה', sub: 'חדרים ושיבוץ' },
-  { k: 'dorm_att', ic: '🌙', t: 'נוכחות בפנימייה', sub: 'דף שבועי לפי חדרים (לליגער)' },
+  { k: 'simchos', ic: '🎉', t: 'עדכון שמחות', sub: 'לאונגוואר + דף מזל טוב', not: 'kollel' },
+  { k: 'kitchen', ic: '🍳', t: 'מלאי המטבח', sub: 'התראות, רשימת קניות לפי ספק', not: 'kollel' },
+  { k: 'chavrusas', ic: '🤝', t: 'חברותות', sub: 'לכל סדר, כולל אברכים', not: 'kollel' },
+  { k: 'donations', ic: '💝', t: 'נדבות וקבלות', sub: 'כולל קבלות אמריקאיות', not: 'kollel' },
+  { k: 'finance', ic: '💰', t: 'משכורות והוצאות', sub: 'חובות, הוצאות; משכורות — למנהל מוסד', not: 'kollel' },
+  { k: 'alumni', ic: '🚪', t: 'בוגרי הישיבה', sub: 'וההורים שלהם', not: 'kollel' },
+  { k: 'parents', ic: '👪', t: 'הורי התלמידים', sub: 'תלמידי הישיבה ובוגרים', not: 'kollel' },
+  { k: 'dorm', ic: '🛏', t: 'פנימייה', sub: 'חדרים ושיבוץ', not: 'kollel' },
+  { k: 'dorm_att', ic: '🌙', t: 'נוכחות בפנימייה', sub: 'דף שבועי לפי חדרים (לליגער)', not: 'kollel' },
   { k: 'tasks', ic: '📋', t: 'משימות', sub: 'עבורי ושהשארתי לאחרים', all: true },
-  { k: 'budget', ic: '📆', t: 'הוצאות קבועות ומאזן', sub: 'הוצאות והכנסות קבועות, צפי לימים הקרובים' },
+  { k: 'budget', ic: '📆', t: 'הוצאות קבועות ומאזן', sub: 'הוצאות והכנסות קבועות, צפי לימים הקרובים', not: 'kollel' },
   { k: 'reg', ic: '📝', t: 'רישום לישיבה', sub: 'מועמדים וטופס הרשמה', only: 'yeshiva' },
-  { k: 'kollel_reg', ic: '📥', t: 'הרשמות לכולל', sub: 'טפסים, מסמכים ואישור', only: 'kollel' },
+  { k: 'kollel_reg', ic: '📥', t: 'הרשמות', sub: 'האפליקציות של הפרויקט — טפסים ומסמכים', only: 'kollel' },
+  { k: 'kollelim', ic: '🕍', t: 'כוללים', sub: 'האברכים, השתתפות, מלגות וצ\'קים של תמיכה', only: 'kollel' },
 ];
 const PERM_NAMES = { ...Object.fromEntries(TILES.map((x) => [x.k, x.t])), shabbos: 'דפים קבועים (זמני השבת, ליל שישי…)', finance: 'חובות והוצאות', people_edit: 'הוספה ועדכון אנשי קשר', reg_docs: 'רישום — צפייה בדרכון ובתעודת לידה',
   dorm_att: 'נוכחות בפנימייה (סימון לפי חדרים)', budget: '📆 הוצאות קבועות ומאזן (רק מי שמקבל — רואה את הכפתור)',
@@ -246,14 +247,15 @@ function render(fromPop) {
   else if (st.tab === 'finance') renderFinance(box);
   else if (st.tab === 'dorm') renderDorm(box);
   else if (st.tab === 'reg') renderReg(box);
-  else if (st.tab === 'kollel_reg') import('./kollel.js?v=659').then((m) => { m.initKollel(ctx); m.renderKollelReg(box); });
+  else if (st.tab === 'kollelim') import('./kollelim.js?v=660').then((m) => { m.initKollelim(ctx); m.renderKollelim(box); });
+  else if (st.tab === 'kollel_reg') import('./kollel.js?v=660').then((m) => { m.initKollel(ctx); m.renderKollelReg(box); });
   else if (st.tab === 'me') renderMe(box);
   else if (st.tab === 'log') renderLog(box);
   else renderSoon(box, view);
 }
 
 function renderHome(box) {
-  const tiles = TILES.filter((x) => (!x.only || x.only === KEY) && (x.all || can(x.k) || (x.k === 'finance' && can('salary'))));
+  const tiles = TILES.filter((x) => (!x.only || x.only === KEY) && x.not !== KEY && (x.all || can(x.k) || (x.k === 'finance' && can('salary'))));
   // די קליינע כפתורים — אין צוויי שורות, נאך די גרויסע
   const small = [
     can('people_edit') ? '<button type="button" class="btn" data-go="people">👥 כל האנשים</button>' : '',

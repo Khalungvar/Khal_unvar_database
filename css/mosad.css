@@ -453,3 +453,9 @@ tr.bd-day td { border-top: 2px solid #e3dccb; }
 .kr-pf-m { color: #a3281c; font-weight: 600; font-size: .9em; margin-top: 3px; }
 .kr-pf-a { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 4px; font-size: .9em; }
 .kr-miss { color: #8a2318; font-weight: 600; }
+.ka-nm { font-weight: 700; font-size: 1.02em; }
+.ka-ph { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: .88em; font-weight: 600; background: #eee; }
+.ka-ph.ka-a { background: #fff4d6; color: #7a5a00; } .ka-ph.ka-b { background: #d9ebfa; color: #154f80; } .ka-ph.ka-done { background: #d7eed9; color: #1e5b26; } .ka-ph.ka-rej { background: #f7dcd9; color: #8a2318; }
+.kl-seg { margin: 6px 0 12px; } .kl-mon { min-width: 9em; text-align: center; }
+.kl-att td, .kl-att th { padding: 2px 3px; } .kl-att .kl-nm { white-space: nowrap; position: sticky; inset-inline-start: 0; background: var(--card, #fff); }
+.kl-chk { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; } .kl-chk input { font: inherit; padding: 5px 8px; border: 1px solid #cdbf9e; border-radius: 6px; }

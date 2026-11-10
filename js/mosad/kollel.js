@@ -3,7 +3,7 @@ import { SECTIONS, STATUS, showVal, printHtml, YESNO, reqOf, kindState, kindLabe
 import { downloadXlsx } from '../excel.js?v=653';
 
 let X;
-const K = { apps: null, filter: 'open', q: '' };
+const K = { apps: null, filter: 'all', q: '' };
 export function initKollel(ctx) { X = ctx; }
 
 async function load() { const r = await X.call(X.KEY, 'kaList'); K.apps = r.apps || []; }
@@ -15,21 +15,22 @@ export async function renderKollelReg(box) {
   if (!K.apps) { box.innerHTML = '<p class="muted">טוען…</p>'; try { await load(); } catch (err) { box.innerHTML = `<p class="ms-note err">${h(X.msg(err))}</p>`; return; } }
   const link = new URL('register/', location.href.replace(/[^/]*$/, '')).href;
   const cnt = (f) => K.apps.filter(f).length;
-  const FL = [['open', 'לטיפול', (a) => ['submitted', 'updated'].includes(a.status)], ['inprog', 'בתהליך מילוי', (a) => a.status === 'open'], ['approved', 'אושרו', (a) => a.status === 'approved'], ['rejected', 'נדחו', (a) => a.status === 'rejected'], ['draft', 'לא השלימו פתיחה', (a) => a.status === 'draft'], ['all', 'הכל', () => true]];
+  const PH = (a) => (a.status === 'approved' ? ['✅ הושלם', 'done'] : ['submitted', 'updated'].includes(a.status) ? ['✔ חלק א׳ · ✔ חלק ב׳', 'b'] : a.status === 'open' ? ['✔ חלק א׳', 'a'] : a.status === 'rejected' ? ['נדחה', 'rej'] : ['— לא סיים חלק א׳', 'none']);
+  const FL = [['all', 'הכל', (a) => a.status !== 'draft'], ['a', 'חלק א׳', (a) => a.status === 'open'], ['b', 'חלק ב׳ (נשלח)', (a) => ['submitted', 'updated'].includes(a.status)], ['done', 'הושלמו', (a) => a.status === 'approved'], ['draft', 'לא סיימו חלק א׳', (a) => a.status === 'draft']];
   const fl = FL.find((x) => x[0] === K.filter) || FL[0];
   const q = K.q.trim().toLowerCase();
-  const list = K.apps.filter(fl[2]).filter((a) => !q || `${nm(a)} ${a.data?.yi_name || ''} ${a.email} ${a.data?.phone || ''}`.toLowerCase().includes(q))
-    .sort((a, b) => String(b.submitted_at || b.updated_at).localeCompare(String(a.submitted_at || a.updated_at)));
-  box.innerHTML = `<h2 class="ms-h">📥 הרשמות לכולל <span class="count-pill">${K.apps.length}</span></h2>
-    <p class="muted small">הטופס לאברכים: <a href="${h(link)}" target="_blank" rel="noopener" dir="ltr">${h(link)}</a> — נכנסים עם אימייל וקוד (בלי גוגל). שכח קוד? פותחים את הטופס שלו ← 🔑 קוד חדש.</p>
+  const heName = (a) => a.data?.yi_name || nm(a);
+  const list = K.apps.filter(fl[2]).filter((a) => !q || `${nm(a)} ${a.data?.yi_name || ''} ${a.email} ${a.data?.phone || ''} ${a.note || ''}`.toLowerCase().includes(q))
+    .sort((a, b) => String(heName(a)).localeCompare(String(heName(b)), 'he'));
+  box.innerHTML = `<h2 class="ms-h">📥 הרשמות — אפליקציות <span class="count-pill">${K.apps.filter((a) => a.status !== 'draft').length}</span></h2>
+    <p class="muted small">הטופס לאברכים: <a href="${h(link)}" target="_blank" rel="noopener" dir="ltr">${h(link)}</a></p>
     <div class="ms-bar"><div class="seg">${FL.map(([k, t, f]) => `<button type="button" data-f="${k}" class="${k === fl[0] ? 'on' : ''}">${h(t)} ${cnt(f)}</button>`).join('')}</div>
-      <input type="search" id="ka-q" placeholder="חיפוש: שם, אימייל, טלפון…" value="${h(K.q)}"><span class="spacer"></span>
+      <input type="search" id="ka-q" placeholder="חיפוש…" value="${h(K.q)}"><span class="spacer"></span>
       <button type="button" class="btn" id="ka-xl">⬇ Excel</button><button type="button" class="btn" id="ka-rl">⟳ רענון</button></div>
-    ${list.length ? `<div class="ms-wrap"><table class="ms-table ka-list"><thead><tr><th>#</th><th>שם</th><th>נאמען אויף אידיש</th><th>טלפון</th><th>אימייל</th><th>מסמכים</th><th>סטטוס</th><th>נשלח</th><th>עודכן</th></tr></thead><tbody>
-      ${list.map((a) => { const rq = reqOf(a.data?.marital); const docs = [...rq.gate, ...rq.rest]; const have = docs.filter((k) => kindState(a.files, k) === 'ok').length;
-    return `<tr data-open="${h(a.app_id)}" style="cursor:pointer"><td class="num">${h(a.app_id)}</td><td><b>${h(nm(a))}</b></td><td dir="rtl">${h(a.data?.yi_name || '')}</td><td dir="ltr">${h(a.data?.phone || '')}</td>
-        <td dir="ltr" class="small">${h(a.email)}</td><td class="c">${have}/${docs.length}</td><td>${stBadge(a.status)}</td><td class="small">${h(a.submitted_at || '')}</td><td class="small">${h(a.updated_at || '')}</td></tr>`; }).join('')}
-    </tbody></table></div>` : '<p class="ms-note">אין טפסים כאן.</p>'}`;
+    ${list.length ? `<div class="ms-wrap"><table class="ms-table ka-list"><thead><tr><th>#</th><th>שם</th><th>סטטוס</th><th>הערה</th></tr></thead><tbody>
+      ${list.map((a, i) => `<tr><td class="num">${i + 1}</td><td><button type="button" class="linkish ka-nm" data-open="${h(a.app_id)}">${h(heName(a))}</button></td>
+        <td><span class="ka-ph ka-${PH(a)[1]}">${h(PH(a)[0])}</span></td><td class="small">${h(a.note || '')}</td></tr>`).join('')}
+    </tbody></table></div>` : '<p class="ms-note">אין אפליקציות כאן.</p>'}`;
   X.$$('[data-f]', box).forEach((b) => { b.onclick = () => { K.filter = b.dataset.f; renderKollelReg(box); }; });
   const qi = X.$('#ka-q', box); qi.oninput = () => { K.q = qi.value; clearTimeout(K.t); K.t = setTimeout(() => { renderKollelReg(box); const x = X.$('#ka-q', box); x.focus(); x.setSelectionRange(x.value.length, x.value.length); }, 300); };
   X.$('#ka-rl', box).onclick = async () => { K.apps = null; renderKollelReg(box); };

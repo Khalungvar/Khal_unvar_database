@@ -3686,3 +3686,89 @@ const KA_ACTIONS = {
 };
 Object.keys(KA_ACTIONS).forEach(function (k) { ACTIONS[k] = KA_ACTIONS[k]; });
 PPL_ACTS.kaApprove = 1; NAMES_ACTS.kaApprove = 1;
+
+// =====================================================================================
+// 🕍 מרכז הכוללים — כוללים: לכל כולל — האברכים, השתתפות חודשית (V לכל יום), מלגות, צ'קים של תמיכה.
+// =====================================================================================
+TABS.Kollelim = ['kollel_id', 'name', 'location', 'stip_day', 'stip_month', 'active', 'note', 'updated_at', 'updated_by'];
+TABS.KollelMembers = ['kollel_id', 'contact_id', 'start_date', 'end_date', 'note', 'updated_at', 'updated_by'];
+TABS.KollelAtt = ['kollel_id', 'month', 'contact_id', 'marks', 'paid', 'note', 'updated_at', 'updated_by'];
+TABS.KollelChecks = ['check_id', 'kollel_id', 'date', 'payer', 'amount', 'check_no', 'for_month', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'];
+PERMS.push('kollelim');
+READS.klGet = 1;
+function klTab(M, name) { return ensureTab(M.book, name, TABS[name]); }
+const KL_ACTIONS = {
+  /** הכל לכולל (או רשימת הכוללים): { kollel_id?, month? } */
+  klGet: function (M, me, req) {
+    need(me, 'kollelim');
+    const ks = objs(klTab(M, 'Kollelim')).filter(function (k) { return S(k.kollel_id); }).map(function (k) { const o = {}; TABS.Kollelim.forEach(function (h) { o[h] = S(k[h]); }); return o; });
+    const mem = objs(klTab(M, 'KollelMembers')).filter(function (m) { return S(m.kollel_id); }).map(function (m) { return { kollel_id: S(m.kollel_id), contact_id: S(m.contact_id), start_date: S(m.start_date), end_date: S(m.end_date), note: S(m.note) }; });
+    const out2 = { kollelim: ks, members: mem };
+    const kid = S(req.kollel_id);
+    if (kid) {
+      const mon = S(req.month);
+      out2.att = objs(klTab(M, 'KollelAtt')).filter(function (r) { return S(r.kollel_id) === kid && (!mon || S(r.month) === mon); })
+        .map(function (r) { return { month: S(r.month), contact_id: S(r.contact_id), marks: S(r.marks), paid: S(r.paid), note: S(r.note) }; });
+      out2.checks = objs(klTab(M, 'KollelChecks')).filter(function (r) { return S(r.kollel_id) === kid; })
+        .map(function (r) { const o = {}; TABS.KollelChecks.forEach(function (h) { o[h] = S(r[h]); }); return o; });
+    }
+    return out2;
+  },
+  klSave: function (M, me, req) {
+    need(me, 'kollelim');
+    const k = req.kollel || {};
+    const sh = klTab(M, 'Kollelim');
+    const rowsK = objs(sh);
+    const o = { name: S(k.name).slice(0, 120), location: S(k.location).slice(0, 120), stip_day: Number(k.stip_day) || 0, stip_month: Number(k.stip_month) || 0,
+      active: k.active === false ? 'FALSE' : 'TRUE', note: S(k.note).slice(0, 500), updated_at: now(), updated_by: me.email };
+    if (!o.name) throw new Error('need-text');
+    const ex = rowsK.filter(function (x) { return S(x.kollel_id) === S(k.kollel_id); })[0];
+    if (ex) setCells(sh, ex._row, o);
+    else { let mx = 0; rowsK.forEach(function (x) { const v = Number(x.kollel_id); if (v > mx) mx = v; }); o.kollel_id = mx + 1; appendObj(sh, o); }
+    logIt(M, me, 'kollel-save', '', o.name);
+    return { ok: true };
+  },
+  klMember: function (M, me, req) {
+    need(me, 'kollelim');
+    const sh = klTab(M, 'KollelMembers');
+    const kid = S(req.kollel_id), cid = S(req.contact_id);
+    if (!kid || !cid) throw new Error('need-text');
+    const ex = objs(sh).filter(function (x) { return S(x.kollel_id) === kid && S(x.contact_id) === cid && !S(x.end_date); })[0];
+    if (req.remove) { if (ex) setCells(sh, ex._row, { end_date: Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd'), updated_at: now(), updated_by: me.email }); }
+    else if (!ex) appendObj(sh, { kollel_id: kid, contact_id: cid, start_date: S(req.start_date) || Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd'), note: S(req.note).slice(0, 300), updated_at: now(), updated_by: me.email });
+    logIt(M, me, 'kollel-member', cid, kid + (req.remove ? ' remove' : ' add'));
+    return { ok: true };
+  },
+  /** השתתפות לחודש: { kollel_id, month, rows: [{contact_id, marks, paid}] } */
+  klAtt: function (M, me, req) {
+    need(me, 'kollelim');
+    const sh = klTab(M, 'KollelAtt');
+    const kid = S(req.kollel_id), mon = S(req.month);
+    if (!kid || !/^\d{4}-\d{2}$/.test(mon)) throw new Error('bad-month');
+    const all = objs(sh);
+    (req.rows || []).forEach(function (r) {
+      const cid = S(r.contact_id); if (!cid) return;
+      const o = { marks: S(r.marks).slice(0, 2000), updated_at: now(), updated_by: me.email };
+      if ('paid' in r) o.paid = S(r.paid).slice(0, 60);
+      const ex = all.filter(function (x) { return S(x.kollel_id) === kid && S(x.month) === mon && S(x.contact_id) === cid; })[0];
+      if (ex) setCells(sh, ex._row, o); else appendObj(sh, Object.assign({ kollel_id: kid, month: mon, contact_id: cid }, o));
+    });
+    return { ok: true };
+  },
+  /** צ'ק של תמיכה: { check, remove } */
+  klCheck: function (M, me, req) {
+    need(me, 'kollelim');
+    const sh = klTab(M, 'KollelChecks');
+    const c = req.check || {};
+    const all = objs(sh);
+    const ex = all.filter(function (x) { return S(x.check_id) && S(x.check_id) === S(c.check_id); })[0];
+    if (req.remove) { if (ex) sh.deleteRow(ex._row); logIt(M, me, 'kollel-check-del', '', S(c.check_id)); return { ok: true }; }
+    const o = { kollel_id: S(c.kollel_id), date: S(c.date), payer: S(c.payer).slice(0, 120), amount: Number(c.amount) || 0, check_no: S(c.check_no).slice(0, 40),
+      for_month: S(c.for_month).slice(0, 20), note: S(c.note).slice(0, 500), updated_at: now(), updated_by: me.email };
+    if (ex) setCells(sh, ex._row, o);
+    else { let mx = 0; all.forEach(function (x) { const v = Number(x.check_id); if (v > mx) mx = v; }); o.check_id = mx + 1; o.created_at = now(); o.created_by = me.email; appendObj(sh, o); }
+    logIt(M, me, 'kollel-check', '', o.kollel_id + ' ' + o.amount);
+    return { ok: true };
+  },
+};
+Object.keys(KL_ACTIONS).forEach(function (k) { ACTIONS[k] = KL_ACTIONS[k]; });
