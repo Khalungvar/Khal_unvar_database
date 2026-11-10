@@ -383,3 +383,44 @@ tr.bd-day td { border-top: 2px solid #e3dccb; }
   .bd-sum > div { background: #2a2420; border-color: #4a3c34; } .bd-sum > div span { color: #c9b89a; }
   .da-table tr.da-room th { background: #2f2822; }
 }
+/* ---------- 🕍 מרכז הכוללים: טופס הרשמה ---------- */
+.kr-lh { display: flex; flex-direction: column; align-items: center; font-family: 'Frank Ruhl Libre', serif; color: #7a2020; direction: rtl; }
+.kr-lh b { font-size: 1.7em; line-height: 1.1; } .kr-lh span { font-size: 1em; }
+.kr-login { max-width: 460px; margin: 0 auto 14px; }
+.kr-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 0; }
+.kr-sp { flex: 1; }
+.kr-st { padding: 3px 12px; border-radius: 12px; font-weight: 700; font-size: .85em; background: #ddd; }
+.kr-submitted, .kr-updated { background: #d9ebfa; color: #154f80; } .kr-approved { background: #d7eed9; color: #1e5b26; } .kr-rejected { background: #f7dcd9; color: #8a2318; } .kr-draft { background: #eee6d2; color: #6b5a2e; }
+.rf-prog li[data-step] { cursor: pointer; }
+.kr-h3 { color: #7a2020; margin: 14px 0 6px; font-size: 1.05em; border-bottom: 1px solid #efe5cf; padding-bottom: 3px; }
+.kr-mar { display: flex; flex-wrap: wrap; gap: 8px; }
+.kr-pill { border: 1px solid #cdbf9e; border-radius: 18px; padding: 5px 14px; background: #fff; cursor: pointer; }
+.kr-pill:has(input:checked) { background: #7a2020; color: #fff; border-color: #7a2020; }
+.kr-files { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.kr-file { background: #f4efe2; border-radius: 8px; padding: 3px 10px; font-size: .9em; }
+.kr-upbtn { cursor: pointer; } .kr-upbtn.busy { opacity: .5; pointer-events: none; }
+.kr-aibox { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; padding: 12px; background: #fff8e6; border-radius: 10px; }
+.kr-filled input, .kr-filled select { background: #fffbe8; border-color: #e0b84a; }
+.kr-ai { color: #9a6a00; font-size: .78em; font-weight: 400; }
+.kr-sig { border: 1px solid #e3d3ad; border-radius: 10px; padding: 10px; margin-bottom: 12px; }
+.kr-sigmode { display: flex; gap: 16px; margin: 6px 0; font-weight: 400; }
+.kr-pad { width: 100%; max-width: 520px; height: 150px; border: 1px dashed #b9a87e; border-radius: 8px; background: #fff; display: block; }
+.kr-typed { font: italic 1.6em 'Brush Script MT', 'Segoe Script', cursive; width: 100%; max-width: 520px; padding: 6px 10px; border: 1px solid #cdbf9e; border-radius: 8px; }
+.kr-done { text-align: center; } .kr-done h2 { font-size: 2.4em; color: #1e7d3a; }
+.kr-toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #233; color: #fff; padding: 10px 18px; border-radius: 10px; z-index: 99; max-width: 92vw; }
+.kr-toast.bad { background: #8a2318; }
+/* 📥 מסך הגבאי */
+.ka-list td { vertical-align: middle; }
+.ka-dlg { width: min(1100px, 96vw); }
+.ka-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 14px; }
+.ka-sec h4 { margin: 12px 0 4px; color: #7a2020; }
+.ka-row { display: grid; grid-template-columns: 210px 1fr auto; gap: 8px; align-items: center; border-bottom: 1px solid #eee; padding: 3px 0; }
+.ka-row span { color: #666; font-size: .9em; } .ka-row b { font-weight: 600; word-break: break-word; }
+.ka-row.ai b::after { content: ' ✨'; font-size: .8em; }
+.ka-row input, .ka-row select, .ka-row textarea { font: inherit; padding: 4px 6px; width: 100%; }
+.ka-docs { display: flex; flex-direction: column; gap: 8px; }
+.ka-doc { border: 1px solid #e3d3ad; border-radius: 8px; padding: 6px 8px; }
+.ka-doc img { max-width: 100%; max-height: 260px; display: block; margin-top: 4px; cursor: zoom-in; border-radius: 6px; }
+.ka-zoom { position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 9999; display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
+.ka-zoom img { max-width: 96vw; max-height: 96vh; }
+@media (max-width: 860px) { .ka-grid { grid-template-columns: 1fr; } .ka-row { grid-template-columns: 1fr auto; } .ka-row span { grid-column: 1 / -1; } }

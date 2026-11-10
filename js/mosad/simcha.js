@@ -1,8 +1,8 @@
 // 🎉 עדכון שמחות: שמחה של בחור / איש צוות → (1) נכנסת לרשימת השמחות של אונגוואר (מערכת האם, לשונית Simchos)
 // (2) דף "מזל טוב" מעוצב על הבלאנק של המוסד — מוכן להדפסה / PDF.
-import { letterhead } from './brand.js?v=651';
-import { todayIso, isoToHebrewText } from '../hebdate.js?v=651';
-import { shabbatTitle } from '../parasha.js?v=651';
+import { letterhead } from './brand.js?v=653';
+import { todayIso, isoToHebrewText } from '../hebdate.js?v=653';
+import { shabbatTitle } from '../parasha.js?v=653';
 
 let X = null;
 export function initSimcha(ctx) { X = ctx; }

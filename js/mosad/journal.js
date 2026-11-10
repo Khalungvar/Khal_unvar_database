@@ -1,13 +1,13 @@
 // אתר פון א מוסד — יומנים: 🤝 חברותות, ✅ השתתפות (מיט ⏱ כניסה/יציאה פון אברכים), 🏥 ביטוח בריאות, 📞 יומן מיט טעלעפאנען.
 // אלעס ווערט געדרוקט ווי די דפים פון דער ישיבה: צוויי זיילן מיט נומערירטע נעמען, "פרשת ...", טעג א–ה.
 // דער לוח (פרשיות) — לויט די הגדרות פונעם מוסד (ארץ ישראל / חוץ לארץ).
-import { downloadXlsx } from '../excel.js?v=651';
-import { colFilters } from '../sorttables.js?v=651';
-import { todayIso, isoToHebrewText, toHebrew, fromHebrew, monthHe, yearLabel } from '../hebdate.js?v=651';
-import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=651';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=651';
-import { letterhead, heShort } from './brand.js?v=651';
-import { dayInfo, rulesOf } from './hdays.js?v=651';
+import { downloadXlsx } from '../excel.js?v=653';
+import { colFilters } from '../sorttables.js?v=653';
+import { todayIso, isoToHebrewText, toHebrew, fromHebrew, monthHe, yearLabel } from '../hebdate.js?v=653';
+import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=653';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=653';
+import { letterhead, heShort } from './brand.js?v=653';
+import { dayInfo, rulesOf } from './hdays.js?v=653';
 
 let X = null;
 export function initJournal(ctx) { X = ctx; }
