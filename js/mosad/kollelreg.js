@@ -1,7 +1,7 @@
 // 🕍 מרכז הכוללים אונגוואר — טופס הרשמה (ungvar.org/kollel/register). English / אידיש.
 //    כניסה עם אימייל + קוד (בלי גוגל) · טיוטה נשמרת · מסמכים → 🤖 Gemini ממלא את השדות · חתימה (ציור או הקלדה).
 import { CONFIG } from '../config.js?v=653';
-import { SECTIONS, docsList, MARITAL, YESNO, printHtml } from './kollelfields.js?v=657';
+import { SECTIONS, MARITAL, YESNO, printHtml, kindLabel, reqOf, kindState, fieldFor, ALL_KINDS } from './kollelfields.js?v=659';
 
 const MOSAD = 'kollel';
 const $ = (s, r = document) => r.querySelector(s);
@@ -16,6 +16,10 @@ const UI = {
     codeMismatch: 'The two codes are not the same.', inHint: 'Use the email and code you chose when you started. Forgot your code? Call the office.', upHint: 'Remember your code — you will need it to come back and continue or edit your form.',
     blankBtn: '⬇ Blank form to print (PDF)', blankHint: 'Prefer paper? Print the form, fill it in by hand and bring it to the office with copies of the documents. In the print window you can also choose "Save as PDF".',
     loginHint: 'New? Choose a code and press "Start a new form". Next time, use the same email and code to continue or edit your form. Forgot your code? Call the office.',
+    startT: 'Step 1 — open your form', startHint: 'Choose your marital status and upload the ID and Social Security cards below. As soon as they are approved, your form opens.',
+    needT: 'Documents we need', dropAll: 'Drag all your documents here — or click to choose', dropHint: 'Photos from your phone or PDFs. You can drop many files at once; we sort them automatically.',
+    pending: 'Waiting to be checked', recheck: 'Check again', notRec: 'Not recognized', changeType: 'This is:', openBtn: 'Continue to the form →', openWait: 'Opening your form and filling in your details… (up to a minute)',
+    gateMissing: 'Still needed to open the form:', stillMissing: 'Still missing:', allDone: 'All documents received ✓', unmarriedTax: '(yours or a parent\'s)',
     steps: ['Documents', 'Details', 'Parents & Education', 'Signature'], save: 'Save', saved: 'Saved ✓', next: 'Next →', back: '← Back', logout: 'Sign out',
     maritalQ: 'Marital status', docsT: 'Required documents', docsHint: 'Upload a clear photo (from your phone) or a PDF. Front and back are fine as 2 files.',
     up: '+ Upload', del: 'Remove', drop: 'Drag files here, or click to choose', checking: 'Checking the document…', okDoc: 'Looks good',
@@ -25,11 +29,11 @@ const UI = {
     sigT: 'Signature', sigSelf: 'Applicant\'s legal signature', sigWife: 'Spouse\'s legal signature', draw: 'Draw', type: 'Type my full name', clear: 'Clear', sigDate: 'Date',
     confirm: 'I confirm that the information in this form is true and correct.', submit: 'Submit the form', resubmit: 'Save changes',
     sent: 'Your form was received. Thank you! You can come back any time with your email and code to update it.',
-    st: { draft: 'Draft — not sent yet', submitted: 'Received ✓', updated: 'Updated ✓', approved: 'Approved ✓', rejected: 'Please contact the office' },
+    st: { draft: 'Not opened yet', open: 'In progress — not sent yet', submitted: 'Received ✓', updated: 'Updated ✓', approved: 'Approved ✓', rejected: 'Please contact the office' },
     err: { 'ka-bad': 'Wrong code.', 'ka-none': 'There is no form with this email yet — you can create one here.', 'ka-exists': 'A form with this email already exists — sign in here with your code.',
       'ka-locked': 'Too many attempts. Try again in 15 minutes.', 'ka-short-code': 'The code must be at least 6 characters.', 'ka-bad-email': 'Invalid email address.',
       'ka-login': 'Please sign in again.', 'file-big': 'The file is too large.', 'bad-file': 'Only a photo or a PDF.', 'too-many': 'Too many attempts — try later.',
-      'ai-off': 'Automatic reading is not available right now.', 'ai-no-docs': 'Upload the ID / SS card / certificates first.', 'missing-sig': 'Please sign the form.' },
+      'ai-off': 'Automatic reading is not available right now.', 'ai-no-docs': 'Upload the ID / SS card / certificates first.', 'missing-sig': 'Please sign the form.', 'ai-busy': 'The checking service is busy — please press "Check again" in a minute.', 'ka-not-open': 'Please finish step 1 first.' },
     missing: 'Please fill in:', missingDocs: 'Missing documents:', yes: 'Yes', no: 'No', choose: '—' },
   yi: { dir: 'rtl', title: 'טופס הרשמה פאר׳ן כולל', sub: 'מרכז הכוללים · קהל אונגוואר',
     login: 'אריינגיין', email: 'אימעיל אדרעס', code: 'דיין קאוד (כאטש 6 אותיות/ציפערן)', newForm: 'אנהייבן א נייע פארעם', cont: 'ווייטער מיין פארעם',
@@ -37,6 +41,10 @@ const UI = {
     codeMismatch: 'די צוויי קאודס זענען נישט די זעלבע.', inHint: 'נוץ די אימעיל און קאוד וואס דו האסט אויסגעקליבן. פארגעסן דעם קאוד? רוף דעם אפיס.', upHint: 'געדענק דעם קאוד — דו וועסט עס דארפן צו צוריקקומען און ווייטער פירן אדער טוישן.',
     blankBtn: '⬇ א ליידיגע פארעם צום דרוקן (PDF)', blankHint: 'וועלסט אויספילן אויף פאפיר? דרוק אויס די פארעם, פיל אויס מיט די האנט און ברענג עס צום אפיס מיט קאפיעס פון די דאקומענטן. אינעם דרוק-פענצטער קען מען אויך אויסקלייבן "Save as PDF".',
     loginHint: 'נייע? קלייב אויס א קאוד און דריק "אנהייבן א נייע פארעם". דאס קומענדיגע מאל, מיט די זעלבע אימעיל און קאוד קענסטו ווייטער פירן אדער טוישן. פארגעסן דעם קאוד? רוף דעם אפיס.',
+    startT: 'טייל 1 — עפענען די פארעם', startHint: 'קלייב אויס דעם סטאטוס און לייג ארויף די ID און סאשעל סעקיוריטי קארטלעך. ווי נאר זיי ווערן באשטעטיגט, עפנט זיך די פארעם.',
+    needT: 'וואס מיר דארפן', dropAll: 'שלעפ אהער אלע דאקומענטן — אדער דריק צו אויסקלייבן', dropHint: 'בילדער פונעם טעלעפאן אדער PDF. מען קען אריינלייגן אסאך טעקעס אויף איינמאל; מיר סארטירן זיי אליין.',
+    pending: 'ווארט אויף א קאנטראל', recheck: 'נאכאמאל קאנטראלירן', notRec: 'נישט דערקענט', changeType: 'דאס איז:', openBtn: 'ווייטער צו די פארעם ←', openWait: 'מען עפנט די פארעם און מען פילט אויס די פרטים… (ביז א מינוט)',
+    gateMissing: 'עס פעלט נאך צו עפענען די פארעם:', stillMissing: 'עס פעלט נאך:', allDone: 'אלע דאקומענטן באקומען ✓', unmarriedTax: '(דיינע אדער פון א טאטע/מאמע)',
     steps: ['דאקומענטן', 'פרטים', 'עלטערן און ישיבות', 'אונטערשריפט'], save: 'אפהיטן', saved: 'אפגעהיטן ✓', next: 'ווייטער ←', back: '→ צוריק', logout: 'ארויסגיין',
     maritalQ: 'סטאטוס', docsT: 'נויטיגע דאקומענטן', docsHint: 'לייג ארויף א קלארע בילד (פונעם טעלעפאן) אדער א PDF. פאראויס און הינטן — מעג זיין 2 טעקעס.',
     up: '+ ארויפלייגן', del: 'אראפנעמען', drop: 'שלעפ אהער די טעקעס, אדער דריק צו אויסקלייבן', checking: 'מען קוקט איבער דעם דאקומענט…', okDoc: 'זעט אויס גוט',
@@ -46,11 +54,11 @@ const UI = {
     sigT: 'אונטערשריפט', sigSelf: 'דיין אונטערשריפט', sigWife: 'די ווייב׳ס אונטערשריפט', draw: 'צייכענען', type: 'שרייבן דעם פולן נאמען', clear: 'אויסמעקן', sigDate: 'דאטום',
     confirm: 'איך באשטעטיג אז די אינפארמאציע אין די פארעם איז ריכטיג.', submit: 'אריינשיקן', resubmit: 'אפהיטן די ענדערונגען',
     sent: 'מיר האבן באקומען די פארעם. א דאנק! דו קענסט צוריקקומען ווען דו ווילסט מיט די אימעיל און קאוד צו טוישן.',
-    st: { draft: 'נאך נישט אריינגעשיקט', submitted: 'באקומען ✓', updated: 'דערהיינטיגט ✓', approved: 'באשטעטיגט ✓', rejected: 'ביטע פארבינד זיך מיט׳ן אפיס' },
+    st: { draft: 'נאך נישט געעפנט', open: 'אין מיטן — נאך נישט אריינגעשיקט', submitted: 'באקומען ✓', updated: 'דערהיינטיגט ✓', approved: 'באשטעטיגט ✓', rejected: 'ביטע פארבינד זיך מיט׳ן אפיס' },
     err: { 'ka-bad': 'אומריכטיגער קאוד.', 'ka-none': 'ס׳איז נאך נישטא קיין פארעם מיט די אימעיל — דא קענסטו עפענען א נייע.', 'ka-exists': 'ס׳איז שוין דא א פארעם מיט די אימעיל — גיי דא אריין מיט דיין קאוד.',
       'ka-locked': 'צופיל פרואוון. פרוביר נאכאמאל אין 15 מינוט.', 'ka-short-code': 'דער קאוד דארף זיין כאטש 6 אותיות.', 'ka-bad-email': 'אומריכטיגע אימעיל.',
       'ka-login': 'ביטע גיי נאכאמאל אריין.', 'file-big': 'די טעקע איז צו גרויס.', 'bad-file': 'נאר א בילד אדער PDF.', 'too-many': 'צופיל פרואוון — פרוביר שפעטער.',
-      'ai-off': 'אויטאמאטיש לייענען ארבעט יעצט נישט.', 'ai-no-docs': 'לייג קודם ארויף די ID / SS קארטל / סערטיפיקאטן.', 'missing-sig': 'ביטע אונטערשרייב די פארעם.' },
+      'ai-off': 'אויטאמאטיש לייענען ארבעט יעצט נישט.', 'ai-no-docs': 'לייג קודם ארויף די ID / SS קארטל / סערטיפיקאטן.', 'missing-sig': 'ביטע אונטערשרייב די פארעם.', 'ai-busy': 'דער קאנטראל איז יעצט פארנומען — ביטע דריק "נאכאמאל קאנטראלירן" אין א מינוט.', 'ka-not-open': 'ביטע ענדיג קודם טייל 1.' },
     missing: 'ביטע פיל אויס:', missingDocs: 'עס פעלן דאקומענטן:', yes: 'יא', no: 'ניין', choose: '—' },
 };
 const S = { auto: true, lang: 'en', ks: '', app: null, step: 0, data: {}, aiKeys: new Set(), dirty: false, busy: false, sig: { self: 'draw', wife: 'draw' }, ok: false };
@@ -58,7 +66,7 @@ const U = () => UI[S.lang];
 const L = (en, yi) => (S.lang === 'yi' ? yi : en);
 const errText = (e) => { const c = String(e?.code || e?.message || e); if (c.startsWith('missing:')) return `${U().missing} ${c.slice(8).split(',').map((k) => fieldLabel(k)).join(', ')}`; if (c.startsWith('missing-docs:')) return `${U().missingDocs} ${c.slice(13).split(',').map((k) => docLabel(k)).join(', ')}`; return U().err[c] || c; };
 const fieldLabel = (k) => { for (const s of SECTIONS) { const f = s.fields.find((x) => x[0] === k); if (f) return L(f[1], f[2]); } return k; };
-const docLabel = (k) => { const d = docsList(S.app?.taxYears).find((x) => x.k === k); return d ? L(d.en, d.yi) : k; };
+const docLabel = (k) => kindLabel(k, S.app?.taxYears, S.lang);
 
 async function pub(action, body = {}) {
   const r = await fetch(CONFIG.MOSAD_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...body, action, mosad: MOSAD }) });
@@ -124,7 +132,7 @@ function renderLogin(msg = '', mode = S.lmode || '', email = '') {
       try {
         const r = await pub('kaAuth', { email: em, code: f.code.value, create: up, lang: S.lang });
         S.ks = r.ks; S.lmode = ''; try { sessionStorage.setItem(SK, r.ks); } catch { /* */ }
-        setApp(r.app); S.step = r.app.status === 'draft' ? 0 : 1; render();
+        setApp(r.app); S.step = 0; render();
       } catch (e) {
         const c = String(e?.code || e?.message);
         if (c === 'ka-none') renderLogin(errText(e), 'up', em);
@@ -143,42 +151,64 @@ function renderLogin(msg = '', mode = S.lmode || '', email = '') {
 function setApp(app) { S.app = app; S.data = { ...(app.data || {}) }; if (!S.data.marital) S.data.marital = 'married'; if (!S.data.sig_date) S.data.sig_date = new Date().toISOString().slice(0, 10); }
 
 // ---------- שדות ----------
+const opened = () => (S.app?.status || 'draft') !== 'draft';
 function input(f) {
   const [k, en, yi, type, o] = f;
   const v = S.data[k] ?? '';
   const lab = `${h(L(en, yi))}${o.req || (o.m && married() && ['wife_first', 'wife_last', 'wife_ssn', 'wedding_date'].includes(k)) ? ' *' : ''}`;
   const flag = S.aiKeys.has(k) ? `<span class="kr-ai">✨ ${h(U().aiFlag)}</span>` : '';
+  const dis = o.lock && opened() ? ' disabled' : '';
   let el;
-  if (type === 'select') el = `<select name="${k}"><option value="">${U().choose}</option>${o.opts.map(([val, e, y]) => `<option value="${val}"${v === val ? ' selected' : ''}>${h(L(e, y))}</option>`).join('')}</select>`;
+  if (type === 'select') el = `<select name="${k}"${dis}><option value="">${U().choose}</option>${o.opts.map(([val, e, y]) => `<option value="${val}"${v === val ? ' selected' : ''}>${h(L(e, y))}</option>`).join('')}</select>`;
   else if (type === 'yesno') el = `<span class="rf-yn">${YESNO.map(([val, e, y]) => `<label><input type="radio" name="${k}" value="${val}"${v === val ? ' checked' : ''}> ${h(L(e, y))}</label>`).join('')}</span>`;
   else if (type === 'area') el = `<textarea name="${k}" rows="3">${h(v)}</textarea>`;
   else el = `<input name="${k}" type="${type === 'date' ? 'date' : type === 'num' ? 'number' : type === 'tel' ? 'tel' : 'text'}" value="${h(v)}"${type === 'ssn' ? ' inputmode="numeric" placeholder="###-##-####" dir="ltr"' : ''}${type === 'tel' ? ' dir="ltr"' : ''}${o.rtl ? ' dir="rtl"' : ''}>`;
   return `<label class="rf-f${o.wide || type === 'area' || type === 'yesno' ? ' rf-wide' : ''}${S.aiKeys.has(k) ? ' kr-filled' : ''}">${lab}${el}${flag}</label>`;
 }
-const sec = (id) => { const s = SECTIONS.find((x) => x.id === id); const fs = s.fields.filter((f) => (married() || !f[4].m) && !f[4].print); return `<h3 class="kr-h3">${h(L(s.en, s.yi))}</h3><div class="rf-grid">${fs.map(input).join('')}</div>`; };
+const sec = (id) => { const s = SECTIONS.find((x) => x.id === id); const fs = s.fields.filter((f) => fieldFor(f, S.data.marital) && !f[4].print); return `<h3 class="kr-h3">${h(L(s.en, s.yi))}</h3><div class="rf-grid">${fs.map(input).join('')}</div>`; };
 function readStep() {
   const box = $('#kr-step'); if (!box) return;
   $$('input[name], select[name], textarea[name]', box).forEach((el) => {
-    if (el.type === 'radio') { if (el.checked) S.data[el.name] = el.value; return; }
-    if (el.type === 'checkbox' || el.type === 'password' || el.type === 'file') return;
+    if (el.disabled) return;
+    if (el.type === 'radio') { if (el.checked && el.name !== 'kr-kind') S.data[el.name] = el.value; return; }
+    if (el.type === 'checkbox' || el.type === 'password' || el.type === 'file' || el.dataset.kind !== undefined) return;
     let v = el.value;
     if (el.closest('.rf-f') && SECTIONS.some((s) => s.fields.some((f) => f[0] === el.name && f[3] === 'ssn'))) { const d = v.replace(/\D/g, ''); if (d.length === 9) v = `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`; }
     if (S.data[el.name] !== v) { S.data[el.name] = v; S.dirty = true; }
   });
 }
 
-// ---------- השלבים ----------
-function stepDocs() {
-  const u = U();
-  const docs = docsList(S.app.taxYears).filter((d) => married() || !d.m);
-  const files = S.app.files || {};
-  return `<section class="rf-card"><h2>${h(u.maritalQ)}</h2>
+// ---------- מסמכים: רשימה למעלה + מקום אחד להעלאה + הקבצים (ה-AI ממיין) ----------
+const ICON = { ok: '✅', bad: '⚠️', pending: '⏳', 'pending?': '⏳', '': '⬜' };
+function checklist(kinds) {
+  const f = S.app.files || {};
+  return `<ul class="kr-need">${kinds.map((k) => { const st = kindState(f, k); return `<li class="st-${st.replace('?', '') || 'none'}"><span>${ICON[st]}</span> ${h(docLabel(k))}${S.data.marital === 'unmarried' && k.startsWith('tax') ? ` <small>${h(U().unmarriedTax)}</small>` : ''}</li>`; }).join('')}</ul>`;
+}
+function fileList() {
+  const u = U(); const pool = S.app.files?.pool || [];
+  const r = reqOf(S.data.marital); const opts = [...new Set([...r.gate, ...r.rest, ...ALL_KINDS])];
+  return pool.length ? `<div class="kr-pool">${pool.map((x, i) => { const st = x.check?.status || 'pending';
+    return `<div class="kr-pf st-${st}"><div class="kr-pf-h"><span>${ICON[st]} 📄 ${h(x.name)}</span>
+        <span class="kr-pf-k">${(x.kinds || []).length ? x.kinds.map((k) => h(docLabel(k))).join(' + ') : `<i>${h(st === 'pending' ? u.pending : u.notRec)}</i>`}</span>
+        <button type="button" class="linkish" data-del="${i}">${h(u.del)}</button></div>
+      ${st === 'bad' && (x.check?.en || x.check?.yi) ? `<div class="kr-pf-m">${h(L(x.check.en, x.check.yi || x.check.en))}</div>` : ''}
+      ${st !== 'ok' ? `<div class="kr-pf-a">${st === 'pending' ? `<button type="button" class="btn small-btn" data-re="${i}">${h(u.recheck)}</button>` : ''}
+        <label>${h(u.changeType)} <select data-kind="${i}"><option value="">—</option>${opts.map((k) => `<option value="${k}"${(x.kinds || [])[0] === k ? ' selected' : ''}>${h(docLabel(k))}</option>`).join('')}</select></label></div>` : ''}</div>`; }).join('')}</div>` : '';
+}
+const dropZone = () => `<label class="kr-big-drop" data-drop>⬆ <b>${h(U().dropAll)}</b><small>${h(U().dropHint)}</small><input type="file" accept="image/*,application/pdf" multiple data-up hidden></label>`;
+function stepStart() {
+  const u = U(); const r = reqOf(S.data.marital);
+  const miss = r.gate.filter((k) => kindState(S.app.files, k) !== 'ok');
+  return `<section class="rf-card"><h2>${h(u.startT)}</h2><p class="rf-hint">${h(u.startHint)}</p>
       <div class="kr-mar">${MARITAL.map(([v, e, y]) => `<label class="kr-pill"><input type="radio" name="marital" value="${v}"${S.data.marital === v ? ' checked' : ''}> ${h(L(e, y))}</label>`).join('')}</div></section>
-    <section class="rf-card"><h2>${h(u.docsT)}</h2><p class="rf-hint">${h(u.docsHint)}</p>
-      ${docs.map((d) => `<div class="rf-doc kr-drop" data-drop="${d.k}"><div><b>${h(L(d.en, d.yi))}</b> *</div>
-        <div class="kr-files">${(files[d.k] || []).map((x, i) => `<span class="kr-file${x.check ? (x.check.ok ? ' ok' : ' bad') : ''}">📄 ${h(x.name)} <button type="button" class="linkish" data-del="${d.k}:${i}">${h(u.del)}</button>
-          ${x.check ? `<small>${x.check.ok ? `✓ ${h(u.okDoc)}` : `⚠ ${h(L(x.check.en, x.check.yi || x.check.en))}`}</small>` : ''}</span>`).join('')}
-        <label class="kr-zone">⬆ ${h(u.drop)}<input type="file" accept="image/*,application/pdf" multiple data-up="${d.k}" hidden></label></div></div>`).join('')}
+    <section class="rf-card"><h3 class="kr-h3">${h(u.needT)}</h3>${checklist(r.gate)}${dropZone()}${fileList()}
+      <p class="kr-miss">${miss.length ? `${h(u.gateMissing)} ${miss.map((k) => h(docLabel(k))).join(', ')}` : ''}</p></section>`;
+}
+function stepDocs() {
+  const u = U(); const r = reqOf(S.data.marital);
+  const miss = [...r.gate, ...r.rest].filter((k) => kindState(S.app.files, k) !== 'ok');
+  return `<section class="rf-card"><h3 class="kr-h3">${h(u.needT)}</h3>${checklist([...r.gate, ...r.rest])}${dropZone()}${fileList()}
+      <p class="kr-miss">${miss.length ? `${h(u.stillMissing)} ${miss.map((k) => h(docLabel(k))).join(', ')}` : `<span class="rf-par">${h(u.allDone)}</span>`}</p>
       <div class="kr-aibox"><label class="kr-switch"><input type="checkbox" id="kr-auto"${S.auto ? ' checked' : ''}><span></span></label><div><b>${h(u.auto)}</b><div class="rf-hint">${h(u.autoHint)}</div></div><span class="rf-hint" id="kr-aimsg"></span></div></section>`;
 }
 function stepDetails() { return `<section class="rf-card">${sec('personal')}${sec('marital')}</section>`; }
@@ -199,13 +229,20 @@ function render() {
   if (!S.ks || !S.app) { renderLogin(); return; }
   const u = U();
   const st = S.app.status || 'draft';
+  if (st === 'draft') {
+    const ready = reqOf(S.data.marital).gate.every((k) => kindState(S.app.files, k) === 'ok');
+    frame(`<div class="kr-bar"><span class="kr-st kr-${st}">${h(u.st[st] || st)}</span><span class="rf-hint" dir="ltr">${h(S.app.email)}</span><span class="kr-sp"></span><button type="button" class="linkish" id="kr-out">${h(u.logout)}</button></div>
+      <div id="kr-step">${stepStart()}</div><p class="rf-err" id="kr-err"></p>
+      <div class="rf-nav"><span></span><button type="button" class="btn primary" id="kr-open"${ready ? '' : ' disabled'}>${h(u.openBtn)}</button></div>`);
+    wire(); return;
+  }
   const body = [stepDocs, stepDetails, stepFamily, stepSign][S.step]();
   frame(`<div class="kr-bar"><span class="kr-st kr-${st}">${h(u.st[st] || st)}</span><span class="rf-hint" dir="ltr">${h(S.app.email)}</span><span class="kr-sp"></span>
       <button type="button" class="btn small-btn" id="kr-save">${h(u.save)}</button><button type="button" class="linkish" id="kr-out">${h(u.logout)}</button></div>
     <ol class="rf-prog">${u.steps.map((t, i) => `<li class="${i === S.step ? 'on' : i < S.step ? 'done' : ''}" data-step="${i}">${h(t)}</li>`).join('')}</ol>
     <div id="kr-step">${body}</div><p class="rf-err" id="kr-err"></p>
     <div class="rf-nav">${S.step ? `<button type="button" class="btn" id="kr-back">${h(u.back)}</button>` : '<span></span>'}
-      ${S.step < 3 ? `<button type="button" class="btn primary" id="kr-next">${h(u.next)}</button>` : `<button type="button" class="btn primary" id="kr-submit">${h(st === 'draft' ? u.submit : u.resubmit)}</button>`}</div>`);
+      ${S.step < 3 ? `<button type="button" class="btn primary" id="kr-next">${h(u.next)}</button>` : `<button type="button" class="btn primary" id="kr-submit">${h(st === 'open' ? u.submit : u.resubmit)}</button>`}</div>`);
   wire();
 }
 async function save(quiet) {
@@ -216,22 +253,21 @@ function onErr(e) {
   if (String(e?.code || e?.message) === 'ka-login') { S.ks = ''; S.app = null; try { sessionStorage.removeItem(SK); } catch { /* */ } renderLogin(errText(e)); return; }
   const m = errText(e); const el = $('#kr-err'); if (el) el.textContent = m; toast(m, true);
 }
-const aiSig = () => JSON.stringify(['id_self', 'id_wife', 'ss_self', 'ss_wife', 'marriage', 'birth_self', 'birth_wife', 'tax1', 'tax2'].map((k) => (S.app.files?.[k] || []).map((x) => x.at)));
+/** אחרי מילוי של השומר: הנתונים החדשים, וסימון ✨ לשדות שהתמלאו */
+function takeAi(r) { const keep = { ...S.data }; setApp(r.app); (r.filled || []).forEach((k) => S.aiKeys.add(k)); Object.keys(keep).forEach((k) => { if (String(keep[k] || '').trim() && !String(S.data[k] || '').trim()) S.data[k] = keep[k]; }); }
+const aiSig = () => JSON.stringify((S.app.files?.pool || []).filter((x) => x.check?.status === 'ok').map((x) => x.at));
 async function autoFill() {
   const key = `kr-ai:${S.app.app_id}`; let last = ''; try { last = localStorage.getItem(key) || ''; } catch { /* */ }
   const sig = aiSig();
-  if (!S.auto || sig === last || sig === JSON.stringify(Array(9).fill([]))) return 0;
+  if (!S.auto || sig === last || sig === '[]') return 0;
   const m = $('#kr-aimsg'); if (m) m.textContent = U().aiBusy;
   const nb = $('#kr-next'); if (nb) { nb.disabled = true; nb.textContent = U().aiBusy; }
   try {
     await save(true);
     const r = await pub('kaAi', { ks: S.ks });
     try { localStorage.setItem(key, sig); } catch { /* */ }
-    // רק שדות ריקים — לא דורסים מה שהאברך כבר כתב
-    const keys = Object.keys(r.fields || {}).filter((k) => r.fields[k] && !String(S.data[k] || '').trim());
-    keys.forEach((k) => { S.data[k] = r.fields[k]; S.aiKeys.add(k); });
-    if (keys.length) await save(true);
-    return keys.length;
+    takeAi(r);
+    return (r.filled || []).length;
   } catch (err) { toast(errText(err), true); return 0; }
 }
 async function go(step) {
@@ -245,29 +281,43 @@ async function go(step) {
 function wire() {
   const u = U();
   $('#kr-out').onclick = () => { S.ks = ''; S.app = null; try { sessionStorage.removeItem(SK); } catch { /* */ } renderLogin(); };
-  $('#kr-save').onclick = () => save(false);
+  $('#kr-save')?.addEventListener('click', () => save(false));
   $$('[data-step]').forEach((li) => { li.onclick = () => go(Number(li.dataset.step)); });
   $('#kr-back')?.addEventListener('click', () => go(S.step - 1));
   $('#kr-next')?.addEventListener('click', () => go(S.step + 1));
-  // מצב משפחתי משנה את רשימת המסמכים
-  $$('input[name=marital]').forEach((r) => { r.onchange = () => { S.data.marital = r.value; S.dirty = true; render(); }; });
-  // העלאה / מחיקה
-  const upload = async (kind, list, zone) => {
+  // מצב משפחתי (רק בחלק 1) משנה את רשימת המסמכים
+  $$('input[name=marital]').forEach((r) => { r.onchange = async () => { S.data.marital = r.value; S.dirty = true; render(); await save(true); render(); }; });
+  // העלאה: מקום אחד — גרירה או לחיצה; כל קובץ נבדק ומסווג ע"י ה-AI
+  const upload = async (list) => {
     const fl = [...list].filter(Boolean); if (!fl.length) return;
-    zone.classList.add('busy'); const lab = zone.querySelector('.kr-zone'); if (lab) lab.firstChild.textContent = `⏳ ${u.checking} `;
-    for (const f of fl) {
-      try { const data = await fileData(f); const r = await pub('kaUpload', { ks: S.ks, kind, data, name: f.name }); S.app = r.app; } catch (e) { onErr(e); }
+    const z = $('[data-drop]'); z?.classList.add('busy');
+    for (const [i, f] of fl.entries()) {
+      if (z) z.querySelector('b').textContent = `⏳ ${u.checking} (${i + 1}/${fl.length})`;
+      try { const data = await fileData(f); const r = await pub('kaUpload', { ks: S.ks, data, name: f.name }); S.app = r.app; } catch (e) { onErr(e); }
     }
     readStep(); render();
   };
-  $$('[data-up]').forEach((inp) => { inp.onchange = () => upload(inp.dataset.up, inp.files, inp.closest('.kr-drop')); });
-  $$('[data-drop]').forEach((z) => {
+  $('[data-up]')?.addEventListener('change', (e) => upload(e.target.files));
+  const z = $('[data-drop]');
+  if (z) {
     z.ondragover = (e) => { e.preventDefault(); z.classList.add('over'); };
     z.ondragleave = () => z.classList.remove('over');
-    z.ondrop = (e) => { e.preventDefault(); z.classList.remove('over'); upload(z.dataset.drop, e.dataTransfer.files, z); };
-  });
+    z.ondrop = (e) => { e.preventDefault(); z.classList.remove('over'); upload(e.dataTransfer.files); };
+  }
+  const recheck = async (i, kinds, el) => {
+    if (el) { el.disabled = true; el.closest('.kr-pf')?.classList.add('busy'); }
+    try { const r = await pub('kaRecheck', { ks: S.ks, i, ...(kinds ? { kinds } : {}) }); S.app = r.app; } catch (e) { onErr(e); }
+    readStep(); render();
+  };
+  $$('[data-re]').forEach((b) => { b.onclick = () => recheck(Number(b.dataset.re), null, b); });
+  $$('[data-kind]').forEach((sel) => { sel.onchange = () => { if (sel.value) recheck(Number(sel.dataset.kind), [sel.value], sel); }; });
+  $$('[data-del]').forEach((b) => { b.onclick = async () => { try { const r = await pub('kaDelFile', { ks: S.ks, i: Number(b.dataset.del) }); S.app = r.app; readStep(); render(); } catch (e) { onErr(e); } }; });
   $('#kr-auto')?.addEventListener('change', (e) => { S.auto = e.target.checked; try { localStorage.setItem('kollel-reg-auto', S.auto ? '1' : '0'); } catch { /* */ } });
-  $$('[data-del]').forEach((b) => { b.onclick = async () => { const [k, i] = b.dataset.del.split(':'); try { const r = await pub('kaDelFile', { ks: S.ks, kind: k, i: Number(i) }); S.app = r.app; render(); } catch (e) { onErr(e); } }; });
+  // סוף חלק 1 → נפתחת רשומה + מילוי אוטומטי
+  $('#kr-open')?.addEventListener('click', async (e) => {
+    const b = e.currentTarget; b.disabled = true; b.textContent = u.openWait;
+    try { const r = await pub('kaOpen', { ks: S.ks, data: S.data }); takeAi(r); try { localStorage.setItem(`kr-ai:${S.app.app_id}`, aiSig()); } catch { /* */ } S.step = 0; render(); window.scrollTo(0, 0); if ((r.filled || []).length) toast(u.aiDone(r.filled.length)); } catch (err) { onErr(err); b.disabled = false; b.textContent = u.openBtn; }
+  });
   // חתימה
   $$('[name^=sm_]').forEach((r) => { r.onchange = () => { readStep(); S.sig[r.name.slice(3)] = r.value; render(); }; });
   $$('.kr-pad').forEach((cv) => pad(cv));
@@ -307,7 +357,7 @@ export async function startKollelReg() {
   if (!UI[S.lang]) S.lang = 'en';
   try { S.auto = localStorage.getItem('kollel-reg-auto') !== '0'; } catch { /* */ }
   let ks = ''; try { ks = sessionStorage.getItem(SK) || ''; } catch { /* */ }
-  if (ks) { try { const r = await pub('kaGet', { ks }); S.ks = ks; setApp(r.app); S.step = r.app.status === 'draft' ? 0 : 1; } catch { /* */ } }
+  if (ks) { try { const r = await pub('kaGet', { ks }); S.ks = ks; setApp(r.app); S.step = 0; } catch { /* */ } }
   render();
   window.addEventListener('beforeunload', (e) => { if (S.ks && S.dirty) { e.preventDefault(); e.returnValue = ''; } });
 }

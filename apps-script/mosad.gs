@@ -3301,30 +3301,61 @@ function wcRecord_(o, p, d) {
 }
 
 // =====================================================================================
-// 🕍 מרכז הכוללים — טופס הרשמה לאברכים (ungvar.org/kollel/register): אימייל + קוד (בלי גוגל),
-//    טיוטה שאפשר לחזור אליה, מסמכים בדרייב, Gemini ממלא מהמסמכים. לגבאים: 📥 הרשמות (הרשאה kollel_reg).
+// 🕍 מרכז הכוללים — טופס הרשמה לאברכים (ungvar.org/kollel/register): אימייל + קוד (בלי גוגל).
+//    חלק 1 = פתיחה: מצב משפחתי + ID ו-SS (שלו ושל האשה / של ההורים) — רק כשה-AI אישר → נפתחת רשומה (status open).
+//    חלק 2 = שאר המסמכים + הפרטים + חתימה. מקום אחד להעלאה: Gemini ממיין כל קובץ, בודק שהוא קריא ובתוקף.
+//    לגבאים: 📥 הרשמות (הרשאה kollel_reg).
 // =====================================================================================
-TABS.KollelApps = ['app_id', 'email', 'salt', 'hash', 'ver', 'created_at', 'status', 'lang', 'data', 'files', 'ai', 'submitted_at', 'updated_at', 'updated_by', 'folder_id', 'contact_id', 'note'];
+TABS.KollelApps = ['app_id', 'email', 'salt', 'hash', 'ver', 'created_at', 'status', 'lang', 'data', 'files', 'ai', 'submitted_at', 'updated_at', 'updated_by', 'folder_id', 'contact_id', 'note', 'opened_at'];
 PERMS.push('kollel_reg');
 ['salt', 'hash', 'files', 'ai'].forEach(function (k) { BIG[k] = true; });
 READS.kaList = 1; READS.kaFile = 1;
 const KA_FIELDS = ['yi_name', 'legal_first', 'legal_last', 'phone', 'address', 'city', 'state', 'zip', 'dob', 'ssn', 'marital', 'marital_date',
   'wife_first', 'wife_last', 'wife_dob', 'wife_ssn', 'wife_phone', 'wedding_date', 'children', 'growing', 'oldest_dob',
   'parents_ny', 'father_name', 'mother_name', 'father_address', 'father_phone', 'fil_name', 'wife_mother_name', 'fil_address',
+  'father_legal', 'father_dob', 'father_ssn', 'mother_legal', 'mother_dob', 'mother_ssn',
   'hs_name', 'hs_city', 'hs_grad', 'yg_name', 'yg_city', 'yg_start', 'yg_end', 'other_yeshivas', 'sig_self_name', 'sig_wife_name', 'sig_date', 'notes', 'email', 'dependents_count', 'dependents_names'];
-const KA_DOCS = { id_self: 'ID', id_wife: 'ID - wife', ss_self: 'SS card', ss_wife: 'SS card - wife', marriage: 'Marriage certificate',
-  birth_self: 'Birth certificate', birth_wife: 'Birth certificate - wife', tax1: 'Tax', tax2: 'Tax', sig_self: 'Signature', sig_wife: 'Signature - wife' };
-const KA_AI_DOCS = ['id_self', 'id_wife', 'ss_self', 'ss_wife', 'marriage', 'birth_self', 'birth_wife', 'tax2', 'tax1'];
-const KA_STATUS = { draft: 1, submitted: 1, updated: 1, approved: 1, rejected: 1 };
+// סוגי המסמכים (לזיהוי ע"י Gemini)
+const KA_KINDS = {
+  id_self: 'government photo ID (driver license / state ID / passport) of the APPLICANT (the man)', ss_self: 'Social Security card of the APPLICANT', birth_self: 'birth certificate of the APPLICANT',
+  id_wife: 'government photo ID of the applicant\'s WIFE', ss_wife: 'Social Security card of the applicant\'s WIFE', birth_wife: 'birth certificate of the applicant\'s WIFE',
+  marriage: 'marriage certificate / marriage registration of the applicant and his wife',
+  diploma: 'school diploma or transcript (yeshiva / high school) of the APPLICANT',
+  id_father: 'government photo ID of the applicant\'s FATHER', ss_father: 'Social Security card of the applicant\'s FATHER',
+  id_mother: 'government photo ID of the applicant\'s MOTHER', ss_mother: 'Social Security card of the applicant\'s MOTHER',
+  tax1: 'US tax document (Form 1040 / W-2 etc.) for tax year Y1 (of the applicant or a parent)', tax2: 'US tax document (Form 1040 / W-2 etc.) for tax year Y2 (of the applicant or a parent)' };
+const KA_LABEL = { id_self: 'ID', ss_self: 'SS', birth_self: 'Birth cert', id_wife: 'ID wife', ss_wife: 'SS wife', birth_wife: 'Birth cert wife', marriage: 'Marriage cert', diploma: 'Diploma / transcript',
+  id_father: 'ID father', ss_father: 'SS father', id_mother: 'ID mother', ss_mother: 'SS mother', tax1: 'Tax', tax2: 'Tax', sig_self: 'Signature', sig_wife: 'Signature wife' };
+/** מה צריך לפי המצב המשפחתי: gate = לפתיחה (חלק 1), rest = בחלק 2 */
+function kaReq(marital) {
+  if (marital === 'married') return { gate: ['id_self', 'ss_self', 'id_wife', 'ss_wife'], rest: ['birth_self', 'birth_wife', 'marriage', 'diploma', 'tax1', 'tax2'] };
+  if (marital === 'unmarried') return { gate: ['id_self', 'ss_self', 'id_father', 'ss_father', 'id_mother', 'ss_mother'], rest: ['birth_self', 'diploma', 'tax1', 'tax2'] };
+  return { gate: ['id_self', 'ss_self'], rest: ['diploma', 'tax1', 'tax2'] };
+}
+const KA_STATUS = { draft: 1, open: 1, submitted: 1, updated: 1, approved: 1, rejected: 1 };
 function kaTaxYears() { const y = Number(Utilities.formatDate(new Date(), 'America/New_York', 'yyyy')); return [y - 2, y - 1]; }
 function kaRows(M) { return objs(ensureTab(M.book, 'KollelApps', TABS.KollelApps)).filter(function (a) { return S(a.app_id); }); }
 function kaJ(v, d) { try { const x = JSON.parse(S(v) || ''); return x === null || x === undefined ? d : x; } catch (err) { return d; } }
 function kaMail(v) { return S(v).toLowerCase(); }
-function kaView(a, staff) {
-  const o = { app_id: S(a.app_id), email: S(a.email), status: S(a.status) || 'draft', lang: S(a.lang), created_at: S(a.created_at), submitted_at: S(a.submitted_at),
-    updated_at: S(a.updated_at), updated_by: S(a.updated_by), data: kaJ(a.data, {}), contact_id: S(a.contact_id), taxYears: kaTaxYears() };
+/** files: { pool: [{id,name,type,at,kinds:[],check:{status:'ok'|'bad'|'pending',en,yi}}], sig_self: [..], sig_wife: [..] } (+ המרה מהמבנה הישן) */
+function kaFiles(a) {
   const f = kaJ(a.files, {});
-  o.files = {}; Object.keys(f).forEach(function (k) { o.files[k] = (f[k] || []).map(function (x) { return { name: S(x.name), type: S(x.type), at: S(x.at), check: x.check || null }; }); });
+  if (!f.pool) {
+    const pool = [];
+    Object.keys(f).forEach(function (k) { if (k.indexOf('sig_') === 0) return; (f[k] || []).forEach(function (x) { pool.push({ id: x.id, name: x.name, type: x.type, at: x.at, kinds: KA_KINDS[k] ? [k] : [], check: x.check ? { status: x.check.ok ? 'ok' : 'bad', en: x.check.en, yi: x.check.yi } : { status: 'pending' } }); }); });
+    const o = { pool: pool }; if (f.sig_self) o.sig_self = f.sig_self; if (f.sig_wife) o.sig_wife = f.sig_wife;
+    return o;
+  }
+  return f;
+}
+function kaHave(files, kind) { return (files.pool || []).some(function (x) { return x.check && x.check.status === 'ok' && (x.kinds || []).indexOf(kind) >= 0; }); }
+function kaView(a, staff) {
+  const d = kaJ(a.data, {});
+  const o = { app_id: S(a.app_id), email: S(a.email), status: S(a.status) || 'draft', lang: S(a.lang), created_at: S(a.created_at), submitted_at: S(a.submitted_at), opened_at: S(a.opened_at),
+    updated_at: S(a.updated_at), updated_by: S(a.updated_by), data: d, contact_id: S(a.contact_id), taxYears: kaTaxYears(), req: kaReq(S(d.marital)) };
+  const f = kaFiles(a);
+  o.files = { pool: (f.pool || []).map(function (x) { return { name: S(x.name), type: S(x.type), at: S(x.at), kinds: x.kinds || [], check: x.check || { status: 'pending' } }; }),
+    sig_self: (f.sig_self || []).map(function (x) { return { name: S(x.name), at: S(x.at) }; }), sig_wife: (f.sig_wife || []).map(function (x) { return { name: S(x.name), at: S(x.at) }; }) };
   if (staff) { o.note = S(a.note); o.ai = kaJ(a.ai, null); }
   return o;
 }
@@ -3341,111 +3372,106 @@ function kaFolder(M, a) {
   if (S(a.folder_id)) { try { return DriveApp.getFolderById(S(a.folder_id)); } catch (err) { /* */ } }
   return folderPath(['מוסדות אונגוואר', S(M.name) || M.key, 'הרשמות']).createFolder(S(a.app_id) + ' ' + S(a.email));
 }
-/** data:…;base64 → קובץ בדרייב (לסוג kind). עד 4 קבצים לסוג; חתימה — תמיד אחד */
-function kaPutFile(M, a, kind, dataUrl, name) {
-  if (!KA_DOCS[kind]) throw new Error('bad-kind');
+function kaSaveBlob(M, a, dataUrl, name) {
   const m = S(dataUrl).match(/^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,(.+)$/);
   if (!m) throw new Error('bad-file');
   if (m[2].length > 9000000) throw new Error('file-big');
   const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' }[m[1]];
   const folder = kaFolder(M, a);
-  const ty = kaTaxYears();
-  const label = KA_DOCS[kind] + (kind === 'tax1' ? ' ' + ty[0] : kind === 'tax2' ? ' ' + ty[1] : '');
-  const file = folder.createFile(Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], label + ' ' + Utilities.formatDate(new Date(), 'America/New_York', 'HHmmss') + '.' + ext));
-  const files = kaJ(a.files, {});
-  const list = (files[kind] || []);
-  if (kind.indexOf('sig_') === 0) list.forEach(function (x) { try { DriveApp.getFileById(x.id).setTrashed(true); } catch (err) { /* */ } });
-  const next = kind.indexOf('sig_') === 0 ? [] : list.slice(-3);
-  next.push({ id: file.getId(), name: S(name).slice(0, 80) || label, type: m[1], at: now() });
-  files[kind] = next;
-  return { files: files, folder: folder.getId() };
+  const file = folder.createFile(Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], (S(name).replace(/\.[a-z0-9]+$/i, '').slice(0, 60) || 'doc') + ' ' + Utilities.formatDate(new Date(), 'America/New_York', 'HHmmss') + '.' + ext));
+  return { id: file.getId(), type: m[1], folder: folder.getId() };
 }
 function kaBlobUrl(id) { const b = DriveApp.getFileById(id).getBlob(); return 'data:' + b.getContentType() + ';base64,' + Utilities.base64Encode(b.getBytes()); }
-function kaSet(M, a, o) { setCells(M.book.getSheetByName('KollelApps'), a._row, o); }
+function kaSet(M, a, o) { setCells(M.book.getSheetByName('KollelApps'), a._row, o); Object.keys(o).forEach(function (k) { a[k] = o[k]; }); }
 function kaClean(d) { const o = {}; KA_FIELDS.forEach(function (k) { if (k in (d || {})) o[k] = S(d[k]).slice(0, k === 'notes' || k === 'other_yeshivas' || k === 'dependents_names' ? 2000 : 300); }); return o; }
 
-/** 🤖 Gemini קורא את המסמכים ומחזיר את השדות */
-function kaExtract_(M, a) {
+/** Gemini — קריאה אחת עם ניסיונות חוזרים (עסוק → מחכה ומנסה שוב) */
+function kaGemini_(parts, maxTok) {
   const key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
   if (!key) throw new Error('ai-off');
-  const files = kaJ(a.files, {});
+  const model = PropertiesService.getScriptProperties().getProperty('GEMINI_MODEL') || 'gemini-flash-latest';
+  const body = { contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0, maxOutputTokens: maxTok || 1024, responseMimeType: 'application/json' } };
+  let res = null;
+  for (let i = 0; i < 5; i++) {
+    try { res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', { method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, muteHttpExceptions: true, payload: JSON.stringify(body) }); } catch (err) { res = null; }
+    if (res && [429, 500, 502, 503, 504].indexOf(res.getResponseCode()) < 0) break;
+    Utilities.sleep(2000 * (i + 1));
+  }
+  if (!res || res.getResponseCode() !== 200) throw new Error('ai-busy');
+  const txt = (((JSON.parse(res.getContentText()).candidates || [])[0] || {}).content || { parts: [] }).parts.map(function (p) { return p.text || ''; }).join('');
+  try { return JSON.parse(txt.replace(/^```json|```$/g, '').trim()); } catch (err) { throw new Error('ai-busy'); }
+}
+/** 🤖 זיהוי + בדיקה של קובץ אחד. want = סוגים שהאברך בחר ידנית (אופציונלי) → { kinds, check } */
+function kaClassify_(fileId, data, want) {
+  const ty = kaTaxYears();
+  const b = DriveApp.getFileById(fileId).getBlob();
+  const known = [S(data.legal_first) && 'applicant: ' + S(data.legal_first) + ' ' + S(data.legal_last), S(data.wife_first) && 'wife: ' + S(data.wife_first) + ' ' + S(data.wife_last)].filter(Boolean).join('; ');
+  const kinds = Object.keys(KA_KINDS).map(function (k) { return k + ' = ' + KA_KINDS[k].replace('Y1', ty[0]).replace('Y2', ty[1]); }).join('\n');
+  const prompt = ['A kollel (Torah study program) applicant in Brooklyn uploaded this file for his enrollment. Marital status: ' + (S(data.marital) || 'unknown') + '.',
+    want && want.length ? 'The applicant says this file is: ' + want.join(', ') + '. Verify that.' : 'Identify which of these documents it contains (a file may contain more than one, e.g. front and back, or ID and SS card on one page):',
+    kinds,
+    'Decide whose document it is from the name on it and the context (applicant = the man; wife; father; mother).' + (known ? ' Known names: ' + known + '.' : ''),
+    'Then check: is it readable (not blurry, not cut off — names and numbers visible)? For an ID: is it expired? For tax: is it the right year?',
+    'Return ONLY JSON: {"kinds": [codes from the list that this file really contains], "ok": true/false (false if unreadable, expired, wrong year, or not a needed document),',
+    '"en": "short message to the applicant in simple English (empty if ok)", "yi": "the same message in Yiddish, Hebrew letters (empty if ok)"}'].join('\n');
+  const j = kaGemini_([{ text: prompt }, { inline_data: { mime_type: b.getContentType(), data: Utilities.base64Encode(b.getBytes()) } }], 500);
+  const ks = (Array.isArray(j.kinds) ? j.kinds : []).map(S).filter(function (k) { return KA_KINDS[k]; });
+  let ok = j.ok !== false && ks.length > 0;
+  let en = S(j.en), yi = S(j.yi);
+  if (!ks.length && !en) { en = 'We could not recognize this document. Please upload a clear photo of one of the required documents.'; yi = 'מען האט נישט דערקענט דעם דאקומענט. ביטע לייג ארויף א קלארע בילד פון איינעם פון די נויטיגע דאקומענטן.'; }
+  return { kinds: ks, check: { status: ok ? 'ok' : 'bad', en: en.slice(0, 300), yi: yi.slice(0, 300), at: now() } };
+}
+/** בודק את כל הקבצים שממתינים (pending) — עם הגבלה */
+function kaCheckPending_(M, a, onlyIdx) {
+  const files = kaFiles(a); const d = kaJ(a.data, {});
+  const c = CacheService.getScriptCache(); const ck = 'kachk:' + M.key + ':' + S(a.app_id);
+  (files.pool || []).forEach(function (x, i) {
+    if (onlyIdx !== undefined && i !== onlyIdx) return;
+    if (x.check && x.check.status !== 'pending') return;
+    const n = Number(c.get(ck) || 0); if (n >= 80) return;
+    c.put(ck, String(n + 1), 21600);
+    try { const r = kaClassify_(x.id, d, x.want || null); x.kinds = r.kinds; x.check = r.check; } catch (err) { x.check = { status: 'pending', en: '', yi: '' }; }
+  });
+  return files;
+}
+/** 🤖 מילוי השדות מכל המסמכים המאושרים */
+function kaExtract_(M, a) {
+  const files = kaFiles(a);
   const parts = [{ text: [
-    'You read identity documents for a kollel (Torah study program) enrollment form in Brooklyn NY. Extract ONLY what is clearly visible; never guess.',
-    'Each document is preceded by a label: id_self/ss_self/birth_self = the applicant (husband); id_wife/ss_wife/birth_wife = his wife; marriage = marriage certificate.',
+    'You read identity documents for a kollel enrollment form in Brooklyn NY. Extract ONLY what is clearly visible; never guess.',
+    'Each document is preceded by its labels: *_self = the applicant (the man); *_wife = his wife; *_father / *_mother = his parents; marriage = marriage certificate; tax1/tax2 = tax documents (tax2 = most recent year).',
     'Return ONLY a JSON object with any of these keys (omit unknown): legal_first, legal_last, dob (YYYY-MM-DD), address, city, state, zip, ssn (###-##-####),',
-    'wife_first, wife_last, wife_dob (YYYY-MM-DD), wife_ssn (###-##-####), wedding_date (YYYY-MM-DD), father_name, mother_name (applicant\'s parents, from his birth certificate),',
-    'fil_name (wife\'s father, from her birth certificate), wife_mother_name (wife\'s mother),',
-    'dependents_count (number of dependent children listed on the most recent tax return, tax2 = most recent year) and dependents_names (their names, one per line, as printed),',
-    'and "notes": short English remarks about unreadable or conflicting documents.',
-    'Legal names: use the name exactly as printed on the Social Security card when available (otherwise the ID). Names in English letters as printed.'].join('\n') }];
+    'wife_first, wife_last, wife_dob, wife_ssn, wedding_date (YYYY-MM-DD), father_name, mother_name (applicant\'s parents as on his birth certificate), fil_name, wife_mother_name (wife\'s parents, from her birth certificate),',
+    'father_legal (father\'s full legal name from his ID/SS), father_dob, father_ssn, mother_legal, mother_dob, mother_ssn,',
+    'dependents_count (number of dependent children on the most recent tax return) and dependents_names (one per line), and "notes": short English remarks about conflicts between documents.',
+    'Legal names: as printed on the Social Security card when available (otherwise the ID).'].join('\n') }];
   let total = 0;
-  KA_AI_DOCS.forEach(function (k) {
-    (files[k] || []).slice(-2).forEach(function (f) {
-      try {
-        const b = DriveApp.getFileById(f.id).getBlob();
-        const bytes = b.getBytes();
-        if (total + bytes.length > 14000000) return;
-        total += bytes.length;
-        parts.push({ text: 'Document: ' + k });
-        parts.push({ inline_data: { mime_type: b.getContentType(), data: Utilities.base64Encode(bytes) } });
-      } catch (err) { /* */ }
-    });
+  (files.pool || []).forEach(function (x) {
+    if (!x.check || x.check.status !== 'ok' || !(x.kinds || []).length) return;
+    try {
+      const b = DriveApp.getFileById(x.id).getBlob(); const bytes = b.getBytes();
+      if (total + bytes.length > 15000000) return; total += bytes.length;
+      parts.push({ text: 'Document: ' + x.kinds.join(', ') });
+      parts.push({ inline_data: { mime_type: b.getContentType(), data: Utilities.base64Encode(bytes) } });
+    } catch (err) { /* */ }
   });
   if (parts.length < 2) throw new Error('ai-no-docs');
-  const model = PropertiesService.getScriptProperties().getProperty('GEMINI_MODEL') || 'gemini-flash-latest';
-  const body = { contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0, maxOutputTokens: 2048, responseMimeType: 'application/json' } };
-  let res;
-  for (let i = 0; i < 3; i++) {
-    res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', { method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, muteHttpExceptions: true, payload: JSON.stringify(body) });
-    if ([429, 500, 503].indexOf(res.getResponseCode()) < 0) break;
-    Utilities.sleep(1500 * (i + 1));
-  }
-  if (res.getResponseCode() !== 200) throw new Error('ai-' + res.getResponseCode());
-  const txt = (((JSON.parse(res.getContentText()).candidates || [])[0] || {}).content || { parts: [] }).parts.map(function (p) { return p.text || ''; }).join('');
-  let j = {}; try { j = JSON.parse(txt.replace(/^```json|```$/g, '').trim()); } catch (err) { throw new Error('ai-bad'); }
+  const j = kaGemini_(parts, 2048);
   const outF = {};
-  ['legal_first', 'legal_last', 'dob', 'address', 'city', 'state', 'zip', 'ssn', 'wife_first', 'wife_last', 'wife_dob', 'wife_ssn', 'wedding_date', 'father_name', 'mother_name', 'fil_name', 'wife_mother_name', 'dependents_count', 'dependents_names'].forEach(function (k) {
+  ['legal_first', 'legal_last', 'dob', 'address', 'city', 'state', 'zip', 'ssn', 'wife_first', 'wife_last', 'wife_dob', 'wife_ssn', 'wedding_date', 'father_name', 'mother_name', 'fil_name', 'wife_mother_name',
+    'father_legal', 'father_dob', 'father_ssn', 'mother_legal', 'mother_dob', 'mother_ssn', 'dependents_count', 'dependents_names'].forEach(function (k) {
     let v = j[k]; if (Array.isArray(v)) v = v.join('\n'); if (S(v)) outF[k] = S(v).slice(0, k === 'dependents_names' ? 1500 : 200); });
   return { fields: outF, notes: S(j.notes).slice(0, 600), at: now() };
 }
-
-const KA_EXPECT = {
-  id_self: 'a government photo ID of the applicant (driver license, state ID, US passport or passport card)',
-  id_wife: 'a government photo ID of the applicant\'s wife (driver license, state ID, US passport or passport card)',
-  ss_self: 'a US Social Security card of the applicant', ss_wife: 'a US Social Security card of the applicant\'s wife',
-  marriage: 'a marriage certificate (or marriage registration)', birth_self: 'a birth certificate of the applicant', birth_wife: 'a birth certificate of the applicant\'s wife',
-};
-/** בדיקת מסמך אחד: { ok, en, yi } */
-function kaCheck_(kind, fileId, data) {
-  const key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-  if (!key) return null;
-  const ty = kaTaxYears();
-  const expect = kind === 'tax1' || kind === 'tax2' ? 'a US federal tax return or tax document (e.g. Form 1040, W-2) for tax year ' + (kind === 'tax1' ? ty[0] : ty[1]) : KA_EXPECT[kind];
-  if (!expect) return null;
-  const b = DriveApp.getFileById(fileId).getBlob();
-  const known = [S(data.legal_first) && 'applicant: ' + S(data.legal_first) + ' ' + S(data.legal_last), S(data.wife_first) && 'wife: ' + S(data.wife_first) + ' ' + S(data.wife_last)].filter(Boolean).join('; ');
-  const prompt = ['An applicant uploaded a file that should be: ' + expect + '.',
-    'Check: (1) is it really that kind of document; (2) is it readable (not blurry, not cut off, the important numbers and names visible); (3) for an ID: is it expired; for tax: is it the right year.',
-    known ? 'Names already on the form (' + known + ') — mention if the name clearly does not match.' : '',
-    'If it is only one side of a card, that is fine. Be practical: minor glare is OK.',
-    'Return ONLY JSON: {"ok": true/false, "en": "short message to the applicant in simple English (empty if ok)", "yi": "the same message in Yiddish, Hebrew letters (empty if ok)"}'].filter(Boolean).join('\n');
-  const body = { contents: [{ role: 'user', parts: [{ text: prompt }, { inline_data: { mime_type: b.getContentType(), data: Utilities.base64Encode(b.getBytes()) } }] }],
-    generationConfig: { temperature: 0, maxOutputTokens: 400, responseMimeType: 'application/json' } };
-  const model = PropertiesService.getScriptProperties().getProperty('GEMINI_MODEL') || 'gemini-flash-latest';
-  let res;
-  for (let i = 0; i < 2; i++) {
-    res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', { method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, muteHttpExceptions: true, payload: JSON.stringify(body) });
-    if ([429, 500, 503].indexOf(res.getResponseCode()) < 0) break;
-    Utilities.sleep(1500);
-  }
-  if (res.getResponseCode() !== 200) return null;
-  const txt = (((JSON.parse(res.getContentText()).candidates || [])[0] || {}).content || { parts: [] }).parts.map(function (p) { return p.text || ''; }).join('');
-  let j; try { j = JSON.parse(txt.replace(/^```json|```$/g, '').trim()); } catch (err) { return null; }
-  return { ok: j.ok !== false, en: S(j.en).slice(0, 300), yi: S(j.yi).slice(0, 300), at: now() };
+/** ממלא רק שדות ריקים */
+function kaMergeAi_(a, r) {
+  const d = kaJ(a.data, {}); const filled = [];
+  Object.keys(r.fields || {}).forEach(function (k) { if (!S(d[k])) { d[k] = r.fields[k]; filled.push(k); } });
+  return { data: d, filled: filled };
 }
 
 const KA_PUB = {
-  /** כניסה / פתיחת טופס חדש: { email, code, create } */
+  /** כניסה / הרשמה: { email, code, create } */
   kaAuth: function (M, req) {
     const email = kaMail(req.email); const code = S(req.code);
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('ka-bad-email');
@@ -3466,7 +3492,7 @@ const KA_PUB = {
         let mx = 100; kaRows(M).forEach(function (x) { const v = Number(x.app_id); if (isFinite(v) && v > mx) mx = v; });
         const salt = Utilities.getUuid();
         appendObj(M.book.getSheetByName('KollelApps'), { app_id: mx + 1, email: email, salt: salt, hash: kHash(salt, code), ver: 1, created_at: now(), status: 'draft',
-          lang: S(req.lang) === 'yi' ? 'yi' : 'en', data: '{}', files: '{}', updated_at: now(), updated_by: 'form' });
+          lang: S(req.lang) === 'yi' ? 'yi' : 'en', data: JSON.stringify({ marital: 'married' }), files: '{"pool":[]}', updated_at: now(), updated_by: 'form' });
         a = kaRows(M).filter(function (x) { return kaMail(x.email) === email; })[0];
       } else if (!a || kHash(S(a.salt), code) !== S(a.hash)) {
         c.put(fk, String(fails + 1), 900);
@@ -3476,76 +3502,107 @@ const KA_PUB = {
     c.remove(fk);
     const tok = Utilities.getUuid() + Utilities.getUuid();
     c.put('kas:' + tok, JSON.stringify({ m: M.key, id: S(a.app_id), v: Number(a.ver || 1) }), 21600);
-    return { ok: true, ks: tok, app: kaView(a, false), name: M.name, ai: !!PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY') };
+    return { ok: true, ks: tok, app: kaView(a, false), name: M.name };
   },
   kaGet: function (M, req) { const a = kaSession(M, req.ks); return { app: kaView(a, false), name: M.name }; },
-  /** שמירה (טיוטה) / שליחה: { ks, data, submit, lang } */
+  /** שמירה / שליחה: { ks, data, submit, lang } */
   kaSave: function (M, req) {
     const a = kaSession(M, req.ks);
-    const d = Object.assign(kaJ(a.data, {}), kaClean(req.data));
+    const st = S(a.status) || 'draft';
+    const nd = kaClean(req.data);
+    if (st !== 'draft') delete nd.marital; // אחרי הפתיחה — מצב משפחתי רק דרך המשרד
+    const d = Object.assign(kaJ(a.data, {}), nd);
     const o = { data: JSON.stringify(d), updated_at: now(), updated_by: 'form' };
     if (req.lang) o.lang = S(req.lang) === 'yi' ? 'yi' : 'en';
-    const st = S(a.status) || 'draft';
     if (req.submit) {
-      const need2 = ['yi_name', 'legal_first', 'legal_last', 'phone', 'address', 'city', 'dob', 'ssn', 'marital'];
+      if (st === 'draft') throw new Error('ka-not-open');
+      const need2 = ['yi_name', 'legal_first', 'legal_last', 'phone', 'address', 'city', 'dob', 'ssn'];
       if (S(d.marital) === 'married') need2.push('wife_first', 'wife_last', 'wife_ssn', 'wedding_date');
       const miss = need2.filter(function (k) { return !S(d[k]); });
       if (miss.length) throw new Error('missing:' + miss.join(','));
-      const f = kaJ(a.files, {});
-      const docs = ['id_self', 'ss_self', 'birth_self', 'tax1', 'tax2'].concat(S(d.marital) === 'married' ? ['id_wife', 'ss_wife', 'birth_wife', 'marriage'] : []);
-      const missD = docs.filter(function (k) { return !(f[k] || []).length; });
+      const f = kaFiles(a); const rq = kaReq(S(d.marital));
+      const missD = rq.gate.concat(rq.rest).filter(function (k) { return !kaHave(f, k); });
       if (missD.length) throw new Error('missing-docs:' + missD.join(','));
       if (!(f.sig_self || []).length && !S(d.sig_self_name)) throw new Error('missing-sig');
-      o.status = st === 'draft' ? 'submitted' : (st === 'approved' || st === 'submitted' || st === 'updated' ? (st === 'approved' ? 'updated' : st) : 'submitted');
-      if (st === 'draft') o.submitted_at = now();
-    } else if (st === 'approved' || st === 'submitted') {
-      o.status = 'updated';
-    }
+      if (st === 'open') { o.status = 'submitted'; o.submitted_at = now(); } else if (st === 'approved') o.status = 'updated';
+    } else if (st === 'approved' || st === 'submitted') o.status = 'updated';
     kaSet(M, a, o);
-    return { ok: true, app: kaView(Object.assign(a, o), false) };
+    return { ok: true, app: kaView(a, false) };
   },
+  /** העלאה למקום האחד: { ks, data, name } → Gemini מזהה ובודק */
   kaUpload: function (M, req) {
     const a = kaSession(M, req.ks);
-    const r = kaPutFile(M, a, S(req.kind), req.data, req.name);
-    // 🤖 בדיקה מיידית: האם זה המסמך הנכון, קריא, בתוקף
-    const kind = S(req.kind);
-    if (kind.indexOf('sig_') !== 0) {
-      const c = CacheService.getScriptCache(); const ck = 'kachk:' + M.key + ':' + S(a.app_id);
-      const n = Number(c.get(ck) || 0);
-      if (n < 60) {
-        c.put(ck, String(n + 1), 21600);
-        const list = r.files[kind]; const last = list[list.length - 1];
-        try { last.check = kaCheck_(kind, last.id, kaJ(a.data, {})); } catch (err) { last.check = null; }
-      }
+    const sig = S(req.kind).indexOf('sig_') === 0 ? S(req.kind) : '';
+    const r = kaSaveBlob(M, a, req.data, sig ? 'signature' : req.name);
+    const files = kaFiles(a);
+    if (sig) {
+      (files[sig] || []).forEach(function (x) { try { DriveApp.getFileById(x.id).setTrashed(true); } catch (err) { /* */ } });
+      files[sig] = [{ id: r.id, name: 'signature', type: r.type, at: now() }];
+    } else {
+      if ((files.pool || []).length >= 40) throw new Error('too-many');
+      files.pool.push({ id: r.id, name: S(req.name).slice(0, 80) || 'document', type: r.type, at: now(), kinds: [], check: { status: 'pending' } });
+      const i = files.pool.length - 1;
+      a.files = JSON.stringify(files);
+      const chk = kaCheckPending_(M, a, i);
+      files.pool[i] = chk.pool[i];
     }
-    const o = { files: JSON.stringify(r.files), folder_id: r.folder, updated_at: now(), updated_by: 'form' };
+    const o = { files: JSON.stringify(files), folder_id: r.folder, updated_at: now(), updated_by: 'form' };
     if (S(a.status) === 'submitted' || S(a.status) === 'approved') o.status = 'updated';
     kaSet(M, a, o);
-    return { ok: true, app: kaView(Object.assign(a, o), false) };
+    return { ok: true, app: kaView(a, false) };
+  },
+  /** בדיקה חוזרת (קובץ שממתין / אחרי שינוי סוג ידני): { ks, i, kinds? } */
+  kaRecheck: function (M, req) {
+    const a = kaSession(M, req.ks);
+    const files = kaFiles(a); const i = Number(req.i); const x = (files.pool || [])[i];
+    if (!x) throw new Error('not-found');
+    x.check = { status: 'pending' };
+    if (req.kinds) x.want = [].concat(req.kinds).map(S).filter(function (k) { return KA_KINDS[k]; }); 
+    a.files = JSON.stringify(files);
+    const chk = kaCheckPending_(M, a, i);
+    files.pool[i] = chk.pool[i]; delete files.pool[i].want;
+    kaSet(M, a, { files: JSON.stringify(files), updated_at: now(), updated_by: 'form' });
+    return { ok: true, app: kaView(a, false) };
   },
   kaDelFile: function (M, req) {
     const a = kaSession(M, req.ks);
-    const files = kaJ(a.files, {}); const k = S(req.kind); const i = Number(req.i);
-    const x = (files[k] || [])[i]; if (!x) throw new Error('not-found');
+    const files = kaFiles(a); const k = S(req.kind); const i = Number(req.i);
+    const list = k ? files[k] : files.pool; const x = (list || [])[i]; if (!x) throw new Error('not-found');
     try { DriveApp.getFileById(x.id).setTrashed(true); } catch (err) { /* */ }
-    files[k].splice(i, 1);
+    list.splice(i, 1);
     kaSet(M, a, { files: JSON.stringify(files), updated_at: now(), updated_by: 'form' });
-    return { ok: true, app: kaView(Object.assign(a, { files: JSON.stringify(files) }), false) };
+    return { ok: true, app: kaView(a, false) };
   },
   kaFilePub: function (M, req) {
     const a = kaSession(M, req.ks);
-    const x = (kaJ(a.files, {})[S(req.kind)] || [])[Number(req.i)]; if (!x) throw new Error('not-found');
+    const f = kaFiles(a); const x = (S(req.kind) ? f[S(req.kind)] : f.pool || [])[Number(req.i)]; if (!x) throw new Error('not-found');
     return { data: kaBlobUrl(x.id) };
   },
-  /** 🤖 מילוי אוטומטי מהמסמכים — מחזיר הצעות (לא שומר בטופס; האברך מאשר) */
+  /** סוף חלק 1: כל ה-ID וה-SS אושרו → נפתחת רשומה + מילוי אוטומטי */
+  kaOpen: function (M, req) {
+    const a = kaSession(M, req.ks);
+    const d = Object.assign(kaJ(a.data, {}), kaClean(req.data || {}));
+    a.data = JSON.stringify(d);
+    const f = kaFiles(a); const rq = kaReq(S(d.marital));
+    const miss = rq.gate.filter(function (k) { return !kaHave(f, k); });
+    if (miss.length) throw new Error('missing-docs:' + miss.join(','));
+    let notes = '', filled = [];
+    try { const r = kaExtract_(M, a); const mg = kaMergeAi_(a, r); a.data = JSON.stringify(mg.data); filled = mg.filled; notes = r.notes; kaSet(M, a, { ai: JSON.stringify(r) }); } catch (err) { /* המילוי לא חובה */ }
+    const o = { data: a.data, updated_at: now(), updated_by: 'form' };
+    if ((S(a.status) || 'draft') === 'draft') { o.status = 'open'; o.opened_at = now(); }
+    kaSet(M, a, o);
+    return { ok: true, app: kaView(a, false), filled: filled, notes: notes };
+  },
+  /** מילוי אוטומטי (בחלק 2, אחרי מסמכים חדשים) — רק שדות ריקים */
   kaAi: function (M, req) {
     const a = kaSession(M, req.ks);
     const c = CacheService.getScriptCache(); const ck = 'kaai:' + M.key + ':' + S(a.app_id);
     const n = Number(c.get(ck) || 0); if (n >= 12) throw new Error('too-many');
     c.put(ck, String(n + 1), 21600);
     const r = kaExtract_(M, a);
-    kaSet(M, a, { ai: JSON.stringify(r) });
-    return { ok: true, fields: r.fields, notes: r.notes };
+    const mg = kaMergeAi_(a, r);
+    kaSet(M, a, { ai: JSON.stringify(r), data: JSON.stringify(mg.data) });
+    return { ok: true, app: kaView(a, false), filled: mg.filled, notes: r.notes };
   },
 };
 Object.keys(KA_PUB).forEach(function (k) { PUBLIC[k] = KA_PUB[k]; });
@@ -3555,7 +3612,7 @@ const KA_ACTIONS = {
   kaFile: function (M, me, req) {
     need(me, 'kollel_reg');
     const a = kaRows(M).filter(function (x) { return S(x.app_id) === S(req.app_id); })[0]; if (!a) throw new Error('not-found');
-    const x = (kaJ(a.files, {})[S(req.kind)] || [])[Number(req.i)]; if (!x) throw new Error('not-found');
+    const f = kaFiles(a); const x = (S(req.kind) ? f[S(req.kind)] : f.pool || [])[Number(req.i)]; if (!x) throw new Error('not-found');
     return { data: kaBlobUrl(x.id), name: S(x.name) };
   },
   kaEdit: function (M, me, req) {
@@ -3567,14 +3624,26 @@ const KA_ACTIONS = {
     if ('note' in req) o.note = S(req.note).slice(0, 2000);
     kaSet(M, a, o);
     logIt(M, me, 'kollel-reg-edit', '', '#' + S(a.app_id) + ' ' + ch.join(','));
-    return { ok: true, app: kaView(Object.assign(a, o), true) };
+    return { ok: true, app: kaView(a, true) };
+  },
+  /** הגבאי משנה סוג של קובץ / מאשר ידנית: { app_id, i, kinds, status } */
+  kaFileSet: function (M, me, req) {
+    need(me, 'kollel_reg');
+    const a = kaRows(M).filter(function (x) { return S(x.app_id) === S(req.app_id); })[0]; if (!a) throw new Error('not-found');
+    const f = kaFiles(a); const x = (f.pool || [])[Number(req.i)]; if (!x) throw new Error('not-found');
+    if (req.kinds) x.kinds = [].concat(req.kinds).map(S).filter(function (k) { return KA_KINDS[k]; });
+    if (req.status) x.check = { status: S(req.status) === 'ok' ? 'ok' : 'bad', en: S(req.status) === 'ok' ? '' : S(x.check && x.check.en), yi: S(req.status) === 'ok' ? '' : S(x.check && x.check.yi), at: now(), by: me.email };
+    kaSet(M, a, { files: JSON.stringify(f), updated_at: now(), updated_by: me.email });
+    logIt(M, me, 'kollel-reg-file', '', '#' + S(a.app_id) + ' file ' + req.i + ' ' + (x.kinds || []).join(',') + ' ' + S(req.status));
+    return { ok: true, app: kaView(a, true) };
   },
   kaStatus: function (M, me, req) {
     need(me, 'kollel_reg');
     if (!KA_STATUS[S(req.status)]) throw new Error('bad-status');
     const a = kaRows(M).filter(function (x) { return S(x.app_id) === S(req.app_id); })[0]; if (!a) throw new Error('not-found');
+    const old = S(a.status);
     kaSet(M, a, { status: S(req.status), updated_at: now(), updated_by: me.email });
-    logIt(M, me, 'kollel-reg-status', '', '#' + S(a.app_id) + ' ' + S(a.status) + '→' + S(req.status));
+    logIt(M, me, 'kollel-reg-status', '', '#' + S(a.app_id) + ' ' + old + '→' + S(req.status));
     return { ok: true };
   },
   /** קוד חדש לאברך ששכח (הגבאי אומר לו בטלפון) */

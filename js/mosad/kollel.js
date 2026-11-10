@@ -1,5 +1,5 @@
 // 🕍 מרכז הכוללים — 📥 הרשמות: כל הטפסים, עריכה לכל שורה, מסמכים ותמונות, אישור, איפוס קוד, הדפסה 8.5×11.
-import { SECTIONS, docsList, STATUS, showVal, printHtml, YESNO } from './kollelfields.js?v=657';
+import { SECTIONS, STATUS, showVal, printHtml, YESNO, reqOf, kindState, kindLabel, fieldFor, ALL_KINDS } from './kollelfields.js?v=659';
 import { downloadXlsx } from '../excel.js?v=653';
 
 let X;
@@ -15,7 +15,7 @@ export async function renderKollelReg(box) {
   if (!K.apps) { box.innerHTML = '<p class="muted">טוען…</p>'; try { await load(); } catch (err) { box.innerHTML = `<p class="ms-note err">${h(X.msg(err))}</p>`; return; } }
   const link = new URL('register/', location.href.replace(/[^/]*$/, '')).href;
   const cnt = (f) => K.apps.filter(f).length;
-  const FL = [['open', 'לטיפול', (a) => ['submitted', 'updated'].includes(a.status)], ['draft', 'טיוטות', (a) => a.status === 'draft'], ['approved', 'אושרו', (a) => a.status === 'approved'], ['rejected', 'נדחו', (a) => a.status === 'rejected'], ['all', 'הכל', () => true]];
+  const FL = [['open', 'לטיפול', (a) => ['submitted', 'updated'].includes(a.status)], ['inprog', 'בתהליך מילוי', (a) => a.status === 'open'], ['approved', 'אושרו', (a) => a.status === 'approved'], ['rejected', 'נדחו', (a) => a.status === 'rejected'], ['draft', 'לא השלימו פתיחה', (a) => a.status === 'draft'], ['all', 'הכל', () => true]];
   const fl = FL.find((x) => x[0] === K.filter) || FL[0];
   const q = K.q.trim().toLowerCase();
   const list = K.apps.filter(fl[2]).filter((a) => !q || `${nm(a)} ${a.data?.yi_name || ''} ${a.email} ${a.data?.phone || ''}`.toLowerCase().includes(q))
@@ -26,7 +26,7 @@ export async function renderKollelReg(box) {
       <input type="search" id="ka-q" placeholder="חיפוש: שם, אימייל, טלפון…" value="${h(K.q)}"><span class="spacer"></span>
       <button type="button" class="btn" id="ka-xl">⬇ Excel</button><button type="button" class="btn" id="ka-rl">⟳ רענון</button></div>
     ${list.length ? `<div class="ms-wrap"><table class="ms-table ka-list"><thead><tr><th>#</th><th>שם</th><th>נאמען אויף אידיש</th><th>טלפון</th><th>אימייל</th><th>מסמכים</th><th>סטטוס</th><th>נשלח</th><th>עודכן</th></tr></thead><tbody>
-      ${list.map((a) => { const docs = docsList(a.taxYears).filter((d) => a.data?.marital === 'married' || !d.m); const have = docs.filter((d) => (a.files?.[d.k] || []).length).length;
+      ${list.map((a) => { const rq = reqOf(a.data?.marital); const docs = [...rq.gate, ...rq.rest]; const have = docs.filter((k) => kindState(a.files, k) === 'ok').length;
     return `<tr data-open="${h(a.app_id)}" style="cursor:pointer"><td class="num">${h(a.app_id)}</td><td><b>${h(nm(a))}</b></td><td dir="rtl">${h(a.data?.yi_name || '')}</td><td dir="ltr">${h(a.data?.phone || '')}</td>
         <td dir="ltr" class="small">${h(a.email)}</td><td class="c">${have}/${docs.length}</td><td>${stBadge(a.status)}</td><td class="small">${h(a.submitted_at || '')}</td><td class="small">${h(a.updated_at || '')}</td></tr>`; }).join('')}
     </tbody></table></div>` : '<p class="ms-note">אין טפסים כאן.</p>'}`;
@@ -49,19 +49,27 @@ function openApp(a, after) {
     const [k, en, , type, o] = f; const v = a.data?.[k] ?? '';
     return `<div class="ka-row${aiF[k] && aiF[k] === v ? ' ai' : ''}" data-k="${k}"><span>${h(en)}</span><b${o.rtl ? ' dir="rtl"' : ' dir="ltr"'}>${h(showVal(k, v)) || '<i class="muted">—</i>'}</b><button type="button" class="linkish" data-ed="${k}" title="עריכה">✎</button></div>`;
   };
-  const docs = docsList(a.taxYears).filter((d) => married() || !d.m);
-  const docBox = (k, label) => `<div class="ka-doc"><b>${h(label)}</b> ${(a.files?.[k] || []).length ? '' : '<span class="rf-err">חסר</span>'}
-      ${(a.files?.[k] || []).map((x, i) => `<div class="small"><button type="button" class="linkish" data-view="${k}:${i}">👁 ${h(x.name)}</button> <span class="muted">${h(x.at)}</span>${x.check ? (x.check.ok ? ' <span class="rf-par">✓ AI</span>' : ` <span class="rf-err">⚠ ${h(x.check.en)}</span>`) : ''}<div data-img="${k}:${i}"></div></div>`).join('')}</div>`;
+  const rq = reqOf(a.data?.marital); const need = [...rq.gate, ...rq.rest];
+  const ICON = { ok: '✅', bad: '⚠️', pending: '⏳', 'pending?': '⏳', '': '⬜' };
+  const kl = (k) => kindLabel(k, a.taxYears, 'yi');
+  const pool = a.files?.pool || [];
+  const docsHtml = `<ul class="kr-need" style="grid-template-columns:1fr">${need.map((k) => { const st = kindState(a.files, k); return `<li class="st-${st.replace('?', '') || 'none'}">${ICON[st]} ${h(kl(k))}</li>`; }).join('')}</ul>
+    ${pool.map((x, i) => { const st = x.check?.status || 'pending'; return `<div class="ka-doc kr-pf st-${st}"><div class="small"><button type="button" class="linkish" data-view=":${i}">👁 ${h(x.name)}</button> <span class="muted">${h(x.at)}</span></div>
+      <div class="small">${ICON[st]} <b>${(x.kinds || []).length ? x.kinds.map((k) => h(kl(k))).join(' + ') : 'לא זוהה'}</b>${st === 'bad' && x.check?.en ? ` — <span class="rf-err">${h(x.check.en)}</span>` : ''}${x.check?.by ? ' <span class="muted">(ידני)</span>' : ''}</div>
+      <div class="small kr-pf-a"><select data-fk="${i}"><option value="">סוג…</option>${ALL_KINDS.map((k) => `<option value="${k}"${(x.kinds || [])[0] === k ? ' selected' : ''}>${h(kl(k))}</option>`).join('')}</select>
+        ${st !== 'ok' ? `<button type="button" class="btn small-btn" data-fs="${i}:ok">✓ תקין</button>` : `<button type="button" class="btn small-btn" data-fs="${i}:bad">✗ לא תקין</button>`}</div>
+      <div data-img=":${i}"></div></div>`; }).join('') || '<p class="muted small">עדיין לא הועלו מסמכים.</p>'}`;
+  const sigBox = (k, label) => ((a.files?.[k] || []).length ? `<div class="ka-doc"><b>${h(label)}</b> <button type="button" class="linkish" data-view="${k}:0">👁</button><div data-img="${k}:0"></div></div>` : '');
   const d = X.dialog(`<h2>טופס #${h(a.app_id)} — ${h(nm(a))} ${stBadge(a.status)}</h2>
     <p class="muted small" dir="ltr" style="text-align:right">${h(a.email)} · נפתח ${h(a.created_at)}${a.submitted_at ? ` · נשלח ${h(a.submitted_at)}` : ''} · עודכן ${h(a.updated_at)} (${h(a.updated_by)})</p>
     ${a.ai?.notes ? `<p class="rf-warn small">🤖 ${h(a.ai.notes)}</p>` : ''}
     <div class="ka-grid"><div class="ka-sec">
-      ${SECTIONS.map((s) => `<h4>${h(s.yi)} · ${h(s.en)}</h4>${s.fields.filter((f) => (married() || !f[4].m) && !f[4].print).map(rowHtml).join('')}`).join('')}
+      ${SECTIONS.map((s) => `<h4>${h(s.yi)} · ${h(s.en)}</h4>${s.fields.filter((f) => fieldFor(f, a.data?.marital) && !f[4].print).map(rowHtml).join('')}`).join('')}
       <h4>חתימה</h4>
       <div class="ka-row"><span>Applicant</span><b>${(a.files?.sig_self || []).length ? '✓ חתם (ציור)' : h(a.data?.sig_self_name || '—')}</b><span></span></div>
       ${married() ? `<div class="ka-row"><span>Spouse</span><b>${(a.files?.sig_wife || []).length ? '✓ חתמה (ציור)' : h(a.data?.sig_wife_name || '—')}</b><span></span></div>` : ''}
       <h4>הערה פנימית</h4><textarea id="ka-note" rows="2" style="width:100%">${h(a.note || '')}</textarea>
-    </div><div class="ka-docs"><h4 style="margin:0">📎 מסמכים</h4>${docs.map((x) => docBox(x.k, x.yi)).join('')}${['sig_self', 'sig_wife'].filter((k) => (a.files?.[k] || []).length).map((k) => docBox(k, k === 'sig_self' ? 'חתימה' : 'חתימת האשה')).join('')}</div></div>
+    </div><div class="ka-docs"><h4 style="margin:0">📎 מסמכים</h4>${docsHtml}${sigBox('sig_self', 'חתימה')}${sigBox('sig_wife', 'חתימת האשה')}</div></div>
     <div class="actions">
       <button type="button" class="btn primary" id="ka-ok"${a.status === 'approved' ? ' disabled' : ''}>✓ אישור והוספה לאברכים</button>
       <select id="ka-st">${Object.entries(STATUS).map(([k, [t]]) => `<option value="${k}"${k === a.status ? ' selected' : ''}>${h(t)}</option>`).join('')}</select>
@@ -69,7 +77,10 @@ function openApp(a, after) {
       <button type="button" class="btn" id="ka-reset">🔑 קוד חדש</button>
       <span class="spacer"></span><button type="button" class="btn" data-x>סגירה</button></div>`, 'ka-dlg');
   const imgs = {};
-  const getImg = async (k, i) => { const key = `${k}:${i}`; if (!imgs[key]) imgs[key] = (await X.call(X.KEY, 'kaFile', { app_id: a.app_id, kind: k, i })).data; return imgs[key]; };
+  const getImg = async (k, i) => { const key = `${k}:${i}`; if (!imgs[key]) imgs[key] = (await X.call(X.KEY, 'kaFile', { app_id: a.app_id, kind: k || '', i: Number(i) })).data; return imgs[key]; };
+  const fileSet = async (i, body) => { try { const r = await X.call(X.KEY, 'kaFileSet', { app_id: a.app_id, i, ...body }); Object.assign(a, r.app); d.close(); openApp(a, after); X.toast('נשמר.'); } catch (err) { X.toast(X.msg(err), 'err'); } };
+  X.$$('[data-fk]', d).forEach((sel) => { sel.onchange = () => { if (sel.value) fileSet(Number(sel.dataset.fk), { kinds: [sel.value] }); }; });
+  X.$$('[data-fs]', d).forEach((b) => { b.onclick = () => { const [i, st] = b.dataset.fs.split(':'); fileSet(Number(i), { status: st }); }; });
   X.$$('[data-view]', d).forEach((b) => { b.onclick = async () => {
     const [k, i] = b.dataset.view.split(':'); const slot = X.$(`[data-img="${k}:${i}"]`, d);
     slot.innerHTML = '<span class="muted small">טוען…</span>';
@@ -106,7 +117,7 @@ function openApp(a, after) {
     const images = {};
     try {
       for (const k of ['sig_self', 'sig_wife']) if ((a.files?.[k] || []).length) images[k] = await getImg(k, a.files[k].length - 1);
-      if (X.$('#ka-pdocs', d).checked) for (const x of docs) for (let i = 0; i < (a.files?.[x.k] || []).length; i += 1) images[`${x.k}#${i}`] = await getImg(x.k, i);
+      if (X.$('#ka-pdocs', d).checked) for (let i = 0; i < pool.length; i += 1) images[`${(pool[i].kinds || []).map((k) => kindLabel(k, a.taxYears)).join(' + ') || pool[i].name} #${i + 1}`] = await getImg('', i);
     } catch (err) { X.toast(X.msg(err), 'err'); }
     w.document.open(); w.document.write(printHtml(a, { images })); w.document.close();
   };
