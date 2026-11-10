@@ -3324,7 +3324,7 @@ function kaView(a, staff) {
   const o = { app_id: S(a.app_id), email: S(a.email), status: S(a.status) || 'draft', lang: S(a.lang), created_at: S(a.created_at), submitted_at: S(a.submitted_at),
     updated_at: S(a.updated_at), updated_by: S(a.updated_by), data: kaJ(a.data, {}), contact_id: S(a.contact_id), taxYears: kaTaxYears() };
   const f = kaJ(a.files, {});
-  o.files = {}; Object.keys(f).forEach(function (k) { o.files[k] = (f[k] || []).map(function (x) { return { name: S(x.name), type: S(x.type), at: S(x.at) }; }); });
+  o.files = {}; Object.keys(f).forEach(function (k) { o.files[k] = (f[k] || []).map(function (x) { return { name: S(x.name), type: S(x.type), at: S(x.at), check: x.check || null }; }); });
   if (staff) { o.note = S(a.note); o.ai = kaJ(a.ai, null); }
   return o;
 }
@@ -3409,6 +3409,41 @@ function kaExtract_(M, a) {
   return { fields: outF, notes: S(j.notes).slice(0, 600), at: now() };
 }
 
+const KA_EXPECT = {
+  id_self: 'a government photo ID of the applicant (driver license, state ID, US passport or passport card)',
+  id_wife: 'a government photo ID of the applicant\'s wife (driver license, state ID, US passport or passport card)',
+  ss_self: 'a US Social Security card of the applicant', ss_wife: 'a US Social Security card of the applicant\'s wife',
+  marriage: 'a marriage certificate (or marriage registration)', birth_self: 'a birth certificate of the applicant', birth_wife: 'a birth certificate of the applicant\'s wife',
+};
+/** בדיקת מסמך אחד: { ok, en, yi } */
+function kaCheck_(kind, fileId, data) {
+  const key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!key) return null;
+  const ty = kaTaxYears();
+  const expect = kind === 'tax1' || kind === 'tax2' ? 'a US federal tax return or tax document (e.g. Form 1040, W-2) for tax year ' + (kind === 'tax1' ? ty[0] : ty[1]) : KA_EXPECT[kind];
+  if (!expect) return null;
+  const b = DriveApp.getFileById(fileId).getBlob();
+  const known = [S(data.legal_first) && 'applicant: ' + S(data.legal_first) + ' ' + S(data.legal_last), S(data.wife_first) && 'wife: ' + S(data.wife_first) + ' ' + S(data.wife_last)].filter(Boolean).join('; ');
+  const prompt = ['An applicant uploaded a file that should be: ' + expect + '.',
+    'Check: (1) is it really that kind of document; (2) is it readable (not blurry, not cut off, the important numbers and names visible); (3) for an ID: is it expired; for tax: is it the right year.',
+    known ? 'Names already on the form (' + known + ') — mention if the name clearly does not match.' : '',
+    'If it is only one side of a card, that is fine. Be practical: minor glare is OK.',
+    'Return ONLY JSON: {"ok": true/false, "en": "short message to the applicant in simple English (empty if ok)", "yi": "the same message in Yiddish, Hebrew letters (empty if ok)"}'].filter(Boolean).join('\n');
+  const body = { contents: [{ role: 'user', parts: [{ text: prompt }, { inline_data: { mime_type: b.getContentType(), data: Utilities.base64Encode(b.getBytes()) } }] }],
+    generationConfig: { temperature: 0, maxOutputTokens: 400, responseMimeType: 'application/json' } };
+  const model = PropertiesService.getScriptProperties().getProperty('GEMINI_MODEL') || 'gemini-flash-latest';
+  let res;
+  for (let i = 0; i < 2; i++) {
+    res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', { method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, muteHttpExceptions: true, payload: JSON.stringify(body) });
+    if ([429, 500, 503].indexOf(res.getResponseCode()) < 0) break;
+    Utilities.sleep(1500);
+  }
+  if (res.getResponseCode() !== 200) return null;
+  const txt = (((JSON.parse(res.getContentText()).candidates || [])[0] || {}).content || { parts: [] }).parts.map(function (p) { return p.text || ''; }).join('');
+  let j; try { j = JSON.parse(txt.replace(/^```json|```$/g, '').trim()); } catch (err) { return null; }
+  return { ok: j.ok !== false, en: S(j.en).slice(0, 300), yi: S(j.yi).slice(0, 300), at: now() };
+}
+
 const KA_PUB = {
   /** כניסה / פתיחת טופס חדש: { email, code, create } */
   kaAuth: function (M, req) {
@@ -3472,6 +3507,17 @@ const KA_PUB = {
   kaUpload: function (M, req) {
     const a = kaSession(M, req.ks);
     const r = kaPutFile(M, a, S(req.kind), req.data, req.name);
+    // 🤖 בדיקה מיידית: האם זה המסמך הנכון, קריא, בתוקף
+    const kind = S(req.kind);
+    if (kind.indexOf('sig_') !== 0) {
+      const c = CacheService.getScriptCache(); const ck = 'kachk:' + M.key + ':' + S(a.app_id);
+      const n = Number(c.get(ck) || 0);
+      if (n < 60) {
+        c.put(ck, String(n + 1), 21600);
+        const list = r.files[kind]; const last = list[list.length - 1];
+        try { last.check = kaCheck_(kind, last.id, kaJ(a.data, {})); } catch (err) { last.check = null; }
+      }
+    }
     const o = { files: JSON.stringify(r.files), folder_id: r.folder, updated_at: now(), updated_by: 'form' };
     if (S(a.status) === 'submitted' || S(a.status) === 'approved') o.status = 'updated';
     kaSet(M, a, o);

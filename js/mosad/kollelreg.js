@@ -1,7 +1,7 @@
 // 🕍 מרכז הכוללים אונגוואר — טופס הרשמה (ungvar.org/kollel/register). English / אידיש.
 //    כניסה עם אימייל + קוד (בלי גוגל) · טיוטה נשמרת · מסמכים → 🤖 Gemini ממלא את השדות · חתימה (ציור או הקלדה).
 import { CONFIG } from '../config.js?v=653';
-import { SECTIONS, docsList, MARITAL, YESNO, printHtml } from './kollelfields.js?v=656';
+import { SECTIONS, docsList, MARITAL, YESNO, printHtml } from './kollelfields.js?v=657';
 
 const MOSAD = 'kollel';
 const $ = (s, r = document) => r.querySelector(s);
@@ -16,7 +16,9 @@ const UI = {
     loginHint: 'New? Choose a code and press "Start a new form". Next time, use the same email and code to continue or edit your form. Forgot your code? Call the office.',
     steps: ['Documents', 'Details', 'Parents & Education', 'Signature'], save: 'Save', saved: 'Saved ✓', next: 'Next →', back: '← Back', logout: 'Sign out',
     maritalQ: 'Marital status', docsT: 'Required documents', docsHint: 'Upload a clear photo (from your phone) or a PDF. Front and back are fine as 2 files.',
-    up: '+ Upload', del: 'Remove', ai: '✨ Fill my details from the documents', aiBusy: 'Reading your documents… (up to a minute)', aiDone: (n) => `${n} fields were filled from your documents — please check every one carefully.`,
+    up: '+ Upload', del: 'Remove', drop: 'Drag files here, or click to choose', checking: 'Checking the document…', okDoc: 'Looks good',
+    auto: 'Fill in my details automatically from the documents', autoHint: 'When you press "Next", your name, date of birth, SSN etc. are filled in from the documents. You can check and correct everything.',
+    ai: '✨ Fill my details from the documents', aiBusy: 'Reading your documents… (up to a minute)', aiDone: (n) => `${n} fields were filled from your documents — please check every one carefully.`,
     aiNone: 'Nothing could be read. Please fill in the details yourself.', aiFlag: 'filled from documents — please check',
     sigT: 'Signature', sigSelf: 'Applicant\'s legal signature', sigWife: 'Spouse\'s legal signature', draw: 'Draw', type: 'Type my full name', clear: 'Clear', sigDate: 'Date',
     confirm: 'I confirm that the information in this form is true and correct.', submit: 'Submit the form', resubmit: 'Save changes',
@@ -33,7 +35,9 @@ const UI = {
     loginHint: 'נייע? קלייב אויס א קאוד און דריק "אנהייבן א נייע פארעם". דאס קומענדיגע מאל, מיט די זעלבע אימעיל און קאוד קענסטו ווייטער פירן אדער טוישן. פארגעסן דעם קאוד? רוף דעם אפיס.',
     steps: ['דאקומענטן', 'פרטים', 'עלטערן און ישיבות', 'אונטערשריפט'], save: 'אפהיטן', saved: 'אפגעהיטן ✓', next: 'ווייטער ←', back: '→ צוריק', logout: 'ארויסגיין',
     maritalQ: 'סטאטוס', docsT: 'נויטיגע דאקומענטן', docsHint: 'לייג ארויף א קלארע בילד (פונעם טעלעפאן) אדער א PDF. פאראויס און הינטן — מעג זיין 2 טעקעס.',
-    up: '+ ארויפלייגן', del: 'אראפנעמען', ai: '✨ אויספילן מיינע פרטים פון די דאקומענטן', aiBusy: 'מען לייענט די דאקומענטן… (ביז א מינוט)', aiDone: (n) => `${n} פעלדער זענען אויסגעפילט פון די דאקומענטן — ביטע קוק איבער יעדעס איינס.`,
+    up: '+ ארויפלייגן', del: 'אראפנעמען', drop: 'שלעפ אהער די טעקעס, אדער דריק צו אויסקלייבן', checking: 'מען קוקט איבער דעם דאקומענט…', okDoc: 'זעט אויס גוט',
+    auto: 'אויספילן מיינע פרטים אויטאמאטיש פון די דאקומענטן', autoHint: 'ווען דו דריקסט "ווייטער", ווערן דער נאמען, געבורטס טאג, SSN א.א.וו. אויסגעפילט פון די דאקומענטן. דו קענסט אלעס איבערקוקן און פאררעכטן.',
+    ai: '✨ אויספילן מיינע פרטים פון די דאקומענטן', aiBusy: 'מען לייענט די דאקומענטן… (ביז א מינוט)', aiDone: (n) => `${n} פעלדער זענען אויסגעפילט פון די דאקומענטן — ביטע קוק איבער יעדעס איינס.`,
     aiNone: 'מען האט גארנישט געקענט לייענען. ביטע פיל אויס אליין.', aiFlag: 'אויסגעפילט פון די דאקומענטן — ביטע קוק איבער',
     sigT: 'אונטערשריפט', sigSelf: 'דיין אונטערשריפט', sigWife: 'די ווייב׳ס אונטערשריפט', draw: 'צייכענען', type: 'שרייבן דעם פולן נאמען', clear: 'אויסמעקן', sigDate: 'דאטום',
     confirm: 'איך באשטעטיג אז די אינפארמאציע אין די פארעם איז ריכטיג.', submit: 'אריינשיקן', resubmit: 'אפהיטן די ענדערונגען',
@@ -45,7 +49,7 @@ const UI = {
       'ai-off': 'אויטאמאטיש לייענען ארבעט יעצט נישט.', 'ai-no-docs': 'לייג קודם ארויף די ID / SS קארטל / סערטיפיקאטן.', 'missing-sig': 'ביטע אונטערשרייב די פארעם.' },
     missing: 'ביטע פיל אויס:', missingDocs: 'עס פעלן דאקומענטן:', yes: 'יא', no: 'ניין', choose: '—' },
 };
-const S = { lang: 'en', ks: '', app: null, step: 0, data: {}, aiKeys: new Set(), dirty: false, busy: false, sig: { self: 'draw', wife: 'draw' }, ok: false };
+const S = { auto: true, lang: 'en', ks: '', app: null, step: 0, data: {}, aiKeys: new Set(), dirty: false, busy: false, sig: { self: 'draw', wife: 'draw' }, ok: false };
 const U = () => UI[S.lang];
 const L = (en, yi) => (S.lang === 'yi' ? yi : en);
 const errText = (e) => { const c = String(e?.code || e?.message || e); if (c.startsWith('missing:')) return `${U().missing} ${c.slice(8).split(',').map((k) => fieldLabel(k)).join(', ')}`; if (c.startsWith('missing-docs:')) return `${U().missingDocs} ${c.slice(13).split(',').map((k) => docLabel(k)).join(', ')}`; return U().err[c] || c; };
@@ -114,7 +118,7 @@ function renderLogin(msg = '') {
     } catch (e) { renderLogin(errText(e)); } finally { S.busy = false; }
   }; });
 }
-function setApp(app) { S.app = app; S.data = { ...(app.data || {}) }; if (!S.data.sig_date) S.data.sig_date = new Date().toISOString().slice(0, 10); }
+function setApp(app) { S.app = app; S.data = { ...(app.data || {}) }; if (!S.data.marital) S.data.marital = 'married'; if (!S.data.sig_date) S.data.sig_date = new Date().toISOString().slice(0, 10); }
 
 // ---------- שדות ----------
 function input(f) {
@@ -149,10 +153,11 @@ function stepDocs() {
   return `<section class="rf-card"><h2>${h(u.maritalQ)}</h2>
       <div class="kr-mar">${MARITAL.map(([v, e, y]) => `<label class="kr-pill"><input type="radio" name="marital" value="${v}"${S.data.marital === v ? ' checked' : ''}> ${h(L(e, y))}</label>`).join('')}</div></section>
     <section class="rf-card"><h2>${h(u.docsT)}</h2><p class="rf-hint">${h(u.docsHint)}</p>
-      ${docs.map((d) => `<div class="rf-doc"><div><b>${h(L(d.en, d.yi))}</b> *</div>
-        <div class="kr-files">${(files[d.k] || []).map((x, i) => `<span class="kr-file">📄 ${h(x.name)} <button type="button" class="linkish" data-del="${d.k}:${i}">${h(u.del)}</button></span>`).join('')}
-        <label class="btn small-btn kr-upbtn">${h(u.up)}<input type="file" accept="image/*,application/pdf" data-up="${d.k}" hidden></label></div></div>`).join('')}
-      <div class="kr-aibox"><button type="button" class="btn primary" id="kr-ai">${h(u.ai)}</button><span class="rf-hint" id="kr-aimsg"></span></div></section>`;
+      ${docs.map((d) => `<div class="rf-doc kr-drop" data-drop="${d.k}"><div><b>${h(L(d.en, d.yi))}</b> *</div>
+        <div class="kr-files">${(files[d.k] || []).map((x, i) => `<span class="kr-file${x.check ? (x.check.ok ? ' ok' : ' bad') : ''}">📄 ${h(x.name)} <button type="button" class="linkish" data-del="${d.k}:${i}">${h(u.del)}</button>
+          ${x.check ? `<small>${x.check.ok ? `✓ ${h(u.okDoc)}` : `⚠ ${h(L(x.check.en, x.check.yi || x.check.en))}`}</small>` : ''}</span>`).join('')}
+        <label class="kr-zone">⬆ ${h(u.drop)}<input type="file" accept="image/*,application/pdf" multiple data-up="${d.k}" hidden></label></div></div>`).join('')}
+      <div class="kr-aibox"><label class="kr-switch"><input type="checkbox" id="kr-auto"${S.auto ? ' checked' : ''}><span></span></label><div><b>${h(u.auto)}</b><div class="rf-hint">${h(u.autoHint)}</div></div><span class="rf-hint" id="kr-aimsg"></span></div></section>`;
 }
 function stepDetails() { return `<section class="rf-card">${sec('personal')}${sec('marital')}</section>`; }
 function stepFamily() { return `<section class="rf-card">${sec('parents')}${sec('education')}</section>`; }
@@ -189,7 +194,31 @@ function onErr(e) {
   if (String(e?.code || e?.message) === 'ka-login') { S.ks = ''; S.app = null; try { sessionStorage.removeItem(SK); } catch { /* */ } renderLogin(errText(e)); return; }
   const m = errText(e); const el = $('#kr-err'); if (el) el.textContent = m; toast(m, true);
 }
-function go(step) { readStep(); const was = S.step; S.step = step; if (S.dirty || was === 0) save(true); render(); window.scrollTo(0, 0); }
+const aiSig = () => JSON.stringify(['id_self', 'id_wife', 'ss_self', 'ss_wife', 'marriage', 'birth_self', 'birth_wife', 'tax1', 'tax2'].map((k) => (S.app.files?.[k] || []).map((x) => x.at)));
+async function autoFill() {
+  const key = `kr-ai:${S.app.app_id}`; let last = ''; try { last = localStorage.getItem(key) || ''; } catch { /* */ }
+  const sig = aiSig();
+  if (!S.auto || sig === last || sig === JSON.stringify(Array(9).fill([]))) return 0;
+  const m = $('#kr-aimsg'); if (m) m.textContent = U().aiBusy;
+  const nb = $('#kr-next'); if (nb) { nb.disabled = true; nb.textContent = U().aiBusy; }
+  try {
+    await save(true);
+    const r = await pub('kaAi', { ks: S.ks });
+    try { localStorage.setItem(key, sig); } catch { /* */ }
+    // רק שדות ריקים — לא דורסים מה שהאברך כבר כתב
+    const keys = Object.keys(r.fields || {}).filter((k) => r.fields[k] && !String(S.data[k] || '').trim());
+    keys.forEach((k) => { S.data[k] = r.fields[k]; S.aiKeys.add(k); });
+    if (keys.length) await save(true);
+    return keys.length;
+  } catch (err) { toast(errText(err), true); return 0; }
+}
+async function go(step) {
+  readStep(); const was = S.step;
+  let n = 0;
+  if (was === 0 && step > 0) n = await autoFill();
+  S.step = step; if (S.dirty || was === 0) save(true); render(); window.scrollTo(0, 0);
+  if (n) toast(U().aiDone(n));
+}
 
 function wire() {
   const u = U();
@@ -201,24 +230,22 @@ function wire() {
   // מצב משפחתי משנה את רשימת המסמכים
   $$('input[name=marital]').forEach((r) => { r.onchange = () => { S.data.marital = r.value; S.dirty = true; render(); }; });
   // העלאה / מחיקה
-  $$('[data-up]').forEach((inp) => { inp.onchange = async () => {
-    const f = inp.files[0]; if (!f) return;
-    const lab = inp.closest('label'); lab.classList.add('busy');
-    try { const data = await fileData(f); const r = await pub('kaUpload', { ks: S.ks, kind: inp.dataset.up, data, name: f.name }); S.app = r.app; readStep(); render(); } catch (e) { onErr(e); lab.classList.remove('busy'); }
-  }; });
-  $$('[data-del]').forEach((b) => { b.onclick = async () => { const [k, i] = b.dataset.del.split(':'); try { const r = await pub('kaDelFile', { ks: S.ks, kind: k, i: Number(i) }); S.app = r.app; render(); } catch (e) { onErr(e); } }; });
-  // 🤖 Gemini
-  $('#kr-ai')?.addEventListener('click', async (e) => {
-    const b = e.currentTarget; const m = $('#kr-aimsg');
-    b.disabled = true; m.textContent = u.aiBusy;
-    try {
-      await save(true);
-      const r = await pub('kaAi', { ks: S.ks });
-      const keys = Object.keys(r.fields || {}).filter((k) => r.fields[k] && r.fields[k] !== S.data[k]);
-      keys.forEach((k) => { S.data[k] = r.fields[k]; S.aiKeys.add(k); });
-      if (keys.length) { await save(true); S.step = 1; render(); toast(u.aiDone(keys.length)); } else { m.textContent = u.aiNone; b.disabled = false; }
-    } catch (err) { m.textContent = errText(err); b.disabled = false; }
+  const upload = async (kind, list, zone) => {
+    const fl = [...list].filter(Boolean); if (!fl.length) return;
+    zone.classList.add('busy'); const lab = zone.querySelector('.kr-zone'); if (lab) lab.firstChild.textContent = `⏳ ${u.checking} `;
+    for (const f of fl) {
+      try { const data = await fileData(f); const r = await pub('kaUpload', { ks: S.ks, kind, data, name: f.name }); S.app = r.app; } catch (e) { onErr(e); }
+    }
+    readStep(); render();
+  };
+  $$('[data-up]').forEach((inp) => { inp.onchange = () => upload(inp.dataset.up, inp.files, inp.closest('.kr-drop')); });
+  $$('[data-drop]').forEach((z) => {
+    z.ondragover = (e) => { e.preventDefault(); z.classList.add('over'); };
+    z.ondragleave = () => z.classList.remove('over');
+    z.ondrop = (e) => { e.preventDefault(); z.classList.remove('over'); upload(z.dataset.drop, e.dataTransfer.files, z); };
   });
+  $('#kr-auto')?.addEventListener('change', (e) => { S.auto = e.target.checked; try { localStorage.setItem('kollel-reg-auto', S.auto ? '1' : '0'); } catch { /* */ } });
+  $$('[data-del]').forEach((b) => { b.onclick = async () => { const [k, i] = b.dataset.del.split(':'); try { const r = await pub('kaDelFile', { ks: S.ks, kind: k, i: Number(i) }); S.app = r.app; render(); } catch (e) { onErr(e); } }; });
   // חתימה
   $$('[name^=sm_]').forEach((r) => { r.onchange = () => { readStep(); S.sig[r.name.slice(3)] = r.value; render(); }; });
   $$('.kr-pad').forEach((cv) => pad(cv));
@@ -256,6 +283,7 @@ async function submit() {
 export async function startKollelReg() {
   try { S.lang = localStorage.getItem('kollel-reg-lang') || (/^yi|^he/i.test(navigator.language) ? 'yi' : 'en'); } catch { /* */ }
   if (!UI[S.lang]) S.lang = 'en';
+  try { S.auto = localStorage.getItem('kollel-reg-auto') !== '0'; } catch { /* */ }
   let ks = ''; try { ks = sessionStorage.getItem(SK) || ''; } catch { /* */ }
   if (ks) { try { const r = await pub('kaGet', { ks }); S.ks = ks; setApp(r.app); S.step = r.app.status === 'draft' ? 0 : 1; } catch { /* */ } }
   render();

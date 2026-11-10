@@ -1,5 +1,5 @@
 // 🕍 מרכז הכוללים — 📥 הרשמות: כל הטפסים, עריכה לכל שורה, מסמכים ותמונות, אישור, איפוס קוד, הדפסה 8.5×11.
-import { SECTIONS, docsList, STATUS, showVal, printHtml, YESNO } from './kollelfields.js?v=656';
+import { SECTIONS, docsList, STATUS, showVal, printHtml, YESNO } from './kollelfields.js?v=657';
 import { downloadXlsx } from '../excel.js?v=653';
 
 let X;
@@ -51,7 +51,7 @@ function openApp(a, after) {
   };
   const docs = docsList(a.taxYears).filter((d) => married() || !d.m);
   const docBox = (k, label) => `<div class="ka-doc"><b>${h(label)}</b> ${(a.files?.[k] || []).length ? '' : '<span class="rf-err">חסר</span>'}
-      ${(a.files?.[k] || []).map((x, i) => `<div class="small"><button type="button" class="linkish" data-view="${k}:${i}">👁 ${h(x.name)}</button> <span class="muted">${h(x.at)}</span><div data-img="${k}:${i}"></div></div>`).join('')}</div>`;
+      ${(a.files?.[k] || []).map((x, i) => `<div class="small"><button type="button" class="linkish" data-view="${k}:${i}">👁 ${h(x.name)}</button> <span class="muted">${h(x.at)}</span>${x.check ? (x.check.ok ? ' <span class="rf-par">✓ AI</span>' : ` <span class="rf-err">⚠ ${h(x.check.en)}</span>`) : ''}<div data-img="${k}:${i}"></div></div>`).join('')}</div>`;
   const d = X.dialog(`<h2>טופס #${h(a.app_id)} — ${h(nm(a))} ${stBadge(a.status)}</h2>
     <p class="muted small" dir="ltr" style="text-align:right">${h(a.email)} · נפתח ${h(a.created_at)}${a.submitted_at ? ` · נשלח ${h(a.submitted_at)}` : ''} · עודכן ${h(a.updated_at)} (${h(a.updated_by)})</p>
     ${a.ai?.notes ? `<p class="rf-warn small">🤖 ${h(a.ai.notes)}</p>` : ''}
