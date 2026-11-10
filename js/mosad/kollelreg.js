@@ -27,8 +27,8 @@ const UI = {
     ai: '✨ Fill my details from the documents', aiBusy: 'Reading your documents… (up to a minute)', aiDone: (n) => `${n} fields were filled from your documents — please check every one carefully.`,
     aiNone: 'Nothing could be read. Please fill in the details yourself.', aiFlag: 'filled from documents — please check',
     sigT: 'Signature', sigSelf: 'Applicant\'s legal signature', sigWife: 'Spouse\'s legal signature', draw: 'Draw', type: 'Type my full name', clear: 'Clear', sigDate: 'Date',
-    confirm: 'I confirm that the information in this form is true and correct.', submit: 'Submit the form', resubmit: 'Save changes',
-    sent: 'Your form was received. Thank you! You can come back any time with your email and code to update it.',
+    confirm: 'I confirm that the information in this form is true and correct.', submit: 'Save & send to the office', resubmit: 'Save & send to the office',
+    sent: 'Sent to the office — thank you! Everything you filled in is saved.', sentMissing: 'Still missing (you can come back with your email and code and complete it any time):', sentFull: 'Your form is complete ✓', autosaved: 'Saved ✓',
     st: { draft: 'Not opened yet', open: 'In progress — not sent yet', submitted: 'Received ✓', updated: 'Updated ✓', approved: 'Approved ✓', rejected: 'Please contact the office' },
     err: { 'ka-bad': 'Wrong code.', 'ka-none': 'There is no form with this email yet — you can create one here.', 'ka-exists': 'A form with this email already exists — sign in here with your code.',
       'ka-locked': 'Too many attempts. Try again in 15 minutes.', 'ka-short-code': 'The code must be at least 6 characters.', 'ka-bad-email': 'Invalid email address.',
@@ -52,8 +52,8 @@ const UI = {
     ai: '✨ אויספילן מיינע פרטים פון די דאקומענטן', aiBusy: 'מען לייענט די דאקומענטן… (ביז א מינוט)', aiDone: (n) => `${n} פעלדער זענען אויסגעפילט פון די דאקומענטן — ביטע קוק איבער יעדעס איינס.`,
     aiNone: 'מען האט גארנישט געקענט לייענען. ביטע פיל אויס אליין.', aiFlag: 'אויסגעפילט פון די דאקומענטן — ביטע קוק איבער',
     sigT: 'אונטערשריפט', sigSelf: 'דיין אונטערשריפט', sigWife: 'די ווייב׳ס אונטערשריפט', draw: 'צייכענען', type: 'שרייבן דעם פולן נאמען', clear: 'אויסמעקן', sigDate: 'דאטום',
-    confirm: 'איך באשטעטיג אז די אינפארמאציע אין די פארעם איז ריכטיג.', submit: 'אריינשיקן', resubmit: 'אפהיטן די ענדערונגען',
-    sent: 'מיר האבן באקומען די פארעם. א דאנק! דו קענסט צוריקקומען ווען דו ווילסט מיט די אימעיל און קאוד צו טוישן.',
+    confirm: 'איך באשטעטיג אז די אינפארמאציע אין די פארעם איז ריכטיג.', submit: 'אפהיטן און שיקן צום אפיס', resubmit: 'אפהיטן און שיקן צום אפיס',
+    sent: 'געשיקט צום אפיס — א דאנק! אלעס וואס דו האסט אויסגעפילט איז אפגעהיטן.', sentMissing: 'עס פעלט נאך (דו קענסט צוריקקומען מיט די אימעיל און קאוד און ענדיגן ווען דו ווילסט):', sentFull: 'די פארעם איז פולשטענדיג ✓', autosaved: 'אפגעהיטן ✓',
     st: { draft: 'נאך נישט געעפנט', open: 'אין מיטן — נאך נישט אריינגעשיקט', submitted: 'באקומען ✓', updated: 'דערהיינטיגט ✓', approved: 'באשטעטיגט ✓', rejected: 'ביטע פארבינד זיך מיט׳ן אפיס' },
     err: { 'ka-bad': 'אומריכטיגער קאוד.', 'ka-none': 'ס׳איז נאך נישטא קיין פארעם מיט די אימעיל — דא קענסטו עפענען א נייע.', 'ka-exists': 'ס׳איז שוין דא א פארעם מיט די אימעיל — גיי דא אריין מיט דיין קאוד.',
       'ka-locked': 'צופיל פרואוון. פרוביר נאכאמאל אין 15 מינוט.', 'ka-short-code': 'דער קאוד דארף זיין כאטש 6 אותיות.', 'ka-bad-email': 'אומריכטיגע אימעיל.',
@@ -323,6 +323,12 @@ function wire() {
   $$('.kr-pad').forEach((cv) => pad(cv));
   $$('[data-clear]').forEach((b) => { b.onclick = () => { const cv = b.closest('.kr-sig').querySelector('canvas'); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); cv._drawn = false; }; });
   $('#kr-ok')?.addEventListener('change', (e) => { S.ok = e.target.checked; });
+  // 💾 שמירה אוטומטית — כמה שניות אחרי שמקלידים; אצל הגבאי זה מופיע מיד
+  const stepBox = $('#kr-step');
+  if (stepBox && opened()) {
+    const kick = (e) => { if (e.target.matches('[data-up], [data-kind], #kr-auto, #kr-ok, [name^=sm_]')) return; S.dirty = true; clearTimeout(S.asT); S.asT = setTimeout(async () => { if (!S.dirty) return; if (await save(true)) { const el = $('#kr-save'); if (el) { el.textContent = U().autosaved; setTimeout(() => { if (el.isConnected) el.textContent = U().save; }, 1800); } } }, 2500); };
+    stepBox.addEventListener('input', kick); stepBox.addEventListener('change', kick);
+  }
   $('#kr-submit')?.addEventListener('click', submit);
 }
 function pad(cv) {
@@ -347,8 +353,12 @@ async function submit() {
     }
     const r = await pub('kaSave', { ks: S.ks, data: S.data, lang: S.lang, submit: true });
     S.app = r.app; S.dirty = false;
-    frame(`<section class="rf-card kr-done"><h2>✓</h2><p>${h(u.sent)}</p><p><button type="button" class="btn" id="kr-again">${h(u.back)}</button></p></section>`);
-    $('#kr-again').onclick = () => { S.step = 1; render(); };
+    const miss = r.app.progress?.missing || [];
+    const lab = (m) => (m === 'sig' ? U().sigT : m.startsWith('d:') ? docLabel(m.slice(2)) : fieldLabel(m.slice(2)));
+    frame(`<section class="rf-card kr-done"><h2>✓</h2><p>${h(u.sent)}</p>
+      ${miss.length ? `<div class="kr-left"><b>${h(u.sentMissing)}</b><ul>${miss.map((m) => `<li>${h(lab(m))}</li>`).join('')}</ul></div>` : `<p class="rf-par"><b>${h(u.sentFull)}</b></p>`}
+      <p><button type="button" class="btn" id="kr-again">${h(u.back)}</button></p></section>`);
+    $('#kr-again').onclick = () => { S.step = 0; render(); };
   } catch (e) { onErr(e); b.disabled = false; }
 }
 

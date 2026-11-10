@@ -3348,11 +3348,23 @@ function kaFiles(a) {
   }
   return f;
 }
+/** כמה מולא: { done, total, missing: ['f:field' | 'd:kind' | 'sig'] } */
+function kaProgress(a) {
+  const d = kaJ(a.data, {}); const f = kaFiles(a); const rq = kaReq(S(d.marital));
+  const fields = ['yi_name', 'legal_first', 'legal_last', 'phone', 'address', 'city', 'dob', 'ssn'];
+  if (S(d.marital) === 'married') fields.push('wife_first', 'wife_last', 'wife_ssn', 'wedding_date');
+  const miss = fields.filter(function (k) { return !S(d[k]); }).map(function (k) { return 'f:' + k; })
+    .concat(rq.gate.concat(rq.rest).filter(function (k) { return !kaHave(f, k); }).map(function (k) { return 'd:' + k; }));
+  if (!(f.sig_self || []).length && !S(d.sig_self_name)) miss.push('sig');
+  const total = fields.length + rq.gate.length + rq.rest.length + 1;
+  return { done: total - miss.length, total: total, missing: miss };
+}
 function kaHave(files, kind) { return (files.pool || []).some(function (x) { return x.check && x.check.status === 'ok' && (x.kinds || []).indexOf(kind) >= 0; }); }
 function kaView(a, staff) {
   const d = kaJ(a.data, {});
   const o = { app_id: S(a.app_id), email: S(a.email), status: S(a.status) || 'draft', lang: S(a.lang), created_at: S(a.created_at), submitted_at: S(a.submitted_at), opened_at: S(a.opened_at),
     updated_at: S(a.updated_at), updated_by: S(a.updated_by), data: d, contact_id: S(a.contact_id), taxYears: kaTaxYears(), req: kaReq(S(d.marital)) };
+  try { o.progress = kaProgress(a); } catch (err) { o.progress = null; }
   const f = kaFiles(a);
   o.files = { pool: (f.pool || []).map(function (x) { return { name: S(x.name), type: S(x.type), at: S(x.at), kinds: x.kinds || [], check: x.check || { status: 'pending' } }; }),
     sig_self: (f.sig_self || []).map(function (x) { return { name: S(x.name), at: S(x.at) }; }), sig_wife: (f.sig_wife || []).map(function (x) { return { name: S(x.name), at: S(x.at) }; }) };
@@ -3515,15 +3527,8 @@ const KA_PUB = {
     const o = { data: JSON.stringify(d), updated_at: now(), updated_by: 'form' };
     if (req.lang) o.lang = S(req.lang) === 'yi' ? 'yi' : 'en';
     if (req.submit) {
+      // שולחים למשרד גם אם חסר — הגבאי רואה מה כבר יש ומה חסר
       if (st === 'draft') throw new Error('ka-not-open');
-      const need2 = ['yi_name', 'legal_first', 'legal_last', 'phone', 'address', 'city', 'dob', 'ssn'];
-      if (S(d.marital) === 'married') need2.push('wife_first', 'wife_last', 'wife_ssn', 'wedding_date');
-      const miss = need2.filter(function (k) { return !S(d[k]); });
-      if (miss.length) throw new Error('missing:' + miss.join(','));
-      const f = kaFiles(a); const rq = kaReq(S(d.marital));
-      const missD = rq.gate.concat(rq.rest).filter(function (k) { return !kaHave(f, k); });
-      if (missD.length) throw new Error('missing-docs:' + missD.join(','));
-      if (!(f.sig_self || []).length && !S(d.sig_self_name)) throw new Error('missing-sig');
       if (st === 'open') { o.status = 'submitted'; o.submitted_at = now(); } else if (st === 'approved') o.status = 'updated';
     } else if (st === 'approved' || st === 'submitted') o.status = 'updated';
     kaSet(M, a, o);

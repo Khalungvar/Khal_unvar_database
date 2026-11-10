@@ -459,3 +459,4 @@ tr.bd-day td { border-top: 2px solid #e3dccb; }
 .kl-seg { margin: 6px 0 12px; } .kl-mon { min-width: 9em; text-align: center; }
 .kl-att td, .kl-att th { padding: 2px 3px; } .kl-att .kl-nm { white-space: nowrap; position: sticky; inset-inline-start: 0; background: var(--card, #fff); }
 .kl-chk { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; } .kl-chk input { font: inherit; padding: 5px 8px; border: 1px solid #cdbf9e; border-radius: 6px; }
+.kr-left { text-align: start; background: #fff8e6; border-radius: 10px; padding: 10px 14px; margin: 10px auto; max-width: 520px; } .kr-left ul { margin: 6px 0 0; }

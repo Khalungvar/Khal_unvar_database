@@ -15,7 +15,8 @@ export async function renderKollelReg(box) {
   if (!K.apps) { box.innerHTML = '<p class="muted">טוען…</p>'; try { await load(); } catch (err) { box.innerHTML = `<p class="ms-note err">${h(X.msg(err))}</p>`; return; } }
   const link = new URL('register/', location.href.replace(/[^/]*$/, '')).href;
   const cnt = (f) => K.apps.filter(f).length;
-  const PH = (a) => (a.status === 'approved' ? ['✅ הושלם', 'done'] : ['submitted', 'updated'].includes(a.status) ? ['✔ חלק א׳ · ✔ חלק ב׳', 'b'] : a.status === 'open' ? ['✔ חלק א׳', 'a'] : a.status === 'rejected' ? ['נדחה', 'rej'] : ['— לא סיים חלק א׳', 'none']);
+  const pr = (a) => (a.progress ? (a.progress.missing.length ? `חלק ב׳: ${a.progress.done}/${a.progress.total}` : '✔ חלק ב׳ מלא') : '');
+  const PH = (a) => (a.status === 'approved' ? ['✅ הושלם', 'done'] : ['submitted', 'updated'].includes(a.status) ? [`✔ חלק א׳ · ${pr(a)} · נשלח`, 'b'] : a.status === 'open' ? [`✔ חלק א׳ · ${pr(a)}`, 'a'] : a.status === 'rejected' ? ['נדחה', 'rej'] : ['— לא סיים חלק א׳', 'none']);
   const FL = [['all', 'הכל', (a) => a.status !== 'draft'], ['a', 'חלק א׳', (a) => a.status === 'open'], ['b', 'חלק ב׳ (נשלח)', (a) => ['submitted', 'updated'].includes(a.status)], ['done', 'הושלמו', (a) => a.status === 'approved'], ['draft', 'לא סיימו חלק א׳', (a) => a.status === 'draft']];
   const fl = FL.find((x) => x[0] === K.filter) || FL[0];
   const q = K.q.trim().toLowerCase();
@@ -63,6 +64,7 @@ function openApp(a, after) {
   const sigBox = (k, label) => ((a.files?.[k] || []).length ? `<div class="ka-doc"><b>${h(label)}</b> <button type="button" class="linkish" data-view="${k}:0">👁</button><div data-img="${k}:0"></div></div>` : '');
   const d = X.dialog(`<h2>טופס #${h(a.app_id)} — ${h(nm(a))} ${stBadge(a.status)}</h2>
     <p class="muted small" dir="ltr" style="text-align:right">${h(a.email)} · נפתח ${h(a.created_at)}${a.submitted_at ? ` · נשלח ${h(a.submitted_at)}` : ''} · עודכן ${h(a.updated_at)} (${h(a.updated_by)})</p>
+    ${a.progress?.missing?.length ? `<p class="rf-warn small"><b>חסר עדיין (${a.progress.done}/${a.progress.total}):</b> ${a.progress.missing.map((m) => h(m === 'sig' ? 'חתימה' : m.startsWith('d:') ? kindLabel(m.slice(2), a.taxYears, 'yi') : (SECTIONS.flatMap((x) => x.fields).find((f) => f[0] === m.slice(2)) || [0, m])[1])).join(' · ')}</p>` : (a.progress ? '<p class="rf-par small"><b>✔ הכל מולא</b></p>' : '')}
     ${a.ai?.notes ? `<p class="rf-warn small">🤖 ${h(a.ai.notes)}</p>` : ''}
     <div class="ka-grid"><div class="ka-sec">
       ${SECTIONS.map((s) => `<h4>${h(s.yi)} · ${h(s.en)}</h4>${s.fields.filter((f) => fieldFor(f, a.data?.marital) && !f[4].print).map(rowHtml).join('')}`).join('')}
