@@ -239,7 +239,7 @@ function pay(form) {
 }
 
 async function load() {
-  try { DATA = await guard({ action: 'webCampaign', c: SLUG }); } catch { DATA = { error: 'net' }; }
+  try { DATA = await guard({ action: 'webCampaign', c: SLUG, preview: new URLSearchParams(location.search).get('preview') || '' }); } catch { DATA = { error: 'net' }; }
   if (DATA.campaign) {
     if (!F.amount && !F.pkg) { const a = String(DATA.campaign.amounts || '').split(/[,\s]+/).map(Number).filter((x) => x > 0); F.amount = a[3] || a[0] || 180; }
     if (DATA.pay && DATA.ifields) { try { await loadIfields(); } catch { DATA.pay = false; } }

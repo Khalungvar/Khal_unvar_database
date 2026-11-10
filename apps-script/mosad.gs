@@ -3137,9 +3137,10 @@ function wcPublic_(o) {
 function webCampaign_(req) {
   const slug = S(req.c || req.slug).toLowerCase();
   const cache = CacheService.getScriptCache();
-  const ck = 'webcamp:' + (slug || '*');
+  const prev = S(req.preview) === '1' && !!slug; // תצוגה מקדימה (גם כשהדף כבוי) — רק עם הקישור המלא
+  const ck = 'webcamp:' + (slug || '*') + (prev ? ':p' : '');
   const hit = cache.get(ck); if (hit) return JSON.parse(hit);
-  const rows = wcRows_().filter(function (o) { return wcOn_(o.active); });
+  const rows = wcRows_().filter(function (o) { return wcOn_(o.active) || (prev && S(o.slug).toLowerCase() === slug); });
   let res;
   if (!slug) {
     res = { list: rows.map(function (o) { return { slug: S(o.slug), title_he: S(o.title_he), title_yi: S(o.title_yi), title_en: S(o.title_en), image: S(o.image) }; }) };
@@ -3243,7 +3244,7 @@ function webDonate_(req) {
   }
   try { wcRecord_(o, p, { total: total, base: base, fee: fee, first: first, last: last, phone: ph, email: email, last4: last4, ref: S(r.xRefNum), inv: inv, pkg: pkg, anon: req.anon === true, monthly: monthly, months: months, sched: sched, schedErr: schedErr, dedType: wcClean_(req.dedType, 20), dedText: wcClean_(req.dedText, 120), lang: S(req.lang).slice(0, 2) }); }
   catch (err) { Logger.log('webDonate record ' + err); }
-  try { cache.remove('webcamp:' + slug); cache.remove('webcamp:*'); } catch (e) { /* */ }
+  try { cache.removeAll(['webcamp:' + slug, 'webcamp:' + slug + ':p', 'webcamp:*']); } catch (e) { /* */ }
   return { ok: true, ref: S(r.xRefNum), amount: total, last4: last4, monthly: monthly, sched: !!sched, schedErr: schedErr ? true : false };
 }
 function wcRecord_(o, p, d) {

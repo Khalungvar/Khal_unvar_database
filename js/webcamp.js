@@ -25,7 +25,7 @@ async function writeAll(list) {
 }
 async function guardInfo(slug) {
   try {
-    const r = await fetch(CONFIG.MOSAD_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'webCampaign', c: slug }) });
+    const r = await fetch(CONFIG.MOSAD_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'webCampaign', c: slug, preview: '1' }) });
     return await r.json();
   } catch { return {}; }
 }
@@ -74,7 +74,7 @@ export async function openWebCampaign(c, toast = () => {}) {
       <p><button type="button" class="btn" data-addpk>+ חבילה</button></p>
       <p id="wc-msg" class="muted"></p>
       <p class="wc-acts"><button type="submit" class="btn primary">שמירה</button>
-        ${isNew ? '' : `<a class="btn" target="_blank" rel="noopener" href="${h(SITE + cur.slug)}">פתיחת הדף ↗</a><button type="button" class="btn" data-copy>העתקת קישור</button>`}
+        ${isNew ? '' : `<a class="btn" target="_blank" rel="noopener" href="${h(SITE + cur.slug)}${on(cur.active) ? '' : '&preview=1'}">${on(cur.active) ? 'פתיחת הדף ↗' : 'תצוגה מקדימה ↗'}</a><button type="button" class="btn" data-copy>העתקת קישור</button>`}
         <button type="button" class="btn ghost" data-close>סגירה</button></p>
     </form>`;
   dlg.querySelector('.x-close').onclick = close; dlg.querySelector('[data-close]').onclick = close;
@@ -109,7 +109,7 @@ export async function openWebCampaign(c, toast = () => {}) {
       const rest = fresh.filter((x) => x.campaign !== c.name && x.slug !== slug);
       await writeAll([...rest, o]);
       all = [...rest, o];
-      msg.innerHTML = `✅ נשמר. ${o.active ? `הדף: <a href="${h(SITE + slug)}" target="_blank" rel="noopener" dir="ltr">${h(SITE + slug)}</a> (מתעדכן תוך דקה)` : 'הדף כבוי באתר.'}`;
+      msg.innerHTML = `✅ נשמר. ${o.active ? `הדף: <a href="${h(SITE + slug)}" target="_blank" rel="noopener" dir="ltr">${h(SITE + slug)}</a> (מתעדכן תוך דקה)` : `הדף כבוי באתר. <a href="${h(SITE + slug)}&preview=1" target="_blank" rel="noopener">תצוגה מקדימה ↗</a>`}`;
       toast('✅ דף הקמפיין נשמר');
     } catch (err) { msg.textContent = `❌ ${err.message || err}`; }
   };
