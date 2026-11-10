@@ -424,3 +424,4 @@ tr.bd-day td { border-top: 2px solid #e3dccb; }
 .ka-zoom { position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 9999; display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
 .ka-zoom img { max-width: 96vw; max-height: 96vh; }
 @media (max-width: 860px) { .ka-grid { grid-template-columns: 1fr; } .ka-row { grid-template-columns: 1fr auto; } .ka-row span { grid-column: 1 / -1; } }
+.kr-blank { text-align: center; }

@@ -42,10 +42,10 @@ export const SECTIONS = [
     ['fil_address', 'Father-in-Law Address', 'שווער — אדרעס', 'text', { m: 1, wide: 1 }],
   ] },
   { id: 'education', en: 'Education History', yi: 'ישיבות', fields: [
-    ['hs_name', 'High School – Yeshiva Ketana (most recent)', 'ישיבה קטנה (די לעצטע)', 'text', {}],
+    ['hs_name', 'High School – Yeshiva Ketana (most recent)', 'ישיבה קטנה (די לעצטע)', 'text', { wide: 1 }],
     ['hs_city', 'City/State', 'שטאט / סטעיט', 'text', {}],
     ['hs_grad', 'Graduation (month / year)', 'געענדיגט (חודש / יאר)', 'text', {}],
-    ['yg_name', 'Most Recent Yeshiva Gedola', 'ישיבה גדולה (די לעצטע)', 'text', {}],
+    ['yg_name', 'Most Recent Yeshiva Gedola', 'ישיבה גדולה (די לעצטע)', 'text', { wide: 1 }],
     ['yg_city', 'City/State', 'שטאט / סטעיט', 'text', {}],
     ['yg_start', 'Date Started (month / year)', 'אנגעהויבן (חודש / יאר)', 'text', {}],
     ['yg_end', 'Date Ended (month / year)', 'געענדיגט (חודש / יאר)', 'text', {}],
@@ -81,15 +81,17 @@ export function showVal(k, v, lang = 'en') {
 }
 
 /** 🖨 הטופס להדפסה — 8.5×11, בסגנון טופס הנייר */
-export function printHtml(app, { lang = 'en', images = {} } = {}) {
+export function printHtml(app, { lang = 'en', images = {}, blank = false } = {}) {
   const h = (x) => String(x ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const d = app.data || {};
-  const married = d.marital === 'married';
-  const row = (f) => `<div class="pf-r${f[4].wide ? ' w' : ''}"><span>${h(f[1])}:</span><b${f[4].rtl ? ' dir="rtl"' : ''}>${h(showVal(f[0], d[f[0]]))}</b></div>`;
+  const married = blank || d.marital === 'married';
+  // טופס ריק: בחירה → תיבות לסימון; תאריך → __/__/____
+  const empty = (f) => (f[3] === 'select' ? f[4].opts.map((o) => `☐ ${h(o[1])}`).join('&nbsp;&nbsp; ') : f[3] === 'yesno' ? '☐ Yes&nbsp;&nbsp; ☐ No' : f[3] === 'date' ? '<span class="pf-dt">____ / ____ / ________</span>' : '');
+  const row = (f) => `<div class="pf-r${f[4].wide || (blank && ['select', 'yesno'].includes(f[3])) ? ' w' : ''}"><span>${h(f[1])}:</span><b${f[4].rtl ? ' dir="rtl"' : ''}>${blank ? empty(f) : h(showVal(f[0], d[f[0]]))}</b></div>`;
   const sec = (s) => { const fs = s.fields.filter((f) => married || !f[4].m); return `<h3>${h(s.en.toUpperCase())}</h3><div class="pf-g">${fs.map(row).join('')}</div>`; };
   const sig = (k, nm) => (images[k] ? `<img src="${images[k]}" alt="">` : (d[nm] ? `<i class="pf-typed">${h(d[nm])}</i>` : ''));
   const docs = docsList(app.taxYears).filter((x) => married || !x.m);
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Kollel Enrollment – ${h(d.legal_first)} ${h(d.legal_last)}</title>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Kollel Enrollment${blank ? ' Form' : ` – ${h(d.legal_first)} ${h(d.legal_last)}`}</title>
 <style>@page{size:8.5in 11in;margin:.5in}*{box-sizing:border-box}body{font:12.5px/1.45 Arial,sans-serif;color:#111;margin:0}
 .pf-h{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:6px}
 .pf-h .l{font-size:11px}.pf-h .r{text-align:right;direction:rtl;font:700 15px 'Frank Ruhl Libre',David,serif}
@@ -99,15 +101,16 @@ h3{font-size:12.5px;text-align:center;letter-spacing:1px;margin:12px 0 4px;backg
 .pf-r span{color:#444;white-space:nowrap}.pf-r b{font-weight:600;flex:1}
 .pf-docs{columns:2;font-size:11.5px;margin:4px 0}.pf-sig{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:22px}.pf-sig div{border-top:1px solid #111;padding-top:3px;text-align:center;font-size:11px;position:relative;min-height:60px}
 .pf-sig img{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);max-height:55px;max-width:90%}.pf-typed{position:absolute;bottom:22px;left:0;right:0;font:italic 20px 'Brush Script MT',cursive}
-.pf-doc{page-break-before:always;text-align:center}.pf-doc img{max-width:100%;max-height:9.3in}.pf-doc p{font-weight:700;margin:0 0 6px}
+.pf-dt{color:#999;letter-spacing:1px}.pf-note{font-size:11px;text-align:center;margin:6px 0}.pf-doc{page-break-before:always;text-align:center}.pf-doc img{max-width:100%;max-height:9.3in}.pf-doc p{font-weight:700;margin:0 0 6px}
 @media screen{body{max-width:8.5in;margin:20px auto;padding:.5in;box-shadow:0 0 10px #aaa}}</style></head><body>
 <div class="pf-h"><div class="l">5306 16th Ave<br>Brooklyn NY 11204<br>KhalUngvar@gmail.com | (718) 851-0806</div><div></div><div class="r">מרכז הכוללים<br>שע"י קהל אונגוואר</div></div>
 <div class="pf-t">---- KOLLEL ENROLLMENT FORM ----</div>
 <div class="pf-yi">נאמען אויף אידיש: <b>${h(d.yi_name)}</b></div>
 ${SECTIONS.map(sec).join('')}
 <div class="pf-r w"><span>Email Address:</span><b>${h(app.email)}</b></div>
-<h3>DOCUMENTS ON FILE</h3>
-<div class="pf-docs">${docs.map((x) => `<div>${(app.files?.[x.k] || []).length ? '☑' : '☐'} ${h(x.en)}</div>`).join('')}</div>
+<h3>${blank ? 'REQUIRED DOCUMENTS TO APPLY' : 'DOCUMENTS ON FILE'}</h3>
+<div class="pf-docs">${docs.map((x) => `<div>${(app.files?.[x.k] || []).length ? '☑' : '☐'} ${h(x.en)}${blank && x.m ? ' <i>(if married)</i>' : ''}</div>`).join('')}</div>
+${blank ? '<p class="pf-note">Please attach clear copies of all documents. You can also fill out this form online: <b>ungvar.org/kollel/register</b></p>' : ''}
 <div class="pf-sig"><div>${sig('sig_self', 'sig_self_name')}Applicant's Legal Signature · Date ${h(showVal('dob', d.sig_date) || '')}</div>${married ? `<div>${sig('sig_wife', 'sig_wife_name')}Spouse's Legal Signature · Date ${h(showVal('dob', d.sig_date) || '')}</div>` : '<div style="border:0"></div>'}</div>
 ${Object.entries(images).filter(([k]) => !k.startsWith('sig_')).map(([k, src]) => `<div class="pf-doc"><p>${h((docs.find((x) => k.startsWith(x.k)) || {}).en || k)}</p>${/^data:image/.test(src) ? `<img src="${src}">` : '<p>(PDF — opened separately)</p>'}</div>`).join('')}
 <script>window.onload=()=>setTimeout(()=>print(),300)</script></body></html>`;

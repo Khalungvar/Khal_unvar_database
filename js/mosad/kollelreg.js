@@ -1,7 +1,7 @@
 // 🕍 מרכז הכוללים אונגוואר — טופס הרשמה (ungvar.org/kollel/register). English / אידיש.
 //    כניסה עם אימייל + קוד (בלי גוגל) · טיוטה נשמרת · מסמכים → 🤖 Gemini ממלא את השדות · חתימה (ציור או הקלדה).
 import { CONFIG } from '../config.js?v=653';
-import { SECTIONS, docsList, MARITAL, YESNO } from './kollelfields.js?v=653';
+import { SECTIONS, docsList, MARITAL, YESNO, printHtml } from './kollelfields.js?v=654';
 
 const MOSAD = 'kollel';
 const $ = (s, r = document) => r.querySelector(s);
@@ -12,6 +12,7 @@ const SK = 'kollel-reg-session';
 const UI = {
   en: { dir: 'ltr', title: 'Kollel Enrollment Form', sub: 'Merkaz HaKollelim · Khal Ungvar',
     login: 'Sign in', email: 'Email address', code: 'Your code (at least 6 characters)', newForm: 'Start a new form', cont: 'Continue my form',
+    blankBtn: '⬇ Blank form to print (PDF)', blankHint: 'Prefer paper? Print the form, fill it in by hand and bring it to the office with copies of the documents. In the print window you can also choose "Save as PDF".',
     loginHint: 'New? Choose a code and press "Start a new form". Next time, use the same email and code to continue or edit your form. Forgot your code? Call the office.',
     steps: ['Documents', 'Details', 'Family & Education', 'Signature'], save: 'Save', saved: 'Saved ✓', next: 'Next →', back: '← Back', logout: 'Sign out',
     maritalQ: 'Marital status', docsT: 'Required documents', docsHint: 'Upload a clear photo (from your phone) or a PDF. Front and back are fine as 2 files.',
@@ -28,6 +29,7 @@ const UI = {
     missing: 'Please fill in:', missingDocs: 'Missing documents:', yes: 'Yes', no: 'No', choose: '—' },
   yi: { dir: 'rtl', title: 'טופס הרשמה פאר׳ן כולל', sub: 'מרכז הכוללים · קהל אונגוואר',
     login: 'אריינגיין', email: 'אימעיל אדרעס', code: 'דיין קאוד (כאטש 6 אותיות/ציפערן)', newForm: 'אנהייבן א נייע פארעם', cont: 'ווייטער מיין פארעם',
+    blankBtn: '⬇ א ליידיגע פארעם צום דרוקן (PDF)', blankHint: 'וועלסט אויספילן אויף פאפיר? דרוק אויס די פארעם, פיל אויס מיט די האנט און ברענג עס צום אפיס מיט קאפיעס פון די דאקומענטן. אינעם דרוק-פענצטער קען מען אויך אויסקלייבן "Save as PDF".',
     loginHint: 'נייע? קלייב אויס א קאוד און דריק "אנהייבן א נייע פארעם". דאס קומענדיגע מאל, מיט די זעלבע אימעיל און קאוד קענסטו ווייטער פירן אדער טוישן. פארגעסן דעם קאוד? רוף דעם אפיס.',
     steps: ['דאקומענטן', 'פרטים', 'משפחה און ישיבות', 'אונטערשריפט'], save: 'אפהיטן', saved: 'אפגעהיטן ✓', next: 'ווייטער ←', back: '→ צוריק', logout: 'ארויסגיין',
     maritalQ: 'סטאטוס', docsT: 'נויטיגע דאקומענטן', docsHint: 'לייג ארויף א קלארע בילד (פונעם טעלעפאן) אדער א PDF. פאראויס און הינטן — מעג זיין 2 טעקעס.',
@@ -95,7 +97,13 @@ function renderLogin(msg = '') {
     </form>
     ${msg ? `<p class="rf-err">${h(msg)}</p>` : ''}
     <div class="rf-nav"><button type="button" class="btn primary" data-go="login">${h(u.cont)}</button><button type="button" class="btn" data-go="create">${h(u.newForm)}</button></div>
-    <p class="rf-hint">${h(u.loginHint)}</p></section>`);
+    <p class="rf-hint">${h(u.loginHint)}</p></section>
+    <section class="rf-card kr-login kr-blank"><button type="button" class="btn" id="kr-blank">${h(u.blankBtn)}</button><p class="rf-hint">${h(u.blankHint)}</p></section>`);
+  $('#kr-blank').onclick = () => {
+    const y = new Date().getFullYear();
+    const w = window.open('', '_blank'); if (!w) return;
+    w.document.open(); w.document.write(printHtml({ email: '', data: {}, files: {}, taxYears: [y - 2, y - 1] }, { blank: true })); w.document.close();
+  };
   $$('[data-go]').forEach((b) => { b.onclick = async () => {
     const f = $('#kr-lf').elements;
     if (S.busy) return; S.busy = true; b.disabled = true;

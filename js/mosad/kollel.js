@@ -1,5 +1,5 @@
 // 🕍 מרכז הכוללים — 📥 הרשמות: כל הטפסים, עריכה לכל שורה, מסמכים ותמונות, אישור, איפוס קוד, הדפסה 8.5×11.
-import { SECTIONS, docsList, STATUS, showVal, printHtml, YESNO } from './kollelfields.js?v=653';
+import { SECTIONS, docsList, STATUS, showVal, printHtml, YESNO } from './kollelfields.js?v=654';
 import { downloadXlsx } from '../excel.js?v=653';
 
 let X;
