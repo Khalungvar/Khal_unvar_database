@@ -195,6 +195,7 @@ function doPost(e) {
     if (PUBLIC[req.action]) { const PM = mosadOf(req.mosad); if (!PM) return out({ error: 'no-mosad' }); return out(PUBLIC[req.action](PM, req)); } // דער טופס רישום (אן לאגאין)
     const email = whoIs(req.token);
     if (!email) return out({ error: 'not-signed-in' });
+    if (req.action === 'wcTranslate') return out(wcTranslate_(req)); // 🌐 אשף דף הקמפיין: תרגום עברית → אידיש/אנגלית
     if (req.action === 'touch') return out(touchAll()); // דער הויפט-אתר האט געשריבן — פריש לאדן
     const M = mosadOf(req.mosad);
     if (!M) return out({ error: 'no-mosad' });
@@ -3131,7 +3132,19 @@ function wcPublic_(o) {
   let pk = []; try { pk = JSON.parse(S(o.packages) || '[]'); } catch (e) { pk = []; }
   p.packages = Array.isArray(pk) ? pk : [];
   p.monthly = wcOn_(o.monthly); p.fee = wcOn_(o.fee);
+  let mt = null; try { mt = S(o.match) ? JSON.parse(S(o.match)) : null; } catch (e) { mt = null; }
+  p.match = mt && Number(mt.mult) > 1 ? { mult: Number(mt.mult), sponsor: S(mt.sponsor), cap: Number(mt.cap) || 0 } : null;
+  p.event_date = wcDay_(o.event_date);
   return p;
+}
+/** תרגום (רק למשתמש מחובר): texts → { yi:[...], en:[...] } */
+function wcTranslate_(req) {
+  const texts = (req.texts || []).slice(0, 20).map(function (x) { return S(x).slice(0, 4000); });
+  const res = {};
+  ['yi', 'en'].forEach(function (to) {
+    res[to] = texts.map(function (t) { if (!t) return ''; try { return LanguageApp.translate(t, 'iw', to); } catch (e) { return ''; } });
+  });
+  return res;
 }
 /** {slug} → הגדרות + נאסף + תורמים; בלי slug → רשימת הקמפיינים הפעילים */
 function webCampaign_(req) {
@@ -3151,7 +3164,7 @@ function webCampaign_(req) {
     const st = wcStats_(S(o.campaign), p.donors_mode, p.packages);
     res = { campaign: p, raised: st.raised, donors: st.donors, recent: st.recent, taken: st.taken, ifields: S(PropertiesService.getScriptProperties().getProperty('SOLA_IFIELDS_KEY')), pay: !!PropertiesService.getScriptProperties().getProperty('SOLA_XKEY'), at: now() };
   }
-  try { cache.put(ck, JSON.stringify(res), 60); } catch (e) { /* */ }
+  try { cache.put(ck, JSON.stringify(res), 20); } catch (e) { /* */ }
   return res;
 }
 function wcStats_(campaign, mode, packages) {

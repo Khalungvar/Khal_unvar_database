@@ -197,6 +197,7 @@ export function renderDonHub() {
   $('#hub-new-camp', main).onclick = () => openNewCampaign();
   $('#hub-all', main).onclick = () => ui.showView('donations');
   $('#hub-xl', main).onclick = () => exportDonations(t('hubRecent'), recent);
+  import('./campx.js').then((m) => m.checkCampNotices((x) => ui.toast(x))).catch(() => {});
   main.onclick = (e) => {
     const gs = e.target.closest('[data-goto-series]');
     if (gs) { showSeries(gs.dataset.gotoSeries); return; }
@@ -265,7 +266,7 @@ function renderSeries(main) {
           ${isY && !s.def.active ? ` <span class="badge muted">${h(t('yearlyOff'))}</span>` : ''}</p></div>
       <span class="spacer"></span>
       <button type="button" class="btn" id="series-xl" title=".xlsx">Excel</button>
-      ${isY ? `<button type="button" class="btn" id="series-settings">${h(t('campaignSettings'))}</button>` : ''}
+      ${isY ? `<button type="button" class="btn" id="series-full">⚙ הגדרות לכל השנים</button><button type="button" class="btn" id="series-settings">✎ ${h(t('campaignSettings'))}</button>` : ''}
       ${isY && !hasNext ? `<button type="button" class="btn" id="series-prepare">${h(t('prepareYear', { year: next }))}</button>` : ''}
     </div>
     ${yearBarsHtml(s.years)}
@@ -283,6 +284,12 @@ function renderSeries(main) {
     </table>`;
   $('#series-xl', main).onclick = () => exportDonations(s.series, s.years.flatMap((c) => c.list));
   if (isY) $('#series-settings', main).onclick = () => openNewCampaign({ mode: 'yearly', def: s.def });
+  if (isY) {
+    $('#series-full', main).onclick = () => {
+      const c = s.years.find((x) => x.year === curYear()) || s.years[0] || { name: `${s.series} ${curYear()}`, kind: 'yearly', series: s.series, year: curYear(), org: s.def.org, goal: 0 };
+      import('./campx.js').then((m) => m.openCampSettings(c, { toast: (x) => ui.toast(x) })).catch((e) => ui.toast(ui.friendlyError(e), 'error'));
+    };
+  }
   const prep = $('#series-prepare', main);
   if (prep) {
     prep.onclick = async () => {
@@ -319,7 +326,10 @@ function renderCampaign(main) {
       <button type="button" class="btn" id="camp-xl" title=".xlsx">Excel</button>
       <button type="button" class="btn" id="camp-receipts">🧾 ${h(t('rcCampBtn'))}</button>
       <button type="button" class="btn" id="camp-web" title="ungvar.org">🌐 דף באתר</button>
-      <button type="button" class="btn" id="camp-settings">${t('campaignSettings')}</button>
+      <button type="button" class="btn" id="camp-invites">📋 מוזמנים ומעקב</button>
+      <button type="button" class="btn" id="camp-tablet" title="מסך גבאי לאירוע">📱 טאבלט</button>
+      <button type="button" class="btn" id="camp-full">⚙ הגדרות קמפיין</button>
+      <button type="button" class="btn" id="camp-settings" title="ארגון, תגיות, הערה">✎ ${t('campaignSettings')}</button>
       <button type="button" class="btn" id="camp-add-one">${t('newDonation')}</button>
       <button type="button" class="btn primary" id="camp-add-more">${t('campaignAddMore')}</button>
     </div>
@@ -348,6 +358,11 @@ function renderCampaign(main) {
   $('#camp-receipts', main).onclick = () => openReceipts({ kind: 'campaign', campaign: c.name });
   $('#camp-web', main).onclick = () => import('./webcamp.js').then((m) => m.openWebCampaign(c, (x) => ui.toast(x))).catch((err) => ui.toast(ui.friendlyError(err), 'error'));
   $('#camp-settings', main).onclick = () => openNewCampaign({ mode: isY ? 'year' : 'once', camp: c });
+  const cx = () => import('./campx.js');
+  const err = (e) => ui.toast(ui.friendlyError(e), 'error');
+  $('#camp-full', main).onclick = () => cx().then((m) => m.openCampSettings(c, { toast: (x) => ui.toast(x), after: () => ui.refreshAll() })).catch(err);
+  $('#camp-invites', main).onclick = () => cx().then((m) => m.openInvites(c, { toast: (x) => ui.toast(x), openCard: ui.openCard })).catch(err);
+  $('#camp-tablet', main).onclick = () => import('./camptablet.js').then((m) => m.openTablet(c, { toast: (x) => ui.toast(x), after: () => ui.refreshAll() })).catch(err);
 }
 
 // ---------- ווער האט נאך נישט געגעבן (און האט יא געגעבן פאר א יאר) ----------

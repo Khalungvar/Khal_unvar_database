@@ -26,6 +26,7 @@ let LANG = pickLang();
 
 const T = {
   he: {
+    match: (m, sp) => `כל דולר מוכפל ×${m}${sp ? ` בזכות ${sp}` : ''}`, withMatch: 'כולל ההכפלה', toEvent: 'עד האירוע', scan: 'לתרומה:',
     home: '← לדף הבית', raised: 'נאספו', of: 'מתוך יעד של', donors: 'תורמים', daysLeft: (n) => `נשארו ${n} ימים`, ended: 'הקמפיין הסתיים', pctGoal: 'מהיעד',
     pkgs: 'אפשרויות הקדשה', taken: '✓ כבר הוקדש', recent: 'תורמים אחרונים', anonName: 'תורם בעילום שם', perMonth: '/חודש',
     give: 'לתרום עכשיו', once: 'חד-פעמי', monthly: 'הוראת קבע חודשית', months: 'מספר חודשים', monthsAll: 'עד לביטול', other: 'סכום אחר',
@@ -39,6 +40,7 @@ const T = {
     err: { 'need-name': 'נא למלא שם פרטי ומשפחה.', 'bad-phone': 'מספר טלפון לא תקין.', 'bad-email': 'אימייל לא תקין.', 'bad-exp': 'תוקף לא תקין (MM/YY).', 'bad-amount': 'נא לבחור סכום.', 'need-card': 'נא למלא את פרטי הכרטיס.', declined: 'הכרטיס לא אושר.', 'too-many': 'יותר מדי ניסיונות. נסה שוב מאוחר יותר.', 'not-ready': 'התרומה באתר עוד לא פעילה.', gateway: 'תקלה בחיבור. נסה שוב.', other: 'משהו השתבש. נסה שוב.' },
   },
   yi: {
+    match: (m, sp) => `יעדער דאלער ווערט געטאפלט ×${m}${sp ? ` א דאנק ${sp}` : ''}`, withMatch: 'מיט די טאפלונג', toEvent: 'ביז די סעודה', scan: 'געבן:',
     home: '← צום היים בלאט', raised: 'געזאמלט', of: 'פון א ציל פון', donors: 'נדבנים', daysLeft: (n) => `נאך ${n} טעג`, ended: 'דער קאמפיין האט זיך געענדיגט', pctGoal: 'פון ציל',
     pkgs: 'אפציעס פאר נדבות', taken: '✓ שוין גענומען', recent: 'לעצטע נדבנים', anonName: 'א נדבן אן נאמען', perMonth: '/חודש',
     give: 'געבן יעצט', once: 'איין מאל', monthly: 'יעדן חודש', months: 'וויפיל חדשים', monthsAll: 'ביז אפגעשטעלט', other: 'אנדער סכום',
@@ -52,6 +54,7 @@ const T = {
     err: { 'need-name': 'ביטע אריינשרייבן נאמען און פאמיליע נאמען.', 'bad-phone': 'נישט ריכטיגער טעלעפאן.', 'bad-email': 'נישט ריכטיגער אימעיל.', 'bad-exp': 'נישט ריכטיג (MM/YY).', 'bad-amount': 'ביטע אויסקלייבן א סכום.', 'need-card': 'ביטע אריינשרייבן די קארטל פרטים.', declined: 'דער קארטל איז נישט אנגענומען.', 'too-many': 'צופיל פרואוון. פרואווט שפעטער.', 'not-ready': 'נאך נישט אקטיוו.', gateway: 'א פראבלעם מיטן פארבינדונג. פרואווט נאכאמאל.', other: 'עפעס איז נישט געגאנגען. פרואווט נאכאמאל.' },
   },
   en: {
+    match: (m, sp) => `Every dollar matched ×${m}${sp ? ` thanks to ${sp}` : ''}`, withMatch: 'with matching', toEvent: 'until the event', scan: 'Donate:',
     home: '← Home', raised: 'raised', of: 'of a goal of', donors: 'donors', daysLeft: (n) => `${n} days left`, ended: 'This campaign has ended', pctGoal: 'of goal',
     pkgs: 'Sponsorship options', taken: '✓ Sponsored', recent: 'Recent donors', anonName: 'Anonymous', perMonth: '/mo',
     give: 'Donate now', once: 'One-time', monthly: 'Monthly', months: 'Number of months', monthsAll: 'Until cancelled', other: 'Other amount',
@@ -73,7 +76,7 @@ async function guard(body) {
   return r.json();
 }
 
-let DATA = null; let SLUG = '';
+let DATA = null; let SLUG = ''; let SCREEN = false;
 const F = { amount: 0, pkg: '', monthly: false, months: 0, fee: true, anon: false };
 
 function applyLang() {
@@ -96,16 +99,20 @@ function loadIfields() {
 }
 
 // ---------- רינדור ----------
+/** הסכום כולל ההכפלה (Matching): raised + (mult-1)×raised, עד התקרה */
+const shown = () => { const m = DATA.campaign?.match; if (!m) return DATA.raised; const extra = DATA.raised * (m.mult - 1); return DATA.raised + (m.cap ? Math.min(extra, m.cap) : extra); };
+const matchHtml = (c) => (c.match ? `<p class="cp-match">✖${c.match.mult} · ${h(L().match(c.match.mult, c.match.sponsor))}</p>` : '');
 function heroHtml(c) {
-  const goal = Number(c.goal) || 0; const pct = goal ? Math.min(100, Math.round((DATA.raised / goal) * 100)) : 0;
+  const goal = Number(c.goal) || 0; const pct = goal ? Math.min(100, Math.round((shown() / goal) * 100)) : 0;
   let left = '';
   if (c.end_date) { const d = Math.ceil((new Date(`${c.end_date}T23:59:59`) - new Date()) / 864e5); left = d >= 0 ? L().daysLeft(d) : L().ended; }
   const img = c.image ? `style="background-image:linear-gradient(180deg,rgba(40,10,10,.05),rgba(40,10,10,.65)),url('${h(c.image)}')"` : '';
   return `<section class="pb-card cp-hero">
     <div class="cp-pic${c.image ? ' has-img' : ''}" ${img}><div><small>${h(tr(c, 'sub'))}</small><h1>${h(tr(c, 'title'))}</h1></div></div>
     <div class="cp-hb">${tr(c, 'desc') ? `<p class="cp-desc" dir="auto">${h(tr(c, 'desc')).replace(/\n/g, '<br>')}</p>` : ''}
-      ${c.donors_mode === 'none' && !goal ? '' : `<div class="cp-prog"><span class="cp-big">${money(DATA.raised)}</span>
-        <span>${goal ? `${h(L().raised)} ${h(L().of)} <b>${money(goal)}</b>` : h(L().raised)}</span></div>
+      ${matchHtml(c)}
+      ${c.donors_mode === 'none' && !goal ? '' : `<div class="cp-prog"><span class="cp-big">${money(shown())}</span>
+        <span>${goal ? `${h(L().raised)}${c.match ? ` (${h(L().withMatch)})` : ''} ${h(L().of)} <b>${money(goal)}</b>` : h(L().raised)}</span></div>
       ${goal ? `<div class="cp-track"><i style="width:${pct}%"></i></div>` : ''}
       <div class="cp-stats">${goal ? `<span><b>${pct}%</b> ${h(L().pctGoal)}</span>` : ''}<span><b>${DATA.donors}</b> ${h(L().donors)}</span>${left ? `<span>${h(left)}</span>` : ''}</div>`}
     </div></section>`;
@@ -170,8 +177,22 @@ function render() {
   if (DATA.error) { root.innerHTML = `<section class="pb-card"><p>${h(L().notFound)}</p></section>`; return; }
   const c = DATA.campaign;
   document.title = `${tr(c, 'title')} – Khal Ungvar`;
+  if (SCREEN) { root.innerHTML = screenHtml(c); return; }
   root.innerHTML = `<div class="cp-grid"><div class="cp-main">${heroHtml(c)}${pkgsHtml(c)}${recentHtml(c)}</div><div class="cp-side">${formHtml(c)}</div></div>`;
   wire();
+}
+
+// ---------- 📺 מסך ציבורי (campaign.html?c=...&screen=1): מספר גדול, פס התקדמות, תורמים אחרונים; מתרענן לבד ----------
+function screenHtml(c) {
+  const goal = Number(c.goal) || 0; const pct = goal ? Math.min(100, Math.round((shown() / goal) * 100)) : 0;
+  let cd = '';
+  if (c.event_date) { const ms = new Date(`${c.event_date}T19:00:00`) - new Date(); if (ms > 0) { const d = Math.floor(ms / 864e5); const hh = Math.floor((ms % 864e5) / 36e5); cd = `${d ? `${d}d ` : ''}${hh}h ${h(L().toEvent)}`; } }
+  const url = `ungvar.org/campaign.html?c=${SLUG}`;
+  return `<div class="cs-wrap"><div class="cs-top"><small>${h(tr(c, 'sub'))}</small><h1>${h(tr(c, 'title'))}</h1>${matchHtml(c)}</div>
+    <div class="cs-num">${money(shown())}</div>
+    ${goal ? `<div class="cs-track"><i style="width:${pct}%"></i></div><div class="cs-sub"><b>${pct}%</b> · ${h(L().of)} ${money(goal)} · <b>${DATA.donors}</b> ${h(L().donors)}${cd ? ` · ${cd}` : ''}</div>` : `<div class="cs-sub"><b>${DATA.donors}</b> ${h(L().donors)}${cd ? ` · ${cd}` : ''}</div>`}
+    ${c.donors_mode === 'none' ? '' : `<div class="cs-wall">${DATA.recent.slice(0, 12).map((d) => `<div class="cs-dn"><b><bdi>${h(d.anon ? L().anonName : (LANG === 'en' ? d.en || d.he : d.he || d.en))}</bdi></b>${d.amount != null ? `<span>${money(d.amount)}${d.monthly ? h(L().perMonth) : ''}</span>` : ''}</div>`).join('')}</div>`}
+    <div class="cs-foot">${h(L().scan)} <b dir="ltr">${h(url)}</b></div></div>`;
 }
 
 function setupIfields() {
@@ -242,13 +263,16 @@ async function load() {
   try { DATA = await guard({ action: 'webCampaign', c: SLUG, preview: new URLSearchParams(location.search).get('preview') || '' }); } catch { DATA = { error: 'net' }; }
   if (DATA.campaign) {
     if (!F.amount && !F.pkg) { const a = String(DATA.campaign.amounts || '').split(/[,\s]+/).map(Number).filter((x) => x > 0); F.amount = a[3] || a[0] || 180; }
-    if (DATA.pay && DATA.ifields) { try { await loadIfields(); } catch { DATA.pay = false; } }
+    if (!SCREEN && DATA.pay && DATA.ifields) { try { await loadIfields(); } catch { DATA.pay = false; } }
   }
-  render(); setupIfields();
+  render(); if (!SCREEN) setupIfields();
 }
 
 export function startCampaign() {
-  SLUG = (new URLSearchParams(location.search).get('c') || '').trim().toLowerCase();
+  const qs = new URLSearchParams(location.search);
+  SLUG = (qs.get('c') || '').trim().toLowerCase();
+  SCREEN = qs.get('screen') === '1' && !!SLUG;
+  if (SCREEN) { document.body.classList.add('cp-screen'); setInterval(load, 20000); }
   $$('[data-lang]').forEach((b) => { b.onclick = () => setLang(b.dataset.lang); });
   applyLang();
   load();

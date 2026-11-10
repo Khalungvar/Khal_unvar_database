@@ -283,3 +283,21 @@ html[dir=rtl] .cp-track i { margin-inline-start: 0; background: linear-gradient(
 
 .pb-camps { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 12px; }
 .pb-camps .pb-btn { justify-content: center; }
+/* ---------- matching + 📺 public screen ---------- */
+.cp-match { margin: 6px 0 0; display: inline-block; background: #fff4d6; color: #7a5a00; border-radius: 999px; padding: 4px 12px; font-weight: 700; font-size: 14px; }
+body.cp-screen { background: #2a0a0d; }
+body.cp-screen header, body.cp-screen footer, body.cp-screen .pb-bar, body.cp-screen .pb-top { display: none !important; }
+body.cp-screen .pb-wrap, body.cp-screen main, body.cp-screen #cp-root { max-width: none !important; padding: 0 !important; margin: 0 !important; width: 100%; }
+.cs-wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 4vh 4vw; color: #fff8ea; text-align: center;
+  background: radial-gradient(circle at 50% 0%, #7a1219 0%, #2a0a0d 70%); box-sizing: border-box; }
+.cs-top small { font-size: clamp(16px, 2vw, 26px); opacity: .8; }
+.cs-top h1 { font-family: 'Frank Ruhl Libre', serif; font-size: clamp(36px, 5vw, 80px); margin: 4px 0; }
+.cs-top .cp-match { font-size: clamp(16px, 2vw, 28px); }
+.cs-num { font-family: 'Frank Ruhl Libre', serif; font-weight: 700; font-size: clamp(70px, 13vw, 220px); color: #f3e3b8; line-height: 1; }
+.cs-track { width: min(1200px, 90vw); height: clamp(16px, 2.4vh, 30px); background: rgba(255,255,255,.15); border-radius: 999px; overflow: hidden; }
+.cs-track i { display: block; height: 100%; background: linear-gradient(90deg, #c9a23f, #f3e3b8); transition: width 1.2s; }
+.cs-sub { font-size: clamp(18px, 2.4vw, 34px); opacity: .9; }
+.cs-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; width: min(1400px, 94vw); margin-top: 8px; }
+.cs-dn { display: flex; justify-content: space-between; gap: 10px; background: rgba(255,255,255,.08); border: 1px solid rgba(243,227,184,.25); border-radius: 12px; padding: 10px 14px; font-size: clamp(16px, 1.6vw, 24px); }
+.cs-dn span { color: #f3e3b8; font-weight: 700; white-space: nowrap; }
+.cs-foot { font-size: clamp(16px, 1.8vw, 26px); opacity: .85; }
