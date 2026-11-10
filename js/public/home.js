@@ -509,6 +509,16 @@ function donateDialog() {
   document.body.append(dlg); dlg.showModal();
   const close = () => { dlg.close(); dlg.remove(); };
   $('.pb-x', dlg).onclick = close; $('.pb-cancel', dlg).onclick = close;
+  // קמפיינים פעילים באתר (campaign.html) — אם יש, מוצגים כקישורים בחלון
+  fetch(CONFIG.MOSAD_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'webCampaign' }) })
+    .then((r) => r.json()).then((j) => {
+      const list = Array.isArray(j.list) ? j.list : [];
+      if (!list.length || !dlg.isConnected) return;
+      const tt = (x) => x[`title_${LANG}`] || x.title_he || x.title_yi || x.title_en;
+      const box = document.createElement('div'); box.className = 'pb-camps';
+      box.innerHTML = list.map((x) => `<a class="pb-btn gold" href="campaign.html?c=${encodeURIComponent(x.slug)}">${h(tt(x))}</a>`).join('');
+      $('h3', dlg).after(box);
+    }).catch(() => {});
 }
 
 function renderAll() {

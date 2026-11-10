@@ -209,3 +209,77 @@ a[href^="tel:"], .pb-kol b { white-space: nowrap; }
 }
 /* ימות החול באותו גובה כמו שבת; מעריב וכפתור ה-SMS למטה */
 @media (min-width: 641px) { #pb-week { align-self: stretch; position: relative; padding-bottom: 18px; } #pb-week .pb-wk-end { position: static; } #pb-week .pb-wk-end > .pb-smsr { bottom: 16px; inset-inline-end: 16px; } #pb-week .pb-wk-end.flow > .pb-smsr { position: static; } }
+
+/* ---- 🌐 דף קמפיין (campaign.html) ---- */
+.cp-top img { width: 130px; margin: -34px auto 0; display: block; position: relative; z-index: 2; }
+#cp-root { margin: 10px 0 30px; }
+.cp-grid { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 16px; align-items: start; }
+.cp-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.cp-side { position: sticky; top: 12px; }
+.cp-h { font-family: var(--serif); color: var(--accent); font-size: 22px; margin: 0 0 10px; }
+.cp-hero { padding: 0; overflow: hidden; }
+.cp-pic { min-height: 200px; display: flex; align-items: flex-end; padding: 18px 22px; color: #fff8ea; background: linear-gradient(135deg, #7a1219, #b0453f 55%, #c9a23f); background-size: cover; background-position: center; }
+.cp-pic h1 { font-family: var(--serif); font-size: 38px; line-height: 1.12; margin: 2px 0 0; }
+.cp-pic small { opacity: .85; font-size: 14px; }
+.cp-hb { padding: 16px 22px 20px; }
+.cp-desc { margin: 0 0 12px; color: var(--muted); }
+.cp-prog { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 4px 0 6px; }
+.cp-big { font-family: var(--serif); font-size: 34px; font-weight: 700; color: var(--accent); }
+.cp-track { height: 14px; background: var(--accent-soft); border-radius: 999px; overflow: hidden; }
+.cp-track i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), #7a1219); border-radius: 999px; }
+html[dir=rtl] .cp-track i { margin-inline-start: 0; background: linear-gradient(270deg, var(--gold), #7a1219); }
+.cp-stats { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 14px; margin-top: 8px; }
+.cp-stats b { color: var(--ink); }
+.cp-pkgs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.cp-pkg { font: inherit; text-align: center; border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 8px; background: var(--bg); color: var(--ink); cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.cp-pkg b { font-family: var(--serif); font-size: 18px; }
+.cp-pkg span { color: var(--accent); font-weight: 700; font-size: 20px; }
+.cp-pkg em { font-style: normal; font-size: 12px; color: var(--muted); }
+.cp-pkg.on { border-color: var(--accent); background: var(--accent-soft); }
+.cp-pkg.taken { opacity: .55; cursor: default; }
+.cp-wall { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.cp-dn { display: flex; justify-content: space-between; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; background: var(--bg); }
+.cp-dn b { font-family: var(--serif); }
+.cp-dn small { display: block; color: var(--muted); font-size: 12px; }
+.cp-amt { color: var(--accent); font-weight: 700; white-space: nowrap; }
+.cp-form form { display: flex; flex-direction: column; gap: 8px; }
+.cp-form form.cp-off { opacity: .5; pointer-events: none; }
+.cp-soon { background: var(--gold-soft); border-radius: 10px; padding: 10px 12px; margin: 0 0 10px; font-size: 14px; }
+.cp-tog { display: grid; grid-template-columns: 1fr 1fr; background: var(--accent-soft); border-radius: 999px; padding: 4px; }
+.cp-tog button { font: inherit; font-weight: 600; border: 0; background: none; color: var(--muted); border-radius: 999px; padding: 7px; cursor: pointer; }
+.cp-tog button.on { background: var(--accent); color: var(--accent-ink); }
+.cp-amts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.cp-amts button { font: inherit; font-weight: 700; border: 1.5px solid var(--line); border-radius: 10px; padding: 9px 0; background: var(--surface); color: var(--ink); cursor: pointer; }
+.cp-amts button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.cp-amts input { grid-column: span 4; }
+.cp-form input:not([type=checkbox]), .cp-form select { width: 100%; font: inherit; padding: 9px 10px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); min-width: 0; }
+.cp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cp-l { margin: 6px 0 0; font-size: 13px; color: var(--muted); font-weight: 600; display: flex; gap: 8px; align-items: center; }
+.cp-l select { width: auto; }
+.cp-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; }
+.cp-card label { font-size: 13px; color: var(--muted); font-weight: 600; display: flex; flex-direction: column; gap: 4px; }
+.cp-if { width: 100%; height: 44px; border: 0; background: transparent; }
+.cp-err { color: #b3261e; font-size: 13px; }
+.cp-chk { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.cp-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.cp-msg { min-height: 1.2em; margin: 0; color: #b3261e; font-weight: 600; font-size: 14px; }
+.cp-pay { width: 100%; justify-content: center; font-size: 19px; padding: 13px; }
+.cp-pay.busy { opacity: .7; }
+.cp-sec { font-size: 12px; color: var(--muted); text-align: center; margin: 0; }
+.cp-pkgsel { margin: 0; background: var(--accent-soft); border-radius: 10px; padding: 8px 12px; }
+.cp-link { font: inherit; border: 0; background: none; color: var(--accent); cursor: pointer; }
+.cp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.cp-li { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--bg); text-decoration: none; color: var(--ink); }
+.cp-li img { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 8px; }
+.cp-li b { font-family: var(--serif); font-size: 19px; color: var(--accent); }
+@media (max-width: 900px) {
+  .cp-grid { grid-template-columns: 1fr; }
+  .cp-side { position: static; }
+  .cp-pkgs { grid-template-columns: 1fr 1fr; }
+  .cp-wall { grid-template-columns: 1fr; }
+  .cp-pic h1 { font-size: 28px; }
+  .cp-top img { margin-top: 10px; }
+}
+
+.pb-camps { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 12px; }
+.pb-camps .pb-btn { justify-content: center; }

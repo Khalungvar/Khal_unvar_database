@@ -189,6 +189,8 @@ function doPost(e) {
     if (req.action === 'brand') return out(brandOf(req.mosad)); // פארן לאגאין: נאר נאמען + לאגא
     if (req.action === 'webSignup') return out(webSignup_(req)); // 🌐 ungvar.org: הרשמה ל-SMS (בלי כניסה)
     if (req.action === 'webBooks') return out(webBooks_()); // 🌐 ungvar.org: ספרים ומחירים (בלי כניסה)
+    if (req.action === 'webCampaign') return out(webCampaign_(req)); // 🌐 ungvar.org: דף קמפיין (בלי כניסה)
+    if (req.action === 'webDonate') return out(webDonate_(req)); // 🌐 ungvar.org: תרומה בכרטיס דרך Sola (בלי כניסה)
     if (KPUB[req.action]) { const KM = mosadOf(req.mosad); if (!KM) return out({ error: 'no-mosad' }); return out(KPUB[req.action](KM, req)); } // 🍳 דף המטבח (סיסמה, אן גוגל)
     if (PUBLIC[req.action]) { const PM = mosadOf(req.mosad); if (!PM) return out({ error: 'no-mosad' }); return out(PUBLIC[req.action](PM, req)); } // דער טופס רישום (אן לאגאין)
     const email = whoIs(req.token);
@@ -3105,4 +3107,181 @@ function webBooks_() {
   const res = { books: books, at: now() };
   try { cache.put('webbooks2', JSON.stringify(res), 600); } catch (e) { /* גדול מדי */ }
   return res;
+}
+
+
+// ====================================================================== 🌐 קמפיינים באתר (ungvar.org/campaign.html?c=...)
+// הגדרות: לשונית WebCampaigns במאגר הראשי (נערכת במערכת: קמפיין → "🌐 דף באתר").
+// הסכום שנאסף והתורמים: מתוך Donations (campaign = עמודת campaign של ההגדרה).
+// תשלום: Sola (Cardknox) — iFields בדפדפן (מספר הכרטיס לא עובר דרכנו), כאן רק cc:Sale עם ה-SUT.
+// מפתחות (Script Properties, לא בקוד): SOLA_XKEY (סודי) · SOLA_IFIELDS_KEY (ציבורי, לדפדפן).
+const WC_SW = ['KhalUngvar', '1.0'];
+function wcRows_() {
+  const sh = SpreadsheetApp.openById(MAIN_ID).getSheetByName('WebCampaigns');
+  if (!sh || sh.getLastRow() < 2) return [];
+  const v = sh.getDataRange().getValues(); const hd = v.shift().map(S);
+  return v.map(function (r) { const o = {}; hd.forEach(function (k, i) { o[k] = r[i]; }); return o; }).filter(function (o) { return S(o.slug); });
+}
+const wcOn_ = function (v) { return v === true || /^(true|1|yes)$/i.test(S(v)); };
+const wcDay_ = function (x) { return x instanceof Date ? Utilities.formatDate(x, 'America/New_York', 'yyyy-MM-dd') : S(x).slice(0, 10); };
+function wcPublic_(o) {
+  const F = ['slug', 'campaign', 'title_he', 'title_yi', 'title_en', 'sub_he', 'sub_yi', 'sub_en', 'desc_he', 'desc_yi', 'desc_en', 'image', 'goal', 'amounts', 'donors_mode', 'monthly', 'fee', 'org'];
+  const p = {}; F.forEach(function (k) { p[k] = o[k] === undefined ? '' : o[k]; });
+  p.end_date = wcDay_(o.end_date);
+  let pk = []; try { pk = JSON.parse(S(o.packages) || '[]'); } catch (e) { pk = []; }
+  p.packages = Array.isArray(pk) ? pk : [];
+  p.monthly = wcOn_(o.monthly); p.fee = wcOn_(o.fee);
+  return p;
+}
+/** {slug} → הגדרות + נאסף + תורמים; בלי slug → רשימת הקמפיינים הפעילים */
+function webCampaign_(req) {
+  const slug = S(req.c || req.slug).toLowerCase();
+  const cache = CacheService.getScriptCache();
+  const ck = 'webcamp:' + (slug || '*');
+  const hit = cache.get(ck); if (hit) return JSON.parse(hit);
+  const rows = wcRows_().filter(function (o) { return wcOn_(o.active); });
+  let res;
+  if (!slug) {
+    res = { list: rows.map(function (o) { return { slug: S(o.slug), title_he: S(o.title_he), title_yi: S(o.title_yi), title_en: S(o.title_en), image: S(o.image) }; }) };
+  } else {
+    const o = rows.filter(function (x) { return S(x.slug).toLowerCase() === slug; })[0];
+    if (!o) return { error: 'not-found' };
+    const p = wcPublic_(o);
+    const st = wcStats_(S(o.campaign), p.donors_mode, p.packages);
+    res = { campaign: p, raised: st.raised, donors: st.donors, recent: st.recent, taken: st.taken, ifields: S(PropertiesService.getScriptProperties().getProperty('SOLA_IFIELDS_KEY')), pay: !!PropertiesService.getScriptProperties().getProperty('SOLA_XKEY'), at: now() };
+  }
+  try { cache.put(ck, JSON.stringify(res), 60); } catch (e) { /* */ }
+  return res;
+}
+function wcStats_(campaign, mode, packages) {
+  const book = SpreadsheetApp.openById(MAIN_ID);
+  const dsh = book.getSheetByName('Donations');
+  const out = { raised: 0, donors: 0, recent: [], taken: {} };
+  if (!dsh || !campaign) return out;
+  const v = dsh.getDataRange().getValues(); const hd = v.shift().map(S);
+  const ix = function (k) { return hd.indexOf(k); };
+  const iC = ix('campaign'), iA = ix('amount_usd'), iId = ix('contact_id'), iN = ix('donor_name'), iNote = ix('event_note'), iCr = ix('created_at'), iDt = ix('dedication_type'), iDx = ix('dedication_text');
+  const mine = v.filter(function (r) { return S(r[iC]) === campaign && Number(r[iA]) > 0; });
+  const who = {};
+  mine.forEach(function (r) { out.raised += Number(r[iA]) || 0; who[S(r[iId]) || ('n:' + S(r[iN]))] = 1; const m = /\[pkg:([^\]]+)\]/.exec(S(r[iNote])); if (m) out.taken[m[1]] = (out.taken[m[1]] || 0) + 1; });
+  out.donors = Object.keys(who).length;
+  out.raised = Math.round(out.raised * 100) / 100;
+  if (mode === 'none') return out;
+  const csh = book.getSheetByName('Contacts');
+  const cv = csh.getDataRange().getValues(); const ch = cv.shift().map(S);
+  const ci = function (k) { return ch.indexOf(k); };
+  const cs = {}; cv.forEach(function (r) { cs[S(r[0])] = r; });
+  const name = function (r) {
+    const c = cs[S(r[iId])];
+    if (!c) return { he: S(r[iN]), en: S(r[iN]) };
+    return { he: [S(c[ci('title_he')]), S(c[ci('first_name_he')]), S(c[ci('last_name_he')])].filter(String).join(' '), en: [S(c[ci('title_en')]), S(c[ci('first_name_en')]), S(c[ci('last_name_en')])].filter(String).join(' ') };
+  };
+  out.recent = mine.slice().sort(function (a, b) { return S(b[iCr]).localeCompare(S(a[iCr])); }).slice(0, 30).map(function (r) {
+    const anon = /\[anon\]/.test(S(r[iNote]));
+    const nm = anon ? { he: '', en: '' } : name(r);
+    const ded = [S(r[iDt]), S(r[iDx])].filter(String).join(' ');
+    return { he: nm.he, en: nm.en, anon: anon, amount: mode === 'names' ? null : Number(r[iA]) || 0, ded: anon ? '' : ded.slice(0, 80), monthly: /\[monthly\]/.test(S(r[iNote])) };
+  });
+  return out;
+}
+function wcClean_(v, n) { v = String(v || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, n); return /^[=+\-@]/.test(v) ? "'" + v : v; }
+/** תרומה מהאתר: cc:Sale ב-Sola, ואם חודשי — CreateSchedule (מהחודש הבא). נרשם ב-Donations + WebDonations. */
+function webDonate_(req) {
+  if (S(req.website)) return { ok: true }; // הוניג-טאפ
+  const props = PropertiesService.getScriptProperties();
+  const xKey = S(props.getProperty('SOLA_XKEY'));
+  if (!xKey) return { error: 'not-ready' };
+  const slug = S(req.c).toLowerCase();
+  const o = wcRows_().filter(function (x) { return wcOn_(x.active) && S(x.slug).toLowerCase() === slug; })[0];
+  if (!o) return { error: 'not-found' };
+  const p = wcPublic_(o);
+  let base = Math.round(Number(req.amount) * 100) / 100;
+  let pkg = null;
+  if (S(req.pkg)) { pkg = p.packages.filter(function (k) { return S(k.id) === S(req.pkg); })[0] || null; if (!pkg) return { error: 'bad-pkg' }; base = Number(pkg.amount) || 0; }
+  if (!(base >= 1 && base <= 50000)) return { error: 'bad-amount' };
+  const fee = p.fee && req.fee === true ? Math.round(base * 0.03 * 100) / 100 : 0;
+  const total = Math.round((base + fee) * 100) / 100;
+  const monthly = p.monthly && req.monthly === true && !pkg;
+  const months = Math.max(0, Math.min(120, Math.floor(Number(req.months) || 0)));
+  const first = wcClean_(req.first, 40), last = wcClean_(req.last, 40);
+  if (!first || !last) return { error: 'need-name' };
+  let ph = S(req.phone).replace(/\D/g, ''); if (ph.length === 11 && ph.charAt(0) === '1') ph = ph.slice(1);
+  if (ph && ph.length !== 10) return { error: 'bad-phone' };
+  const email = S(req.email).trim().slice(0, 100);
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: 'bad-email' };
+  if (!S(req.card) || !S(req.cvv)) return { error: 'need-card' };
+  const exp = S(req.exp).replace(/\D/g, '');
+  if (!/^(0[1-9]|1[0-2])\d{2}$/.test(exp)) return { error: 'bad-exp' };
+  const cache = CacheService.getScriptCache();
+  const tot = Number(cache.get('webdon:all') || 0);
+  if (tot > 40) return { error: 'too-many' };
+  cache.put('webdon:all', String(tot + 1), 3600);
+  const inv = 'WEB' + Utilities.formatDate(new Date(), 'America/New_York', 'yyMMddHHmmss') + Math.floor(Math.random() * 90 + 10);
+  const sale = {
+    xKey: xKey, xVersion: '5.0.0', xSoftwareName: WC_SW[0], xSoftwareVersion: WC_SW[1], xCommand: 'cc:Sale',
+    xAmount: total.toFixed(2), xCardNum: S(req.card), xCVV: S(req.cvv), xExp: exp,
+    xBillFirstName: first, xBillLastName: last, xBillMobile: ph, xEmail: email, xInvoice: inv,
+    xDescription: S(o.campaign).slice(0, 100), xCustom01: slug, xCustom02: pkg ? S(pkg.id) : '', xCustReceipt: email ? 'True' : 'False'
+  };
+  let r;
+  try { r = JSON.parse(UrlFetchApp.fetch('https://x1.cardknox.com/gatewayjson', { method: 'post', contentType: 'application/json', payload: JSON.stringify(sale), muteHttpExceptions: true }).getContentText()); }
+  catch (err) { return { error: 'gateway', msg: String(err).slice(0, 120) }; }
+  if (S(r.xResult) !== 'A') return { error: 'declined', msg: S(r.xError || r.xStatus).slice(0, 160) };
+  const last4 = S(r.xMaskedCardNumber).replace(/\D/g, '').slice(-4);
+  let sched = '', schedErr = '';
+  if (monthly && S(r.xToken)) {
+    const d = new Date(); d.setMonth(d.getMonth() + 1);
+    const body = { SoftwareName: WC_SW[0], SoftwareVersion: WC_SW[1], IntervalType: 'month', IntervalCount: 1, Amount: Number(total.toFixed(2)),
+      StartDate: Utilities.formatDate(d, 'America/New_York', 'yyyy-MM-dd'), Description: S(o.campaign).slice(0, 100), CustReceipt: !!email, Invoice: inv + 'M',
+      NewCustomer: { BillFirstName: first, BillLastName: last, Email: email, BillMobile: ph, CustomerNotes: 'ungvar.org ' + slug },
+      NewPaymentMethod: { Token: S(r.xToken), TokenType: 'cc' } };
+    if (months > 1) body.TotalPayments = months - 1;
+    try {
+      const s2 = JSON.parse(UrlFetchApp.fetch('https://api.cardknox.com/v2/CreateSchedule', { method: 'post', contentType: 'application/json', headers: { Authorization: xKey, 'X-Recurring-Api-Version': '2.1' }, payload: JSON.stringify(body), muteHttpExceptions: true }).getContentText());
+      if (S(s2.Result) === 'S') sched = S(s2.ScheduleId); else schedErr = S(s2.Error).slice(0, 120) || 'schedule-failed';
+    } catch (err) { schedErr = String(err).slice(0, 120); }
+  }
+  try { wcRecord_(o, p, { total: total, base: base, fee: fee, first: first, last: last, phone: ph, email: email, last4: last4, ref: S(r.xRefNum), inv: inv, pkg: pkg, anon: req.anon === true, monthly: monthly, months: months, sched: sched, schedErr: schedErr, dedType: wcClean_(req.dedType, 20), dedText: wcClean_(req.dedText, 120), lang: S(req.lang).slice(0, 2) }); }
+  catch (err) { Logger.log('webDonate record ' + err); }
+  try { cache.remove('webcamp:' + slug); cache.remove('webcamp:*'); } catch (e) { /* */ }
+  return { ok: true, ref: S(r.xRefNum), amount: total, last4: last4, monthly: monthly, sched: !!sched, schedErr: schedErr ? true : false };
+}
+function wcRecord_(o, p, d) {
+  const lock = LockService.getScriptLock(); lock.waitLock(25000);
+  try {
+    const book = SpreadsheetApp.openById(MAIN_ID);
+    // איש קשר לפי טלפון / אימייל (רק אם יש התאמה אחת)
+    let cid = '';
+    const psh = book.getSheetByName('Phones');
+    if (psh && (d.phone || d.email)) {
+      const pv = psh.getDataRange().getValues(); const ph = pv.shift().map(S);
+      const pcols = ['mobile', 'home_phone', 'wife_mobile', 'other_phone'].map(function (k) { return ph.indexOf(k); }).filter(function (i) { return i >= 0; });
+      const ecols = ['email_1', 'email_2'].map(function (k) { return ph.indexOf(k); }).filter(function (i) { return i >= 0; });
+      const hits = {};
+      pv.forEach(function (r) {
+        const id = S(r[0]); if (!id) return;
+        if (d.phone && pcols.some(function (i) { const x = S(r[i]).replace(/\D/g, ''); return x.slice(-10) === d.phone; })) hits[id] = 1;
+        if (d.email && ecols.some(function (i) { return S(r[i]).toLowerCase() === d.email.toLowerCase(); })) hits[id] = 1;
+      });
+      const ks = Object.keys(hits); if (ks.length === 1) cid = ks[0];
+    }
+    const dsh = book.getSheetByName('Donations');
+    const hd = dsh.getRange(1, 1, 1, dsh.getLastColumn()).getValues()[0].map(S);
+    const lastRow = dsh.getLastRow();
+    const ids = lastRow > 1 ? dsh.getRange(2, 1, lastRow - 1, 1).getValues().map(function (r) { return Number(r[0]) || 0; }) : [];
+    const nid = Math.max.apply(null, [0].concat(ids)) + 1;
+    const today = Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd');
+    const ym = /(תש\S*)\s*$/.exec(S(o.campaign));
+    const tags = (d.anon ? ' [anon]' : '') + (d.monthly ? ' [monthly]' : '') + (d.pkg ? ' [pkg:' + S(d.pkg.id) + ']' : '');
+    const note = 'אתר ungvar.org' + (d.pkg ? ' · ' + S(d.pkg.name_he || d.pkg.name_en) : '') + (d.monthly ? ' · הוראת קבע' + (d.months ? ' ' + d.months + ' חודשים' : '') : '') + (cid ? '' : ' · ' + [d.phone, d.email].filter(String).join(' ')) + tags;
+    const rec = { donation_id: String(nid), contact_id: cid, date: today, event_year: ym ? ym[1] : '', event_note: note, amount_usd: d.total, is_paid: 'TRUE', paid_date: today,
+      payment_method: 'כרטיס אשראי', card_last4: d.last4, payment_note: 'Sola ' + d.ref + (d.fee ? ' · כולל עמלה $' + d.fee : '') + (d.sched ? ' · Schedule ' + d.sched : '') + (d.schedErr ? ' · ⚠ הוראת קבע לא נוצרה' : ''),
+      dedication_type: d.dedText ? d.dedType : '', dedication_text: d.dedText, created_at: now(), created_by: 'ungvar.org', updated_at: now(), updated_by: 'ungvar.org',
+      donor_name: d.first + ' ' + d.last, campaign: S(o.campaign), org: S(o.org) };
+    dsh.getRange(lastRow + 1, 1, 1, hd.length).setNumberFormat('@').setValues([hd.map(function (k) { return rec[k] === undefined ? '' : String(rec[k]); })]);
+    let wsh = book.getSheetByName('WebDonations');
+    const WH = ['at', 'donation_id', 'contact_id', 'slug', 'campaign', 'amount', 'fee', 'first', 'last', 'phone', 'email', 'last4', 'ref', 'invoice', 'package', 'monthly', 'months', 'schedule', 'schedule_error', 'dedication', 'anon', 'lang'];
+    if (!wsh) { wsh = book.insertSheet('WebDonations'); wsh.getRange(1, 1, 1, WH.length).setValues([WH]); wsh.setFrozenRows(1); }
+    wsh.appendRow([now(), String(nid), cid, S(o.slug), S(o.campaign), d.total, d.fee, d.first, d.last, d.phone, d.email, d.last4, d.ref, d.inv, d.pkg ? S(d.pkg.id) : '', d.monthly ? 'TRUE' : '', d.months || '', d.sched, d.schedErr, [d.dedType, d.dedText].filter(String).join(' '), d.anon ? 'TRUE' : '', d.lang]);
+  } finally { lock.releaseLock(); }
 }

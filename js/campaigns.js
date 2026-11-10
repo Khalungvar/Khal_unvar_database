@@ -318,6 +318,7 @@ function renderCampaign(main) {
       <span class="spacer"></span>
       <button type="button" class="btn" id="camp-xl" title=".xlsx">Excel</button>
       <button type="button" class="btn" id="camp-receipts">🧾 ${h(t('rcCampBtn'))}</button>
+      <button type="button" class="btn" id="camp-web" title="ungvar.org">🌐 דף באתר</button>
       <button type="button" class="btn" id="camp-settings">${t('campaignSettings')}</button>
       <button type="button" class="btn" id="camp-add-one">${t('newDonation')}</button>
       <button type="button" class="btn primary" id="camp-add-more">${t('campaignAddMore')}</button>
@@ -345,6 +346,7 @@ function renderCampaign(main) {
   $('#camp-add-one', main).onclick = () => openDonationForm({ campaign: c.name });
   $('#camp-xl', main).onclick = () => exportDonations(c.name, list);
   $('#camp-receipts', main).onclick = () => openReceipts({ kind: 'campaign', campaign: c.name });
+  $('#camp-web', main).onclick = () => import('./webcamp.js').then((m) => m.openWebCampaign(c, (x) => ui.toast(x))).catch((err) => ui.toast(ui.friendlyError(err), 'error'));
   $('#camp-settings', main).onclick = () => openNewCampaign({ mode: isY ? 'year' : 'once', camp: c });
 }
 
