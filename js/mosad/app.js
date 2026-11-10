@@ -246,7 +246,7 @@ function render(fromPop) {
   else if (st.tab === 'finance') renderFinance(box);
   else if (st.tab === 'dorm') renderDorm(box);
   else if (st.tab === 'reg') renderReg(box);
-  else if (st.tab === 'kollel_reg') import('./kollel.js?v=654').then((m) => { m.initKollel(ctx); m.renderKollelReg(box); });
+  else if (st.tab === 'kollel_reg') import('./kollel.js?v=655').then((m) => { m.initKollel(ctx); m.renderKollelReg(box); });
   else if (st.tab === 'me') renderMe(box);
   else if (st.tab === 'log') renderLog(box);
   else renderSoon(box, view);

@@ -1,7 +1,7 @@
 // 🕍 מרכז הכוללים אונגוואר — טופס הרשמה (ungvar.org/kollel/register). English / אידיש.
 //    כניסה עם אימייל + קוד (בלי גוגל) · טיוטה נשמרת · מסמכים → 🤖 Gemini ממלא את השדות · חתימה (ציור או הקלדה).
 import { CONFIG } from '../config.js?v=653';
-import { SECTIONS, docsList, MARITAL, YESNO, printHtml } from './kollelfields.js?v=654';
+import { SECTIONS, docsList, MARITAL, YESNO, printHtml } from './kollelfields.js?v=655';
 
 const MOSAD = 'kollel';
 const $ = (s, r = document) => r.querySelector(s);
@@ -14,7 +14,7 @@ const UI = {
     login: 'Sign in', email: 'Email address', code: 'Your code (at least 6 characters)', newForm: 'Start a new form', cont: 'Continue my form',
     blankBtn: '⬇ Blank form to print (PDF)', blankHint: 'Prefer paper? Print the form, fill it in by hand and bring it to the office with copies of the documents. In the print window you can also choose "Save as PDF".',
     loginHint: 'New? Choose a code and press "Start a new form". Next time, use the same email and code to continue or edit your form. Forgot your code? Call the office.',
-    steps: ['Documents', 'Details', 'Family & Education', 'Signature'], save: 'Save', saved: 'Saved ✓', next: 'Next →', back: '← Back', logout: 'Sign out',
+    steps: ['Documents', 'Details', 'Parents & Education', 'Signature'], save: 'Save', saved: 'Saved ✓', next: 'Next →', back: '← Back', logout: 'Sign out',
     maritalQ: 'Marital status', docsT: 'Required documents', docsHint: 'Upload a clear photo (from your phone) or a PDF. Front and back are fine as 2 files.',
     up: '+ Upload', del: 'Remove', ai: '✨ Fill my details from the documents', aiBusy: 'Reading your documents… (up to a minute)', aiDone: (n) => `${n} fields were filled from your documents — please check every one carefully.`,
     aiNone: 'Nothing could be read. Please fill in the details yourself.', aiFlag: 'filled from documents — please check',
@@ -31,7 +31,7 @@ const UI = {
     login: 'אריינגיין', email: 'אימעיל אדרעס', code: 'דיין קאוד (כאטש 6 אותיות/ציפערן)', newForm: 'אנהייבן א נייע פארעם', cont: 'ווייטער מיין פארעם',
     blankBtn: '⬇ א ליידיגע פארעם צום דרוקן (PDF)', blankHint: 'וועלסט אויספילן אויף פאפיר? דרוק אויס די פארעם, פיל אויס מיט די האנט און ברענג עס צום אפיס מיט קאפיעס פון די דאקומענטן. אינעם דרוק-פענצטער קען מען אויך אויסקלייבן "Save as PDF".',
     loginHint: 'נייע? קלייב אויס א קאוד און דריק "אנהייבן א נייע פארעם". דאס קומענדיגע מאל, מיט די זעלבע אימעיל און קאוד קענסטו ווייטער פירן אדער טוישן. פארגעסן דעם קאוד? רוף דעם אפיס.',
-    steps: ['דאקומענטן', 'פרטים', 'משפחה און ישיבות', 'אונטערשריפט'], save: 'אפהיטן', saved: 'אפגעהיטן ✓', next: 'ווייטער ←', back: '→ צוריק', logout: 'ארויסגיין',
+    steps: ['דאקומענטן', 'פרטים', 'עלטערן און ישיבות', 'אונטערשריפט'], save: 'אפהיטן', saved: 'אפגעהיטן ✓', next: 'ווייטער ←', back: '→ צוריק', logout: 'ארויסגיין',
     maritalQ: 'סטאטוס', docsT: 'נויטיגע דאקומענטן', docsHint: 'לייג ארויף א קלארע בילד (פונעם טעלעפאן) אדער א PDF. פאראויס און הינטן — מעג זיין 2 טעקעס.',
     up: '+ ארויפלייגן', del: 'אראפנעמען', ai: '✨ אויספילן מיינע פרטים פון די דאקומענטן', aiBusy: 'מען לייענט די דאקומענטן… (ביז א מינוט)', aiDone: (n) => `${n} פעלדער זענען אויסגעפילט פון די דאקומענטן — ביטע קוק איבער יעדעס איינס.`,
     aiNone: 'מען האט גארנישט געקענט לייענען. ביטע פיל אויס אליין.', aiFlag: 'אויסגעפילט פון די דאקומענטן — ביטע קוק איבער',
@@ -129,7 +129,7 @@ function input(f) {
   else el = `<input name="${k}" type="${type === 'date' ? 'date' : type === 'num' ? 'number' : type === 'tel' ? 'tel' : 'text'}" value="${h(v)}"${type === 'ssn' ? ' inputmode="numeric" placeholder="###-##-####" dir="ltr"' : ''}${type === 'tel' ? ' dir="ltr"' : ''}${o.rtl ? ' dir="rtl"' : ''}>`;
   return `<label class="rf-f${o.wide || type === 'area' || type === 'yesno' ? ' rf-wide' : ''}${S.aiKeys.has(k) ? ' kr-filled' : ''}">${lab}${el}${flag}</label>`;
 }
-const sec = (id) => { const s = SECTIONS.find((x) => x.id === id); const fs = s.fields.filter((f) => married() || !f[4].m); return `<h3 class="kr-h3">${h(L(s.en, s.yi))}</h3><div class="rf-grid">${fs.map(input).join('')}</div>`; };
+const sec = (id) => { const s = SECTIONS.find((x) => x.id === id); const fs = s.fields.filter((f) => (married() || !f[4].m) && !f[4].print); return `<h3 class="kr-h3">${h(L(s.en, s.yi))}</h3><div class="rf-grid">${fs.map(input).join('')}</div>`; };
 function readStep() {
   const box = $('#kr-step'); if (!box) return;
   $$('input[name], select[name], textarea[name]', box).forEach((el) => {
@@ -155,7 +155,7 @@ function stepDocs() {
       <div class="kr-aibox"><button type="button" class="btn primary" id="kr-ai">${h(u.ai)}</button><span class="rf-hint" id="kr-aimsg"></span></div></section>`;
 }
 function stepDetails() { return `<section class="rf-card">${sec('personal')}${sec('marital')}</section>`; }
-function stepFamily() { return `<section class="rf-card">${sec('family')}${sec('parents')}${sec('education')}</section>`; }
+function stepFamily() { return `<section class="rf-card">${sec('parents')}${sec('education')}</section>`; }
 function stepSign() {
   const u = U();
   const box = (who, nameKey) => `<div class="kr-sig" data-sig="${who}"><b>${h(who === 'self' ? u.sigSelf : u.sigWife)}</b>

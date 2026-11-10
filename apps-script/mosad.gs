@@ -3311,10 +3311,10 @@ READS.kaList = 1; READS.kaFile = 1;
 const KA_FIELDS = ['yi_name', 'legal_first', 'legal_last', 'phone', 'address', 'city', 'state', 'zip', 'dob', 'ssn', 'marital', 'marital_date',
   'wife_first', 'wife_last', 'wife_dob', 'wife_ssn', 'wife_phone', 'wedding_date', 'children', 'growing', 'oldest_dob',
   'parents_ny', 'father_name', 'mother_name', 'father_address', 'father_phone', 'fil_name', 'wife_mother_name', 'fil_address',
-  'hs_name', 'hs_city', 'hs_grad', 'yg_name', 'yg_city', 'yg_start', 'yg_end', 'other_yeshivas', 'sig_self_name', 'sig_wife_name', 'sig_date', 'notes'];
+  'hs_name', 'hs_city', 'hs_grad', 'yg_name', 'yg_city', 'yg_start', 'yg_end', 'other_yeshivas', 'sig_self_name', 'sig_wife_name', 'sig_date', 'notes', 'email', 'dependents_count', 'dependents_names'];
 const KA_DOCS = { id_self: 'ID', id_wife: 'ID - wife', ss_self: 'SS card', ss_wife: 'SS card - wife', marriage: 'Marriage certificate',
   birth_self: 'Birth certificate', birth_wife: 'Birth certificate - wife', tax1: 'Tax', tax2: 'Tax', sig_self: 'Signature', sig_wife: 'Signature - wife' };
-const KA_AI_DOCS = ['id_self', 'id_wife', 'ss_self', 'ss_wife', 'marriage', 'birth_self', 'birth_wife'];
+const KA_AI_DOCS = ['id_self', 'id_wife', 'ss_self', 'ss_wife', 'marriage', 'birth_self', 'birth_wife', 'tax2', 'tax1'];
 const KA_STATUS = { draft: 1, submitted: 1, updated: 1, approved: 1, rejected: 1 };
 function kaTaxYears() { const y = Number(Utilities.formatDate(new Date(), 'America/New_York', 'yyyy')); return [y - 2, y - 1]; }
 function kaRows(M) { return objs(ensureTab(M.book, 'KollelApps', TABS.KollelApps)).filter(function (a) { return S(a.app_id); }); }
@@ -3362,7 +3362,7 @@ function kaPutFile(M, a, kind, dataUrl, name) {
 }
 function kaBlobUrl(id) { const b = DriveApp.getFileById(id).getBlob(); return 'data:' + b.getContentType() + ';base64,' + Utilities.base64Encode(b.getBytes()); }
 function kaSet(M, a, o) { setCells(M.book.getSheetByName('KollelApps'), a._row, o); }
-function kaClean(d) { const o = {}; KA_FIELDS.forEach(function (k) { if (k in (d || {})) o[k] = S(d[k]).slice(0, k === 'notes' || k === 'other_yeshivas' ? 2000 : 300); }); return o; }
+function kaClean(d) { const o = {}; KA_FIELDS.forEach(function (k) { if (k in (d || {})) o[k] = S(d[k]).slice(0, k === 'notes' || k === 'other_yeshivas' || k === 'dependents_names' ? 2000 : 300); }); return o; }
 
 /** 🤖 Gemini קורא את המסמכים ומחזיר את השדות */
 function kaExtract_(M, a) {
@@ -3374,7 +3374,9 @@ function kaExtract_(M, a) {
     'Each document is preceded by a label: id_self/ss_self/birth_self = the applicant (husband); id_wife/ss_wife/birth_wife = his wife; marriage = marriage certificate.',
     'Return ONLY a JSON object with any of these keys (omit unknown): legal_first, legal_last, dob (YYYY-MM-DD), address, city, state, zip, ssn (###-##-####),',
     'wife_first, wife_last, wife_dob (YYYY-MM-DD), wife_ssn (###-##-####), wedding_date (YYYY-MM-DD), father_name, mother_name (applicant\'s parents, from his birth certificate),',
-    'fil_name (wife\'s father, from her birth certificate), wife_mother_name (wife\'s mother), and "notes": short English remarks about unreadable or conflicting documents.',
+    'fil_name (wife\'s father, from her birth certificate), wife_mother_name (wife\'s mother),',
+    'dependents_count (number of dependent children listed on the most recent tax return, tax2 = most recent year) and dependents_names (their names, one per line, as printed),',
+    'and "notes": short English remarks about unreadable or conflicting documents.',
     'Legal names: use the name exactly as printed on the Social Security card when available (otherwise the ID). Names in English letters as printed.'].join('\n') }];
   let total = 0;
   KA_AI_DOCS.forEach(function (k) {
@@ -3402,7 +3404,8 @@ function kaExtract_(M, a) {
   const txt = (((JSON.parse(res.getContentText()).candidates || [])[0] || {}).content || { parts: [] }).parts.map(function (p) { return p.text || ''; }).join('');
   let j = {}; try { j = JSON.parse(txt.replace(/^```json|```$/g, '').trim()); } catch (err) { throw new Error('ai-bad'); }
   const outF = {};
-  ['legal_first', 'legal_last', 'dob', 'address', 'city', 'state', 'zip', 'ssn', 'wife_first', 'wife_last', 'wife_dob', 'wife_ssn', 'wedding_date', 'father_name', 'mother_name', 'fil_name', 'wife_mother_name'].forEach(function (k) { if (S(j[k])) outF[k] = S(j[k]).slice(0, 200); });
+  ['legal_first', 'legal_last', 'dob', 'address', 'city', 'state', 'zip', 'ssn', 'wife_first', 'wife_last', 'wife_dob', 'wife_ssn', 'wedding_date', 'father_name', 'mother_name', 'fil_name', 'wife_mother_name', 'dependents_count', 'dependents_names'].forEach(function (k) {
+    let v = j[k]; if (Array.isArray(v)) v = v.join('\n'); if (S(v)) outF[k] = S(v).slice(0, k === 'dependents_names' ? 1500 : 200); });
   return { fields: outF, notes: S(j.notes).slice(0, 600), at: now() };
 }
 

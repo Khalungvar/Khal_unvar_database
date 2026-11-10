@@ -1,5 +1,5 @@
 // 🕍 מרכז הכוללים — 📥 הרשמות: כל הטפסים, עריכה לכל שורה, מסמכים ותמונות, אישור, איפוס קוד, הדפסה 8.5×11.
-import { SECTIONS, docsList, STATUS, showVal, printHtml, YESNO } from './kollelfields.js?v=654';
+import { SECTIONS, docsList, STATUS, showVal, printHtml, YESNO } from './kollelfields.js?v=655';
 import { downloadXlsx } from '../excel.js?v=653';
 
 let X;
@@ -56,7 +56,7 @@ function openApp(a, after) {
     <p class="muted small" dir="ltr" style="text-align:right">${h(a.email)} · נפתח ${h(a.created_at)}${a.submitted_at ? ` · נשלח ${h(a.submitted_at)}` : ''} · עודכן ${h(a.updated_at)} (${h(a.updated_by)})</p>
     ${a.ai?.notes ? `<p class="rf-warn small">🤖 ${h(a.ai.notes)}</p>` : ''}
     <div class="ka-grid"><div class="ka-sec">
-      ${SECTIONS.map((s) => `<h4>${h(s.yi)} · ${h(s.en)}</h4>${s.fields.filter((f) => married() || !f[4].m).map(rowHtml).join('')}`).join('')}
+      ${SECTIONS.map((s) => `<h4>${h(s.yi)} · ${h(s.en)}</h4>${s.fields.filter((f) => (married() || !f[4].m) && !f[4].print).map(rowHtml).join('')}`).join('')}
       <h4>חתימה</h4>
       <div class="ka-row"><span>Applicant</span><b>${(a.files?.sig_self || []).length ? '✓ חתם (ציור)' : h(a.data?.sig_self_name || '—')}</b><span></span></div>
       ${married() ? `<div class="ka-row"><span>Spouse</span><b>${(a.files?.sig_wife || []).length ? '✓ חתמה (ציור)' : h(a.data?.sig_wife_name || '—')}</b><span></span></div>` : ''}
