@@ -1,7 +1,7 @@
 // 🍳 דף המטבח לאנשי המטבח — בלי גוגל: שם + סיסמה (שהמנהל נתן). רואים ועובדים רק על מלאי המטבח, על אותו גיליון של הישיבה.
-import { CONFIG } from '../config.js?v=599';
-import { initKitchen, renderKitchen } from './kitchen.js?v=599';
-import { initTheme } from './theme.js?v=599';
+import { CONFIG } from '../config.js?v=651';
+import { initKitchen, renderKitchen } from './kitchen.js?v=651';
+import { initTheme } from './theme.js?v=651';
 
 const KEY = document.body.dataset.mosad || 'yeshiva';
 const $ = (s, r = document) => r.querySelector(s);

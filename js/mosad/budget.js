@@ -3,8 +3,8 @@
 //   freq: 'week' = כל שבוע ביום dow · 'heb' = כל חודש עברי ביום hday · 'greg' = כל חודש לועזי ביום gday · 'once' = פעם אחת בתאריך date
 //   from / to = מתי זה בתוקף (ריק = תמיד)
 // מאזן: יתרת פתיחה (סכום + תאריך) + הכנסות − הוצאות, יום אחר יום.
-import { todayIso, toHebrew, isoToHebrewText, hebrewNumber } from '../hebdate.js?v=599';
-import { downloadXlsx } from '../excel.js?v=599';
+import { todayIso, toHebrew, isoToHebrewText, hebrewNumber } from '../hebdate.js?v=651';
+import { downloadXlsx } from '../excel.js?v=651';
 
 let X = null;
 export function initBudget(ctx) { X = ctx; }

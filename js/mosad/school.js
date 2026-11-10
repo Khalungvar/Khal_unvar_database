@@ -1,8 +1,8 @@
 // אתר פון א מוסד — די ישיבה: תלמידים, בוגרים, הורים, שכר לימוד און קבלות (אלעס אינעם גיליון פונעם מוסד, דורכן שומר).
-import { letterhead, LH_CSS, heDate } from './brand.js?v=599';
-import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=599';
-import { downloadXlsx } from '../excel.js?v=599';
-import { colFilters } from '../sorttables.js?v=599';
+import { letterhead, LH_CSS, heDate } from './brand.js?v=651';
+import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=651';
+import { downloadXlsx } from '../excel.js?v=651';
+import { colFilters } from '../sorttables.js?v=651';
 
 let X = null; // די כלים פון app.js: { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, loadPeople, render }
 export function initSchool(ctx) { X = ctx; }
@@ -205,9 +205,13 @@ export function renderStudents(box, which = 'active') {
         try { await X.call(X.KEY, 'ilPhone', { contact_id: p.contact_id, abroad_phone: v.trim() }); p.abroad_phone = v.trim(); renderStudents(box, which); X.toast('נשמר.'); } catch (err) { X.toast(X.msg(err), 'err'); }
       };
     });
-    // 📒 אלפון חו"ל: רק התלמידים הפעילים
+    // 📒 אלפון חו"ל: כל מי שלמד מתחילת הזמן הנוכחי (גם מי שעזב באמצע) — רק מי שלומד בכל הסדרים (לא "בחור לסדר מסוים")
     X.$('#sc-abroad', box)?.addEventListener('click', () => {
-      const ids = list0.map((e) => e.contact_id).filter((id) => X.pById(id));
+      const t = today();
+      const zs = (zmanim().filter((z) => z.start && z.start <= t).sort((a, b) => b.start.localeCompare(a.start))[0] || {}).start || t;
+      let only = {}; try { only = JSON.parse(X.st.settings?.seder_only || '{}') || {}; } catch { only = {}; }
+      const inZman = (e) => { const st0 = d10(e.start_date); const en = d10(e.end_date); if (st0 && st0 > t) return false; if (statusOn(e, t) === 'active') return true; return Boolean(en && en >= zs); };
+      const ids = [...new Set(all.filter(inZman).sort(byName).map((e) => String(e.contact_id)))].filter((id) => X.pById(id) && !(only[id] || []).length);
       const title = `אלפון טלפונים בחו"ל — ${X.st.mosad?.name || ''}`.trim();
       X.printList?.(title, isoToHebrewText(today()), { cols: [{ t: 'טלפון בחו"ל', ltr: true }], rows: ids.map((id) => ({ id, cells: [X.pById(id)?.abroad_phone || ''] })), twoUp: true });
     });
@@ -223,7 +227,7 @@ function abroadImport(all, after) {
   inp.onchange = async () => {
     const f = inp.files[0]; if (!f) return;
     let t;
-    try { const { readTable } = await import('./kitchen.js?v=599'); t = await readTable(f); } catch (err) { X.toast(X.msg(err), 'err'); return; }
+    try { const { readTable } = await import('./kitchen.js?v=651'); t = await readTable(f); } catch (err) { X.toast(X.msg(err), 'err'); return; }
     const hi = t.findIndex((r) => r.some((c) => /משפחה/.test(String(c))));
     if (hi < 0) { X.toast('לא נמצאה שורת כותרות (שם, משפחה, טלפון).', 'err'); return; }
     const head = t[hi].map(String); const ci = (re) => head.findIndex((c) => re.test(c));

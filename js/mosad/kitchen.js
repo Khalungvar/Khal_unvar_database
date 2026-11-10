@@ -1,7 +1,7 @@
 // 🍳 מלאי המטבח — על הגיליון של המוסד (Kitchen, KitchenOrders), לא Firebase.
 // התראות: מתחת למינימום / לפני שייגמר (ימי אספקה × צריכה יומית) / תוקף (5 ימים לפני) · רשימת קניות לפי ספק · הזמנות קבועות לפי יום בשבוע.
-import { downloadXlsx } from '../excel.js?v=599';
-import { colFilters } from '../sorttables.js?v=599';
+import { downloadXlsx } from '../excel.js?v=651';
+import { colFilters } from '../sorttables.js?v=651';
 
 let X = null;
 const K = { d: null, tab: 'stock', cat: '', sup: '', q: '', sort: 'name', card: '', frozen: false };
@@ -278,7 +278,7 @@ function mapHeads(head, spec) {
 }
 export async function readTable(file) {
   if (/\.csv$/i.test(file.name)) return (await file.text()).split(/\r?\n/).filter((l) => l.trim()).map((l) => l.split(/,|\t/).map((c) => c.replace(/^"|"$/g, '').trim()));
-  const { _test } = await import('./shabbos.js?v=599');
+  const { _test } = await import('./shabbos.js?v=651');
   const files = Object.fromEntries(await _test.unzip(await file.arrayBuffer()));
   const dec = new TextDecoder(); const P = (k) => (files[k] ? new DOMParser().parseFromString(dec.decode(files[k]), 'application/xml') : null);
   const shared = [...(P('xl/sharedStrings.xml')?.getElementsByTagName('si') || [])].map((si) => [...si.getElementsByTagName('t')].map((t) => t.textContent).join(''));

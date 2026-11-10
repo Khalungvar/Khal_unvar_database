@@ -1,18 +1,18 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { letterhead, hebrewDateHints } from './brand.js?v=599';
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=599';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=599';
-import { initGifts, renderGifts } from './gifts.js?v=599';
-import { initTheme } from './theme.js?v=599';
-import { initAsk } from './ask.js?v=599';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab, renderStipPage } from './journal.js?v=599';
-import { initDorm, renderDorm } from './dorm.js?v=599';
-import { initReg, renderReg } from './reg.js?v=599';
-import { initSortTables } from '../sorttables.js?v=599';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups, renderTasks } from './me.js?v=599';
-import { initTeam, renderTeam } from './team.js?v=599';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=599';
+import { letterhead, hebrewDateHints } from './brand.js?v=651';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=651';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=651';
+import { initGifts, renderGifts } from './gifts.js?v=651';
+import { initTheme } from './theme.js?v=651';
+import { initAsk } from './ask.js?v=651';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab, renderStipPage } from './journal.js?v=651';
+import { initDorm, renderDorm } from './dorm.js?v=651';
+import { initReg, renderReg } from './reg.js?v=651';
+import { initSortTables } from '../sorttables.js?v=651';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups, renderTasks } from './me.js?v=651';
+import { initTeam, renderTeam } from './team.js?v=651';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=651';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -234,12 +234,12 @@ function render(fromPop) {
   else if (st.tab === 'chavrusas') renderChav(box);
   else if (st.tab === 'attendance') renderAtt(box);
   else if (st.tab === 'stipends') renderStipPage(box);
-  else if (st.tab === 'kitchen') import('./kitchen.js?v=599').then((m) => { m.initKitchen(ctx); m.renderKitchen(box); });
-  else if (st.tab === 'shabbos') import('./shabbos.js?v=599').then((m) => { m.initShabbos(ctx); m.renderShabbos(box); });
+  else if (st.tab === 'kitchen') import('./kitchen.js?v=651').then((m) => { m.initKitchen(ctx); m.renderKitchen(box); });
+  else if (st.tab === 'shabbos') import('./shabbos.js?v=651').then((m) => { m.initShabbos(ctx); m.renderShabbos(box); });
   else if (st.tab === 'tasks') renderTasks(box);
-  else if (st.tab === 'budget') import('./budget.js?v=599').then((m) => { m.initBudget(ctx); m.renderBudget(box); });
-  else if (st.tab === 'dorm_att') import('./dormatt.js?v=599').then((m) => { m.initDormAtt(ctx); m.renderDormAtt(box); });
-  else if (st.tab === 'simchos') import('./simcha.js?v=599').then((m) => { m.initSimcha(ctx); m.renderSimcha(box); });
+  else if (st.tab === 'budget') import('./budget.js?v=651').then((m) => { m.initBudget(ctx); m.renderBudget(box); });
+  else if (st.tab === 'dorm_att') import('./dormatt.js?v=651').then((m) => { m.initDormAtt(ctx); m.renderDormAtt(box); });
+  else if (st.tab === 'simchos') import('./simcha.js?v=651').then((m) => { m.initSimcha(ctx); m.renderSimcha(box); });
   else if (st.tab === 'insurance') renderIns(box);
   else if (st.tab === 'staff_list') renderTeam(box);
   else if (st.tab === 'finance') renderFinance(box);
@@ -590,7 +590,8 @@ initFinance(ctx);
 initDorm(ctx);
 initReg(ctx);
 initSortTables();
-// ⏎ אנטר על תיבת סימון / משבצת בטבלה: מסמן (כמו לחיצה) ועובר לשורה הבאה באותה עמודה — עבודה מהירה במקלדת
+// ⏎ אנטר על תיבת סימון / משבצת בטבלה: מסמן (כמו לחיצה) ועובר למשבצת הבאה משמאל באותה שורה (כמו בפנקס);
+//    בסוף השורה — למשבצת הראשונה בשורה הבאה
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' || e.ctrlKey || e.altKey || e.metaKey) return;
   const el = e.target;
@@ -599,11 +600,14 @@ document.addEventListener('keydown', (e) => {
   if ((!isCk && !isCell) || el.disabled || !el.closest('td')) return;
   e.preventDefault();
   el.click();
-  const td = el.closest('td'); const tr = td.parentElement;
-  const col = [...tr.children].indexOf(td);
+  const SEL = 'input[type="checkbox"]:not(:disabled), button.ja-cell:not(:disabled), button.jc-day:not(:disabled), button[data-cell]:not(:disabled)';
+  const tr = el.closest('td').parentElement;
+  const inRow = [...tr.querySelectorAll(SEL)].filter((x) => x.closest('tr') === tr);
+  const i = inRow.indexOf(el);
+  if (i >= 0 && i < inRow.length - 1) { inRow[i + 1].focus(); return; }
   let nx = tr.nextElementSibling;
   while (nx) {
-    const t = nx.children[col]?.querySelector('input[type="checkbox"]:not(:disabled), button.ja-cell:not(:disabled), button.jc-day:not(:disabled), button[data-cell]:not(:disabled)');
+    const t = [...nx.querySelectorAll(SEL)].find((x) => x.closest('tr') === nx);
     if (t) { t.focus(); break; }
     nx = nx.nextElementSibling;
   }
