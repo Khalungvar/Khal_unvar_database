@@ -12,6 +12,8 @@ const SK = 'kollel-reg-session';
 const UI = {
   en: { dir: 'ltr', title: 'Kollel Enrollment Form', sub: 'Merkaz HaKollelim · Khal Ungvar',
     login: 'Sign in', email: 'Email address', code: 'Your code (at least 6 characters)', newForm: 'Start a new form', cont: 'Continue my form',
+    signIn: 'Sign in', signUp: 'Sign up — new form', create: 'Create my form', newCode: 'Choose a code (at least 6 characters)', code2: 'Type the code again',
+    codeMismatch: 'The two codes are not the same.', inHint: 'Use the email and code you chose when you started. Forgot your code? Call the office.', upHint: 'Remember your code — you will need it to come back and continue or edit your form.',
     blankBtn: '⬇ Blank form to print (PDF)', blankHint: 'Prefer paper? Print the form, fill it in by hand and bring it to the office with copies of the documents. In the print window you can also choose "Save as PDF".',
     loginHint: 'New? Choose a code and press "Start a new form". Next time, use the same email and code to continue or edit your form. Forgot your code? Call the office.',
     steps: ['Documents', 'Details', 'Parents & Education', 'Signature'], save: 'Save', saved: 'Saved ✓', next: 'Next →', back: '← Back', logout: 'Sign out',
@@ -24,13 +26,15 @@ const UI = {
     confirm: 'I confirm that the information in this form is true and correct.', submit: 'Submit the form', resubmit: 'Save changes',
     sent: 'Your form was received. Thank you! You can come back any time with your email and code to update it.',
     st: { draft: 'Draft — not sent yet', submitted: 'Received ✓', updated: 'Updated ✓', approved: 'Approved ✓', rejected: 'Please contact the office' },
-    err: { 'ka-bad': 'Wrong code.', 'ka-none': 'No form with this email. Press "Start a new form".', 'ka-exists': 'A form with this email already exists — press "Continue my form".',
+    err: { 'ka-bad': 'Wrong code.', 'ka-none': 'There is no form with this email yet — you can create one here.', 'ka-exists': 'A form with this email already exists — sign in here with your code.',
       'ka-locked': 'Too many attempts. Try again in 15 minutes.', 'ka-short-code': 'The code must be at least 6 characters.', 'ka-bad-email': 'Invalid email address.',
       'ka-login': 'Please sign in again.', 'file-big': 'The file is too large.', 'bad-file': 'Only a photo or a PDF.', 'too-many': 'Too many attempts — try later.',
       'ai-off': 'Automatic reading is not available right now.', 'ai-no-docs': 'Upload the ID / SS card / certificates first.', 'missing-sig': 'Please sign the form.' },
     missing: 'Please fill in:', missingDocs: 'Missing documents:', yes: 'Yes', no: 'No', choose: '—' },
   yi: { dir: 'rtl', title: 'טופס הרשמה פאר׳ן כולל', sub: 'מרכז הכוללים · קהל אונגוואר',
     login: 'אריינגיין', email: 'אימעיל אדרעס', code: 'דיין קאוד (כאטש 6 אותיות/ציפערן)', newForm: 'אנהייבן א נייע פארעם', cont: 'ווייטער מיין פארעם',
+    signIn: 'אריינגיין', signUp: 'איינשרייבן — נייע פארעם', create: 'עפענען מיין פארעם', newCode: 'קלייב אויס א קאוד (כאטש 6 אותיות)', code2: 'שרייב נאכאמאל דעם קאוד',
+    codeMismatch: 'די צוויי קאודס זענען נישט די זעלבע.', inHint: 'נוץ די אימעיל און קאוד וואס דו האסט אויסגעקליבן. פארגעסן דעם קאוד? רוף דעם אפיס.', upHint: 'געדענק דעם קאוד — דו וועסט עס דארפן צו צוריקקומען און ווייטער פירן אדער טוישן.',
     blankBtn: '⬇ א ליידיגע פארעם צום דרוקן (PDF)', blankHint: 'וועלסט אויספילן אויף פאפיר? דרוק אויס די פארעם, פיל אויס מיט די האנט און ברענג עס צום אפיס מיט קאפיעס פון די דאקומענטן. אינעם דרוק-פענצטער קען מען אויך אויסקלייבן "Save as PDF".',
     loginHint: 'נייע? קלייב אויס א קאוד און דריק "אנהייבן א נייע פארעם". דאס קומענדיגע מאל, מיט די זעלבע אימעיל און קאוד קענסטו ווייטער פירן אדער טוישן. פארגעסן דעם קאוד? רוף דעם אפיס.',
     steps: ['דאקומענטן', 'פרטים', 'עלטערן און ישיבות', 'אונטערשריפט'], save: 'אפהיטן', saved: 'אפגעהיטן ✓', next: 'ווייטער ←', back: '→ צוריק', logout: 'ארויסגיין',
@@ -43,7 +47,7 @@ const UI = {
     confirm: 'איך באשטעטיג אז די אינפארמאציע אין די פארעם איז ריכטיג.', submit: 'אריינשיקן', resubmit: 'אפהיטן די ענדערונגען',
     sent: 'מיר האבן באקומען די פארעם. א דאנק! דו קענסט צוריקקומען ווען דו ווילסט מיט די אימעיל און קאוד צו טוישן.',
     st: { draft: 'נאך נישט אריינגעשיקט', submitted: 'באקומען ✓', updated: 'דערהיינטיגט ✓', approved: 'באשטעטיגט ✓', rejected: 'ביטע פארבינד זיך מיט׳ן אפיס' },
-    err: { 'ka-bad': 'אומריכטיגער קאוד.', 'ka-none': 'ס׳איז נישטא קיין פארעם מיט די אימעיל. דריק "אנהייבן א נייע פארעם".', 'ka-exists': 'ס׳איז שוין דא א פארעם מיט די אימעיל — דריק "ווייטער מיין פארעם".',
+    err: { 'ka-bad': 'אומריכטיגער קאוד.', 'ka-none': 'ס׳איז נאך נישטא קיין פארעם מיט די אימעיל — דא קענסטו עפענען א נייע.', 'ka-exists': 'ס׳איז שוין דא א פארעם מיט די אימעיל — גיי דא אריין מיט דיין קאוד.',
       'ka-locked': 'צופיל פרואוון. פרוביר נאכאמאל אין 15 מינוט.', 'ka-short-code': 'דער קאוד דארף זיין כאטש 6 אותיות.', 'ka-bad-email': 'אומריכטיגע אימעיל.',
       'ka-login': 'ביטע גיי נאכאמאל אריין.', 'file-big': 'די טעקע איז צו גרויס.', 'bad-file': 'נאר א בילד אדער PDF.', 'too-many': 'צופיל פרואוון — פרוביר שפעטער.',
       'ai-off': 'אויטאמאטיש לייענען ארבעט יעצט נישט.', 'ai-no-docs': 'לייג קודם ארויף די ID / SS קארטל / סערטיפיקאטן.', 'missing-sig': 'ביטע אונטערשרייב די פארעם.' },
@@ -92,31 +96,49 @@ function frame(inner) {
 }
 
 // ---------- כניסה ----------
-function renderLogin(msg = '') {
-  const u = U();
-  frame(`<section class="rf-card kr-login"><h2>${h(u.login)}</h2>
-    <form class="rf-grid" id="kr-lf" onsubmit="return false">
-      <label class="rf-f rf-wide">${h(u.email)}<input name="email" type="email" dir="ltr" autocomplete="email" required></label>
-      <label class="rf-f rf-wide">${h(u.code)}<input name="code" type="password" dir="ltr" autocomplete="current-password" minlength="6" required></label>
-    </form>
-    ${msg ? `<p class="rf-err">${h(msg)}</p>` : ''}
-    <div class="rf-nav"><button type="button" class="btn primary" data-go="login">${h(u.cont)}</button><button type="button" class="btn" data-go="create">${h(u.newForm)}</button></div>
-    <p class="rf-hint">${h(u.loginHint)}</p></section>
-    <section class="rf-card kr-login kr-blank"><button type="button" class="btn" id="kr-blank">${h(u.blankBtn)}</button><p class="rf-hint">${h(u.blankHint)}</p></section>`);
+/** mode: '' = שני הכפתורים · 'in' = כניסה · 'up' = הרשמה */
+function renderLogin(msg = '', mode = S.lmode || '', email = '') {
+  const u = U(); S.lmode = mode;
+  const blank = `<section class="rf-card kr-login kr-blank"><button type="button" class="btn" id="kr-blank">${h(u.blankBtn)}</button><p class="rf-hint">${h(u.blankHint)}</p></section>`;
+  if (!mode) {
+    frame(`<section class="rf-card kr-login kr-choose"><button type="button" class="btn primary" data-mode="in">${h(u.cont)}</button><button type="button" class="btn" data-mode="up">${h(u.newForm)}</button>
+      ${msg ? `<p class="rf-err">${h(msg)}</p>` : ''}<p class="rf-hint">${h(u.loginHint)}</p></section>${blank}`);
+  } else {
+    const up = mode === 'up';
+    frame(`<section class="rf-card kr-login"><h2>${h(up ? u.signUp : u.signIn)}</h2>
+      <form class="rf-grid" id="kr-lf" onsubmit="return false">
+        <label class="rf-f rf-wide">${h(u.email)}<input name="email" type="email" dir="ltr" autocomplete="email" value="${h(email)}" required></label>
+        <label class="rf-f rf-wide">${h(up ? u.newCode : u.code)}<input name="code" type="password" dir="ltr" autocomplete="${up ? 'new-password' : 'current-password'}" minlength="6" required></label>
+        ${up ? `<label class="rf-f rf-wide">${h(u.code2)}<input name="code2" type="password" dir="ltr" autocomplete="new-password" minlength="6" required></label>` : ''}
+      </form>
+      ${msg ? `<p class="rf-err">${h(msg)}</p>` : ''}
+      <div class="rf-nav"><button type="button" class="linkish" data-mode="">${h(u.back)}</button><button type="button" class="btn primary" id="kr-go">${h(up ? u.create : u.signIn)}</button></div>
+      <p class="rf-hint">${h(up ? u.upHint : u.inHint)}</p></section>${blank}`);
+    $('#kr-lf').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#kr-go').click(); } };
+    $('[name=email]').focus();
+    $('#kr-go').onclick = async () => {
+      const f = $('#kr-lf').elements; const b = $('#kr-go');
+      const em = f.email.value.trim();
+      if (up && f.code.value !== f.code2.value) { renderLogin(u.codeMismatch, 'up', em); return; }
+      if (S.busy) return; S.busy = true; b.disabled = true;
+      try {
+        const r = await pub('kaAuth', { email: em, code: f.code.value, create: up, lang: S.lang });
+        S.ks = r.ks; S.lmode = ''; try { sessionStorage.setItem(SK, r.ks); } catch { /* */ }
+        setApp(r.app); S.step = r.app.status === 'draft' ? 0 : 1; render();
+      } catch (e) {
+        const c = String(e?.code || e?.message);
+        if (c === 'ka-none') renderLogin(errText(e), 'up', em);
+        else if (c === 'ka-exists') renderLogin(errText(e), 'in', em);
+        else renderLogin(errText(e), mode, em);
+      } finally { S.busy = false; }
+    };
+  }
+  $$('[data-mode]').forEach((x) => { x.onclick = () => renderLogin('', x.dataset.mode, $('[name=email]')?.value?.trim() || ''); });
   $('#kr-blank').onclick = () => {
     const y = new Date().getFullYear();
     const w = window.open('', '_blank'); if (!w) return;
     w.document.open(); w.document.write(printHtml({ email: '', data: {}, files: {}, taxYears: [y - 2, y - 1] }, { blank: true })); w.document.close();
   };
-  $$('[data-go]').forEach((b) => { b.onclick = async () => {
-    const f = $('#kr-lf').elements;
-    if (S.busy) return; S.busy = true; b.disabled = true;
-    try {
-      const r = await pub('kaAuth', { email: f.email.value.trim(), code: f.code.value, create: b.dataset.go === 'create', lang: S.lang });
-      S.ks = r.ks; try { sessionStorage.setItem(SK, r.ks); } catch { /* */ }
-      setApp(r.app); S.step = r.app.status === 'draft' ? 0 : 1; render();
-    } catch (e) { renderLogin(errText(e)); } finally { S.busy = false; }
-  }; });
 }
 function setApp(app) { S.app = app; S.data = { ...(app.data || {}) }; if (!S.data.marital) S.data.marital = 'married'; if (!S.data.sig_date) S.data.sig_date = new Date().toISOString().slice(0, 10); }
 

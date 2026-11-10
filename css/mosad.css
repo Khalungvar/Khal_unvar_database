@@ -440,3 +440,4 @@ tr.bd-day td { border-top: 2px solid #e3dccb; }
 .kr-switch input:checked + span::before { transform: translateX(20px); }
 [dir=rtl] .kr-switch input:checked + span::before { transform: translateX(-20px); }
 .kr-aibox > div { flex: 1 1 280px; } .kr-zone { display: flex; align-items: center; justify-content: center; }
+.kr-choose { display: flex; flex-direction: column; gap: 12px; } .kr-choose .btn { font-size: 1.15em; padding: 12px; }
