@@ -4269,7 +4269,8 @@ Object.keys(AI_ACTIONS).forEach(function (k) { ACTIONS[k] = AI_ACTIONS[k]; });
 // 📦 מחסן: הרשימה הישנה (9,400 שמות) — לשונית Machsan בגיליון הראשי. ייבוא חד-פעמי מקובץ מוצפן (המפתח לא נשמר בשום מקום),
 //    מריצים מהעורך: machsanImport_(key, url, sha1).
 // =====================================================================================
-function machsanImport_(key, url, sha1) {
+/** חד-פעמי: מפענח קובץ מוצפן (gzip + XOR של SHA-256) ובודק SHA-1. המפתח עובר רק מהעורך, לא נשמר. */
+function decryptBlob_(key, url, sha1) {
   const b64 = UrlFetchApp.fetch(url, { muteHttpExceptions: true }).getContentText().trim();
   const enc = Utilities.base64Decode(b64);
   const out = new Array(enc.length);
@@ -4279,8 +4280,44 @@ function machsanImport_(key, url, sha1) {
   }
   const json = Utilities.ungzip(Utilities.newBlob(out, 'application/x-gzip')).getDataAsString('UTF-8');
   const dg = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_1, json, Utilities.Charset.UTF_8).map(function (b) { return ('0' + (b & 255).toString(16)).slice(-2); }).join('');
-  if (dg !== sha1) throw new Error('machsan: bad key / checksum ' + dg);
-  const arr = JSON.parse(json);
+  if (dg !== sha1) throw new Error('blob: bad key / checksum ' + dg);
+  return JSON.parse(json);
+}
+
+/** חד-פעמי: התרומות מהרשימה הישנה → Donations. בלי כפולים (איש קשר + קמפיין + סוג + שנה). */
+function donImport_(key, url, sha1) {
+  const arr = decryptBlob_(key, url, sha1);
+  const sh = main().getSheetByName('Donations');
+  const vals = sh.getDataRange().getDisplayValues();
+  const H = vals[0].map(String);
+  const ix = function (k) { return H.indexOf(k); };
+  const seen = {}; let max = 0;
+  const kOf = function (c, camp, tag, y) { return [String(c), camp || '', tag || '', y || ''].join('|'); };
+  vals.slice(1).forEach(function (r) {
+    const id = Number(r[ix('donation_id')]) || 0; if (id > max) max = id;
+    seen[kOf(r[ix('contact_id')], r[ix('campaign')], r[ix('event_tags')], r[ix('event_year')])] = 1;
+  });
+  const me = Session.getEffectiveUser().getEmail();
+  const at = Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd HH:mm');
+  const rows = [];
+  arr.forEach(function (o) {
+    const k = kOf(o.contact_id, o.campaign, o.event_tags, o.event_year);
+    if (seen[k]) return; seen[k] = 1;
+    o.donation_id = ++max; o.created_at = at; o.created_by = me; o.updated_at = at; o.updated_by = me;
+    rows.push(H.map(function (h) { return o[h] === undefined || o[h] === null ? '' : String(o[h]); }));
+  });
+  if (rows.length) {
+    const start = sh.getLastRow() + 1;
+    if (sh.getMaxRows() < start + rows.length) sh.insertRowsAfter(sh.getMaxRows(), start + rows.length - sh.getMaxRows() + 10);
+    sh.getRange(start, 1, rows.length, H.length).setNumberFormat('@');
+    for (let r = 0; r < rows.length; r += 1500) sh.getRange(start + r, 1, Math.min(1500, rows.length - r), H.length).setValues(rows.slice(r, r + 1500));
+  }
+  Logger.log('Donations: +' + rows.length + ' (skipped ' + (arr.length - rows.length) + ')');
+  return rows.length;
+}
+
+function machsanImport_(key, url, sha1) {
+  const arr = decryptBlob_(key, url, sha1);
   const ss = main();
   let sh = ss.getSheetByName('Machsan');
   if (!sh) sh = ss.insertSheet('Machsan');
