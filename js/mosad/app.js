@@ -1,7 +1,7 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
 import { letterhead, hebrewDateHints } from './brand.js?v=653';
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch } from './api.js?v=653';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch, gmailSend, myEmail } from './api.js?v=662';
 import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=653';
 import { initGifts, renderGifts } from './gifts.js?v=653';
 import { initTheme } from './theme.js?v=653';
@@ -49,6 +49,16 @@ const ERR = {
   'bad-action': 'החלק הזה עוד לא הופעל בשרת (ממתין לאישור הגישה לדרייב). נסה שוב אחר כך.',
   'need-honoree': 'חסר שם של בעל השמחה.',
   'need-contact': 'נדבה שכבר באתר הכללי צריכה איש קשר. (קבלה אמריקאית — רק עם איש קשר.)',
+  'ka-need-link': 'קודם צריך לקשר לאיש קשר במאגר הכללי (🔗 קשר).',
+  'ka-already-active': 'יש לו כבר תקופה פעילה ב-Active.',
+  'already-linked': 'כבר מקושר לאיש קשר.',
+  'ka-unclear': 'ה-AI לא הבין מה לעשות — בחר פעולה ידנית.',
+  'ka-exists': 'כבר יש אפליקציה עם האימייל הזה.',
+  'ka-bad-email': 'צריך אימייל תקין של האברך.',
+  'ai-busy': 'ה-AI עסוק כרגע — נסה שוב בעוד דקה.',
+  'ai-off': 'ה-AI לא מחובר.',
+  'gmail-denied': 'לא ניתנה הרשאה לשלוח מייל מהחשבון.',
+  'gmail-failed': 'השליחה נכשלה.',
 };
 const msg = (err) => ERR[err?.code] || ERR[err?.message] || String(err?.message || err || 'שגיאה');
 
@@ -77,7 +87,7 @@ const TILES = [
   { k: 'tasks', ic: '📋', t: 'משימות', sub: 'עבורי ושהשארתי לאחרים', all: true },
   { k: 'budget', ic: '📆', t: 'הוצאות קבועות ומאזן', sub: 'הוצאות והכנסות קבועות, צפי לימים הקרובים', not: 'kollel' },
   { k: 'reg', ic: '📝', t: 'רישום לישיבה', sub: 'מועמדים וטופס הרשמה', only: 'yeshiva' },
-  { k: 'kollel_reg', ic: '📥', t: 'הרשמות', sub: 'האפליקציות של הפרויקט — טפסים ומסמכים', only: 'kollel' },
+  { k: 'kollel_reg', ic: '🎓', t: 'College Programs', sub: 'אפליקציות · Active · 🤖 מזכיר AI', only: 'kollel' },
   { k: 'kollelim', ic: '🕍', t: 'כוללים', sub: 'האברכים, השתתפות, מלגות וצ\'קים של תמיכה', only: 'kollel' },
 ];
 const PERM_NAMES = { ...Object.fromEntries(TILES.map((x) => [x.k, x.t])), shabbos: 'דפים קבועים (זמני השבת, ליל שישי…)', finance: 'חובות והוצאות', people_edit: 'הוספה ועדכון אנשי קשר', reg_docs: 'רישום — צפייה בדרכון ובתעודת לידה',
@@ -248,7 +258,7 @@ function render(fromPop) {
   else if (st.tab === 'dorm') renderDorm(box);
   else if (st.tab === 'reg') renderReg(box);
   else if (st.tab === 'kollelim') import('./kollelim.js?v=660').then((m) => { m.initKollelim(ctx); m.renderKollelim(box); });
-  else if (st.tab === 'kollel_reg') import('./kollel.js?v=661').then((m) => { m.initKollel(ctx); m.renderKollelReg(box); });
+  else if (st.tab === 'kollel_reg') import('./kollel.js?v=662').then((m) => { m.initKollel(ctx); m.renderKollelReg(box); });
   else if (st.tab === 'me') renderMe(box);
   else if (st.tab === 'log') renderLog(box);
   else renderSoon(box, view);
@@ -579,7 +589,7 @@ async function renderStaff() {
 }
 
 // ---------- אנהייב ----------
-const ctx = { st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, isAdmin, loadPeople, render: () => render(), personDialog: (p) => personDialog(p), unlinkDialog, addDialog: (k) => addDialog(k) };
+const ctx = { gmailSend, myEmail, st, call, KEY, $, $$, h, S, dialog, toast, msg, pById, nameOf, phoneOf, fatherOf, can, isAdmin, loadPeople, render: () => render(), personDialog: (p) => personDialog(p), unlinkDialog, addDialog: (k) => addDialog(k) };
 initSchool(ctx);
 initGifts(ctx);
 Object.assign(ctx, {

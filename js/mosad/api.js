@@ -9,13 +9,15 @@ let token = '';
 let expiresAt = 0;
 let hint = '';
 let pending = null;
+let scopes = '';
+const GMAIL = 'https://www.googleapis.com/auth/gmail.send';
 
-function save() { try { localStorage.setItem(STORE, JSON.stringify({ token, expiresAt, hint })); } catch { /* */ } }
+function save() { try { localStorage.setItem(STORE, JSON.stringify({ token, expiresAt, hint, scopes })); } catch { /* */ } }
 function restore() {
   try {
     const d = JSON.parse(localStorage.getItem(STORE) || '{}');
     hint = d.hint || '';
-    if (d.token && d.expiresAt > Date.now() + 60_000) { token = d.token; expiresAt = d.expiresAt; }
+    if (d.token && d.expiresAt > Date.now() + 60_000) { token = d.token; expiresAt = d.expiresAt; scopes = d.scopes || ''; }
   } catch { /* */ }
 }
 restore();
@@ -32,10 +34,11 @@ export async function initAuth() {
   client = window.google.accounts.oauth2.initTokenClient({
     client_id: CONFIG.CLIENT_ID,
     scope: SCOPE,
+    include_granted_scopes: true,
     callback: (r) => {
       if (r.error) pending?.reject(new Error(r.error_description || r.error));
       else {
-        token = r.access_token;
+        token = r.access_token; scopes = r.scope || '';
         expiresAt = Date.now() + (Number(r.expires_in) || 3600) * 1000;
         save();
         pending?.resolve(token);
@@ -54,6 +57,31 @@ export function signIn(prompt = '') {
 export function signOut() {
   try { if (token) window.google?.accounts?.oauth2?.revoke(token, () => {}); } catch { /* */ }
   token = ''; expiresAt = 0; save();
+}
+
+/** ✉ הרשאה לשלוח מייל מהחשבון של מי שנכנס (Gmail) — מבקשים רק כשצריך */
+export function ensureGmail() {
+  if (hasSession() && scopes.includes(GMAIL)) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    pending = { resolve: () => (scopes.includes(GMAIL) ? resolve() : reject(Object.assign(new Error('gmail-denied'), { code: 'gmail-denied' }))), reject };
+    client.requestAccessToken({ scope: `${SCOPE} ${GMAIL}`, include_granted_scopes: true, prompt: '', ...(hint ? { login_hint: hint } : {}) });
+  });
+}
+export const myEmail = () => hint;
+/** שליחת מייל (MIME מלא). קטן → JSON; גדול → upload */
+export async function gmailSend(mime) {
+  await ensureGmail();
+  const bytes = new TextEncoder().encode(mime);
+  let r;
+  if (bytes.length < 4.5 * 1024 * 1024) {
+    let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    const raw = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw }) });
+  } else {
+    r = await fetch('https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=media', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'message/rfc822' }, body: bytes });
+  }
+  if (!r.ok) { let t = ''; try { t = (await r.json()).error?.message || ''; } catch { /* */ } throw Object.assign(new Error(t || `gmail ${r.status}`), { code: r.status === 403 ? 'gmail-denied' : 'gmail-failed', detail: t }); }
+  return r.json();
 }
 
 /** נאמען + לאגא פונעם מוסד — אן לאגאין (פארן ערשטן בלאט) */

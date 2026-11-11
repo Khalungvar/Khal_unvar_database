@@ -1,7 +1,7 @@
 // 🕍 מרכז הכוללים אונגוואר — טופס הרשמה (ungvar.org/kollel/register). English / אידיש.
 //    כניסה עם אימייל + קוד (בלי גוגל) · טיוטה נשמרת · מסמכים → 🤖 Gemini ממלא את השדות · חתימה (ציור או הקלדה).
 import { CONFIG } from '../config.js?v=653';
-import { SECTIONS, MARITAL, YESNO, printHtml, kindLabel, reqOf, kindState, fieldFor, ALL_KINDS } from './kollelfields.js?v=659';
+import { SECTIONS, MARITAL, YESNO, printHtml, kindLabel, reqOf, kindState, fieldFor, ALL_KINDS } from './kollelfields.js?v=662';
 
 const MOSAD = 'kollel';
 const $ = (s, r = document) => r.querySelector(s);
@@ -200,9 +200,10 @@ function stepStart() {
   const u = U(); const r = reqOf(S.data.marital);
   const miss = r.gate.filter((k) => kindState(S.app.files, k) !== 'ok');
   return `<section class="rf-card"><h2>${h(u.startT)}</h2><p class="rf-hint">${h(u.startHint)}</p>
-      <div class="kr-mar">${MARITAL.map(([v, e, y]) => `<label class="kr-pill"><input type="radio" name="marital" value="${v}"${S.data.marital === v ? ' checked' : ''}> ${h(L(e, y))}</label>`).join('')}</div></section>
+      <div class="kr-mar">${MARITAL.map(([v, e, y]) => `<label class="kr-pill"><input type="radio" name="marital" value="${v}"${S.data.marital === v ? ' checked' : ''}> ${h(L(e, y))}</label>`).join('')}</div>
+      <div class="rf-grid" style="margin-top:12px"><label class="rf-f rf-wide">${h(L('Your name in Yiddish', 'דיין נאמען אויף אידיש'))} *<input name="yi_name" dir="rtl" value="${h(S.data.yi_name || '')}" placeholder="${h(L('e.g. משה יעקב גרינפעלד', 'למשל: משה יעקב גרינפעלד'))}" autocomplete="off"></label></div></section>
     <section class="rf-card"><h3 class="kr-h3">${h(u.needT)}</h3>${checklist(r.gate)}${dropZone()}${fileList()}
-      <p class="kr-miss">${miss.length ? `${h(u.gateMissing)} ${miss.map((k) => h(docLabel(k))).join(', ')}` : ''}</p></section>`;
+      <p class="kr-miss">${miss.length || !String(S.data.yi_name || '').trim() ? `${h(u.gateMissing)} ${[...(String(S.data.yi_name || '').trim() ? [] : [h(L('Name in Yiddish', 'נאמען אויף אידיש'))]), ...miss.map((k) => h(docLabel(k)))].join(', ')}` : ''}</p></section>`;
 }
 function stepDocs() {
   const u = U(); const r = reqOf(S.data.marital);
@@ -230,7 +231,7 @@ function render() {
   const u = U();
   const st = S.app.status || 'draft';
   if (st === 'draft') {
-    const ready = reqOf(S.data.marital).gate.every((k) => kindState(S.app.files, k) === 'ok');
+    const ready = reqOf(S.data.marital).gate.every((k) => kindState(S.app.files, k) === 'ok') && String(S.data.yi_name || '').trim();
     frame(`<div class="kr-bar"><span class="kr-st kr-${st}">${h(u.st[st] || st)}</span><span class="rf-hint" dir="ltr">${h(S.app.email)}</span><span class="kr-sp"></span><button type="button" class="linkish" id="kr-out">${h(u.logout)}</button></div>
       <div id="kr-step">${stepStart()}</div><p class="rf-err" id="kr-err"></p>
       <div class="rf-nav"><span></span><button type="button" class="btn primary" id="kr-open"${ready ? '' : ' disabled'}>${h(u.openBtn)}</button></div>`);
@@ -313,6 +314,13 @@ function wire() {
   $$('[data-kind]').forEach((sel) => { sel.onchange = () => { if (sel.value) recheck(Number(sel.dataset.kind), [sel.value], sel); }; });
   $$('[data-del]').forEach((b) => { b.onclick = async () => { try { const r = await pub('kaDelFile', { ks: S.ks, i: Number(b.dataset.del) }); S.app = r.app; readStep(); render(); } catch (e) { onErr(e); } }; });
   $('#kr-auto')?.addEventListener('change', (e) => { S.auto = e.target.checked; try { localStorage.setItem('kollel-reg-auto', S.auto ? '1' : '0'); } catch { /* */ } });
+  // נאמען אויף אידיש — חובה בחלק 1 (בלי זה אי אפשר להמשיך)
+  const yiIn = $('#kr-step input[name=yi_name]');
+  if (yiIn && !opened()) {
+    const gateOk = () => reqOf(S.data.marital).gate.every((k) => kindState(S.app.files, k) === 'ok');
+    yiIn.oninput = () => { S.data.yi_name = yiIn.value; const ok = gateOk() && yiIn.value.trim(); const b = $('#kr-open'); if (b) b.disabled = !ok; const m = $('.kr-miss'); if (m && ok) m.textContent = ''; };
+    yiIn.onchange = () => { S.data.yi_name = yiIn.value.trim(); save(true).then(() => { const m = $('.kr-miss'); if (m && yiIn.value.trim() && !reqOf(S.data.marital).gate.filter((k) => kindState(S.app.files, k) !== 'ok').length) m.textContent = ''; }); };
+  }
   // סוף חלק 1 → נפתחת רשומה + מילוי אוטומטי
   $('#kr-open')?.addEventListener('click', async (e) => {
     const b = e.currentTarget; b.disabled = true; b.textContent = u.openWait;

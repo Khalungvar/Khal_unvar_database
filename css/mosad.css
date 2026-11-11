@@ -411,19 +411,47 @@ tr.bd-day td { border-top: 2px solid #e3dccb; }
 .kr-toast.bad { background: #8a2318; }
 /* 📥 מסך הגבאי */
 .ka-list td { vertical-align: middle; }
-.ka-dlg { width: min(1100px, 96vw); }
-.ka-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 14px; }
-.ka-sec h4 { margin: 12px 0 4px; color: #7a2020; }
-.ka-row { display: grid; grid-template-columns: 210px 1fr auto; gap: 8px; align-items: center; border-bottom: 1px solid #eee; padding: 3px 0; }
-.ka-row span { color: #666; font-size: .9em; } .ka-row b { font-weight: 600; word-break: break-word; }
-.ka-row.ai b::after { content: ' ✨'; font-size: .8em; }
-.ka-row input, .ka-row select, .ka-row textarea { font: inherit; padding: 4px 6px; width: 100%; }
-.ka-docs { display: flex; flex-direction: column; gap: 8px; }
-.ka-doc { border: 1px solid #e3d3ad; border-radius: 8px; padding: 6px 8px; }
-.ka-doc img { max-width: 100%; max-height: 260px; display: block; margin-top: 4px; cursor: zoom-in; border-radius: 6px; }
-.ka-zoom { position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 9999; display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
-.ka-zoom img { max-width: 96vw; max-height: 96vh; }
-@media (max-width: 860px) { .ka-grid { grid-template-columns: 1fr; } .ka-row { grid-template-columns: 1fr auto; } .ka-row span { grid-column: 1 / -1; } }
+.ms-dlg.ka-dlg { max-width: 1100px; width: 96vw; }
+.ka-top { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0 10px; }
+.ka-secs h4 { margin: 14px 0 6px; color: #7a2020; border-bottom: 1px solid #e3d3ad; padding-bottom: 2px; }
+.ka-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 14px; }
+.ka-f { min-width: 0; border-bottom: 1px solid #eee; padding: 2px 0 4px; }
+.ka-f.w { grid-column: 1 / -1; }
+.ka-f > span { display: block; color: #777; font-size: .82em; } .ka-f > span small { color: #999; }
+.ka-v { display: flex; gap: 6px; align-items: flex-start; } .ka-v b { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; white-space: pre-wrap; }
+.ka-f.ai .ka-v b::after { content: ' ✨'; font-size: .8em; }
+.ka-v input, .ka-v select, .ka-v textarea { font: inherit; padding: 4px 6px; width: 100%; box-sizing: border-box; }
+.ka-need { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 10px; }
+.ka-chip { display: inline-flex; gap: 4px; align-items: center; padding: 2px 9px; border-radius: 12px; font-size: .86em; background: #f1ede4; border: 1px solid #e3d9c2; }
+.ka-chip.st-ok { background: #e3f3e5; border-color: #b9dcbd; } .ka-chip.st-bad { background: #fbe5e2; border-color: #efbdb6; } .ka-chip.st-pending { background: #fff4d6; }
+.ka-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 10px; }
+.ka-th { border: 1px solid #e3d3ad; border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 3px; min-width: 0; background: #fff; }
+.ka-th.st-ok { border-color: #9fd0a6; } .ka-th.st-bad { border-color: #e9a59b; } .ka-th.st-pending { border-color: #e8cf86; }
+.ka-th .small { overflow: hidden; text-overflow: ellipsis; }
+.ka-th-img { height: 140px; border: 0; border-radius: 6px; background: #f6f2e8; cursor: zoom-in; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 0; font-size: 1.4em; color: #8a7a55; }
+.ka-th-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.ka-th-a { display: flex; gap: 4px; flex-wrap: wrap; } .ka-th-a select { flex: 1; min-width: 0; font: inherit; font-size: .85em; }
+.ka-zoom { position: fixed; inset: 0; background: rgba(0,0,0,.88); z-index: 9999; display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
+.ka-zoom img { max-width: 96vw; max-height: 96vh; } .ka-zoom span { position: absolute; top: 12px; inset-inline-end: 18px; color: #fff; font-size: 26px; }
+.ka-lk { border: 1px solid #cdbf9e; background: #fff; border-radius: 12px; padding: 1px 9px; font: inherit; font-size: .86em; cursor: pointer; }
+.ka-lk.on { background: #e7f0fb; border-color: #a9c6e8; color: #154f80; }
+.ka-sent { color: #1f6fb2; } .ka-tag { font-size: .78em; background: #eef; border-radius: 8px; padding: 0 6px; }
+.kp-views { margin: 4px 0 12px; } .kp-views button { font-size: 1.02em; padding: 7px 16px; }
+.ka-pchoice { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0; } .ka-pchoice .btn { padding: 12px 18px; }
+.kl-ms { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; } .kl-m { padding: 5px 8px; border: 1px solid #eee; border-radius: 6px; }
+.km-g { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 8px 10px; align-items: start; } .km-g > span { color: #666; padding-top: 4px; }
+.km-g input, .km-g textarea { font: inherit; padding: 5px 7px; box-sizing: border-box; width: 100%; }
+.km-atts { display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow: auto; }
+.km-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 5px; } .km-row input { font: inherit; padding: 4px 6px; } .km-row input[type=email] { flex: 1; min-width: 14em; }
+.ka-rem { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; background: #fff4d6; border: 1px solid #ecd38f; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; }
+.ka-remi { color: #8a5a00; }
+.ka-ed input, .ka-ed select { font: inherit; padding: 3px 5px; width: 100%; box-sizing: border-box; min-width: 5em; }
+.ka-drop { margin: 6px 0; }
+.ka-ads { display: flex; flex-direction: column; gap: 6px; } .ka-ad { border: 1px solid #e3d3ad; border-radius: 8px; padding: 6px 9px; }
+.ka-as textarea { font: inherit; padding: 8px; box-sizing: border-box; }
+.as-files { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.ka-planbox { border: 2px solid #b9cfe8; background: #f6faff; border-radius: 10px; padding: 10px 14px; margin-top: 12px; } .ka-planbox h3 { margin: 0 0 6px; }
+@media (max-width: 600px) { .km-g { grid-template-columns: 1fr; } .km-g > span { padding: 0; font-weight: 600; } .ka-fields { grid-template-columns: 1fr; } }
 .kr-blank { text-align: center; }
 .kr-drop { border: 2px dashed transparent; border-radius: 10px; padding: 8px; transition: background .15s; }
 .kr-drop.over { border-color: #7a2020; background: #fbf3e4; }

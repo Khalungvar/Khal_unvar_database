@@ -3306,9 +3306,9 @@ function wcRecord_(o, p, d) {
 //    חלק 2 = שאר המסמכים + הפרטים + חתימה. מקום אחד להעלאה: Gemini ממיין כל קובץ, בודק שהוא קריא ובתוקף.
 //    לגבאים: 📥 הרשמות (הרשאה kollel_reg).
 // =====================================================================================
-TABS.KollelApps = ['app_id', 'email', 'salt', 'hash', 'ver', 'created_at', 'status', 'lang', 'data', 'files', 'ai', 'submitted_at', 'updated_at', 'updated_by', 'folder_id', 'contact_id', 'note', 'opened_at'];
+TABS.KollelApps = ['app_id', 'email', 'salt', 'hash', 'ver', 'created_at', 'status', 'lang', 'data', 'files', 'ai', 'submitted_at', 'updated_at', 'updated_by', 'folder_id', 'contact_id', 'note', 'opened_at', 'contact_name', 'sent', 'origin'];
 PERMS.push('kollel_reg');
-['salt', 'hash', 'files', 'ai'].forEach(function (k) { BIG[k] = true; });
+['salt', 'hash', 'files', 'ai', 'sent', 'awards', 'payments', 'docs', 'history'].forEach(function (k) { BIG[k] = true; });
 READS.kaList = 1; READS.kaFile = 1;
 const KA_FIELDS = ['yi_name', 'legal_first', 'legal_last', 'phone', 'address', 'city', 'state', 'zip', 'dob', 'ssn', 'marital', 'marital_date',
   'wife_first', 'wife_last', 'wife_dob', 'wife_ssn', 'wife_phone', 'wedding_date', 'children', 'growing', 'oldest_dob',
@@ -3332,7 +3332,7 @@ function kaReq(marital) {
   if (marital === 'unmarried') return { gate: ['id_self', 'ss_self', 'id_father', 'ss_father', 'id_mother', 'ss_mother'], rest: ['birth_self', 'diploma', 'tax1', 'tax2'] };
   return { gate: ['id_self', 'ss_self'], rest: ['diploma', 'tax1', 'tax2'] };
 }
-const KA_STATUS = { draft: 1, open: 1, submitted: 1, updated: 1, approved: 1, rejected: 1 };
+const KA_STATUS = { draft: 1, open: 1, submitted: 1, updated: 1, approved: 1, rejected: 1, active: 1, returned: 1, finished: 1 };
 function kaTaxYears() { const y = Number(Utilities.formatDate(new Date(), 'America/New_York', 'yyyy')); return [y - 2, y - 1]; }
 function kaRows(M) { return objs(ensureTab(M.book, 'KollelApps', TABS.KollelApps)).filter(function (a) { return S(a.app_id); }); }
 function kaJ(v, d) { try { const x = JSON.parse(S(v) || ''); return x === null || x === undefined ? d : x; } catch (err) { return d; } }
@@ -3368,7 +3368,7 @@ function kaView(a, staff) {
   const f = kaFiles(a);
   o.files = { pool: (f.pool || []).map(function (x) { return { name: S(x.name), type: S(x.type), at: S(x.at), kinds: x.kinds || [], check: x.check || { status: 'pending' } }; }),
     sig_self: (f.sig_self || []).map(function (x) { return { name: S(x.name), at: S(x.at) }; }), sig_wife: (f.sig_wife || []).map(function (x) { return { name: S(x.name), at: S(x.at) }; }) };
-  if (staff) { o.note = S(a.note); o.ai = kaJ(a.ai, null); }
+  if (staff) { o.note = S(a.note); o.ai = kaJ(a.ai, null); o.contact_name = S(a.contact_name); o.sent = kaJ(a.sent, []); o.origin = S(a.origin); }
   return o;
 }
 function kaSession(M, tok) {
@@ -3589,6 +3589,7 @@ const KA_PUB = {
     const d = Object.assign(kaJ(a.data, {}), kaClean(req.data || {}));
     a.data = JSON.stringify(d);
     const f = kaFiles(a); const rq = kaReq(S(d.marital));
+    if (!S(d.yi_name)) throw new Error('missing:yi_name');
     const miss = rq.gate.filter(function (k) { return !kaHave(f, k); });
     if (miss.length) throw new Error('missing-docs:' + miss.join(','));
     let notes = '', filled = [];
@@ -3657,7 +3658,16 @@ const KA_ACTIONS = {
     const a = kaRows(M).filter(function (x) { return S(x.app_id) === S(req.app_id); })[0]; if (!a) throw new Error('not-found');
     let code = ''; for (let i = 0; i < 6; i++) code += String(Math.floor(Math.random() * 10));
     const salt = Utilities.getUuid();
-    kaSet(M, a, { salt: salt, hash: kHash(salt, code), ver: Number(a.ver || 1) + 1, updated_at: now(), updated_by: me.email });
+    const o = { salt: salt, hash: kHash(salt, code), ver: Number(a.ver || 1) + 1, updated_at: now(), updated_by: me.email };
+    // אפליקציה שנפתחה במשרד — קודם אימייל לאברך
+    const em = kaMail(req.email);
+    if (em && em !== kaMail(a.email)) {
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) throw new Error('ka-bad-email');
+      if (kaRows(M).some(function (x) { return kaMail(x.email) === em && S(x.app_id) !== S(a.app_id); })) throw new Error('ka-exists');
+      o.email = em;
+    }
+    if (!kaMail(a.email) && !o.email) throw new Error('ka-bad-email');
+    kaSet(M, a, o);
     logIt(M, me, 'kollel-reg-reset', '', '#' + S(a.app_id));
     return { ok: true, code: code };
   },
@@ -3777,3 +3787,323 @@ const KL_ACTIONS = {
   },
 };
 Object.keys(KL_ACTIONS).forEach(function (k) { ACTIONS[k] = KL_ACTIONS[k]; });
+
+// =====================================================================================
+// 🎓 College Programs — המשך: קישור לאיש קשר במאגר הכללי, הוספה לכולל, הגדרות מייל, 🟢 Active, 🤖 מזכיר AI.
+// =====================================================================================
+TABS.KollelActive = ['act_id', 'app_id', 'contact_id', 'status', 'college', 'program', 'student_id', 'start_date', 'expected_end', 'end_date',
+  'fafsa', 'fafsa_year', 'tap', 'awards', 'payments', 'docs', 'history', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'];
+READS.kaActList = 1; READS.kaActFile = 1; READS.kaThumbs = 1; READS.kaMailCfg = 1;
+const KA_ACT_F = ['college', 'program', 'student_id', 'start_date', 'expected_end', 'end_date', 'fafsa', 'fafsa_year', 'tap', 'note'];
+function kaApp(M, id) { const a = kaRows(M).filter(function (x) { return S(x.app_id) === S(id); })[0]; if (!a) throw new Error('not-found'); return a; }
+function kaActRows(M) { return objs(ensureTab(M.book, 'KollelActive', TABS.KollelActive)).filter(function (r) { return S(r.act_id); }); }
+function kaAct(M, id) { const r = kaActRows(M).filter(function (x) { return S(x.act_id) === S(id); })[0]; if (!r) throw new Error('not-found'); return r; }
+function kaActView(r) {
+  const o = {}; TABS.KollelActive.forEach(function (h) { o[h] = S(r[h]); });
+  o.awards = kaJ(r.awards, []); o.payments = kaJ(r.payments, []); o.history = kaJ(r.history, []);
+  o.docs = kaJ(r.docs, []).map(function (x) { return { name: S(x.name), type: S(x.type), at: S(x.at), ai: x.ai || null }; });
+  return o;
+}
+function kaActSet(M, r, o) { setCells(M.book.getSheetByName('KollelActive'), r._row, o); Object.keys(o).forEach(function (k) { r[k] = o[k]; }); }
+function kaHist(r, me, what) { const h = kaJ(r.history, []); h.push({ at: now(), by: me.email, what: S(what).slice(0, 200) }); return JSON.stringify(h.slice(-80)); }
+function kaCleanAward(x) { return { sem: S(x.sem).slice(0, 40), pell: Number(x.pell) || 0, tap: Number(x.tap) || 0, other: Number(x.other) || 0, note: S(x.note).slice(0, 200) }; }
+function kaCleanPay(x) { return { date: S(x.date).slice(0, 10), sem: S(x.sem).slice(0, 40), source: S(x.source).slice(0, 60), amount: Number(x.amount) || 0, note: S(x.note).slice(0, 200) }; }
+/** שם יפה מתוך המאגר הכללי */
+function kaContactName(cid) {
+  const c = objs(main().getSheetByName('Contacts')).filter(function (x) { return S(x.contact_id) === S(cid); })[0];
+  return c ? [c.title_he, c.first_name_he, c.last_name_he].map(S).filter(Boolean).join(' ') || [c.first_name_en, c.last_name_en].map(S).filter(Boolean).join(' ') : '';
+}
+/** 🤖 קורא מכתב (Award letter / תשלום / מכתב מהמדינה או מהקולג') */
+function kaReadLetter_(fileId) {
+  const b = DriveApp.getFileById(fileId).getBlob();
+  const prompt = ['This is a letter / screenshot about US college financial aid for a kollel student (award letter, FAFSA/SAR, TAP award, Pell grant, college bill, payment / disbursement notice, etc.).',
+    'Extract ONLY what is clearly written. Return ONLY JSON:',
+    '{"kind": "award" | "payment" | "fafsa" | "tap" | "college" | "other", "summary": "one short sentence in Hebrew", "college": "", "program": "", "student_id": "",',
+    '"awards": [{"sem": "e.g. Fall 2026", "pell": number, "tap": number, "other": number, "note": ""}], "payments": [{"date": "YYYY-MM-DD", "sem": "", "source": "Pell/TAP/other", "amount": number, "note": ""}],',
+    '"fafsa_year": "e.g. 2026-27 if this is a FAFSA/SAR", "dates": [{"date": "YYYY-MM-DD", "what": "short Hebrew"}]}'].join('\n');
+  const j = kaGemini_([{ text: prompt }, { inline_data: { mime_type: b.getContentType(), data: Utilities.base64Encode(b.getBytes()) } }], 1500);
+  return { kind: S(j.kind), summary: S(j.summary).slice(0, 300), college: S(j.college).slice(0, 120), program: S(j.program).slice(0, 120), student_id: S(j.student_id).slice(0, 40), fafsa_year: S(j.fafsa_year).slice(0, 20),
+    awards: (Array.isArray(j.awards) ? j.awards : []).slice(0, 12).map(kaCleanAward), payments: (Array.isArray(j.payments) ? j.payments : []).slice(0, 30).map(kaCleanPay),
+    dates: (Array.isArray(j.dates) ? j.dates : []).slice(0, 10).map(function (x) { return { date: S(x.date).slice(0, 10), what: S(x.what).slice(0, 120) }; }), at: now() };
+}
+function kaAsFolder(M) { return folderPath(['מוסדות אונגוואר', S(M.name) || M.key, 'מזכיר AI']); }
+/** חיפוש אפליקציה קיימת לפי SSN / טלפון / שם */
+function kaMatch_(M, f) {
+  const apps = kaRows(M); const dig = function (v) { return S(v).replace(/\D/g, ''); };
+  const ss = dig(f.ssn); const ph = dig(f.phone).slice(-7);
+  const nm = (S(f.legal_first) + ' ' + S(f.legal_last)).trim().toLowerCase(); const yi = S(f.yi_name).replace(/\s+/g, ' ').trim();
+  let hit = ss.length === 9 && apps.filter(function (a) { return dig(kaJ(a.data, {}).ssn) === ss; })[0];
+  if (!hit && ph.length === 7) hit = apps.filter(function (a) { return dig(kaJ(a.data, {}).phone).slice(-7) === ph; })[0];
+  if (!hit && nm.length > 3) hit = apps.filter(function (a) { const d = kaJ(a.data, {}); return (S(d.legal_first) + ' ' + S(d.legal_last)).trim().toLowerCase() === nm; })[0];
+  if (!hit && yi.length > 3) hit = apps.filter(function (a) { return S(kaJ(a.data, {}).yi_name).replace(/\s+/g, ' ').trim() === yi; })[0];
+  return hit ? { app_id: S(hit.app_id), by: ss.length === 9 && dig(kaJ(hit.data, {}).ssn) === ss ? 'ssn' : 'other' } : null;
+}
+
+const KA2_ACTIONS = {
+  /** 🖼 תמונות קטנות לכל הקבצים (בשביל הכרטיס) */
+  kaThumbs: function (M, me, req) {
+    need(me, 'kollel_reg');
+    const a = kaApp(M, req.app_id); const f = kaFiles(a);
+    const th = function (x) { try { const b = DriveApp.getFileById(x.id).getThumbnail(); return b ? 'data:' + (b.getContentType() || 'image/png') + ';base64,' + Utilities.base64Encode(b.getBytes()) : ''; } catch (err) { return ''; } };
+    return { pool: (f.pool || []).map(th), sig_self: (f.sig_self || []).map(th), sig_wife: (f.sig_wife || []).map(th) };
+  },
+  /** 🔗 קישור לאיש קשר במאגר הכללי — חיפוש דומים (שם אידיש, שם אנגלי, טלפון) */
+  kaLinkFind: function (M, me, req) {
+    need(me, 'kollel_reg'); need(me, 'people_edit');
+    const a = kaApp(M, req.app_id); const d = kaJ(a.data, {});
+    const seen = {}; const res = [];
+    const add = function (l, why) { (l || []).forEach(function (x) { if (!seen[x.contact_id]) { seen[x.contact_id] = 1; x.why = why; res.push(x); } else res.filter(function (y) { return y.contact_id === x.contact_id; }).forEach(function (y) { if (y.why.indexOf(why) < 0) y.why += ' + ' + why; }); }); };
+    const ph = S(d.phone).replace(/\D/g, ''); if (ph.length >= 7) { try { add(ACTIONS.find(M, me, { q: '', phone: ph }).found, 'טלפון'); } catch (err) { /* */ } }
+    const yi = S(d.yi_name).split(/\s+/).filter(Boolean);
+    if (yi.length) { try { add(ACTIONS.find(M, me, { q: yi.length > 1 ? yi[0] + ' ' + yi[yi.length - 1] : yi[0] }).found, 'שם אידיש'); } catch (err) { /* */ } }
+    if (S(d.legal_last)) { try { add(ACTIONS.find(M, me, { q: (S(d.legal_first) + ' ' + S(d.legal_last)).trim() }).found, 'שם אנגלי'); } catch (err) { /* */ } }
+    if (S(req.q)) { try { add(ACTIONS.find(M, me, { q: S(req.q) }).found, 'חיפוש'); } catch (err) { /* */ } }
+    return { matches: res.slice(0, 15), contact_id: S(a.contact_id), contact_name: S(a.contact_name) };
+  },
+  /** קישור לאיש קשר קיים (גם נכנס לאברכים של המוסד) */
+  kaLink: function (M, me, req) {
+    need(me, 'kollel_reg'); need(me, 'people_edit');
+    const a = kaApp(M, req.app_id); const cid = S(req.contact_id); if (!cid) throw new Error('need-text');
+    ACTIONS.link(M, me, { contact_id: cid, kind: 'avreich' });
+    kaSet(M, a, { contact_id: cid, contact_name: kaContactName(cid), updated_at: now(), updated_by: me.email });
+    logIt(M, me, 'kollel-reg-link', cid, '#' + S(a.app_id));
+    return { ok: true, app: kaView(a, true) };
+  },
+  /** ➕ איש קשר חדש במאגר הכללי עם כל הפרטים */
+  kaLinkNew: function (M, me, req) {
+    need(me, 'kollel_reg'); need(me, 'people_edit');
+    const a = kaApp(M, req.app_id); const d = kaJ(a.data, {});
+    if (S(a.contact_id)) throw new Error('already-linked');
+    const yi = S(d.yi_name).split(/\s+/).filter(Boolean);
+    const c = { first_name_en: S(d.legal_first), last_name_en: S(d.legal_last), legal_first_name: S(d.legal_first), marital_status: S(d.marital) === 'married' ? 'נשוי' : '',
+      first_name_he: yi.length > 1 ? yi.slice(0, -1).join(' ') : S(d.yi_name), last_name_he: yi.length > 1 ? yi[yi.length - 1] : '',
+      wife_name_en: [S(d.wife_first), S(d.wife_last)].filter(Boolean).join(' '), address: S(d.address), city: S(d.city), state: S(d.state), zip: S(d.zip) };
+    const cid = S(ACTIONS.save(M, me, { contact: c, phones: { mobile: S(d.phone), email_1: S(a.email || d.email) }, kind: 'avreich' }).contact_id);
+    kaSet(M, a, { contact_id: cid, contact_name: kaContactName(cid), updated_at: now(), updated_by: me.email });
+    logIt(M, me, 'kollel-reg-link-new', cid, '#' + S(a.app_id));
+    return { ok: true, app: kaView(a, true) };
+  },
+  kaUnlink: function (M, me, req) {
+    need(me, 'kollel_reg');
+    const a = kaApp(M, req.app_id); const old = S(a.contact_id);
+    kaSet(M, a, { contact_id: '', contact_name: '', updated_at: now(), updated_by: me.email });
+    logIt(M, me, 'kollel-reg-unlink', old, '#' + S(a.app_id));
+    return { ok: true, app: kaView(a, true) };
+  },
+  /** 🔗 הוספה לכולל (בלי לסיים את האפליקציה) */
+  kaToKollel: function (M, me, req) {
+    need(me, 'kollel_reg');
+    const a = kaApp(M, req.app_id);
+    if (!S(a.contact_id)) throw new Error('ka-need-link');
+    KL_ACTIONS.klMember(M, me, { kollel_id: S(req.kollel_id), contact_id: S(a.contact_id), start_date: S(req.start_date) });
+    return { ok: true };
+  },
+  /** ⚙ הגדרות מייל: { to: [{email, def}], from: 'me'|'office', office } */
+  kaMailCfg: function (M, me, req) {
+    need(me, 'kollel_reg');
+    if (req.cfg) {
+      const c = req.cfg;
+      const v = { to: [].concat(c.to || []).map(function (x) { return { email: S(x.email).trim().slice(0, 120), name: S(x.name).slice(0, 80), def: !!x.def }; }).filter(function (x) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x.email); }).slice(0, 20),
+        from: S(c.from) === 'office' ? 'office' : 'me', office: S(c.office).trim().slice(0, 120) || 'office@ungvar.org' };
+      putSetting(M, me, 'ka_mail', JSON.stringify(v));
+      logIt(M, me, 'kollel-mail-cfg', '', v.to.map(function (x) { return x.email; }).join(','));
+      return { ok: true, cfg: v };
+    }
+    const r = objs(M.book.getSheetByName('Settings')).filter(function (x) { return S(x.key) === 'ka_mail'; })[0];
+    return { cfg: kaJ(r && r.value, { to: [], from: 'me', office: 'office@ungvar.org' }) };
+  },
+  /** ✉ נרשם שנשלח למשרד */
+  kaSent: function (M, me, req) {
+    need(me, 'kollel_reg');
+    const a = kaApp(M, req.app_id); const l = kaJ(a.sent, []);
+    l.push({ at: now(), by: me.email, from: S(req.from).slice(0, 120), to: [].concat(req.to || []).map(S).slice(0, 20), files: Number(req.files) || 0, parts: Number(req.parts) || 1 });
+    kaSet(M, a, { sent: JSON.stringify(l.slice(-30)) });
+    logIt(M, me, 'kollel-reg-mail', S(a.contact_id), '#' + S(a.app_id) + ' → ' + [].concat(req.to || []).join(','));
+    return { ok: true, app: kaView(a, true) };
+  },
+
+  // ---------- 🟢 Active ----------
+  kaActList: function (M, me) { need(me, 'kollel_reg'); return { acts: kaActRows(M).map(kaActView) }; },
+  /** ✅ Active: מסיים את האפליקציה ופותח תקופה (או תקופה חדשה — הפעלה מחדש) */
+  kaActivate: function (M, me, req) {
+    need(me, 'kollel_reg');
+    const a = kaApp(M, req.app_id);
+    if (!S(a.contact_id)) throw new Error('ka-need-link');
+    const all = kaActRows(M);
+    if (all.some(function (r) { return S(r.app_id) === S(a.app_id) && S(r.status) === 'active'; })) throw new Error('ka-already-active');
+    const prev = all.filter(function (r) { return S(r.app_id) === S(a.app_id); }).sort(function (x, y) { return Number(y.act_id) - Number(x.act_id); })[0];
+    const rec = req.rec || {};
+    let mx = 0; all.forEach(function (r) { const v = Number(r.act_id); if (v > mx) mx = v; });
+    const o = { act_id: mx + 1, app_id: S(a.app_id), contact_id: S(a.contact_id), status: 'active', awards: '[]', payments: '[]', docs: '[]', created_at: now(), created_by: me.email, updated_at: now(), updated_by: me.email };
+    KA_ACT_F.forEach(function (k) { o[k] = S(rec[k] !== undefined ? rec[k] : (prev && ['college', 'program', 'student_id', 'fafsa', 'fafsa_year', 'tap'].indexOf(k) >= 0 ? prev[k] : '')).slice(0, 300); });
+    if (!o.start_date) o.start_date = Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd');
+    o.end_date = '';
+    o.history = JSON.stringify([{ at: now(), by: me.email, what: prev ? 'הופעל מחדש (תקופה חדשה)' : 'הופעל' }]);
+    appendObj(ensureTab(M.book, 'KollelActive', TABS.KollelActive), o);
+    kaSet(M, a, { status: 'active', updated_at: now(), updated_by: me.email });
+    logIt(M, me, 'kollel-active', S(a.contact_id), '#' + S(a.app_id) + ' act ' + o.act_id);
+    return { ok: true, act_id: o.act_id, app: kaView(a, true) };
+  },
+  /** שמירה: { act_id, rec: {...שדות, awards, payments} } */
+  kaActSave: function (M, me, req) {
+    need(me, 'kollel_reg');
+    const r = kaAct(M, req.act_id); const rec = req.rec || {};
+    const o = { updated_at: now(), updated_by: me.email }; const ch = [];
+    KA_ACT_F.forEach(function (k) { if (k in rec && S(rec[k]) !== S(r[k])) { o[k] = S(rec[k]).slice(0, k === 'note' ? 2000 : 300); ch.push(k); } });
+    if (Array.isArray(rec.awards)) { o.awards = JSON.stringify(rec.awards.slice(0, 40).map(kaCleanAward)); ch.push('awards'); }
+    if (Array.isArray(rec.payments)) { o.payments = JSON.stringify(rec.payments.slice(0, 200).map(kaCleanPay)); ch.push('payments'); }
+    if (ch.length) o.history = kaHist(r, me, 'עודכן: ' + ch.join(', '));
+    kaActSet(M, r, o);
+    return { ok: true, act: kaActView(r) };
+  },
+  /** ⏹ פג תוקף / ↩ החזרה לאפליקציות: { act_id, state: 'expired'|'inactive', date, why } */
+  kaActState: function (M, me, req) {
+    need(me, 'kollel_reg');
+    const r = kaAct(M, req.act_id); const st = S(req.state);
+    if (['expired', 'inactive'].indexOf(st) < 0) throw new Error('bad-status');
+    const date = S(req.date) || Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd');
+    kaActSet(M, r, { status: st, end_date: date, updated_at: now(), updated_by: me.email,
+      history: kaHist(r, me, (st === 'expired' ? '⏹ פג תוקף' : '↩ הוחזר לאפליקציות') + ' ' + date + (S(req.why) ? ' — ' + S(req.why) : '')) });
+    try { const a = kaApp(M, r.app_id); kaSet(M, a, { status: st === 'expired' ? 'finished' : 'returned', updated_at: now(), updated_by: me.email }); } catch (err) { /* */ }
+    logIt(M, me, 'kollel-active-' + st, S(r.contact_id), 'act ' + S(r.act_id));
+    return { ok: true, act: kaActView(r) };
+  },
+  /** 📎 מכתב / צילום מסך → נשמר, 🤖 נקרא */
+  kaActUpload: function (M, me, req) {
+    need(me, 'kollel_reg');
+    const r = kaAct(M, req.act_id); const a = kaApp(M, r.app_id);
+    const b = kaSaveBlob(M, a, req.data, 'College ' + S(req.name));
+    const docs = kaJ(r.docs, []);
+    if (docs.length >= 80) throw new Error('too-many');
+    const x = { id: b.id, name: S(req.name).slice(0, 80) || 'letter', type: b.type, at: now(), by: me.email, ai: null };
+    try { x.ai = kaReadLetter_(b.id); } catch (err) { x.ai = { error: S(err.message || err) }; }
+    docs.push(x);
+    kaActSet(M, r, { docs: JSON.stringify(docs), updated_at: now(), updated_by: me.email, history: kaHist(r, me, '📎 ' + x.name) });
+    return { ok: true, act: kaActView(r), i: docs.length - 1 };
+  },
+  kaActFile: function (M, me, req) {
+    need(me, 'kollel_reg');
+    const x = kaJ(kaAct(M, req.act_id).docs, [])[Number(req.i)]; if (!x) throw new Error('not-found');
+    return { data: kaBlobUrl(x.id), name: S(x.name) };
+  },
+  kaActDocDel: function (M, me, req) {
+    need(me, 'kollel_reg');
+    const r = kaAct(M, req.act_id); const docs = kaJ(r.docs, []); const x = docs[Number(req.i)]; if (!x) throw new Error('not-found');
+    try { DriveApp.getFileById(x.id).setTrashed(true); } catch (err) { /* */ }
+    docs.splice(Number(req.i), 1);
+    kaActSet(M, r, { docs: JSON.stringify(docs), updated_at: now(), updated_by: me.email, history: kaHist(r, me, '🗑 ' + S(x.name)) });
+    return { ok: true, act: kaActView(r) };
+  },
+
+  // ---------- 🤖 מזכיר AI ----------
+  /** קובץ זמני לתיבת המזכיר → { fid } */
+  kaAsUpload: function (M, me, req) {
+    need(me, 'kollel_reg');
+    const m = S(req.data).match(/^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,(.+)$/);
+    if (!m) throw new Error('bad-file');
+    if (m[2].length > 9000000) throw new Error('file-big');
+    const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' }[m[1]];
+    const f = kaAsFolder(M).createFile(Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], (S(req.name).replace(/\.[a-z0-9]+$/i, '').slice(0, 60) || 'scan') + ' ' + Utilities.formatDate(new Date(), 'America/New_York', 'MMdd-HHmmss') + '.' + ext));
+    f.setDescription('by ' + me.email);
+    return { fid: f.getId(), type: m[1] };
+  },
+  /** 🤖 תבין ותציע: { text, fids: [], names: [] } → הצעה (לא שומר כלום) */
+  kaAssist: function (M, me, req) {
+    need(me, 'kollel_reg');
+    const c = CacheService.getScriptCache(); const ck = 'kaas:' + M.key; const n = Number(c.get(ck) || 0); if (n > 200) throw new Error('too-many'); c.put(ck, String(n + 1), 3600);
+    const fids = [].concat(req.fids || []).map(S).slice(0, 12); const names = [].concat(req.names || []).map(S);
+    const ty = kaTaxYears();
+    const apps = kaRows(M).map(function (a) { const d = kaJ(a.data, {}); return '#' + S(a.app_id) + ' | ' + S(d.yi_name) + ' | ' + S(d.legal_first) + ' ' + S(d.legal_last) + ' | phone …' + S(d.phone).replace(/\D/g, '').slice(-4) + ' | ssn …' + S(d.ssn).replace(/\D/g, '').slice(-4) + ' | dob ' + S(d.dob) + ' | ' + S(a.status); }).slice(-400);
+    const acts = kaActRows(M).filter(function (r) { return S(r.status) === 'active'; }).map(function (r) { return 'act ' + S(r.act_id) + ' → app #' + S(r.app_id) + ' | ' + S(r.college) + ' | ' + S(r.program) + ' | student id ' + S(r.student_id); });
+    const kinds = Object.keys(KA_KINDS).map(function (k) { return k + ' = ' + KA_KINDS[k].replace('Y1', ty[0]).replace('Y2', ty[1]); }).join('\n');
+    const prompt = ['You are the office secretary of a kollel (Torah study program) in Brooklyn that enrolls its members in college programs (FAFSA/Pell, NY TAP).',
+      'The staff gave you a note and/or files: scans of handwritten enrollment forms (often Yiddish), IDs, Social Security cards, certificates, tax documents, award letters, college / state letters, portal screenshots.',
+      'Decide what to do and return ONLY JSON:',
+      '{"action": "new_app" (a new applicant) | "update_app" (add info/documents to an existing application) | "update_active" (award letter / payment / college info for an active student) | "unclear",',
+      ' "app_id": "number of the matching existing application, if any", "act_id": "matching active record, if update_active",',
+      ' "fields": {only these keys, only what is clearly visible: ' + KA_FIELDS.filter(function (k) { return k.indexOf('sig_') !== 0; }).join(', ') + '; dates YYYY-MM-DD; ssn ###-##-####; yi_name in Hebrew letters; marital one of married/unmarried/divorced/widowed},',
+      ' "files": [{"n": index of the file (0-based, in the order given), "kinds": [document codes below, can be empty], "ok": true/false (readable & valid), "note": "short Hebrew"}],',
+      ' "active": {"college": "", "program": "", "student_id": "", "start_date": "", "expected_end": "", "fafsa": "yes/no/", "fafsa_year": "", "tap": "yes/no/"},',
+      ' "awards": [{"sem": "", "pell": 0, "tap": 0, "other": 0, "note": ""}], "payments": [{"date": "", "sem": "", "source": "", "amount": 0, "note": ""}],',
+      ' "summary": "2-3 short sentences in Hebrew: what you understood and what you propose", "questions": "anything unclear, in Hebrew (or empty)"}',
+      'Document codes:\n' + kinds,
+      'Existing applications (# | Yiddish name | legal name | phone last 4 | SSN last 4 | DOB | status):\n' + (apps.join('\n') || '(none)'),
+      'Active records:\n' + (acts.join('\n') || '(none)'),
+      'Match an existing person by SSN, phone, date of birth or name. Never invent data.',
+      'The staff note:\n' + (S(req.text).slice(0, 4000) || '(no note)')].join('\n');
+    const parts = [{ text: prompt }]; let total = 0;
+    fids.forEach(function (id, i) {
+      try { const b = DriveApp.getFileById(id).getBlob(); const by = b.getBytes(); if (total + by.length > 15000000) return; total += by.length;
+        parts.push({ text: 'File ' + i + ': ' + (names[i] || '') }); parts.push({ inline_data: { mime_type: b.getContentType(), data: Utilities.base64Encode(by) } }); } catch (err) { /* */ }
+    });
+    const j = kaGemini_(parts, 4096);
+    const fields = kaClean(j.fields || {}); Object.keys(fields).forEach(function (k) { if (!fields[k]) delete fields[k]; });
+    const plan = { action: ['new_app', 'update_app', 'update_active'].indexOf(S(j.action)) >= 0 ? S(j.action) : 'unclear', app_id: S(j.app_id).replace(/\D/g, ''), act_id: S(j.act_id).replace(/\D/g, ''),
+      fields: fields, files: (Array.isArray(j.files) ? j.files : []).map(function (x) { return { n: Number(x.n), kinds: [].concat(x.kinds || []).map(S).filter(function (k) { return KA_KINDS[k]; }), ok: x.ok !== false, note: S(x.note).slice(0, 200) }; }).filter(function (x) { return x.n >= 0 && x.n < fids.length; }),
+      active: {}, awards: (Array.isArray(j.awards) ? j.awards : []).slice(0, 12).map(kaCleanAward), payments: (Array.isArray(j.payments) ? j.payments : []).slice(0, 30).map(kaCleanPay),
+      summary: S(j.summary).slice(0, 800), questions: S(j.questions).slice(0, 600) };
+    KA_ACT_F.forEach(function (k) { if (j.active && S(j.active[k])) plan.active[k] = S(j.active[k]).slice(0, 200); });
+    // בדיקה שלנו: אותו SSN / טלפון / שם → אפליקציה קיימת
+    const mt = kaMatch_(M, fields);
+    if (mt && plan.action === 'new_app') { plan.action = 'update_app'; plan.app_id = mt.app_id; plan.matchNote = 'נמצאה אפליקציה קיימת (' + (mt.by === 'ssn' ? 'אותו SSN' : 'טלפון / שם') + ') — במקום חדשה, עדכון.'; }
+    else if (mt && !plan.app_id) plan.app_id = mt.app_id;
+    if (plan.app_id && !kaRows(M).some(function (a) { return S(a.app_id) === plan.app_id; })) plan.app_id = '';
+    if (plan.action === 'update_active' && !plan.act_id && plan.app_id) { const ar = kaActRows(M).filter(function (r) { return S(r.app_id) === plan.app_id && S(r.status) === 'active'; })[0]; if (ar) plan.act_id = S(ar.act_id); }
+    return { plan: plan };
+  },
+  /** ✓ לבצע: { plan, fids, names } */
+  kaAssistApply: function (M, me, req) {
+    need(me, 'kollel_reg');
+    const p = req.plan || {}; const fids = [].concat(req.fids || []).map(S); const names = [].concat(req.names || []).map(S);
+    const fileInfo = function (i) { return [].concat(p.files || []).filter(function (x) { return Number(x.n) === i; })[0] || { kinds: [], ok: false }; };
+    const moveTo = function (id, folder) { try { const f = DriveApp.getFileById(id); f.moveTo(folder); return f; } catch (err) { return null; } };
+    if (S(p.action) === 'new_app' || S(p.action) === 'update_app') {
+      let a;
+      if (S(p.action) === 'new_app') {
+        const lock = LockService.getScriptLock(); lock.waitLock(20000);
+        try {
+          let mx = 100; kaRows(M).forEach(function (x) { const v = Number(x.app_id); if (isFinite(v) && v > mx) mx = v; });
+          const d0 = kaClean(p.fields || {}); if (!d0.marital) d0.marital = 'married';
+          const em = kaMail(d0.email);
+          const emOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em) && !kaRows(M).some(function (x) { return kaMail(x.email) === em; });
+          appendObj(M.book.getSheetByName('KollelApps'), { app_id: mx + 1, email: emOk ? em : '', salt: '', hash: '', ver: 1, created_at: now(), status: 'open', opened_at: now(), lang: 'yi',
+            data: JSON.stringify(d0), files: '{"pool":[]}', updated_at: now(), updated_by: me.email, origin: 'office', note: 'נפתח במשרד (🤖 מזכיר AI)' });
+          a = kaApp(M, mx + 1);
+        } finally { lock.releaseLock(); }
+      } else {
+        a = kaApp(M, p.app_id);
+        const d = kaJ(a.data, {}); const nw = kaClean(p.fields || {});
+        Object.keys(nw).forEach(function (k) { if (S(nw[k])) d[k] = nw[k]; });
+        kaSet(M, a, { data: JSON.stringify(d) });
+      }
+      const files = kaFiles(a); const folder = kaFolder(M, a);
+      fids.forEach(function (id, i) {
+        const f = moveTo(id, folder); if (!f) return; const fi = fileInfo(i);
+        files.pool.push({ id: id, name: (names[i] || f.getName()).slice(0, 80), type: f.getMimeType(), at: now(), kinds: [].concat(fi.kinds || []).map(S).filter(function (k) { return KA_KINDS[k]; }),
+          check: { status: fi.ok && (fi.kinds || []).length ? 'ok' : 'pending', en: '', yi: '', at: now(), by: me.email + ' (AI)' } });
+      });
+      const o = { files: JSON.stringify(files), folder_id: folder.getId(), updated_at: now(), updated_by: me.email };
+      if (S(a.status) === 'draft') { o.status = 'open'; o.opened_at = now(); }
+      kaSet(M, a, o);
+      logIt(M, me, 'kollel-assist', S(a.contact_id), S(p.action) + ' #' + S(a.app_id) + ' files ' + fids.length);
+      return { ok: true, app_id: S(a.app_id), app: kaView(a, true) };
+    }
+    if (S(p.action) === 'update_active') {
+      const r = kaAct(M, p.act_id); const a = kaApp(M, r.app_id); const folder = kaFolder(M, a);
+      const o = { updated_at: now(), updated_by: me.email };
+      KA_ACT_F.forEach(function (k) { if (p.active && S(p.active[k])) o[k] = S(p.active[k]).slice(0, 300); });
+      if ((p.awards || []).length) o.awards = JSON.stringify(kaJ(r.awards, []).concat(p.awards.map(kaCleanAward)).slice(-40));
+      if ((p.payments || []).length) o.payments = JSON.stringify(kaJ(r.payments, []).concat(p.payments.map(kaCleanPay)).slice(-200));
+      const docs = kaJ(r.docs, []);
+      fids.forEach(function (id, i) { const f = moveTo(id, folder); if (f) docs.push({ id: id, name: (names[i] || f.getName()).slice(0, 80), type: f.getMimeType(), at: now(), by: me.email, ai: { summary: S(fileInfo(i).note), at: now() } }); });
+      o.docs = JSON.stringify(docs);
+      o.history = kaHist(r, me, '🤖 מזכיר AI: ' + S(p.summary).slice(0, 120));
+      kaActSet(M, r, o);
+      logIt(M, me, 'kollel-assist', S(r.contact_id), 'active ' + S(r.act_id));
+      return { ok: true, act_id: S(r.act_id), act: kaActView(r) };
+    }
+    throw new Error('ka-unclear');
+  },
+};
+Object.keys(KA2_ACTIONS).forEach(function (k) { ACTIONS[k] = KA2_ACTIONS[k]; });
+PPL_ACTS.kaLink = 1; NAMES_ACTS.kaLink = 1; PPL_ACTS.kaLinkNew = 1; NAMES_ACTS.kaLinkNew = 1;

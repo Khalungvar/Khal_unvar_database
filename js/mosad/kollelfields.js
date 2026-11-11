@@ -93,7 +93,24 @@ export function kindState(files, k) {
   if (fs.some((x) => x.check?.status === 'bad')) return 'bad';
   return (files?.pool || []).some((x) => x.check?.status === 'pending' && !(x.kinds || []).length) ? 'pending?' : '';
 }
-export const STATUS = { draft: ['לא השלים פתיחה', '#8a8a8a'], open: ['בתהליך מילוי', '#7a5a00'], submitted: ['נשלח', '#1f6fb2'], updated: ['עודכן אחרי שליחה', '#b26b1f'], approved: ['אושר', '#1e7d3a'], rejected: ['נדחה', '#a33'] };
+export const STATUS = { draft: ['לא השלים פתיחה', '#8a8a8a'], open: ['בתהליך מילוי', '#7a5a00'], submitted: ['נשלח', '#1f6fb2'], updated: ['עודכן אחרי שליחה', '#b26b1f'], approved: ['אושר', '#1e7d3a'], rejected: ['נדחה', '#a33'],
+  active: ['🟢 Active', '#1e7d3a'], returned: ['↩ הוחזר מ-Active', '#b26b1f'], finished: ['⏹ הסתיים', '#555'] };
+
+/** כל האפליקציה כטקסט באנגלית (לגוף המייל), לפי חלקים */
+export function appText(app) {
+  const d = app.data || {}; const ty = app.taxYears || [];
+  const out = ['KOLLEL ENROLLMENT APPLICATION', `Merkaz HaKollelim – Khal Ungvar · Application #${app.app_id || ''}`, ''];
+  SECTIONS.forEach((s) => {
+    const rows = s.fields.filter((f) => fieldFor(f, d.marital)).map((f) => [f[1], f[0] === 'email' ? d.email || app.email : showVal(f[0], d[f[0]])]).filter(([, v]) => String(v || '').trim());
+    if (!rows.length) return;
+    out.push(s.en.toUpperCase(), ...rows.map(([l, v]) => `${l}: ${String(v).replace(/\n/g, ', ')}`), '');
+  });
+  const r = reqOf(d.marital);
+  out.push('DOCUMENTS', ...[...r.gate, ...r.rest].map((k) => `${kindState(app.files, k) === 'ok' ? '[x]' : '[ ]'} ${kindLabel(k, ty)}`), '');
+  out.push('SIGNATURE', `Applicant: ${(app.files?.sig_self || []).length ? 'signed (drawn)' : d.sig_self_name || '—'}${d.sig_date ? `   Date: ${showVal('dob', d.sig_date)}` : ''}`);
+  if (d.marital === 'married') out.push(`Spouse: ${(app.files?.sig_wife || []).length ? 'signed (drawn)' : d.sig_wife_name || '—'}`);
+  return out.join('\n');
+}
 
 /** תצוגת ערך (תאריך → MM/DD/YYYY, בחירה → טקסט) */
 export function showVal(k, v, lang = 'en') {
