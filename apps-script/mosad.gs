@@ -4285,7 +4285,7 @@ function decryptBlob_(key, url, sha1) {
 }
 
 /** חד-פעמי: התרומות מהרשימה הישנה → Donations. בלי כפולים (איש קשר + קמפיין + סוג + שנה). */
-function donImport_(key, url, sha1) {
+function donImport_(key, url, sha1, by) {
   const arr = decryptBlob_(key, url, sha1);
   const sh = main().getSheetByName('Donations');
   const vals = sh.getDataRange().getDisplayValues();
@@ -4297,7 +4297,7 @@ function donImport_(key, url, sha1) {
     const id = Number(r[ix('donation_id')]) || 0; if (id > max) max = id;
     seen[kOf(r[ix('contact_id')], r[ix('campaign')], r[ix('event_tags')], r[ix('event_year')])] = 1;
   });
-  const me = Session.getEffectiveUser().getEmail();
+  const me = by || 'old-list';
   const at = Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd HH:mm');
   const rows = [];
   arr.forEach(function (o) {
