@@ -5,9 +5,9 @@ import { downloadXlsx } from '../excel.js?v=653';
 import { colFilters } from '../sorttables.js?v=653';
 import { todayIso, isoToHebrewText, toHebrew, fromHebrew, monthHe, yearLabel } from '../hebdate.js?v=653';
 import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=653';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=653';
-import { letterhead, heShort } from './brand.js?v=653';
-import { dayInfo, rulesOf } from './hdays.js?v=653';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=663';
+import { letterhead, heShort } from './brand.js?v=663';
+import { dayInfo, rulesOf } from './hdays.js?v=663';
 
 let X = null;
 export function initJournal(ctx) { X = ctx; }
@@ -36,7 +36,11 @@ const onlyMap = () => { try { return JSON.parse(X.st.settings?.seder_only || '{}
 const slotLbl = (seder, b) => (seder.split ? (b ? 'השתתפות' : 'בזמן') : (b ? '2' : '1'));
 const inSeder = (id, key) => { const m = onlyMap()[String(id)]; return !m || !m.length || m.includes(String(key).replace(/:exam$/, '')); };
 const stipOf = (s, dow) => (dow === 6 && Number(s.stipShab) > 0 ? Number(s.stipShab) : Number(s.stip) || 0);
-const hasStip = (s) => Number(s.stip) > 0 || Number(s.stipShab) > 0;
+const hasStip = (s) => Number(s.stip) > 0 || Number(s.stipShab) > 0 || tiersOf(s).length > 0;
+/** 🏅 מדרגות לשבוע: [{n, amt}] — לפי כמה פעמים השתתף בשבוע (א'–ש', נסגר במוצאי שבת), מהגבוה לנמוך */
+function tiersOf(s) { return (Array.isArray(s.tiers) ? s.tiers : []).map((t) => ({ n: Number(t.n) || 0, amt: Number(t.amt) || 0 })).filter((t) => t.n > 0).sort((a, b) => b.n - a.n); }
+const parseTiers = (txt) => String(txt || '').split(/[,،;\n]+/).map((x) => x.match(/(\d+)\s*[=:→-]\s*(\d+(?:\.\d+)?)/)).filter(Boolean).map((m) => ({ n: Number(m[1]), amt: Number(m[2]) }));
+const tiersTxt = (s) => tiersOf(s).slice().reverse().map((t) => `${t.n}=${t.amt}`).join(', ');
 function students(day) { return activeStudents(day).map((e) => e.contact_id).filter((id) => X.pById(id)); }
 const avreichim = () => X.st.people.filter((p) => (p.kinds || [p.kind]).includes('avreich')).sort((a, b) => X.S(a.last_name_he).localeCompare(X.S(b.last_name_he), 'he'));
 
@@ -839,7 +843,9 @@ async function stipData(mon, only) {
   const rows = (await X.call(X.KEY, 'att', { from: sundayOf(mon.from), to: mon.to })).rows;
   const ss = only || stipSed();
   const res = {};
-  const get = (id) => (res[id] ||= { cnt: {}, shab: {}, amt: {}, ex: {}, total: 0 });
+  const get = (id) => (res[id] ||= { cnt: {}, shab: {}, amt: {}, ex: {}, wk: {}, pend: {}, total: 0 });
+  const weeks = {}; // 🏅 מדרגות: { contact|seder|week: count }
+  const today = todayIso();
   rows.forEach((r) => {
     const isEx = String(r.seder).endsWith(':exam');
     const s = ss.find((x) => x.key === (isEx ? r.seder.slice(0, -5) : r.seder)); if (!s) return;
@@ -854,6 +860,13 @@ async function stipData(mon, only) {
     if (!hasStip(s)) return;
     const byDay = {};
     Object.entries(m).forEach(([k, v]) => { (byDay[k[0]] ||= []).push(v); });
+    if (tiersOf(s).length) {
+      // שבוע שלם (א'–ש'): שייך לחודש לפי השבת שלו; נחשב רק אחרי מוצאי שבת
+      const shab = isoAdd(r.week, 6); if (shab < mon.from || shab > mon.to) return;
+      const n0 = Object.values(byDay).filter((arr) => arr.some((v) => v === 'v' || (s.stipLate && v === 'l'))).length;
+      const k = `${r.contact_id}|${s.key}|${r.week}`; weeks[k] = (weeks[k] || 0) + n0;
+      return;
+    }
     Object.entries(byDay).forEach(([d, arr]) => {
       const day = isoAdd(r.week, Number(d)); if (day < mon.from || day > mon.to) return;
       if (arr.some((v) => v === 'v' || (s.stipLate && v === 'l'))) {
@@ -863,10 +876,17 @@ async function stipData(mon, only) {
       }
     });
   });
+  Object.entries(weeks).forEach(([k, n0]) => {
+    const [id, key, wk] = k.split('|'); const s = ss.find((x) => x.key === key); const o = get(id);
+    o.cnt[key] = (o.cnt[key] || 0) + n0;
+    if (isoAdd(wk, 6) >= today) { o.pend[key] = (o.pend[key] || 0) + 1; return; } // השבוע עוד לא נגמר — עד מוצאי שבת
+    const t = tiersOf(s).find((x) => n0 >= x.n);
+    if (t) { o.amt[key] = (o.amt[key] || 0) + t.amt; o.wk[key] = (o.wk[key] || 0) + 1; }
+  });
   Object.values(res).forEach((o) => { o.total = ss.reduce((t, s) => t + (o.amt[s.key] || 0) + (o.ex[s.key]?.amt || 0), 0); });
   const act = students(mon.to < todayIso() ? mon.to : todayIso());
   const ids = sortIds([...new Set([...act, ...Object.keys(res)])].filter((id) => X.pById(id)));
-  return { ids, res, ss, of: (id) => res[id] || { cnt: {}, shab: {}, amt: {}, ex: {}, total: 0 } };
+  return { ids, res, ss, of: (id) => res[id] || { cnt: {}, shab: {}, amt: {}, ex: {}, wk: {}, pend: {}, total: 0 } };
 }
 /** שטרות און מטבעות: { 20: 4, 5: 4 } */
 function breakdown(amount) { const out = {}; let left = Math.round(Number(amount) || 0); DENOMS.forEach((d) => { const n = Math.floor(left / d); if (n) { out[d] = n; left -= n * d; } }); return out; }
@@ -975,7 +995,7 @@ async function renderStip(body, type) {
   D.tpl = type?.tpl || STIP_TPL;
   const list = D.ids.filter((id) => J.stipAll || D.of(id).total > 0);
   const total = list.reduce((t, id) => t + D.of(id).total, 0);
-  const cell = (id, s) => { const o = D.of(id); const parts = []; if (hasStip(s)) parts.push(`${o.cnt[s.key] || 0}${o.shab[s.key] ? ` (ש׳ ${o.shab[s.key]})` : ''}`); if (s.exam?.on) parts.push(`📝${o.ex[s.key]?.pass || 0}/${o.ex[s.key]?.n || 0}`); return parts.join(' · '); };
+  const cell = (id, s) => { const o = D.of(id); const parts = []; if (hasStip(s)) parts.push(`${o.cnt[s.key] || 0}${o.shab[s.key] ? ` (ש׳ ${o.shab[s.key]})` : ''}${tiersOf(s).length ? ` · 🏅${o.wk?.[s.key] || 0} שב׳${o.pend?.[s.key] ? ' + ⏳1' : ''}` : ''}`); if (s.exam?.on) parts.push(`📝${o.ex[s.key]?.pass || 0}/${o.ex[s.key]?.n || 0}`); return parts.join(' · '); };
   // ✓ שולם — Settings stippaid:<type>:<month>
   const paidKey = `stippaid:${type?.id || 'all'}:${mon.key}`;
   const paid = (() => { try { return JSON.parse(X.st.settings?.[paidKey] || '{}') || {}; } catch { return {}; } })();
@@ -990,13 +1010,13 @@ async function renderStip(body, type) {
       <button type="button" class="btn" id="st-cash">💵 הכנת מזומן</button>
       <button type="button" class="btn" id="st-print">🖨 סיכום</button><button type="button" class="btn" id="st-xl">⬇ Excel</button>
     </div>
-    <p class="muted small">${h(mon.label)}: ${h(isoToHebrewText(mon.from))} – ${h(isoToHebrewText(mon.to))}. ${ss.map((s) => `${s.name}: ${hasStip(s) ? `${shekel(s.stip || 0)} להשתתפות${Number(s.stipShab) > 0 ? ` · שבת ${shekel(s.stipShab)}` : ''}` : ''}${s.exam?.on ? `${hasStip(s) ? ' · ' : ''}מבחן ${shekel(s.exam.amount || 0)}` : ''}`).map(h).join(' · ')}</p>
+    <p class="muted small">${h(mon.label)}: ${h(isoToHebrewText(mon.from))} – ${h(isoToHebrewText(mon.to))}. ${ss.map((s) => `${s.name}: ${tiersOf(s).length ? `🏅 לשבוע: ${tiersOf(s).slice().reverse().map((t) => `${t.n}+ פעמים → ${shekel(t.amt)}`).join(', ')}` : hasStip(s) ? `${shekel(s.stip || 0)} להשתתפות${Number(s.stipShab) > 0 ? ` · שבת ${shekel(s.stipShab)}` : ''}` : ''}${s.exam?.on ? `${hasStip(s) ? ' · ' : ''}מבחן ${shekel(s.exam.amount || 0)}` : ''}`).map(h).join(' · ')}</p>
     <div class="ms-stats"><div class="ms-stat"><span class="muted small">בחורים</span><b>${list.filter((id) => D.of(id).total > 0).length}</b></div><div class="ms-stat"><span class="muted small">סה"כ מלגות</span><b>${h(shekel(total))}</b></div><div class="ms-stat"><span class="muted small">שולם</span><b>${list.filter((id) => paid[id]).length} · ${h(shekel(paidSum))}</b></div><div class="ms-stat"><span class="muted small">נשאר לשלם</span><b>${h(shekel(total - paidSum))}</b></div></div>
     <div class="ms-wrap"><table class="ms-table col-filter" data-fkey="stip"><thead><tr><th>#</th><th>שם</th>${ss.map((s) => `<th class="c">${h(s.name)}</th>`).join('')}<th class="c">סה"כ</th><th class="c">שולם</th></tr></thead><tbody>
       ${list.map((id, i) => `<tr${paid[id] ? ' class="st-paid"' : ''}><td class="num">${i + 1}</td><td>${h(full(id))}</td>${ss.map((s) => `<td class="c small">${h(cell(id, s))}</td>`).join('')}<td class="c"><b>${h(shekel(D.of(id).total))}</b></td>
         <td class="c" data-v="${paid[id] ? 1 : 0}"><label class="check" title="${paid[id] ? h(`${paid[id].at} · ${paid[id].by}`) : ''}"><input type="checkbox" data-paid="${h(id)}"${paid[id] ? ' checked' : ''}${canPay && D.of(id).total > 0 ? '' : ' disabled'}> ${paid[id] ? '✓ שולם' : ''}</label></td></tr>`).join('')}
     </tbody></table></div>
-    <p class="muted small">המספר = כמה פעמים השתתף (✓${ss.some((s) => s.stipLate) ? ', ובסדרים המסומנים גם ⏰' : ''}). 📝 = מבחנים שעבר / נבחן.</p>`;
+    <p class="muted small">המספר = כמה פעמים השתתף (✓${ss.some((s) => s.stipLate) ? ', ובסדרים המסומנים גם ⏰' : ''}). 📝 = מבחנים שעבר / נבחן.${ss.some((s) => tiersOf(s).length) ? ' 🏅 = שבועות שהגיע בהם למדרגה (כל שבוע בנפרד, א\'–ש\'); ⏳ = השבוע הנוכחי — נחשב רק במוצאי שבת.' : ''}</p>`;
   X.$('#st-mon', body).onchange = (e) => { J.stipMon = e.target.value; renderStip(body, type); };
   const setPaid = async (rowsP) => {
     try { const r = await X.call(X.KEY, 'stipPaidSave', { type: type?.id || 'all', mon: mon.key, rows: rowsP }); X.st.settings = r.settings || X.st.settings; renderStip(body, type); X.toast('נשמר.'); } catch (err) { X.toast(X.msg(err), 'err'); }
@@ -1174,11 +1194,12 @@ export function settingsHtml() {
         ${(s.sedarim || []).map((x, i) => sederRow(x, i)).join('')}
       </tbody></table>
       <h4>💰 מלגות</h4>
-      <p class="muted small">סכום לכל השתתפות (✓) בסדר; "₪ בשבת" = סכום אחר לשבת (למשל סדר בוקר: 25 בחול, 50 בשבת — וצריך לסמן גם את יום ש' בימי הסדר למעלה); "לוח חודשי" = במקום היומן השבועי, מחפשים בחור ומסמנים בלוח של החודש העברי (כמו הפנקס); "גם איחור" = ⏰ נחשב השתתפות. הנוסח בפתק — למשל "בסדר הלימוד לפני התפילה בימות החול". מבחן שבועי (למשל בסדר שלישי): סכום קבוע לכל מבחן, או רק מציון מינימלי ומעלה.</p>
-      <table class="ms-table ms-stip"><thead><tr><th>סדר</th><th>₪ להשתתפות</th><th>₪ בשבת</th><th>לוח חודשי לפי בחור</th><th>גם איחור</th><th>הנוסח בפתק</th><th>מבחן שבועי</th><th>חישוב</th><th>ציון מינימלי</th><th>₪ למבחן</th><th>הספק יומי א'–ה'</th></tr></thead><tbody>
+      <p class="muted small">סכום לכל השתתפות (✓) בסדר — או 🏅 מדרגות לשבוע (למשל 3=50, 5=100: לפי כמה פעמים השתתף באותו שבוע; כל שבוע בנפרד, נחשב במוצאי שבת); "₪ בשבת" = סכום אחר לשבת (למשל סדר בוקר: 25 בחול, 50 בשבת — וצריך לסמן גם את יום ש' בימי הסדר למעלה); "לוח חודשי" = במקום היומן השבועי, מחפשים בחור ומסמנים בלוח של החודש העברי (כמו הפנקס); "גם איחור" = ⏰ נחשב השתתפות. הנוסח בפתק — למשל "בסדר הלימוד לפני התפילה בימות החול". מבחן שבועי (למשל בסדר שלישי): סכום קבוע לכל מבחן, או רק מציון מינימלי ומעלה.</p>
+      <table class="ms-table ms-stip"><thead><tr><th>סדר</th><th>₪ להשתתפות</th><th>₪ בשבת</th><th title="במקום ₪ לכל השתתפות: סכום לשבוע לפי כמה פעמים השתתף באותו שבוע">🏅 מדרגות לשבוע</th><th>לוח חודשי לפי בחור</th><th>גם איחור</th><th>הנוסח בפתק</th><th>מבחן שבועי</th><th>חישוב</th><th>ציון מינימלי</th><th>₪ למבחן</th><th>הספק יומי א'–ה'</th></tr></thead><tbody>
         ${(s.sedarim || []).map((x) => `<tr data-key="${h(x.key)}"><td>${h(x.name)}</td>
           <td><input name="stip" type="number" min="0" step="1" dir="ltr" style="width:70px" value="${h(x.stip || '')}"></td>
           <td><input name="stipShab" type="number" min="0" step="1" dir="ltr" style="width:70px" value="${h(x.stipShab || '')}" title="ריק = כמו בחול"></td>
+          <td><input name="tiers" dir="ltr" style="width:110px" value="${h(tiersTxt(x))}" placeholder="3=50, 5=100" title="פעמים בשבוע = ₪. למשל 3=50, 5=100: מי שהשתתף 3–4 פעמים בשבוע מקבל 50, 5 ומעלה — 100. כל שבוע בנפרד (א'–ש'), נחשב במוצאי שבת. ריק = ₪ לכל השתתפות."></td>
           <td class="c"><input type="checkbox" name="cal"${x.cal ? ' checked' : ''} title="במקום יומן שבועי: חיפוש בחור → לוח חודשי (כמו הפנקס)"></td>
           <td class="c"><input type="checkbox" name="stipLate"${x.stipLate ? ' checked' : ''}></td>
           <td><input name="stipText" value="${h(x.stipText || '')}" placeholder="בסדר ${h(x.name)}"></td>
@@ -1224,8 +1245,8 @@ export function wireSettings(root) {
       // 💰 מלגות (פון דער טאבעלע אונטן)
       const st = X.$(`.ms-stip tr[data-key="${key}"]`, form); const g = (n) => st?.querySelector(`[name=${n}]`);
       const old = (X.st.settings?.sedarim || []).find((x) => x.key === key) || {};
-      const stip = st ? { stip: Number(g('stip').value) || 0, stipShab: Number(g('stipShab').value) || 0, cal: g('cal').checked, stipLate: g('stipLate').checked, stipText: X.S(g('stipText').value), exam: { on: g('exOn').checked, mode: ['fixed', 'check'].includes(g('exMode').value) ? g('exMode').value : 'min', min: Number(g('exMin').value) || 0, amount: Number(g('exAmt').value) || 0, hespek: g('exHes').checked } }
-        : { stip: old.stip || 0, stipShab: old.stipShab || 0, cal: !!old.cal, stipLate: !!old.stipLate, stipText: old.stipText || '', exam: old.exam || { on: false, min: 0, amount: 0 } };
+      const stip = st ? { stip: Number(g('stip').value) || 0, stipShab: Number(g('stipShab').value) || 0, tiers: parseTiers(g('tiers')?.value), cal: g('cal').checked, stipLate: g('stipLate').checked, stipText: X.S(g('stipText').value), exam: { on: g('exOn').checked, mode: ['fixed', 'check'].includes(g('exMode').value) ? g('exMode').value : 'min', min: Number(g('exMin').value) || 0, amount: Number(g('exAmt').value) || 0, hespek: g('exHes').checked } }
+        : { stip: old.stip || 0, stipShab: old.stipShab || 0, tiers: old.tiers || [], cal: !!old.cal, stipLate: !!old.stipLate, stipText: old.stipText || '', exam: old.exam || { on: false, min: 0, amount: 0 } };
       return name ? { key, name, att: v('att').checked, chav: v('chav').checked, split: v('split').checked, slots: Math.max(1, ...days.map((j) => per[j])), slotsBy, days, ...stip } : null;
     }).filter(Boolean);
     if (!list.length) { X.toast('צריך לפחות סדר אחד.', 'err'); return; }

@@ -24,7 +24,7 @@ const C_FIELDS = ['title_he', 'first_name_he', 'last_name_he', 'title_en', 'firs
 const P_FIELDS = ['mobile', 'home_phone', 'email_1'];
 const TABS = {
   Staff: ['email', 'name', 'role', 'perms', 'active', 'added_by', 'added_at', 'updated_by', 'updated_at'],
-  People: ['contact_id', 'kind', 'status', 'added_by', 'added_at', 'removed_by', 'removed_at', 'note', 'il_phone', 'abroad_phone'],
+  People: ['contact_id', 'kind', 'status', 'added_by', 'added_at', 'removed_by', 'removed_at', 'note', 'il_phone', 'abroad_phone', 'mother_name', 'kv_group'],
   Log: ['at', 'by', 'action', 'contact_id', 'detail', 'entity', 'entity_id', 'changes'],
   Enrollments: ['enroll_id', 'contact_id', 'parent_id', 'status', 'start_date', 'end_date', 'zman', 'shiur', 'room', 'tuition_amount', 'tuition_period', 'month_amounts', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
   Tuition: ['payment_id', 'enroll_id', 'contact_id', 'payer_id', 'date', 'amount', 'method', 'check_number', 'card_last4', 'for_text', 'receipt_no', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
@@ -161,7 +161,7 @@ const Y_SYNC = {
   teamSave: function (req) { return [(req.team || {}).contact_id]; },
 };
 // וועלכע שרייבונגען טוישן וואס (כדי נישט אויסמעקן אומזיסט)
-const PPL_ACTS = { save: 1, link: 1, unlink: 1, remove: 1, ilPhone: 1, enrollSave: 1, enrollDelete: 1, giftSave: 1, backupRestore: 1 };
+const PPL_ACTS = { save: 1, link: 1, unlink: 1, remove: 1, ilPhone: 1, kvitelSave: 1, enrollSave: 1, enrollDelete: 1, giftSave: 1, backupRestore: 1 };
 const NAMES_ACTS = { save: 1, giftSave: 1, backupRestore: 1 };
 const DON_ACTS = { giftSave: 1, giftDelete: 1, giftReceipt: 1, receipt: 1, receiptVoid: 1, backupRestore: 1 };
 const LONG = 10800; // 3 שעות — מ'מעקט אויס ביי יעדער ענדערונג (אויך פונעם הויפט-אתר: "touch")
@@ -515,7 +515,7 @@ function linkedData(M) {
   const en = objs(M.book.getSheetByName('Enrollments')).filter(function (e) { return ids[S(e.contact_id)]; })
     .map(function (e) { return { contact_id: S(e.contact_id), status: S(e.status), start: S(e.start_date).slice(0, 10), end: S(e.end_date).slice(0, 10), shiur: S(e.shiur), room: S(e.room) }; });
   return {
-    people: contacts.map(function (c) { const v = contactView(c, phones[S(c.contact_id)]); v.kind = S(ids[S(c.contact_id)].kind); v.il_phone = S(ids[S(c.contact_id)].il_phone); v.abroad_phone = S(ids[S(c.contact_id)].abroad_phone); return v; }),
+    people: contacts.map(function (c) { const v = contactView(c, phones[S(c.contact_id)]); v.kind = S(ids[S(c.contact_id)].kind); v.il_phone = S(ids[S(c.contact_id)].il_phone); v.abroad_phone = S(ids[S(c.contact_id)].abroad_phone); v.mother_name = S(ids[S(c.contact_id)].mother_name); v.kv_group = S(ids[S(c.contact_id)].kv_group); return v; }),
     relations: rel, enrollments: en,
   };
 }
@@ -823,6 +823,22 @@ const ACTIONS = {
     setCells(sh, p._row, o);
     logIt(M, me, o.abroad_phone !== undefined ? 'abroad-phone' : 'il-phone', S(req.contact_id), JSON.stringify(o));
     return { ok: true };
+  },
+
+  /** 📜 קוויטל: שם האם + קבוצה (rabbi / staff / student / none) לכל אחד — { rows: [{contact_id, mother_name, kv_group}] } */
+  kvitelSave: function (M, me, req) {
+    if (!isAdminRole(me) && me.perms.indexOf('students') < 0 && me.perms.indexOf('people_edit') < 0) throw new Error('no-permission');
+    const sh = ensureTab(M.book, 'People', TABS.People);
+    const all = objs(sh); let n = 0;
+    [].concat(req.rows || []).slice(0, 1000).forEach(function (r) {
+      const p = all.filter(function (x) { return S(x.contact_id) === S(r.contact_id) && S(x.status) !== 'removed'; })[0]; if (!p) return;
+      const o = {};
+      if (r.mother_name !== undefined && S(r.mother_name) !== S(p.mother_name)) o.mother_name = S(r.mother_name).slice(0, 80);
+      if (r.kv_group !== undefined && ['', 'rabbi', 'staff', 'student', 'none'].indexOf(S(r.kv_group)) >= 0 && S(r.kv_group) !== S(p.kv_group)) o.kv_group = S(r.kv_group);
+      if (Object.keys(o).length) { setCells(sh, p._row, o); n++; }
+    });
+    logIt(M, me, 'kvitel', '', n + ' rows');
+    return { ok: true, n: n };
   },
 
   /** דער לאגא פונעם מוסד (נאר בעלים / מנהל) — א קליין בילד (data:image), ביז 45KB */
@@ -2388,7 +2404,7 @@ PPL_ACTS.regTransfer = 1; NAMES_ACTS.regTransfer = 1; READS.regList = 1; READS.r
 
 const APP_EDIT = ['first_name', 'last_name', 'birth_date', 'birth_heb', 'home_phone', 'engaged', 'wedding_date', 'wedding_heb', 'father_name', 'mother_family', 'father_phone',
   'mother_phone', 'email', 'community', 'address', 'city', 'state', 'zip', 'country', 'yeshiva_ketana', 'yeshiva_gedola', 'yeshiva_other',
-  'staff1_name', 'staff1_phone', 'staff2_name', 'staff2_phone', 'staff3_name', 'staff3_phone', 'notes'];
+  'staff1_name', 'staff1_phone', 'staff2_name', 'staff2_phone', 'staff3_name', 'staff3_phone', 'notes', 'mother_name'];
 const APP_DOCS = { photo: 'תמונה', passport: 'דרכון', birth: 'תעודת לידה' };
 const REG_REQUIRED = ['first_name', 'last_name', 'birth_date', 'home_phone', 'engaged', 'father_name', 'mother_family', 'father_phone', 'mother_phone', 'email', 'community', 'address', 'city', 'country', 'yeshiva_ketana', 'yeshiva_gedola'];
 const OUTBOX_NAME = 'Beis Sheurim Outbox';
@@ -4107,3 +4123,56 @@ const KA2_ACTIONS = {
 };
 Object.keys(KA2_ACTIONS).forEach(function (k) { ACTIONS[k] = KA2_ACTIONS[k]; });
 PPL_ACTS.kaLink = 1; NAMES_ACTS.kaLink = 1; PPL_ACTS.kaLinkNew = 1; NAMES_ACTS.kaLinkNew = 1;
+
+// =====================================================================================
+// 📝 רישום לישיבה — 📷 טופס נייר (בכתב יד) → 🤖 Gemini קורא → תצוגה → מועמד חדש. הסריקה לא נשמרת (יש בה פרטי אשראי).
+// =====================================================================================
+TABS.Applicants.push('mother_name', 'source');
+const REG_SCAN_F = { first_name: 'boy\'s first name(s)', last_name: 'family name', birth_date: 'civil date of birth YYYY-MM-DD (convert if only Hebrew date is given)', birth_heb: 'Hebrew date of birth as written, e.g. כ"ג טבת תשס"ח',
+  home_phone: 'home phone', father_phone: 'father\'s phone', mother_phone: 'mother\'s phone', address: 'street address', city: 'city', state: 'state / region', zip: 'zip / postal code', country: 'country',
+  father_name: 'father\'s name', mother_name: 'mother\'s FIRST name', mother_family: 'mother\'s maiden (family) name', community: 'community / kehilla the family belongs to', email: 'email',
+  engaged: '"yes" if he is a chosson (engaged), else "no"', wedding_date: 'wedding date YYYY-MM-DD', wedding_heb: 'wedding date in Hebrew as written',
+  yeshiva_ketana: 'yeshiva ketana he learned in', yeshiva_gedola: 'yeshiva gedola where he learns now / last', yeshiva_other: 'another yeshiva',
+  staff1_name: 'menahel / mashgiach name', staff1_phone: 'his phone', staff2_name: 'maggid shiur 1 name', staff2_phone: 'his phone', staff3_name: 'maggid shiur 2 name', staff3_phone: 'his phone', notes: 'other remarks written on the form' };
+const REG2_ACTIONS = {
+  /** 📷 קריאת טופס נייר: { data } → { fields, notes } (לא נשמר כלום) */
+  regScan: function (M, me, req) {
+    need(me, 'reg');
+    const c = CacheService.getScriptCache(); const ck = 'regscan:' + M.key; const n = Number(c.get(ck) || 0); if (n > 150) throw new Error('too-many'); c.put(ck, String(n + 1), 3600);
+    const m = S(req.data).match(/^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,(.+)$/);
+    if (!m) throw new Error('bad-file');
+    if (m[2].length > 12000000) throw new Error('file-big');
+    const prompt = ['This is a scan of a handwritten registration form of a yeshiva (Beis Sheurim, Jerusalem). Hebrew / Yiddish handwriting. Read it carefully.',
+      'Return ONLY JSON: {"fields": {only these keys, only what is clearly written; keep names in Hebrew letters as written; phones with country code if written: ' +
+      Object.keys(REG_SCAN_F).map(function (k) { return k + ' = ' + REG_SCAN_F[k]; }).join('; ') + '}, "notes": "short Hebrew remarks: what was unclear or doubtful (or empty)"}',
+      'NEVER read or return credit card numbers, expiry dates or CVC — ignore the payment / credit card section completely.'].join('\n');
+    const j = kaGemini_([{ text: prompt }, { inline_data: { mime_type: m[1], data: m[2] } }], 3000);
+    const f = {};
+    Object.keys(REG_SCAN_F).forEach(function (k) { const v = j.fields && j.fields[k]; if (S(v)) f[k] = S(v).slice(0, k === 'notes' ? 2000 : 200); });
+    if (f.engaged) f.engaged = /^(yes|כן|y|true|1)/i.test(f.engaged) ? 'yes' : 'no';
+    // שום מספר כרטיס לא עובר (גם אם בטעות)
+    Object.keys(f).forEach(function (k) { if (/\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{1,4}/.test(f[k]) && !/phone/.test(k)) delete f[k]; });
+    return { fields: f, notes: S(j.notes).slice(0, 600) };
+  },
+  /** ➕ מועמד מטופס נייר: { data: {...} } */
+  regAddPaper: function (M, me, req) {
+    need(me, 'reg');
+    const c = regConf(M); const conf = c.conf || {};
+    const d = req.data || {};
+    if (!S(d.first_name) && !S(d.last_name)) throw new Error('need-name');
+    const sh = ensureTab(M.book, 'Applicants', TABS.Applicants);
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    let a;
+    try {
+      let mx = 1000; appRows(M).forEach(function (x) { const v = Number(x.app_id); if (isFinite(v) && v > mx) mx = v; });
+      a = { app_id: mx + 1, token: (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, ''), created_at: now(), period: S(req.period) || regPeriod(conf), status: 'received', lang: 'he',
+        source: 'paper', updated_at: now(), updated_by: me.email };
+      APP_EDIT.concat(['mother_name']).forEach(function (k) { if (S(d[k])) a[k] = S(d[k]).slice(0, k === 'notes' ? 3000 : 300); });
+      ['home_phone', 'father_phone', 'mother_phone', 'staff1_phone', 'staff2_phone', 'staff3_phone'].forEach(function (k) { if (a[k]) a[k] = "'" + a[k]; });
+      appendObj(sh, a);
+    } finally { lock.releaseLock(); }
+    appLog(M, { at: now(), app_id: a.app_id, by: me.email, kind: 'submit', to_status: 'received', subject: '📷 טופס נייר', text: '', parent_visible: '', email_state: '' });
+    return { ok: true, app_id: String(a.app_id) };
+  },
+};
+Object.keys(REG2_ACTIONS).forEach(function (k) { ACTIONS[k] = REG2_ACTIONS[k]; });

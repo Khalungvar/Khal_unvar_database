@@ -1,10 +1,10 @@
 // אתר פון א מוסד — 📝 רישום לישיבה: מועמדים, כרטיס מועמד, סטטוסים, הודעות, מסמכים, העברה לתלמידים, הגדרות וייצוא.
 // א מועמד איז נישט קיין "מענטש" אינעם מאגר ביז מ'דרוקט "העבר לתלמידים" (נאר נאך "נתקבל").
 import { downloadXlsx } from '../excel.js?v=653';
-import { heDate, hebrewDateHints } from './brand.js?v=653';
+import { heDate, hebrewDateHints } from './brand.js?v=663';
 import { todayIso } from '../hebdate.js?v=653';
-import { zmanim, currentZman } from './school.js?v=653';
-import { mergeConf, mergeTexts, fill, DEFAULT_CONF } from './reg-defaults.js?v=653';
+import { zmanim, currentZman } from './school.js?v=663';
+import { mergeConf, mergeTexts, fill, DEFAULT_CONF } from './reg-defaults.js?v=663';
 
 let X = null;
 export function initReg(ctx) { X = ctx; }
@@ -45,6 +45,7 @@ export async function renderReg(box) {
       <nav class="ms-subtabs" style="margin:0">${[['list', `מועמדים (${apps.length})`], ['set', '⚙️ הגדרות רישום'], ['exp', '⬇ ייצוא לאקסל']].map(([k, l]) => `<button type="button" data-rt="${k}" class="${R.tab === k && !R.open ? 'on' : ''}">${h(l)}</button>`).join('')}</nav>
       <span class="spacer"></span>
       <span class="rg-form ${open ? 'on' : 'off'}">${open ? '🟢 הטופס פתוח לציבור' : '🔴 הטופס סגור'}</span>
+      <button type="button" class="btn" id="rg-paper" title="סריקה / צילום של טופס הרשמה שמולא ביד — ה-AI ממלא את הפרטים">📷 טופס נייר</button>
       <button type="button" class="btn" id="rg-copy">🔗 קישור לטופס</button>
       <button type="button" class="btn" id="rg-reload" title="רענון">⟳</button>
     </div>
@@ -52,6 +53,7 @@ export async function renderReg(box) {
     ${R.data.mailer ? '' : '<p class="ms-note">✉️ שליחת מיילים מ-beissheurim@gmail.com עוד לא חוברה. עד אז הודעות להורים נשמרות ומופיעות באזור האישי שלהם.</p>'}
     <div id="rg-body"></div>`;
   X.$$('[data-rt]', box).forEach((b) => { b.onclick = () => { R.tab = b.dataset.rt; R.open = null; renderReg(box); }; });
+  X.$('#rg-paper', box).onclick = () => paperDialog(box);
   X.$('#rg-copy', box).onclick = () => { navigator.clipboard?.writeText(FORM_URL); X.toast(`הקישור הועתק: ${FORM_URL}`); };
   X.$('#rg-reload', box).onclick = async () => { try { await load(true); renderReg(box); X.toast('עודכן'); } catch (err) { X.toast(X.msg(err), 'err'); } };
   const body = X.$('#rg-body', box);
@@ -60,6 +62,40 @@ export async function renderReg(box) {
   else if (R.tab === 'set') renderSettings(body, rer);
   else if (R.tab === 'exp') renderExport(body);
   else renderList(body, rer);
+}
+
+// ---------- 📷 טופס נייר (בכתב יד) → 🤖 → מועמד חדש ----------
+function paperDialog(box) {
+  const { h } = X;
+  const d = X.dialog(`<h2>📷 טופס הרשמה מנייר</h2>
+    <p class="muted small">מעלים סריקה או צילום ברור של הטופס שמולא ביד. 🤖 קורא את כל הפרטים, ואתם בודקים ומתקנים לפני שנוצר המועמד.
+      <b>הסריקה לא נשמרת</b>, ופרטי האשראי לא נקראים בכלל. (עלות: בערך 2–3 סנט לטופס.)</p>
+    <label class="kr-big-drop ka-drop" data-drop>⬆ <b>גרור לכאן את הסריקה — או לחץ לבחירה</b><input type="file" accept="image/*,application/pdf" hidden></label>
+    <p class="small" id="pp-msg"></p><div id="pp-form"></div>`, 'ms-wide');
+  const z = X.$('[data-drop]', d);
+  const go = async (f) => {
+    if (!f) return; const m = X.$('#pp-msg', d);
+    m.textContent = '⏳ 🤖 קורא את הטופס… (עד דקה)'; z.classList.add('busy');
+    let r;
+    try { r = await X.call(X.KEY, 'regScan', { data: await fileData(f, false, 2200) }); } catch (err) { m.innerHTML = `<span class="rf-err">${h(X.msg(err))}</span>`; z.classList.remove('busy'); return; }
+    z.classList.remove('busy'); m.innerHTML = r.notes ? `<span class="rf-warn">🤖 ${h(r.notes)}</span>` : '✓ נקרא — לבדוק כל שדה.';
+    const F = [...FIELDS.flatMap(([, fs]) => fs), ['birth_heb', 'תאריך לידה עברי'], ['wedding_heb', 'תאריך חתונה עברי'], ['notes', 'הערות', 'area']];
+    const v = r.fields || {};
+    X.$('#pp-form', d).innerHTML = `<div class="rf-grid">${F.map(([k, l, t]) => (t === 'yn'
+      ? `<label class="rf-f">${h(l)}<select name="${k}"><option value=""></option><option value="no"${v[k] === 'no' ? ' selected' : ''}>לא</option><option value="yes"${v[k] === 'yes' ? ' selected' : ''}>כן</option></select></label>`
+      : t === 'area' ? `<label class="rf-f rf-wide">${h(l)}<textarea name="${k}" rows="2">${h(v[k] || '')}</textarea></label>`
+        : `<label class="rf-f${v[k] ? ' kr-filled' : ''}">${h(l)}<input name="${k}" type="${t === 'date' ? 'date' : 'text'}" value="${h(v[k] || '')}"${t === 'tel' || t === 'email' ? ' dir="ltr"' : ''}></label>`)).join('')}</div>
+      <div class="actions"><button type="button" class="btn primary" id="pp-go">➕ יצירת מועמד</button><button type="button" class="btn" data-x>ביטול</button></div>`;
+    X.$$('[data-x]', d).forEach((b) => { b.onclick = () => d.close(); });
+    X.$('#pp-go', d).onclick = async (e) => {
+      const data = {}; X.$$('#pp-form [name]', d).forEach((el) => { if (el.value.trim()) data[el.name] = el.value.trim(); });
+      e.target.disabled = true;
+      try { const res = await X.call(X.KEY, 'regAddPaper', { data }); d.close(); X.toast(`נוצר מועמד #${res.app_id}.`); await load(true); R.open = res.app_id; renderReg(box); } catch (err) { X.toast(X.msg(err), 'err'); e.target.disabled = false; }
+    };
+  };
+  X.$('input[type=file]', d).onchange = (e) => go(e.target.files[0]);
+  z.ondragover = (e) => { e.preventDefault(); z.classList.add('over'); }; z.ondragleave = () => z.classList.remove('over');
+  z.ondrop = (e) => { e.preventDefault(); z.classList.remove('over'); go(e.dataTransfer.files[0]); };
 }
 
 // ---------- רשימה ----------
@@ -102,7 +138,7 @@ function renderList(box, rer) {
 const FIELDS = [
   ['הבחור', [['first_name', 'שם פרטי'], ['last_name', 'שם משפחה'], ['birth_date', 'תאריך לידה', 'date'], ['home_phone', 'טלפון בבית', 'tel'],
     ['engaged', 'חתן?', 'yn'], ['wedding_date', 'תאריך החתונה', 'date']]],
-  ['ההורים', [['father_name', 'שם האב'], ['mother_family', 'שם משפחת האם'], ['father_phone', 'טלפון האב', 'tel'], ['mother_phone', 'טלפון האם', 'tel'],
+  ['ההורים', [['father_name', 'שם האב'], ['mother_name', 'שם האם'], ['mother_family', 'שם משפחת האם'], ['father_phone', 'טלפון האב', 'tel'], ['mother_phone', 'טלפון האם', 'tel'],
     ['email', 'מייל', 'email'], ['community', 'קהילה'], ['address', 'כתובת'], ['city', 'עיר'], ['state', 'מדינה / מחוז'], ['zip', 'מיקוד'], ['country', 'ארץ']]],
   ['לימודים', [['yeshiva_ketana', 'ישיבה קטנה'], ['yeshiva_gedola', 'ישיבה גדולה / לומד כיום'], ['yeshiva_other', 'ישיבה נוספת']]],
   ['אנשי צוות', [['staff1_name', 'מנהל / משגיח'], ['staff1_phone', 'נייד', 'tel'], ['staff2_name', 'מגיד שיעור א׳'], ['staff2_phone', 'נייד', 'tel'], ['staff3_name', 'מגיד שיעור ב׳'], ['staff3_phone', 'נייד', 'tel']]],
@@ -214,7 +250,7 @@ async function viewDoc(a, kind) {
   } catch (err) { w.close(); X.toast(X.msg(err), 'err'); }
 }
 /** א טעקע → data URL; א בילד ווערט קלענער (ביז 1400 פיקסל) */
-export async function fileData(f, isPhoto) {
+export async function fileData(f, isPhoto, maxPx = 0) {
   if (f.type === 'application/pdf') {
     if (f.size > 4 * 1024 * 1024) throw new Error('הקובץ גדול מדי (עד 4MB).');
     return new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => no(new Error('קריאת הקובץ נכשלה')); r.readAsDataURL(f); });
@@ -223,7 +259,7 @@ export async function fileData(f, isPhoto) {
   const url = URL.createObjectURL(f);
   const im = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error('לא הצלחתי לקרוא את התמונה.')); i.src = url; });
   URL.revokeObjectURL(url);
-  const max = isPhoto ? 1000 : 1600;
+  const max = maxPx || (isPhoto ? 1000 : 1600);
   const s = Math.min(1, max / Math.max(im.width, im.height));
   const cv = document.createElement('canvas'); cv.width = Math.round(im.width * s); cv.height = Math.round(im.height * s);
   const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(im, 0, 0, cv.width, cv.height);

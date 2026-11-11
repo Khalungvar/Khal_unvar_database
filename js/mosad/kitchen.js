@@ -267,18 +267,21 @@ function histTab(body, rer) {
 
 // ---------- ⬆ ייבוא: xlsx / csv. מזהים כותרות לפי שם ----------
 // סדר העדיפות חשוב: "שם הספק" הוא ספק ולא שם המוצר; "יחידות בקרטון" — אריזה ולא יחידה
-const HEAD = { supplier_name: /ספק|supplier|vendor/i, pack_size: /בקרטון|באריזה|קרטון|pack|case/i, product_name: /מוצר|פריט|product|item|^שם$|^שם\s/i, category: /קטגור|category/i,
+const HEAD = { supplier_name: /^ספק|שם הספק|supplier|vendor/i, recurring_day: /יום הזמנה|הזמנה קבוע|recurring|order day/i, frozen: /מוקפא|הקפאה|frozen/i, pack_size: /בקרטון|באריזה|קרטון|pack|case/i, product_name: /מוצר|פריט|product|item|^שם$|^שם\s/i, category: /קטגור|category/i,
   min_threshold: /מינ|min/i, lead_time_days: /אספקה|lead/i, daily_use: /צריכה|שימוש|daily|usage|week/i, current_stock: /כמות|מלאי|stock|qty/i, unit: /יחיד|unit/i,
   expiry_date: /תוקף|תפוגה|expir/i, unit_price: /מחיר|price/i, standard_qty: /תקן|standard/i, note: /הערה|note/i };
 /** כותרות → עמודות: כל כותרת לשדה אחד בלבד, לפי סדר העדיפות */
-function mapHeads(head, spec) {
+function mapHeads(head, spec, exact = []) {
   const used = new Set(); const map = {};
-  Object.entries(spec).forEach(([k, re]) => { const i = head.findIndex((x, j) => !used.has(j) && re.test(String(x).trim())); if (i >= 0) { map[k] = i; used.add(i); } });
+  // קודם — כותרת זהה בדיוק לכותרת שהאתר מוריד (הקובץ מהאתר תמיד מזוהה במלואו)
+  const norm = (x) => String(x || '').replace(/\s+/g, ' ').trim();
+  exact.forEach(([k, l]) => { const i = head.findIndex((x, j) => !used.has(j) && norm(x) === norm(l)); if (i >= 0 && !(k in map)) { map[k] = i; used.add(i); } });
+  Object.entries(spec).forEach(([k, re]) => { if (k in map) return; const i = head.findIndex((x, j) => !used.has(j) && re.test(String(x).trim())); if (i >= 0) { map[k] = i; used.add(i); } });
   return map;
 }
 export async function readTable(file) {
   if (/\.csv$/i.test(file.name)) return (await file.text()).split(/\r?\n/).filter((l) => l.trim()).map((l) => l.split(/,|\t/).map((c) => c.replace(/^"|"$/g, '').trim()));
-  const { _test } = await import('./shabbos.js?v=653');
+  const { _test } = await import('./shabbos.js?v=663');
   const files = Object.fromEntries(await _test.unzip(await file.arrayBuffer()));
   const dec = new TextDecoder(); const P = (k) => (files[k] ? new DOMParser().parseFromString(dec.decode(files[k]), 'application/xml') : null);
   const shared = [...(P('xl/sharedStrings.xml')?.getElementsByTagName('si') || [])].map((si) => [...si.getElementsByTagName('t')].map((t) => t.textContent).join(''));
@@ -294,7 +297,7 @@ function importXl(rer) {
     try {
       const t = await readTable(f); if (t.length < 2) { X.toast('הקובץ ריק.', 'err'); return; }
       const head = t[0].map(String);
-      const map = mapHeads(head, HEAD);
+      const map = mapHeads(head, HEAD, FIELDS);
       if (!('product_name' in map)) {
         // אולי זה קובץ של ספקים?
         if ('supplier_name' in map || head.some((x) => /טלפון|phone/i.test(x))) { if (window.confirm('נראה שזה קובץ של ספקים (אין עמודת "שם המוצר"). לייבא אותו לרשימת הספקים?')) { await importSuppliers(t); rer(); } return; }
@@ -303,7 +306,11 @@ function importXl(rer) {
       const perWeek = 'daily_use' in map && !/יום|daily/i.test(head[map.daily_use]);
       const xlDate = (v) => (/^\d{5}$/.test(String(v)) ? new Date(Date.UTC(1899, 11, 30) + Number(v) * 86400000).toISOString().slice(0, 10) : String(v).slice(0, 10));
       const have = Object.fromEntries((K.d.items || []).map((it) => [it.product_name.trim(), it.product_id]));
-      const rows = t.slice(1).map((r) => { const o = {}; Object.entries(map).forEach(([k, i]) => { o[k] = k === 'expiry_date' ? xlDate(r[i] || '') : String(r[i] ?? '').trim(); }); if (perWeek && o.daily_use !== '' && o.daily_use != null) o.daily_use = String(Math.round((n(o.daily_use) / 7) * 1000) / 1000); o.product_id = have[o.product_name] || ''; return o; }).filter((o) => o.product_name);
+      const rows = t.slice(1).map((r) => { const o = {}; Object.entries(map).forEach(([k, i]) => { o[k] = k === 'expiry_date' ? xlDate(r[i] || '') : String(r[i] ?? '').trim(); });
+        // יום הזמנה קבוע: "ג" / "יום ג'" / "Tuesday" / 2 → 0–6
+        if ('recurring_day' in o) { const v = o.recurring_day.replace(/^יום\s*/, '').replace(/['׳"]/g, '').trim(); const en = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].findIndex((d) => v.toLowerCase().startsWith(d));
+          o.recurring_day = v === '' ? '' : DAYS.indexOf(v) >= 0 ? String(DAYS.indexOf(v)) : en >= 0 ? String(en) : /^[0-6]$/.test(v) ? v : ''; }
+        if ('frozen' in o) o.frozen = ['כן', 'v', '✓', 'yes', 'true', '1', 'x'].includes(o.frozen.toLowerCase()) ? 'כן' : ''; if (perWeek && o.daily_use !== '' && o.daily_use != null) o.daily_use = String(Math.round((n(o.daily_use) / 7) * 1000) / 1000); o.product_id = have[o.product_name] || ''; return o; }).filter((o) => o.product_name);
       if (!window.confirm(`לייבא ${rows.length} פריטים? (${rows.filter((r) => r.product_id).length} קיימים יעודכנו לפי השם)`)) return;
       await X.call(X.KEY, 'kitchenSave', { rows }); await load(); rer(); X.toast('יובא.');
     } catch (err) { X.toast(X.msg(err), 'err'); }
@@ -521,3 +528,4 @@ function suppliersDialog(after) {
     try { const r = await X.call(X.KEY, 'kitchenSuppliersSave', { suppliers: list.filter((x) => x.name) }); K.d.suppliers = r.suppliers; d.close(); X.toast('נשמר.'); after(); } catch (err) { X.toast(X.msg(err), 'err'); }
   };
 }
+export const _kt = { mapHeads, HEAD, FIELDS };
