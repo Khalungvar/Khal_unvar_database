@@ -43,7 +43,8 @@ import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS a
 import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
 import { initFaces, openFaces, renderFaces } from './faces.js';
 import { initListSync } from './listsync.js';
-import { initMachsan, machsanSearch, hitsHtml as machsanHits, openMachsan } from './machsan.js';
+import { initBulk, openBulk } from './bulkedit.js';
+import { initMachsan, machsanSearch, hitsHtml as machsanHits, openMachsan, wireRelMachsan } from './machsan.js';
 import { initBooks, openBooks, renderBooks, allBooks, BOOKS_ORG, BOOKS_LOGO } from './books.js';
 import { initLuach, openLuach, renderLuach } from './luach/view.js';
 import { fillBookletCard } from './luach/booklet.js';
@@ -1259,6 +1260,12 @@ function wireFamily(c) {
       } catch (err) { toast(friendlyError(err), 'error'); }
     };
   });
+  wireRelMachsan($('.rel-contact', box), async (id) => {
+    await loadAll();
+    const x = contactById(id); if (!x) return;
+    $('.rel-contact', box).value = pickerLabel(x);
+    $('.rel-add', box).click();
+  });
   $('.rel-add', box).onclick = async () => {
     const type = $('.rel-type', box).value;
     const m = $('.rel-contact', box).value.match(/\(#(\d+)\)/);
@@ -1503,6 +1510,13 @@ function wireFormFamily(form, c) {
       };
     });
   };
+  // 📦 אויך פון דער אלטער רשימה (מחסן) — ווערט א קאנטאקט און ווערט צוגעלייגט
+  wireRelMachsan($('.rel-contact', box), async (id) => {
+    await loadAll();
+    const x = contactById(id); if (!x) return;
+    $('.rel-contact', box).value = pickerLabel(x);
+    $('.rel-add', box).click();
+  });
   // ווען מ'קלייבט א קאנטאקט פון דער רשימה — גלייך צוגעלייגט (מ'דארף נישט דריקן "צולייגן")
   $('.rel-contact', box).addEventListener('input', () => {
     const v = $('.rel-contact', box).value.trim();
@@ -2003,6 +2017,7 @@ function start() {
   $('#btn-logout').onclick = logout;
   $('#btn-refresh').onclick = refresh;
   $('#btn-new').onclick = () => openForm();
+  const bb = $('#btn-bulk'); if (bb) bb.onclick = () => openBulk();
   $('#btn-xl-contacts').onclick = () => { const sc = getScope(); exportContacts(sc ? scopeLabel(sc) : t('tabContacts'), visibleContacts()); };
   $('#search').addEventListener('input', renderList);
   $('#tag-filter').addEventListener('change', renderList);
@@ -2108,6 +2123,7 @@ function start() {
   initPersonal({ showView, fullNameHe, openCard, contactById, toast, friendlyError, updateBadges });
   $('#btn-personal').onclick = () => { document.body.classList.add('solo-mode'); openPersonal(); };
   initSortTables();
+  initBulk({ fullNameHe, pickerLabel, contactById, openCard, toast, friendlyError, refreshAll });
   initLists({ showView, fullNameHe, phonesOf, contactById, pickerLabel, openCard, toast, friendlyError, refreshAll, openForm });
   $('#btn-help').onclick = () => openHelpView();
   $('#btn-admin').onclick = () => { if (pendingRequests().length) setAdminTab('requests'); document.body.classList.add('solo-mode'); showView('admin'); };

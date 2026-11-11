@@ -107,7 +107,7 @@ async function markSeparate(a, b) {
 }
 function colLetter(i) { let s = ''; let n = i + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
 /** די קרובים פון איינעם לויט די אויסגעקליבענע סארטן */
-function familyOf(id, kinds) {
+export function familyOf(id, kinds) {
   const R = rels(); const me = new Set([String(id)]);
   const sons = of(R.sons, me); const sil = of(R.sil, me);
   const gk = uni(of(R.sons, sons), of(R.gk, me)); const gkd = of(R.sons, sil);
@@ -510,6 +510,7 @@ export function renderBuilder() {
   const edit = canEdit(current.list_id ? listById(current.list_id) : null);
   if (ED && ED.lid !== (current.list_id || '')) ED = null;
   const editing = Boolean(ED) && leAllowed();
+  document.body.classList.toggle('le-wide', editing);
   const tabBtn = (k, label, n) => `<button type="button" data-ltab="${k}" class="${current.tab === k ? 'on' : ''}">${label}${n !== undefined ? ` <span class="count-pill">${n}</span>` : ''}</button>`;
   const P = problems(rows, current.cr);
   const nProb = P.filter((p) => p.sev >= 1).reduce((s, p) => s + p.items.length, 0);

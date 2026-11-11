@@ -3,12 +3,12 @@
 // 🧾 הוצאות (₪/$, קאטעגאריעס, צילום קבלה), 📥 הכנסות ותמיכה, ⚖️ חובות פתוחים, 📊 מאזן חודשי — יעדער מטבע באזונדער.
 import { downloadXlsx } from '../excel.js?v=653';
 import { todayIso, toHebrew, monthHe, yearLabel } from '../hebdate.js?v=653';
-import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=665';
-import { historyDialog } from './me.js?v=665';
-import { PAY_TYPES, schedText } from './team.js?v=665';
+import { loadSchool, schoolLoaded, alumniDebts } from './school.js?v=666';
+import { historyDialog } from './me.js?v=666';
+import { PAY_TYPES, schedText } from './team.js?v=666';
 import { usdRate } from '../fx.js?v=653';
-import { heDate } from './brand.js?v=665';
-import { hebMonthOf } from './hdays.js?v=665';
+import { heDate } from './brand.js?v=666';
+import { hebMonthOf } from './hdays.js?v=666';
 
 let X = null;
 export function initFinance(ctx) { X = ctx; }
@@ -118,7 +118,7 @@ export async function renderFinance(box) {
   X.$('#fn-reload', box).onclick = async () => { F.d = null; renderFinance(box); };
   const body = X.$('#fn-body', box);
   const rer = () => renderFinance(box);
-  if (F.tab === 'work') { const { renderWork } = await import('./journal.js?v=665'); renderWork(body); return; }
+  if (F.tab === 'work') { const { renderWork } = await import('./journal.js?v=666'); renderWork(body); return; }
   ({ sal: salTab, exp: expTab, inc: incTab, debt: debtTab, bal: balTab })[F.tab](body, rer);
 }
 const monthBar = (extra = '') => `<div class="ms-bar"><label>חודש <input type="month" id="fn-mo" value="${X.h(F.month)}"></label><b>${X.h(monthName(F.month))}</b><span class="spacer"></span>${extra}</div>`;
