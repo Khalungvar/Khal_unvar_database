@@ -1,18 +1,18 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { letterhead, hebrewDateHints } from './brand.js?v=663';
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch, gmailSend, myEmail } from './api.js?v=663';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=663';
-import { initGifts, renderGifts } from './gifts.js?v=663';
-import { initTheme } from './theme.js?v=663';
-import { initAsk } from './ask.js?v=663';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab, renderStipPage } from './journal.js?v=663';
-import { initDorm, renderDorm } from './dorm.js?v=663';
-import { initReg, renderReg } from './reg.js?v=663';
+import { letterhead, hebrewDateHints } from './brand.js?v=664';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch, gmailSend, myEmail } from './api.js?v=664';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=664';
+import { initGifts, renderGifts } from './gifts.js?v=664';
+import { initTheme } from './theme.js?v=664';
+import { initAsk } from './ask.js?v=664';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab, renderStipPage } from './journal.js?v=664';
+import { initDorm, renderDorm } from './dorm.js?v=664';
+import { initReg, renderReg } from './reg.js?v=664';
 import { initSortTables } from '../sorttables.js?v=653';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups, renderTasks } from './me.js?v=663';
-import { initTeam, renderTeam } from './team.js?v=663';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=663';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups, renderTasks } from './me.js?v=664';
+import { initTeam, renderTeam } from './team.js?v=664';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=664';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -58,6 +58,8 @@ const ERR = {
   'ai-busy': 'ה-AI עסוק כרגע — נסה שוב בעוד דקה.',
   'ai-off': 'ה-AI לא מחובר.',
   'gmail-denied': 'לא ניתנה הרשאה לשלוח מייל מהחשבון.',
+  'ai-no-credit': 'נגמר הקרדיט של ה-AI — צריך לטעון (💳 קרדיט AI).',
+  'no-stripe': 'התשלום עוד לא מחובר בשרת.',
   'gmail-failed': 'השליחה נכשלה.',
 };
 const msg = (err) => ERR[err?.code] || ERR[err?.message] || String(err?.message || err || 'שגיאה');
@@ -177,6 +179,9 @@ async function enter(prompt) {
     history.replaceState({ tab: st.tab }, '', `#${st.tab}`);
     render();
     splashDone();
+    // 💳 חזרה מהתשלום של קרדיט AI
+    const aiQ = new URLSearchParams(location.search).get('ai');
+    if (aiQ) { toast(aiQ === 'ok' ? '✓ התשלום התקבל — הקרדיט יתעדכן תוך דקה–שתיים.' : 'התשלום בוטל.'); history.replaceState(history.state, '', location.pathname + location.hash); }
   } catch (err) {
     splashDone(false);
     if (err?.code === 'not-allowed' && err.email) loginView(`${err.email}: ${msg(err)}`, 'err');
@@ -246,19 +251,19 @@ function render(fromPop) {
   else if (st.tab === 'chavrusas') renderChav(box);
   else if (st.tab === 'attendance') renderAtt(box);
   else if (st.tab === 'stipends') renderStipPage(box);
-  else if (st.tab === 'kitchen') import('./kitchen.js?v=663').then((m) => { m.initKitchen(ctx); m.renderKitchen(box); });
-  else if (st.tab === 'shabbos') import('./shabbos.js?v=663').then((m) => { m.initShabbos(ctx); m.renderShabbos(box); });
+  else if (st.tab === 'kitchen') import('./kitchen.js?v=664').then((m) => { m.initKitchen(ctx); m.renderKitchen(box); });
+  else if (st.tab === 'shabbos') import('./shabbos.js?v=664').then((m) => { m.initShabbos(ctx); m.renderShabbos(box); });
   else if (st.tab === 'tasks') renderTasks(box);
-  else if (st.tab === 'budget') import('./budget.js?v=663').then((m) => { m.initBudget(ctx); m.renderBudget(box); });
-  else if (st.tab === 'dorm_att') import('./dormatt.js?v=663').then((m) => { m.initDormAtt(ctx); m.renderDormAtt(box); });
-  else if (st.tab === 'simchos') import('./simcha.js?v=663').then((m) => { m.initSimcha(ctx); m.renderSimcha(box); });
+  else if (st.tab === 'budget') import('./budget.js?v=664').then((m) => { m.initBudget(ctx); m.renderBudget(box); });
+  else if (st.tab === 'dorm_att') import('./dormatt.js?v=664').then((m) => { m.initDormAtt(ctx); m.renderDormAtt(box); });
+  else if (st.tab === 'simchos') import('./simcha.js?v=664').then((m) => { m.initSimcha(ctx); m.renderSimcha(box); });
   else if (st.tab === 'insurance') renderIns(box);
   else if (st.tab === 'staff_list') renderTeam(box);
   else if (st.tab === 'finance') renderFinance(box);
   else if (st.tab === 'dorm') renderDorm(box);
   else if (st.tab === 'reg') renderReg(box);
-  else if (st.tab === 'kollelim') import('./kollelim.js?v=663').then((m) => { m.initKollelim(ctx); m.renderKollelim(box); });
-  else if (st.tab === 'kollel_reg') import('./kollel.js?v=663').then((m) => { m.initKollel(ctx); m.renderKollelReg(box); });
+  else if (st.tab === 'kollelim') import('./kollelim.js?v=664').then((m) => { m.initKollelim(ctx); m.renderKollelim(box); });
+  else if (st.tab === 'kollel_reg') import('./kollel.js?v=664').then((m) => { m.initKollel(ctx); m.renderKollelReg(box); });
   else if (st.tab === 'me') renderMe(box);
   else if (st.tab === 'log') renderLog(box);
   else renderSoon(box, view);

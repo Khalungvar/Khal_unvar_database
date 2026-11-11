@@ -1,10 +1,10 @@
 // אתר פון א מוסד — 📝 רישום לישיבה: מועמדים, כרטיס מועמד, סטטוסים, הודעות, מסמכים, העברה לתלמידים, הגדרות וייצוא.
 // א מועמד איז נישט קיין "מענטש" אינעם מאגר ביז מ'דרוקט "העבר לתלמידים" (נאר נאך "נתקבל").
 import { downloadXlsx } from '../excel.js?v=653';
-import { heDate, hebrewDateHints } from './brand.js?v=663';
+import { heDate, hebrewDateHints } from './brand.js?v=664';
 import { todayIso } from '../hebdate.js?v=653';
-import { zmanim, currentZman } from './school.js?v=663';
-import { mergeConf, mergeTexts, fill, DEFAULT_CONF } from './reg-defaults.js?v=663';
+import { zmanim, currentZman } from './school.js?v=664';
+import { mergeConf, mergeTexts, fill, DEFAULT_CONF } from './reg-defaults.js?v=664';
 
 let X = null;
 export function initReg(ctx) { X = ctx; }
@@ -69,15 +69,21 @@ function paperDialog(box) {
   const { h } = X;
   const d = X.dialog(`<h2>📷 טופס הרשמה מנייר</h2>
     <p class="muted small">מעלים סריקה או צילום ברור של הטופס שמולא ביד. 🤖 קורא את כל הפרטים, ואתם בודקים ומתקנים לפני שנוצר המועמד.
-      <b>הסריקה לא נשמרת</b>, ופרטי האשראי לא נקראים בכלל. (עלות: בערך 2–3 סנט לטופס.)</p>
+      <b>הסריקה לא נשמרת</b>, ופרטי האשראי לא נקראים בכלל. (מחיר: בערך 3–4 סנט לטופס, מהקרדיט.)</p><p class="small" id="pp-cr"></p>
     <label class="kr-big-drop ka-drop" data-drop>⬆ <b>גרור לכאן את הסריקה — או לחץ לבחירה</b><input type="file" accept="image/*,application/pdf" hidden></label>
     <p class="small" id="pp-msg"></p><div id="pp-form"></div>`, 'ms-wide');
   const z = X.$('[data-drop]', d);
+  import('./aicredit.js?v=664').then(async (CR) => { CR.initAiCredit(X); const el = X.$('#pp-cr', d); if (el) { el.innerHTML = await CR.chipHtml(); CR.wireChip(el); } }).catch(() => {});
   const go = async (f) => {
     if (!f) return; const m = X.$('#pp-msg', d);
     m.textContent = '⏳ 🤖 קורא את הטופס… (עד דקה)'; z.classList.add('busy');
     let r;
-    try { r = await X.call(X.KEY, 'regScan', { data: await fileData(f, false, 2200) }); } catch (err) { m.innerHTML = `<span class="rf-err">${h(X.msg(err))}</span>`; z.classList.remove('busy'); return; }
+    try { r = await X.call(X.KEY, 'regScan', { data: await fileData(f, false, 2200) }); } catch (err) {
+      m.innerHTML = `<span class="rf-err">${h(err?.message === 'ai-no-credit' ? 'נגמר הקרדיט של ה-AI — צריך לטעון.' : X.msg(err))}</span>${err?.message === 'ai-no-credit' ? ' <button type="button" class="btn small-btn" id="pp-buy">💳 טעינה</button>' : ''}`;
+      X.$('#pp-buy', d)?.addEventListener('click', async () => { const CR = await import('./aicredit.js?v=664'); CR.initAiCredit(X); CR.creditDialog(); });
+      z.classList.remove('busy'); return;
+    }
+    if (r.credit) import('./aicredit.js?v=664').then(async (CR) => { CR.setBalance(r.credit.balance); const el = X.$('#pp-cr', d); if (el) { el.innerHTML = await CR.chipHtml(); CR.wireChip(el); } }).catch(() => {});
     z.classList.remove('busy'); m.innerHTML = r.notes ? `<span class="rf-warn">🤖 ${h(r.notes)}</span>` : '✓ נקרא — לבדוק כל שדה.';
     const F = [...FIELDS.flatMap(([, fs]) => fs), ['birth_heb', 'תאריך לידה עברי'], ['wedding_heb', 'תאריך חתונה עברי'], ['notes', 'הערות', 'area']];
     const v = r.fields || {};

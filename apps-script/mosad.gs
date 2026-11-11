@@ -1167,6 +1167,8 @@ const ACTIONS = {
     const limit = Number(props.getProperty('DAILY_LIMIT') || 40);
     const lk = 'ai:' + day + ':' + me.email; const n = Number(c.get(lk) || 0);
     if (n >= limit) throw new Error('ai-limit');
+    const wallet = aiStart_(M, 0.05); // 💳 קרדיט AI (ישיבה) — בלי מספיק קרדיט לא מתחילים
+    try {
     c.put(lk, String(n + 1), 21600);
     let guide = c.get('ai-guide:' + M.key);
     if (!guide) {
@@ -1194,12 +1196,13 @@ const ACTIONS = {
       if (decls.length) body.tools = [{ functionDeclarations: decls }];
       const res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', { method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, muteHttpExceptions: true, payload: JSON.stringify(body) });
       if (res.getResponseCode() !== 200) throw new Error('ai-' + res.getResponseCode());
-      const cand = ((JSON.parse(res.getContentText()).candidates || [])[0] || {}).content || { parts: [] };
+      const JR = JSON.parse(res.getContentText()); aiAdd_(JR);
+      const cand = ((JR.candidates || [])[0] || {}).content || { parts: [] };
       const calls = (cand.parts || []).filter(function (p) { return p.functionCall; });
       if (!calls.length) {
         const answer = (cand.parts || []).map(function (p) { return p.text || ''; }).join('').trim();
         if (!answer && !actions.length) throw new Error('ai-empty');
-        return { answer: answer, actions: actions, left: Math.max(0, limit - n - 1) };
+        return { answer: answer, actions: actions, left: Math.max(0, limit - n - 1), credit: wallet ? aiCharge_(M, me, '❓ שאלה לעוזר') : null };
       }
       contents.push({ role: 'model', parts: cand.parts });
       contents.push({ role: 'user', parts: calls.map(function (p) {
@@ -1207,7 +1210,8 @@ const ACTIONS = {
         return { functionResponse: { name: p.functionCall.name, response: { result: out } } };
       }) });
     }
-    return { answer: 'לא הצלחתי להשלים את הבקשה. נסה לנסח אחרת.', actions: actions };
+    return { answer: 'לא הצלחתי להשלים את הבקשה. נסה לנסח אחרת.', actions: actions, credit: wallet ? aiCharge_(M, me, '❓ שאלה לעוזר') : null };
+    } finally { if (AI_USE) aiCharge_(M, me, '❓ שאלה לעוזר'); }
   },
   // ---------- 📎 קבצים קבועים: בלאנק למלגה (stipbg) / תבנית Word לדף קבוע (tpl) — בדרייב; הרשומה ב-Settings: asset:<kind>:<id> ----------
   assetSave: function (M, me, req) {
@@ -3426,7 +3430,8 @@ function kaGemini_(parts, maxTok) {
     Utilities.sleep(2000 * (i + 1));
   }
   if (!res || res.getResponseCode() !== 200) throw new Error('ai-busy');
-  const txt = (((JSON.parse(res.getContentText()).candidates || [])[0] || {}).content || { parts: [] }).parts.map(function (p) { return p.text || ''; }).join('');
+  const J = JSON.parse(res.getContentText()); aiAdd_(J);
+  const txt = (((J.candidates || [])[0] || {}).content || { parts: [] }).parts.map(function (p) { return p.text || ''; }).join('');
   try { return JSON.parse(txt.replace(/^```json|```$/g, '').trim()); } catch (err) { throw new Error('ai-busy'); }
 }
 /** 🤖 זיהוי + בדיקה של קובץ אחד. want = סוגים שהאברך בחר ידנית (אופציונלי) → { kinds, check } */
@@ -4142,6 +4147,8 @@ const REG2_ACTIONS = {
     const m = S(req.data).match(/^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,(.+)$/);
     if (!m) throw new Error('bad-file');
     if (m[2].length > 12000000) throw new Error('file-big');
+    aiStart_(M, 0.15);
+    try {
     const prompt = ['This is a scan of a handwritten registration form of a yeshiva (Beis Sheurim, Jerusalem). Hebrew / Yiddish handwriting. Read it carefully.',
       'Return ONLY JSON: {"fields": {only these keys, only what is clearly written; keep names in Hebrew letters as written; phones with country code if written: ' +
       Object.keys(REG_SCAN_F).map(function (k) { return k + ' = ' + REG_SCAN_F[k]; }).join('; ') + '}, "notes": "short Hebrew remarks: what was unclear or doubtful (or empty)"}',
@@ -4152,7 +4159,8 @@ const REG2_ACTIONS = {
     if (f.engaged) f.engaged = /^(yes|כן|y|true|1)/i.test(f.engaged) ? 'yes' : 'no';
     // שום מספר כרטיס לא עובר (גם אם בטעות)
     Object.keys(f).forEach(function (k) { if (/\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{1,4}/.test(f[k]) && !/phone/.test(k)) delete f[k]; });
-    return { fields: f, notes: S(j.notes).slice(0, 600) };
+    return { fields: f, notes: S(j.notes).slice(0, 600), credit: aiCharge_(M, me, '📷 טופס נייר') };
+    } finally { if (AI_USE) aiCharge_(M, me, '📷 טופס נייר'); }
   },
   /** ➕ מועמד מטופס נייר: { data: {...} } */
   regAddPaper: function (M, me, req) {
@@ -4176,3 +4184,116 @@ const REG2_ACTIONS = {
   },
 };
 Object.keys(REG2_ACTIONS).forEach(function (k) { ACTIONS[k] = REG2_ACTIONS[k]; });
+
+
+// =====================================================================================
+// 💳 קרדיט AI למוסד (כרגע: הישיבה). הקרדיטים בלשונית Credits של הגיליון הראשי (כמו קרדיטים להודעות), "ארנק" = ai:<mosad>.
+//    טעינה דרך Stripe (המפתח STRIPE_SECRET_KEY ב-Script Properties של השומר), התשלום מגיע דרך ה-Worker → sms.gs (stripe_paid).
+//    חיוב = העלות בפועל (טוקנים) × AI_MARKUP. היתרה לא יורדת מתחת ל-0: בלי מספיק קרדיט הפעולה לא מתחילה.
+// =====================================================================================
+TABS.AiUsage = ['at', 'by', 'what', 'model', 'tokens_in', 'tokens_out', 'cost', 'charged'];
+READS.aiCredit = 1;
+let AI_USE = null; // { w, in, out } — בזמן פעולה
+function aiCfg_() {
+  const P = PropertiesService.getScriptProperties();
+  return { mosdos: S(P.getProperty('AI_CREDIT_MOSDOS') || 'yeshiva').split(',').map(S).filter(Boolean), pin: Number(P.getProperty('AI_PRICE_IN') || 1.5), pout: Number(P.getProperty('AI_PRICE_OUT') || 7.5),
+    markup: Number(P.getProperty('AI_MARKUP') || 1.3), fee: 0.35, model: P.getProperty('GEMINI_MODEL') || 'gemini-flash-latest' };
+}
+function aiWallet_(M) { return aiCfg_().mosdos.indexOf(M.key) >= 0 ? 'ai:' + M.key : ''; }
+function aiCreditRows_(w) { const sh = main().getSheetByName('Credits'); return sh ? objs(sh).filter(function (r) { return S(r.email).toLowerCase() === w; }) : []; }
+function aiBalance_(w) { return Math.round(aiCreditRows_(w).reduce(function (t, r) { return t + (Number(r.delta) || 0); }, 0) * 10000) / 10000; }
+function aiStart_(M, need) {
+  const w = aiWallet_(M); AI_USE = null;
+  if (!w) return '';
+  if (aiBalance_(w) < need) throw new Error('ai-no-credit');
+  AI_USE = { w: w, in: 0, out: 0 };
+  return w;
+}
+function aiAdd_(J) { if (!AI_USE || !J) return; const u = J.usageMetadata || {}; AI_USE.in += Number(u.promptTokenCount) || 0; AI_USE.out += (Number(u.candidatesTokenCount) || 0) + (Number(u.thoughtsTokenCount) || 0); }
+/** מוריד מהקרדיט את מה שנוצל → { charged, balance } */
+function aiCharge_(M, me, what) {
+  const u = AI_USE; AI_USE = null;
+  if (!u || !u.w) return null;
+  const c = aiCfg_();
+  const cost = (u.in * c.pin + u.out * c.pout) / 1e6;
+  const charged = Math.round(cost * c.markup * 10000) / 10000;
+  if (charged > 0) {
+    appendObj(main().getSheetByName('Credits'), { at: now(), email: u.w, delta: -charged, kind: 'usage', ref: 'ai:' + M.key, note: '🤖 ' + S(what).slice(0, 80), by: me.email });
+    try { appendObj(ensureTab(M.book, 'AiUsage', TABS.AiUsage), { at: now(), by: me.email, what: S(what).slice(0, 80), model: c.model, tokens_in: u.in, tokens_out: u.out, cost: Math.round(cost * 10000) / 10000, charged: charged }); } catch (err) { /* */ }
+  }
+  return { charged: charged, balance: aiBalance_(u.w) };
+}
+const AI_ACTIONS = {
+  /** 💳 היתרה + היסטוריה. הבעלים רואה גם עלות אמיתית */
+  aiCredit: function (M, me) {
+    const w = aiWallet_(M);
+    if (!w) return { on: false };
+    const canBuy = isAdminRole(me) || me.perms.indexOf('manager') >= 0;
+    const o = { on: true, balance: aiBalance_(w), canBuy: canBuy, fee: aiCfg_().fee };
+    if (canBuy) o.history = aiCreditRows_(w).slice(-150).reverse().map(function (r) { return { at: S(r.at), delta: Number(r.delta) || 0, kind: S(r.kind), note: S(r.note), by: S(r.by) }; });
+    if (me.role === 'owner') {
+      const use = objs(ensureTab(M.book, 'AiUsage', TABS.AiUsage));
+      const sum = function (k) { return Math.round(use.reduce(function (t, r) { return t + (Number(r[k]) || 0); }, 0) * 100) / 100; };
+      o.owner = { cost: sum('cost'), charged: sum('charged'), n: use.length, markup: aiCfg_().markup };
+    }
+    return o;
+  },
+  /** ➕ טעינה: { usd } → קישור לתשלום ב-Stripe */
+  aiCheckout: function (M, me, req) {
+    const w = aiWallet_(M); if (!w) throw new Error('bad-action');
+    if (!isAdminRole(me) && me.perms.indexOf('manager') < 0) throw new Error('no-permission');
+    const key = PropertiesService.getScriptProperties().getProperty('STRIPE_SECRET_KEY');
+    if (!key) throw new Error('no-stripe');
+    const usd = Math.round(Number(req.usd) * 100) / 100;
+    if (!(usd >= 5 && usd <= 500)) throw new Error('bad-amount');
+    const fee = aiCfg_().fee;
+    const site = 'https://ungvar.org/' + M.key + '/';
+    const form = {
+      mode: 'payment', submit_type: 'donate',
+      'line_items[0][quantity]': '1', 'line_items[0][price_data][currency]': 'usd', 'line_items[0][price_data][unit_amount]': String(Math.round(usd * 100)),
+      'line_items[0][price_data][product_data][name]': 'Donation – Khal Ungvar (AI credit, ' + S(M.name).slice(0, 40) + ')',
+      'line_items[1][quantity]': '1', 'line_items[1][price_data][currency]': 'usd', 'line_items[1][price_data][unit_amount]': String(Math.round(fee * 100)),
+      'line_items[1][price_data][product_data][name]': 'Processing fee',
+      'payment_intent_data[statement_descriptor_suffix]': 'DONATION', 'payment_intent_data[description]': 'Donation – Khal Ungvar (AI credit)',
+      customer_email: me.email, 'metadata[email]': w, 'metadata[credits]': String(usd), 'metadata[by]': me.email, client_reference_id: w,
+      success_url: site + '?ai=ok', cancel_url: site + '?ai=cancel' };
+    const r = UrlFetchApp.fetch('https://api.stripe.com/v1/checkout/sessions', { method: 'post', headers: { Authorization: 'Bearer ' + key }, payload: form, muteHttpExceptions: true });
+    if (r.getResponseCode() >= 300) throw new Error('stripe-' + r.getResponseCode());
+    logIt(M, me, 'ai-credit-checkout', '', '$' + usd);
+    return { url: JSON.parse(r.getContentText()).url };
+  },
+};
+Object.keys(AI_ACTIONS).forEach(function (k) { ACTIONS[k] = AI_ACTIONS[k]; });
+
+// =====================================================================================
+// 📦 מחסן: הרשימה הישנה (9,400 שמות) — לשונית Machsan בגיליון הראשי. ייבוא חד-פעמי מקובץ מוצפן (המפתח לא נשמר בשום מקום),
+//    מריצים מהעורך: machsanImport_(key, url, sha1).
+// =====================================================================================
+function machsanImport_(key, url, sha1) {
+  const b64 = UrlFetchApp.fetch(url, { muteHttpExceptions: true }).getContentText().trim();
+  const enc = Utilities.base64Decode(b64);
+  const out = new Array(enc.length);
+  for (let i = 0, blk = 0; i < enc.length; blk++) {
+    const ks = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, key + ':' + blk, Utilities.Charset.UTF_8);
+    for (let j = 0; j < 32 && i < enc.length; j++, i++) { let v = (enc[i] ^ ks[j]) & 255; if (v > 127) v -= 256; out[i] = v; }
+  }
+  const json = Utilities.ungzip(Utilities.newBlob(out, 'application/x-gzip')).getDataAsString('UTF-8');
+  const dg = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_1, json, Utilities.Charset.UTF_8).map(function (b) { return ('0' + (b & 255).toString(16)).slice(-2); }).join('');
+  if (dg !== sha1) throw new Error('machsan: bad key / checksum ' + dg);
+  const arr = JSON.parse(json);
+  const ss = main();
+  let sh = ss.getSheetByName('Machsan');
+  if (!sh) sh = ss.insertSheet('Machsan');
+  sh.clear();
+  const W = arr[0].length;
+  if (sh.getMaxColumns() < W) sh.insertColumnsAfter(sh.getMaxColumns(), W - sh.getMaxColumns());
+  if (sh.getMaxRows() < arr.length + 10) sh.insertRowsAfter(sh.getMaxRows(), arr.length + 10 - sh.getMaxRows());
+  sh.getRange(1, 1, arr.length, W).setNumberFormat('@');
+  for (let r = 0; r < arr.length; r += 1500) {
+    const part = arr.slice(r, r + 1500).map(function (row) { return row.map(function (v) { return v === null || v === undefined ? '' : String(v); }); });
+    sh.getRange(r + 1, 1, part.length, W).setValues(part);
+  }
+  sh.setFrozenRows(1);
+  Logger.log('Machsan: ' + (arr.length - 1) + ' rows');
+  return arr.length - 1;
+}

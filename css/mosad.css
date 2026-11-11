@@ -488,3 +488,10 @@ tr.bd-day td { border-top: 2px solid #e3dccb; }
 .kl-att td, .kl-att th { padding: 2px 3px; } .kl-att .kl-nm { white-space: nowrap; position: sticky; inset-inline-start: 0; background: var(--card, #fff); }
 .kl-chk { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; } .kl-chk input { font: inherit; padding: 5px 8px; border: 1px solid #cdbf9e; border-radius: 6px; }
 .kr-left { text-align: start; background: #fff8e6; border-radius: 10px; padding: 10px 14px; margin: 10px auto; max-width: 520px; } .kr-left ul { margin: 6px 0 0; }
+
+/* 💳 קרדיט AI */
+.ai-chip { display: inline-flex; gap: 4px; align-items: center; font-size: .9em; background: #eef6ee; border: 1px solid #b9dcbd; border-radius: 12px; padding: 2px 10px; }
+.ai-chip.low { background: #fbe5e2; border-color: #efbdb6; }
+.ms-ask-cr { padding: 2px 10px; } .ms-ask-cr:empty { display: none; }
+.ai-amts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
+td.pos { color: #1e7d3a; }

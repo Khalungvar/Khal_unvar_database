@@ -1,6 +1,7 @@
 // ❓ עוזר AI בכל דף: שאלה → השרת (ask) → Gemini, שעונה רק לפי המדריך (help/yeshiva.md). לא רואה ולא משנה נתונים.
 let X = null; let box = null; const HIST = [];
-const ERR = { 'ai-no-key': 'העוזר עוד לא הופעל (חסר מפתח בשרת).', 'ai-limit': 'הגעת למספר השאלות להיום. נסה מחר.', 'bad-action': 'השרת עוד לא עודכן.' };
+const ERR = { 'ai-no-key': 'העוזר עוד לא הופעל (חסר מפתח בשרת).', 'ai-limit': 'הגעת למספר השאלות להיום. נסה מחר.', 'bad-action': 'השרת עוד לא עודכן.', 'ai-no-credit': 'נגמר הקרדיט של ה-AI. צריך לטעון (💳 קרדיט AI).' };
+let CR = null; // מודול הקרדיט (רק כשצריך)
 const md = (t) => X.h(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/^\s*[-*] /gm, '• ').replace(/\n/g, '<br>');
 export function initAsk(ctx) {
   X = ctx;
@@ -11,10 +12,12 @@ export function initAsk(ctx) {
 function open() {
   if (box) { box.hidden = !box.hidden; if (!box.hidden) box.querySelector('textarea').focus(); return; }
   box = document.createElement('div'); box.className = 'ms-ask-box'; box.dir = 'rtl';
-  box.innerHTML = `<div class="ms-ask-head"><b>❓ עוזר האתר</b><span class="muted small">שואלים איך עושים משהו — הוא עונה לפי המדריך</span><button type="button" class="linkish" data-close>✕</button></div>
+  box.innerHTML = `<div class="ms-ask-head"><b>❓ עוזר האתר</b><span class="muted small">שואלים איך עושים משהו — הוא עונה לפי המדריך</span><button type="button" class="linkish" data-close>✕</button></div><div class="ms-ask-cr"></div>
     <div class="ms-ask-log"><div class="ms-ask-m bot">שלום! אפשר לשאול איך עושים משהו באתר, לבקש פרטים על בחור ("מה הטלפון של ההורים של …?"), או לבקש להוסיף / לעדכן ("תוסיף בחור חדש …") — שינויים נשמרים רק אחרי ✓ שלך.</div></div>
     <form class="ms-ask-f"><textarea rows="2" placeholder="השאלה…"></textarea><button type="submit" class="btn primary">שלח</button></form>`;
   document.body.append(box);
+  const showCr = async () => { try { CR ||= await import('./aicredit.js?v=664'); CR.initAiCredit(X); const el = box.querySelector('.ms-ask-cr'); el.innerHTML = await CR.chipHtml(); CR.wireChip(el); } catch { /* */ } };
+  showCr();
   const log = box.querySelector('.ms-ask-log'); const ta = box.querySelector('textarea'); const f = box.querySelector('form');
   box.querySelector('[data-close]').onclick = () => { box.hidden = true; };
   const add = (cls, html) => { const d = document.createElement('div'); d.className = `ms-ask-m ${cls}`; d.innerHTML = html; log.append(d); log.scrollTop = log.scrollHeight; return d; };
@@ -30,7 +33,11 @@ function open() {
       w.remove(); HIST.push({ role: 'user', text: q });
       if (r.answer) { add('bot', md(r.answer)); HIST.push({ role: 'model', text: r.answer }); }
       (r.actions || []).forEach((a) => actionCard(a, add));
-    } catch (err) { w.remove(); add('bot warn', X.h(ERR[err?.message] || X.msg(err))); } finally { delete f.dataset.busy; }
+      if (r.credit && CR) { CR.setBalance(r.credit.balance); showCr(); }
+    } catch (err) {
+      w.remove(); const el = add('bot warn', X.h(ERR[err?.message] || X.msg(err)));
+      if (err?.message === 'ai-no-credit') { el.insertAdjacentHTML('beforeend', ' <button type="button" class="btn small-btn" data-buy>💳 טעינה</button>'); el.querySelector('[data-buy]').onclick = async () => { CR ||= await import('./aicredit.js?v=664'); CR.initAiCredit(X); CR.creditDialog(); }; }
+    } finally { delete f.dataset.busy; }
   };
   ta.focus();
 }

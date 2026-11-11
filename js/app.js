@@ -43,6 +43,7 @@ import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS a
 import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
 import { initFaces, openFaces, renderFaces } from './faces.js';
 import { initListSync } from './listsync.js';
+import { initMachsan, machsanSearch, hitsHtml as machsanHits, openMachsan } from './machsan.js';
 import { initBooks, openBooks, renderBooks, allBooks, BOOKS_ORG, BOOKS_LOGO } from './books.js';
 import { initLuach, openLuach, renderLuach } from './luach/view.js';
 import { fillBookletCard } from './luach/booklet.js';
@@ -241,6 +242,16 @@ function lobbySearch() {
       <span class="muted small">${h([c.address ? [c.address, c.city].filter(Boolean).join(', ') : (c.area || c.city), [c.first_name_en, c.last_name_en].filter(Boolean).join(' ')].filter(Boolean).join(' · '))}</span>
       ${!isAlive(c.is_alive) ? `<span class="badge muted">${t('deceased')}</span>` : ''}</button>`).join('')
     : `<p class="muted small lobby-none">${h(t('noResults'))}</p>`;
+  oldListHits(q, box);
+}
+/** 📦 מהרשימה הישנה (המחסן) — רק למנהלים; באפור, אחרי התוצאות */
+function oldListHits(q, box) {
+  if (!state.isAdmin || q.trim().length < 2) return;
+  machsanSearch(q, 8).then((hits) => {
+    if (!box.isConnected || (box.id === 'lobby-results' ? $('#lobby-q').value : $('#search').value) !== q) return;
+    box.querySelector('.mx-old')?.remove();
+    if (hits.length) box.insertAdjacentHTML('beforeend', machsanHits(hits));
+  }).catch(() => {});
 }
 
 /** ראשי תיבות פאר דעם קרייז (למשל "יק"). */
@@ -737,9 +748,11 @@ function renderList() {
   const body = $('#list');
   if (!list.length) {
     body.innerHTML = `<p class="empty">${h(state.contacts.length ? t('noResults') : t('emptyDb'))}</p>`;
+    oldListHits($('#search').value, body);
     return;
   }
   body.innerHTML = list.map(contactRow).join('');
+  oldListHits($('#search').value, body);
 }
 
 /** שורה של איש קשר ברשימה. */
@@ -2071,6 +2084,8 @@ function start() {
   initMerge({ contactById, fullNameHe, pickerLabel, fieldLabel, toast, friendlyError, refreshAll, openCard });
   initListSync({ toast, friendlyError, fullNameHe, refreshAll });
   initFaces({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard, openForm });
+  initMachsan({ state, toast, openForm, openCard, fullNameHe });
+  document.addEventListener('click', (e) => { const b = e.target.closest('[data-mx]'); if (!b) return; e.stopPropagation(); e.preventDefault(); openMachsan(Number(b.dataset.mx)); }, true);
   initLuach({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard, openCompose });
   initBooks({ showView, toast, friendlyError, contactById, fullNameHe, receiptFor: (d) => printForDonation(d), cancelDoc: (c) => cancelDoc(c), quickSale: (org, done) => openQuickReceipt(org, done, { sale: true }) });
   initSimchos({ showView, contactById, fullNameHe, pickerLabel, toast, friendlyError, refreshAll, openCard, openForm });
