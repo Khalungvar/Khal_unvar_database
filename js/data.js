@@ -1423,6 +1423,49 @@ export async function contactRows() {
   ids.forEach((v, i) => { if (i > 0 && String(v).trim() && !m.has(String(v))) m.set(String(v), i + 1); });
   return m;
 }
+/**
+ * ✏️ עריכה כמו אקסל ברשימה: כותב רק את התאים שהשתנו (לא שורה שלמה — שלא ידרוס שינוי של מישהו אחר בשדה אחר).
+ * list = [{ id, contact: {field: value}, phones: {field: value} }]. מעדכן גם את הנתונים המקומיים + יומן השינויים.
+ */
+export async function saveCellEdits(list) {
+  if (!state.isAllowed) throw new Error(t('adminOnly'));
+  const at = nowStamp();
+  const hc = state.headers.Contacts || []; const hp = state.headers.Phones || [];
+  const cIds = (await readColumn('Contacts', 'A')).map(String);
+  const needP = list.some((x) => Object.keys(x.phones || {}).length);
+  const pIds = needP ? (await readColumn('Phones', 'A')).map(String) : [];
+  const data = []; const newPhones = []; const hist = []; const done = [];
+  list.forEach(({ id, contact = {}, phones = {} }) => {
+    const key = String(id);
+    const c = state.contacts.find((x) => String(x.contact_id) === key);
+    const row = cIds.indexOf(key);
+    if (!c || row < 1) return;
+    const cell = (tab, hdr, r, k, v) => { const i = hdr.indexOf(k); if (i >= 0) data.push({ range: `${tab}!${colLetter(i)}${r}`, values: [[v]] }); };
+    const ck = Object.keys(contact).filter((k) => hc.includes(k));
+    if (ck.length) {
+      ck.forEach((k) => { cell('Contacts', hc, row + 1, k, contact[k]); hist.push([at, state.email, 'contact', key, key, k, String(c[k] ?? ''), String(contact[k])]); });
+      cell('Contacts', hc, row + 1, 'updated_at', at); cell('Contacts', hc, row + 1, 'updated_by', state.email);
+    }
+    const pk = Object.keys(phones).filter((k) => hp.includes(k));
+    const pb = state.phones.get(key) || {};
+    if (pk.length) {
+      const prow = pIds.indexOf(key);
+      if (prow > 0) pk.forEach((k) => cell('Phones', hp, prow + 1, k, phones[k]));
+      else newPhones.push(objectToRow(hp, { ...pb, ...phones, contact_id: Number(key) || key }));
+      pk.forEach((k) => hist.push([at, state.email, 'phones', key, key, k, String(pb[k] ?? ''), String(phones[k])]));
+    }
+    done.push({ c, contact: Object.fromEntries(ck.map((k) => [k, contact[k]])), phones: Object.fromEntries(pk.map((k) => [k, phones[k]])), key, pb });
+  });
+  for (let i = 0; i < data.length; i += 400) await batchUpdate(data.slice(i, i + 400));
+  if (newPhones.length) await appendRows('Phones', newPhones);
+  if (hist.length) { try { await appendRows('History', hist); historyCache = null; } catch { /* נישט קריטיש */ } }
+  done.forEach(({ c, contact, phones, key, pb }) => {
+    if (Object.keys(contact).length) Object.assign(c, contact, { updated_at: at, updated_by: state.email });
+    if (Object.keys(phones).length) state.phones.set(key, { ...pb, ...phones, contact_id: pb.contact_id ?? key });
+  });
+  return done.length;
+}
+
 export async function bulkSetContactFields(changes, note = '') {
   const hdr = state.headers.Contacts || [];
   const data = []; const hist = []; const at = nowStamp();

@@ -2442,3 +2442,21 @@ body.tb-open { overflow: hidden; }
 .mx-tags { display: flex; flex-wrap: wrap; gap: 4px; } .mx-gifts { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: .88em; }
 .mx-gift { background: #fff; border: 1px solid #e0dacb; border-radius: 6px; padding: 1px 6px; }
 .mx-cands { display: flex; flex-direction: column; }
+
+/* ✏️ רשימה במצב עריכה — כמו אקסל */
+.le-bar { background: #fffbea; border: 1px solid #f0d878; border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; }
+.le-bar p { margin: 4px 0 0; }
+.le-n { margin-inline-start: 10px; font-weight: 600; color: #8a6d00; }
+.le-wrap { max-height: 70vh; overflow: auto; border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent); }
+.le-table thead th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
+.le-table tbody tr { cursor: default; }
+.le-table td { padding: 0; border: 1px solid color-mix(in srgb, var(--gold) 25%, transparent); }
+.le-table td.le-name, .le-table td.muted, .le-table td.le-ro { padding: 4px 8px; }
+.le-table td.le-name { cursor: pointer; white-space: nowrap; }
+.le-table td.le-ro, .le-table th.le-ro { color: var(--muted); background: color-mix(in srgb, var(--muted) 8%, transparent); }
+.le-in { width: 100%; min-width: 90px; box-sizing: border-box; border: 0; background: transparent; padding: 5px 8px; font: inherit; color: inherit; }
+.le-in:focus { outline: 2px solid var(--accent, #7a1219); outline-offset: -2px; background: var(--surface); }
+.le-in.chg { background: #fff3a8; }
+.le-table tr.le-cur td { background: color-mix(in srgb, var(--gold) 10%, transparent); }
+.le-table tr.le-cur .le-in.chg { background: #fff3a8; }
+#le-toggle.on { background: #fff3a8; border-color: #e0c040; }

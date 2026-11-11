@@ -24,7 +24,7 @@ import {
 } from './campaigns.js';
 import { initReceipts, renderReceipts, openReceipts, printForDonation, openOrgDetails, openQuickReceipt, cancelDoc } from './receipts.js';
 import { initSortTables } from './sorttables.js';
-import { initLists, renderListsSide, renderBuilder, openOverview, exportContacts, linkPendingExt, cardListsHtml, wireCardLists, cardListsCount } from './lists.js';
+import { initLists, renderListsSide, renderBuilder, openOverview, listsCanLeave, listsDirty, exportContacts, linkPendingExt, cardListsHtml, wireCardLists, cardListsCount } from './lists.js';
 import { initAdmin, renderAdmin, adminDirty, setAdminTab } from './admin.js';
 import { initMailMerge, renderMailMerge, openMailMerge, mailMergeCanLeave } from './mailmerge.js';
 import { initMail, openCompose, emailOf } from './mail.js';
@@ -356,6 +356,7 @@ function showView(name) {
   const leavingAdmin = !$('.view[data-view="admin"]').hidden && name !== 'admin';
   if (leavingAdmin && adminDirty() && !confirm(t('discardChanges'))) return;
   if (!$('.view[data-view="mailmerge"]').hidden && name !== 'mailmerge' && !mailMergeCanLeave()) return;
+  if (!$('.view[data-view="lists"]').hidden && name !== 'lists' && !listsCanLeave(() => showView(name))) return;
   document.body.classList.remove('menu-open');
   $$('.view').forEach((v) => { v.hidden = v.dataset.view !== name; });
   $$('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === name));
@@ -401,6 +402,12 @@ window.addEventListener('popstate', (e) => {
   if (open.length) { open[open.length - 1].close(); if (navState) history.pushState(navState, ''); return; }
   const st = e.state;
   if (!st || !st.v) return;
+  // ✏️ רשימה בעריכה עם שינויים שלא נשמרו — נשארים, ושואלים
+  if (!$('.view[data-view="lists"]').hidden && st.v !== 'lists' && listsDirty()) {
+    if (navState) history.pushState(navState, '');
+    listsCanLeave(() => showView(st.v));
+    return;
+  }
   navFromPop = true;
   try {
     if (!sameScope(getScope(), st.sc)) { setScope(st.sc); refreshAll(); }

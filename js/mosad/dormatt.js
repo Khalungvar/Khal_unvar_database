@@ -1,9 +1,9 @@
 // 🌙 נוכחות בפנימייה — לליגער (האברך האחראי על הבחורים): דף אחד לשבוע שלם, הבחורים מקובצים לפי החדרים שבפנימייה.
 // הסימונים נשמרים בגיליון ההשתתפות עם seder "_dorm": marks = { '0'..'6': 'v' (ישן בפנימייה) | 'x' (לא ישן) }
 // הרשאה: dorm_att. החדר — לפי השיבוץ בפנימייה (🛏) של הזמן הנוכחי.
-import { loadSchool, schoolLoaded, activeStudents } from './school.js?v=664';
-import { roomOfFn } from './dorm.js?v=664';
-import { printWin } from './journal.js?v=664';
+import { loadSchool, schoolLoaded, activeStudents } from './school.js?v=665';
+import { roomOfFn } from './dorm.js?v=665';
+import { printWin } from './journal.js?v=665';
 import { todayIso } from '../hebdate.js?v=653';
 import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=653';
 

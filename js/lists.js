@@ -5,7 +5,7 @@ import { batchUpdate } from './google.js';
 import {
   tagsOf, storedTags, linesOf, serialize, hasUnchecked, nameOf as tagName, roots as tagRoots, childrenOf as tagChildren, pathKey, GROUPS,
 } from './tags.js';
-import { state, loadAll, saveSavedList, deleteSavedList, displayName, saveRecord, saveContact, importContacts, careOf, contactRows } from './data.js';
+import { state, loadAll, saveSavedList, deleteSavedList, displayName, saveRecord, saveContact, importContacts, careOf, contactRows, saveCellEdits, hostOf, guestsOf, ADDR_FIELDS } from './data.js';
 import { t } from './i18n.js';
 import { isTrue, isAlive, escapeHtml as h, mailingName, digits, nowStamp } from './util.js';
 import { todayIso } from './hebdate.js';
@@ -457,6 +457,7 @@ export function problems(rows, cr) {
 // ---------- UI: אריין ----------
 export function initLists(helpers) {
   ui = helpers;
+  window.addEventListener('beforeunload', (e) => { if (listsDirty()) { e.preventDefault(); e.returnValue = ''; } });
   $('#btn-side-list').onclick = () => openBuilder();
   $('#btn-lists-home').onclick = () => openOverview();
   $('#lists-side').addEventListener('click', (e) => {
@@ -476,6 +477,7 @@ export function renderListsSide() {
 }
 
 export function openOverview() {
+  if (!listsCanLeave(openOverview)) return;
   page = 'overview';
   ui.showView('lists');
 }
@@ -483,6 +485,8 @@ export function openOverview() {
 /** saved = א רשימה; preset = { name, criteria } */
 export function openBuilder(saved = null, preset = null) {
   if (saved && !canSee(saved)) { askAccess(saved, 'view'); return; }
+  if (saved && page === 'builder' && current && String(saved.list_id) === String(current.list_id)) { ui.showView('lists'); return; }
+  if (!listsCanLeave(() => openBuilder(saved, preset))) return;
   page = 'builder';
   const cr = saved ? parseSaved(saved).cr : normalize(preset?.criteria || EMPTY());
   current = {
@@ -504,6 +508,8 @@ export function renderBuilder() {
   const ig = current.cr.includeNoSend;
   const ch = { phones: channel(rows, 'phones', ig), mail: channel(rows, 'mail', ig), email: channel(rows, 'email', ig) };
   const edit = canEdit(current.list_id ? listById(current.list_id) : null);
+  if (ED && ED.lid !== (current.list_id || '')) ED = null;
+  const editing = Boolean(ED) && leAllowed();
   const tabBtn = (k, label, n) => `<button type="button" data-ltab="${k}" class="${current.tab === k ? 'on' : ''}">${label}${n !== undefined ? ` <span class="count-pill">${n}</span>` : ''}</button>`;
   const P = problems(rows, current.cr);
   const nProb = P.filter((p) => p.sev >= 1).reduce((s, p) => s + p.items.length, 0);
@@ -515,6 +521,8 @@ export function renderBuilder() {
         ${current.cr.meta.note ? `<p class="muted">${h(current.cr.meta.note)}</p>` : ''}
         <p class="hint-line">${h(t('L2by', { name: displayName(current.created_by) }))}${current.scope ? ` · ${h(current.scope.split('|')[1] || '')}` : ''}</p></div>
       <span class="spacer"></span>
+      ${leAllowed() ? (editing ? `<button type="button" class="btn on" id="le-toggle">${h(t('leStop'))}</button><button type="button" class="btn primary" id="le-save"${ED.vals.size ? '' : ' disabled'}>${h(t('leSave'))}</button>`
+        : `<button type="button" class="btn" id="le-toggle">${h(t('leStart'))}</button>`) : ''}
       ${edit ? `<button type="button" class="btn" id="l2-settings">⚙ ${h(t('L2settings'))}</button>`
         : `<button type="button" class="btn" id="l2-askedit">✋ ${h(t('L2askEdit'))}</button>`}
       ${edit ? `<div class="l2-addwrap"><button type="button" class="btn" id="l2-add">＋ ${h(t('L2addPeople'))} ▾</button>
@@ -522,10 +530,11 @@ export function renderBuilder() {
       <button type="button" class="btn" id="lb-back">← ${h(t('allLists'))}</button>
     </div>
     <nav class="adm-tabs l2-tabs">${tabBtn('names', `👥 ${t('L2tabNames')}`, rows.length)}${tabBtn('phones', `📞 ${t('L2tabPhones')}`, ch.phones.rows.length)}${tabBtn('mail', `📬 ${t('L2tabMail')}`, ch.mail.groups.length)}${tabBtn('email', `✉ ${t('L2tabEmail')}`, ch.email.rows.length)}${tabBtn('details', `📊 ${t('L2tabDetails')}`)}</nav>
-    <div id="l2-body">${tabHtml(current.tab, rows, ch, edit)}</div>
+    <div id="l2-body">${editing ? editHtml(current.tab, rows) : tabHtml(current.tab, rows, ch, edit)}</div>
     <button type="button" class="l2-bar ${barCls}" id="l2-bar">${nProb ? `⚠ ${h(t('L2probs', { n: nProb }))}` : missingHere ? `● ${h(t('L2missingHere', { n: missingHere }))}` : `✓ ${h(t('L2allOk'))}`}
       ${P.find((p) => p.type === 'nosend') ? ` · 📭 ${h(t('L2nosendN', { n: P.find((p) => p.type === 'nosend').items.length }))}` : ''} <span class="muted small">${h(t('L2barOpen'))}</span></button>`;
   wireBuilder(main, rows, ch, P);
+  if (editing) wireEdit(main, rows);
   renderListsSide();
 }
 
@@ -595,6 +604,147 @@ function detailCols() {
     ['id', '#', (r) => (r.ext ? '' : r.key)],
   ];
 }
+// ---------- ✏️ מצב עריכה — כמו אקסל ----------
+// ED = { lid, vals: Map('key|c:field' / 'key|p:field' → ערך חדש) }. רק מה שהשתנה. נשאר גם כשעוברים לשונית באותה רשימה.
+// השינוי נכתב לאיש הקשר עצמו (Contacts / Phones), תא-תא, עם יומן שינויים.
+let ED = null;
+const leAllowed = () => Boolean(state.isAllowed);
+export const listsDirty = () => Boolean(ED && ED.vals.size);
+const LC = (k, l, o = {}) => ({ f: `c:${k}`, l, get: (r) => r.c[k] ?? '', ...o });
+const LP = (k, l) => ({ f: `p:${k}`, l, ltr: 1, get: (r) => phonesOfRow(r)[k] ?? '' });
+const LR = (l, fn) => ({ ro: 1, l, get: fn });
+function editCols(tab) {
+  const he = [LC('first_name_he', t('leFirstHe')), LC('last_name_he', t('leLastHe'))];
+  const en = [LC('first_name_en', 'First', { ltr: 1 }), LC('last_name_en', 'Last', { ltr: 1 })];
+  const A = { address: LC('address', t('address'), { ltr: 1, addr: 1 }), city: LC('city', 'City', { ltr: 1, addr: 1 }), state: LC('state', 'State', { ltr: 1, addr: 1 }),
+    zip: LC('zip', 'ZIP', { ltr: 1, addr: 1 }), area: LC('area', t('area'), { addr: 1 }) };
+  const ph = Object.fromEntries(PHONE_KEYS.map(([k, l]) => [k, LP(k, t(l))]));
+  const em = [LP('email_1', 'Email 1'), LP('email_2', 'Email 2')];
+  if (tab === 'names') return [...he, ...en, A.area];
+  if (tab === 'phones') return Object.values(ph);
+  if (tab === 'mail') return [A.address, A.city, A.state, A.zip];
+  if (tab === 'email') return em;
+  const cols = detailCols(); const sel = current.cr.meta.mem?.cols || ['name_he', 'mailing', 'address', 'city', 'zip', 'mobile'];
+  return sel.flatMap((k) => {
+    if (k === 'name_he') return he;
+    if (k === 'name_en') return en;
+    if (A[k]) return [A[k]];
+    if (ph[k]) return [ph[k]];
+    if (k === 'email') return [em[0]];
+    if (k === 'email2') return [em[1]];
+    const c = cols.find(([x]) => x === k);
+    return c ? [LR(c[1], c[2])] : [];
+  });
+}
+const edKey = (r, f) => `${r.key}|${f}`;
+const edVal = (r, col) => (ED.vals.has(edKey(r, col.f)) ? ED.vals.get(edKey(r, col.f)) : String(col.get(r) ?? ''));
+function editHtml(tab, rows) {
+  const cols = editCols(tab);
+  if (!rows.length) return `<p class="muted">${h(t('leNoRows'))}</p>`;
+  const cell = (r, col, i, j) => {
+    if (col.ro) return `<td class="le-ro" title="${h(t('leRo'))}">${h(col.get(r) ?? '')}</td>`;
+    if (r.ext || r.guest || !contactOf(r.key)) return `<td class="le-ro" title="${h(t('leExt'))}"${col.ltr ? ' dir="ltr"' : ''}>${h(col.get(r) ?? '')}</td>`;
+    const host = col.addr ? hostOf(r.c) : null;
+    if (host) return `<td class="le-ro" title="${h(t('leGuest', { name: nm(host) }))}"${col.ltr ? ' dir="ltr"' : ''}>🏠 ${h(col.get(r) ?? '')}</td>`;
+    const chg = ED.vals.has(edKey(r, col.f));
+    return `<td class="le-td"><input class="le-in${chg ? ' chg' : ''}" data-k="${h(r.key)}" data-f="${col.f}" data-r="${i}" data-c="${j}" value="${h(edVal(r, col))}"${col.ltr ? ' dir="ltr"' : ''} autocomplete="off" spellcheck="false"></td>`;
+  };
+  return `<div class="le-bar"><b>${h(t('leTitle'))}</b> <span id="le-n" class="le-n">${h(leCountText())}</span><p class="muted small">${h(t('leHint'))}</p></div>
+    <div class="lb-table-wrap le-wrap"><table class="lb-table le-table"><thead><tr><th>#</th><th>${h(t('colNameHe'))}</th>${cols.map((c) => `<th${c.ro ? ' class="le-ro"' : ''}>${h(c.l)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map((r, i) => `<tr><td class="muted small">${i + 1}</td><td class="le-name" data-open="${h(r.key)}">${rowName(r)}</td>${cols.map((c, j) => cell(r, c, i, j)).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function leCountText() {
+  if (!ED?.vals.size) return t('leNone');
+  return t('leCount', { n: ED.vals.size, p: new Set([...ED.vals.keys()].map((k) => k.split('|')[0])).size });
+}
+function wireEdit(main, rows) {
+  const body = $('#l2-body', main);
+  const cols = editCols(current.tab);
+  const byKey = new Map(rows.map((r) => [String(r.key), r]));
+  const orig = (inp) => { const r = byKey.get(inp.dataset.k); const col = cols[Number(inp.dataset.c)]; return r && col ? String(col.get(r) ?? '') : ''; };
+  const setVal = (inp, v) => {
+    inp.value = v;
+    const k = `${inp.dataset.k}|${inp.dataset.f}`;
+    if (String(v).trim() === orig(inp).trim()) ED.vals.delete(k); else ED.vals.set(k, v);
+    inp.classList.toggle('chg', ED.vals.has(k));
+    // אותו תא יכול להופיע פעמיים (שם בעברית בלשונית אחרת) — לא כאן; רק המונה והכפתור
+    $('#le-n', main).textContent = leCountText();
+    const sv = $('#le-save', main); if (sv) sv.disabled = !ED.vals.size;
+  };
+  // לפי הסדר שעל המסך (גם אחרי מיון לפי עמודה)
+  const trs = () => $$('.le-table tbody tr', body);
+  const at = (ri, c) => trs()[ri]?.querySelector(`.le-in[data-c="${c}"]`) || null;
+  const rowIdx = (inp) => trs().indexOf(inp.closest('tr'));
+  const move = (inp, dr) => {
+    const list = trs(); let r = list.indexOf(inp.closest('tr')) + dr; const c = inp.dataset.c;
+    while (r >= 0 && r < list.length) { const n = list[r].querySelector(`.le-in[data-c="${c}"]`); if (n) { n.focus(); n.select(); return; } r += dr; }
+  };
+  body.addEventListener('input', (e) => { const inp = e.target.closest('.le-in'); if (inp) setVal(inp, inp.value); });
+  body.addEventListener('focusin', (e) => { const inp = e.target.closest('.le-in'); if (inp) inp.closest('tr')?.classList.add('le-cur'); });
+  body.addEventListener('focusout', (e) => { const inp = e.target.closest('.le-in'); if (inp) inp.closest('tr')?.classList.remove('le-cur'); });
+  body.addEventListener('keydown', (e) => {
+    const inp = e.target.closest('.le-in'); if (!inp) return;
+    if (e.key === 'ArrowDown' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); move(inp, 1); }
+    else if (e.key === 'ArrowUp' || (e.key === 'Enter' && e.shiftKey)) { e.preventDefault(); move(inp, -1); }
+    else if (e.key === 'Escape') { e.preventDefault(); setVal(inp, orig(inp)); inp.select(); }
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); leSave(); }
+  });
+  // הדבקה מאקסל: כמה שורות / עמודות → מתפזר מהתא הזה למטה ולצד
+  body.addEventListener('paste', (e) => {
+    const inp = e.target.closest('.le-in'); if (!inp) return;
+    const txt = e.clipboardData?.getData('text/plain') || '';
+    if (!/[\t\n]/.test(txt.replace(/\r?\n$/, ''))) return;
+    e.preventDefault();
+    const lines = txt.replace(/\r/g, '').replace(/\n$/, '').split('\n');
+    const r0 = rowIdx(inp); const c0 = Number(inp.dataset.c);
+    lines.forEach((line, i) => line.split('\t').forEach((v, j) => { const n = at(r0 + i, c0 + j); if (n) setVal(n, v.trim()); }));
+  });
+}
+async function leSave() {
+  if (!ED?.vals.size) return;
+  const sv = $('#le-save'); if (sv) { sv.disabled = true; sv.textContent = t('leSaving'); }
+  const by = new Map();
+  const get = (id) => { const k = String(id); if (!by.has(k)) by.set(k, { id: k, contact: {}, phones: {} }); return by.get(k); };
+  ED.vals.forEach((v, kf) => {
+    const i = kf.indexOf('|'); const key = kf.slice(0, i); const [kind, f] = kf.slice(i + 1).split(':');
+    get(key)[kind === 'c' ? 'contact' : 'phones'][f] = String(v).trim();
+  });
+  // מי שגר אצלו — מקבל את הכתובת החדשה (כמו בטופס הרגיל)
+  [...by.values()].forEach((o) => {
+    const ks = Object.keys(o.contact).filter((k) => ADDR_FIELDS.includes(k));
+    const c = contactOf(o.id);
+    if (ks.length && c) guestsOf(c).forEach((g) => { const go = get(g.contact_id); ks.forEach((k) => { go.contact[k] = o.contact[k]; }); });
+  });
+  try {
+    const n = await saveCellEdits([...by.values()]);
+    ED.vals.clear();
+    ui.toast(t('leSaved', { n }));
+    renderBuilder();
+    return true;
+  } catch (err) {
+    ui.toast(ui.friendlyError(err), 'error');
+    if (sv) { sv.disabled = false; sv.textContent = t('leSave'); }
+    return false;
+  }
+}
+/** אפשר לצאת? אם יש שינויים שלא נשמרו — חלון "לא שמרת" (לשמור / לא לשמור / להישאר) ואז next() */
+export function listsCanLeave(next = () => {}) {
+  if (!listsDirty()) { ED = null; return true; }
+  const n = ED.vals.size;
+  const d = dialog(`<h3>${h(t('leLeaveTitle'))}</h3><p>${h(t('leLeaveText', { n }))}</p>
+    <div class="actions"><button type="button" class="btn primary" data-a="save">${h(t('leLeaveSave'))}</button><button type="button" class="btn danger" data-a="drop">${h(t('leLeaveDrop'))}</button>
+    <span class="spacer"></span><button type="button" class="btn" data-a="stay">${h(t('leLeaveStay'))}</button></div>`);
+  d.querySelectorAll('[data-a]').forEach((b) => {
+    b.onclick = async () => {
+      const a = b.dataset.a;
+      if (a === 'stay') { d.close(); return; }
+      if (a === 'save') { b.disabled = true; b.textContent = t('leSaving'); if (!(await leSave())) { d.close(); return; } }
+      ED = null; d.close(); next();
+    };
+  });
+  return false;
+}
+
 function exportTab(kind, rows, ch) {
   const name = current.name || 'list';
   const mem = current.cr.meta.mem || {};
@@ -679,6 +829,11 @@ function wireBuilder(main, rows, ch, P) {
   // אנדערש עפנט א קליק אויף א נאמען אין דער רשימה אויך "א נייע רשימה" (הגדרות) און מען פליט ארויס פון דער רשימה
   main.onclick = null;
   $('#lb-back', main).onclick = openOverview;
+  $('#le-toggle', main)?.addEventListener('click', () => {
+    if (!ED) { ED = { lid: current.list_id || '', vals: new Map() }; renderBuilder(); return; }
+    if (listsCanLeave(() => renderBuilder())) renderBuilder();
+  });
+  $('#le-save', main)?.addEventListener('click', () => leSave());
   $$('[data-ltab]', main).forEach((b) => { b.onclick = () => { current.tab = b.dataset.ltab; renderBuilder(); }; });
   $('#l2-settings', main)?.addEventListener('click', () => openSettings());
   $('#l2-askedit', main)?.addEventListener('click', () => askAccess(listById(current.list_id), 'edit'));
