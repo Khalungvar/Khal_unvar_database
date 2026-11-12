@@ -1,10 +1,10 @@
 // אתר פון א מוסד — 📝 רישום לישיבה: מועמדים, כרטיס מועמד, סטטוסים, הודעות, מסמכים, העברה לתלמידים, הגדרות וייצוא.
 // א מועמד איז נישט קיין "מענטש" אינעם מאגר ביז מ'דרוקט "העבר לתלמידים" (נאר נאך "נתקבל").
 import { downloadXlsx } from '../excel.js?v=653';
-import { heDate, hebrewDateHints } from './brand.js?v=678';
+import { heDate, hebrewDateHints } from './brand.js?v=679';
 import { todayIso } from '../hebdate.js?v=653';
-import { zmanim, currentZman } from './school.js?v=678';
-import { mergeConf, mergeTexts, fill, DEFAULT_CONF } from './reg-defaults.js?v=678';
+import { zmanim, currentZman } from './school.js?v=679';
+import { mergeConf, mergeTexts, fill, DEFAULT_CONF } from './reg-defaults.js?v=679';
 
 let X = null;
 export function initReg(ctx) { X = ctx; }
@@ -69,39 +69,101 @@ function paperDialog(box) {
   const { h } = X;
   const d = X.dialog(`<h2>📷 טופס הרשמה מנייר</h2>
     <p class="muted small">מעלים סריקה או צילום ברור של הטופס שמולא ביד. 🤖 קורא את כל הפרטים, ואתם בודקים ומתקנים לפני שנוצר המועמד.
-      <b>הסריקה לא נשמרת</b>, ופרטי האשראי לא נקראים בכלל. (מחיר: בערך 3–4 סנט לטופס, מהקרדיט.)</p><p class="small" id="pp-cr"></p>
+      הסריקה נשמרת אצל המועמד <b>עם פרטי האשראי מטושטשים</b> (ה-AI רק מסמן איפה הם, ולא קורא אותם — ואתם רואים ומתקנים לפני השמירה). (מחיר: בערך 3–4 סנט לטופס, מהקרדיט.)</p><p class="small" id="pp-cr"></p>
     <label class="kr-big-drop ka-drop" data-drop>⬆ <b>גרור לכאן את הסריקה — או לחץ לבחירה</b><input type="file" accept="image/*,application/pdf" hidden></label>
     <p class="small" id="pp-msg"></p><div id="pp-form"></div>`, 'ms-wide');
   const z = X.$('[data-drop]', d);
-  import('./aicredit.js?v=678').then(async (CR) => { CR.initAiCredit(X); const el = X.$('#pp-cr', d); if (el) { el.innerHTML = await CR.chipHtml(); CR.wireChip(el); } }).catch(() => {});
+  import('./aicredit.js?v=679').then(async (CR) => { CR.initAiCredit(X); const el = X.$('#pp-cr', d); if (el) { el.innerHTML = await CR.chipHtml(); CR.wireChip(el); } }).catch(() => {});
   const go = async (f) => {
     if (!f) return; const m = X.$('#pp-msg', d);
     m.textContent = '⏳ 🤖 קורא את הטופס… (עד דקה)'; z.classList.add('busy');
     let r;
-    try { r = await X.call(X.KEY, 'regScan', { data: await fileData(f, false, 2200) }); } catch (err) {
+    let scan = '';
+    try { scan = await scanImage(f); r = await X.call(X.KEY, 'regScan', { data: scan }); } catch (err) {
       m.innerHTML = `<span class="rf-err">${h(err?.message === 'ai-no-credit' ? 'נגמר הקרדיט של ה-AI — צריך לטעון.' : X.msg(err))}</span>${err?.message === 'ai-no-credit' ? ' <button type="button" class="btn small-btn" id="pp-buy">💳 טעינה</button>' : ''}`;
-      X.$('#pp-buy', d)?.addEventListener('click', async () => { const CR = await import('./aicredit.js?v=678'); CR.initAiCredit(X); CR.creditDialog(); });
+      X.$('#pp-buy', d)?.addEventListener('click', async () => { const CR = await import('./aicredit.js?v=679'); CR.initAiCredit(X); CR.creditDialog(); });
       z.classList.remove('busy'); return;
     }
-    if (r.credit) import('./aicredit.js?v=678').then(async (CR) => { CR.setBalance(r.credit.balance); const el = X.$('#pp-cr', d); if (el) { el.innerHTML = await CR.chipHtml(); CR.wireChip(el); } }).catch(() => {});
+    if (r.credit) import('./aicredit.js?v=679').then(async (CR) => { CR.setBalance(r.credit.balance); const el = X.$('#pp-cr', d); if (el) { el.innerHTML = await CR.chipHtml(); CR.wireChip(el); } }).catch(() => {});
     z.classList.remove('busy'); m.innerHTML = r.notes ? `<span class="rf-warn">🤖 ${h(r.notes)}</span>` : '✓ נקרא — לבדוק כל שדה.';
     const F = [...FIELDS.flatMap(([, fs]) => fs), ['birth_heb', 'תאריך לידה עברי'], ['wedding_heb', 'תאריך חתונה עברי'], ['notes', 'הערות', 'area']];
     const v = r.fields || {};
-    X.$('#pp-form', d).innerHTML = `<div class="rf-grid">${F.map(([k, l, t]) => (t === 'yn'
+    const boxes = (Array.isArray(r.card_boxes) ? r.card_boxes : []).filter((b) => Array.isArray(b) && b.length === 4);
+    X.$('#pp-form', d).innerHTML = `<div class="pp-blur"></div><div class="rf-grid">${F.map(([k, l, t]) => (t === 'yn'
       ? `<label class="rf-f">${h(l)}<select name="${k}"><option value=""></option><option value="no"${v[k] === 'no' ? ' selected' : ''}>לא</option><option value="yes"${v[k] === 'yes' ? ' selected' : ''}>כן</option></select></label>`
       : t === 'area' ? `<label class="rf-f rf-wide">${h(l)}<textarea name="${k}" rows="2">${h(v[k] || '')}</textarea></label>`
         : `<label class="rf-f${v[k] ? ' kr-filled' : ''}">${h(l)}<input name="${k}" type="${t === 'date' ? 'date' : 'text'}" value="${h(v[k] || '')}"${t === 'tel' || t === 'email' ? ' dir="ltr"' : ''}></label>`)).join('')}</div>
       <div class="actions"><button type="button" class="btn primary" id="pp-go">➕ יצירת מועמד</button><button type="button" class="btn" data-x>ביטול</button></div>`;
     X.$$('[data-x]', d).forEach((b) => { b.onclick = () => d.close(); });
+    const BL = await blurEditor(X.$('.pp-blur', d), scan, boxes);
     X.$('#pp-go', d).onclick = async (e) => {
       const data = {}; X.$$('#pp-form [name]', d).forEach((el) => { if (el.value.trim()) data[el.name] = el.value.trim(); });
+      if (!BL.rects().length && !window.confirm('לא סומן שום אזור לטשטוש (פרטי אשראי). לשמור את הסריקה כמו שהיא?')) return;
       e.target.disabled = true;
-      try { const res = await X.call(X.KEY, 'regAddPaper', { data }); d.close(); X.toast(`נוצר מועמד #${res.app_id}.`); await load(true); R.open = res.app_id; renderReg(box); } catch (err) { X.toast(X.msg(err), 'err'); e.target.disabled = false; }
+      try {
+        const res = await X.call(X.KEY, 'regAddPaper', { data });
+        try { await X.call(X.KEY, 'regDoc', { app_id: res.app_id, kind: 'paper', data: BL.output(), state: 'ok' }); } catch (err2) { X.toast(`המועמד נוצר, אבל שמירת הסריקה נכשלה: ${X.msg(err2)}`, 'err'); }
+        d.close(); X.toast(`נוצר מועמד #${res.app_id}.`); await load(true); R.open = res.app_id; renderReg(box);
+      } catch (err) { X.toast(X.msg(err), 'err'); e.target.disabled = false; }
     };
   };
   X.$('input[type=file]', d).onchange = (e) => go(e.target.files[0]);
   z.ondragover = (e) => { e.preventDefault(); z.classList.add('over'); }; z.ondragleave = () => z.classList.remove('over');
   z.ondrop = (e) => { e.preventDefault(); z.classList.remove('over'); go(e.dataTransfer.files[0]); };
+}
+
+/** הסריקה כתמונה (JPEG). PDF → העמוד הראשון כתמונה (pdf.js), כדי שאפשר יהיה לטשטש ולשמור. */
+async function scanImage(f) {
+  if (f.type !== 'application/pdf') return fileData(f, false, 2200);
+  if (f.size > 8 * 1024 * 1024) throw new Error('הקובץ גדול מדי (עד 8MB).');
+  const pdfjs = await import('../vendor/pdfjs.min.mjs');
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL('../vendor/pdfjs.worker.min.mjs', import.meta.url).href;
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(await f.arrayBuffer()) }).promise;
+  const pg = await doc.getPage(1); const v0 = pg.getViewport({ scale: 1 });
+  const vp = pg.getViewport({ scale: Math.min(3, 2200 / Math.max(v0.width, v0.height)) });
+  const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+  const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+  await pg.render({ canvasContext: g, viewport: vp }).promise;
+  return cv.toDataURL('image/jpeg', 0.85);
+}
+/**
+ * 🔒 טשטוש פרטי האשראי: הסריקה + מלבנים (ה-AI מציע, אפשר לגרור מלבן חדש / ללחוץ על מלבן כדי להסיר).
+ * הטשטוש חזק (פיקסלים גדולים + blur) — לא ניתן לקרוא, אבל נעים לעין.
+ */
+async function blurEditor(host, dataUrl, boxes) {
+  const im = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = dataUrl; });
+  const W = im.width; const H = im.height;
+  // [ymin, xmin, ymax, xmax] 0–1000 → פיקסלים, עם קצת מרווח
+  let rects = boxes.map(([y0, x0, y1, x1]) => { const p = 0.012; return { x: Math.max(0, (Math.min(x0, x1) / 1000 - p) * W), y: Math.max(0, (Math.min(y0, y1) / 1000 - p) * H), w: (Math.abs(x1 - x0) / 1000 + 2 * p) * W, h: (Math.abs(y1 - y0) / 1000 + 2 * p) * H }; })
+    .map((r) => ({ ...r, w: Math.min(r.w, W - r.x), h: Math.min(r.h, H - r.y) })).filter((r) => r.w > 5 && r.h > 5);
+  host.innerHTML = `<p class="small"><b>🔒 פרטי האשראי בסריקה</b> — ${rects.length ? 'ה-AI סימן את האזור. בדקו שכל הפרטים מכוסים.' : '<span class="rf-warn">ה-AI לא מצא — סמנו בעצמכם.</span>'}
+      גוררים עם העכבר כדי להוסיף אזור · לחיצה על אזור — הסרה.</p>
+    <canvas style="max-width:100%;max-height:70vh;border:1px solid #ccc;cursor:crosshair;display:block;margin:0 auto 8px"></canvas>`;
+  const cv = host.querySelector('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d');
+  const blurOn = (ctx, r) => {
+    const px = Math.max(10, Math.round(Math.min(W, H) / 70));
+    const tw = Math.max(1, Math.round(r.w / px)); const th = Math.max(1, Math.round(r.h / px));
+    const t = document.createElement('canvas'); t.width = tw; t.height = th; const tg = t.getContext('2d');
+    tg.drawImage(im, r.x, r.y, r.w, r.h, 0, 0, tw, th);
+    ctx.save(); ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip(); ctx.filter = `blur(${Math.round(px / 2)}px)`; ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(t, 0, 0, tw, th, r.x - px, r.y - px, r.w + 2 * px, r.h + 2 * px); ctx.restore(); ctx.filter = 'none';
+  };
+  const draw = (edit = true, ctx = g) => { ctx.drawImage(im, 0, 0); rects.forEach((r) => { blurOn(ctx, r); if (edit) { ctx.strokeStyle = '#c0392b'; ctx.lineWidth = Math.max(2, W / 400); ctx.setLineDash([12, 8]); ctx.strokeRect(r.x, r.y, r.w, r.h); ctx.setLineDash([]); } }); };
+  draw();
+  const pos = (e) => { const b = cv.getBoundingClientRect(); return { x: ((e.clientX - b.left) / b.width) * W, y: ((e.clientY - b.top) / b.height) * H }; };
+  let st = null;
+  cv.onmousedown = (e) => { st = pos(e); };
+  cv.onmousemove = (e) => { if (!st) return; const p = pos(e); draw(); g.strokeStyle = '#2c6e9b'; g.lineWidth = Math.max(2, W / 400); g.strokeRect(st.x, st.y, p.x - st.x, p.y - st.y); };
+  cv.onmouseup = (e) => {
+    if (!st) return; const p = pos(e); const r = { x: Math.min(st.x, p.x), y: Math.min(st.y, p.y), w: Math.abs(p.x - st.x), h: Math.abs(p.y - st.y) }; st = null;
+    if (r.w < 8 && r.h < 8) { const i = rects.findIndex((q) => p.x >= q.x && p.x <= q.x + q.w && p.y >= q.y && p.y <= q.y + q.h); if (i >= 0) rects.splice(i, 1); }
+    else rects.push(r);
+    draw();
+  };
+  return {
+    rects: () => rects,
+    output: () => { const o = document.createElement('canvas'); o.width = W; o.height = H; draw(false, o.getContext('2d')); return o.toDataURL('image/jpeg', 0.8); },
+  };
 }
 
 // ---------- רשימה ----------
@@ -169,6 +231,7 @@ function renderCard(box, a, rer) {
           <select data-dst="${k}">${Object.entries(DSTATE).map(([s, [ic, t]]) => `<option value="${s}"${(a[`${k}_state`] || '') === s ? ' selected' : ''}>${ic} ${h(t)}</option>`).join('')}</select>
           ${a[`${k}_file`] && (k === 'photo' || docsOk) ? `<button type="button" class="btn small-btn" data-dview="${k}">👁</button>` : ''}
           ${k === 'photo' || docsOk ? `<label class="btn small-btn">⬆<input type="file" data-dup="${k}" accept="image/*,application/pdf" hidden></label>` : ''}</div>`).join('')}
+        ${a.paper_file ? `<div class="rg-doc"><b>📄 טופס הנייר</b> <span class="muted small">(פרטי האשראי מטושטשים)</span> <button type="button" class="btn small-btn" data-dview="paper">👁</button></div>` : ''}
         ${docsOk ? '' : '<p class="muted small">צפייה בדרכון ובתעודת לידה — רק עם הרשאת "רישום — מסמכים".</p>'}
         <h3>אזור אישי להורים</h3>
         <button type="button" class="btn" id="rg-link">🔗 העתקת הקישור</button>

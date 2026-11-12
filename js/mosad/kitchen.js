@@ -80,7 +80,7 @@ export async function renderKitchen(box) {
         <button type="button" class="btn small-btn primary" data-ok="${h(r.req_id)}">✓ לאשר</button><button type="button" class="btn small-btn" data-no="${h(r.req_id)}">✗ לדחות</button></div>`; }).join('')}</div>` : ''}
     ${todays.length ? `<p class="ms-note">📅 היום יום הזמנה קבועה: ${todays.map((it) => `<b>${h(it.product_name)}</b> (${orderQty(it, true)} ${h(it.unit || '')})`).join(' · ')} <button type="button" class="btn small-btn" id="kc-rec">🛒 לרשימת הקניות</button></p>` : ''}
     <nav class="ms-subtabs">${[['stock', '📦 מלאי'], ['shop', '🛒 רשימת קניות'], ['events', '🎉 הזמנות מיוחדות'], ['hist', '📜 היסטוריית הזמנות']].map(([k, l]) => `<button type="button" data-kt="${k}" class="${K.tab === k ? 'on' : ''}">${h(l)}</button>`).join('')}
-      <span class="spacer"></span>${kw() ? '' : '<button type="button" class="linkish" id="kc-sups">🚚 ספקים</button><button type="button" class="linkish" id="kc-workers">🔑 אנשי המטבח וסיסמאות</button>'}${X.isAdmin?.() ? '<button type="button" class="linkish" id="kc-phone">📞 קו טלפון</button>' : ''}<button type="button" class="linkish" id="kc-nums">🖨 מספרי מוצרים</button><button type="button" class="linkish" id="kc-reload">⟳ רענון</button></nav>
+      <span class="spacer"></span>${kw() ? '' : '<button type="button" class="linkish" id="kc-sups">🚚 ספקים</button><button type="button" class="linkish" id="kc-workers">🔑 אנשי המטבח וסיסמאות</button>'}${X.isAdmin?.() ? '<button type="button" class="linkish" id="kc-phone">📞 קו טלפון</button>' : ''}<button type="button" class="linkish" id="kc-nums">🖨 מספרי מוצרים</button><button type="button" class="linkish" id="kc-labels">🏷 מדבקות למחסן</button><button type="button" class="linkish" id="kc-reload">⟳ רענון</button></nav>
     <div id="kc-body"></div>`;
   X.$$('[data-kt]', box).forEach((b) => { b.onclick = () => { K.tab = b.dataset.kt; renderKitchen(box); }; });
   X.$$('[data-card]', box).forEach((b) => { b.onclick = () => { K.card = b.dataset.card === 'value' ? '' : (K.card === b.dataset.card ? '' : b.dataset.card); K.tab = K.card === 'order' ? 'shop' : 'stock'; renderKitchen(box); }; });
@@ -89,6 +89,7 @@ export async function renderKitchen(box) {
   X.$('#kc-sups', box)?.addEventListener('click', () => suppliersDialog(() => renderKitchen(box)));
   X.$('#kc-phone', box)?.addEventListener('click', () => phoneDialog());
   X.$('#kc-nums', box)?.addEventListener('click', () => printNums());
+  X.$('#kc-labels', box)?.addEventListener('click', () => labelsDialog());
   const decide = async (id, approve) => { try { await X.call(X.KEY, 'kitchenReqDecide', { id, approve }); await load(); renderKitchen(box); X.toast(approve ? 'אושר.' : 'נדחה.'); } catch (err) { X.toast(X.msg(err), 'err'); } };
   X.$$('[data-ok]', box).forEach((b) => { b.onclick = () => decide(b.dataset.ok, true); });
   X.$$('[data-no]', box).forEach((b) => { b.onclick = () => decide(b.dataset.no, false); });
@@ -281,7 +282,7 @@ function mapHeads(head, spec, exact = []) {
 }
 export async function readTable(file) {
   if (/\.csv$/i.test(file.name)) return (await file.text()).split(/\r?\n/).filter((l) => l.trim()).map((l) => l.split(/,|\t/).map((c) => c.replace(/^"|"$/g, '').trim()));
-  const { _test } = await import('./shabbos.js?v=678');
+  const { _test } = await import('./shabbos.js?v=679');
   const files = Object.fromEntries(await _test.unzip(await file.arrayBuffer()));
   const dec = new TextDecoder(); const P = (k) => (files[k] ? new DOMParser().parseFromString(dec.decode(files[k]), 'application/xml') : null);
   const shared = [...(P('xl/sharedStrings.xml')?.getElementsByTagName('si') || [])].map((si) => [...si.getElementsByTagName('t')].map((t) => t.textContent).join(''));
@@ -456,6 +457,40 @@ function printNums() {
   const cats = [...new Set(items.map((it) => it.category || 'כללי'))].sort((a, b) => a.localeCompare(b, 'he'));
   X.printWin?.('📞 מספרי מוצרים — לעדכון בטלפון', 'מחייגים לקו ← מקישים מספר מוצר וסולמית ← 1 עדכון כמות · 2 נגמר · 3 הגיעה סחורה', cats.map((c) => `<h3>${h(c)}</h3><table><thead><tr><th style="width:18mm;text-align:center">מס׳</th><th>מוצר</th><th>יחידה</th></tr></thead><tbody>
     ${items.filter((it) => (it.category || 'כללי') === c).sort((a, b) => Number(pnum(a)) - Number(pnum(b))).map((it) => `<tr><td style="text-align:center"><b>${pnum(it)}</b></td><td>${h(it.product_name)}</td><td>${h(it.unit || '')}${Number(it.pack_size) > 1 ? ` (${Number(it.pack_size)} בקרטון)` : ''}</td></tr>`).join('')}</tbody></table>`).join(''));
+}
+/** 🏷 מדבקות למחסן: שם המוצר + מספר המוצר בקו הטלפון — להדבקה ליד כל מוצר. דף A4 עם קווי חיתוך (או דף מדבקות באותה חלוקה). */
+function labelsDialog() {
+  const { h } = X;
+  const items = (K.d?.items || []).filter((it) => it.product_name && pnum(it) && !(String(it.frozen).toUpperCase() === 'TRUE'));
+  if (!items.length) { X.toast('אין מוצרים.', 'err'); return; }
+  const cats = [...new Set(items.map((it) => it.category || 'כללי'))].sort((a, b) => a.localeCompare(b, 'he'));
+  const d = X.dialog(`<h2>🏷 מדבקות למחסן</h2>
+    <p class="muted small">על כל מדבקה: שם המוצר ומספר המוצר בקו הטלפון — להדבקה במחסן ליד כל מוצר. דף A4 רגיל עם קווי חיתוך, או דף מדבקות A4 באותה חלוקה.</p>
+    <div class="rf-grid">
+      <label class="rf-f">קטגוריה<select id="kl-cat"><option value="">כל המוצרים (${items.length})</option>${cats.map((c) => `<option>${h(c)}</option>`).join('')}</select></label>
+      <label class="rf-f">חלוקה בדף<select id="kl-grid"><option value="3x8">3 × 8 = 24 (70×37 מ"מ)</option><option value="3x7">3 × 7 = 21 (70×42 מ"מ)</option><option value="2x7">2 × 7 = 14 (105×42 מ"מ)</option><option value="2x5">2 × 5 = 10 (105×59 מ"מ)</option><option value="4x10">4 × 10 = 40 (52×30 מ"מ)</option></select></label>
+      <label class="rf-f">כמה מכל מוצר<input type="number" id="kl-n" min="1" max="40" value="1"></label>
+      <label class="rf-f">לדלג על (מדבקות שכבר נוצלו בדף)<input type="number" id="kl-skip" min="0" max="39" value="0"></label>
+    </div>
+    <div class="actions"><button type="button" class="btn primary" id="kl-go">🖨 הדפסה</button><button type="button" class="btn" data-x>ביטול</button></div>`);
+  X.$('#kl-go', d).onclick = () => {
+    const cat = X.$('#kl-cat', d).value; const [c, r] = X.$('#kl-grid', d).value.split('x').map(Number);
+    const n = Math.max(1, Number(X.$('#kl-n', d).value) || 1); const skip = Math.max(0, Number(X.$('#kl-skip', d).value) || 0);
+    const list = items.filter((it) => !cat || (it.category || 'כללי') === cat).sort((a, b) => Number(pnum(a)) - Number(pnum(b)));
+    const cells = [...Array(skip).fill('<div class="l e"></div>'), ...list.flatMap((it) => Array(n).fill(it)).map((it) => `<div class="l"><b>${h(it.product_name)}</b><span>📞 ${pnum(it)}</span></div>`)];
+    const per = c * r; const pages = [];
+    for (let i = 0; i < cells.length; i += per) pages.push(cells.slice(i, i + per).join(''));
+    const w = window.open('', '_blank'); if (!w) { X.toast('הדפדפן חסם חלון חדש.', 'err'); return; }
+    w.document.write(`<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>מדבקות למחסן</title>
+      <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;800&display=swap" rel="stylesheet">
+      <style>@page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;font-family:Heebo,Arial,sans-serif}
+      .pg{width:210mm;height:297mm;padding:8mm 0;display:grid;grid-template-columns:repeat(${c},1fr);grid-template-rows:repeat(${r},1fr);page-break-after:always}
+      .l{border:1px dashed #bbb;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2mm;overflow:hidden}.l.e{border-color:transparent}
+      .l b{font-size:${c >= 4 ? 11 : c === 3 ? 14 : 18}pt;line-height:1.15}.l span{font-size:${c >= 4 ? 16 : c === 3 ? 22 : 28}pt;font-weight:800;margin-top:1mm;direction:ltr}
+      @media screen{body{background:#ddd}.pg{background:#fff;margin:10px auto;box-shadow:0 0 6px #999}}</style></head><body>
+      ${pages.map((p) => `<div class="pg">${p}</div>`).join('')}<script>window.onload=()=>setTimeout(()=>print(),400)<\/script></body></html>`);
+    w.document.close(); d.close();
+  };
 }
 /** 📞 הגדרת הקו (רק מנהל): טלפונים מורשים + הכתובת לשלוחת API בימות המשיח */
 async function phoneDialog() {

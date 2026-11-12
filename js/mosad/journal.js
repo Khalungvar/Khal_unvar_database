@@ -5,9 +5,9 @@ import { downloadXlsx } from '../excel.js?v=653';
 import { colFilters } from '../sorttables.js?v=653';
 import { todayIso, isoToHebrewText, toHebrew, fromHebrew, monthHe, yearLabel } from '../hebdate.js?v=653';
 import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=653';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=678';
-import { letterhead, heShort } from './brand.js?v=678';
-import { dayInfo, rulesOf } from './hdays.js?v=678';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=679';
+import { letterhead, heShort } from './brand.js?v=679';
+import { dayInfo, rulesOf } from './hdays.js?v=679';
 
 let X = null;
 export function initJournal(ctx) { X = ctx; }
@@ -863,7 +863,8 @@ async function stipData(mon, only) {
     if (tiersOf(s).length) {
       // שבוע שלם (א'–ש'): שייך לחודש לפי השבת שלו; נחשב רק אחרי מוצאי שבת
       const shab = isoAdd(r.week, 6); if (shab < mon.from || shab > mon.to) return;
-      const n0 = Object.values(byDay).filter((arr) => arr.some((v) => v === 'v' || (s.stipLate && v === 'l'))).length;
+      // 2026-11: סופרים כל ✓ (גם 2 משבצות באותו יום, למשל מוצ"ש: ✓✓ = 2) — לא רק ימים
+      const n0 = Object.values(m).filter((v) => v === 'v' || (s.stipLate && v === 'l')).length;
       const k = `${r.contact_id}|${s.key}|${r.week}`; weeks[k] = (weeks[k] || 0) + n0;
       return;
     }
@@ -1099,15 +1100,44 @@ async function stipNotes(mon, ids, D, type) {
       .bar { padding: 8px; background: #f6f1e4; text-align: center; font: 14px Arial; } .bar button { font: inherit; padding: 5px 14px; margin: 0 4px; }
       .nt { position: relative; width: 210mm; height: 297mm; overflow: hidden; page-break-after: always; break-after: page; margin: 0 auto; }
       .nt .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; z-index: 0; }
-      .tx { position: absolute; top: 25%; right: 13%; left: 13%; bottom: 17%; z-index: 1; font-size: 13.5pt; line-height: 1.35; }
+      .tx { position: absolute; top: var(--top); right: var(--side); left: var(--side); bottom: 17%; z-index: 1; font-size: var(--fz); line-height: 1.35; }
+      .win { display: none; position: absolute; z-index: 2; border: 2px dashed #c0392b; pointer-events: none; } body.showwin .win { display: block; }
+      .lay { padding: 6px 8px; background: #fffbe9; border-bottom: 1px solid #e3d3ad; text-align: center; font: 13px Arial; } .lay label { margin: 0 6px; white-space: nowrap; } .lay input[type=number] { width: 56px; }
       .tx .lh { width: 100%; margin-bottom: 4mm; } .tx p { margin: 0 0 1.6mm; }
-      .to { min-height: 30mm; margin-bottom: 4mm; } .bl { margin-bottom: 4mm !important; }
+      .to { min-height: 30mm; margin-bottom: var(--gap); margin-right: var(--to); } .bl { margin-bottom: 4mm !important; }
       .ln { margin-right: 6mm !important; } .amt { margin-top: 3mm !important; font-size: 15pt; }
       .tl { text-align: center; color: #9a7b3c; margin: 3mm 0; letter-spacing: 1px; } .q { font-size: 11.5pt; text-align: center; }
-      @media print { .bar { display: none; } .nt { margin: 0; } img { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }</style></head><body>
+      @media print { .bar, .lay { display: none; } .win { display: none !important; } .nt { margin: 0; } img { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }</style></head><body>
     <div class="bar"><button onclick="window.print()">🖨 הדפסה</button> ${ids.length} פתקים · למעטפה עם חלון 11×23 ס"מ: מקפלים לשלושה, השם בשליש העליון מול החלון <button onclick="window.close()">סגירה</button></div>
+    <div class="lay">📐 <b>כיוון למעטפה</b> (במ"מ — נשמר לתמיד לסוג "${h(type.name)}"):
+      <label>מלמעלה <input type="number" step="1" data-k="top"></label><label>מהצדדים <input type="number" step="1" data-k="side"></label>
+      <label>הזזת השם פנימה <input type="number" step="1" data-k="to"></label><label>רווח אחרי השם <input type="number" step="1" data-k="gap"></label>
+      <label>גודל אות (pt) <input type="number" step="0.5" data-k="fz"></label>
+      <label><input type="checkbox" id="lw"> הצג את חלון המעטפה</label>
+      <button id="ls">💾 שמירה לתמיד</button> <button id="lr">↺ ברירת מחדל</button> <span id="lm"></span></div>
     ${ids.map(page).join('')}</body></html>`);
   w.document.close();
+  // 📐 כיוון: ערכים שמורים בסוג המלגה (tpl.layout) — אותו חלון במעטפה כל חודש
+  const LDEF = { top: 74, side: 27, to: 0, gap: 4, fz: 13.5 };
+  const lay = { ...LDEF, ...(type.tpl?.layout || {}) };
+  const wd = w.document; const R = wd.documentElement.style;
+  const apply = () => { R.setProperty('--top', `${lay.top}mm`); R.setProperty('--side', `${lay.side}mm`); R.setProperty('--to', `${lay.to}mm`); R.setProperty('--gap', `${lay.gap}mm`); R.setProperty('--fz', `${lay.fz}pt`); };
+  // חלון מעטפה DL (11×23): כ-9×4.5 ס"מ, 2 ס"מ מהצד, בשליש העליון של הדף המקופל
+  wd.querySelectorAll('.nt').forEach((n) => { const b = wd.createElement('div'); b.className = 'win'; b.style.cssText = 'top:38mm;right:20mm;width:90mm;height:45mm'; n.appendChild(b); });
+  wd.querySelectorAll('.lay [data-k]').forEach((inp) => { inp.value = lay[inp.dataset.k]; inp.oninput = () => { const v = Number(inp.value); if (Number.isFinite(v)) { lay[inp.dataset.k] = v; apply(); } }; });
+  wd.getElementById('lw').onchange = (e) => wd.body.classList.toggle('showwin', e.target.checked);
+  wd.getElementById('lr').onclick = () => { Object.assign(lay, LDEF); wd.querySelectorAll('.lay [data-k]').forEach((inp) => { inp.value = lay[inp.dataset.k]; }); apply(); };
+  wd.getElementById('ls').onclick = async () => {
+    const m = wd.getElementById('lm'); m.textContent = '⏳';
+    try {
+      const list = stipTypes().map((t) => (t.id === type.id ? { ...t, tpl: { ...t.tpl, layout: { ...lay } } } : t));
+      const r = await X.call(X.KEY, 'stipTypesSave', { types: list });
+      X.st.settings = r.settings || { ...X.st.settings, stip_types: JSON.stringify(list) };
+      type.tpl = { ...(type.tpl || {}), layout: { ...lay } };
+      m.textContent = '✓ נשמר';
+    } catch (err) { m.textContent = `⚠ ${X.msg(err)}`; }
+  };
+  apply();
 }
 
 // =====================================================================

@@ -1337,12 +1337,15 @@ const ACTIONS = {
   },
   /** 🎖 סוגי מלגות: [{ id, name, sedarim: [keys], tpl: { to: [], bless, intro, amount, quotes: [] } }] */
   stipTypesSave: function (M, me, req) {
+    // 📐 כיוון הפתק למעטפה (מ"מ / pt) — רק מספרים בטווח סביר
+    const layoutOf_ = function (l) { if (!l) return undefined; const n = function (v, lo, hi, d) { v = Number(v); return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d; };
+      return { top: n(l.top, 0, 250, 74), side: n(l.side, 0, 90, 27), to: n(l.to, -60, 120, 0), gap: n(l.gap, 0, 80, 4), fz: n(l.fz, 6, 24, 13.5) }; };
     need(me, 'stipends');
     const cut = function (v, n) { return S(v).slice(0, n); };
     const list = [].concat(req.types || []).slice(0, 20).map(function (t, i) {
       const tp = t.tpl || {};
       return { id: cut(t.id, 30) || ('t' + i), name: cut(t.name, 60) || 'מלגה', sedarim: [].concat(t.sedarim || []).map(S).slice(0, 10),
-        tpl: { to: [].concat(tp.to || []).map(function (x) { return cut(x, 200); }).slice(0, 6), bless: cut(tp.bless, 1000), intro: cut(tp.intro, 200), amount: cut(tp.amount, 200), quotes: [].concat(tp.quotes || []).map(function (x) { return cut(x, 600); }).slice(0, 8) } };
+        tpl: { to: [].concat(tp.to || []).map(function (x) { return cut(x, 200); }).slice(0, 6), bless: cut(tp.bless, 1000), intro: cut(tp.intro, 200), amount: cut(tp.amount, 200), quotes: [].concat(tp.quotes || []).map(function (x) { return cut(x, 600); }).slice(0, 8), layout: layoutOf_(tp.layout) } };
     });
     putSetting(M, me, 'stip_types', JSON.stringify(list));
     logIt(M, me, 'settings', '', 'stip_types');
@@ -2411,7 +2414,7 @@ PPL_ACTS.regTransfer = 1; NAMES_ACTS.regTransfer = 1; READS.regList = 1; READS.r
 const APP_EDIT = ['first_name', 'last_name', 'birth_date', 'birth_heb', 'home_phone', 'engaged', 'wedding_date', 'wedding_heb', 'father_name', 'mother_family', 'father_phone',
   'mother_phone', 'email', 'community', 'address', 'city', 'state', 'zip', 'country', 'yeshiva_ketana', 'yeshiva_gedola', 'yeshiva_other',
   'staff1_name', 'staff1_phone', 'staff2_name', 'staff2_phone', 'staff3_name', 'staff3_phone', 'notes', 'mother_name'];
-const APP_DOCS = { photo: 'תמונה', passport: 'דרכון', birth: 'תעודת לידה' };
+const APP_DOCS = { photo: 'תמונה', passport: 'דרכון', birth: 'תעודת לידה', paper: 'טופס נייר (אשראי מטושטש)' };
 const REG_REQUIRED = ['first_name', 'last_name', 'birth_date', 'home_phone', 'engaged', 'father_name', 'mother_family', 'father_phone', 'mother_phone', 'email', 'community', 'address', 'city', 'country', 'yeshiva_ketana', 'yeshiva_gedola'];
 const OUTBOX_NAME = 'Beis Sheurim Outbox';
 
@@ -2678,7 +2681,7 @@ const PUBLIC = {
   pubPortalUpload: function (M, req) {
     const a = appByToken(M, req.t);
     const kind = S(req.kind);
-    if (!APP_DOCS[kind]) throw new Error('bad-kind');
+    if (!APP_DOCS[kind] || kind === 'paper') throw new Error('bad-kind');
     if (S(a[kind + '_state']) === 'ok') throw new Error('already-ok');
     const r = appSaveFile(M, a, kind, req.data);
     const sh = M.book.getSheetByName('Applicants');
@@ -4134,7 +4137,7 @@ PPL_ACTS.kaLink = 1; NAMES_ACTS.kaLink = 1; PPL_ACTS.kaLinkNew = 1; NAMES_ACTS.k
 // =====================================================================================
 // 📝 רישום לישיבה — 📷 טופס נייר (בכתב יד) → 🤖 Gemini קורא → תצוגה → מועמד חדש. הסריקה לא נשמרת (יש בה פרטי אשראי).
 // =====================================================================================
-TABS.Applicants.push('mother_name', 'source');
+TABS.Applicants.push('mother_name', 'source', 'paper_file', 'paper_state');
 const REG_SCAN_F = { first_name: 'boy\'s first name(s)', last_name: 'family name', birth_date: 'civil date of birth YYYY-MM-DD (convert if only Hebrew date is given)', birth_heb: 'Hebrew date of birth as written, e.g. כ"ג טבת תשס"ח',
   home_phone: 'home phone', father_phone: 'father\'s phone', mother_phone: 'mother\'s phone', address: 'street address', city: 'city', state: 'state / region', zip: 'zip / postal code', country: 'country',
   father_name: 'father\'s name', mother_name: 'mother\'s FIRST name', mother_family: 'mother\'s maiden (family) name', community: 'community / kehilla the family belongs to', email: 'email',
@@ -4154,14 +4157,17 @@ const REG2_ACTIONS = {
     const prompt = ['This is a scan of a handwritten registration form of a yeshiva (Beis Sheurim, Jerusalem). Hebrew / Yiddish handwriting. Read it carefully.',
       'Return ONLY JSON: {"fields": {only these keys, only what is clearly written; keep names in Hebrew letters as written; phones with country code if written: ' +
       Object.keys(REG_SCAN_F).map(function (k) { return k + ' = ' + REG_SCAN_F[k]; }).join('; ') + '}, "notes": "short Hebrew remarks: what was unclear or doubtful (or empty)"}',
-      'NEVER read or return credit card numbers, expiry dates or CVC — ignore the payment / credit card section completely.'].join('\n');
+      'NEVER read or return credit card numbers, expiry dates or CVC — do not read the payment / credit card section at all.',
+      'But DO locate it: add "card_boxes": [[ymin, xmin, ymax, xmax], ...] (0–1000, relative to the whole image) covering every place where card number, expiry, CVC, card holder ID or signature for the card is written — only the coordinates, never the contents. [] if none.'].join('\n');
     const j = kaGemini_([{ text: prompt }, { inline_data: { mime_type: m[1], data: m[2] } }], 3000);
     const f = {};
     Object.keys(REG_SCAN_F).forEach(function (k) { const v = j.fields && j.fields[k]; if (S(v)) f[k] = S(v).slice(0, k === 'notes' ? 2000 : 200); });
     if (f.engaged) f.engaged = /^(yes|כן|y|true|1)/i.test(f.engaged) ? 'yes' : 'no';
     // שום מספר כרטיס לא עובר (גם אם בטעות)
     Object.keys(f).forEach(function (k) { if (/\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{1,4}/.test(f[k]) && !/phone/.test(k)) delete f[k]; });
-    return { fields: f, notes: S(j.notes).slice(0, 600), credit: aiCharge_(M, me, '📷 טופס נייר') };
+    const boxes = [].concat(j.card_boxes || []).filter(function (b) { return Array.isArray(b) && b.length === 4 && b.every(function (n) { return isFinite(Number(n)); }); }).slice(0, 8)
+      .map(function (b) { return b.map(function (n) { return Math.max(0, Math.min(1000, Number(n))); }); });
+    return { fields: f, card_boxes: boxes, notes: S(j.notes).slice(0, 600), credit: aiCharge_(M, me, '📷 טופס נייר') };
     } finally { if (AI_USE) aiCharge_(M, me, '📷 טופס נייר'); }
   },
   /** ➕ מועמד מטופס נייר: { data: {...} } */
