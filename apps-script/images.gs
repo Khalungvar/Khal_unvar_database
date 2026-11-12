@@ -6,6 +6,7 @@
 const SHEET_ID = '16gyhQ4W7p2DHjPMtdXldFynG1KUzDypGvTvYlS7cnJY';
 const IMG_FOLDER = 'Mosdos Ungvar – תמונות';
 const LETTERS_FOLDER = 'תמונות למכתבים';
+const IMG_FOLDER_ID = '1jfwhOFKYCoriDJI5SK16Rukfq3efj-j0'; // 2026-11: אין ארון "מערכת" (Shared Drive) — רץ בשם admin@ungvar.org
 
 function doPost(e) {
   try {
@@ -71,7 +72,7 @@ function out(obj) {
 
 function imgFolder() {
   const props = PropertiesService.getScriptProperties();
-  const id = props.getProperty('IMG_FOLDER_ID');
+  const id = props.getProperty('IMG_FOLDER_ID') || IMG_FOLDER_ID;
   if (id) { try { return DriveApp.getFolderById(id); } catch (e) { /* אויסגעמעקט — א נייע */ } }
   const it = DriveApp.getFoldersByName(IMG_FOLDER);
   const f = it.hasNext() ? it.next() : DriveApp.createFolder(IMG_FOLDER);
