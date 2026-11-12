@@ -5,7 +5,7 @@ export const CONFIG = {
   HELP_AI_URL: 'https://script.google.com/macros/s/AKfycbwskifRl70J25uw2OYfgm2aJzeH48wEruO6hCT7Z28XZIg-drO0G43lxm6jex4v8QxI2g/exec', // 2026-11-12: admin@ (הישן, בחשבון האישי: AKfycbyva11…FsYKR)
   // עוזר התמונות (Apps Script בחשבון הדאטבייס) — עדיין לא בשימוש עד שהקוד בצד האתר ייבנה
   // SMS און טעלעפאן: דער "מוח" (Apps Script sms.gs) און דער Worker (Cloudflare). ליידיג = נאך נישט פארבונדן.
-  SMS_URL: 'https://script.google.com/macros/s/AKfycbzK63Qd9P3Gb-255-gVFGvqkF_NddBjJ9i5yHKrnaK_E8PwLsB_7WDO6Lh2iyqO1vPZ/exec',
+  SMS_URL: 'https://script.google.com/macros/s/AKfycbywXAJY2prJELFczFec4j-ryFEzngpzYJ3LUc692ahY-wJJiWGVVOwkEB9x3AeXcA7v6A/exec', // 2026-11-12: admin@ (הישן, בדאטאבייס: AKfycbzK63…O1vPZ)
   SMS_WORKER_URL: 'https://ungvar-sms.8510089.workers.dev',
   // דער "שומר" פאר די אתרים פון די מוסדות (Apps Script mosad.gs בחשבון הדאטאבייס). ליידיג = נאך נישט פארבונדן.
   // ארגונים מיט אן אייגענעם אתר (תלמידים, שכר לימוד וכו' זענען דארט, נישט דא)
