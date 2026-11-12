@@ -16,7 +16,7 @@ function open() {
     <div class="ms-ask-log"><div class="ms-ask-m bot">שלום! אפשר לשאול איך עושים משהו באתר, לבקש פרטים על בחור ("מה הטלפון של ההורים של …?"), או לבקש להוסיף / לעדכן ("תוסיף בחור חדש …") — שינויים נשמרים רק אחרי ✓ שלך.</div></div>
     <form class="ms-ask-f"><textarea rows="2" placeholder="השאלה…"></textarea><button type="submit" class="btn primary">שלח</button></form>`;
   document.body.append(box);
-  const showCr = async () => { try { CR ||= await import('./aicredit.js?v=666'); CR.initAiCredit(X); const el = box.querySelector('.ms-ask-cr'); el.innerHTML = await CR.chipHtml(); CR.wireChip(el); } catch { /* */ } };
+  const showCr = async () => { try { CR ||= await import('./aicredit.js?v=667'); CR.initAiCredit(X); const el = box.querySelector('.ms-ask-cr'); el.innerHTML = await CR.chipHtml(); CR.wireChip(el); } catch { /* */ } };
   showCr();
   const log = box.querySelector('.ms-ask-log'); const ta = box.querySelector('textarea'); const f = box.querySelector('form');
   box.querySelector('[data-close]').onclick = () => { box.hidden = true; };
@@ -36,7 +36,7 @@ function open() {
       if (r.credit && CR) { CR.setBalance(r.credit.balance); showCr(); }
     } catch (err) {
       w.remove(); const el = add('bot warn', X.h(ERR[err?.message] || X.msg(err)));
-      if (err?.message === 'ai-no-credit') { el.insertAdjacentHTML('beforeend', ' <button type="button" class="btn small-btn" data-buy>💳 טעינה</button>'); el.querySelector('[data-buy]').onclick = async () => { CR ||= await import('./aicredit.js?v=666'); CR.initAiCredit(X); CR.creditDialog(); }; }
+      if (err?.message === 'ai-no-credit') { el.insertAdjacentHTML('beforeend', ' <button type="button" class="btn small-btn" data-buy>💳 טעינה</button>'); el.querySelector('[data-buy]').onclick = async () => { CR ||= await import('./aicredit.js?v=667'); CR.initAiCredit(X); CR.creditDialog(); }; }
     } finally { delete f.dataset.busy; }
   };
   ta.focus();

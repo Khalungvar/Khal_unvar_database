@@ -648,11 +648,29 @@ function editHtml(tab, rows) {
     const host = col.addr ? hostOf(r.c) : null;
     if (host) return `<td class="le-ro" title="${h(t('leGuest', { name: nm(host) }))}"${col.ltr ? ' dir="ltr"' : ''}>🏠 ${h(col.get(r) ?? '')}</td>`;
     const chg = ED.vals.has(edKey(r, col.f));
-    return `<td class="le-td"><input class="le-in${chg ? ' chg' : ''}" data-k="${h(r.key)}" data-f="${col.f}" data-r="${i}" data-c="${j}" value="${h(edVal(r, col))}"${col.ltr ? ' dir="ltr"' : ''} autocomplete="off" spellcheck="false"></td>`;
+    const o0 = chg ? ED.orig?.get(edKey(r, col.f)) : undefined;
+    const now = String(col.get(r) ?? '').trim();
+    const conf = o0 !== undefined && String(o0).trim() !== now;
+    const ct = conf ? ` title="${h(`השתנה גם בכרטיס ל: ${now || '(ריק)'}\nנשאר מה שכתבת בטבלה`)}"` : '';
+    return `<td class="le-td"><input class="le-in${chg ? ' chg' : ''}${conf ? ' conf' : ''}"${ct} data-k="${h(r.key)}" data-f="${col.f}" data-r="${i}" data-c="${j}" value="${h(edVal(r, col))}"${col.ltr ? ' dir="ltr"' : ''} autocomplete="off" spellcheck="false"></td>`;
   };
   return `<div class="le-bar"><b>${h(t('leTitle'))}</b> <span id="le-n" class="le-n">${h(leCountText())}</span><p class="muted small">${h(t('leHint'))}</p></div>
     <div class="lb-table-wrap le-wrap"><table class="lb-table le-table"><thead><tr><th>#</th><th>${h(t('colNameHe'))}</th>${cols.map((c) => `<th${c.ro ? ' class="le-ro"' : ''}>${h(c.l)}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map((r, i) => `<tr><td class="muted small">${i + 1}</td><td class="le-name" data-open="${h(r.key)}">${rowName(r)}</td>${cols.map((c, j) => cell(r, c, i, j)).join('')}</tr>`).join('')}</tbody></table></div>`;
+    <tbody>${rows.map((r, i) => `<tr><td class="muted small">${i + 1}</td><td class="le-name${String(r.key) === leLastCard ? ' be-flash' : ''}" data-open="${h(r.key)}">${!r.ext && contactOf(r.key) ? `<button type="button" class="be-cardbtn" data-open="${h(r.key)}" title="${h(t('leOpenCard'))}">📇</button>` : ''}${rowName(r)}</td>${cols.map((c, j) => cell(r, c, i, j)).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+// כרטיס שנפתח ממצב עריכה: כשכל החלונות נסגרים — חוזרים לאותה שורה (הטבלה עצמה מתרעננת לבד אחרי שמירה בכרטיס, והשינויים שלא נשמרו נשארים ב-ED)
+let leLastCard = '';
+function leWatchCard(key) {
+  leLastCard = String(key);
+  const chk = () => setTimeout(() => {
+    if (document.querySelector('dialog[open]')) return;
+    document.removeEventListener('close', chk, true);
+    const td = [...document.querySelectorAll('.le-table td.le-name')].find((x) => x.dataset.open === leLastCard);
+    if (td) { td.classList.add('be-flash'); td.scrollIntoView({ block: 'nearest' }); td.closest('tr')?.querySelector('.le-in')?.focus({ preventScroll: true }); }
+    if (document.querySelector('.le-in.conf')) ui.toast(t('leConf'));
+    setTimeout(() => { leLastCard = ''; document.querySelectorAll('.le-table .be-flash').forEach((x) => x.classList.remove('be-flash')); }, 1600);
+  }, 150);
+  document.addEventListener('close', chk, true);
 }
 function leCountText() {
   if (!ED?.vals.size) return t('leNone');
@@ -666,7 +684,9 @@ function wireEdit(main, rows) {
   const setVal = (inp, v) => {
     inp.value = v;
     const k = `${inp.dataset.k}|${inp.dataset.f}`;
-    if (String(v).trim() === orig(inp).trim()) ED.vals.delete(k); else ED.vals.set(k, v);
+    if (!ED.orig) ED.orig = new Map();
+    if (!ED.vals.has(k)) ED.orig.set(k, orig(inp)); // הערך כפי שהיה כשהתחלת לערוך — לזהות שינוי בכרטיס בינתיים
+    if (String(v).trim() === orig(inp).trim()) { ED.vals.delete(k); ED.orig.delete(k); } else ED.vals.set(k, v);
     inp.classList.toggle('chg', ED.vals.has(k));
     // אותו תא יכול להופיע פעמיים (שם בעברית בלשונית אחרת) — לא כאן; רק המונה והכפתור
     $('#le-n', main).textContent = leCountText();
@@ -875,7 +895,7 @@ function wireBuilder(main, rows, ch, P) {
       return;
     }
     const open = e.target.closest('[data-open]');
-    if (open && !String(open.dataset.open).startsWith('x:')) ui.openCard(open.dataset.open);
+    if (open && !String(open.dataset.open).startsWith('x:')) { if (ED) leWatchCard(open.dataset.open); ui.openCard(open.dataset.open); }
   });
   body.addEventListener('change', (e) => {
     const m = e.target.closest('[data-mem]');

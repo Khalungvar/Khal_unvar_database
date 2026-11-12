@@ -290,24 +290,53 @@ function gridHtml() {
     ${state.isAdmin && col.kind !== 't' ? `<button type="button" class="be-fill" data-fill="${j}" title="למלא ערך לכל ${rowsNow.length} המסוננים">⤓</button>` : ''}</th>`;
   const cell = (c, col, i, j) => {
     const v = curVal(c, col); const chg = ED.has(edKeyOf(c, col)) && (col.kind !== 't' || tagState(v, col.key) !== tagState(ED.get(edKeyOf(c, col)).o, col.key));
+    const conf = chg && confOf(c, col);
+    const cf = conf ? ' conf' : '';
+    const cft = conf ? ` title="${h(`השתנה גם בכרטיס ל: ${conf}\nנשאר מה שכתבת בטבלה (בשמירה תישאל שוב)`)}"` : '';
     const at = `data-r="${i}" data-c="${j}" data-id="${h(c.contact_id)}"`;
     if (col.addr && hostOf(c)) return `<td class="be-ro" title="גר אצל ${h(nameHe(hostOf(c)))} — הכתובת נערכת אצלו"${col.ltr ? ' dir="ltr"' : ''}>🏠 ${h(v)}</td>`;
     if (col.kind === 't') {
       const st = tagState(v, col.key);
-      return `<td class="be-td"><button type="button" class="be-in be-tag st-${st || 'none'}${chg ? ' chg' : ''}" ${at}>${st === 'a' ? '✓ פעיל' : st === 'f' ? 'יוצא' : st === 'u' ? '⚠' : '·'}</button></td>`;
+      return `<td class="be-td"><button type="button" class="be-in be-tag st-${st || 'none'}${chg ? ' chg' : ''}${cf}" ${at}${cft}>${st === 'a' ? '✓ פעיל' : st === 'f' ? 'יוצא' : st === 'u' ? '⚠' : '·'}</button></td>`;
     }
-    if (col.alive) return `<td class="be-td"><select class="be-in${chg ? ' chg' : ''}" ${at}><option value="TRUE"${v === 'TRUE' ? ' selected' : ''}>חי</option><option value="FALSE"${v === 'FALSE' ? ' selected' : ''}>נפטר</option></select></td>`;
+    if (col.alive) return `<td class="be-td"><select class="be-in${chg ? ' chg' : ''}${cf}" ${at}${cft}><option value="TRUE"${v === 'TRUE' ? ' selected' : ''}>חי</option><option value="FALSE"${v === 'FALSE' ? ' selected' : ''}>נפטר</option></select></td>`;
     if (col.sel) {
       const opts = [...new Set(['', ...(L[col.sel] || []), v])];
-      return `<td class="be-td"><select class="be-in${chg ? ' chg' : ''}" ${at}>${opts.map((o) => `<option value="${h(o)}"${o === v ? ' selected' : ''}>${h(col.sel === 'marital_status' && o ? maritalLabel(o) : o)}</option>`).join('')}</select></td>`;
+      return `<td class="be-td"><select class="be-in${chg ? ' chg' : ''}${cf}" ${at}${cft}>${opts.map((o) => `<option value="${h(o)}"${o === v ? ' selected' : ''}>${h(col.sel === 'marital_status' && o ? maritalLabel(o) : o)}</option>`).join('')}</select></td>`;
     }
-    return `<td class="be-td"><input class="be-in${chg ? ' chg' : ''}${bad(col, v) ? ' bad' : ''}" ${at} value="${h(v)}"${col.ltr ? ' dir="ltr"' : ''} autocomplete="off" spellcheck="false"></td>`;
+    return `<td class="be-td"><input class="be-in${chg ? ' chg' : ''}${cf}${bad(col, v) ? ' bad' : ''}" ${at}${cft} value="${h(v)}"${col.ltr ? ' dir="ltr"' : ''} autocomplete="off" spellcheck="false"></td>`;
   };
   return `<table class="be-table no-sort"><thead><tr><th class="be-num">#</th><th class="be-name" data-sort="">שם</th>${cols.map(th).join('')}</tr></thead>
     <tbody>${rows.map((c, i) => `<tr><td class="be-num muted small">${pg * PER + i + 1}</td>
-      <td class="be-name"><button type="button" class="linkish" data-card="${h(c.contact_id)}">${h(nameHe(c))}</button>${isAlive(c.is_alive) ? '' : ' <span class="badge muted">נפטר</span>'}
+      <td class="be-name${String(c.contact_id) === String(lastCard) ? ' be-flash' : ''}"><button type="button" class="be-cardbtn" data-card="${h(c.contact_id)}" title="לפתוח את הכרטיס המלא">📇</button><button type="button" class="linkish" data-card="${h(c.contact_id)}">${h(nameHe(c))}</button>${isAlive(c.is_alive) ? '' : ' <span class="badge muted">נפטר</span>'}
         <span class="muted small" dir="ltr">${h([c.first_name_en, c.last_name_en].filter(Boolean).join(' '))}</span></td>
       ${cols.map((col, j) => cell(c, col, i, j)).join('')}</tr>`).join('')}</tbody></table>`;
+}
+
+// ---------- כרטיס מעל הטבלה ----------
+let lastCard = '';
+/** ערך שהשתנה במאגר (למשל בכרטיס) מאז שערכת את התא בטבלה — מחזיר את הערך החדש, אחרת '' */
+function confOf(c, col) {
+  const e = ED.get(edKeyOf(c, col)); if (!e) return '';
+  const now = rawVal(c, col);
+  if (col.kind === 't') return tagState(now, col.key) !== tagState(e.o, col.key) ? (tagState(now, col.key) || 'בלי') : '';
+  return String(now ?? '').trim() !== String(e.o ?? '').trim() ? (String(now ?? '').trim() || '(ריק)') : '';
+}
+function openCardHere(id) {
+  lastCard = String(id);
+  const wrap = $('.be-gridwrap'); const top = wrap ? wrap.scrollTop : 0; const left = wrap ? wrap.scrollLeft : 0;
+  ui.openCard(id);
+  const chk = () => setTimeout(() => {
+    if (document.querySelector('dialog[open]')) return; // עדיין פתוח (כרטיס / טופס עריכה / תרומה...)
+    document.removeEventListener('close', chk, true);
+    if (!open) return;
+    render();
+    const w = $('.be-gridwrap'); if (w) { w.scrollTop = top; w.scrollLeft = left; }
+    const td = $('.be-name.be-flash'); if (td) { td.scrollIntoView({ block: 'nearest' }); td.closest('tr')?.querySelector('.be-in')?.focus({ preventScroll: true }); }
+    setTimeout(() => { lastCard = ''; $$('.be-flash').forEach((x) => x.classList.remove('be-flash')); }, 1600);
+    if ($$('.be-in.conf').length) ui.toast('יש תאים ששונו גם בכרטיס — מסומנים בכתום. נשאר מה שכתבת בטבלה.');
+  }, 120);
+  document.addEventListener('close', chk, true);
 }
 
 // ---------- אירועים ----------
@@ -357,7 +386,7 @@ function wire(s) {
   grid.addEventListener('focusin', (e) => { const el = e.target.closest('.be-in'); if (!el) return; el.closest('tr')?.classList.add('be-cur'); if (el.select) el.select(); });
   grid.addEventListener('focusout', (e) => { e.target.closest('tr')?.classList.remove('be-cur'); });
   grid.addEventListener('click', (e) => {
-    const card = e.target.closest('[data-card]'); if (card) { ui.openCard(card.dataset.card); return; }
+    const card = e.target.closest('[data-card]'); if (card) { openCardHere(card.dataset.card); return; }
     const fill = e.target.closest('[data-fill]'); if (fill) { e.stopPropagation(); fillAll(cols[Number(fill.dataset.fill)]); return; }
     const th = e.target.closest('th[data-sort]'); if (th) { const k = th.dataset.sort; if (sortK === k) sortDir = -sortDir; else { sortK = k; sortDir = 1; } render(); return; }
     const tb = e.target.closest('button.be-tag'); if (tb) cycleTag(tb);

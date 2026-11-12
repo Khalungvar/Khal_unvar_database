@@ -2513,3 +2513,10 @@ select.be-in { min-width: 80px; }
 .be-conf { max-height: 50vh; overflow: auto; }
 body.le-wide .page[data-view="lists"] { max-width: none; }
 body.le-wide .le-wrap { max-height: calc(100vh - 290px); }
+
+/* 📇 פתיחת כרטיס מתוך טבלת עריכה */
+.be-cardbtn { border: 1px solid #e2d6b8; background: #fffaf0; border-radius: 6px; padding: 0 4px; margin-inline-end: 5px; font-size: 13px; line-height: 20px; cursor: pointer; vertical-align: middle; }
+.be-cardbtn:hover { background: #f3e6c4; border-color: var(--gold, #c9a227); }
+.be-flash { animation: beFlash 1.6s ease-out; }
+@keyframes beFlash { 0%, 40% { background: #ffe9a8; } 100% { background: inherit; } }
+.be-in.conf, .le-in.conf { outline: 2px solid #e8891c; outline-offset: -2px; background: #fff3e2 !important; }
