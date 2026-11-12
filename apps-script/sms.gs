@@ -1770,3 +1770,10 @@ function testAuto() {
   Logger.log(JSON.stringify(LUACH.autoVars(d, today())));
   Logger.log('מיילים שנשארו היום: ' + MailApp.getRemainingDailyQuota());
 }
+
+/** נאר דער טריגער (runJobs יעדע 5 מינוט) — אן setup (וואס טוישט באשיצונגען) */
+function installJobsTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'runJobs') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('runJobs').timeBased().everyMinutes(5).create();
+  Logger.log('ok — trigger');
+}
