@@ -684,7 +684,8 @@ export async function saveOrgLogo(org, data, driveId = '') {
 // ---------- דרייב פון "דאטאבייס" ----------
 /** איז דער באנוצער יעצט דער "דאטאבייס" חשבון? (נאר דעמאלט ווערט דער אריגינאל געשפייכלט אין דרייב) */
 export function isDatabaseAccount() {
-  return state.email === String(CONFIG.DATABASE_ACCOUNT || '').toLowerCase();
+  // 2026-11: admin@ungvar.org איז דער נייער חשבון פון דער מערכת (דער דאטאבייס ווערט אויסגעמעקט)
+  return [String(CONFIG.DATABASE_ACCOUNT || '').toLowerCase(), 'admin@ungvar.org'].includes(state.email);
 }
 
 /**

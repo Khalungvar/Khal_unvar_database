@@ -140,7 +140,9 @@ ${foot || h(he)}<br><span dir="rtl">${h(t('mailFootStop'))}</span></td></tr>
 // ---------- שיקן ----------
 /** מאיזו כתובת המייל יוצא: מחשבון הדאטאבייס — בשם המוסד (office@ungvar.org); מכל חשבון אחר — מהחשבון עצמו. */
 export function senderAddress() {
-  return state.email === CONFIG.DATABASE_ACCOUNT && CONFIG.ORG_EMAIL ? CONFIG.ORG_EMAIL : state.email;
+  // 2026-11: אויך פון admin@ungvar.org (office@ איז זיין כינוי) — בשם המוסד
+  const org = [CONFIG.DATABASE_ACCOUNT, 'admin@ungvar.org', 'office@ungvar.org'].includes(String(state.email).toLowerCase());
+  return org && CONFIG.ORG_EMAIL ? CONFIG.ORG_EMAIL : state.email;
 }
 let logCache = null;
 async function sentToday() {
