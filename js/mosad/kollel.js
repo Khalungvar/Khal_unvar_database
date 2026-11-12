@@ -1,7 +1,7 @@
 // 🎓 מרכז הכוללים — College Programs: 📝 אפליקציות · 🟢 Active · 🤖 מזכיר AI.
 //    אפליקציות: כרטיס לכל אברך (עריכה לכל שורה, מסמכים בתמונות קטנות), קישור לאיש קשר במאגר הכללי, הוספה לכולל,
 //    ✉ שליחה במייל למשרד (עם המסמכים), 🖨 הדפסה, ✅ מעבר ל-Active.
-import { SECTIONS, STATUS, showVal, printHtml, YESNO, reqOf, kindState, kindLabel, fieldFor, ALL_KINDS, appText } from './kollelfields.js?v=676';
+import { SECTIONS, STATUS, showVal, printHtml, YESNO, reqOf, kindState, kindLabel, fieldFor, ALL_KINDS, appText } from './kollelfields.js?v=677';
 import { downloadXlsx } from '../excel.js?v=653';
 
 let X;
@@ -25,7 +25,7 @@ export async function renderKollelReg(box) {
   X.$$('[data-v]', box).forEach((b) => { b.onclick = () => { K.view = b.dataset.v; renderKollelReg(box); }; });
   const body = X.$('#kp-body', box);
   if (K.view === 'apps') return renderApps(body);
-  const m = await import('./kollelact.js?v=676');
+  const m = await import('./kollelact.js?v=677');
   m.initAct(X);
   if (K.view === 'active') return m.renderActive(body);
   return m.renderAssist(body);
