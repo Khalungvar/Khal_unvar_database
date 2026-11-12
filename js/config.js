@@ -2,7 +2,7 @@
 // אין כאן שום מידע סודי: מזהה הלוגאין ומפתח המפות מוגבלים בגוגל לכתובת האתר בלבד.
 export const CONFIG = {
   // דער "סערווער" (Apps Script) פונעם הילף-AI. ליידיג = נאר דער פירער מיט זוכן.
-  HELP_AI_URL: 'https://script.google.com/macros/s/AKfycbyva11piQYE0c-FIhWoHHJj_zqtOf3bB2DM_5S1WGUyXZ9WJqWamkDDMRqPYsoFsYKR/exec',
+  HELP_AI_URL: 'https://script.google.com/macros/s/AKfycbwskifRl70J25uw2OYfgm2aJzeH48wEruO6hCT7Z28XZIg-drO0G43lxm6jex4v8QxI2g/exec', // 2026-11-12: admin@ (הישן, בחשבון האישי: AKfycbyva11…FsYKR)
   // עוזר התמונות (Apps Script בחשבון הדאטבייס) — עדיין לא בשימוש עד שהקוד בצד האתר ייבנה
   // SMS און טעלעפאן: דער "מוח" (Apps Script sms.gs) און דער Worker (Cloudflare). ליידיג = נאך נישט פארבונדן.
   SMS_URL: 'https://script.google.com/macros/s/AKfycbzK63Qd9P3Gb-255-gVFGvqkF_NddBjJ9i5yHKrnaK_E8PwLsB_7WDO6Lh2iyqO1vPZ/exec',
