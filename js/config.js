@@ -11,7 +11,7 @@ export const CONFIG = {
   // ארגונים מיט אן אייגענעם אתר (תלמידים, שכר לימוד וכו' זענען דארט, נישט דא)
   MOSAD_SITES: { 'ישיבת בית שערים (ירושלים)': 'yeshiva/' },
   MOSAD_URL: 'https://script.google.com/macros/s/AKfycby-iqDa2VyvWnGuPU70FYCPlyVgIFRGv3UbOgU8vQBsrjtWHB-UxXqMEJbJHQg_TnQv/exec',
-  IMAGES_URL: 'https://script.google.com/macros/s/AKfycbzi44y-tKi2B3wnAvd93WOlxqJPULhWjsgAJqcMr1DAVvyx1HmQPr4o0rKypIxVgnju_Q/exec',
+  IMAGES_URL: 'https://script.google.com/macros/s/AKfycbyoqByYiyeRrT5v98Fh2Ln_HCeBiSUm9emKOMhwe0e5Zi-O7b9xZvXE7bcxM9jQto_alw/exec', // 2026-11-12: admin@ (הישן, בדאטאבייס: AKfycbzi44y-…nju_Q)
 
   // מזהה הלוגאין (Google Auth Platform → Clients → Khal Ungvar Website)
   CLIENT_ID: '73541082309-bb0bc3jv1dchtpgsr129m5bbertk79ua.apps.googleusercontent.com',
