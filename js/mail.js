@@ -143,8 +143,7 @@ ${foot || h(he)}<br><span dir="rtl">${h(t('mailFootStop'))}</span></td></tr>
  * 2026-11: ברירת מחדל — office@ungvar.org באמת, דרך הסקריפט שרץ בשם office@ (CONFIG.MAILER_URL).
  * אפשר לבחור "מהמייל שלי" — אז דרך ה-Gmail של מי שמחובר.
  */
-// 2026-11-12: Google דחה מייל ראשון מ-office@ (חשבון חדש) — בינתיים ברירת המחדל: הדרך הקודמת (admin@ שולח בשם office@)
-let mode = 'me'; // 'org' | 'me'
+let mode = 'org'; // 'org' | 'me' — ברירת מחדל: office@ (הבעלים ביקש; חשבון חדש — לחמם כמה ימים לפני שליחה מהאתר)
 const orgOn = () => Boolean(CONFIG.MAILER_URL && CONFIG.ORG_EMAIL);
 export function senderMode() { return orgOn() ? mode : 'me'; }
 /** צי מ'דארף די Gmail-הרשאה פונעם אקאונט (נאר ווען מ'שיקט "פון מיין אימעיל") */
