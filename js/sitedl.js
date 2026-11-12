@@ -23,7 +23,7 @@ async function writeAll(list) {
 /** מחליף את התוכן של קובץ שכבר בדרייב (אותו קישור) */
 async function driveReplace(id, blob) {
   const { currentToken } = await import('./google.js');
-  const r = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media&fields=id`, { method: 'PATCH', headers: { Authorization: `Bearer ${currentToken()}`, 'Content-Type': 'application/pdf' }, body: blob });
+  const r = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media&fields=id&supportsAllDrives=true`, { method: 'PATCH', headers: { Authorization: `Bearer ${currentToken()}`, 'Content-Type': 'application/pdf' }, body: blob });
   if (!r.ok) { const e = new Error(`drive ${r.status}`); e.status = r.status; throw e; }
 }
 

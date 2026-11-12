@@ -789,13 +789,15 @@ export async function sharingPlan() {
   const users = allUsers();
   const perms = await sheetPermissions();
   const has = new Map(perms.filter((p) => p.type === 'user').map((p) => [p.email, p]));
-  const owner = perms.find((p) => p.role === 'owner')?.email || '';
+  // אין "אחסון שיתופי" (Shared Drive) איז נישטא קיין owner — די מנהלים פונעם ארון זענען organizer; זיי רירט מען נישט
+  const BOSS = new Set(['owner', 'organizer', 'fileOrganizer']);
+  const owner = perms.find((p) => p.role === 'owner')?.email || perms.find((p) => p.role === 'organizer')?.email || '';
   const want = new Set(users.map((u) => u.email));
   return {
     owner,
     ok: users.filter((u) => has.has(u.email)),
     add: users.filter((u) => !has.has(u.email)),
-    remove: perms.filter((p) => p.type === 'user' && p.role !== 'owner' && p.email && !want.has(p.email) && p.email !== state.email),
+    remove: perms.filter((p) => p.type === 'user' && !BOSS.has(p.role) && p.email && !want.has(p.email) && p.email !== state.email),
   };
 }
 

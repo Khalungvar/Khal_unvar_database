@@ -196,13 +196,13 @@ export async function pickSheet() {
 
 /** ווער האט צוטריט צום שיט: [{ id, email, role, type }] */
 export async function sheetPermissions() {
-  const res = await authFetch(`https://www.googleapis.com/drive/v3/files/${CONFIG.SPREADSHEET_ID}/permissions?fields=permissions(id,emailAddress,role,type)&pageSize=100`);
+  const res = await authFetch(`https://www.googleapis.com/drive/v3/files/${CONFIG.SPREADSHEET_ID}/permissions?fields=permissions(id,emailAddress,role,type)&pageSize=100&supportsAllDrives=true`);
   return (res.permissions || []).map((p) => ({ id: p.id, email: String(p.emailAddress || '').toLowerCase(), role: p.role, type: p.type }));
 }
 
 /** שערט דעם שיט מיט אן אימעיל (קען רעדאגירן). גוגל שיקט אים אן אימעיל מיט א לינק. */
 export async function shareSheet(email, message = '') {
-  const q = `sendNotificationEmail=true${message ? `&emailMessage=${encodeURIComponent(message)}` : ''}`;
+  const q = `supportsAllDrives=true&sendNotificationEmail=true${message ? `&emailMessage=${encodeURIComponent(message)}` : ''}`;
   return authFetch(`https://www.googleapis.com/drive/v3/files/${CONFIG.SPREADSHEET_ID}/permissions?${q}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ type: 'user', role: 'writer', emailAddress: email }),
@@ -211,7 +211,7 @@ export async function shareSheet(email, message = '') {
 
 /** נעמט צוריק דעם צוטריט. */
 export async function unshareSheet(permissionId) {
-  return authFetch(`https://www.googleapis.com/drive/v3/files/${CONFIG.SPREADSHEET_ID}/permissions/${permissionId}`, { method: 'DELETE' });
+  return authFetch(`https://www.googleapis.com/drive/v3/files/${CONFIG.SPREADSHEET_ID}/permissions/${permissionId}?supportsAllDrives=true`, { method: 'DELETE' });
 }
 
 const DRIVE = 'https://www.googleapis.com/drive/v3/files';
@@ -224,21 +224,23 @@ export async function createSpreadsheet(title, tabs) {
 }
 /** ווער האט צוטריט צו א טעקע: [{ id, email, role, type }] */
 export async function filePermissions(id) {
-  const res = await authFetch(`${DRIVE}/${id}/permissions?fields=permissions(id,emailAddress,role,type)&pageSize=100`);
+  const res = await authFetch(`${DRIVE}/${id}/permissions?fields=permissions(id,emailAddress,role,type)&pageSize=100&supportsAllDrives=true`);
   return (res.permissions || []).map((p) => ({ id: p.id, email: String(p.emailAddress || '').toLowerCase(), role: p.role, type: p.type }));
 }
 export async function shareFile(id, email, role = 'writer', message = '') {
-  const q = `sendNotificationEmail=true${message ? `&emailMessage=${encodeURIComponent(message)}` : ''}`;
+  const q = `supportsAllDrives=true&sendNotificationEmail=true${message ? `&emailMessage=${encodeURIComponent(message)}` : ''}`;
   return authFetch(`${DRIVE}/${id}/permissions?${q}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'user', role, emailAddress: email }) });
 }
-export async function unshareFile(id, permissionId) { return authFetch(`${DRIVE}/${id}/permissions/${permissionId}`, { method: 'DELETE' }); }
+export async function unshareFile(id, permissionId) { return authFetch(`${DRIVE}/${id}/permissions/${permissionId}?supportsAllDrives=true`, { method: 'DELETE' }); }
 
 /** געפינט (אדער שאפט) א פאלדער לויטן נאמען. parent = ID פון דעם פאלדער אויבן (אדער 'root'). */
 export async function driveFolder(name, parent = 'root') {
-  const q = `name='${name.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and '${parent}' in parents and trashed=false`;
-  const found = await authFetch(`${DRIVE}?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`);
+  // 2026-11: די טעקעס זענען אריבער צו "אחסון שיתופי" (Shared Drive) — זוכן אומעטום; ביים הויפט-פאלדער נישט נאר אין 'root'
+  const inP = parent === 'root' ? '' : ` and '${parent}' in parents`;
+  const q = `name='${name.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder'${inP} and trashed=false`;
+  const found = await authFetch(`${DRIVE}?q=${encodeURIComponent(q)}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives`);
   if (found.files?.length) return found.files[0].id;
-  const made = await authFetch(`${DRIVE}?fields=id`, {
+  const made = await authFetch(`${DRIVE}?fields=id&supportsAllDrives=true`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parent] }),
   });
@@ -251,14 +253,14 @@ export async function driveUpload(file, name, folderId) {
   const body = new FormData();
   body.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
   body.append('file', file);
-  const res = await authFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', body });
+  const res = await authFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id&supportsAllDrives=true', { method: 'POST', body });
   return res.id;
 }
 
 /** גרויסע טעקע (ביז הונדערטער MB) — "resumable" ארויפלאדן מיט א פראגרעס. גיט צוריק דעם ID. */
 export async function driveUploadLarge(file, name, folderId, onProgress = () => {}) {
   if (!accessToken) await requestToken();
-  const init = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id', {
+  const init = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id&supportsAllDrives=true', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json; charset=UTF-8',
@@ -280,13 +282,13 @@ export async function driveUploadLarge(file, name, folderId, onProgress = () => 
 
 /** מאכט א טעקע (וואס דער אתר האט ארויפגעלייגט) עפנטלעך: "יעדער מיט דעם לינק — צוקוקן" */
 export async function drivePublic(id) {
-  await authFetch(`${DRIVE}/${id}/permissions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'reader', type: 'anyone' }) });
+  await authFetch(`${DRIVE}/${id}/permissions?supportsAllDrives=true`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'reader', type: 'anyone' }) });
 }
 
 /** לאדט אראפ א טעקע פון דרייב (נאר וואס דער אתר האט אליין ארויפגעלייגט). Uint8Array. */
 export async function driveDownload(id, onProgress = () => {}) {
   if (!accessToken) await requestToken();
-  const res = await fetch(`${DRIVE}/${id}?alt=media`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const res = await fetch(`${DRIVE}/${id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!res.ok) { const e = new Error(`drive ${res.status}`); e.status = res.status; throw e; }
   const total = Number(res.headers.get('Content-Length')) || 0;
   if (!res.body || !total) return new Uint8Array(await res.arrayBuffer());
