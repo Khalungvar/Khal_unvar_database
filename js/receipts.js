@@ -15,7 +15,7 @@ import { money, orgSelect } from './donations.js';
 import { campaignOptions } from './campaigns.js';
 import { allCampaigns } from './campaigns.js';
 import { downloadXlsx } from './excel.js';
-import { emailOf, emailLayout, sendJobs } from './mail.js';
+import { emailOf, emailLayout, sendJobs, needsGmail } from './mail.js';
 import { ensureGmailScope, hasGmailScope } from './google.js';
 import { htmlToJpeg, jpegsToPdf } from './pdf.js';
 import { savedInScope, parseSaved, evaluate } from './lists.js';
@@ -262,7 +262,7 @@ export function renderReceipts() {
 // ---------- שיקן אין אימעיל: א שיינער בריוו + די קבלה אלס PDF ----------
 /** די הרשאה פון Gmail מוז מען בעטן גלייך ביים קליק (אנדערש בלאקירט דער בלעטערער דאס פענצטערל). */
 function withGmail(fn) {
-  const p = hasGmailScope() ? Promise.resolve() : ensureGmailScope();
+  const p = !needsGmail() || hasGmailScope() ? Promise.resolve() : ensureGmailScope();
   p.then(fn, (err) => ui.toast(ui.friendlyError(err), 'error'));
 }
 

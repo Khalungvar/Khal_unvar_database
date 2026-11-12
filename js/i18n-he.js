@@ -2198,6 +2198,7 @@ export const HE = {
   "mailTitle": "שליחת אימייל",
   "mailFrom": "מאת",
   "mailFromHint": "(האימיילים יוצאים מהחשבון המחובר כעת)",
+  "mailFromMe": "מהמייל שלי",
   "mailOrg": "בשם",
   "mailTo": "אל",
   "mailGiven": "{n} נבחרו",

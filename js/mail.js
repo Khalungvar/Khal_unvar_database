@@ -3,7 +3,7 @@
 // צו איינעם (פון כרטיס) אדער צו א רשימה. אלעס ווערט פארשריבן אין לשונית EmailLog.
 import { state, orgDetailsOf, orgLogo } from './data.js';
 import { CONFIG } from './config.js';
-import { gmailSend, ensureGmailScope, hasGmailScope, appendRows, readTabs } from './google.js';
+import { gmailSend, ensureGmailScope, hasGmailScope, appendRows, readTabs, currentToken } from './google.js';
 import { t } from './i18n.js';
 import { escapeHtml as h, mailingName, shrinkImage, nowStamp } from './util.js';
 import { umbrellaName } from './scope.js';
@@ -138,18 +138,45 @@ ${foot || h(he)}<br><span dir="rtl">${h(t('mailFootStop'))}</span></td></tr>
 }
 
 // ---------- שיקן ----------
-/** מאיזו כתובת המייל יוצא: מחשבון הדאטאבייס — בשם המוסד (office@ungvar.org); מכל חשבון אחר — מהחשבון עצמו. */
+/**
+ * מאיזו כתובת המייל יוצא.
+ * 2026-11: ברירת מחדל — office@ungvar.org באמת, דרך הסקריפט שרץ בשם office@ (CONFIG.MAILER_URL).
+ * אפשר לבחור "מהמייל שלי" — אז דרך ה-Gmail של מי שמחובר.
+ */
+let mode = 'org'; // 'org' | 'me'
+const orgOn = () => Boolean(CONFIG.MAILER_URL && CONFIG.ORG_EMAIL);
+export function senderMode() { return orgOn() ? mode : 'me'; }
+/** צי מ'דארף די Gmail-הרשאה פונעם אקאונט (נאר ווען מ'שיקט "פון מיין אימעיל") */
+export const needsGmail = () => senderMode() !== 'org';
 export function senderAddress() {
-  // 2026-11: אויך פון admin@ungvar.org (office@ איז זיין כינוי) — בשם המוסד
-  const org = [CONFIG.DATABASE_ACCOUNT, 'admin@ungvar.org', 'office@ungvar.org'].includes(String(state.email).toLowerCase());
-  return org && CONFIG.ORG_EMAIL ? CONFIG.ORG_EMAIL : state.email;
+  if (senderMode() === 'org') return CONFIG.ORG_EMAIL;
+  // בלי הסקריפט: מחשבון המערכת — "שליחה בשם" office@ (כמו קודם)
+  const sys = [CONFIG.DATABASE_ACCOUNT, 'admin@ungvar.org', 'office@ungvar.org'].includes(String(state.email).toLowerCase());
+  return sys && CONFIG.ORG_EMAIL ? CONFIG.ORG_EMAIL : state.email;
 }
+
+async function mailerCall(body, ms = 90000) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), ms);
+  try {
+    const res = await fetch(CONFIG.MAILER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ ...body, token: currentToken() }),
+      signal: ctl.signal,
+    });
+    const r = await res.json();
+    if (r.error) { const e = new Error(r.error); if (r.error === 'not-allowed') e.status = 403; throw e; }
+    return r;
+  } finally { clearTimeout(timer); }
+}
+
 let logCache = null;
 async function sentToday() {
   try {
     if (!logCache) logCache = (await readTabs(['EmailLog'])).EmailLog || [];
     const today = nowStamp().slice(0, 10);
-    return logCache.slice(1).filter((r) => String(r[0]).startsWith(today) && String(r[2]).toLowerCase() === state.email).length;
+    return logCache.slice(1).filter((r) => String(r[0]).startsWith(today) && String(r[2]).toLowerCase() === senderAddress().toLowerCase()).length;
   } catch { return 0; }
 }
 
@@ -160,22 +187,60 @@ async function sentToday() {
 export async function sendJobs(jobs, { onProgress = () => {}, isCancelled = () => false, fromName = '' } = {}) {
   const rows = [];
   let done = 0; let errors = 0;
+  const from = senderAddress();
   const flush = async () => {
     if (!rows.length) return;
     const batch = rows.splice(0);
     try { await appendRows('EmailLog', batch); logCache = null; } catch { /* פארשרייבן איז נישט קריטיש */ }
   };
+  const log = (j, status, error) => rows.push([nowStamp(), state.email, from, j.to, j.contact_id || '', j.kind || '', j.subject, j.org || '', status, error]);
+  if (senderMode() === 'org') {
+    // דורך דעם סקריפט פון office@ — אין גרופעס (ביז 10 אימעילס / ~8MB א מאל)
+    const sizeOf = (j) => JSON.stringify([j.html, j.text, j.inline, j.attachments]).length;
+    const groups = [];
+    let cur = []; let curSize = 0;
+    jobs.forEach((j) => {
+      const n = sizeOf(j);
+      if (cur.length && (cur.length >= 10 || curSize + n > 8e6)) { groups.push(cur); cur = []; curSize = 0; }
+      cur.push(j); curSize += n;
+    });
+    if (cur.length) groups.push(cur);
+    for (const part of groups) {
+      if (isCancelled()) break;
+      let res;
+      try {
+        res = (await mailerCall({ action: 'send', items: part.map((j) => ({ to: j.to, subject: j.subject, html: j.html, text: j.text, replyTo: j.replyTo || '',
+          fromName: j.fromName || fromName, inline: j.inline || [], attachments: j.attachments || [] })) })).results || [];
+      } catch (err) {
+        const msg = String(err.message || err).slice(0, 200);
+        part.forEach((j) => { log(j, 'error', msg); errors += 1; done += 1; });
+        onProgress(done, jobs.length, errors);
+        if (err.status === 403) break;
+        continue;
+      }
+      let stop = false;
+      part.forEach((j, k) => {
+        const r = res[k] || { error: 'no-result' };
+        if (r.ok) log(j, 'sent', ''); else { log(j, 'error', String(r.error)); errors += 1; if (r.error === 'daily-limit') stop = true; }
+        done += 1;
+      });
+      onProgress(done, jobs.length, errors);
+      if (rows.length >= 20) await flush();
+      if (stop) break;
+    }
+    await flush();
+    return { done, errors };
+  }
   for (const j of jobs) {
     if (isCancelled()) break;
     let status = 'sent'; let error = '';
     try {
-      const from = senderAddress();
       await gmailSend(buildMime({ ...j, from, replyTo: j.replyTo || (from !== state.email ? from : ''), fromName }));
     } catch (err) {
       status = 'error'; error = String(err.message || err).slice(0, 200); errors += 1;
-      if (err.status === 429 || /limit|quota/i.test(error)) { rows.push([nowStamp(), state.email, state.email, j.to, j.contact_id || '', j.kind || '', j.subject, j.org || '', status, error]); break; }
+      if (err.status === 429 || /limit|quota/i.test(error)) { log(j, status, error); break; }
     }
-    rows.push([nowStamp(), state.email, state.email, j.to, j.contact_id || '', j.kind || '', j.subject, j.org || '', status, error]);
+    log(j, status, error);
     done += 1;
     onProgress(done, jobs.length, errors);
     if (rows.length >= 20) await flush();
@@ -233,8 +298,10 @@ export function openCompose(opts = {}) {
     <h2>✉ ${h(t('mailTitle'))}</h2>
     <div class="ml-layout">
       <div class="ml-fields">
-        <p class="ml-from">${h(t('mailFrom'))}: <b dir="ltr">${h(senderAddress())}</b>
-          ${state.email !== 'khalungvardatabase@gmail.com' ? `<span class="hint-line">${h(t('mailFromHint'))}</span>` : ''}</p>
+        <p class="ml-from">${h(t('mailFrom'))}: ${orgOn() && CONFIG.ORG_EMAIL !== state.email ? `<select id="ml-from" dir="ltr">
+            <option value="org"${senderMode() === 'org' ? ' selected' : ''}>${h(CONFIG.ORG_EMAIL)}</option>
+            <option value="me"${senderMode() === 'me' ? ' selected' : ''}>${h(state.email)} — ${h(t('mailFromMe'))}</option></select>`
+          : `<b dir="ltr">${h(senderAddress())}</b>`}</p>
         <label>${h(t('mailOrg'))}<select id="ml-org">${allOrgs().map((o) => `<option${o === st.org ? ' selected' : ''}>${h(o)}</option>`).join('')}</select></label>
         <label>${h(t('mailTo'))}<select id="ml-list"><option value="">—</option>${listOptions().map(([k, l]) => `<option value="${h(k)}"${k === st.listKey ? ' selected' : ''}>${h(l)}</option>`).join('')}</select></label>
         <p class="ml-count" id="ml-count"></p>
@@ -286,6 +353,8 @@ export function openCompose(opts = {}) {
   let timer = null;
   form.oninput = () => { clearTimeout(timer); timer = setTimeout(refresh, 200); };
   $('#ml-org', form).onchange = (e) => { st.org = e.target.value; refresh(); };
+  const fromSel = $('#ml-from', form);
+  if (fromSel) fromSel.onchange = (e) => { mode = e.target.value; };
   $('#ml-list', form).onchange = (e) => { st.listKey = e.target.value; refresh(); };
   $('#ml-photos', form).onchange = async (e) => {
     for (const f of e.target.files) {
@@ -325,7 +394,7 @@ export function openCompose(opts = {}) {
   // די הרשאה פון Gmail מוז מען בעטן גלייך פונעם קליק
   const withScope = (fn) => () => {
     if (!ready()) return;
-    const p = hasGmailScope() ? Promise.resolve() : ensureGmailScope();
+    const p = senderMode() === 'org' || hasGmailScope() ? Promise.resolve() : ensureGmailScope();
     p.then(fn, (err) => ui.toast(ui.friendlyError(err), 'error'));
   };
   $('#ml-test', form).onclick = withScope(async () => {

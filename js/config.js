@@ -11,6 +11,8 @@ export const CONFIG = {
   // ארגונים מיט אן אייגענעם אתר (תלמידים, שכר לימוד וכו' זענען דארט, נישט דא)
   MOSAD_SITES: { 'ישיבת בית שערים (ירושלים)': 'yeshiva/' },
   MOSAD_URL: 'https://script.google.com/macros/s/AKfycbwnyowWmOvZjUTmendawcLerx1zYDejYIw-OjL0lRFn6fyOZAtDcS6KzI7ENVEzKbRL3A/exec', // 2026-11-12: admin@ (הישן, בדאטאבייס: AKfycby-iq…TnQv)
+  // 2026-11: שולח המיילים בשם office@ungvar.org (apps-script/mailer-office.gs, רץ בחשבון office@). ריק = דרך ה-Gmail של המחובר.
+  MAILER_URL: '',
   IMAGES_URL: 'https://script.google.com/macros/s/AKfycbyoqByYiyeRrT5v98Fh2Ln_HCeBiSUm9emKOMhwe0e5Zi-O7b9xZvXE7bcxM9jQto_alw/exec', // 2026-11-12: admin@ (הישן, בדאטאבייס: AKfycbzi44y-…nju_Q)
 
   // מזהה הלוגאין (Google Auth Platform → Clients → Khal Ungvar Website)

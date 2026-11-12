@@ -11,7 +11,7 @@ import { evaluate, parseSaved, savedInScope, channel, mailRecipients } from './l
 import { umbrellaName, getScope } from './scope.js';
 import { allCampaigns } from './campaigns.js';
 import { htmlToJpeg, jpegsToPdf } from './pdf.js';
-import { emailOf, emailLayout, sendJobs } from './mail.js';
+import { emailOf, emailLayout, sendJobs, needsGmail } from './mail.js';
 import { ensureGmailScope } from './google.js';
 import { helperOn, storeImage, fetchImages, imageOf, isDrv, listImages } from './images.js';
 import {
@@ -2945,7 +2945,7 @@ async function sendEmails() {
   if (!withMail.length) { ui.toast(t('mxNoEmails'), 'error'); return; }
   if (!nz(D.ltr.subject)) { ui.toast(t('mxSubjectRequired'), 'error'); return; }
   if (!confirm(t('mxSendConfirm', { n: withMail.length, m: without.length }))) return;
-  try { await ensureGmailScope(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); return; }
+  if (needsGmail()) { try { await ensureGmailScope(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); return; } }
   const prog = dialog(`<h3>📧 ${h(t('mxSendEmail'))}</h3><p id="mx-prog">0 / ${withMail.length}</p>`);
   try {
     const jobs = [];
