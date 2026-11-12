@@ -785,6 +785,8 @@ export async function canManageSharing() {
  * פארגלייכט ווער עס האט צוטריט צום שיט מיט די מנהלים + גבאים אין אדמין.
  * { add: [{email,name}], remove: [{id,email}], ok: [{email,name}], owner }
  */
+// חשבונות המערכת (הסקריפטים רצים בשמם) — אף פעם לא להוריד להם את הגישה
+const SYSTEM_ACCOUNTS = new Set(['admin@ungvar.org', 'khalungvardatabase@gmail.com']);
 export async function sharingPlan() {
   const users = allUsers();
   const perms = await sheetPermissions();
@@ -797,7 +799,7 @@ export async function sharingPlan() {
     owner,
     ok: users.filter((u) => has.has(u.email)),
     add: users.filter((u) => !has.has(u.email)),
-    remove: perms.filter((p) => p.type === 'user' && !BOSS.has(p.role) && p.email && !want.has(p.email) && p.email !== state.email),
+    remove: perms.filter((p) => p.type === 'user' && !BOSS.has(p.role) && p.email && !want.has(p.email) && p.email !== state.email && !SYSTEM_ACCOUNTS.has(p.email)),
   };
 }
 
