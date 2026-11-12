@@ -1777,3 +1777,6 @@ function installJobsTrigger() {
   ScriptApp.newTrigger('runJobs').timeBased().everyMinutes(5).create();
   Logger.log('ok — trigger');
 }
+
+/** פונעם עדיטאר: דער סטאטוס פון Toll-Free אימות ביי Telnyx */
+function logTf() { Logger.log(JSON.stringify(tfStatus(), null, 1)); }
