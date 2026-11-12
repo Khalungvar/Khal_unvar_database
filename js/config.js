@@ -10,7 +10,7 @@ export const CONFIG = {
   // דער "שומר" פאר די אתרים פון די מוסדות (Apps Script mosad.gs בחשבון הדאטאבייס). ליידיג = נאך נישט פארבונדן.
   // ארגונים מיט אן אייגענעם אתר (תלמידים, שכר לימוד וכו' זענען דארט, נישט דא)
   MOSAD_SITES: { 'ישיבת בית שערים (ירושלים)': 'yeshiva/' },
-  MOSAD_URL: 'https://script.google.com/macros/s/AKfycby-iqDa2VyvWnGuPU70FYCPlyVgIFRGv3UbOgU8vQBsrjtWHB-UxXqMEJbJHQg_TnQv/exec',
+  MOSAD_URL: 'https://script.google.com/macros/s/AKfycbwnyowWmOvZjUTmendawcLerx1zYDejYIw-OjL0lRFn6fyOZAtDcS6KzI7ENVEzKbRL3A/exec', // 2026-11-12: admin@ (הישן, בדאטאבייס: AKfycby-iq…TnQv)
   IMAGES_URL: 'https://script.google.com/macros/s/AKfycbyoqByYiyeRrT5v98Fh2Ln_HCeBiSUm9emKOMhwe0e5Zi-O7b9xZvXE7bcxM9jQto_alw/exec', // 2026-11-12: admin@ (הישן, בדאטאבייס: AKfycbzi44y-…nju_Q)
 
   // מזהה הלוגאין (Google Auth Platform → Clients → Khal Ungvar Website)

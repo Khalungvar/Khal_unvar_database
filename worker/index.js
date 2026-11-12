@@ -11,7 +11,7 @@
  */
 const enc = new TextEncoder();
 // דער שומר פון די מוסדות (Mosdos Ungvar Guard) — די זעלבע /exec אדרעס ווי MOSAD_URL אין js/config.js (נישט סודי)
-const MOSAD_URL = 'https://script.google.com/macros/s/AKfycby-iqDa2VyvWnGuPU70FYCPlyVgIFRGv3UbOgU8vQBsrjtWHB-UxXqMEJbJHQg_TnQv/exec';
+const MOSAD_URL = 'https://script.google.com/macros/s/AKfycbwnyowWmOvZjUTmendawcLerx1zYDejYIw-OjL0lRFn6fyOZAtDcS6KzI7ENVEzKbRL3A/exec';
 const xml = (s) => new Response(s, { headers: { 'Content-Type': 'application/xml; charset=utf-8' } });
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json' } });
 const b64bytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
