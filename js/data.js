@@ -129,6 +129,13 @@ export async function loadAll({ full = false } = {}) {
   if (has('Donations')) {
     const donations = rowsToObjects(tabs.Donations);
     state.headers.Donations = donations.header;
+    // 2026-11: א טאג וואס איז אריין אלס נומער (Sheets serial, למשל 46320) → 'YYYY-MM-DD'
+    donations.objects.forEach((d) => {
+      const v = d.date;
+      if (v !== '' && v != null && /^\d{5}(\.\d+)?$/.test(String(v).trim())) {
+        d.date = new Date(Date.UTC(1899, 11, 30) + Math.round(Number(v)) * 86400000).toISOString().slice(0, 10);
+      }
+    });
     state.donations = donations.objects;
   }
 

@@ -13,7 +13,11 @@ const fmt = new Intl.DateTimeFormat('en-u-ca-hebrew', { day: 'numeric', month: '
 
 /** תאריך לועזי (Date או 'YYYY-MM-DD') → { d, m, y }. m = שם החודש באנגלית (מפתח). */
 export function toHebrew(date) {
-  const dt = typeof date === 'string' ? isoToUtc(date) : date;
+  // 2026-11: א טאג קען קומען אויך אלס נומער (Sheets serial) אדער עפעס אנדערש — נישט פאלן
+  let dt = null;
+  if (date instanceof Date) dt = date;
+  else if (typeof date === 'number' && Number.isFinite(date)) dt = new Date(Date.UTC(1899, 11, 30) + Math.round(date) * 86400000);
+  else if (date != null) dt = isoToUtc(String(date));
   if (!dt || Number.isNaN(dt.getTime())) return null;
   const parts = Object.fromEntries(fmt.formatToParts(dt).map((p) => [p.type, p.value]));
   return { d: Number(parts.day), m: parts.month, y: Number(parts.year) };

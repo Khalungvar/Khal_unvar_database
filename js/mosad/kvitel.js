@@ -22,7 +22,7 @@ const line = (p, mother) => `${p.first_name_he || ''}${mother ? ` בן ${mother}
 
 /** ⬆ ייבוא מ-Word: "שם בן שם-האם (משפחה)" + כותרות הקבוצות */
 async function readDocx(file) {
-  const { _test } = await import('./shabbos.js?v=675');
+  const { _test } = await import('./shabbos.js?v=676');
   const files = Object.fromEntries(await _test.unzip(await file.arrayBuffer()));
   const xml = new DOMParser().parseFromString(new TextDecoder().decode(files['word/document.xml']), 'application/xml');
   return [...xml.getElementsByTagName('w:p')].map((p) => [...p.getElementsByTagName('w:t')].map((t) => t.textContent).join('').trim()).filter(Boolean);
