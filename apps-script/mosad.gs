@@ -24,7 +24,7 @@ const C_FIELDS = ['title_he', 'first_name_he', 'last_name_he', 'title_en', 'firs
 const P_FIELDS = ['mobile', 'home_phone', 'email_1'];
 const TABS = {
   Staff: ['email', 'name', 'role', 'perms', 'active', 'added_by', 'added_at', 'updated_by', 'updated_at'],
-  People: ['contact_id', 'kind', 'status', 'added_by', 'added_at', 'removed_by', 'removed_at', 'note', 'il_phone', 'abroad_phone', 'mother_name', 'kv_group'],
+  People: ['contact_id', 'kind', 'status', 'added_by', 'added_at', 'removed_by', 'removed_at', 'note', 'il_phone', 'abroad_phone', 'mother_name', 'kv_group', 'kv_title'],
   Log: ['at', 'by', 'action', 'contact_id', 'detail', 'entity', 'entity_id', 'changes'],
   Enrollments: ['enroll_id', 'contact_id', 'parent_id', 'status', 'start_date', 'end_date', 'zman', 'shiur', 'room', 'tuition_amount', 'tuition_period', 'month_amounts', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
   Tuition: ['payment_id', 'enroll_id', 'contact_id', 'payer_id', 'date', 'amount', 'method', 'check_number', 'card_last4', 'for_text', 'receipt_no', 'note', 'created_at', 'created_by', 'updated_at', 'updated_by'],
@@ -515,7 +515,7 @@ function linkedData(M) {
   const en = objs(M.book.getSheetByName('Enrollments')).filter(function (e) { return ids[S(e.contact_id)]; })
     .map(function (e) { return { contact_id: S(e.contact_id), status: S(e.status), start: S(e.start_date).slice(0, 10), end: S(e.end_date).slice(0, 10), shiur: S(e.shiur), room: S(e.room) }; });
   return {
-    people: contacts.map(function (c) { const v = contactView(c, phones[S(c.contact_id)]); v.kind = S(ids[S(c.contact_id)].kind); v.il_phone = S(ids[S(c.contact_id)].il_phone); v.abroad_phone = S(ids[S(c.contact_id)].abroad_phone); v.mother_name = S(ids[S(c.contact_id)].mother_name); v.kv_group = S(ids[S(c.contact_id)].kv_group); return v; }),
+    people: contacts.map(function (c) { const v = contactView(c, phones[S(c.contact_id)]); v.kind = S(ids[S(c.contact_id)].kind); v.il_phone = S(ids[S(c.contact_id)].il_phone); v.abroad_phone = S(ids[S(c.contact_id)].abroad_phone); v.mother_name = S(ids[S(c.contact_id)].mother_name); v.kv_group = S(ids[S(c.contact_id)].kv_group); v.kv_title = S(ids[S(c.contact_id)].kv_title); return v; }),
     relations: rel, enrollments: en,
   };
 }
@@ -835,6 +835,8 @@ const ACTIONS = {
       const o = {};
       if (r.mother_name !== undefined && S(r.mother_name) !== S(p.mother_name)) o.mother_name = S(r.mother_name).slice(0, 80);
       if (r.kv_group !== undefined && ['', 'rabbi', 'staff', 'student', 'none'].indexOf(S(r.kv_group)) >= 0 && S(r.kv_group) !== S(p.kv_group)) o.kv_group = S(r.kv_group);
+      // תואר לקוויטל — רק בקוויטל (לא נוגע בכרטיס). '-' = בלי תואר
+      if (r.kv_title !== undefined && S(r.kv_title).slice(0, 30) !== S(p.kv_title)) o.kv_title = S(r.kv_title).slice(0, 30);
       if (Object.keys(o).length) { setCells(sh, p._row, o); n++; }
     });
     logIt(M, me, 'kvitel', '', n + ' rows');

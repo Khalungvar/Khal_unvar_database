@@ -22,7 +22,7 @@ const line = (p, mother) => `${p.first_name_he || ''}${mother ? ` בן ${mother}
 
 /** ⬆ ייבוא מ-Word: "שם בן שם-האם (משפחה)" + כותרות הקבוצות */
 async function readDocx(file) {
-  const { _test } = await import('./shabbos.js?v=679');
+  const { _test } = await import('./shabbos.js?v=680');
   const files = Object.fromEntries(await _test.unzip(await file.arrayBuffer()));
   const xml = new DOMParser().parseFromString(new TextDecoder().decode(files['word/document.xml']), 'application/xml');
   return [...xml.getElementsByTagName('w:p')].map((p) => [...p.getElementsByTagName('w:t')].map((t) => t.textContent).join('').trim()).filter(Boolean);
@@ -39,26 +39,64 @@ function parseLines(lines) {
   return out;
 }
 
+/** ⬇ Word (.docx) — אותו עיצוב כמו ההדפסה: A4, שוליים 14 מ"מ, בס"ד, כותרת, תאריך עברי, קבוצות; קבוצה ארוכה (מעל 14) — בשני טורים */
+async function kvitelDocx(X, by) {
+  const { zip } = await import('../luach/tfdocx.js?v=680');
+  const E = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const F = 'Frank Ruhl Libre';
+  const run = (t, sz, b) => `<w:r><w:rPr><w:rFonts w:ascii="${F}" w:hAnsi="${F}" w:cs="${F}"/>${b ? '<w:b/><w:bCs/>' : ''}<w:rtl/><w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${E(t)}</w:t></w:r>`;
+  const para = (t, { sz = 22, b = false, jc = 'right', after = 0, before = 0, border = false } = {}) => `<w:p><w:pPr><w:bidi/>${border ? '<w:pBdr><w:bottom w:val="single" w:sz="12" w:space="1" w:color="333333"/></w:pBdr>' : ''}<w:spacing w:before="${before}" w:after="${after}" w:line="${Math.round(sz * 12 * 1.1)}" w:lineRule="auto"/><w:jc w:val="${jc}"/></w:pPr>${t ? run(t, sz, b) : ''}</w:p>`;
+  const cell = (items) => `<w:tc><w:tcPr><w:tcW w:w="4800" w:type="dxa"/></w:tcPr>${items.map((t) => para(t)).join('') || para('')}</w:tc>`;
+  let body = para('בס"ד', { sz: 18 }) + para(X.st.mosad?.name || '', { sz: 33, b: true, jc: 'center' }) + para(isoToHebrewText(todayIso()), { sz: 18, jc: 'center', after: 200 });
+  GROUPS.filter(([k]) => by[k].length).forEach(([k, t]) => {
+    body += para(t, { sz: 26, b: true, before: 280, after: 80, border: true });
+    const xs = by[k];
+    if (xs.length > 14) {
+      const half = Math.ceil(xs.length / 2);
+      body += `<w:tbl><w:tblPr><w:bidiVisual/><w:tblW w:w="9600" w:type="dxa"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid><w:gridCol w:w="4800"/><w:gridCol w:w="4800"/></w:tblGrid><w:tr>${cell(xs.slice(0, half))}${cell(xs.slice(half))}</w:tr></w:tbl>`;
+    } else body += xs.map((x) => para(x)).join('');
+  });
+  const doc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="794" w:right="794" w:bottom="794" w:left="794" w:header="0" w:footer="0" w:gutter="0"/><w:bidi/></w:sectPr></w:body></w:document>`;
+  const blob = zip([
+    ['[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>'],
+    ['_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'],
+    ['word/document.xml', doc],
+  ]);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `קוויטל ${isoToHebrewText(todayIso())}.docx`;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+
 export function kvitelDialog(X, active) {
   const { h } = X;
   const list = people(X, active);
-  const edits = {}; // id → { mother_name, kv_group }
-  const val = (x, k) => (edits[x.p.contact_id]?.[k] ?? (k === 'kv_group' ? x.p.kv_group || x.g : x.p.mother_name || ''));
+  const edits = {}; // id → { mother_name, kv_group, kv_title }
+  // תואר לקוויטל: ברירת מחדל לפי הקבוצה (רבנים/צוות "ר'", תלמידים בלי). שינוי — רק בקוויטל, לא בכרטיס. "-" = בלי תואר
+  const defTitle = (g) => (g === 'student' ? '' : "ר'");
+  const val = (x, k) => {
+    const e = edits[x.p.contact_id]?.[k];
+    if (e !== undefined) return e;
+    if (k === 'kv_group') return x.p.kv_group || x.g;
+    if (k === 'kv_title') return x.p.kv_title || '';
+    return x.p.mother_name || '';
+  };
+  const titleOf = (x) => { const t = val(x, 'kv_title'); return t === '-' ? '' : (t || defTitle(val(x, 'kv_group'))); };
+  const full = (x) => `${titleOf(x) ? `${titleOf(x)} ` : ''}${line(x.p, val(x, 'mother_name'))}`;
   const d = X.dialog(`<h2>📜 קוויטל</h2>
-    <p class="muted small">לכל אחד: שם האם והקבוצה. בהדפסה: "שם בן שם-האם (משפחה)" לפי הקבוצות — רבני הישיבה, צוות הישיבה, תלמידי הישיבה. התלמידים הפעילים ואנשי הצוות נכנסים לבד; "לא בקוויטל" — מוציא.</p>
+    <p class="muted small">לכל אחד: שם האם, הקבוצה ו<b>תואר לקוויטל</b> (ריק = לפי הקבוצה: "ר'" לרבנים ולצוות, בלי לתלמידים; "-" = בלי תואר — משנה רק את הקוויטל, לא את הכרטיס). בהדפסה: "שם בן שם-האם (משפחה)" לפי הקבוצות — רבני הישיבה, צוות הישיבה, תלמידי הישיבה. התלמידים הפעילים ואנשי הצוות נכנסים לבד; "לא בקוויטל" — מוציא.</p>
     <div class="ms-bar"><input type="search" id="kv-q" placeholder="חיפוש…"><label class="check small"><input type="checkbox" id="kv-miss"> רק בלי שם האם</label><span class="spacer"></span>
-      <button type="button" class="btn" id="kv-imp">⬆ ייבוא מ-Word</button><button type="button" class="btn" id="kv-print">🖨 הדפסה (A4)</button><button type="button" class="btn primary" id="kv-save">💾 שמירה</button></div>
+      <button type="button" class="btn" id="kv-imp">⬆ ייבוא מ-Word</button><button type="button" class="btn" id="kv-print">🖨 הדפסה (A4)</button><button type="button" class="btn" id="kv-docx">⬇ הורדה (Word)</button><button type="button" class="btn primary" id="kv-save">💾 שמירה</button></div>
     <p class="small" id="kv-msg"></p>
-    <div class="ms-wrap" style="max-height:60vh"><table class="ms-table"><thead><tr><th>#</th><th>שם</th><th>שם האם</th><th>קבוצה</th><th>בקוויטל</th></tr></thead><tbody id="kv-rows"></tbody></table></div>
+    <div class="ms-wrap" style="max-height:60vh"><table class="ms-table"><thead><tr><th>#</th><th>שם</th><th>תואר לקוויטל</th><th>שם האם</th><th>קבוצה</th><th>בקוויטל</th></tr></thead><tbody id="kv-rows"></tbody></table></div>
     <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>סגירה</button></div>`, 'ms-wide');
   const draw = () => {
     const q = norm(X.$('#kv-q', d).value); const miss = X.$('#kv-miss', d).checked;
     const rows = list.filter((x) => (!q || norm(`${x.p.first_name_he} ${x.p.last_name_he}`).includes(q)) && (!miss || !val(x, 'mother_name')));
     X.$('#kv-rows', d).innerHTML = rows.map((x, i) => `<tr data-id="${h(x.p.contact_id)}"><td class="num">${i + 1}</td><td>${h(X.nameOf(x.p))}</td>
+      <td><input data-f="kv_title" value="${h(val(x, 'kv_title'))}" placeholder="${h(defTitle(val(x, 'kv_group')) || '—')}" style="width:80px"></td>
       <td><input data-f="mother_name" value="${h(val(x, 'mother_name'))}" placeholder="שם האם"></td>
       <td><select data-f="kv_group">${[...GROUPS, ['none', 'לא בקוויטל']].map(([k, t]) => `<option value="${k}"${val(x, 'kv_group') === k ? ' selected' : ''}>${h(t)}</option>`).join('')}</select></td>
-      <td class="small">${h(line(x.p, val(x, 'mother_name')))}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">אין.</td></tr>';
-    X.$$('[data-f]', d).forEach((el) => { el.oninput = el.onchange = () => { const id = el.closest('tr').dataset.id; (edits[id] ||= {})[el.dataset.f] = el.value.trim(); const x = list.find((y) => String(y.p.contact_id) === id); el.closest('tr').lastElementChild.textContent = line(x.p, val(x, 'mother_name')); }; });
+      <td class="small">${h(full(x))}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">אין.</td></tr>';
+    X.$$('[data-f]', d).forEach((el) => { el.oninput = el.onchange = () => { const id = el.closest('tr').dataset.id; (edits[id] ||= {})[el.dataset.f] = el.value.trim(); const x = list.find((y) => String(y.p.contact_id) === id); el.closest('tr').lastElementChild.textContent = full(x); }; });
   };
   draw();
   X.$('#kv-q', d).oninput = draw; X.$('#kv-miss', d).onchange = draw;
@@ -67,7 +105,7 @@ export function kvitelDialog(X, active) {
     if (!rows.length) { if (!quiet) X.toast('אין שינויים.'); return true; }
     try {
       await X.call(X.KEY, 'kvitelSave', { rows });
-      rows.forEach((r) => { const p = X.pById(r.contact_id); if (p) { if (r.mother_name !== undefined) p.mother_name = r.mother_name; if (r.kv_group !== undefined) p.kv_group = r.kv_group; } });
+      rows.forEach((r) => { const p = X.pById(r.contact_id); if (p) { if (r.mother_name !== undefined) p.mother_name = r.mother_name; if (r.kv_group !== undefined) p.kv_group = r.kv_group; if (r.kv_title !== undefined) p.kv_title = r.kv_title; } });
       Object.keys(edits).forEach((k) => delete edits[k]);
       if (!quiet) X.toast(`נשמר (${rows.length}).`); return true;
     } catch (err) { X.toast(X.msg(err), 'err'); return false; }
@@ -92,10 +130,14 @@ export function kvitelDialog(X, active) {
     };
     inp.click();
   };
+  const grouped = () => { const by = Object.fromEntries(GROUPS.map(([k]) => [k, []])); list.forEach((x) => { const g = val(x, 'kv_group'); if (by[g]) by[g].push(full(x)); }); return by; };
+  X.$('#kv-docx', d).onclick = async () => {
+    if (!(await save(true))) return;
+    try { await kvitelDocx(X, grouped()); } catch (err) { X.toast(X.msg(err), 'err'); }
+  };
   X.$('#kv-print', d).onclick = async () => {
     if (!(await save(true))) return;
-    const by = Object.fromEntries(GROUPS.map(([k]) => [k, []]));
-    list.forEach((x) => { const g = val(x, 'kv_group'); if (by[g]) by[g].push(`${g === 'student' ? '' : "ר' "}${line(x.p, val(x, 'mother_name'))}`); });
+    const by = grouped();
     const w = window.open('', '_blank'); if (!w) { X.toast('הדפדפן חסם חלון חדש.', 'err'); return; }
     w.document.write(`<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>קוויטל — ${h(X.st.mosad?.name || '')}</title>
       <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700&display=swap" rel="stylesheet">

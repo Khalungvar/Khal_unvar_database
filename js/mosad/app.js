@@ -1,18 +1,18 @@
 // דער אתר פון א מוסד: לאגאין, אן ערשטער בלאט מיט כפתורים (יעדער כפתור = א הרשאה), די מענטשן פונעם מוסד,
 // תלמידים / בוגרים / הורים / שכר לימוד (school.js), און צוות + הרשאות.
-import { letterhead, hebrewDateHints } from './brand.js?v=679';
-import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch, gmailSend, myEmail } from './api.js?v=679';
-import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=679';
-import { initGifts, renderGifts } from './gifts.js?v=679';
-import { initTheme } from './theme.js?v=679';
-import { initAsk } from './ask.js?v=679';
-import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab, renderStipPage } from './journal.js?v=679';
-import { initDorm, renderDorm } from './dorm.js?v=679';
-import { initReg, renderReg } from './reg.js?v=679';
+import { letterhead, hebrewDateHints } from './brand.js?v=680';
+import { initAuth, signIn, signOut, call, configured, hasSession, rememberHint, brand, prefetch, clearPrefetch, gmailSend, myEmail } from './api.js?v=680';
+import { initSchool, loadSchool, renderStudents, renderParents, renderTuition, personSchool, currentZman } from './school.js?v=680';
+import { initGifts, renderGifts } from './gifts.js?v=680';
+import { initTheme } from './theme.js?v=680';
+import { initAsk } from './ask.js?v=680';
+import { initJournal, renderChav, renderAtt, renderIns, printPhones, settingsHtml, wireSettings, printWin, printList, setAttTab, renderStipPage } from './journal.js?v=680';
+import { initDorm, renderDorm } from './dorm.js?v=680';
+import { initReg, renderReg } from './reg.js?v=680';
 import { initSortTables } from '../sorttables.js?v=653';
-import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups, renderTasks } from './me.js?v=679';
-import { initTeam, renderTeam } from './team.js?v=679';
-import { initFinance, renderFinance, payDialog } from './finance.js?v=679';
+import { initMe, renderMe, renderLog, historyDialog, backupsHtml, wireBackups, renderTasks } from './me.js?v=680';
+import { initTeam, renderTeam } from './team.js?v=680';
+import { initFinance, renderFinance, payDialog } from './finance.js?v=680';
 
 const KEY = document.body.dataset.mosad || '';
 const TITLE = document.body.dataset.title || '';
@@ -251,19 +251,19 @@ function render(fromPop) {
   else if (st.tab === 'chavrusas') renderChav(box);
   else if (st.tab === 'attendance') renderAtt(box);
   else if (st.tab === 'stipends') renderStipPage(box);
-  else if (st.tab === 'kitchen') import('./kitchen.js?v=679').then((m) => { m.initKitchen(ctx); m.renderKitchen(box); });
-  else if (st.tab === 'shabbos') import('./shabbos.js?v=679').then((m) => { m.initShabbos(ctx); m.renderShabbos(box); });
+  else if (st.tab === 'kitchen') import('./kitchen.js?v=680').then((m) => { m.initKitchen(ctx); m.renderKitchen(box); });
+  else if (st.tab === 'shabbos') import('./shabbos.js?v=680').then((m) => { m.initShabbos(ctx); m.renderShabbos(box); });
   else if (st.tab === 'tasks') renderTasks(box);
-  else if (st.tab === 'budget') import('./budget.js?v=679').then((m) => { m.initBudget(ctx); m.renderBudget(box); });
-  else if (st.tab === 'dorm_att') import('./dormatt.js?v=679').then((m) => { m.initDormAtt(ctx); m.renderDormAtt(box); });
-  else if (st.tab === 'simchos') import('./simcha.js?v=679').then((m) => { m.initSimcha(ctx); m.renderSimcha(box); });
+  else if (st.tab === 'budget') import('./budget.js?v=680').then((m) => { m.initBudget(ctx); m.renderBudget(box); });
+  else if (st.tab === 'dorm_att') import('./dormatt.js?v=680').then((m) => { m.initDormAtt(ctx); m.renderDormAtt(box); });
+  else if (st.tab === 'simchos') import('./simcha.js?v=680').then((m) => { m.initSimcha(ctx); m.renderSimcha(box); });
   else if (st.tab === 'insurance') renderIns(box);
   else if (st.tab === 'staff_list') renderTeam(box);
   else if (st.tab === 'finance') renderFinance(box);
   else if (st.tab === 'dorm') renderDorm(box);
   else if (st.tab === 'reg') renderReg(box);
-  else if (st.tab === 'kollelim') import('./kollelim.js?v=679').then((m) => { m.initKollelim(ctx); m.renderKollelim(box); });
-  else if (st.tab === 'kollel_reg') import('./kollel.js?v=679').then((m) => { m.initKollel(ctx); m.renderKollelReg(box); });
+  else if (st.tab === 'kollelim') import('./kollelim.js?v=680').then((m) => { m.initKollelim(ctx); m.renderKollelim(box); });
+  else if (st.tab === 'kollel_reg') import('./kollel.js?v=680').then((m) => { m.initKollel(ctx); m.renderKollelReg(box); });
   else if (st.tab === 'me') renderMe(box);
   else if (st.tab === 'log') renderLog(box);
   else renderSoon(box, view);
