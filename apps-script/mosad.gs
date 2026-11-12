@@ -2128,8 +2128,10 @@ function clockState(M, t) {
   return { date: d, time_in: ex ? hhmm(ex.time_in) : '', time_out: ex ? hhmm(ex.time_out) : '' };
 }
 /** א טעקע אין דרייב: ['א', 'ב', 'ג'] — מאכט וואס פעלט */
+const MOSDOS_ROOT_ID = '1msbYJblnl8JW_54kkxf7J3L6r1L-9jyr'; // 2026-11: "מוסדות אונגוואר" אין ארון "מערכת" (Shared Drive)
 function folderPath(parts) {
   let f = DriveApp.getRootFolder();
+  if (parts[0] === 'מוסדות אונגוואר') { try { f = DriveApp.getFolderById(MOSDOS_ROOT_ID); parts = parts.slice(1); } catch (e) { /* */ } }
   parts.forEach(function (p) { const it = f.getFoldersByName(p); f = it.hasNext() ? it.next() : f.createFolder(p); });
   return f;
 }
