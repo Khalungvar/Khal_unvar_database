@@ -450,7 +450,8 @@ function fromLog(no) {
   // א חשבון מיט נאר האנט-געשריבענע שורות (אן נדבות) — אויך צו דרוקן / שיקן
   const manualOnly = r.kind === 'invoice' && (metaOfReceipt(r).manual || []).length;
   if (!list.length && !manualOnly) { ui.toast(t('rcGone'), 'error'); return null; }
-  return { kind: r.kind, org: r.org, contact_id: r.contact_id, donor_name: r.donor_name, ids, amount: Number(r.amount), period: r.period, list, receipt_no: r.receipt_no, issued_at: r.issued_at, reprint: true, meta: metaOfReceipt(r) };
+  const meta = metaOfReceipt(r);
+  return { kind: r.kind, org: r.org, contact_id: r.contact_id, donor_name: r.donor_name, ids, amount: Number(r.amount), period: r.period, list, receipt_no: r.receipt_no, issued_at: r.issued_at, reprint: true, meta, ...(meta.forText ? { forText: meta.forText } : {}) };
 }
 
 /** א קבלה וואס איז שוין ארויס → דער פולער פענצטער (בריוו / אדרעס / אונטערשריפט; ♻ בטל'ן און מאכן נאכאמאל) */
@@ -775,10 +776,11 @@ async function prepareDocs(docs, forText = '') {
   const out = docs.map((d) => (d.issued && d.kind !== 'invoice' ? fromLog(d.issued.receipt_no) : null));
   const todo = docs.filter((d, i) => !out[i]);
   const day = f?.issued && f.kind !== 'invoice' ? f.issued : '';
-  const issued = todo.length ? await issueDocs(todo.map((d) => issueOf(day ? { ...d, meta: { ...(d.meta || defaultMeta(d)), issued_date: day } } : d))) : [];
+  const withMeta = (d) => { const m = { ...(d.meta || defaultMeta(d)) }; if (day) m.issued_date = day; if (forText && (d.list || []).length === 1) m.forText = forText; return day || forText ? { ...d, meta: m } : d; };
+  const issued = todo.length ? await issueDocs(todo.map((d) => issueOf(withMeta(d)))) : [];
   let k = 0;
   return docs.map((d, i) => {
-    if (out[i]) return { ...out[i], forText };
+    if (out[i]) return { ...out[i], ...(forText ? { forText } : {}) };
     const x = issued[k++];
     return { ...d, receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint, meta: x.meta, forText };
   }).filter(Boolean);
@@ -1035,7 +1037,7 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
     const amount = F.type === 'sale' && F.tax ? base + Math.round(base * F.taxRate) / 100 : base;
     return {
       ...c0, list: F.list, ids: F.list.map((d) => String(d.donation_id)), amount, forText: F.list.length === 1 ? forText : '',
-      meta: { type: F.type, tax: F.type === 'sale' && F.tax, taxRate: F.taxRate, sig: F.sig, lines: F.lines, ...(F.addr ? { addr: F.addr } : {}), ...(F.issued && F.issued !== todayIso() ? { issued_date: F.issued } : {}) },
+      meta: { type: F.type, tax: F.type === 'sale' && F.tax, taxRate: F.taxRate, sig: F.sig, lines: F.lines, ...(F.addr ? { addr: F.addr } : {}), ...(F.issued && F.issued !== todayIso() ? { issued_date: F.issued } : {}), ...(F.list.length === 1 && forText ? { forText } : {}) },
     };
   };
   const sigSel = (m) => (F.sig.mode === m ? ' selected' : '');

@@ -1342,6 +1342,25 @@ function wireWordGlobal() {
     }
   });
 }
+/** די פעלדער אין דער אויסגעקליבענער שטעל: אריינוויקלען אין <b>/<i>/<u> (אדער ארויס) */
+function styleChips(body, cmd, on) {
+  const s = window.getSelection();
+  if (!s.rangeCount) return;
+  const r = s.getRangeAt(0);
+  const tag = { bold: 'b', italic: 'i', underline: 'u' }[cmd];
+  const sel = { b: 'b,strong', i: 'i,em', u: 'u' }[tag];
+  const chips = $$('.mx-tok', body).filter((ch) => r.intersectsNode(ch));
+  chips.forEach((ch) => {
+    const w = ch.parentElement?.closest(sel);
+    const has = Boolean(w && body.contains(w));
+    if (on && !has) { const x = document.createElement(tag); ch.replaceWith(x); x.append(ch); }
+    else if (!on && has) {
+      if (w.childNodes.length === 1) w.replaceWith(ch);
+      else { const x = document.createElement('span'); x.style[cmd === 'bold' ? 'fontWeight' : cmd === 'italic' ? 'fontStyle' : 'textDecoration'] = cmd === 'underline' ? 'none' : 'normal'; ch.replaceWith(x); x.append(ch); }
+    }
+  });
+  if (chips.length === 1 && r.collapsed === false) { const nr = document.createRange(); nr.selectNode(chips[0].parentElement?.matches(sel) ? chips[0].parentElement : chips[0]); s.removeAllRanges(); s.addRange(nr); }
+}
 function restoreSel(body) {
   body.focus();
   if (wrRange && body.contains(wrRange.startContainer)) {
@@ -1401,6 +1420,14 @@ function wireWord(main) {
   body.addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
     if ((e.ctrlKey || e.metaKey) && k === 'enter') { e.preventDefault(); insertPageBreak(body); }
+    else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && ['b', 'i', 'u'].includes(k)) {
+      // Ctrl+B/I/U — אויך אויף פעלדער «...»
+      const cmd = { b: 'bold', i: 'italic', u: 'underline' }[k];
+      e.preventDefault();
+      let want = true; try { want = !document.queryCommandState(cmd); } catch { /* */ }
+      document.execCommand(cmd, false, null);
+      styleChips(body, cmd, want); save(); syncRibbon();
+    }
     else if ((k === 'backspace' || k === 'delete') && removeBreakAt(body, k === 'backspace')) { e.preventDefault(); save(); }
     else if ((k === 'backspace' || k === 'delete') && selImg && body.contains(selImg)) { e.preventDefault(); selImg.remove(); selImg = null; save(); syncRibbon(); }
     else if (k === 'tab' && !e.ctrlKey && !e.altKey) {
@@ -1414,6 +1441,18 @@ function wireWord(main) {
         if (nx) { const r = document.createRange(); r.selectNodeContents(nx); r.collapse(true); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
       } else document.execCommand('insertText', false, '    ');
     }
+  });
+  // א פעלד «...»: קליקן = אויסקלייבן (כדי מ'זאל אים קענען מאכן בולד / גרעסער / א קאליר)
+  body.addEventListener('mousedown', (e) => {
+    const tok = e.target.closest?.('.mx-tok');
+    if (!tok || !body.contains(tok) || e.shiftKey) return;
+    e.preventDefault();
+    body.focus();
+    const r = document.createRange();
+    r.selectNode(tok);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    wrRange = r.cloneRange();
+    syncRibbon();
   });
   // א בילד: קליקן = אויסקלייבן (די לשונית "תמונה")
   body.addEventListener('mousedown', (e) => {
@@ -2220,9 +2259,13 @@ function wireRibbon(main) {
   const exec = (cmd, val = null, css = false) => {
     if (!body) return;
     restoreSel(body);
+    // בולד / שיף / אונטערגעשטראכן אויף פעלדער «...» (דער בלעטערער רירט נישט אן קעסטלעך וואס מ'קען נישט טוישן)
+    let want = null;
+    if (['bold', 'italic', 'underline'].includes(cmd)) { try { want = !document.queryCommandState(cmd); } catch { want = true; } }
     document.execCommand('styleWithCSS', false, css);
     document.execCommand(cmd, false, val);
     document.execCommand('styleWithCSS', false, false);
+    if (want !== null) styleChips(body, cmd, want);
     body._save?.();
     syncRibbon();
   };
