@@ -17,7 +17,7 @@ import { helperOn, storeImage, fetchImages, imageOf, isDrv, listImages } from '.
 import {
   ENVELOPES, FONTS_EN, FONTS_HE, allSheets, sheetOf, setCustomSheets, envSize, pageSize, envHtml, labelPages, letterHtml,
   labelsPerSheet, letterPages, expandRepeats, gregHe, longDateEn, letterGeo, sigHtml, bodyStyle, PGBRK, isPgBrk, TOKEN_RE, PAGE_SIZES, letterDims, resolveImgs,
-  DON_TOKENS, DON_TOKENS_EN, TOTAL_TOKENS, TOTAL_TOKENS_EN, valuesFor, fillText, fillHtml, cleanHtml, donationCtx, hasAddr, partAddr, addrKey, isDeceased,
+  DON_TOKENS, DON_TOKENS_EN, TOTAL_TOKENS, TOTAL_TOKENS_EN, unChipStyle, valuesFor, fillText, fillHtml, cleanHtml, donationCtx, hasAddr, partAddr, addrKey, isDeceased,
 } from './mm-render.js';
 
 let ui = null;
@@ -26,8 +26,8 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 const KINDS = [['env', '✉', 'mxEnvelopes'], ['lbl', '🏷', 'mxLabels'], ['ltr', '📄', 'mxLetters']];
 const SHEETS_NAME = '__label_sheets__';
-const TOKENS_HE = ['פנייה', 'תואר', 'שם_מלא', 'שם', 'שם_פרטי', 'משפחה', 'אשה', 'תאריך', 'תאריך_לועזי', 'סכום', 'שולם', 'נשאר', 'תאריך_נדבה', 'הקדשה', 'קאמפיין'];
-const TOKENS_EN = ['Name', 'First', 'Last', 'Wife', 'Address', 'City', 'Country', 'Date', 'DonationDate'];
+const TOKENS_HE = ['פנייה', 'תואר', 'שם_מלא', 'שם', 'שם_פרטי', 'משפחה', 'אשה', 'תאריך', 'תאריך_לועזי', 'סכום', 'שולם', 'נשאר', 'תאריך_נדבה', 'הקדשה', 'קאמפיין', 'עבור/FOR'];
+const TOKENS_EN = ['Name', 'First', 'Legal/First', 'Last', 'Wife', 'Address', 'City', 'Country', 'Date', 'DonationDate'];
 const SEV = { red: 3, yellow: 2, info: 1 };
 
 let view = 'home';
@@ -830,8 +830,14 @@ const ICON = {
 
 /** {שדה} → «שדה» (א קעסטל וואס מען קען נישט טוישן, נאר אויסמעקן) */
 const chipOf = (k) => `<span class="mx-tok" contenteditable="false" data-tok="${h(k)}">«${h(k)}»</span>`;
+/** «שדה» וואס איז אריינגעקומען אלס טעקסט (קאפירט פון א פארשוי / Word) → {שדה}, נאר פאר באקאנטע פעלדער */
+const KNOWN_TOKENS = () => new Set([...TOKENS_HE, ...TOKENS_EN, ...DON_TOKENS, ...DON_TOKENS_EN, ...TOTAL_TOKENS, ...TOTAL_TOKENS_EN]);
+function guillemetsToTokens(html) {
+  const known = KNOWN_TOKENS();
+  return unChipStyle(html).replace(/«([^«»\s<>]{1,24})»/g, (m, k) => (known.has(k) ? `{${k}}` : m));
+}
 function tokensToChips(html) {
-  const src = String(html || '');
+  const src = guillemetsToTokens(html);
   if (!/\{[^{}\s]{1,24}\}/.test(src)) return src;
   // נאר אינעם טעקסט (נישט אין an attribute ווי href="...{x}")
   const tpl = document.createElement('template');

@@ -716,6 +716,8 @@ function letterCtx(c) {
   return {
     list: c.list, total: Number(c.amount) || 0, paid: c.kind === 'invoice' ? 0 : Number(c.amount) || 0, remaining: c.kind === 'invoice' ? Number(c.amount) || 0 : 0,
     date: dates.at(-1) || '', campaign: c.forText || forWhat(c),
+    // וואס עס שטייט אין דער שורה FOR אויף דער קבלה
+    forText: c.forText || [...new Set(rxLines(c).map((l) => (isSaleDoc(c) ? (l.goods_desc || descText(l.d)) : descText(l.d))))].join(', '),
     dedication: [...new Set(c.list.map((d) => [d.dedication_type, d.dedication_text].filter(Boolean).join(' ')).filter(Boolean))].join(' · '),
   };
 }

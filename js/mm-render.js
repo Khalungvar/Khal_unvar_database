@@ -240,6 +240,8 @@ export function valuesFor(D, c, ctx = null) {
     אשה: nz(c.wife_name_he),
     Name: nameEn || '',
     First: nz(c.first_name_en),
+    // דער לעגאלער נאמען אויף ענגליש; אויב נישטא — דער פרטי נאמען אויף ענגליש
+    'Legal/First': nz(c.legal_first_name) || nz(c.first_name_en),
     Last: nz(c.last_name_en),
     Wife: nz(c.wife_name_en) ? wifeEn(c) : '',
     Address: [careOf(c), nz(c.address)].filter(Boolean).join('\n'),
@@ -255,6 +257,8 @@ export function valuesFor(D, c, ctx = null) {
     DonationDate: longDateEn(x.date),
     הקדשה: nz(x.dedication),
     קאמפיין: nz(x.campaign),
+    // "עבור" — ווי עס שטייט אויף דער קבלה (FOR); אן א קבלה — דער קאמפיין
+    'עבור/FOR': nz(x.forText) || nz(x.campaign),
   };
   // די סכומים פון די נדבות (לויט דעם סינון פון דער "שורה חוזרת")
   const dl = donationList(D, c, ctx);
@@ -274,21 +278,27 @@ export function valuesFor(D, c, ctx = null) {
 }
 
 export const TOKEN_RE = /\{([^{}\s]{1,24})\}/g;
+/** א פעלד אלס טעקסט «שדה» (קאפירט פון א פארשוי / Word) — ווערט אויך אויסגעפילט, נאר אויב עס איז א באקאנט פעלד */
+const GUILL_RE = /«([^«»\s<>]{1,24})»/g;
+/** דער בעזש הינטערגרונט פון א פעלד-קעסטל וואס איז מיטגעקומען ביים קאפירן — אראפ */
+export const unChipStyle = (html) => String(html || '').replace(/<span[^>]*background:\s*rgb\(239,\s*230,\s*210\)[^>]*>(«[^«»<>]{1,24}»)<\/span>/g, '$1');
 /** פלעין טעקסט: יעדע שורה; ליידיגע שורות פאלן ארויס. empties = Set פון פעלדער וואס זענען ליידיג געבליבן */
 export function fillText(tpl, vals, empties = null) {
-  return String(tpl || '').replace(TOKEN_RE, (m, k) => {
+  const put = (m, k) => {
     if (!(k in vals)) return m;
     if (!vals[k] && empties) empties.add(k);
     return vals[k] || '';
-  }).split('\n').map((l) => l.replace(/^[\s,]+|[\s,]+$/g, '')).filter((l) => l.trim()).join('\n');
+  };
+  return String(tpl || '').replace(TOKEN_RE, put).replace(GUILL_RE, put).split('\n').map((l) => l.replace(/^[\s,]+|[\s,]+$/g, '')).filter((l) => l.trim()).join('\n');
 }
 /** רייכער טעקסט (HTML): די ווערטער ווערן ארויסגעביטן (געשיצט) */
 export function fillHtml(html, vals, empties = null) {
-  return String(html || '').replace(TOKEN_RE, (m, k) => {
+  const put = (m, k) => {
     if (!(k in vals)) return m;
     if (!vals[k] && empties) empties.add(k);
     return h(vals[k] || '');
-  });
+  };
+  return unChipStyle(html).replace(TOKEN_RE, put).replace(GUILL_RE, put);
 }
 
 // ---------- דער נמען (ענגליש / לשון קודש / ביידע) ----------
