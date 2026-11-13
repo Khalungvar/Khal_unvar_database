@@ -850,6 +850,11 @@ export function openQuickReceipt(org0 = '', done = null, opts = {}) {
       </div>
       <label class="wide">${h(t('campaignOptional'))}<select name="campaign">${campaignOptions('')}</select></label>
       <label class="wide">${h(t('forOrg'))} *${orgSelect('org', org0)}</label>
+      <label class="wide">✍ ${h(t('wrSignature'))}<select name="sig">
+        <option value="org">${h(t('rcSigOrg'))}</option>
+        <option value="mine"${mySigObj() ? '' : ' disabled'}>${h(t('wrMySig'))}${mySigObj() ? '' : ` (${h(t('wrSigNone'))})`}</option>
+        <option value="temp">${h(t('wrSigTemp'))}</option>
+        <option value="none">${h(t('rcSigNone'))}</option></select></label>
       <label class="wide"><span class="rq-for-don">${h(t('rqFor'))}</span><span class="rq-for-sale" hidden>${h(t('saleWhat'))}</span><input name="for" dir="auto"></label>
       <div class="grid rq-goods">
         <label class="wide">${h(t('goodsDesc'))}<input name="gdesc" dir="auto" placeholder="${h(t('goodsDescPh'))}"></label>
@@ -952,6 +957,7 @@ export function openQuickReceipt(org0 = '', done = null, opts = {}) {
     el('campaign').value = d0.campaign || '';
     el('org').value = effectiveOrg(d0) || el('org').value;
     el('for').value = d0.kind === 'sale' ? (d0.goods_desc || '') : (E.forText || d0.event_note || '');
+    if (E.sig?.mode && [...el('sig').options].some((o) => o.value === E.sig.mode && !o.disabled)) el('sig').value = E.sig.mode;
     if (d0.kind !== 'sale') { el('gdesc').value = d0.goods_desc || ''; el('gval').value = d0.goods_value ?? ''; }
     const A = E.addr;
     if (A) { addrSel = A.mode === 'work' ? `work:${Number(A.i) || 0}` : A.mode === 'free' ? 'free' : 'home'; addrText = A.mode === 'free' ? (A.text || '') : ''; }
@@ -996,8 +1002,10 @@ export function openQuickReceipt(org0 = '', done = null, opts = {}) {
       const txt = String(addrText || '').trim();
       const chosen = addrSel === 'free' ? (txt ? { mode: 'free', text: txt } : null) : addrSel.startsWith('work:') ? { mode: 'work', i: Number(addrSel.slice(5)) } : (ct ? { mode: 'home' } : null);
       const issued = el('issued').value && el('issued').value !== today ? el('issued').value : '';
+      const sm = el('sig').value;
+      const sig = sm === 'mine' ? { mode: 'mine', sig: mySigObj() } : sm === 'temp' ? { mode: 'temp', sig: E?.sig?.mode === 'temp' ? E.sig.sig : { type: 'text', text: '', font: 'Playpen Sans Hebrew' } } : { mode: sm };
       openReceiptForm({ kind: 'receipt', org: effectiveOrg(dd), contact_id: dd.contact_id || '', donor_name: dd.contact_id ? '' : dd.donor_name, ids: [String(id)], amount, period: '', list: [dd],
-        ...(chosen || issued ? { meta: { type: sale ? 'sale' : 'donation', sig: { mode: 'org' }, ...(chosen ? { addr: chosen } : {}), ...(issued ? { issued_date: issued } : {}) } } : {}) },
+        meta: { type: sale ? 'sale' : 'donation', sig, ...(chosen ? { addr: chosen } : {}), ...(issued ? { issued_date: issued } : {}) } },
         { forText: sale ? '' : el('for').value.trim(), done });
     } catch (err) { ui.toast(ui.friendlyError(err), 'error'); btn.disabled = false; }
   };
@@ -1132,7 +1140,7 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
       // איין נדבה → צוריק צום אנהייב ("קבלה בודדת") מיט אלעס אויסגעפילט; די אלטע ווערט בטל ערשט ביים "ווייטער"
       if (c0.kind === 'receipt' && c0.list.length === 1 && c0.list[0]?.donation_id) {
         dlg.close();
-        openQuickReceipt(c0.org, done, { edit: { no: c0.receipt_no, donation: c0.list[0], issued: issuedDay(c0), addr: (c0.meta || {}).addr || null, forText: c0.forText || '' } });
+        openQuickReceipt(c0.org, done, { edit: { no: c0.receipt_no, donation: c0.list[0], issued: issuedDay(c0), addr: (c0.meta || {}).addr || null, forText: c0.forText || '', sig: F.sig } });
         return;
       }
       ev.target.disabled = true;
