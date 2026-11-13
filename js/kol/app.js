@@ -1,11 +1,11 @@
 // 📻 קול אונגוואר — ungvar.org/kol : מערכת המיילים (שבועי "מהנעשה והנשמע" + חד פעמי).
 // כניסה עם Google (כל מי שמורשה באתר הכללי). השרת: apps-script/kol.gs (רץ בשם kol@ungvar.org).
 // הנמענים: רשימת התפוצה "מהנעשה והנשמע" — מסומנת ליד המייל של איש הקשר באתר הכללי (email_1_tags / email_2_tags).
-import { initAuth, requestToken, getUserEmail, hasSavedSession, currentToken, readTabs } from '../google.js?v=682';
-import { CONFIG } from '../config.js?v=682';
-import { shabbatOfWeek, shabbatTitle } from '../parasha.js?v=682';
-import { todayIso, isoToHebrewText } from '../hebdate.js?v=682';
-import { FONTS, DEF_FONT, KINDS, LIST_NAME, emailHtml, emailText, fillTags, imgUrl, imgsOf, driveId, cleanHtml } from './render.js?v=682';
+import { initAuth, requestToken, getUserEmail, hasSavedSession, currentToken, readTabs } from '../google.js?v=683';
+import { CONFIG } from '../config.js?v=683';
+import { shabbatOfWeek, shabbatTitle } from '../parasha.js?v=683';
+import { todayIso, isoToHebrewText } from '../hebdate.js?v=683';
+import { FONTS, DEF_FONT, KINDS, LIST_NAME, emailHtml, emailText, fillTags, imgUrl, imgsOf, driveId, cleanHtml } from './render.js?v=683';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -173,7 +173,9 @@ const addDays = (iso, n) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDa
 async function openWeekly(week = curWeek()) {
   main.innerHTML = '<p class="muted">טוען…</p>';
   try { await loadList(); } catch (err) { toast(msg(err), 'error'); }
-  let e = K.emails.find((x) => x.kind === 'weekly' && x.week === week);
+  const same = K.emails.filter((x) => x.kind === 'weekly' && String(x.week).slice(0, 10) === week)
+    .sort((a, b) => ((b.blocks || []).length ? 1 : 0) - ((a.blocks || []).length ? 1 : 0) || String(b.updated_at).localeCompare(String(a.updated_at)));
+  let e = same[0];
   if (!e) e = { kind: 'weekly', week, title: '', subject: `מהנעשה והנשמע — {פרשת השבוע}`, blocks: [], opts: { ...(K.defaults || {}) }, status: 'draft' };
   editor(e, () => hub(), { week });
 }
@@ -299,6 +301,7 @@ function editor(e0, back, { week } = {}) {
   };
   const changed = () => { dirty = true; st('לא נשמר עדיין…'); preview(); clearTimeout(timer); timer = setTimeout(save, 2500); };
   window.onbeforeunload = () => (dirty ? 'יש שינויים שלא נשמרו' : undefined);
+  document.onvisibilitychange = () => { if (document.hidden && dirty) save(); }; // יוצאים מהלשונית — שומרים
 
   if (!sent) {
     $('#ke-subj').oninput = (ev) => { E.subject = ev.target.value; changed(); };
@@ -437,7 +440,7 @@ function editor(e0, back, { week } = {}) {
           b.imgs.push(it); changed();
         } catch (err) { toast(msg(err), 'error'); }
       }
-      busy(''); up(); drawBlocks();
+      busy(''); up(); drawBlocks(); save(); // תמונה הועלתה — שומרים מיד
     });
     // שינוי לוגו / מקום → בונים מחדש את כל התמונות
     const reLogo = async () => {
@@ -459,7 +462,7 @@ function editor(e0, back, { week } = {}) {
         try {
           if (!it.orig) { it.orig = it.id; it.rot = 0; delete it.crop; } // תמונה ישנה — היא עצמה המקור
           if (await fn() === false) { btn.disabled = false; btn.textContent = t; return; }
-          await render(it); up(); drawBlocks();
+          await render(it); up(); drawBlocks(); save();
         } catch (err) { btn.disabled = false; btn.textContent = t; toast(msg(err), 'error'); }
       };
       $('[data-rot]', el).onclick = (ev) => work(ev.currentTarget, () => { it.rot = ((it.rot || 0) + 90) % 360; it.crop = rotCrop(it.crop); });

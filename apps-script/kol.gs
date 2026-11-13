@@ -46,7 +46,17 @@ function doGet(e) {
   } catch (err) { return out({ error: String((err && err.message) || err).slice(0, 300) }); }
 }
 function out(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
-const S = function (v) { return v === null || v === undefined ? '' : String(v); };
+let TZ_ = '';
+/** טקסט — וגם תאריך שהגיליון הפך בעצמו לתאריך (2026-11-14 / 2026-11-12 20:35) */
+const S = function (v) {
+  if (v === null || v === undefined) return '';
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    const tz = TZ_ || (TZ_ = book().getSpreadsheetTimeZone());
+    const t = Utilities.formatDate(v, tz, 'HH:mm');
+    return Utilities.formatDate(v, tz, t === '00:00' ? 'yyyy-MM-dd' : 'yyyy-MM-dd HH:mm');
+  }
+  return String(v);
+};
 function now() { return Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd HH:mm'); }
 
 // ---------------------------------------------------------------------------------- הגדרה ראשונה
@@ -100,8 +110,9 @@ function put(name, o) {
   const sh = book().getSheetByName(name);
   const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(S);
   const line = head.map(function (h) { return o[h] === undefined ? '' : o[h]; });
-  if (o._row) sh.getRange(o._row, 1, 1, head.length).setValues([line]);
-  else sh.appendRow(line);
+  // טקסט רגיל — שהגיליון לא יהפוך תאריכים / מספרים
+  const r = sh.getRange(o._row || sh.getLastRow() + 1, 1, 1, head.length);
+  r.setNumberFormat('@'); r.setValues([line.map(function (x) { return typeof x === 'string' ? x : S(x); })]);
 }
 function setting(k, v) {
   const all = rows('Settings');
@@ -187,6 +198,12 @@ const PUBLIC = {
 };
 
 // ---------------------------------------------------------------------------------- פעולות (רק למורשים)
+/** המייל השבועי של שבת מסוימת (אם יש כפולים — האחרון ששונה, ועדיף עם תוכן) */
+function latestWeekly_(all, week) {
+  const c = all.filter(function (r) { return S(r.kind) === 'weekly' && S(r.week) === week; });
+  c.sort(function (a, b) { const fa = S(a.blocks).length > 2 ? 1 : 0; const fb = S(b.blocks).length > 2 ? 1 : 0; return fb - fa || (S(a.updated_at) < S(b.updated_at) ? 1 : -1); });
+  return c[0] || null;
+}
 function emailView(e) {
   let blocks = []; try { blocks = JSON.parse(S(e.blocks) || '[]'); } catch (err) { blocks = []; }
   let opts = {}; try { opts = JSON.parse(S(e.opts) || '{}'); } catch (err) { opts = {}; }
@@ -217,7 +234,7 @@ const ACTIONS = {
     try {
       const all = rows('Emails');
       let e = x.id ? all.filter(function (r) { return S(r.id) === S(x.id); })[0] : null;
-      if (!e && kind === 'weekly' && x.week) e = all.filter(function (r) { return S(r.kind) === 'weekly' && S(r.week) === S(x.week); })[0] || null;
+      if (!e && kind === 'weekly' && x.week) e = latestWeekly_(all, S(x.week));
       if (e && S(e.status) === 'sent') throw new Error('already-sent');
       // שני אנשים עורכים ביחד: אם מישהו אחר שמר בינתיים — לא לדרוס
       if (e && req.base && S(e.updated_at) !== S(req.base) && S(e.updated_by) !== me) throw new Error('conflict:' + S(e.updated_by) + ' ' + S(e.updated_at));
