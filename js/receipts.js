@@ -424,10 +424,11 @@ function issuedLogHtml() {
   if (!mine.length) return `<h3 class="rc-colh">${h(t(f.kind === 'invoice' ? 'rcColInvoices' : 'rcColIssued'))} <span class="muted small">(0)</span></h3><p class="empty">—</p>`;
   return `<h3 class="rc-colh">${h(t(f.kind === 'invoice' ? 'rcColInvoices' : 'rcColIssued'))} <span class="muted small">(${mine.length})</span></h3>
     <table class="lapsed-table rc-issued no-sort"><thead><tr><th>${h(t('rcNumber'))}</th><th>${h(t('xlType'))}</th><th>${h(t('xlDonor'))}</th><th>${h(t('xlAmount'))}</th><th>${h(t('rcIssued'))}</th><th></th></tr></thead>
-    <tbody>${mine.map((r) => `<tr class="${isTrue(r.void) ? 'rc-void' : ''}" data-q="${h(qText(r.receipt_no, who(r), en(r), r.amount, r.period))}"><td dir="ltr">${h(r.receipt_no)}</td><td>${h(kindLabel(r.kind))}${r.period && !/^M\d+$/.test(r.period) ? ` · ${h(r.period)}` : ''}${r.kind === 'invoice' && paidBy(r) ? ` · <b class="rc-paid">✓ ${h(t('ivPaid', { no: paidBy(r) }))}</b>` : ''}</td>
+    <tbody>${mine.map((r) => `<tr class="${isTrue(r.void) ? 'rc-void' : 'rc-open-row'}"${isTrue(r.void) ? '' : ` data-open-row="${h(r.receipt_no)}"`} data-q="${h(qText(r.receipt_no, who(r), en(r), r.amount, r.period))}"><td dir="ltr">${h(r.receipt_no)}</td><td>${h(kindLabel(r.kind))}${r.period && !/^M\d+$/.test(r.period) ? ` · ${h(r.period)}` : ''}${r.kind === 'invoice' && paidBy(r) ? ` · <b class="rc-paid">✓ ${h(t('ivPaid', { no: paidBy(r) }))}</b>` : ''}</td>
       <td>${h(r.contact_id ? (ui.contactById(r.contact_id) ? ui.fullNameHe(ui.contactById(r.contact_id)) : `#${r.contact_id}`) : r.donor_name)}</td>
       <td class="num" dir="ltr">${money(r.amount)}</td><td class="small muted" dir="ltr">${h(r.issued_at)}</td>
-      <td>${isTrue(r.void) ? h(t('rcVoided')) : `<button type="button" class="btn small-btn" data-reprint="${h(r.receipt_no)}">🖨</button>
+      <td>${isTrue(r.void) ? h(t('rcVoided')) : `<button type="button" class="btn small-btn" data-open="${h(r.receipt_no)}" title="${h(t('rcOpen'))}">👁</button>
+        <button type="button" class="btn small-btn" data-reprint="${h(r.receipt_no)}">🖨</button>
         <button type="button" class="btn small-btn" data-remail="${h(r.receipt_no)}" title="${h(t('rcMailBtn'))}">✉</button>
         <button type="button" class="linkish rc-cancel-btn" data-void="${h(r.receipt_no)}" title="${h(t('rcCancelT'))}">🗑 ${h(t('rcVoid'))}</button>`}</td></tr>`).join('')}</tbody></table>`;
 }
@@ -450,20 +451,56 @@ function fromLog(no) {
   return { kind: r.kind, org: r.org, contact_id: r.contact_id, donor_name: r.donor_name, ids, amount: Number(r.amount), period: r.period, list, receipt_no: r.receipt_no, issued_at: r.issued_at, reprint: true, meta: metaOfReceipt(r) };
 }
 
+/** א קבלה וואס איז שוין ארויס → דער פולער פענצטער (בריוו / אדרעס / אונטערשריפט; ♻ בטל'ן און מאכן נאכאמאל) */
+function openIssued(no) {
+  const r = state.receipts.find((x) => x.receipt_no === no);
+  if (!r || isTrue(r.void)) return;
+  const base = { kind: r.kind, org: r.org, contact_id: r.contact_id, donor_name: r.donor_name, issued: { receipt_no: no } };
+  if (r.kind === 'invoice') openInvoiceForm(base, { done: renderReceipts });
+  else openReceiptForm(base, { done: renderReceipts });
+}
+/** פרעגט "מיט א בריוו?" (אויב עס זענען דא בריוו-מוסטערן). '' = אן א בריוו, null = אפגעזאגט */
+function askLetter(kind) {
+  const L = kind === 'invoice' ? [] : letterTemplates();
+  if (!L.length) return Promise.resolve('');
+  return new Promise((resolve) => {
+    const dlg = document.createElement('dialog');
+    dlg.className = 'sheet';
+    document.body.append(dlg);
+    let val = null;
+    dlg.addEventListener('close', () => { dlg.remove(); resolve(val); });
+    dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button>
+      <h2>📄 ${h(t('rcPickLetter'))}</h2>
+      <label><select id="al-letter"><option value="">${h(t('rcNoLetter'))}</option>${L.map((x) => `<option value="${h(x.id)}">${h(x.name)}${letterHasReceipt(x.id) ? ' 🧾' : ''}</option>`).join('')}</select></label>
+      <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-x>${h(t('cancelBtn'))}</button><button type="button" class="btn primary" id="al-go">${h(t('rcGo'))}</button></div>`;
+    $$('[data-x]', dlg).forEach((b) => { b.onclick = () => dlg.close(); });
+    $('#al-go', dlg).onclick = () => { val = $('#al-letter', dlg).value; dlg.close(); };
+    dlg.showModal();
+  });
+}
 function wireLog(main) {
+  main.querySelectorAll('[data-open]').forEach((b) => { b.onclick = () => openIssued(b.dataset.open); });
+  main.querySelectorAll('[data-open-row]').forEach((tr) => {
+    tr.addEventListener('click', (e) => { if (e.target.closest('button, a, input, select')) return; openIssued(tr.dataset.openRow); });
+  });
   main.querySelectorAll('[data-reprint]').forEach((b) => {
-    b.onclick = () => { const c = fromLog(b.dataset.reprint); if (c) printDocs([c]); };
+    b.onclick = async () => {
+      const c = fromLog(b.dataset.reprint); if (!c) return;
+      const letter = await askLetter(c.kind); if (letter === null) return;
+      printDocs([c], { letter });
+    };
   });
   main.querySelectorAll('[data-remail]').forEach((b) => {
-    b.onclick = () => {
+    b.onclick = async () => {
       const c = fromLog(b.dataset.remail);
       if (!c) return;
+      const letter = await askLetter(c.kind); if (letter === null) return;
       const to = askAddress(c.contact_id);
       if (!to) return;
       withGmail(async () => {
         b.disabled = true; b.textContent = '…';
         try {
-          const r = await mailDocs([{ c: { ...c, reprint: false }, to }]);
+          const r = await mailDocs([{ c: { ...c, reprint: false }, to }], () => {}, letter);
           ui.toast(r.errors ? t('mailFailed') : t('rcMailSent', { to }), r.errors ? 'error' : '');
         } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
         b.disabled = false; b.textContent = '✉';
@@ -605,7 +642,7 @@ function letterParts(c) {
   const he = det.org_name_he || '';
   const isInv = c.kind === 'invoice';
   const isTu = c.kind === 'tuition';
-  const issued = String(c.issued_at || '').slice(0, 10);
+  const issued = issuedDay(c);
   const heDate = issued ? `${isoToHebrewText(issued)} לפ"ק` : '';
   const A = isInv ? INVOICE_A : isTu ? TUITION_A : (det.letter_a || DEFAULTS.letter_a);
   const B = isInv ? INVOICE_B : isTu ? TUITION_B : (det.letter_b || DEFAULTS.letter_b);
@@ -945,6 +982,7 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
   const F = {
     type: st0.type || 'donation', tax: Boolean(st0.tax), taxRate: Number(st0.taxRate) || rate0, sig: st0.sig || { mode: 'org' },
     list: [...c0.list], lines: { ...(st0.lines || {}) }, letter, addr: st0.addr || lastAddr(c0.contact_id),
+    issued: st0.issued_date || todayIso(),
   };
   const mine = mySigObj();
   const sameWho = (d) => (c0.contact_id ? String(d.contact_id) === String(c0.contact_id) : !d.contact_id && String(d.donor_name || '').trim() === String(c0.donor_name || '').trim());
@@ -953,13 +991,15 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
   const others = () => state.donations.filter((d) => sameWho(d) && effectiveOrg(d) === c0.org && isTrue(d.is_paid) && ((d.kind === 'sale') === (F.type === 'sale'))
     && !F.list.some((x) => String(x.donation_id) === String(d.donation_id)) && !inReceipt.has(String(d.donation_id)))
     .sort((a, b) => paidDate(b).localeCompare(paidDate(a)));
+  // א קבלה וואס איז ארויס: די זעלבע קבלה — נאר דער אדרעס / אונטערשריפט פון דעם פענצטער
+  const lockedDoc = () => ({ ...c0, meta: { ...(c0.meta || {}), sig: F.sig, ...(F.addr ? { addr: F.addr } : {}) } });
   const docOf = () => {
     const base = F.list.reduce((s, d) => s + (Number(d.amount_usd) || 0), 0);
     // מיט Sales Tax: דער סכום פון דער קבלה איז מיט דעם טעקס
     const amount = F.type === 'sale' && F.tax ? base + Math.round(base * F.taxRate) / 100 : base;
     return {
       ...c0, list: F.list, ids: F.list.map((d) => String(d.donation_id)), amount, forText: F.list.length === 1 ? forText : '',
-      meta: { type: F.type, tax: F.type === 'sale' && F.tax, taxRate: F.taxRate, sig: F.sig, lines: F.lines, ...(F.addr ? { addr: F.addr } : {}) },
+      meta: { type: F.type, tax: F.type === 'sale' && F.tax, taxRate: F.taxRate, sig: F.sig, lines: F.lines, ...(F.addr ? { addr: F.addr } : {}), ...(F.issued && F.issued !== todayIso() ? { issued_date: F.issued } : {}) },
     };
   };
   const sigSel = (m) => (F.sig.mode === m ? ' selected' : '');
@@ -969,39 +1009,44 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
   dlg.addEventListener('close', () => dlg.remove());
   const render = () => {
     const sale = F.type === 'sale';
-    const c = locked ? c0 : docOf();
+    const c = locked ? lockedDoc() : docOf();
     const tot = c.amount;
+    const letterSel = `<label class="rxf-letter">📄 ${h(t('rcWithLetterTip'))} <select id="rxf-letter"><option value="">${h(t('rcNoLetter'))}</option>${letterTemplates().map((x) => `<option value="${h(x.id)}"${String(x.id) === String(F.letter || '') ? ' selected' : ''}>${h(x.name)}${letterHasReceipt(x.id) ? ' 🧾' : ''}</option>`).join('')}</select></label>`;
+    const sigSelHtml = `<label>${h(t('wrSignature'))} <select id="rxf-sig">
+            <option value="org"${sigSel('org')}>${h(t('rcSigOrg'))}</option>
+            <option value="mine"${sigSel('mine')}${mine ? '' : ' disabled'}>${h(t('wrMySig'))}${mine ? '' : ` (${h(t('wrSigNone'))})`}</option>
+            <option value="temp"${sigSel('temp')}>${h(t('wrSigTemp'))}</option>
+            <option value="none"${sigSel('none')}>${h(t('rcSigNone'))}</option></select></label>
+          ${F.sig.mode === 'temp' ? `<div class="rxf-temp"><input id="rxf-tt" dir="auto" placeholder="${h(t('wrSigText'))}" value="${h(F.sig.sig?.text || '')}">
+            <select id="rxf-tf">${['Playpen Sans Hebrew', 'Amatic SC', 'Noto Rashi Hebrew', 'Frank Ruhl Libre', ...customFontNames()].map((x) => `<option${x === F.sig.sig?.font ? ' selected' : ''}>${h(x)}</option>`).join('')}</select></div>` : ''}`;
+    const canReissue = locked && state.isAdmin && ['receipt', 'tuition'].includes(c0.kind);
     dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button>
       <h2>🧾 ${h(t('rcFormTitle'))} — ${h(donorLabel(c0))}</h2>
       ${locked ? `<p class="mx-pending">🔒 ${h(t('rcLockedNote', { no: c0.receipt_no }))}</p>` : ''}
       <div class="rx-form${locked ? ' rx-locked' : ''}">
         <div class="rx-form-prev"><div class="rx-prev-scale">${receiptHtml(locked ? c : { ...c, receipt_no: '—', issued_at: todayIso() })}</div></div>
-        <div class="rx-form-side"${locked ? ' inert' : ''}>
+        ${locked ? `<div class="rx-form-side">${letterSel}${addrPickerHtml(c0.contact_id, F.addr)}${sigSelHtml}
+          ${canReissue ? `<p><button type="button" class="btn" id="rxf-reissue">${h(t('rcReissue'))}</button></p>` : ''}</div>` : `<div class="rx-form-side">
           <div class="seg">${[['donation', 'donKindDonation'], ['sale', 'donKindSale']].map(([k, l]) => `<button type="button" data-ft="${k}" class="${F.type === k ? 'on' : ''}">${h(t(l))}</button>`).join('')}</div>
           ${sale ? `<label class="check"><input type="checkbox" id="rxf-tax"${F.tax ? ' checked' : ''}> Sales Tax</label>
             <label class="rxf-rate"${F.tax ? '' : ' hidden'}>% <input type="number" id="rxf-rate" step="0.001" min="0" max="30" value="${F.taxRate}" dir="ltr"></label>` : ''}
           <table class="rxf-lines no-sort"><thead><tr><th>${h(t('dateLegend'))}</th><th>${h(t(sale ? 'saleWhat' : 'rcWhat'))}</th><th>${h(t('amount'))}</th>${sale ? '' : `<th>${h(t('goodsDesc'))}</th><th>${h(t('goodsValue'))}</th>`}<th></th></tr></thead>
           <tbody>${F.list.map((d, i) => {
             const o = F.lines[String(d.donation_id)] || {};
-            return `<tr><td dir="ltr">${h(paidDate(d))}</td><td>${h(sale ? (o.goods_desc ?? d.goods_desc ?? '') || descText(d) : descText(d))}</td><td dir="ltr">${money(d.amount_usd)}</td>
+            return `<tr><td><input type="date" data-dt="${i}" value="${h(o.date || paidDate(d))}" title="${h(t('rcDonDate'))}" dir="ltr"></td><td>${h(sale ? (o.goods_desc ?? d.goods_desc ?? '') || descText(d) : descText(d))}</td><td dir="ltr">${money(d.amount_usd)}</td>
               ${sale ? '' : `<td><input data-gd="${i}" value="${h(o.goods_desc ?? d.goods_desc ?? '')}" placeholder="${h(t('goodsDescPh'))}"></td>
                 <td><input data-gv="${i}" type="number" min="0" step="0.01" dir="ltr" value="${h(o.goods_value ?? d.goods_value ?? '')}" placeholder="$"></td>`}
               <td>${F.list.length > 1 ? `<button type="button" class="linkish" data-rm="${i}" title="${h(t('deleteBtn'))}">✕</button>` : ''}</td></tr>`;
           }).join('')}</tbody></table>
           ${others().length ? `<label class="rxf-add">+ ${h(t('rcAddDonation'))} <select id="rxf-add"><option value=""></option>${others().map((d) => `<option value="${h(d.donation_id)}">${h(paidDate(d))} · ${money(d.amount_usd)} · ${h(descText(d))}</option>`).join('')}</select></label>`
             : `<p class="muted small">${h(t('rcNoMore'))}</p>`}
+          <label class="rxf-issued">📅 ${h(t('rcIssuedDate'))} <input type="date" id="rxf-issued" value="${h(F.issued)}" dir="ltr"></label>
+          ${F.issued !== todayIso() ? `<p class="muted small">${h(t('rcIssuedDateNote'))}</p>` : ''}
           <p class="rxf-total"><b>${h(t('rcTotal'))}: ${money(tot)}</b> <span class="muted small" dir="ltr">${h(amountWords(tot))}</span></p>
           ${addrPickerHtml(c0.contact_id, F.addr)}
-          <label>${h(t('wrSignature'))} <select id="rxf-sig">
-            <option value="org"${sigSel('org')}>${h(t('rcSigOrg'))}</option>
-            <option value="mine"${sigSel('mine')}${mine ? '' : ' disabled'}>${h(t('wrMySig'))}${mine ? '' : ` (${h(t('wrSigNone'))})`}</option>
-            <option value="temp"${sigSel('temp')}>${h(t('wrSigTemp'))}</option>
-            <option value="none"${sigSel('none')}>${h(t('rcSigNone'))}</option></select></label>
-          ${F.sig.mode === 'temp' ? `<div class="rxf-temp"><input id="rxf-tt" dir="auto" placeholder="${h(t('wrSigText'))}" value="${h(F.sig.sig?.text || '')}">
-            <select id="rxf-tf">${['Playpen Sans Hebrew', 'Amatic SC', 'Noto Rashi Hebrew', 'Frank Ruhl Libre', ...customFontNames()].map((x) => `<option${x === F.sig.sig?.font ? ' selected' : ''}>${h(x)}</option>`).join('')}</select></div>` : ''}
-          ${locked ? '</div><div class="rx-form-side">' : ''}
-          <label>📄 ${h(t('rcWithLetterTip'))} <select id="rxf-letter"><option value="">${h(t('rcNoLetter'))}</option>${letterTemplates().map((x) => `<option value="${h(x.id)}"${String(x.id) === String(F.letter || '') ? ' selected' : ''}>${h(x.name)}${letterHasReceipt(x.id) ? ' 🧾' : ''}</option>`).join('')}</select></label>
-        </div>
+          ${sigSelHtml}
+          ${letterSel}
+        </div>`}
       </div>
       <div class="actions"><button type="button" class="btn danger" id="rxf-cancel-sale">🗑 ${h(t(sale ? 'bkCancelSale' : (locked ? 'rcCancelT' : 'rcCancelDon')))}</button><span class="spacer"></span>
         <button type="button" class="btn" data-x>${h(t('cancelBtn'))}</button>
@@ -1018,6 +1063,8 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
     $$('[data-ft]', dlg).forEach((b) => { b.onclick = () => { F.type = b.dataset.ft; render(); }; });
     $('#rxf-tax', dlg)?.addEventListener('change', (e) => { F.tax = e.target.checked; render(); });
     $('#rxf-rate', dlg)?.addEventListener('change', (e) => { F.taxRate = Number(e.target.value) || 0; render(); });
+    $$('[data-dt]', dlg).forEach((el) => { el.onchange = () => { const d = F.list[Number(el.dataset.dt)]; keepLine(Number(el.dataset.dt), 'date', el.value && el.value !== paidDate(d) ? el.value : ''); render(); }; });
+    $('#rxf-issued', dlg)?.addEventListener('change', (e) => { F.issued = e.target.value || todayIso(); render(); });
     $$('[data-gd]', dlg).forEach((el) => { el.onchange = () => { keepLine(Number(el.dataset.gd), 'goods_desc', el.value.trim()); render(); }; });
     $$('[data-gv]', dlg).forEach((el) => { el.onchange = () => { keepLine(Number(el.dataset.gv), 'goods_value', el.value === '' ? '' : Number(el.value)); render(); }; });
     $$('[data-rm]', dlg).forEach((b) => { b.onclick = () => { F.list.splice(Number(b.dataset.rm), 1); render(); }; });
@@ -1032,8 +1079,22 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
     $('#rxf-tt', dlg)?.addEventListener('change', () => { tt(); render(); });
     $('#rxf-tf', dlg)?.addEventListener('change', () => { tt(); render(); });
     $('#rxf-letter', dlg).onchange = (e) => { F.letter = e.target.value; };
+    // ♻ בטל'ן און מאכן נאכאמאל: די אלטע ווערט בטל, און א נייער (פרייער) פענצטער מיט די זעלבע פרטים
+    $('#rxf-reissue', dlg)?.addEventListener('click', async (ev) => {
+      if (!confirm(t('rcReissueQ', { no: c0.receipt_no }))) return;
+      ev.target.disabled = true;
+      try {
+        await voidReceipt(c0.receipt_no);
+        await loadAll();
+        dlg.close();
+        const fresh = { kind: c0.kind === 'tuition' ? 'tuition' : 'receipt', org: c0.org, contact_id: c0.contact_id, donor_name: c0.donor_name, ids: [...c0.ids], amount: c0.amount, period: '', list: [...c0.list],
+          meta: { ...(c0.meta || {}), sig: F.sig, ...(F.addr ? { addr: F.addr } : {}) }, ...(c0.note ? { note: c0.note } : {}) };
+        openReceiptForm(fresh, { letter: F.letter, forText: c0.forText || '', done });
+        if (done) done();
+      } catch (err) { ev.target.disabled = false; ui.toast(ui.friendlyError(err), 'error'); }
+    });
     const go = async (mode) => {
-      const c = locked ? c0 : docOf();
+      const c = locked ? lockedDoc() : docOf();
       if (!c.list.length) return;
       let to = '';
       if (mode === 'mail') { to = askAddress(c.contact_id); if (!to) return; }
@@ -1147,6 +1208,8 @@ export function amountWords(v) {
   return `${parts.join(' ')} Dollar${dollars === 1 ? '' : 's'} and ${cents}/100`;
 }
 const rxMeta = (c) => c.meta || {};
+/** דער דאטום וואס שטייט אויף דער קבלה: מ'קען אים טוישן (meta.issued_date), אנדערש — ווען זי איז ארויס */
+const issuedDay = (c) => (/^\d{4}-\d\d-\d\d$/.test(String(c.meta?.issued_date || '')) ? c.meta.issued_date : String(c.issued_at || '').slice(0, 10));
 /** די שורות פון דער קבלה — מיט דער "תמורה" פון יעדער נדבה (אדער ווי מ'האט עס געטוישט אין טופס) */
 /** די שורות וואס מ'ווייזט אויף דער קבלה: א מכירה פון ספרים — א שורה פאר יעדן ספר (וויפל × פרייז) */
 function rxDisp(lines) {
@@ -1171,6 +1234,8 @@ function rxLines(c) {
   return c.list.map((d) => {
     const o = ov[String(d.donation_id)] || {};
     const gv = o.goods_value ?? d.goods_value;
+    // דער דאטום פון דער נדבה אויף דער קבלה — מ'קען טוישן (נאר אויף דער קבלה, נישט אין דער נדבה)
+    if (/^\d{4}-\d\d-\d\d$/.test(String(o.date || ''))) d = { ...d, paid_date: o.date, date: o.date };
     return { d, goods_desc: String(o.goods_desc ?? d.goods_desc ?? '').trim(), goods_value: gv === '' || gv == null ? 0 : Number(gv) || 0 };
   });
 }
@@ -1199,7 +1264,7 @@ export function receiptHtml(c, opts = {}) {
   const allDisp = rxDisp(lines);
   const hasQty = allDisp.some((r) => r.item != null);
   const full = opts.full ?? allDisp.length > RX_MAX_LINES;
-  const issued = String(c.issued_at || '').slice(0, 10) || todayIso();
+  const issued = issuedDay(c) || todayIso();
   const total = lines.reduce((s, l) => s + (Number(l.d.amount_usd) || 0), 0) || Number(c.amount) || 0;
   const M = rxMeta(c);
   const taxRate = sale && M.tax ? Number(M.taxRate) || 0 : 0;
