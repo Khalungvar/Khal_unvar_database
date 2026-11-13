@@ -144,6 +144,7 @@ export function renderReceipts() {
       <span class="spacer"></span>
       ${f.kind !== 'invoice' ? `<select id="rc-letter" title="${h(t('rcWithLetterTip'))}"><option value="">📄 ${h(t('rcNoLetter'))}</option>${letterTemplates().map((x) => `<option value="${h(x.id)}"${String(x.id) === String(f.letter || '') ? ' selected' : ''}>📄 ${h(x.name)}</option>`).join('')}</select>` : ''}
 
+      ${f.kind !== 'invoice' ? `<label class="rc-issued" title="${h(t('rcIssuedDateNote'))}">📅 ${h(t('rcIssuedDate'))} <input type="date" id="rc-issued" value="${h(f.issued || todayIso())}"></label>` : ''}
       <button type="button" class="btn" id="rc-env">✉ ${h(t('rcEnvelopes'))}</button>
       <button type="button" class="btn" id="rc-sample">👁 ${h(t('rcPreview'))}</button>
       <button type="button" class="btn" id="rc-xl">Excel</button>
@@ -195,6 +196,7 @@ export function renderReceipts() {
   };
   $('#rc-edit-org', main).onclick = () => openOrgDetails(f.org);
   $('#rc-letter', main)?.addEventListener('change', (e) => { f.letter = e.target.value; });
+  $('#rc-issued', main)?.addEventListener('change', (e) => { f.issued = e.target.value && e.target.value !== todayIso() ? e.target.value : ''; });
   $('#rc-quick', main)?.addEventListener('click', () => openQuickReceipt(f.org, rerender));
   $('#rc-newinv', main)?.addEventListener('click', () => { if (missing) { openOrgDetails(f.org); return; } openInvoiceForm({ kind: 'invoice', org: f.org, contact_id: '', donor_name: '', list: [], ids: [], amount: 0, period: '' }, { done: rerender }); });
   $$('[data-form]', main).forEach((b) => { b.onclick = () => { if (missing) { openOrgDetails(f.org); return; } const c = shown[Number(b.dataset.form)]; if (c.kind === 'invoice') { openInvoiceForm(c, { done: rerender }); return; } openReceiptForm(shown[Number(b.dataset.form)], { letter: f.letter, forText: f.kind !== 'year' ? String(f.forText || '').trim() : '', done: rerender }); }; });
@@ -770,7 +772,8 @@ function paidBy(r) {
 async function prepareDocs(docs, forText = '') {
   const out = docs.map((d) => (d.issued && d.kind !== 'invoice' ? fromLog(d.issued.receipt_no) : null));
   const todo = docs.filter((d, i) => !out[i]);
-  const issued = todo.length ? await issueDocs(todo.map((d) => issueOf(d))) : [];
+  const day = f?.issued && f.kind !== 'invoice' ? f.issued : '';
+  const issued = todo.length ? await issueDocs(todo.map((d) => issueOf(day ? { ...d, meta: { ...(d.meta || defaultMeta(d)), issued_date: day } } : d))) : [];
   let k = 0;
   return docs.map((d, i) => {
     if (out[i]) return { ...out[i], forText };
@@ -835,7 +838,8 @@ export function openQuickReceipt(org0 = '', done = null, opts = {}) {
       <div class="rq-books"${opts.sale ? '' : ' hidden'}>${bookPickerHtml()}</div>
       <div class="grid">
         <label>${h(t('amount'))} *<input name="amount" type="number" min="0.01" step="0.01" dir="ltr" required></label>
-        <label>${h(t('dateLegend'))}<input name="date" type="date" value="${today}"></label>
+        <label>${h(t('rcDonDateQ'))}<input name="date" type="date" value="${today}"></label>
+        <label>📅 ${h(t('rcIssuedDate'))}<input name="issued" type="date" value="${today}"></label>
         <label>${h(t('paymentMethod'))}<select name="method"><option value=""></option>${methods.map((m) => `<option>${h(m)}</option>`).join('')}</select></label>
         <label class="rq-check" hidden>${h(t('checkNumber'))}<input name="check" dir="ltr"></label>
         <label class="rq-card" hidden>${h(t('cardLast4'))}<input name="card" dir="ltr" maxlength="4"></label>
@@ -961,8 +965,9 @@ export function openQuickReceipt(org0 = '', done = null, opts = {}) {
       if (done) done();
       const txt = String(addrText || '').trim();
       const chosen = addrSel === 'free' ? (txt ? { mode: 'free', text: txt } : null) : addrSel.startsWith('work:') ? { mode: 'work', i: Number(addrSel.slice(5)) } : (ct ? { mode: 'home' } : null);
+      const issued = el('issued').value && el('issued').value !== today ? el('issued').value : '';
       openReceiptForm({ kind: 'receipt', org: effectiveOrg(dd), contact_id: dd.contact_id || '', donor_name: dd.contact_id ? '' : dd.donor_name, ids: [String(id)], amount, period: '', list: [dd],
-        ...(chosen ? { meta: { type: sale ? 'sale' : 'donation', sig: { mode: 'org' }, addr: chosen } } : {}) },
+        ...(chosen || issued ? { meta: { type: sale ? 'sale' : 'donation', sig: { mode: 'org' }, ...(chosen ? { addr: chosen } : {}), ...(issued ? { issued_date: issued } : {}) } } : {}) },
         { forText: sale ? '' : el('for').value.trim(), done });
     } catch (err) { ui.toast(ui.friendlyError(err), 'error'); btn.disabled = false; }
   };
