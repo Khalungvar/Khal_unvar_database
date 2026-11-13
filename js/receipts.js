@@ -828,8 +828,8 @@ export function openQuickReceipt(org0 = '', done = null, opts = {}) {
   dlg.addEventListener('close', () => dlg.remove());
   const methods = state.lists.payment_method || [];
   dlg.innerHTML = `<button type="button" class="x-close" data-x aria-label="${h(t('close'))}">✕</button>
-    <h2>🧾 ${h(t('rqTitle'))}</h2>
-    <p class="muted small">${h(t('rqHint'))}</p>
+    <h2>${opts.edit ? `♻ ${h(t('rcReissueT', { no: opts.edit.no }))}` : `🧾 ${h(t('rqTitle'))}`}</h2>
+    <p class="muted small">${h(t(opts.edit ? 'rcReissueHint' : 'rqHint'))}</p>
     <form class="rq-form" autocomplete="off">
       <div class="seg">${[['', 'donKindDonation'], ['sale', 'donKindSale']].map(([k, l], i) => `<button type="button" data-qk="${k}" class="${(opts.sale ? i : !i) ? 'on' : ''}">${h(t(l))}</button>`).join('')}</div>
       <label class="wide">${h(t('donor'))} *<input name="who" list="dl-rq" placeholder="${h(t('rqWhoPh'))}" required>
@@ -931,6 +931,29 @@ export function openQuickReceipt(org0 = '', done = null, opts = {}) {
     const cr = state.campaigns.find((x) => x.campaign === el('campaign').value);
     if (cr?.goods_desc && !el('gdesc').value) { el('gdesc').value = cr.goods_desc; if (cr.goods_value !== '' && cr.goods_value != null) el('gval').value = cr.goods_value; }
   };
+  // ♻ בטל'ן און מאכן נאכאמאל: אלעס שוין אויסגעפילט פון דער אלטער קבלה / נדבה
+  const E = opts.edit;
+  if (E) {
+    const d0 = E.donation;
+    const ct0 = d0.contact_id ? ui.contactById(d0.contact_id) : null;
+    if (d0.kind === 'sale') $('[data-qk="sale"]', dlg).click();
+    el('who').value = ct0 ? ui.pickerLabel(ct0) : String(d0.donor_name || '');
+    el('amount').value = d0.amount_usd ?? '';
+    el('date').value = String(d0.paid_date || d0.date || today).slice(0, 10);
+    el('issued').value = E.issued || today;
+    el('method').value = d0.payment_method || '';
+    el('method').onchange();
+    if (el('check')) el('check').value = d0.check_number || '';
+    if (el('card')) el('card').value = d0.card_last4 || '';
+    el('campaign').value = d0.campaign || '';
+    el('org').value = effectiveOrg(d0) || el('org').value;
+    el('for').value = d0.kind === 'sale' ? (d0.goods_desc || '') : (E.forText || d0.event_note || '');
+    if (d0.kind !== 'sale') { el('gdesc').value = d0.goods_desc || ''; el('gval').value = d0.goods_value ?? ''; }
+    const A = E.addr;
+    if (A) { addrSel = A.mode === 'work' ? `work:${Number(A.i) || 0}` : A.mode === 'free' ? 'free' : 'home'; addrText = A.mode === 'free' ? (A.text || '') : ''; }
+    onWho();
+    if (A) { addrSel = A.mode === 'work' ? `work:${Number(A.i) || 0}` : A.mode === 'free' ? 'free' : 'home'; renderAddr(); }
+  }
   form.onsubmit = async (e) => {
     e.preventDefault();
     const who = el('who').value.trim();
@@ -953,10 +976,13 @@ export function openQuickReceipt(org0 = '', done = null, opts = {}) {
       kind, goods_desc: sale ? el('for').value.trim() : el('gdesc').value.trim(), goods_value: sale || el('gval').value === '' ? '' : Number(el('gval').value),
       books: sale && bookLines.length ? JSON.stringify(bookLines) : '',
     };
+    // ♻: די זעלבע נדבה (פארריכט), נישט קיין נייע; ספרים בלייבן ווי זיי זענען אויב מ'האט נישט געטוישט
+    if (E) { Object.assign(d, { donation_id: E.donation.donation_id }); if (sale && !bookLines.length) d.books = E.donation.books || ''; }
     const btn = $('button[type=submit]', form);
     btn.disabled = true;
     try {
-      const id = await saveDonation(d);
+      if (E && !E.voided) { await voidReceipt(E.no); E.voided = true; }
+      const id = await saveDonation(E ? { ...E.donation, ...d } : d);
       await loadAll();
       const dd = state.donations.find((x) => String(x.donation_id) === String(id)) || { ...d, donation_id: id };
       dlg.close();
@@ -1090,6 +1116,12 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
     // ♻ בטל'ן און מאכן נאכאמאל: די אלטע ווערט בטל, און א נייער (פרייער) פענצטער מיט די זעלבע פרטים
     $('#rxf-reissue', dlg)?.addEventListener('click', async (ev) => {
       if (!confirm(t('rcReissueQ', { no: c0.receipt_no }))) return;
+      // איין נדבה → צוריק צום אנהייב ("קבלה בודדת") מיט אלעס אויסגעפילט; די אלטע ווערט בטל ערשט ביים "ווייטער"
+      if (c0.kind === 'receipt' && c0.list.length === 1 && c0.list[0]?.donation_id) {
+        dlg.close();
+        openQuickReceipt(c0.org, done, { edit: { no: c0.receipt_no, donation: c0.list[0], issued: issuedDay(c0), addr: (c0.meta || {}).addr || null, forText: c0.forText || '' } });
+        return;
+      }
       ev.target.disabled = true;
       try {
         await voidReceipt(c0.receipt_no);
