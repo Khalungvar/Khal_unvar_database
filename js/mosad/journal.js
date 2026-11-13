@@ -5,9 +5,9 @@ import { downloadXlsx } from '../excel.js?v=653';
 import { colFilters } from '../sorttables.js?v=653';
 import { todayIso, isoToHebrewText, toHebrew, fromHebrew, monthHe, yearLabel } from '../hebdate.js?v=653';
 import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=653';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=683';
-import { letterhead, heShort } from './brand.js?v=683';
-import { dayInfo, rulesOf } from './hdays.js?v=683';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=684';
+import { letterhead, heShort } from './brand.js?v=684';
+import { dayInfo, rulesOf } from './hdays.js?v=684';
 
 let X = null;
 export function initJournal(ctx) { X = ctx; }

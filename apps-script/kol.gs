@@ -165,6 +165,17 @@ function unsubbed() {
 }
 
 // ---------------------------------------------------------------------------------- פעולות פתוחות (בלי כניסה)
+/** לדף הציבורי: רק התמונה עם הלוגו — בלי המקור / הגרסה הנקייה */
+function publicBlock_(b) {
+  const x = JSON.parse(JSON.stringify(b));
+  const ims = x.imgs && x.imgs.length ? x.imgs : (x.img && x.img.id ? [{ id: x.img.id, pdf: x.pdf }] : []);
+  if (x.type === 'photo' || x.type === 'ad') {
+    const logo = x.type === 'photo' && x.logo !== false;
+    x.imgs = ims.map(function (it) { return { id: logo && it.pub ? it.pub : it.id, pdf: it.pdf, gif: it.gif, baked: true }; });
+    delete x.img; delete x.pdf;
+  }
+  return x;
+}
 const PUBLIC = {
   /** הדף הציבורי: כל המיילים השבועיים שנשלחו — רק הרכיבים שסומנו "לארכיון" */
   archive: function () {
@@ -174,7 +185,8 @@ const PUBLIC = {
     const list = rows('Emails').filter(function (e) { return S(e.kind) === 'weekly' && S(e.status) === 'sent'; }).map(function (e) {
       let blocks = []; try { blocks = JSON.parse(S(e.blocks) || '[]'); } catch (err) { blocks = []; }
       let opts = {}; try { opts = JSON.parse(S(e.opts) || '{}'); } catch (err) { opts = {}; }
-      return { id: S(e.id), week: S(e.week), subject: S(e.subject), sent_at: S(e.sent_at), opts: opts, blocks: blocks.filter(function (b) { return b.arch !== false; }) };
+      delete opts.hf; delete opts.hfSent;
+      return { id: S(e.id), week: S(e.week), subject: S(e.subject), status: 'sent', sent_at: S(e.sent_at), opts: opts, blocks: blocks.filter(function (b) { return b.arch !== false; }).map(publicBlock_) };
     }).sort(function (a, b) { return a.week < b.week ? 1 : -1; });
     const res = { emails: list };
     try { c.put('archive', JSON.stringify(res), 300); } catch (err) { /* גדול מדי */ }
@@ -198,9 +210,9 @@ const PUBLIC = {
 };
 
 // ---------------------------------------------------------------------------------- פעולות (רק למורשים)
-/** המייל השבועי של שבת מסוימת (אם יש כפולים — האחרון ששונה, ועדיף עם תוכן) */
-function latestWeekly_(all, week) {
-  const c = all.filter(function (r) { return S(r.kind) === 'weekly' && S(r.week) === week; });
+/** הטיוטה השבועית (מייל אחד שרץ עד פרסום / מחיקה; אם יש כפולים — האחרונה ששונתה, ועדיף עם תוכן) */
+function latestWeekly_(all) {
+  const c = all.filter(function (r) { return S(r.kind) === 'weekly' && S(r.status) !== 'sent'; });
   c.sort(function (a, b) { const fa = S(a.blocks).length > 2 ? 1 : 0; const fb = S(b.blocks).length > 2 ? 1 : 0; return fb - fa || (S(a.updated_at) < S(b.updated_at) ? 1 : -1); });
   return c[0] || null;
 }
@@ -213,7 +225,7 @@ function emailView(e) {
 const ACTIONS = {
   me: function (req, me) {
     let logo = ''; try { logo = setting('logo'); } catch (err) { logo = ''; }
-    return { email: me, from: Session.getEffectiveUser().getEmail(), quota: MailApp.getRemainingDailyQuota(), logo: logo, defaults: setting('defaults') };
+    return { email: me, from: Session.getEffectiveUser().getEmail(), quota: MailApp.getRemainingDailyQuota(), logo: logo, defaults: setting('defaults'), header: setting('header'), footer: setting('footer') };
   },
   /** כל המיילים (בלי הישנים מאוד שנשלחו — רק 30 אחרונים) */
   list: function () {
@@ -234,7 +246,7 @@ const ACTIONS = {
     try {
       const all = rows('Emails');
       let e = x.id ? all.filter(function (r) { return S(r.id) === S(x.id); })[0] : null;
-      if (!e && kind === 'weekly' && x.week) e = latestWeekly_(all, S(x.week));
+      if (!e && kind === 'weekly') e = latestWeekly_(all); // יש רק טיוטה שבועית אחת
       if (e && S(e.status) === 'sent') throw new Error('already-sent');
       // שני אנשים עורכים ביחד: אם מישהו אחר שמר בינתיים — לא לדרוס
       if (e && req.base && S(e.updated_at) !== S(req.base) && S(e.updated_by) !== me) throw new Error('conflict:' + S(e.updated_by) + ' ' + S(e.updated_at));
@@ -243,7 +255,7 @@ const ACTIONS = {
       const o = e || { id: 'k' + Date.now().toString(36), kind: kind, created_at: now(), created_by: me, status: 'draft' };
       o.week = kind === 'weekly' ? S(x.week).slice(0, 10) : '';
       o.title = S(x.title).slice(0, 120); o.subject = S(x.subject).slice(0, 200);
-      o.blocks = blocks; o.opts = JSON.stringify(x.opts || {}).slice(0, 4000);
+      o.blocks = blocks; o.opts = JSON.stringify(x.opts || {}); if (o.opts.length > 40000) throw new Error('too-big');
       o.updated_at = now(); o.updated_by = me;
       put('Emails', o);
       return { email: emailView(o) };
@@ -281,7 +293,9 @@ const ACTIONS = {
   settings: function (req) {
     if (req.logo !== undefined) setting('logo', S(req.logo).slice(0, 200));
     if (req.defaults !== undefined) setting('defaults', JSON.stringify(req.defaults || {}).slice(0, 4000));
-    return { ok: true, logo: setting('logo'), defaults: setting('defaults') };
+    if (req.header !== undefined) { const h = JSON.stringify(req.header || {}); if (h.length > 40000) throw new Error('too-big'); setting('header', h); }
+    if (req.footer !== undefined) { const f = JSON.stringify(req.footer || {}); if (f.length > 40000) throw new Error('too-big'); setting('footer', f); }
+    return { ok: true, logo: setting('logo'), defaults: setting('defaults'), header: setting('header'), footer: setting('footer') };
   },
   /** ניסיון: { html, subject, to?, files: [ids] } → לשולח עצמו */
   test: function (req, me) {
@@ -323,6 +337,10 @@ const ACTIONS = {
       CacheService.getScriptCache().remove('archive');
     }
     return { sent: n, errors: errs, quota: MailApp.getRemainingDailyQuota(), skipped_done: Object.keys(done).length };
+  },
+  /** ארכיון מנהלים: כל מה שנשלח (שבועי + חד פעמי), מלא */
+  sentAll: function () {
+    return { emails: rows('Emails').filter(function (e) { return S(e.status) === 'sent'; }).map(emailView).sort(function (a, b) { return a.sent_at < b.sent_at ? 1 : -1; }) };
   },
   unsubAdd: function (req) {
     const email = S(req.email).toLowerCase().trim();
