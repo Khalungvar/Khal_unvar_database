@@ -282,7 +282,7 @@ function mapHeads(head, spec, exact = []) {
 }
 export async function readTable(file) {
   if (/\.csv$/i.test(file.name)) return (await file.text()).split(/\r?\n/).filter((l) => l.trim()).map((l) => l.split(/,|\t/).map((c) => c.replace(/^"|"$/g, '').trim()));
-  const { _test } = await import('./shabbos.js?v=684');
+  const { _test } = await import('./shabbos.js?v=685');
   const files = Object.fromEntries(await _test.unzip(await file.arrayBuffer()));
   const dec = new TextDecoder(); const P = (k) => (files[k] ? new DOMParser().parseFromString(dec.decode(files[k]), 'application/xml') : null);
   const shared = [...(P('xl/sharedStrings.xml')?.getElementsByTagName('si') || [])].map((si) => [...si.getElementsByTagName('t')].map((t) => t.textContent).join(''));

@@ -1,11 +1,11 @@
 // 📻 קול אונגוואר — ungvar.org/kol : מערכת המיילים (שבועי "מהנעשה והנשמע" + חד פעמי).
 // כניסה עם Google (כל מי שמורשה באתר הכללי). השרת: apps-script/kol.gs (רץ בשם kol@ungvar.org).
 // הנמענים: רשימת התפוצה "מהנעשה והנשמע" — מסומנת ליד המייל של איש הקשר באתר הכללי (email_1_tags / email_2_tags).
-import { initAuth, requestToken, getUserEmail, hasSavedSession, currentToken, readTabs } from '../google.js?v=684';
-import { CONFIG } from '../config.js?v=684';
-import { shabbatTitle } from '../parasha.js?v=684';
-import { isoToHebrewText, toHebrew, yearLabel } from '../hebdate.js?v=684';
-import { FONTS, DEF_FONT, KINDS, LIST_NAME, DEF_HEADER, DEF_FOOTER, emailHtml, emailText, fillTags, imgUrl, dlUrl, imgsOf, driveId, cleanHtml, dateOf, dayText, weekOf, hfOf } from './render.js?v=684';
+import { initAuth, requestToken, getUserEmail, hasSavedSession, currentToken, readTabs } from '../google.js?v=685';
+import { CONFIG } from '../config.js?v=685';
+import { shabbatTitle } from '../parasha.js?v=685';
+import { isoToHebrewText, toHebrew, yearLabel } from '../hebdate.js?v=685';
+import { FONTS, DEF_FONT, KINDS, LIST_NAME, DEF_HEADER, DEF_FOOTER, emailHtml, emailText, fillTags, imgUrl, dlUrl, imgsOf, driveId, cleanHtml, dateOf, dayText, weekOf, hfOf } from './render.js?v=685';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -325,7 +325,8 @@ function editor(e0, back) {
       try {
         await burn((t) => { btn.textContent = t; }); await save();
         btn.textContent = '⏳ שולח…';
-        const r = await api('test', { subject: `[ניסיון] ${fillTags(E.subject, E)}`, html: emailHtml(E, 'mail', ctx()), text: emailText(E), files: fileIds() }); toast(`נשלח ניסיון ל-${r.to}.`);
+        const html = emailHtml(E, 'mail', ctx());
+        if (sizeOk(html)) { const r = await api('test', { subject: `[ניסיון] ${fillTags(E.subject, E)}`, html, text: emailText(E), files: fileIds() }); toast(`נשלח ניסיון ל-${r.to}.`); }
       } catch (err) { toast(msg(err), 'error'); }
       btn.disabled = false; btn.textContent = '📨 שלח ניסיון אליי';
     };
@@ -353,6 +354,12 @@ function editor(e0, back) {
   }
   const fileIds = () => E.blocks.filter((b) => b.type === 'file' && b.attach && b.file?.id).map((b) => b.file.id);
 
+  /** Gmail חותך מייל שה-HTML שלו מעל ~102KB ("[ההודעה נחתכה]") */
+  function sizeOk(html) {
+    const kb = Math.round(new Blob([html]).size / 1024);
+    if (kb <= 95) return true;
+    return confirm(`המייל גדול (${kb}KB). ב-Gmail מייל מעל ~100KB נחתך באמצע עם "[ההודעה נחתכה]", וזה גם פוגע במוניטין.\nכדאי לקצר טקסט / לפצל לשני מיילים.\n\nלשלוח בכל זאת?`);
+  }
   /** צריבת הלוגו בתמונות (רק לשליחה / לניסיון — בעריכה הלוגו רק מוצג מעל) */
   async function burn(say = () => {}) {
     const jobs = [];
@@ -568,12 +575,16 @@ function editor(e0, back) {
     } catch (err) { toast(msg(err), 'error'); btn.disabled = false; btn.textContent = '🚀 פרסום'; return; }
     if (dirty) { btn.disabled = false; btn.textContent = '🚀 פרסום'; return; }
     const html = emailHtml(E, 'mail', ctx()); const text = emailText(E); const subject = fillTags(E.subject, E); const files = fileIds();
-    let sentN = 0; let errs = 0; const SIZE = 60;
+    if (!sizeOk(html)) { btn.disabled = false; btn.textContent = '🚀 פרסום'; return; }
+    // במנות של 40, עם הפסקה של חצי דקה ביניהן — לא "הפצצה" בבת אחת (טוב למוניטין)
+    let sentN = 0; let errs = 0; const SIZE = 40; const PAUSE = 30;
     try {
       for (let i = 0; i < r.send.length; i += SIZE) {
         const last = i + SIZE >= r.send.length;
+        if (i) for (let t = PAUSE; t > 0; t--) { btn.textContent = `⏸ ${sentN} נשלחו · ממשיך בעוד ${t} שנ'…`; await new Promise((ok) => { setTimeout(ok, 1000); }); }
         btn.textContent = `⏳ שולח… ${Math.min(i + SIZE, r.send.length)} / ${r.send.length}`;
-        const res = await api('publish', { id: E.id, subject, html, text, files, recipients: r.send.slice(i, i + SIZE), final: last }, 330000);
+        const res = await api('publish', { id: E.id, subject, html, text, files, recipients: r.send.slice(i, i + SIZE), final: last, first: i === 0 }, 330000);
+        if (res.scanned && (res.scanned.bounce || res.scanned.mail)) toast(`הוסרו מהרשימה: ${res.scanned.bounce || 0} כתובות שחזרו, ${res.scanned.mail || 0} שביקשו הסרה במייל.`);
         sentN += res.sent; errs += (res.errors || []).length; K.quota = res.quota;
         if ((res.errors || []).some((x) => x.error === 'daily-limit')) { toast('הגענו למגבלה היומית. מחר אפשר ללחוץ שוב "פרסום" — מי שכבר קיבל לא יקבל שוב.', 'error'); break; }
       }

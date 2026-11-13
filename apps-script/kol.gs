@@ -26,6 +26,9 @@ const BATCH = 60; // כמה נמענים בקריאה אחת (מגבלת 6 דק�
 // ---------------------------------------------------------------------------------- כניסה
 function doPost(e) {
   try {
+    // כפתור "ביטול מנוי" של Gmail (One-Click, RFC 8058): Gmail שולח POST ל-?action=lu&u=..&k=..
+    const qp = (e && e.parameter) || {};
+    if (qp.action === 'lu') { try { PUBLIC.unsub({ u: qp.u, k: qp.k }); } catch (err) { /* קישור לא תקין */ } return ContentService.createTextOutput('ok'); }
     const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     const pub = PUBLIC[req.action];
     if (pub) return out(pub(req));
@@ -41,6 +44,8 @@ function doPost(e) {
 function doGet(e) {
   const p = (e && e.parameter) || {};
   try {
+    // פתיחה רגילה של קישור ההסרה (לא POST) — לא מסירים לבד (סורקי קישורים); מעבירים לדף ההסרה באתר
+    if (p.action === 'lu') return HtmlService.createHtmlOutput('<meta http-equiv="refresh" content="0;url=' + unsubLink(S(p.u)).replace(/"/g, '') + '">');
     if (p.action && PUBLIC[p.action]) return out(PUBLIC[p.action](p));
     return out({ ok: true });
   } catch (err) { return out({ error: String((err && err.message) || err).slice(0, 300) }); }
@@ -300,7 +305,7 @@ const ACTIONS = {
   /** ניסיון: { html, subject, to?, files: [ids] } → לשולח עצמו */
   test: function (req, me) {
     const to = S(req.to || me).toLowerCase();
-    MailApp.sendEmail(mailOf(to, req));
+    send_(to, req, attPart_(attachments(req.files)));
     return { ok: true, to: to, quota: MailApp.getRemainingDailyQuota() };
   },
   /**
@@ -313,16 +318,18 @@ const ACTIONS = {
     if (S(e.status) === 'sent' && !req.final) throw new Error('already-sent');
     const done = {};
     rows('Sent').forEach(function (r) { if (S(r.email_id) === S(e.id) && S(r.ok) === 'TRUE') done[S(r.to).toLowerCase()] = 1; });
+    let scanned = null;
+    if (req.first) { try { scanned = scanInbox_(); } catch (err) { scanned = { error: S(err.message || err).slice(0, 100) }; } }
     const un = unsubbed();
     const want = [].concat(req.recipients || []).map(function (x) { return S(x).toLowerCase().trim(); })
       .filter(function (x, i, a) { return /^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$/.test(x) && a.indexOf(x) === i && !done[x] && !un[x]; }).slice(0, BATCH);
     const log = book().getSheetByName('Sent');
     let n = 0; const errs = [];
-    const att = attachments(req.files);
+    const att = attPart_(attachments(req.files));
     for (let i = 0; i < want.length; i++) {
-      if (MailApp.getRemainingDailyQuota() < 1) { errs.push({ to: want[i], error: 'daily-limit' }); break; }
       try {
-        MailApp.sendEmail(mailOf(want[i], req, att));
+        if (i) Utilities.sleep(350); // לא בבת אחת
+        send_(want[i], req, att);
         log.appendRow([e.id, want[i], now(), 'TRUE', '']); n++;
       } catch (err) {
         const msg = S((err && err.message) || err).slice(0, 200);
@@ -336,8 +343,10 @@ const ACTIONS = {
       put('Emails', e);
       CacheService.getScriptCache().remove('archive');
     }
-    return { sent: n, errors: errs, quota: MailApp.getRemainingDailyQuota(), skipped_done: Object.keys(done).length };
+    return { sent: n, errors: errs, quota: MailApp.getRemainingDailyQuota(), skipped_done: Object.keys(done).length, scanned: scanned };
   },
+  /** סריקת חוזרים / בקשות הסרה במייל */
+  scan: function () { const r = scanInbox_(); r.unsubs = rows('Unsubs').map(function (u) { return { email: S(u.email), at: S(u.at), source: S(u.source) }; }); return r; },
   /** ארכיון מנהלים: כל מה שנשלח (שבועי + חד פעמי), מלא */
   sentAll: function () {
     return { emails: rows('Emails').filter(function (e) { return S(e.status) === 'sent'; }).map(emailView).sort(function (a, b) { return a.sent_at < b.sent_at ? 1 : -1; }) };
@@ -357,7 +366,83 @@ function attachments(ids) {
     try { return DriveApp.getFileById(S(id)).getBlob(); } catch (err) { return null; }
   }).filter(Boolean);
 }
-/** מייל אחד: {{UNSUB}} בתוך ה-HTML → קישור ההסרה האישי */
+// ---------------------------------------------------------------------------------- שליחה דרך Gmail
+// לא MailApp: Gmail דוחה הודעות MailApp מחשבונות חדשים ("Message rejected").
+// כאן ההודעה נשלחת מתיבת ה-Gmail של kol@ עצמה (Gmail API), חתומה DKIM של ungvar.org,
+// ועם כותרות List-Unsubscribe — כפתור "ביטול מנוי" של Gmail בלחיצה אחת.
+const W76 = function (x) { return String(x).replace(/.{76}/g, '$&\r\n'); };
+const B64 = function (x) { return W76(Utilities.base64Encode(String(x), Utilities.Charset.UTF_8)); };
+/** כותרת בעברית (RFC 2047), בחתיכות קצרות */
+const HENC = function (x) {
+  const ch = Array.from(String(x)); const out = [];
+  for (let i = 0; i < ch.length; i += 16) out.push('=?UTF-8?B?' + Utilities.base64Encode(ch.slice(i, i + 16).join(''), Utilities.Charset.UTF_8) + '?=');
+  return out.join('\r\n ') || '""';
+};
+/** חלקי הקבצים המצורפים — מוכנים פעם אחת לכל המנה */
+function attPart_(blobs) {
+  return (blobs || []).map(function (b) {
+    const name = HENC(b.getName() || 'file');
+    return 'Content-Type: ' + (b.getContentType() || 'application/octet-stream') + '; name="' + name + '"\r\n' +
+      'Content-Disposition: attachment; filename="' + name + '"\r\nContent-Transfer-Encoding: base64\r\n\r\n' + W76(Utilities.base64Encode(b.getBytes())) + '\r\n';
+  });
+}
+function send_(to, req, attParts) {
+  const unsub = unsubLink(to);
+  const html = S(req.html).split('{{UNSUB}}').join(unsub);
+  const text = S(req.text || '').split('{{UNSUB}}').join(unsub) || 'קול אונגוואר';
+  const me = Session.getEffectiveUser().getEmail();
+  const one = ScriptApp.getService().getUrl() + '?action=lu&u=' + encodeURIComponent(to) + '&k=' + sig(to);
+  const alt = 'a' + Utilities.getUuid().replace(/-/g, ''); const mix = 'm' + Utilities.getUuid().replace(/-/g, '');
+  const altBody = '--' + alt + '\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n' + B64(text) + '\r\n' +
+    '--' + alt + '\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n' + B64(html) + '\r\n--' + alt + '--\r\n';
+  const head = ['From: ' + HENC(S(req.fromName) || 'קול אונגוואר') + ' <' + me + '>', 'To: <' + to + '>', 'Subject: ' + HENC(S(req.subject) || 'קול אונגוואר'),
+    'MIME-Version: 1.0', 'List-Unsubscribe: <' + one + '>, <mailto:' + me + '?subject=unsubscribe>', 'List-Unsubscribe-Post: List-Unsubscribe=One-Click'];
+  let raw;
+  if (attParts && attParts.length) {
+    raw = head.join('\r\n') + '\r\nContent-Type: multipart/mixed; boundary="' + mix + '"\r\n\r\n--' + mix + '\r\nContent-Type: multipart/alternative; boundary="' + alt + '"\r\n\r\n' + altBody +
+      attParts.map(function (p) { return '--' + mix + '\r\n' + p; }).join('') + '--' + mix + '--\r\n';
+  } else raw = head.join('\r\n') + '\r\nContent-Type: multipart/alternative; boundary="' + alt + '"\r\n\r\n' + altBody;
+  const r = UrlFetchApp.fetch('https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=media', {
+    method: 'post', contentType: 'message/rfc822', payload: raw, muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+  });
+  if (r.getResponseCode() !== 200) {
+    let m = r.getContentText(); try { m = JSON.parse(m).error.message; } catch (err) { /* טקסט */ }
+    throw new Error('gmail ' + r.getResponseCode() + ': ' + String(m).slice(0, 150));
+  }
+}
+
+// ---------------------------------------------------------------------------------- חוזרים + הסרה במייל
+/**
+ * סורק את תיבת kol@: מיילים שחזרו (כתובת לא קיימת — 5.x.x) ובקשות הסרה במייל (נושא unsubscribe)
+ * → נכנסים לרשימת ההסרות (source: bounce / mail). כל שיחה שטופלה מקבלת תווית "kol-טופל".
+ */
+function scanInbox_() {
+  const label = GmailApp.getUserLabelByName('kol-טופל') || GmailApp.createLabel('kol-טופל');
+  const th = GmailApp.search('newer_than:60d -label:kol-טופל (from:mailer-daemon OR from:postmaster OR subject:unsubscribe)', 0, 100);
+  const un = unsubbed(); const me = Session.getEffectiveUser().getEmail().toLowerCase();
+  let bounce = 0; let mail = 0;
+  th.forEach(function (t) {
+    t.getMessages().forEach(function (m) {
+      const from = S(m.getFrom()).toLowerCase();
+      if (/mailer-daemon|postmaster/.test(from)) {
+        const raw = m.getRawContent();
+        if (!/^Status:\s*5\./mi.test(raw) && !/X-Failed-Recipients:/i.test(raw)) return; // רק כישלון קבוע
+        const got = {};
+        (raw.match(/^X-Failed-Recipients:\s*(.+)$/gmi) || []).forEach(function (l) { l.replace(/^[^:]+:/, '').split(',').forEach(function (x) { got[x.trim().toLowerCase()] = 1; }); });
+        (raw.match(/^Final-Recipient:\s*rfc822;\s*(\S+)/gmi) || []).forEach(function (l) { got[l.replace(/^.*;\s*/, '').trim().toLowerCase()] = 1; });
+        Object.keys(got).forEach(function (a) { a = a.replace(/[<>]/g, ''); if (a && a !== me && !un[a]) { put('Unsubs', { email: a, at: now(), source: 'bounce' }); un[a] = 1; bounce++; } });
+      } else if (/unsubscribe|הסר/i.test(S(m.getSubject()))) {
+        const a = (/<([^>]+)>/.exec(from) || [null, from])[1].trim();
+        if (a && a !== me && !un[a]) { put('Unsubs', { email: a, at: now(), source: 'mail' }); un[a] = 1; mail++; }
+      }
+    });
+    t.addLabel(label);
+  });
+  return { bounce: bounce, mail: mail };
+}
+
+/** מייל אחד: {{UNSUB}} בתוך ה-HTML → קישור ההסרה האישי (MailApp — לא בשימוש לשליחה) */
 function mailOf(to, req, att) {
   const html = S(req.html).split('{{UNSUB}}').join(unsubLink(to));
   const o = { to: to, subject: S(req.subject) || 'קול אונגוואר', htmlBody: html, name: S(req.fromName) || 'קול אונגוואר',
@@ -370,6 +455,7 @@ function mailOf(to, req, att) {
 /** בדיקה מהעורך */
 function testKol() {
   Logger.log('running as: ' + Session.getEffectiveUser().getEmail());
+  Logger.log('inbox: ' + JSON.stringify(scanInbox_()));
   Logger.log('quota: ' + MailApp.getRemainingDailyQuota());
   setup();
 }

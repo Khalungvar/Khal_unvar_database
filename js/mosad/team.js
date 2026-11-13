@@ -2,10 +2,10 @@
 // אנשי צוות: תפקיד, טלפון, מייל (לאגאין), פון ווען, פעיל/לשעבר, סארט שכר (אן סכומים); 💰 → משכורות (נאר מיט הרשאה).
 // אברכים: וועמען זיי לערנען מיט (פון די חברותות), און שעות (כניסה/יציאה).
 import { downloadXlsx } from '../excel.js?v=653';
-import { currentZman } from './school.js?v=684';
-import { historyDialog } from './me.js?v=684';
-import { heDate } from './brand.js?v=684';
-import { rulesOf, rulesText } from './hdays.js?v=684';
+import { currentZman } from './school.js?v=685';
+import { historyDialog } from './me.js?v=685';
+import { heDate } from './brand.js?v=685';
+import { rulesOf, rulesText } from './hdays.js?v=685';
 
 let X = null;
 export function initTeam(ctx) { X = ctx; }

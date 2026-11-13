@@ -36,7 +36,8 @@ function doPost(e) {
         });
         if (atts.length) o.attachments = atts;
         if (it.replyTo) o.replyTo = String(it.replyTo);
-        MailApp.sendEmail(o);
+        // GmailApp ולא MailApp: נשלח מתיבת ה-Gmail של office@ עצמה (MailApp נדחה ע"י Gmail בחשבונות חדשים)
+        GmailApp.sendEmail(o.to, o.subject, o.body, o);
         return { to: to, ok: true };
       } catch (err) {
         return { to: to, error: String(err && err.message || err).slice(0, 200) };
@@ -54,7 +55,7 @@ function testMailer() {
   Logger.log('running as: ' + me);
   Logger.log('quota left: ' + MailApp.getRemainingDailyQuota());
   Logger.log('sheet: ' + SpreadsheetApp.openById(SHEET_ID).getName());
-  MailApp.sendEmail({ to: me, name: 'Khal Ungvar', subject: 'שליחת מיילים מהאתר חוברה ✔', body: 'מעכשיו מיילים מהאתר יוצאים מ-' + me + '.' });
+  GmailApp.sendEmail(me, 'שליחת מיילים מהאתר חוברה ✔', 'מעכשיו מיילים מהאתר יוצאים מ-' + me + '.', { name: 'Khal Ungvar' });
 }
 
 function blobOf(dataUrl, name) {

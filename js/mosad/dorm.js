@@ -4,8 +4,8 @@
 // א זמן: Settings "dorm:<זמן>" = { b: מבנה, beds: { bedId: contact_id }, apts: [{ id, name, beds, ids: [contact_id|''] }] }
 // אן אלטער זמן בלייבט מיט זיין מבנה — אויך ווען מ'מאכט שפעטער א נייעם (א נייער בנין).
 import { downloadXlsx } from '../excel.js?v=653';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=684';
-import { heDate, letterhead } from './brand.js?v=684';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=685';
+import { heDate, letterhead } from './brand.js?v=685';
 import { todayIso } from '../hebdate.js?v=653';
 
 let X = null;
