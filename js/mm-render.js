@@ -458,7 +458,7 @@ export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties =
     ${L.design === 'blank' && G.blank ? `<img class="mx-letter-bg" src="${imgSrc(G.blank)}" style="opacity:1" alt="">` : ''}
     ${L.design === 'blank' && !G.blank && (edit || draft) ? `<div class="mx-noblank">📄 ${h(L.org || '')}: אין עדיין בלאנק למוסד — מעלים ב"פרטים לקבלות"</div>` : ''}
     ${watermarkHtml(D)}
-    ${banner && first ? `<img class="mx-banner" src="${imgSrc(banner)}" style="top:0.3in;left:${m.side * 0.6}in;right:${m.side * 0.6}in;height:${bh}in" alt="">` : ''}
+    ${banner && first ? `<img class="mx-banner" src="${imgSrc(banner)}" style="top:0.3in;left:0;right:0;width:100%;height:${bh}in" alt="">` : ''}
     ${logo && first ? `<div class="mx-band" style="top:0.3in;left:${m.side}in;right:${m.side}in"><img src="${imgSrc(logo)}" alt=""><div dir="rtl">${h(det.org_name_he || L.org)}</div></div>` : ''}
     ${winBlock}
     ${cont ? `<div class="mx-cont" dir="${dirv(L.dir)}" style="left:${m.side}in;right:${m.side}in;top:${m.top}in">${h(L.dir === 'ltr' ? 'continued' : 'המשך')} · ${h(vals.שם_מלא || vals.Name || '')} · ${cont + 1}</div>` : ''}

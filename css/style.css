@@ -1532,6 +1532,8 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .mx-letter .mx-body p { margin: 0 0 0.55em; }
 .mx-letter-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .mx-banner { position: absolute; object-fit: contain; object-position: center top; width: auto; max-width: none; }
+/* דער באנער אויף א בריוו: אן ראם (דער .mx-banner פון ניהול אונטן האט א הינטערגרונט) — פון זייט צו זייט, אין מיטן */
+.mx-letter img.mx-banner { background: none; padding: 0; border-radius: 0; margin: 0; object-position: center top; }
 .mx-band { position: absolute; display: flex; align-items: center; gap: 0.15in; justify-content: center; font: 700 20pt 'Frank Ruhl Libre', serif; color: #7a1219; }
 .mx-band img { height: 0.9in; }
 .mx-foot { position: absolute; text-align: center; font-size: 8.5pt; color: #444; border-top: 1px solid #c9b78f; padding-top: 0.06in; }
