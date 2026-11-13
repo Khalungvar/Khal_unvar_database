@@ -1,7 +1,7 @@
 // 🎓 College Programs — 🟢 Active (תוכנית, FAFSA / TAP, פרסים לכל סמסטר, תשלומים, מכתבים ש-🤖 קורא, תזכורות)
 //    ו-🤖 מזכיר AI (טקסט + סריקות → הצעה → ✓ לבצע).
-import { K, loadApps, openApp, activateDialog, anyNm, nm, yiNm, showFile } from './kollel.js?v=698';
-import { kindLabel, ALL_KINDS, SECTIONS } from './kollelfields.js?v=698';
+import { K, loadApps, openApp, activateDialog, anyNm, nm, yiNm, showFile } from './kollel.js?v=699';
+import { kindLabel, ALL_KINDS, SECTIONS } from './kollelfields.js?v=699';
 import { downloadXlsx } from '../excel.js?v=653';
 
 let X;

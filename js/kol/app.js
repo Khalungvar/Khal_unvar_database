@@ -1,11 +1,12 @@
 // 📻 קול אונגוואר — ungvar.org/kol : מערכת המיילים (שבועי "מהנעשה והנשמע" + חד פעמי).
 // כניסה עם Google (כל מי שמורשה באתר הכללי). השרת: apps-script/kol.gs (רץ בשם kol@ungvar.org).
 // הנמענים: רשימת התפוצה "מהנעשה והנשמע" — מסומנת ליד המייל של איש הקשר באתר הכללי (email_1_tags / email_2_tags).
-import { initAuth, requestToken, getUserEmail, hasSavedSession, currentToken, readTabs } from '../google.js?v=698';
-import { CONFIG } from '../config.js?v=698';
-import { shabbatTitle } from '../parasha.js?v=698';
-import { isoToHebrewText, toHebrew, yearLabel } from '../hebdate.js?v=698';
-import { FONTS, DEF_FONT, KINDS, LIST_NAME, DEF_HEADER, DEF_FOOTER, emailHtml, emailText, fillTags, imgUrl, dlUrl, imgsOf, driveId, cleanHtml, dateOf, dayText, weekOf, hfOf } from './render.js?v=698';
+import { initAuth, requestToken, getUserEmail, hasSavedSession, currentToken, readTabs } from '../google.js?v=699';
+import { CONFIG } from '../config.js?v=699';
+import { shabbatTitle } from '../parasha.js?v=699';
+import { isoToHebrewText, toHebrew, yearLabel } from '../hebdate.js?v=699';
+import { FONTS, DEF_FONT, KINDS, LIST_NAME, DEF_HEADER, DEF_FOOTER, emailHtml, emailText, fillTags, imgUrl, dlUrl, imgsOf, driveId, cleanHtml, dateOf, dayText, weekOf, hfOf, isLive } from './render.js?v=699';
+import { loadLive, simchosList, shabbosTimes, simchosHtml, shabbosHtml } from './live.js?v=699';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -18,7 +19,14 @@ const msg = (err) => { const m = String(err?.message || err); return MSG[m.split
 const K = { me: '', from: '', quota: 0, emails: [], unsubs: new Set(), logo: '', logoData: '', defaults: {}, header: {}, footer: {}, phones: null, contacts: null };
 const SITE_LOGO = new URL('../../img/logo.png', import.meta.url).href;
 /** מה שהבנאי של המייל צריך מבחוץ: ראש / תחתית ברירת מחדל + הלוגו לתצוגה */
-const ctx = (extra = {}) => ({ header: K.header, footer: K.footer, logoUrl: K.logo ? imgUrl(K.logo, 400) : SITE_LOGO, ...extra });
+const ctx = (extra = {}) => ({ header: K.header, footer: K.footer, logoUrl: K.logo ? imgUrl(K.logo, 400) : SITE_LOGO, live: K.live || undefined, ...extra });
+/** "שהשמחה במעונם" + "זמני שבת / יום טוב" כמו שהם עכשיו (מגיליון התצוגה, כמו באתר) */
+async function refreshLive(font, force = false) {
+  await loadLive(force);
+  K.live = { simchos: simchosHtml(simchosList(), font || DEF_FONT), shabbos: shabbosHtml(shabbosTimes(new Date()), font || DEF_FONT) };
+  return K.live;
+}
+const liveBlocks = () => [{ type: 'shabbos', arch: false }, { type: 'simchos', arch: false }];
 
 // ---------------------------------------------------------------- שרת
 async function api(action, body = {}, ms = 120000) {
@@ -175,7 +183,7 @@ function hub() {
 
 // ---------------------------------------------------------------- שבועי
 /** "מהנעשה והנשמע": טיוטה אחת שנשארת עד פרסום / מחיקה; התאריך והפרשה — של יום הפרסום */
-const newWeekly = () => ({ kind: 'weekly', week: '', title: '', subject: 'מהנעשה והנשמע — {פרשת השבוע}', blocks: [], opts: { ...(K.defaults || {}) }, status: 'draft' });
+const newWeekly = () => ({ kind: 'weekly', week: '', title: '', subject: 'מהנעשה והנשמע — {פרשת השבוע}', blocks: liveBlocks(), opts: { ...(K.defaults || {}), liveAdded: true }, status: 'draft' });
 async function openWeekly() {
   head('מהנעשה והנשמע', hub);
   main.innerHTML = '<p class="muted">טוען…</p>';
@@ -256,6 +264,11 @@ function rich(html, onChange) {
 function editor(e0, back) {
   const E = JSON.parse(JSON.stringify(e0)); E.blocks ||= []; E.opts ||= {};
   if (E.kind === 'weekly' && E.status !== 'sent') E.week = ''; // נקבע ביום הפרסום
+  if (E.status !== 'sent') {
+    E.blocks.forEach((b) => { if (isLive(b)) { delete b.snap; b.arch = false; } }); // טיוטה — תמיד העדכני
+    // טיוטה שבועית שנפתחה לפני שהיו הרכיבים האלה — מוסיפים פעם אחת (בסוף)
+    if (E.kind === 'weekly' && !E.opts.liveAdded) { if (!E.blocks.some(isLive)) E.blocks.push(...liveBlocks()); E.opts.liveAdded = true; }
+  }
   let base = E.updated_at || ''; let dirty = false; let saving = false; let timer = null; let open = -1;
   const sent = E.status === 'sent';
   const title = E.kind === 'weekly' ? `מהנעשה והנשמע${sent ? ` — ${dayText(dateOf(E))}` : ''}` : (E.title || 'אימייל חד פעמי');
@@ -405,11 +418,14 @@ function editor(e0, back) {
     text: () => ({ type: 'text', html: '', align: 'center', arch: true }),
     video: () => ({ type: 'video', url: '', title: '', thumb: null, text: '', arch: true }),
     button: () => ({ type: 'button', label: '', link: '', color: '#ffffff', btnBg: '#7a1f1f', arch: true }),
+    simchos: () => ({ type: 'simchos', arch: false }),
+    shabbos: () => ({ type: 'shabbos', arch: false }),
   };
   const addBlock = (k) => { E.blocks.push(NEW[k]()); open = E.blocks.length - 1; drawBlocks(); changed(); setTimeout(() => $(`[data-i="${open}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50); };
   const summary = (b) => {
     const strip = (x) => String(x || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 70);
     if (b.type === 'text') return strip(b.html) || '(ריק)';
+    if (isLive(b)) return typeof b.snap === 'string' ? 'כמו שיצא במייל' : 'מתמלא לבד מגיליון התצוגה · לא לארכיון';
     if (b.type === 'button') return b.label || '(בלי כיתוב)';
     if (b.type === 'video') return b.title || b.url || '(בלי קישור)';
     if (b.type === 'file') return b.file?.name || '(בלי קובץ)';
@@ -421,7 +437,7 @@ function editor(e0, back) {
     const box = $('#ke-blocks');
     box.innerHTML = E.blocks.map((b, i) => `<div class="kol-blk${open === i ? ' open' : ''}" data-i="${i}">
       <div class="kol-bh">${thumbOf(b)}<div class="kol-bt"><b>${KINDS[b.type].icon} ${KINDS[b.type].name}</b><span class="muted small">${h(summary(b))}</span></div>
-        ${E.kind === 'weekly' ? `<label class="kol-arch" title="לעלות גם לדף הציבורי"><input type="checkbox" data-arch${b.arch !== false ? ' checked' : ''}${sent ? ' disabled' : ''}> לארכיון</label>` : ''}
+        ${E.kind === 'weekly' && !isLive(b) ? `<label class="kol-arch" title="לעלות גם לדף הציבורי"><input type="checkbox" data-arch${b.arch !== false ? ' checked' : ''}${sent ? ' disabled' : ''}> לארכיון</label>` : ''}
         ${sent ? '' : `<button type="button" class="btn small-btn" data-up title="למעלה"${i ? '' : ' disabled'}>▲</button><button type="button" class="btn small-btn" data-down title="למטה"${i < E.blocks.length - 1 ? '' : ' disabled'}>▼</button>
         <button type="button" class="btn small-btn" data-edit>${open === i ? 'סגירה' : '✏️ עריכה'}</button><button type="button" class="btn small-btn danger" data-rm title="מחיקה">🗑</button>`}</div>
       ${open === i && !sent ? '<div class="kol-bf"></div>' : ''}</div>`).join('') || '<p class="muted kol-empty">עוד אין כלום. מוסיפים רכיבים מהכפתורים למטה.</p>';
@@ -461,11 +477,16 @@ function editor(e0, back) {
       <label class="check"><input type="checkbox" data-attach${b.attach ? ' checked' : ''}> לצרף את הקובץ גם כקובץ מצורף למייל (עד 20MB) — אחרת רק קישור להורדה</label>
       ${imgPick('מודעה / תמונה שקשורה לקובץ (רשות)')}<div class="kol-f">טקסט</div><div data-rich="text"></div>${inp('btnLabel', 'כיתוב כפתור ההורדה', `להורדת ${b.file?.name || 'הקובץ'}`)}${colors([['btnBg', 'צבע הכפתור', '#2c4a6e'], ['btnColor', 'צבע הכיתוב', '#ffffff']])}${bgRow}`;
     if (b.type === 'text') html = `<div data-rich="html"></div>${bgRow}`;
+    if (isLive(b)) {
+      html = `<p class="muted small">${b.type === 'simchos' ? 'השמחות נלקחות מהרשימה של מסך התצוגה בבית המדרש — מה שמוצג ביום הפרסום.' : 'הזמנים מחושבים כמו בקופסה "זמני שבת קודש" באתר — השבת (או יום טוב) הקרובה ליום הפרסום. רק שבת וחג.'}
+        בפרסום התוכן ננעל במייל. לא עולה לארכיון.</p><button type="button" class="btn small-btn" data-relive>🔄 לרענן עכשיו</button>`;
+    }
     if (b.type === 'video') html = `${inp('url', 'קישור לסרטון בדרייב (פתוח לכל מי שיש לו קישור)', 'https://drive.google.com/file/d/…', 'url', true)}${inp('title', 'כותרת', 'לצפייה בסרטון')}
       ${imgPick('תמונה מקדימה (רשות — אחרת כפתור ▶)')}<p class="muted small">בלחיצה נפתח דף שלנו (ungvar.org/kolungvar) שמנגן את הסרטון — מתאים גם למי שיש לו פילטר שבו ungvar.org פתוח.</p>
       <div class="kol-f">טקסט</div><div data-rich="text"></div>${bgRow}`;
     if (b.type === 'button') html = `${inp('label', 'כיתוב הכפתור', 'למשל: לתרומה')}${inp('link', 'קישור', 'https://…', 'url', true)}${colors([['btnBg', 'צבע הכפתור', '#7a1f1f'], ['color', 'צבע הכיתוב', '#ffffff']])}${bgRow}`;
     f.innerHTML = html;
+    $('[data-relive]', f)?.addEventListener('click', async (ev) => { ev.target.disabled = true; try { await refreshLive(E.opts.font, true); preview(); toast('✓ עודכן.'); } catch (err) { toast(msg(err), 'error'); } ev.target.disabled = false; });
     $$('[data-k]', f).forEach((el) => { el.oninput = () => { b[el.dataset.k] = el.value; if (b.type === 'video' && el.dataset.k === 'url' && el.value && !driveId(el.value)) toast('זה לא נראה כמו קישור לדרייב.'); up(); }; });
     $('[data-nobg]', f)?.addEventListener('click', () => { delete b.bg; up(); });
     $$('[data-rich]', f).forEach((el) => { const k = el.dataset.rich; el.replaceWith(rich(b[k], (v) => { b[k] = v; up(); })); });
@@ -570,6 +591,12 @@ function editor(e0, back) {
     try {
       await burn((t) => { btn.textContent = t; });
       if (E.kind === 'weekly') E.week = weekOf(E); // השבת של יום הפרסום
+      // שמחות וזמני שבת — כמו שהם ברגע הפרסום, ננעלים במייל
+      if (E.blocks.some(isLive)) {
+        btn.textContent = '⏳ שמחות וזמני שבת…';
+        const L = await refreshLive(E.opts.font, true);
+        E.blocks.forEach((b) => { if (isLive(b) && typeof b.snap !== 'string') b.snap = L[b.type] || ''; });
+      }
       if (!E.opts.hf?.own) E.opts.hfSent = { header: K.header, footer: K.footer }; // הראש / התחתית כמו שיצאו
       dirty = true; await save();
     } catch (err) { toast(msg(err), 'error'); btn.disabled = false; btn.textContent = '🚀 פרסום'; return; }
@@ -597,6 +624,8 @@ function editor(e0, back) {
     }
   }
   drawBlocks(); preview();
+  // התוכן ה"חי" (שמחות / זמני שבת) — לתצוגה
+  if (!sent && E.blocks.some(isLive)) refreshLive(E.opts.font).then(() => preview()).catch(() => toast('לא הצלחתי לטעון את השמחות / זמני השבת מגיליון התצוגה.', 'error'));
 }
 
 // ---------------------------------------------------------------- הגדרות

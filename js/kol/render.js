@@ -1,7 +1,7 @@
 // 📻 קול אונגוואר — בניית המייל (HTML שמתאים לכל תוכנות המייל: טבלאות, סגנון בתוך התגיות, בלי גופנים מבחוץ).
 // אותו בנאי משמש לתצוגה מקדימה, לשליחה ולדף הציבורי (ungvar.org/kolungvar).
-import { shabbatOfWeek, shabbatTitle } from '../parasha.js?v=698';
-import { todayIso, isoToHebrewText } from '../hebdate.js?v=698';
+import { shabbatOfWeek, shabbatTitle } from '../parasha.js?v=699';
+import { todayIso, isoToHebrewText } from '../hebdate.js?v=699';
 
 export const SITE = 'https://ungvar.org';
 export const LIST_NAME = 'מהנעשה והנשמע';
@@ -134,7 +134,11 @@ export const KINDS = {
   text: { icon: '✏️', name: 'טקסט' },
   video: { icon: '🎬', name: 'וידאו' },
   button: { icon: '🔘', name: 'כפתור' },
+  simchos: { icon: '🎉', name: 'שהשמחה במעונם', live: true },
+  shabbos: { icon: '🕯', name: 'זמני שבת / יום טוב', live: true },
 };
+/** רכיבים שמתמלאים לבד (לא לארכיון; ננעלים בפרסום — b.snap) */
+export const isLive = (b) => b?.type === 'simchos' || b?.type === 'shabbos';
 
 /** רכיב אחד → שורות טבלה */
 export function blockRows(b, e, opts = {}) {
@@ -161,6 +165,11 @@ export function blockRows(b, e, opts = {}) {
       + textCell(b.text, b, e, opts);
   } else if (b.type === 'button') {
     inner = btnRow(fillTags(b.label, e), b.link, b.color || '#ffffff', b.btnBg || '#7a1f1f', f);
+  } else if (isLive(b)) {
+    if (opts.archive) return '';
+    // נעול (מייל שנשלח) → מה שיצא; אחרת — מה שעדכני עכשיו (ctx.live)
+    inner = typeof b.snap === 'string' ? b.snap : (opts.live?.[b.type] ?? '');
+    if (!inner && opts.preview) inner = `<tr><td dir="rtl" align="center" style="padding:8px 16px;font:13px Arial,sans-serif;color:#9a8f7a">${KINDS[b.type].icon} ${KINDS[b.type].name} — ${opts.live ? 'אין כרגע מה להציג' : 'טוען…'}</td></tr>`;
   }
   if (!inner) return '';
   return bg ? `<tr><td style="${bg}padding:4px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${inner}</table></td></tr>${gap(b)}` : inner + gap(b);
@@ -216,8 +225,8 @@ function legalLines(color, mode, e) {
  */
 export function emailHtml(e, mode = 'mail', ctx = {}) {
   const o = { font: DEF_FONT, bg: '#efe9dc', card: '#ffffff', color: '#1d1d1d', ...(e.opts || {}) };
-  const opts = { ...o, archive: mode === 'archive', preview: mode === 'preview', logoUrl: ctx.logoUrl || `${SITE}/img/logo.png`, clean: !!ctx.clean, dl: !!ctx.dl };
-  const blocks = (e.blocks || []).filter((b) => mode !== 'archive' || b.arch !== false);
+  const opts = { ...o, archive: mode === 'archive', preview: mode === 'preview', logoUrl: ctx.logoUrl || `${SITE}/img/logo.png`, clean: !!ctx.clean, dl: !!ctx.dl, live: ctx.live };
+  const blocks = (e.blocks || []).filter((b) => mode !== 'archive' || (b.arch !== false && !isLive(b)));
   const rowsHtml = blocks.map((b) => blockRows(b, e, opts)).join('');
   if (mode === 'archive') return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" dir="rtl" style="max-width:${W}px;margin:0 auto;background:${esc(o.card)}">${rowsHtml}</table>`;
   const { header, footer } = hfOf(e, ctx);
@@ -236,7 +245,7 @@ export function emailText(e) {
   const strip = (h) => String(h || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li|h\d)>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim();
   const out = [fillTags(e.subject, e), ''];
   (e.blocks || []).forEach((b) => {
-    const t = strip(fillTags(b.text || b.html || '', e));
+    const t = strip(fillTags(b.text || b.html || (isLive(b) && typeof b.snap === 'string' ? b.snap.replace(/<\/tr>/gi, '\n') : ''), e));
     if (t) out.push(t);
     if (b.type === 'button' && b.link) out.push(`${b.label}: ${b.link}`);
     if (b.type === 'video') out.push(`▶ ${videoPage(b)}`);
