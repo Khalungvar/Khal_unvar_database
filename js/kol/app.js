@@ -1,11 +1,11 @@
 // 📻 קול אונגוואר — ungvar.org/kol : מערכת המיילים (שבועי "מהנעשה והנשמע" + חד פעמי).
 // כניסה עם Google (כל מי שמורשה באתר הכללי). השרת: apps-script/kol.gs (רץ בשם kol@ungvar.org).
 // הנמענים: רשימת התפוצה "מהנעשה והנשמע" — מסומנת ליד המייל של איש הקשר באתר הכללי (email_1_tags / email_2_tags).
-import { initAuth, requestToken, getUserEmail, hasSavedSession, currentToken, readTabs } from '../google.js?v=681';
-import { CONFIG } from '../config.js?v=681';
-import { shabbatOfWeek, shabbatTitle } from '../parasha.js?v=681';
-import { todayIso, isoToHebrewText } from '../hebdate.js?v=681';
-import { FONTS, DEF_FONT, KINDS, LIST_NAME, emailHtml, emailText, fillTags, imgUrl, driveId, cleanHtml } from './render.js?v=681';
+import { initAuth, requestToken, getUserEmail, hasSavedSession, currentToken, readTabs } from '../google.js?v=682';
+import { CONFIG } from '../config.js?v=682';
+import { shabbatOfWeek, shabbatTitle } from '../parasha.js?v=682';
+import { todayIso, isoToHebrewText } from '../hebdate.js?v=682';
+import { FONTS, DEF_FONT, KINDS, LIST_NAME, emailHtml, emailText, fillTags, imgUrl, imgsOf, driveId, cleanHtml } from './render.js?v=682';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -93,6 +93,51 @@ async function logoData() {
   K.logoData = new URL('../../img/logo.png', import.meta.url).href;
   return K.logoData;
 }
+/** סיבוב תמונה ב-90° × n (מחזיר JPEG) */
+async function rotateJpeg(src, deg, logo = null, pos = 'bl') {
+  const im = await loadImg(src); const r = ((deg % 360) + 360) % 360; const side = r === 90 || r === 270;
+  const cv = document.createElement('canvas'); cv.width = side ? im.height : im.width; cv.height = side ? im.width : im.height;
+  const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+  g.translate(cv.width / 2, cv.height / 2); g.rotate((r * Math.PI) / 180); g.drawImage(im, -im.width / 2, -im.height / 2);
+  return toJpeg(cv.toDataURL('image/jpeg', 0.95), { logo, pos });
+}
+/** חיתוך לפי שברים {x,y,w,h} (0–1) */
+async function cropJpeg(src, c) {
+  const im = await loadImg(src);
+  const x = Math.round(c.x * im.width); const y = Math.round(c.y * im.height); const w = Math.max(1, Math.round(c.w * im.width)); const hh = Math.max(1, Math.round(c.h * im.height));
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = hh;
+  const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, hh); g.drawImage(im, x, y, w, hh, 0, 0, w, hh);
+  return cv.toDataURL('image/jpeg', 0.95);
+}
+/** סיבוב של מלבן חיתוך ב-90° עם כיוון השעון */
+const rotCrop = (c) => (c ? { x: 1 - c.y - c.h, y: c.x, w: c.h, h: c.w } : null);
+/** כלי חיתוך: גוררים מלבן על התמונה → שברים, או null */
+function cropDialog(src, init) {
+  return new Promise((ok) => {
+    const d = document.createElement('dialog'); d.className = 'kol-dlg kol-crop';
+    d.innerHTML = `<h2>✂ חיתוך</h2><p class="muted small">גוררים עם העכבר מלבן על החלק שרוצים להשאיר.</p>
+      <div class="kol-cw"><img alt=""><div class="kol-cr" hidden></div></div>
+      <div class="actions"><button type="button" class="btn primary" data-ok>✓ חיתוך</button><button type="button" class="btn" data-all>בלי חיתוך (כל התמונה)</button><button type="button" class="btn" data-x>ביטול</button></div>`;
+    document.body.append(d); d.showModal();
+    const im = $('img', d); const box = $('.kol-cr', d); const wrap = $('.kol-cw', d); im.src = src;
+    let c = init ? { ...init } : null; let a = null;
+    const draw = () => { if (!c) { box.hidden = true; return; } box.hidden = false; Object.assign(box.style, { left: `${c.x * im.clientWidth}px`, top: `${c.y * im.clientHeight}px`, width: `${c.w * im.clientWidth}px`, height: `${c.h * im.clientHeight}px` }); };
+    im.onload = draw;
+    const pt = (ev) => { const r = im.getBoundingClientRect(); return [Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height))]; };
+    wrap.onpointerdown = (ev) => { ev.preventDefault(); wrap.setPointerCapture(ev.pointerId); a = pt(ev); c = null; draw(); };
+    wrap.onpointermove = (ev) => { if (!a) return; const [x, y] = pt(ev); c = { x: Math.min(a[0], x), y: Math.min(a[1], y), w: Math.abs(x - a[0]), h: Math.abs(y - a[1]) }; draw(); };
+    wrap.onpointerup = () => { a = null; if (c && (c.w < 0.03 || c.h < 0.03)) { c = null; draw(); } };
+    const end = (v) => { d.close(); d.remove(); ok(v); };
+    $('[data-ok]', d).onclick = () => end(c ? { x: +c.x.toFixed(4), y: +c.y.toFixed(4), w: +c.w.toFixed(4), h: +c.h.toFixed(4) } : 'none');
+    $('[data-all]', d).onclick = () => end('none');
+    $('[data-x]', d).onclick = () => end(null);
+  });
+}
+const srcCache = {};
+async function driveData(id) { if (!srcCache[id]) srcCache[id] = (await api('fileData', { id })).data; return srcCache[id]; }
+function pickFiles(accept) {
+  return new Promise((ok) => { const i = document.createElement('input'); i.type = 'file'; i.accept = accept; i.multiple = true; i.onchange = () => ok([...i.files]); i.click(); });
+}
 function pickFile(accept) {
   return new Promise((ok) => { const i = document.createElement('input'); i.type = 'file'; i.accept = accept; i.onchange = () => ok(i.files[0] || null); i.click(); });
 }
@@ -109,7 +154,9 @@ function hub() {
       <button type="button" class="lobby-tile kol-tile" data-k="once"><span class="lobby-icon">✉️</span><b>אימייל חד פעמי</b><span class="muted small">שמירה, ממתינים לשליחה</span></button>
     </div>
     <div class="kol-foot"><a href="../kolungvar/" target="_blank">🌐 הדף הציבורי (ungvar.org/kolungvar)</a> · <button type="button" class="linkish" id="kol-set">⚙ הגדרות</button>
-      <span class="muted small">· שולח: ${h(K.from)} · נשארו היום: ${h(K.quota)} מיילים</span></div>`;
+      <span class="muted small">· שולח: ${h(K.from)} · נשארו היום: ${h(K.quota)} מיילים</span></div>
+    <div class="kol-logo" id="kol-logo"></div>`;
+  logoBox($('#kol-logo'));
   $$('[data-k]', main).forEach((b) => { b.onclick = () => (b.dataset.k === 'weekly' ? openWeekly() : openOnce()); });
   $('#kol-set').onclick = settingsDialog;
 }
@@ -296,9 +343,10 @@ function editor(e0, back, { week } = {}) {
     if (b.type === 'button') return b.label || '(בלי כיתוב)';
     if (b.type === 'video') return b.title || b.url || '(בלי קישור)';
     if (b.type === 'file') return b.file?.name || '(בלי קובץ)';
-    return strip(b.text) || (b.img ? '' : '(בלי תמונה)');
+    const n = imgsOf(b).length;
+    return (n > 1 ? `${n} תמונות · ` : '') + (strip(b.text) || (n || b.img ? '' : '(בלי תמונה)'));
   };
-  const thumbOf = (b) => { const id = b.img?.id || b.thumb?.id; return id ? `<img src="${imgUrl(id, 160)}" alt="">` : `<span class="kol-ic">${KINDS[b.type].icon}</span>`; };
+  const thumbOf = (b) => { const id = imgsOf(b)[0]?.id || b.img?.id || b.thumb?.id; return id ? `<img src="${imgUrl(id, 160)}" alt="">` : `<span class="kol-ic">${KINDS[b.type].icon}</span>`; };
   function drawBlocks() {
     const box = $('#ke-blocks');
     box.innerHTML = E.blocks.map((b, i) => `<div class="kol-blk${open === i ? ' open' : ''}" data-i="${i}">
@@ -326,11 +374,17 @@ function editor(e0, back, { week } = {}) {
     const bgRow = `<div class="kol-row"><label>רקע לרכיב <input type="color" data-k="bg" value="${h(b.bg || '#ffffff')}"></label> <button type="button" class="linkish" data-nobg>בלי רקע</button>
       <label>יישור <select data-k="align">${[['center', 'מרכז'], ['right', 'ימין'], ['left', 'שמאל'], ['justify', 'מיושר']].map(([v, n]) => `<option value="${v}"${(b.align || 'center') === v ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div>`;
     const imgPick = (label, accept) => `<div class="kol-row"><button type="button" class="btn" data-pick>⬆ ${h(label)}</button><span class="small muted" data-pst></span></div>`;
+    if ((b.type === 'ad' || b.type === 'photo') && !b.imgs) { b.imgs = imgsOf(b); delete b.img; delete b.pdf; }
+    const gallery = (label) => `<div class="kol-gal">${b.imgs.map((it, j) => `<div class="kol-gi" data-j="${j}"><img src="${imgUrl(it.id, 240)}" alt="">
+        <div class="kol-gb"><button type="button" class="btn small-btn" data-rot title="סיבוב 90°">⟳</button><button type="button" class="btn small-btn" data-crop title="חיתוך">✂</button>${b.imgs.length > 1 ? `<button type="button" class="btn small-btn" data-mv="-1" title="לפני"${j ? '' : ' disabled'}>▶</button><button type="button" class="btn small-btn" data-mv="1" title="אחרי"${j < b.imgs.length - 1 ? '' : ' disabled'}>◀</button>` : ''}<button type="button" class="btn small-btn danger" data-del title="הסרה">🗑</button></div>
+        ${it.pdf ? '<span class="small muted">📄 PDF</span>' : ''}</div>`).join('')}</div>
+      <div class="kol-row"><button type="button" class="btn" data-add>➕ ${h(label)}</button><span class="small muted" data-pst></span></div>`;
     let html = '';
-    if (b.type === 'ad') html = `${imgPick('בחירת מודעה (JPG / PNG / GIF / PDF)')}${inp('link', 'קישור בלחיצה על המודעה (רשות)', 'https://…', 'url', true)}${b.pdf ? '<p class="muted small">📄 PDF: בלחיצה נפתח ה-PDF המלא (אם לא כתבתם קישור אחר).</p>' : ''}<div class="kol-f">טקסט מתחת למודעה</div><div data-rich="text"></div>${bgRow}`;
+    if (b.type === 'ad') html = `${gallery(b.imgs.length ? 'הוספת מודעה לאותה קבוצה' : 'בחירת מודעה (JPG / PNG / GIF / PDF)')}${inp('link', 'קישור בלחיצה על המודעה (רשות)', 'https://…', 'url', true)}${b.imgs.some((x) => x.pdf) ? '<p class="muted small">📄 PDF: בלחיצה נפתח ה-PDF המלא (אם לא כתבתם קישור אחר).</p>' : ''}<div class="kol-f">טקסט מתחת למודעה</div><div data-rich="text"></div>${bgRow}`;
     if (b.type === 'photo') html = `<div class="kol-row"><label class="check"><input type="checkbox" data-logo${b.logo !== false ? ' checked' : ''}> להוסיף את הלוגו</label>
         <label>מקום <select data-lpos>${[['bl', 'למטה שמאל'], ['br', 'למטה ימין'], ['tl', 'למעלה שמאל'], ['tr', 'למעלה ימין']].map(([v, n]) => `<option value="${v}"${(b.lpos || 'bl') === v ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div>
-      ${imgPick('בחירת תמונה')}<p class="muted small">הלוגו מודבק בזמן ההעלאה — כדי לשנות, מעלים שוב את התמונה.</p>
+      ${gallery(b.imgs.length ? 'הוספת תמונות לאותו מעמד' : 'בחירת תמונות')}${b.imgs.length > 1 ? `<div class="kol-row"><label>סידור <select data-cols><option value="1">אחת מתחת לשנייה</option><option value="2"${b.cols === 2 ? ' selected' : ''}>שתיים בשורה</option></select></label></div>` : ''}
+      <p class="muted small">אפשר לבחור כמה תמונות ביחד. ⟳ סיבוב · ✂ חיתוך. שינוי הלוגו / המקום מתעדכן לבד בכל התמונות. <button type="button" class="linkish" data-relogo>להחיל את הלוגו הנוכחי מחדש</button> · <button type="button" class="linkish" data-logoset>🖼 החלפת לוגו</button></p>
       <div class="kol-f">טקסט מתחת לתמונה</div><div data-rich="text"></div>${inp('moreLink', 'קישור לעוד תמונות מהמעמד (רשות)', 'https://…', 'url', true)}${inp('moreLabel', 'כיתוב הכפתור', 'לעוד תמונות מהמעמד')}${colors([['btnBg', 'צבע הכפתור', '#7a1f1f'], ['btnColor', 'צבע הכיתוב', '#ffffff']])}${bgRow}`;
     if (b.type === 'file') html = `<div class="kol-row"><button type="button" class="btn" data-file>📎 בחירת קובץ</button><span class="small">${b.file ? `${h(b.file.name)} (${Math.round((b.file.size || 0) / 1024)}KB)` : ''}</span></div>
       <label class="check"><input type="checkbox" data-attach${b.attach ? ' checked' : ''}> לצרף את הקובץ גם כקובץ מצורף למייל (עד 20MB) — אחרת רק קישור להורדה</label>
@@ -344,10 +398,79 @@ function editor(e0, back, { week } = {}) {
     $$('[data-k]', f).forEach((el) => { el.oninput = () => { b[el.dataset.k] = el.value; if (b.type === 'video' && el.dataset.k === 'url' && el.value && !driveId(el.value)) toast('זה לא נראה כמו קישור לדרייב.'); up(); }; });
     $('[data-nobg]', f)?.addEventListener('click', () => { delete b.bg; up(); });
     $$('[data-rich]', f).forEach((el) => { const k = el.dataset.rich; el.replaceWith(rich(b[k], (v) => { b[k] = v; up(); })); });
-    $('[data-logo]', f)?.addEventListener('change', (ev) => { b.logo = ev.target.checked; changed(); });
-    $('[data-lpos]', f)?.addEventListener('change', (ev) => { b.lpos = ev.target.value; changed(); });
     $('[data-attach]', f)?.addEventListener('change', (ev) => { b.attach = ev.target.checked; changed(); });
-    // העלאת תמונה / מודעה
+    $('[data-cols]', f)?.addEventListener('change', (ev) => { b.cols = Number(ev.target.value); changed(); });
+    // גלריה: הוספה (כמה ביחד), סיבוב, סדר, הסרה
+    const logoOpt = async () => (b.type === 'photo' && b.logo !== false ? { logo: await logoData(), pos: b.lpos || 'bl' } : {});
+    /** בונה את התמונה מחדש מהמקור: סיבוב → חיתוך → לוגו, ומעלה */
+    const render = async (it) => {
+      const lo = await logoOpt();
+      let data = await rotateJpeg(await driveData(it.orig), it.rot || 0);
+      if (it.crop) data = await cropJpeg(data, it.crop);
+      if (lo.logo) data = await toJpeg(data, lo);
+      const r = await upload(data, 'תמונה.jpg'); srcCache[r.id] = data; it.id = r.id;
+    };
+    const busy = (t) => { const ps = $('[data-pst]', f); if (ps) ps.textContent = t; };
+    $('[data-add]', f)?.addEventListener('click', async () => {
+      const files = await pickFiles(b.type === 'ad' ? 'image/*,application/pdf' : 'image/*'); if (!files.length) return;
+      let n = 0;
+      for (const file of files) {
+        busy(`⏳ מעלה ${++n} / ${files.length}…`);
+        try {
+          const it = {};
+          if (file.type === 'image/gif') {
+            if (file.size > 8 * 1024 * 1024) throw new Error(`${file.name}: ה-GIF גדול מדי (עד 8MB).`);
+            const r = await upload(await readUrl(file), file.name); it.id = r.id; it.gif = true;
+            if (!r.public) toast('הקובץ הועלה, אבל לא נפתח לכולם — ייתכן שלא יופיע במייל.', 'error');
+          } else {
+            let plain;
+            if (file.type === 'application/pdf') {
+              if (file.size > 20 * 1024 * 1024) throw new Error(`${file.name}: ה-PDF גדול מדי (עד 20MB).`);
+              plain = await pdfFirstPage(file);
+              const pdf = await upload(await readUrl(file), file.name); it.pdf = { id: pdf.id, name: file.name };
+            } else plain = await toJpeg(await readUrl(file));
+            const o = await upload(plain, file.name.replace(/\.\w+$/, '-מקור.jpg')); it.orig = o.id; srcCache[o.id] = plain;
+            if (!o.public) toast('הקובץ הועלה, אבל לא נפתח לכולם — ייתכן שלא יופיע במייל.', 'error');
+            const lo = await logoOpt();
+            if (lo.logo) await render(it); else it.id = o.id;
+          }
+          b.imgs.push(it); changed();
+        } catch (err) { toast(msg(err), 'error'); }
+      }
+      busy(''); up(); drawBlocks();
+    });
+    // שינוי לוגו / מקום → בונים מחדש את כל התמונות
+    const reLogo = async () => {
+      const list = b.imgs.filter((x) => x.orig); let n = 0;
+      try { for (const it of list) { busy(`⏳ מעדכן לוגו ${++n} / ${list.length}…`); await render(it); } } catch (err) { toast(msg(err), 'error'); }
+      busy(''); up(); drawBlocks();
+    };
+    $('[data-logo]', f)?.addEventListener('change', (ev) => { b.logo = ev.target.checked; reLogo(); });
+    $('[data-lpos]', f)?.addEventListener('change', (ev) => { b.lpos = ev.target.value; reLogo(); });
+    $('[data-logoset]', f)?.addEventListener('click', settingsDialog);
+    $('[data-relogo]', f)?.addEventListener('click', async () => { K.logoData = ''; await reLogo(); });
+    $$('.kol-gi', f).forEach((el) => {
+      const j = Number(el.dataset.j); const it = b.imgs[j];
+      $('[data-del]', el).onclick = () => { if (!confirm('להסיר את התמונה?')) return; b.imgs.splice(j, 1); up(); drawBlocks(); };
+      $$('[data-mv]', el).forEach((x) => { x.onclick = () => { const k = j + Number(x.dataset.mv); [b.imgs[j], b.imgs[k]] = [b.imgs[k], b.imgs[j]]; up(); drawBlocks(); }; });
+      const work = async (btn, fn) => {
+        if (it.gif) { toast('אי אפשר לערוך GIF (הוא יפסיק לזוז). מסובבים / חותכים אותו לפני ההעלאה.', 'error'); return; }
+        const t = btn.textContent; btn.disabled = true; btn.textContent = '⏳';
+        try {
+          if (!it.orig) { it.orig = it.id; it.rot = 0; delete it.crop; } // תמונה ישנה — היא עצמה המקור
+          if (await fn() === false) { btn.disabled = false; btn.textContent = t; return; }
+          await render(it); up(); drawBlocks();
+        } catch (err) { btn.disabled = false; btn.textContent = t; toast(msg(err), 'error'); }
+      };
+      $('[data-rot]', el).onclick = (ev) => work(ev.currentTarget, () => { it.rot = ((it.rot || 0) + 90) % 360; it.crop = rotCrop(it.crop); });
+      $('[data-crop]', el).onclick = (ev) => work(ev.currentTarget, async () => {
+        const c = await cropDialog(await rotateJpeg(await driveData(it.orig), it.rot || 0), it.crop);
+        if (!c) return false;
+        if (c === 'none') delete it.crop; else it.crop = c;
+        return true;
+      });
+    });
+    // העלאת תמונה / מודעה (קובץ / וידאו)
     $('[data-pick]', f)?.addEventListener('click', async () => {
       const accept = b.type === 'ad' ? 'image/*,application/pdf' : 'image/*';
       const file = await pickFile(accept); if (!file) return;
@@ -415,24 +538,36 @@ function editor(e0, back, { week } = {}) {
 }
 
 // ---------------------------------------------------------------- הגדרות
+/** הגדרת הלוגו שמודבק על התמונות */
+function logoBox(el, after) {
+  const draw = () => {
+    el.innerHTML = `<h3>🖼 הלוגו שמודבק על התמונות</h3>
+      <div class="kol-row"><span class="kol-lp"><img src="${K.logo ? imgUrl(K.logo, 300) : '../img/logo.png'}" alt=""></span>${K.logo ? '' : '<span class="muted small">(ברירת מחדל — הלוגו של האתר)</span>'}
+        <button type="button" class="btn" data-lup>⬆ החלפת לוגו</button>${K.logo ? '<button type="button" class="btn" data-ldef>חזרה ללוגו של האתר</button>' : ''}</div>
+      <p class="muted small">מומלץ PNG עם רקע שקוף. הלוגו החדש יודבק על תמונות שיועלו מעכשיו; בתמונות שכבר במייל — לוחצים בתמונה "להחיל את הלוגו הנוכחי מחדש".</p>`;
+    $('[data-lup]', el).onclick = async () => {
+      const f = await pickFile('image/png,image/jpeg,image/webp'); if (!f) return;
+      try {
+        toast('⏳ מעלה…');
+        const r = await upload(await readUrl(f), `logo-${f.name}`);
+        await api('settings', { logo: r.id }); K.logo = r.id; K.logoData = ''; draw(); toast('✓ הלוגו נשמר.'); after?.();
+      } catch (err) { toast(msg(err), 'error'); }
+    };
+    $('[data-ldef]', el)?.addEventListener('click', async () => {
+      try { await api('settings', { logo: '' }); K.logo = ''; K.logoData = ''; draw(); toast('✓ חזר ללוגו של האתר.'); after?.(); } catch (err) { toast(msg(err), 'error'); }
+    });
+  };
+  draw();
+}
 function settingsDialog() {
   const d = document.createElement('dialog'); d.className = 'kol-dlg';
   d.innerHTML = `<h2>⚙ הגדרות קול אונגוואר</h2>
-    <h3>הלוגו שמודבק על תמונות</h3>
-    <div class="kol-row"><span id="ks-logo">${K.logo ? `<img src="${imgUrl(K.logo, 200)}" alt="" style="max-height:70px">` : `<img src="../img/logo.png" alt="" style="max-height:70px"> <span class="muted small">(ברירת מחדל)</span>`}</span>
-      <button type="button" class="btn" id="ks-up">⬆ העלאת לוגו (PNG שקוף מומלץ)</button></div>
+    <div id="ks-logo"></div>
     <p class="muted small">המיילים יוצאים מ-<b>${h(K.from)}</b>. הסרות מהרשימה: ${K.unsubs.size}.</p>
     <div class="actions"><button type="button" class="btn" id="ks-x">סגירה</button></div>`;
   document.body.append(d); d.showModal();
   $('#ks-x', d).onclick = () => { d.close(); d.remove(); };
-  $('#ks-up', d).onclick = async () => {
-    const f = await pickFile('image/png,image/jpeg,image/webp'); if (!f) return;
-    try {
-      const r = await upload(await readUrl(f), `logo-${f.name}`);
-      await api('settings', { logo: r.id }); K.logo = r.id; K.logoData = '';
-      $('#ks-logo', d).innerHTML = `<img src="${imgUrl(r.id, 200)}" alt="" style="max-height:70px">`; toast('הלוגו נשמר.');
-    } catch (err) { toast(msg(err), 'error'); }
-  };
+  logoBox($('#ks-logo', d));
 }
 
 // ---------------------------------------------------------------- התחלה

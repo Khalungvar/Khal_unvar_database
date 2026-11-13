@@ -60,3 +60,15 @@ body.kp { background: #efe9dc; font-family: Heebo, Arial, sans-serif; color: #1d
 .kp-btn { font: inherit; padding: 10px 26px; background: #7a1f1f; color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
 .linkish { background: none; border: 0; color: #2c4a6e; text-decoration: underline; cursor: pointer; font: inherit; }
 .kp-foot { text-align: center; padding: 18px; color: #6b6457; font-size: .9rem; }
+.kol-gal { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0; }
+.kol-gi { width: 132px; border: 1px solid #e3d9c4; border-radius: 6px; padding: 4px; background: #fff; text-align: center; }
+.kol-gi img { width: 122px; height: 122px; object-fit: contain; background: #f4f1ea; border-radius: 4px; display: block; }
+.kol-gb { display: flex; justify-content: center; gap: 3px; margin-top: 4px; }
+.kol-gb .small-btn { padding: 2px 7px; min-width: 0; }
+.kol-logo { margin-top: 18px; padding: 10px 14px; border: 1px solid #e3d9c4; border-radius: 8px; background: #fffdf8; }
+.kol-logo h3, #ks-logo h3 { margin: 0 0 4px; font-size: 1.05rem; }
+.kol-lp img { max-height: 80px; max-width: 220px; background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 16px 16px; border: 1px solid #ddd; border-radius: 4px; padding: 4px; }
+.kol-crop { max-width: min(92vw, 760px); }
+.kol-cw { position: relative; display: inline-block; overflow: hidden; touch-action: none; cursor: crosshair; user-select: none; }
+.kol-cw img { display: block; max-width: min(86vw, 720px); max-height: 62vh; }
+.kol-cr { position: absolute; border: 2px dashed #fff; outline: 1px solid #000; box-shadow: 0 0 0 9999px rgba(0, 0, 0, .45); pointer-events: none; }

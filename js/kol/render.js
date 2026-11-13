@@ -1,7 +1,7 @@
 // 📻 קול אונגוואר — בניית המייל (HTML שמתאים לכל תוכנות המייל: טבלאות, סגנון בתוך התגיות, בלי גופנים מבחוץ).
 // אותו בנאי משמש לתצוגה מקדימה, לשליחה ולדף הציבורי (ungvar.org/kolungvar).
-import { shabbatOfWeek, shabbatTitle } from '../parasha.js?v=681';
-import { todayIso } from '../hebdate.js?v=681';
+import { shabbatOfWeek, shabbatTitle } from '../parasha.js?v=682';
+import { todayIso } from '../hebdate.js?v=682';
 
 export const SITE = 'https://ungvar.org';
 export const LIST_NAME = 'מהנעשה והנשמע';
@@ -27,6 +27,8 @@ export function driveId(link) {
   const s = String(link || '');
   return (s.match(/\/d\/([\w-]{20,})/) || s.match(/[?&]id=([\w-]{20,})/) || s.match(/^([\w-]{25,})$/) || [])[1] || '';
 }
+/** תמונות של מודעה / תמונה — כמה באותה קבוצה (וגם הצורה הישנה: תמונה אחת) */
+export const imgsOf = (b) => (b?.imgs?.length ? b.imgs : (b?.img?.id ? [{ ...b.img, pdf: b.pdf }] : [])).filter((x) => x?.id);
 export const videoPage = (b) => `${SITE}/kolungvar/?v=${encodeURIComponent(driveId(b.url) || b.url || '')}${b.title ? `&t=${encodeURIComponent(b.title)}` : ''}`;
 
 // ---------- תגיות ----------
@@ -87,6 +89,12 @@ export function buttonHtml(label, link, color = '#ffffff', bg = '#7a1f1f', font 
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:6px auto"><tr><td bgcolor="${esc(bg)}" style="border-radius:6px;background:${esc(bg)}">
     <a href="${esc(link)}" target="_blank" style="display:inline-block;padding:11px 26px;font-family:${esc(font)};font-size:16px;font-weight:bold;color:${esc(color)};text-decoration:none;border-radius:6px">${esc(label)}</a></td></tr></table>`;
 }
+/** שתי תמונות בשורה */
+function pairRow(a, b, link) {
+  const cw = Math.floor((W - 32 - 8) / 2);
+  const cell = (it) => { if (!it) return `<td width="${cw}"></td>`; const im = `<img src="${esc(imgUrl(it.id, 700))}" alt="תמונה" width="${cw}" style="display:block;width:100%;max-width:${cw}px;height:auto;border:0">`; return `<td width="${cw}" valign="top">${link ? `<a href="${esc(link)}" target="_blank">${im}</a>` : im}</td>`; };
+  return `<tr><td style="${pad}" align="center"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${cell(a)}<td width="8" style="font-size:1px">&nbsp;</td>${cell(b)}</tr></table></td></tr>`;
+}
 const btnRow = (...a) => { const x = buttonHtml(...a); return x ? `<tr><td style="${pad}" align="center">${x}</td></tr>` : ''; };
 const gap = (b) => (b?.gap === false ? '' : '<tr><td style="height:14px;line-height:14px;font-size:1px">&nbsp;</td></tr>');
 
@@ -105,10 +113,12 @@ export function blockRows(b, e, opts = {}) {
   const bg = b.bg ? `background-color:${esc(b.bg)};` : '';
   let inner = '';
   if (b.type === 'ad') {
-    const link = b.link || (b.pdf?.id ? fileUrl(b.pdf.id) : '');
-    inner = imgRow(imgUrl(b.img?.id), link, 'מודעה') + textCell(b.text, b, e, opts);
+    inner = imgsOf(b).map((it) => imgRow(imgUrl(it.id), b.link || (it.pdf?.id ? fileUrl(it.pdf.id) : ''), 'מודעה')).join('') + textCell(b.text, b, e, opts);
   } else if (b.type === 'photo') {
-    inner = imgRow(imgUrl(b.img?.id), b.moreLink || '', 'תמונה') + textCell(b.text, b, e, opts)
+    const ims = imgsOf(b); let rows = '';
+    if (b.cols === 2 && ims.length > 1) for (let i = 0; i < ims.length; i += 2) rows += pairRow(ims[i], ims[i + 1], b.moreLink || '');
+    else rows = ims.map((it) => imgRow(imgUrl(it.id), b.moreLink || '', 'תמונה')).join('');
+    inner = rows + textCell(b.text, b, e, opts)
       + (b.moreLink ? btnRow(b.moreLabel || 'לעוד תמונות מהמעמד', b.moreLink, b.btnColor || '#ffffff', b.btnBg || '#7a1f1f', f) : '');
   } else if (b.type === 'file') {
     const name = b.file?.name || 'קובץ';
