@@ -1362,7 +1362,7 @@ export function receiptHtml(c, opts = {}) {
         ${last ? `${taxRate ? `<div class="rx-sub"><span>Subtotal ${usd(total)}</span><span>Sales tax ${taxRate}% ${usd(taxAmt)}</span></div>` : ''}
         <div class="rx-total"><span class="rx-l">${isInv ? 'Amount due' : 'Total'}</span><b>${usd(grand)}</b><span class="rx-words">${h(amountWords(grand))}</span></div>
         <div class="rx-foot"><div class="rx-tax">${h(stmt)}${det.receipt_note ? ` ${h(det.receipt_note)}` : ''}</div>
-          <div class="rx-sig">${rxSig(c, det)}<div class="rx-sigline">Authorized signature</div></div></div>` : '<div class="rx-more">Continued on next page →</div>'}
+          <div class="rx-sig">${rxSig(c, det)}<div class="rx-sigline">Authorized signature (not required)</div></div></div>` : '<div class="rx-more">Continued on next page →</div>'}
       </div>
     </div>
     ${side}

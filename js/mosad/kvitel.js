@@ -22,7 +22,7 @@ const line = (p, mother) => `${p.first_name_he || ''}${mother ? ` בן ${mother}
 
 /** ⬆ ייבוא מ-Word: "שם בן שם-האם (משפחה)" + כותרות הקבוצות */
 async function readDocx(file) {
-  const { _test } = await import('./shabbos.js?v=693');
+  const { _test } = await import('./shabbos.js?v=694');
   const files = Object.fromEntries(await _test.unzip(await file.arrayBuffer()));
   const xml = new DOMParser().parseFromString(new TextDecoder().decode(files['word/document.xml']), 'application/xml');
   return [...xml.getElementsByTagName('w:p')].map((p) => [...p.getElementsByTagName('w:t')].map((t) => t.textContent).join('').trim()).filter(Boolean);
@@ -41,7 +41,7 @@ function parseLines(lines) {
 
 /** ⬇ Word (.docx) — אותו עיצוב כמו ההדפסה: A4, שוליים 14 מ"מ, בס"ד, כותרת, תאריך עברי, קבוצות; קבוצה ארוכה (מעל 14) — בשני טורים */
 async function kvitelDocx(X, by) {
-  const { zip } = await import('../luach/tfdocx.js?v=693');
+  const { zip } = await import('../luach/tfdocx.js?v=694');
   const E = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const F = 'Frank Ruhl Libre';
   const run = (t, sz, b) => `<w:r><w:rPr><w:rFonts w:ascii="${F}" w:hAnsi="${F}" w:cs="${F}"/>${b ? '<w:b/><w:bCs/>' : ''}<w:rtl/><w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${E(t)}</w:t></w:r>`;
