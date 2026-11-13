@@ -368,6 +368,7 @@ function attachments(ids) {
 }
 // ---------------------------------------------------------------------------------- שליחה דרך Gmail
 // לא MailApp: Gmail דוחה הודעות MailApp מחשבונות חדשים ("Message rejected").
+// ⚠ בפרויקט צריך להוסיף את השירות Gmail API (שירותים ＋ → Gmail API) — זה מפעיל את ה-API בפרויקט הענן של הסקריפט.
 // כאן ההודעה נשלחת מתיבת ה-Gmail של kol@ עצמה (Gmail API), חתומה DKIM של ungvar.org,
 // ועם כותרות List-Unsubscribe — כפתור "ביטול מנוי" של Gmail בלחיצה אחת.
 const W76 = function (x) { return String(x).replace(/.{76}/g, '$&\r\n'); };
