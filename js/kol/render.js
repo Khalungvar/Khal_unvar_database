@@ -1,7 +1,7 @@
 // 📻 קול אונגוואר — בניית המייל (HTML שמתאים לכל תוכנות המייל: טבלאות, סגנון בתוך התגיות, בלי גופנים מבחוץ).
 // אותו בנאי משמש לתצוגה מקדימה, לשליחה ולדף הציבורי (ungvar.org/kolungvar).
-import { shabbatOfWeek, shabbatTitle } from '../parasha.js?v=699';
-import { todayIso, isoToHebrewText } from '../hebdate.js?v=699';
+import { shabbatOfWeek, shabbatTitle } from '../parasha.js?v=700';
+import { todayIso, isoToHebrewText } from '../hebdate.js?v=700';
 
 export const SITE = 'https://ungvar.org';
 export const LIST_NAME = 'מהנעשה והנשמע';
@@ -167,9 +167,11 @@ export function blockRows(b, e, opts = {}) {
     inner = btnRow(fillTags(b.label, e), b.link, b.color || '#ffffff', b.btnBg || '#7a1f1f', f);
   } else if (isLive(b)) {
     if (opts.archive) return '';
-    // נעול (מייל שנשלח) → מה שיצא; אחרת — מה שעדכני עכשיו (ctx.live)
-    inner = typeof b.snap === 'string' ? b.snap : (opts.live?.[b.type] ?? '');
-    if (!inner && opts.preview) inner = `<tr><td dir="rtl" align="center" style="padding:8px 16px;font:13px Arial,sans-serif;color:#9a8f7a">${KINDS[b.type].icon} ${KINDS[b.type].name} — ${opts.live ? 'אין כרגע מה להציג' : 'טוען…'}</td></tr>`;
+    // נצרב לתמונה (בפרסום / בניסיון) → התמונה; בעריכה — מה שעדכני עכשיו (ctx.liveFor)
+    if (b.burn?.id && (!opts.preview || e?.status === 'sent')) inner = `<tr><td style="${pad}" align="center"><img src="${esc(imgUrl(b.burn.id, 1200))}" alt="${esc(b.alt || KINDS[b.type].name)}" width="${W - 32}" style="display:block;width:100%;max-width:${W - 32}px;height:auto;border:0;margin:0 auto"></td></tr>`;
+    else if (typeof b.snap === 'string') inner = b.snap;
+    else { const x = opts.liveFor ? opts.liveFor(b, e) : ''; inner = x ? `<tr><td style="padding:8px 16px" align="center">${x}</td></tr>` : ''; }
+    if (!inner && opts.preview) inner = `<tr><td dir="rtl" align="center" style="padding:8px 16px;font:13px Arial,sans-serif;color:#9a8f7a">${KINDS[b.type].icon} ${KINDS[b.type].name} — ${opts.liveFor ? 'אין כרגע מה להציג' : 'טוען…'}</td></tr>`;
   }
   if (!inner) return '';
   return bg ? `<tr><td style="${bg}padding:4px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${inner}</table></td></tr>${gap(b)}` : inner + gap(b);
@@ -225,13 +227,13 @@ function legalLines(color, mode, e) {
  */
 export function emailHtml(e, mode = 'mail', ctx = {}) {
   const o = { font: DEF_FONT, bg: '#efe9dc', card: '#ffffff', color: '#1d1d1d', ...(e.opts || {}) };
-  const opts = { ...o, archive: mode === 'archive', preview: mode === 'preview', logoUrl: ctx.logoUrl || `${SITE}/img/logo.png`, clean: !!ctx.clean, dl: !!ctx.dl, live: ctx.live };
+  const opts = { ...o, archive: mode === 'archive', preview: mode === 'preview', logoUrl: ctx.logoUrl || `${SITE}/img/logo.png`, clean: !!ctx.clean, dl: !!ctx.dl, liveFor: ctx.liveFor };
   const blocks = (e.blocks || []).filter((b) => mode !== 'archive' || (b.arch !== false && !isLive(b)));
   const rowsHtml = blocks.map((b) => blockRows(b, e, opts)).join('');
   if (mode === 'archive') return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" dir="rtl" style="max-width:${W}px;margin:0 auto;background:${esc(o.card)}">${rowsHtml}</table>`;
   const { header, footer } = hfOf(e, ctx);
   const top = headerRows(header, e, o) || '<tr><td style="height:10px;line-height:10px;font-size:1px">&nbsp;</td></tr>';
-  return `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(fillTags(e.subject, e))}</title></head>
+  return `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(fillTags(e.subject, e))}</title><link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&display=swap" rel="stylesheet"></head>
 <body style="margin:0;padding:0;background:${esc(o.bg)}">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${esc(o.bg)}"><tr><td align="center" style="padding:12px 6px">
 <table role="presentation" width="${W}" cellpadding="0" cellspacing="0" border="0" dir="rtl" style="width:100%;max-width:${W}px;background:${esc(o.card)};border-radius:6px">
@@ -245,7 +247,7 @@ export function emailText(e) {
   const strip = (h) => String(h || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li|h\d)>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim();
   const out = [fillTags(e.subject, e), ''];
   (e.blocks || []).forEach((b) => {
-    const t = strip(fillTags(b.text || b.html || (isLive(b) && typeof b.snap === 'string' ? b.snap.replace(/<\/tr>/gi, '\n') : ''), e));
+    const t = isLive(b) ? String(b.alt || '') : strip(fillTags(b.text || b.html || '', e));
     if (t) out.push(t);
     if (b.type === 'button' && b.link) out.push(`${b.label}: ${b.link}`);
     if (b.type === 'video') out.push(`▶ ${videoPage(b)}`);

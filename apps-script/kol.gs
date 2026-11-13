@@ -230,7 +230,7 @@ function emailView(e) {
 const ACTIONS = {
   me: function (req, me) {
     let logo = ''; try { logo = setting('logo'); } catch (err) { logo = ''; }
-    return { email: me, from: Session.getEffectiveUser().getEmail(), quota: MailApp.getRemainingDailyQuota(), logo: logo, defaults: setting('defaults'), header: setting('header'), footer: setting('footer') };
+    return { email: me, from: Session.getEffectiveUser().getEmail(), quota: MailApp.getRemainingDailyQuota(), logo: logo, defaults: setting('defaults'), header: setting('header'), footer: setting('footer'), live: setting('live') };
   },
   /** כל המיילים (בלי הישנים מאוד שנשלחו — רק 30 אחרונים) */
   list: function () {
@@ -300,6 +300,7 @@ const ACTIONS = {
     if (req.defaults !== undefined) setting('defaults', JSON.stringify(req.defaults || {}).slice(0, 4000));
     if (req.header !== undefined) { const h = JSON.stringify(req.header || {}); if (h.length > 40000) throw new Error('too-big'); setting('header', h); }
     if (req.footer !== undefined) { const f = JSON.stringify(req.footer || {}); if (f.length > 40000) throw new Error('too-big'); setting('footer', f); }
+    if (req.live !== undefined) { const l = JSON.stringify(req.live || {}); if (l.length > 40000) throw new Error('too-big'); setting('live', l); }
     return { ok: true, logo: setting('logo'), defaults: setting('defaults'), header: setting('header'), footer: setting('footer') };
   },
   /** ניסיון: { html, subject, to?, files: [ids] } → לשולח עצמו */
