@@ -2524,3 +2524,7 @@ body.le-wide .le-wrap { max-height: calc(100vh - 290px); }
 .be-in.conf, .le-in.conf { outline: 2px solid #e8891c; outline-offset: -2px; background: #fff3e2 !important; }
 .mx-noblank { position: absolute; top: 0.3in; left: 0.5in; right: 0.5in; padding: 8px 12px; border: 2px dashed #c9a24c; border-radius: 8px; background: #fffaf0; color: #7a5a1a; font: 13px Arial, sans-serif; text-align: center; }
 @media print { .mx-noblank { display: none; } }
+
+/* פארשוי פון א קבלה מיט א בריוו: די בלעטער איינס אונטער'ן צווייטן */
+.rx-prev-pages { gap: 12px; background: #e2dccf; }
+.rx-prev-pages > .mx-letter, .rx-prev-pages > .rx-prev-rc { box-shadow: 0 1px 6px rgba(0,0,0,.25); background: #fff; }

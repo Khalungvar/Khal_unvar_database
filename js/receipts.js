@@ -1060,7 +1060,7 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
       <h2>🧾 ${h(t('rcFormTitle'))} — ${h(donorLabel(c0))}</h2>
       ${locked ? `<p class="mx-pending">🔒 ${h(t('rcLockedNote', { no: c0.receipt_no }))}</p>` : ''}
       <div class="rx-form${locked ? ' rx-locked' : ''}">
-        <div class="rx-form-prev"><div class="rx-prev-scale">${receiptHtml(locked ? c : { ...c, receipt_no: '—', issued_at: todayIso() })}</div></div>
+        <div class="rx-form-prev"><div class="rx-prev-scale">${previewHtml(locked ? c : { ...c, receipt_no: '—', issued_at: todayIso() })}</div></div>
         ${locked ? `<div class="rx-form-side">${letterSel}${addrPickerHtml(c0.contact_id, F.addr)}${sigSelHtml}
           ${canReissue ? `<p><button type="button" class="btn" id="rxf-reissue">${h(t('rcReissue'))}</button></p>` : ''}</div>` : `<div class="rx-form-side">
           <div class="seg">${[['donation', 'donKindDonation'], ['sale', 'donKindSale']].map(([k, l]) => `<button type="button" data-ft="${k}" class="${F.type === k ? 'on' : ''}">${h(t(l))}</button>`).join('')}</div>
@@ -1093,6 +1093,15 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
     // די קבלה — אזוי ברייט ווי דער פלאץ
     requestAnimationFrame(() => { const box = $('.rx-form-prev', dlg); const sc = $('.rx-prev-scale', dlg); if (box && sc) sc.style.zoom = String(Math.min(1, (box.clientWidth - 24) / 816)); });
   };
+  // דער פארשוי: מיט א בריוו — דער גאנצער בריוו (מיט דער קבלה אונטן / נאכדעם), ווי עס וועט ארויסקומען; אן — נאר די קבלה
+  function previewHtml(d) {
+    const ct = F.letter && d.contact_id ? ui.contactById(d.contact_id) : null;
+    if (!ct) return receiptHtml(d);
+    const slot = letterHasReceipt(F.letter);
+    const pages = letterPagesFor(F.letter, ct, { ...letterCtx(d), receipt: slot ? receiptSlotHtml(d) : '' });
+    if (!pages.length) return receiptHtml(d);
+    return `<div class="mx-pages rx-prev-pages">${pages.join('')}${slot ? '' : `<div class="rx-prev-rc">${receiptHtml(d)}</div>`}</div>`;
+  }
   const keepLine = (i, k, v) => { const id = String(F.list[i].donation_id); F.lines[id] = { ...(F.lines[id] || {}), [k]: v }; };
   const wire = () => {
     $$('[data-x]', dlg).forEach((b) => { b.onclick = () => dlg.close(); });
@@ -1114,7 +1123,7 @@ export function openReceiptForm(c0, { letter = '', forText = '', done = null } =
     const tt = () => { F.sig = { mode: 'temp', sig: { type: 'text', text: $('#rxf-tt', dlg).value.trim(), font: $('#rxf-tf', dlg).value } }; };
     $('#rxf-tt', dlg)?.addEventListener('change', () => { tt(); render(); });
     $('#rxf-tf', dlg)?.addEventListener('change', () => { tt(); render(); });
-    $('#rxf-letter', dlg).onchange = (e) => { F.letter = e.target.value; };
+    $('#rxf-letter', dlg).onchange = (e) => { F.letter = e.target.value; render(); };
     // ♻ בטל'ן און מאכן נאכאמאל: די אלטע ווערט בטל, און א נייער (פרייער) פענצטער מיט די זעלבע פרטים
     $('#rxf-reissue', dlg)?.addEventListener('click', async (ev) => {
       if (!confirm(t('rcReissueQ', { no: c0.receipt_no }))) return;
