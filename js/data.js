@@ -317,7 +317,7 @@ async function findRow(tab, contactId) {
 }
 
 // ---------- היסטאריע פון ענדערונגען (לשונית History) ----------
-const SKIP_FIELDS = new Set(['tags', 'contact_id', 'donation_id', 'occasion_id', 'note_id', 'relation_id', '_row', 'updated_at', 'updated_by', 'created_at', 'created_by', 'unverified_fields', 'photo_data', 'logo_data', 'header_img', 'header_img_2', 'header_img_3', 'signature_img']);
+const SKIP_FIELDS = new Set(['tags', 'contact_id', 'donation_id', 'occasion_id', 'note_id', 'relation_id', '_row', 'updated_at', 'updated_by', 'created_at', 'created_by', 'unverified_fields', 'photo_data', 'logo_data', 'header_img', 'header_img_2', 'header_img_3', 'signature_img', 'blank_img', 'blank_img_2', 'blank_img_3']);
 let historyCache = null;
 
 /** ליידיג = פאלש (אדער "לעבט"/"אקטיוו"/USA ביי די פעלדער וואס דאס איז זייער סטאנדארט) — נישט קיין ענדערונג. */

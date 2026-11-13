@@ -1695,7 +1695,7 @@ export function openOrgDetails(org) {
   const form = $('#orgdet-form');
   const det = orgDetailsOf(org) || {};
   const um = orgDetailsOf(umbrellaName()) || {};
-  const img = { header_img: joinImg(det, 'header_img'), logo: orgLogo(org) };
+  const img = { header_img: joinImg(det, 'header_img'), blank_img: joinImg(det, 'blank_img'), logo: orgLogo(org) };
   const yearly = state.yearly.filter((y) => y.org === org);
   const yimg = Object.fromEntries(yearly.map((y) => [y.series, joinImg(y, 'header_img')]));
   const val = (k, def) => (det[k] != null && det[k] !== '' ? det[k] : def);
@@ -1725,6 +1725,7 @@ export function openOrgDetails(org) {
     <div class="od-layout">
       <div class="od-fields">
         ${sec('rcS1', `<div class="od-imgs">${imgBox('header_img', t('rcfBanner'), img.header_img, t('rcfBannerHint'))}
+          ${imgBox('blank_img', t('rcfBlank'), img.blank_img, t('rcfBlankHint'))}
           ${yearly.map((y) => imgBox(`y:${y.series}`, `🔁 ${y.series}`, yimg[y.series], t('rcCampBannersHint'))).join('')}</div>`)}
         ${SECTIONS.map(([key, fields]) => sec(key, `${key === 'rcS5' ? `<div class="od-imgs">${imgBox('logo', t('rcfLogo'), img.logo, t('rcfLogoHint'))}</div>` : ''}
           <div class="grid od-grid">${fields.map(field).join('')}</div>`)).join('')}
@@ -1746,6 +1747,7 @@ export function openOrgDetails(org) {
     o.ein = $('#od-ein-um', form)?.checked ? '' : (o.ein || '-');
     ['sales_tax_rate', 'addr_dx', 'addr_dy'].forEach((k) => { o[k] = o[k] === '' ? '' : String(Number(o[k]) || 0); });
     Object.assign(o, splitImg(img.header_img || '', 'header_img'));
+    Object.assign(o, splitImg(img.blank_img || '', 'blank_img'));
     return o;
   };
   // א פראבע-קבלה מיט וואס שטייט יעצט אינעם פארם (נישט אפגעהיט)

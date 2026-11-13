@@ -7,7 +7,7 @@ import { currentToken } from './google.js';
 export const IMG_FIELDS = {
   MailTemplates: ['logo_data', 'background_data', 'postage_data'],
   OrgLogos: ['logo_data'],
-  OrgDetails: ['header_img', 'signature_img'],
+  OrgDetails: ['header_img', 'signature_img', 'blank_img'],
   YearlyCampaigns: ['header_img'],
   Books: ['image'],
 };

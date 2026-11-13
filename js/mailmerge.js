@@ -6,7 +6,7 @@ import { state, saveRecord, deleteRecord, allUsers, orgDetailsOf } from './data.
 import { t } from './i18n.js';
 import { escapeHtml as h, shrinkImage, nowStamp, detectArea } from './util.js';
 import { isoToHebrewText, todayIso } from './hebdate.js';
-import { openReceipts } from './receipts.js';
+import { openReceipts, openOrgDetails } from './receipts.js';
 import { evaluate, parseSaved, savedInScope, channel, mailRecipients } from './lists.js';
 import { umbrellaName, getScope } from './scope.js';
 import { allCampaigns } from './campaigns.js';
@@ -648,7 +648,9 @@ function letterEditHtml() {
       <label>${h(t('mxDir'))}${sel('ltr.dir', [['rtl', t('mxRtl')], ['ltr', t('mxLtr')]], L.dir)}</label></div>
     </details>
     <!--@L--><details open><summary>${h(t('mxDesign'))}</summary>
-      ${sel('ltr.design', [['org', t('mxDesignOrg')], ['bg', t('mxDesignBg')], ['none', t('mxDesignNone')]], L.design)}
+      ${sel('ltr.design', [['org', t('mxDesignOrg')], ['blank', t('mxDesignBlank')], ['bg', t('mxDesignBg')], ['none', t('mxDesignNone')]], L.design)}
+      ${L.design === 'blank' ? `<label class="mm-l">${h(t('mxOrg'))}${sel('ltr.org', orgOptions().map((o) => [o, o]), L.org)}</label>
+        <button type="button" class="btn small-btn" data-orgblank>✏ ${h(t('mxEditBlank'))}</button>` : ''}
       ${L.design === 'org' ? `<label class="mm-l">${h(t('mxOrg'))}${sel('ltr.org', orgOptions().map((o) => [o, o]), L.org)}</label>
         <label class="mm-l">${h(t('mxBannerH'))}${num('ltr.bannerH', L.bannerH, 0.5, 4, 0.1)}</label>
         ${chk('ltr.sig', L.sig, t('mxSig'))}` : ''}
@@ -942,7 +944,9 @@ function ribbonSettings() {
     + group(t('mxLetterLang'), `<label class="wr-lbl">${h(t('mxLang'))}${sel('ltr.lang', [['yi', 'אידיש'], ['he', 'עברית'], ['en', 'English']], L.lang)}</label>
       <label class="wr-lbl">${h(t('mxDir'))}${sel('ltr.dir', [['rtl', t('mxRtl')], ['ltr', t('mxLtr')]], L.dir)}</label>`)
     + group(t('mxLink'), `<label class="wr-lbl" title="${h(t('mxLinkHint'))}">${h(t('wrCampaign'))}${sel('link.name', [['', t('mmNone')], ...camps], D.link.name)}</label>`)
-    + group(t('mxDesign'), `<label class="wr-lbl">${h(t('mxDesign'))}${sel('ltr.design', [['org', t('mxDesignOrg')], ['bg', t('mxDesignBg')], ['none', t('mxDesignNone')]], L.design)}</label>
+    + group(t('mxDesign'), `<label class="wr-lbl">${h(t('mxDesign'))}${sel('ltr.design', [['org', t('mxDesignOrg')], ['blank', t('mxDesignBlank')], ['bg', t('mxDesignBg')], ['none', t('mxDesignNone')]], L.design)}</label>
+      ${L.design === 'blank' ? `<label class="wr-lbl">${h(t('mxOrg'))}${sel('ltr.org', orgOptions().map((o) => [o, o]), L.org)}</label>
+        <button type="button" class="wr-b wr-wide" data-orgblank>✏ ${h(t('mxEditBlank'))}</button>` : ''}
       ${L.design === 'org' ? `<label class="wr-lbl">${h(t('mxOrg'))}${sel('ltr.org', orgOptions().map((o) => [o, o]), L.org)}</label>
         <div class="wr-col"><label class="wr-lbl">${h(t('mxBannerH'))}${num('ltr.bannerH', L.bannerH, 0.5, 4, 0.1)}</label>${chk('ltr.sig', L.sig, t('mxSig'))}</div>` : ''}
       ${L.design === 'bg' ? `<div class="wr-col"><label class="wr-b wr-wide wr-file">🖼 ${h(t('wrBgImage'))}<input type="file" accept="image/*" data-upload="background_data" hidden></label>
@@ -2588,6 +2592,13 @@ function wireUploads(root, skipStage = false) {
         scheduleSave(300);
         renderMailMerge();
       } catch (err) { ui.toast(t(err.message === 'too-big' ? 'mmImageTooBig' : 'mmImageBad'), 'error'); }
+    };
+  });
+  // ✏ בלאנק המוסד: דער פענצטער "פרטים לקבלות" פונעם מוסד; נאכן שליסן — ווידער צייכענען
+  $$('[data-orgblank]', root).forEach((b) => {
+    b.onclick = () => {
+      openOrgDetails(D.ltr.org);
+      $('#orgdet-dialog')?.addEventListener('close', () => renderMailMerge(), { once: true });
     };
   });
   $$('[data-clear]', root).filter((el) => !skipStage || !el.closest('#mx-stage')).forEach((b) => { b.onclick = () => { D[b.dataset.clear] = ''; scheduleSave(); renderMailMerge(); }; });

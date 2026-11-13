@@ -395,6 +395,8 @@ export function letterGeo(D) {
   const yc = L.design === 'org' && D.link?.series ? state.yearly.find((y) => y.series === D.link.series) : null;
   const banner = L.design === 'org' ? (joinImg(yc, 'header_img') || joinImg(det, 'header_img')) : '';
   const logo = L.design === 'org' && !banner ? orgLogo(L.org) : '';
+  // בלאנק פונעם מוסד (א גאנצער בלאט) — אפגעהיט אין "פרטים לקבלות"
+  const blank = L.design === 'blank' ? joinImg(orgDetailsOf(L.org) || {}, 'blank_img') : '';
   const m = L.margins || { top: 0.7, side: 0.8, bottom: 0.7 };
   const win = L.window ? (L.win || { x: 0.875, y: 2.25, w: 4, h: 1 }) : null;
   const winBottom = win ? win.y + win.h + 0.2 : 0;
@@ -403,7 +405,7 @@ export function letterGeo(D) {
   const foot = L.design === 'org';
   const [W, H] = letterDims(D);
   return {
-    det, banner, logo, m, win, bh, foot, W, H,
+    det, banner, logo, blank, m, win, bh, foot, W, H,
     top1: Math.max(m.top, headBottom, winBottom), // ערשטער בלאט
     topN: m.top + 0.4,                            // המשך בלעטער
     bottom: m.bottom + (foot ? 0.55 : 0),         // פון אונטן
@@ -453,6 +455,8 @@ export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties =
   }) : '';
   return `<div class="mx-letter mx-page ${extraClass}" style="width:${G.W}in;height:${G.H}in">
     ${L.design === 'bg' && D.background_data ? `<img class="mx-letter-bg" src="${imgSrc(D.background_data)}" style="opacity:${D.bg.opacity}" alt="">` : ''}
+    ${L.design === 'blank' && G.blank ? `<img class="mx-letter-bg" src="${imgSrc(G.blank)}" style="opacity:1" alt="">` : ''}
+    ${L.design === 'blank' && !G.blank && (edit || draft) ? `<div class="mx-noblank">📄 ${h(L.org || '')}: אין עדיין בלאנק למוסד — מעלים ב"פרטים לקבלות"</div>` : ''}
     ${watermarkHtml(D)}
     ${banner && first ? `<img class="mx-banner" src="${imgSrc(banner)}" style="top:0.3in;left:${m.side * 0.6}in;right:${m.side * 0.6}in;height:${bh}in" alt="">` : ''}
     ${logo && first ? `<div class="mx-band" style="top:0.3in;left:${m.side}in;right:${m.side}in"><img src="${imgSrc(logo)}" alt=""><div dir="rtl">${h(det.org_name_he || L.org)}</div></div>` : ''}
