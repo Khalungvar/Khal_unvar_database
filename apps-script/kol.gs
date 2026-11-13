@@ -251,6 +251,16 @@ const ACTIONS = {
     try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (err) { pub = false; }
     return { id: f.getId(), mime: m[1], size: blob.getBytes().length, public: pub };
   },
+  /** קובץ מהתיקייה כ-dataURL (למשל הלוגו — כדי להדביק אותו על תמונות בדפדפן) */
+  fileData: function (req) {
+    const f = DriveApp.getFileById(S(req.id));
+    let ok = false; const ps = f.getParents(); const fid = folder().getId();
+    while (ps.hasNext()) if (ps.next().getId() === fid) ok = true;
+    if (!ok) throw new Error('not-allowed');
+    const b = f.getBlob();
+    if (b.getBytes().length > 8000000) throw new Error('file-big');
+    return { data: 'data:' + b.getContentType() + ';base64,' + Utilities.base64Encode(b.getBytes()) };
+  },
   settings: function (req) {
     if (req.logo !== undefined) setting('logo', S(req.logo).slice(0, 200));
     if (req.defaults !== undefined) setting('defaults', JSON.stringify(req.defaults || {}).slice(0, 4000));

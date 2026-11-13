@@ -1,0 +1,62 @@
+/* 📻 קול אונגוואר — מערכת (ungvar.org/kol) + הדף הציבורי (ungvar.org/kolungvar) */
+body { margin: 0; }
+#sa-top { display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--line, #ddd); background: #fff; position: sticky; top: 0; z-index: 5; }
+#sa-top b { font-size: 1.1rem; } #sa-top .sp { flex: 1; }
+#kol-main { padding: 14px 16px 60px; max-width: 1500px; margin: 0 auto; }
+.sa-login { max-width: 420px; margin: 12vh auto; text-align: center; }
+.sa-toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 9px 18px; border-radius: 8px; z-index: 999; max-width: 90vw; }
+.sa-toast.error { background: #a3191b; }
+.kol-hub { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 300px)); gap: 16px; justify-content: center; margin-top: 6vh; }
+.kol-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px 16px; }
+.kol-tile .lobby-icon { font-size: 2.4rem; }
+.kol-foot { text-align: center; margin-top: 28px; }
+.kol-tbl td { vertical-align: middle; }
+.kol-ed-wrap { display: grid; grid-template-columns: minmax(380px, 1fr) minmax(340px, 640px); gap: 18px; align-items: start; }
+@media (max-width: 1000px) { .kol-ed-wrap { grid-template-columns: 1fr; } }
+.kol-right { position: sticky; top: 60px; }
+.kol-right iframe { width: 100%; height: calc(100vh - 110px); border: 1px solid #ccc; border-radius: 6px; background: #fff; }
+.kol-right iframe.mob { width: 390px; display: block; margin: 0 auto; }
+.kol-bar { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+.kol-bar .spacer, .kol-actions .spacer { flex: 1; }
+.kol-f { display: block; margin: 8px 0; font-weight: 500; } .kol-f input, .kol-f select { display: block; width: 100%; margin-top: 3px; box-sizing: border-box; }
+.kol-sent { background: #e6f4ea; border: 1px solid #b7dfc3; padding: 8px 12px; border-radius: 6px; }
+.kol-blk { border: 1px solid #ddd5c4; border-radius: 8px; margin: 8px 0; background: #fffdf8; }
+.kol-blk.open { border-color: #b08a3c; box-shadow: 0 0 0 2px #f3e6c4; }
+.kol-bh { display: flex; align-items: center; gap: 8px; padding: 6px 8px; }
+.kol-bh > img { width: 56px; height: 56px; object-fit: cover; border-radius: 4px; background: #eee; }
+.kol-ic { width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; background: #f3eee2; border-radius: 4px; }
+.kol-bt { flex: 1; display: flex; flex-direction: column; min-width: 0; } .kol-bt span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kol-arch { font-size: .85rem; white-space: nowrap; }
+.kol-bf { padding: 4px 12px 12px; border-top: 1px dashed #e3d9c4; }
+.kol-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 8px 0; }
+.kol-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 12px 0; padding: 10px; background: #f6f1e4; border-radius: 8px; }
+.kol-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid #e3d9c4; }
+.kol-look { margin: 8px 0; } .kol-look label { margin-inline-end: 12px; }
+.kol-empty { padding: 18px; text-align: center; border: 2px dashed #e3d9c4; border-radius: 8px; }
+.kol-rich { border: 1px solid #cfc6b3; border-radius: 6px; background: #fff; margin: 4px 0 8px; }
+.kol-tb { display: flex; flex-wrap: wrap; gap: 3px; padding: 4px; border-bottom: 1px solid #e6dfcf; background: #faf7f0; }
+.kol-tb button, .kol-tb select, .kol-tb label { font: inherit; font-size: .85rem; padding: 2px 7px; border: 1px solid #d8cfbb; border-radius: 4px; background: #fff; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; }
+.kol-tb input[type=color] { width: 22px; height: 18px; padding: 0; border: 0; background: none; }
+.kol-ed { min-height: 70px; padding: 8px 10px; outline: none; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.5; }
+.kol-dlg { border: 1px solid #ccc; border-radius: 10px; padding: 18px 22px; min-width: 340px; }
+
+/* ---------- הדף הציבורי ---------- */
+body.kp { background: #efe9dc; font-family: Heebo, Arial, sans-serif; color: #1d1d1d; }
+.kp-head { background: #3b1f12; color: #f4e7c5; padding: 14px 18px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.kp-brand { color: #f4e7c5; text-decoration: none; font-family: 'Frank Ruhl Libre', serif; font-weight: 900; font-size: 1.6rem; }
+.kp-sub { opacity: .85; }
+#kp-main { max-width: 1060px; margin: 0 auto; padding: 16px; }
+.kp-arch { display: grid; grid-template-columns: 220px 1fr; gap: 18px; align-items: start; }
+@media (max-width: 760px) { .kp-arch { grid-template-columns: 1fr; } }
+.kp-nav details { background: #fff; border-radius: 8px; margin-bottom: 8px; padding: 6px 10px; }
+.kp-nav summary { font-weight: 700; cursor: pointer; }
+.kp-nav a { display: block; padding: 3px 8px; color: #3b1f12; text-decoration: none; border-radius: 4px; }
+.kp-nav a.on, .kp-nav a:hover { background: #f3e6c4; }
+.kp-h1 { font-family: 'Frank Ruhl Libre', serif; } .kp-h2 { font-family: 'Frank Ruhl Libre', serif; margin: 0 0 10px; text-align: center; }
+.kp-muted { color: #6b6457; font-weight: 400; font-size: .9em; }
+.kp-video { position: relative; padding-top: 56.25%; background: #000; border-radius: 8px; overflow: hidden; }
+.kp-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.kp-box { max-width: 520px; margin: 8vh auto; background: #fff; padding: 22px; border-radius: 10px; text-align: center; }
+.kp-btn { font: inherit; padding: 10px 26px; background: #7a1f1f; color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
+.linkish { background: none; border: 0; color: #2c4a6e; text-decoration: underline; cursor: pointer; font: inherit; }
+.kp-foot { text-align: center; padding: 18px; color: #6b6457; font-size: .9rem; }

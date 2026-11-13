@@ -12,6 +12,8 @@ export const CONFIG = {
   MOSAD_SITES: { 'ישיבת בית שערים (ירושלים)': 'yeshiva/' },
   MOSAD_URL: 'https://script.google.com/macros/s/AKfycbwnyowWmOvZjUTmendawcLerx1zYDejYIw-OjL0lRFn6fyOZAtDcS6KzI7ENVEzKbRL3A/exec', // 2026-11-12: admin@ (הישן, בדאטאבייס: AKfycby-iq…TnQv)
   // 2026-11: שולח המיילים בשם office@ungvar.org (apps-script/mailer-office.gs, רץ בחשבון office@). ריק = דרך ה-Gmail של המחובר.
+  // 2026-11-12: 📻 קול אונגוואר — שרת המיילים (apps-script/kol.gs, רץ בשם kol@ungvar.org, project 1VjWzKuXHF6UzgJpvj3z3PFLd5kRYQFu2o5YpkVEf3KagdqkKyOoI07ug)
+  KOL_URL: 'https://script.google.com/macros/s/AKfycbxHrQ4TtQx4AFOGFiNvznhXKJertOmABNIqLmxJ0uofPPHD161PrCt1KckM_pkNhehfsQ/exec',
   MAILER_URL: 'https://script.google.com/macros/s/AKfycbx_uA7-HkUXL_N787BRScRXRbG3-4MAoQoEJKlViFQ9LNlah9R9tyClGhFPFXx_7K4J/exec', // 2026-11-12: office@ (project 1T20g7YMwhL3dgHCnm4ca7_j-G0VFUzu9pF2R5o4RYytJBf5FiDMjwCkX)
   IMAGES_URL: 'https://script.google.com/macros/s/AKfycbyoqByYiyeRrT5v98Fh2Ln_HCeBiSUm9emKOMhwe0e5Zi-O7b9xZvXE7bcxM9jQto_alw/exec', // 2026-11-12: admin@ (הישן, בדאטאבייס: AKfycbzi44y-…nju_Q)
 

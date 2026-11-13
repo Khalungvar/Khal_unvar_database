@@ -193,6 +193,7 @@ function renderLobby() {
         <button type="button" class="lobby-quick" data-quick="donation">＋ ${h(t('quickDonation'))}</button>
         <button type="button" class="lobby-quick" data-quick="occasion">＋ ${h(t('quickOccasion'))}</button>
         <button type="button" class="lobby-quick lobby-gtd" data-quick="gtodo">☑ ${h(t('gtdName'))} <span class="count-pill" id="gtd-count"${generalOpenCount() ? '' : ' hidden'}>${generalOpenCount()}</span></button>
+        <a class="lobby-quick" href="/kol/" target="_blank" rel="noopener">📻 קול אונגוואר</a>
       </div>
     </div>
     <div class="lobby-grid">
