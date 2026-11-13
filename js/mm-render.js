@@ -259,6 +259,9 @@ export function valuesFor(D, c, ctx = null) {
     קאמפיין: nz(x.campaign),
     // "עבור" — ווי עס שטייט אויף דער קבלה (FOR); אן א קבלה — דער קאמפיין
     'עבור/FOR': nz(x.forText) || nz(x.campaign),
+    // דער דאטום פון דער קבלה (מיט א קבלה — ווי עס שטייט אויף איר; אן — היינט)
+    תאריך_הנפקה: `${isoToHebrewText(String(x.issued || '').slice(0, 10) || todayIso())} לפ"ק`,
+    ISSUED: longDateEn(String(x.issued || '').slice(0, 10) || todayIso()),
   };
   // די סכומים פון די נדבות (לויט דעם סינון פון דער "שורה חוזרת")
   const dl = donationList(D, c, ctx);

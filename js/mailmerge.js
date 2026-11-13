@@ -26,8 +26,8 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 const KINDS = [['env', '✉', 'mxEnvelopes'], ['lbl', '🏷', 'mxLabels'], ['ltr', '📄', 'mxLetters']];
 const SHEETS_NAME = '__label_sheets__';
-const TOKENS_HE = ['פנייה', 'תואר', 'שם_מלא', 'שם', 'שם_פרטי', 'משפחה', 'אשה', 'תאריך', 'תאריך_לועזי', 'סכום', 'שולם', 'נשאר', 'תאריך_נדבה', 'הקדשה', 'קאמפיין', 'עבור/FOR'];
-const TOKENS_EN = ['Name', 'First', 'Legal/First', 'Last', 'Wife', 'Address', 'City', 'Country', 'Date', 'DonationDate'];
+const TOKENS_HE = ['פנייה', 'תואר', 'שם_מלא', 'שם', 'שם_פרטי', 'משפחה', 'אשה', 'תאריך', 'תאריך_לועזי', 'סכום', 'שולם', 'נשאר', 'תאריך_נדבה', 'הקדשה', 'קאמפיין', 'עבור/FOR', 'תאריך_הנפקה'];
+const TOKENS_EN = ['Name', 'First', 'Legal/First', 'Last', 'Wife', 'Address', 'City', 'Country', 'Date', 'ISSUED', 'DonationDate'];
 const SEV = { red: 3, yellow: 2, info: 1 };
 
 let view = 'home';

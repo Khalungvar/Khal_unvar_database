@@ -2,7 +2,7 @@
 // עברית / אידיש / English. די טעקסטן און סכומים קומען פון "⚙️ הגדרות רישום" (אדער די ברירות מחדל).
 import { CONFIG } from '../config.js?v=653';
 import { toHebrew, fromHebrew, monthsOf, hebrewNumber, yearLabel, isoToHebrewText, todayIso } from '../hebdate.js?v=653';
-import { mergeConf, mergeTexts, fill } from './reg-defaults.js?v=687';
+import { mergeConf, mergeTexts, fill } from './reg-defaults.js?v=688';
 import { suggest, details, placesEnabled } from '../places.js?v=653';
 
 const MOSAD = 'yeshiva';

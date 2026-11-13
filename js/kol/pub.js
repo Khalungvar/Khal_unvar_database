@@ -3,10 +3,10 @@
 //   · ?v=<drive id>&t=כותרת — נגן וידאו (מהמייל)
 //   · ?u=<email>&k=<חתימה> — הסרה מרשימת התפוצה
 //   · ?e=<מזהה> — מייל אחד (לפי יום הפרסום; ?w=<שבת> — קישורים ישנים)
-import { CONFIG } from '../config.js?v=687';
-import { shabbatTitle } from '../parasha.js?v=687';
-import { toHebrew, yearLabel, isoToHebrewText } from '../hebdate.js?v=687';
-import { emailHtml, weekOf, dateOf, dayText } from './render.js?v=687';
+import { CONFIG } from '../config.js?v=688';
+import { shabbatTitle } from '../parasha.js?v=688';
+import { toHebrew, yearLabel, isoToHebrewText } from '../hebdate.js?v=688';
+import { emailHtml, weekOf, dateOf, dayText } from './render.js?v=688';
 
 const main = document.getElementById('kp-main');
 const h = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
