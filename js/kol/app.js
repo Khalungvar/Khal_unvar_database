@@ -1,11 +1,11 @@
 // 📻 קול אונגוואר — ungvar.org/kol : מערכת המיילים (שבועי "מהנעשה והנשמע" + חד פעמי).
 // כניסה עם Google (כל מי שמורשה באתר הכללי). השרת: apps-script/kol.gs (רץ בשם kol@ungvar.org).
 // הנמענים: רשימת התפוצה "מהנעשה והנשמע" — מסומנת ליד המייל של איש הקשר באתר הכללי (email_1_tags / email_2_tags).
-import { initAuth, requestToken, getUserEmail, hasSavedSession, currentToken, readTabs } from '../google.js?v=697';
-import { CONFIG } from '../config.js?v=697';
-import { shabbatTitle } from '../parasha.js?v=697';
-import { isoToHebrewText, toHebrew, yearLabel } from '../hebdate.js?v=697';
-import { FONTS, DEF_FONT, KINDS, LIST_NAME, DEF_HEADER, DEF_FOOTER, emailHtml, emailText, fillTags, imgUrl, dlUrl, imgsOf, driveId, cleanHtml, dateOf, dayText, weekOf, hfOf } from './render.js?v=697';
+import { initAuth, requestToken, getUserEmail, hasSavedSession, currentToken, readTabs } from '../google.js?v=698';
+import { CONFIG } from '../config.js?v=698';
+import { shabbatTitle } from '../parasha.js?v=698';
+import { isoToHebrewText, toHebrew, yearLabel } from '../hebdate.js?v=698';
+import { FONTS, DEF_FONT, KINDS, LIST_NAME, DEF_HEADER, DEF_FOOTER, emailHtml, emailText, fillTags, imgUrl, dlUrl, imgsOf, driveId, cleanHtml, dateOf, dayText, weekOf, hfOf } from './render.js?v=698';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -644,7 +644,7 @@ function hfForm(box, hf, onChange) {
       <button type="button" class="btn small-btn" data-badd>＋ כפתור</button>
       <div class="kol-row"><label>רקע <input type="color" data-f="bg" value="${h(F.bg || '#ffffff')}"></label><button type="button" class="linkish" data-fnobg>בלי רקע</button>
         <label>צבע טקסט <input type="color" data-f="color" value="${h(F.color || '#6b6457')}"></label></div>
-      <p class="muted small">בסוף התחתית תמיד: "כל המיילים הקודמים" ו"להסרה מרשימת התפוצה" (חובה — לא ניתן להוריד).</p></div>`;
+      <p class="muted small">בסוף התחתית תמיד (חובה — לא ניתן להוריד), בעברית ובאנגלית: למי נשלח המייל · למה קיבלת אותו · כל המיילים הקודמים · להסרה מרשימת התפוצה. את כתובת הדואר כותבים בטקסט התחתית.</p></div>`;
     $$('[data-h]', box).forEach((el) => { el.onchange = el.oninput = () => { const k = el.dataset.h; H[k] = el.type === 'checkbox' ? el.checked : (k === 'imgW' ? Number(el.value) : el.value); onChange(); }; });
     $$('[data-f]', box).forEach((el) => { el.oninput = () => { F[el.dataset.f] = el.value; onChange(); }; });
     $('[data-hnobg]', box).onclick = () => { H.bg = ''; onChange(); draw(); };

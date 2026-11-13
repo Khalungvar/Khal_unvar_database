@@ -1,5 +1,5 @@
 // אתר פון א מוסד — די ישיבה: תלמידים, בוגרים, הורים, שכר לימוד און קבלות (אלעס אינעם גיליון פונעם מוסד, דורכן שומר).
-import { letterhead, LH_CSS, heDate } from './brand.js?v=697';
+import { letterhead, LH_CSS, heDate } from './brand.js?v=698';
 import { toHebrew, fromHebrew, yearLabel, monthsOf, monthHe, todayIso, isoToHebrewText } from '../hebdate.js?v=653';
 import { downloadXlsx } from '../excel.js?v=653';
 import { colFilters } from '../sorttables.js?v=653';
@@ -207,8 +207,8 @@ export function renderStudents(box, which = 'active') {
       };
     });
     // 📒 אלפון חו"ל: כל מי שלמד מתחילת הזמן הנוכחי (גם מי שעזב באמצע) — רק מי שלומד בכל הסדרים (לא "בחור לסדר מסוים")
-    X.$('#sc-kv', box)?.addEventListener('click', async () => { const m = await import('./kvitel.js?v=697'); m.kvitelDialog(X, activeStudents().map((e) => e.contact_id)); });
-    X.$('#sc-lb', box)?.addEventListener('click', async () => { const m = await import('./kvitel.js?v=697'); m.labelsDialog(X, activeStudents().map((e) => e.contact_id), (id) => activeStudents().find((e) => String(e.contact_id) === String(id)) || {}); });
+    X.$('#sc-kv', box)?.addEventListener('click', async () => { const m = await import('./kvitel.js?v=698'); m.kvitelDialog(X, activeStudents().map((e) => e.contact_id)); });
+    X.$('#sc-lb', box)?.addEventListener('click', async () => { const m = await import('./kvitel.js?v=698'); m.labelsDialog(X, activeStudents().map((e) => e.contact_id), (id) => activeStudents().find((e) => String(e.contact_id) === String(id)) || {}); });
     X.$('#sc-abroad', box)?.addEventListener('click', () => {
       const t = today();
       const zs = (zmanim().filter((z) => z.start && z.start <= t).sort((a, b) => b.start.localeCompare(a.start))[0] || {}).start || t;
@@ -230,7 +230,7 @@ function abroadImport(all, after) {
   inp.onchange = async () => {
     const f = inp.files[0]; if (!f) return;
     let t;
-    try { const { readTable } = await import('./kitchen.js?v=697'); t = await readTable(f); } catch (err) { X.toast(X.msg(err), 'err'); return; }
+    try { const { readTable } = await import('./kitchen.js?v=698'); t = await readTable(f); } catch (err) { X.toast(X.msg(err), 'err'); return; }
     const hi = t.findIndex((r) => r.some((c) => /משפחה/.test(String(c))));
     if (hi < 0) { X.toast('לא נמצאה שורת כותרות (שם, משפחה, טלפון).', 'err'); return; }
     const head = t[hi].map(String); const ci = (re) => head.findIndex((c) => re.test(c));

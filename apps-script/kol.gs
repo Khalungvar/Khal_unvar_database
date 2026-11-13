@@ -389,8 +389,8 @@ function attPart_(blobs) {
 }
 function send_(to, req, attParts) {
   const unsub = unsubLink(to);
-  const html = S(req.html).split('{{UNSUB}}').join(unsub);
-  const text = S(req.text || '').split('{{UNSUB}}').join(unsub) || 'קול אונגוואר';
+  const html = S(req.html).split('{{UNSUB}}').join(unsub).split('{{TO}}').join(String(to).replace(/[<>&"]/g, ''));
+  const text = S(req.text || '').split('{{UNSUB}}').join(unsub).split('{{TO}}').join(to) || 'קול אונגוואר';
   const me = Session.getEffectiveUser().getEmail();
   const one = ScriptApp.getService().getUrl() + '?action=lu&u=' + encodeURIComponent(to) + '&k=' + sig(to);
   const alt = 'a' + Utilities.getUuid().replace(/-/g, ''); const mix = 'm' + Utilities.getUuid().replace(/-/g, '');

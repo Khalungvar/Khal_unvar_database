@@ -1,7 +1,7 @@
 // 📻 קול אונגוואר — בניית המייל (HTML שמתאים לכל תוכנות המייל: טבלאות, סגנון בתוך התגיות, בלי גופנים מבחוץ).
 // אותו בנאי משמש לתצוגה מקדימה, לשליחה ולדף הציבורי (ungvar.org/kolungvar).
-import { shabbatOfWeek, shabbatTitle } from '../parasha.js?v=697';
-import { todayIso, isoToHebrewText } from '../hebdate.js?v=697';
+import { shabbatOfWeek, shabbatTitle } from '../parasha.js?v=698';
+import { todayIso, isoToHebrewText } from '../hebdate.js?v=698';
 
 export const SITE = 'https://ungvar.org';
 export const LIST_NAME = 'מהנעשה והנשמע';
@@ -192,8 +192,21 @@ function footerRows(F, e, o, mode) {
   const txt = String(F.html || '').replace(/<[^>]*>|&nbsp;|\s/g, '') ? `<div style="font-family:${esc(font)};font-size:13px;line-height:1.6;color:${esc(color)}">${fillTags(cleanHtml(F.html), e)}</div>` : '';
   const btns = (F.btns || []).filter((x) => x.label && x.link).map((x) => buttonHtml(x.label, x.link, x.color || '#ffffff', x.bg || '#7a1f1f', font)).join('');
   return `<tr><td dir="rtl" style="padding:16px 16px 20px;text-align:center;border-top:1px solid #e3dccb;${F.bg ? `background-color:${esc(F.bg)};` : ''}border-radius:0 0 6px 6px">${btns}${txt}
-      <div style="font-family:Arial,sans-serif;font-size:12px;line-height:1.6;color:${esc(color)};padding-top:6px"><a href="${SITE}/kolungvar/" target="_blank" style="color:${esc(color)}">כל המיילים הקודמים</a> ·
-      <a href="${mode === 'mail' ? '{{UNSUB}}' : '#'}" target="_blank" style="color:${esc(color)}">להסרה מרשימת התפוצה</a></div></td></tr>`;
+      ${legalLines(color, mode, e)}</td></tr>`;
+}
+/**
+ * די שורות וואס מוזן זיין אין יעדן מייל (עברית + English), נישט צו אויסמעקן:
+ * צו וועמען עס איז געשיקט · פארוואס מ'האט עס באקומען · ארכיון · הסרה. ({{TO}} / {{UNSUB}} — דער סערווער פילט אויס פאר יעדן)
+ */
+function legalLines(color, mode, e) {
+  const to = mode === 'mail' ? '{{TO}}' : 'name@example.com';
+  const why = e?.kind === 'weekly' ? '"מהנעשה והנשמע"' : 'קול אונגוואר';
+  const whyEn = 'the Kol Ungvar';
+  const st = `font-family:Arial,sans-serif;font-size:11.5px;line-height:1.7;color:${esc(color)}`;
+  const a = (href, txt) => `<a href="${href}" target="_blank" style="color:${esc(color)}">${txt}</a>`;
+  return `<div dir="rtl" style="${st};padding-top:8px">מייל זה נשלח אל <span dir="ltr">${to}</span>. קיבלת אותו כי כתובתך ברשימת התפוצה של ${why}.</div>
+      <div dir="ltr" style="${st}">This email was sent to ${to}. You are receiving it because you are on ${whyEn} mailing list.</div>
+      <div style="${st};padding-top:4px">${a(`${SITE}/kolungvar/`, 'כל המיילים הקודמים · Past emails')} &nbsp;|&nbsp; ${a(mode === 'mail' ? '{{UNSUB}}' : '#', 'להסרה מרשימת התפוצה · Unsubscribe')}</div>`;
 }
 
 /**
@@ -230,6 +243,7 @@ export function emailText(e) {
     if (b.type === 'ad' && b.link) out.push(b.link);
     out.push('');
   });
-  out.push('—', `${SITE}/kolungvar/`, 'להסרה: {{UNSUB}}');
+  out.push('—', 'מייל זה נשלח אל {{TO}} · This email was sent to {{TO}}', 'קיבלת מייל זה כי כתובתך ברשימת התפוצה של קול אונגוואר · You are receiving this because you are on the Kol Ungvar mailing list.',
+    `כל המיילים הקודמים · Past emails: ${SITE}/kolungvar/`, 'להסרה · Unsubscribe: {{UNSUB}}');
   return out.join('\n');
 }
