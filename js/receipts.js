@@ -628,7 +628,9 @@ function letterParts(c) {
   const taxEntity = det.ein && !noEin ? (det.legal_name || c.org) : noEin ? (det.legal_name || c.org) : (um.legal_name || det.legal_name || c.org);
   const yc = yearlyFor(c);
   const ct = c.contact_id ? ui.contactById(c.contact_id) : null;
-  const name = ct ? (mailingName(ct) || [ct.legal_first_name || ct.first_name_en, ct.last_name_en].filter(Boolean).join(' ') || ui.fullNameHe(ct)) : c.donor_name;
+  // אויף דער קבלה — דער לעגאלער נאמען (פאר'ן טעקס); אויב נישטא — דער ענגלישער פרטי נאמען
+  const legalCt = ct && String(ct.legal_first_name || '').trim() ? { ...ct, first_name_en: String(ct.legal_first_name).trim() } : ct;
+  const name = ct ? (mailingName(legalCt) || [legalCt.first_name_en, ct.last_name_en].filter(Boolean).join(' ') || ui.fullNameHe(ct)) : c.donor_name;
   let addr = ct ? [careOf(ct), ct.address, [ct.city, ct.state].filter(Boolean).join(', ') + (ct.zip ? ` ${ct.zip}` : '')].filter((x) => String(x || '').trim()) : [];
   // א קבלה מיט אן אנדער אדרעס: פון דער ארבעט, אדער א פרייער טעקסט
   const AD = c.meta?.addr;
