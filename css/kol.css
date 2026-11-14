@@ -1,8 +1,13 @@
 /* 📻 קול אונגוואר — מערכת (ungvar.org/kol) + הדף הציבורי (ungvar.org/kolungvar) */
-body { margin: 0; }
+body.kp { margin: 0; }
 #sa-top { display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--line, #ddd); background: #fff; position: sticky; top: 0; z-index: 5; }
 #sa-top b { font-size: 1.1rem; } #sa-top .sp { flex: 1; }
 #kol-main { padding: 14px 16px 60px; max-width: 1500px; margin: 0 auto; }
+.kol-top { display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--line, #ddd); background: #fff; flex-wrap: wrap; }
+.kol-top b { font-size: 1.1rem; } .kol-top .sp { flex: 1; }
+.kol-glnav { justify-content: space-between; align-items: center; }
+.kol-glprev { max-height: 520px; overflow: auto; border: 1px solid #ddd; border-radius: 8px; background: #fff; text-align: center; }
+.kol-glprev img { width: 100%; max-width: 420px; display: block; margin: 0 auto; }
 .sa-login { max-width: 420px; margin: 12vh auto; text-align: center; }
 .sa-toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 9px 18px; border-radius: 8px; z-index: 999; max-width: 90vw; }
 .sa-toast.error { background: #a3191b; }

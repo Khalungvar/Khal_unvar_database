@@ -40,7 +40,7 @@ import { strictMember, tagsOf as tagEntries } from './tags.js';
 import { initSms, openCalls, renderCalls, smsCardHtml, wireSmsCard } from './sms.js';
 import { workCardHtml, workFormHtml, wireWorkForm, readWorkForm, workSearchText } from './work.js';
 import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, markChecked, hasRealTags, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
-import { initSimchos, openSimchos, renderSimchos } from './simchos.js';
+import { initSimchos, openSimchos, renderSimchos, gliyonForEmail, openSimchosWeek } from './simchos.js';
 import { initFaces, openFaces, renderFaces } from './faces.js';
 import { initListSync } from './listsync.js';
 import { initBulk, openBulk } from './bulkedit.js';
@@ -140,6 +140,9 @@ async function enterApp() {
   initTags({ toast, friendlyError });
   refreshAll();
   showView('lobby');
+  // ungvar.org/kol → /login/?go=kol : ישר למסך של קול אונגוואר
+  const go = new URLSearchParams(location.search).get('go');
+  if (go) { history.replaceState(history.state, '', location.pathname); if (go === 'kol') openKol(); }
 }
 
 /** וויפיל נישט-געלייענטע מעסעדזשעס — אויפן קנעפל אויבן און אין לאבי. */
@@ -193,7 +196,7 @@ function renderLobby() {
         <button type="button" class="lobby-quick" data-quick="donation">＋ ${h(t('quickDonation'))}</button>
         <button type="button" class="lobby-quick" data-quick="occasion">＋ ${h(t('quickOccasion'))}</button>
         <button type="button" class="lobby-quick lobby-gtd" data-quick="gtodo">☑ ${h(t('gtdName'))} <span class="count-pill" id="gtd-count"${generalOpenCount() ? '' : ' hidden'}>${generalOpenCount()}</span></button>
-        <a class="lobby-quick" href="/kol/" target="_blank" rel="noopener">📻 קול אונגוואר</a>
+        <button type="button" class="lobby-quick" data-quick="kol">📻 ${h(t('kolName'))}</button>
       </div>
     </div>
     <div class="lobby-grid">
@@ -270,6 +273,7 @@ function lobbyClick(e) {
     if (quick.dataset.quick === 'donation') openDonationForm();
     if (quick.dataset.quick === 'occasion') openOccasionForm();
     if (quick.dataset.quick === 'gtodo') openGeneralTodo();
+    if (quick.dataset.quick === 'kol') openKol();
     return;
   }
   const hit = e.target.closest('[data-open-card]');
@@ -352,7 +356,23 @@ function refreshAll() {
   if ($('#card-dialog').open && currentCardId) openCard(currentCardId);
 }
 
+// 📻 קול אונגוואר (מערכת המיילים) — מסך בתוך האתר; ungvar.org/kol פותח ישר אותו
+function openKol() { enterScope(null); document.body.classList.add('solo-mode'); showView('kol'); }
+let kolMod = null;
+async function renderKol() {
+  const host = $('#kol-host');
+  try {
+    kolMod ||= await import('./kol/app.js');
+    kolMod.mountKol(host, {
+      toast, lang: getLang(), email: state.email,
+      gliyon: (iso, shift) => gliyonForEmail(iso, shift),
+      openGliyon: (key) => { document.body.classList.add('solo-mode'); openSimchosWeek(key); },
+    });
+  } catch (err) { host.textContent = friendlyError(err); }
+}
+
 function showView(name) {
+  if (kolMod && !$('.view[data-view="kol"]').hidden && name !== 'kol') kolMod.kolLeave();
   document.body.classList.toggle('lobby-mode', name === 'lobby');
   if (name === 'lobby') document.body.classList.remove('solo-mode');
   const leavingAdmin = !$('.view[data-view="admin"]').hidden && name !== 'admin';
@@ -375,6 +395,7 @@ function showView(name) {
   if (name === 'lists') renderBuilder();
   if (name === 'school') renderSchool();
   if (name === 'simchos') renderSimchos();
+  if (name === 'kol') renderKol();
   if (name === 'books') renderBooks();
   if (name === 'luach') renderLuach();
   if (name === 'faces') renderFaces();

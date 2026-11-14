@@ -1790,6 +1790,7 @@ export const HE = {
   "lobbyListsSub": "{n} רשימות שמורות",
   "lobbyMailSub": "מכתבים, מעטפות, מדבקות",
   "lobbyCallsSub": "שיחות טלפון ו-SMS",
+  "kolName": "קול אונגוואר",
   "lobbySimchos": "שהשמחה במעונם",
   "lobbySimchosSub": "שמחות השבוע",
   "sgParsha": "פרשת",

@@ -661,6 +661,72 @@ async function jpgPages(big = false) {
   btn.disabled = false;
 }
 
+// ---------- 📻 קול אונגוואר: דער גליון אלס איין בילד פארן אימעיל ----------
+// ווי דער גליון (סדר, רקע, שריפט, שפאלטן); עטלעכע בלעטער ווערן צוזאמענגעשטעלט אין איין לאנגער ראם:
+// אויבן פונעם ערשטן בלאט (כתר, כותרת, פרשה), דערנאך די שמחות פון אלע בלעטער נאכאנאנד, אונטן פונעם רקע.
+// די זייטן פון דער ראם ווערן פארלענגערט מיט א שטיק רקע וואס הייבט זיך אן און ענדיגט זיך אין א גלאטן ארט (קיין האלבער קישוט).
+const BAND = { a: 0.25, b: 0.785 }; // אין דער רקע־בילד: צוויי גלאטע ערטער אויף די זייטן
+const imgEl = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error('img')); i.src = src; });
+const strHash = (s) => { let x = 0; for (let i = 0; i < s.length; i += 1) x = ((x << 5) - x + s.charCodeAt(i)) | 0; return String(x >>> 0); };
+/** dateIso — דער טאג פונעם פרסום; shift — א גליון פריער (-1) / שפעטער (+1). → { key, title, dataUrl, text, sig, pages } */
+export async function gliyonForEmail(dateIso, shift = 0, { width = 1136 } = {}) {
+  if (bgSet === null) { bgSet = {}; await loadBg(); }
+  let key = issueForDate(dateIso || todayIso());
+  for (let i = 0; i < Math.abs(shift); i += 1) key = shift > 0 ? nextIssue(key) : prevIssue(key);
+  const title = issueTitle(key);
+  const list = simchosOf(key);
+  if (!list.length) return { key, title, dataUrl: '', text: '', sig: '', pages: 0 };
+  const save = { week: cur.week, lay: LAY };
+  cur.week = key; LAY = layoutFor(key);
+  try {
+    const pages = finalize(paginate(withHeads(list)));
+    const scale = width / (5.5 * 96);
+    const opt = { widthIn: 5.5, heightIn: 8.5, scale, quality: 0.9 };
+    const htmls = pages.map((p) => pageHtml(p.list, p.pt, p.cols, 0, p));
+    const sig = strHash(`${htmls.join('|')}|${getFont()}|${bgSrc(key)}|${width}`);
+    const tmp = document.createElement('div');
+    const text = withHeads(list).map((s) => { tmp.innerHTML = simchaHtml(s).replace(/<\/div>|<br\s*\/?>/gi, '$&\n'); return tmp.textContent.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim(); }).join('\n\n');
+    const first = await htmlToJpeg(htmls[0], opt);
+    if (pages.length === 1) return { key, title, dataUrl: first.dataUrl, text, sig, pages: 1 };
+    // עטלעכע בלעטער → איין לאנגער ראם
+    const hide = '<style>.sg-page{background:transparent!important}.sg-bg,.sg-parsha,.sg-pageno{display:none!important}</style>';
+    const bgOnly = await htmlToJpeg(`<style>.sg-parsha,.sg-pageno{display:none!important}</style>${pageHtml([], pages[0].pt, 1, 0, {})}`, opt);
+    const conts = [];
+    for (const x of htmls) conts.push(await htmlToJpeg(hide + x, { ...opt, png: true }));
+    const [I1, IB, ...IC] = await Promise.all([first.dataUrl, bgOnly.dataUrl, ...conts.map((c) => c.dataUrl)].map(imgEl));
+    const W = I1.width; const H = I1.height;
+    const L = (LAY || LAYOUT_DEF).body;
+    const Ty = Math.floor((L.y / 8.5) * H) - 2; const By = Math.ceil(((L.y + L.h) / 8.5) * H) + 2;
+    const full = bgSrc(key) !== DEF_BG; const toPage = (f) => (full ? f : 0.5 + (f - 0.5) * SCALE);
+    const ay = Math.round(toPage(BAND.a) * H); const by = Math.round(toPage(BAND.b) * H); const tile = by - ay;
+    // וויפיל פלאץ יעדער בלאט פארנעמט (דער לעצטער — נאר ביז וואו ס'ענדיגט זיך)
+    const cv0 = document.createElement('canvas'); cv0.width = W; cv0.height = H; const g0 = cv0.getContext('2d', { willReadFrequently: true });
+    const gap = Math.round(0.14 * 96 * scale);
+    const crops = IC.map((im, i) => {
+      if (i < IC.length - 1) return [Ty, By];
+      g0.clearRect(0, 0, W, H); g0.drawImage(im, 0, 0);
+      const d = g0.getImageData(0, Ty, W, By - Ty).data; let last = 0;
+      for (let y = By - Ty - 1; y >= 0 && !last; y -= 1) { for (let x = 0; x < W; x += 2) if (d[(y * W + x) * 4 + 3] > 20) { last = y; break; } }
+      return [Ty, Math.min(By, Ty + last + gap)];
+    });
+    const C = crops.reduce((n, [a, b]) => n + (b - a), 0) + gap * (crops.length - 1);
+    const k = Math.max(0, Math.ceil((C - (By - Ty)) / tile));
+    const M = (by - Ty) + k * tile; // דער רקע פון Ty ביז דער נידעריגער גלאטער ארט
+    const outH = Ty + M + (H - by);
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = outH; const g = cv.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, W, outH);
+    g.drawImage(I1, 0, 0, W, Ty, 0, 0, W, Ty); // אויבן: כתר, כותרת, פרשה
+    g.drawImage(IB, 0, Ty, W, by - Ty, 0, Ty, W, by - Ty);
+    for (let i = 0; i < k; i += 1) g.drawImage(IB, 0, ay, W, tile, 0, by + i * tile, W, tile);
+    g.drawImage(IB, 0, by, W, H - by, 0, Ty + M, W, H - by); // אונטן
+    // די שמחות: אין דער מיט פון דעם פלאץ (ווי ס'פעלט — גלייך צעטיילט)
+    const room = (Ty + M + (By - by)) - Ty; const extra = Math.max(0, room - C);
+    let y = Ty + Math.round(extra / 2);
+    crops.forEach(([a, b], i) => { g.drawImage(IC[i], 0, a, W, b - a, 0, y, W, b - a); y += (b - a) + gap; });
+    return { key, title, dataUrl: cv.toDataURL('image/jpeg', 0.88), text, sig, pages: pages.length };
+  } finally { cur.week = save.week; LAY = save.lay; }
+}
+
 /** פאר לוח המאורעות: די שמחות (איינמאליג) — [{ s, iso, label, names }] */
 export function simchaEvents() {
   return (state.simchos || []).filter((s) => s.week).map((s) => {

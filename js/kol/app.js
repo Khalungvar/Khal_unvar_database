@@ -1,20 +1,24 @@
-// 📻 קול אונגוואר — ungvar.org/kol : מערכת המיילים (שבועי "מהנעשה והנשמע" + חד פעמי).
-// כניסה עם Google (כל מי שמורשה באתר הכללי). השרת: apps-script/kol.gs (רץ בשם kol@ungvar.org).
+// 📻 קול אונגוואר — מערכת המיילים (שבועי "מהנעשה והנשמע" + חד פעמי), כמסך בתוך האתר הכללי (mountKol).
+// כתובת ישירה: ungvar.org/kol → האתר הכללי, ישר למסך הזה. השרת: apps-script/kol.gs (רץ בשם kol@ungvar.org).
 // הנמענים: רשימת התפוצה "מהנעשה והנשמע" — מסומנת ליד המייל של איש הקשר באתר הכללי (email_1_tags / email_2_tags).
-import { initAuth, requestToken, getUserEmail, hasSavedSession, currentToken, readTabs } from '../google.js?v=700';
-import { CONFIG } from '../config.js?v=700';
-import { shabbatTitle } from '../parasha.js?v=700';
-import { isoToHebrewText, toHebrew, yearLabel } from '../hebdate.js?v=700';
-import { FONTS, DEF_FONT, KINDS, LIST_NAME, DEF_HEADER, DEF_FOOTER, emailHtml, emailText, fillTags, imgUrl, dlUrl, imgsOf, driveId, cleanHtml, dateOf, dayText, weekOf, hfOf, isLive } from './render.js?v=700';
-import { loadLive, simchosList, shabbosTimes, composeShabbos, composeSimchos, shabbosBox, simchosBox, boxText, boxToJpeg, DEF_SH_TITLE, DEF_SH_SUB } from './live.js?v=700';
+import { getUserEmail, currentToken, readTabs } from '../google.js?v=701';
+import { L, tr, watch } from './lang.js?v=701';
+import { CONFIG } from '../config.js?v=701';
+import { shabbatTitle } from '../parasha.js?v=701';
+import { isoToHebrewText, toHebrew, yearLabel } from '../hebdate.js?v=701';
+import { FONTS, DEF_FONT, KINDS, LIST_NAME, DEF_HEADER, DEF_FOOTER, emailHtml, emailText, fillTags, imgUrl, dlUrl, imgsOf, driveId, cleanHtml, dateOf, dayText, weekOf, hfOf, isLive } from './render.js?v=701';
+import { loadLive, simchosList, shabbosTimes, composeShabbos, composeSimchos, shabbosBox, simchosBox, boxText, boxToJpeg, DEF_SH_TITLE, DEF_SH_SUB } from './live.js?v=701';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const h = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const main = $('#kol-main');
-function toast(t, kind = '') { const e = document.createElement('div'); e.className = `sa-toast ${kind}`; e.textContent = t; document.body.append(e); setTimeout(() => e.remove(), kind === 'error' ? 6000 : 3500); }
+let main = null; let OPT = {}; // המסך בתוך האתר הכללי + מה שהאתר נותן (toast, gliyon, openGliyon)
+let ONLEAVE = null; let ONSHOW = null;
+const confirm = (q) => window.confirm(tr(q));
+const prompt = (q, d) => window.prompt(tr(q), d);
+function toast(t, kind = '') { t = tr(String(t)); if (OPT.toast) { OPT.toast(t, kind === 'error' ? 'error' : kind); return; } const e = document.createElement('div'); e.className = `sa-toast ${kind}`; e.textContent = t; document.body.append(e); setTimeout(() => e.remove(), kind === 'error' ? 6000 : 3500); }
 const MSG = { 'not-allowed': 'אין הרשאה — רק מי שמורשה באתר הכללי.', conflict: 'מישהו אחר שמר בינתיים — טוען מחדש.', 'already-sent': 'המייל הזה כבר נשלח.', 'too-big': 'המייל גדול מדי — פחות רכיבים.', 'file-big': 'הקובץ גדול מדי.', 'bad-file': 'קובץ לא תקין.' };
-const msg = (err) => { const m = String(err?.message || err); return MSG[m.split(':')[0]] || m; };
+const msg = (err) => { const m = String(err?.message || err); return tr(MSG[m.split(':')[0]] || m); };
 
 const K = { me: '', from: '', quota: 0, emails: [], unsubs: new Set(), logo: '', logoData: '', defaults: {}, header: {}, footer: {}, phones: null, contacts: null };
 const SITE_LOGO = new URL('../../img/logo.png', import.meta.url).href;
@@ -22,16 +26,31 @@ const SITE_LOGO = new URL('../../img/logo.png', import.meta.url).href;
 const ctx = (extra = {}) => ({ header: K.header, footer: K.footer, logoUrl: K.logo ? imgUrl(K.logo, 400) : SITE_LOGO, liveFor: K.liveData ? liveHtml : undefined, ...extra });
 const SITE_URL = new URL('../../', import.meta.url).href.replace(/\/$/, '');
 /** "שהשמחה במעונם" + "זמני שבת / יום טוב" כמו שהם עכשיו (מגיליון התצוגה, כמו באתר) */
-async function refreshLive(force = false) {
+async function refreshLive(force = false, E = null) {
   await loadLive(force);
   K.liveData = { S: shabbosTimes(new Date()), list: simchosList() };
+  if (force) K.gl = {};
+  const shifts = new Set((E?.blocks || []).filter((b) => b.type === 'simchos').map((b) => Number(b.shift) || 0));
+  for (const sh of shifts) await glFor(sh, force);
   return K.liveData;
+}
+/** 🎉 הגליון של "שהשמחה במעונם" (מהאתר הכללי) — כתמונה; shift: גליון קודם / הבא */
+K.gl = {};
+async function glFor(shift = 0, force = false) {
+  if (!OPT.gliyon) return null;
+  if (!force && K.gl[shift]) return K.gl[shift];
+  const d = new Date(); const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const g = await OPT.gliyon(iso, shift);
+  if (g.dataUrl) { const bin = atob(g.dataUrl.split(',')[1]); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i += 1) u[i] = bin.charCodeAt(i); g.blob = URL.createObjectURL(new Blob([u], { type: 'image/jpeg' })); }
+  K.gl[shift] = g;
+  return g;
 }
 const liveSet = () => { K.liveSet ||= {}; K.liveSet.shabbos ||= { extra: [] }; K.liveSet.simchos ||= { extra: [] }; K.liveSet.shabbos.extra ||= []; K.liveSet.simchos.extra ||= []; return K.liveSet; };
 /** הקופסה כמו שתצא (אחרי העריכה במייל + השורות הקבועות) */
 function liveHtml(b, e) {
   if (!K.liveData) return '';
   const P = liveSet();
+  if (b.type === 'simchos' && OPT.gliyon) { const g = K.gl[Number(b.shift) || 0]; return g?.blob ? `<img src="${g.blob}" alt="" width="536" style="display:block;width:100%;max-width:536px;height:auto;border:0;margin:0 auto">` : ''; }
   return b.type === 'shabbos' ? shabbosBox(composeShabbos(K.liveData.S, b, P.shabbos), e, fillTags) : simchosBox(composeSimchos(K.liveData.list, b, P.simchos), SITE_URL);
 }
 let liveSaveT = null;
@@ -141,7 +160,7 @@ function cropDialog(src, init) {
     d.innerHTML = `<h2>✂ חיתוך</h2><p class="muted small">גוררים עם העכבר מלבן על החלק שרוצים להשאיר.</p>
       <div class="kol-cw"><img alt=""><div class="kol-cr" hidden></div></div>
       <div class="actions"><button type="button" class="btn primary" data-ok>✓ חיתוך</button><button type="button" class="btn" data-all>בלי חיתוך (כל התמונה)</button><button type="button" class="btn" data-x>ביטול</button></div>`;
-    document.body.append(d); d.showModal();
+    document.body.append(d); watch(d); d.showModal();
     const im = $('img', d); const box = $('.kol-cr', d); const wrap = $('.kol-cw', d); im.src = src;
     let c = init ? { ...init } : null; let a = null;
     const draw = () => { if (!c) { box.hidden = true; return; } box.hidden = false; Object.assign(box.style, { left: `${c.x * im.clientWidth}px`, top: `${c.y * im.clientHeight}px`, width: `${c.w * im.clientWidth}px`, height: `${c.h * im.clientHeight}px` }); };
@@ -174,6 +193,7 @@ function pickFile(accept) {
 
 // ---------------------------------------------------------------- כניסה + דף ראשי
 function head(title, back) {
+  ONLEAVE = null; ONSHOW = null; VIS = null; window.onbeforeunload = null;
   $('#kol-title').innerHTML = `${back ? '<button type="button" class="btn ghost" id="kol-back">→ חזרה</button> ' : ''}📻 ${h(title)} <button type="button" class="btn ghost kol-gear" id="kol-gear" title="לוגו, ראש ותחתית של המייל">⚙ הגדרות</button>`;
   $('#kol-back')?.addEventListener('click', back);
   $('#kol-gear').onclick = () => settingsDialog();
@@ -185,8 +205,8 @@ function hub() {
       <button type="button" class="lobby-tile kol-tile" data-k="once"><span class="lobby-icon">✉️</span><b>אימייל חד פעמי</b><span class="muted small">שמירה, ממתינים לשליחה</span></button>
       <button type="button" class="lobby-tile kol-tile" data-k="arch"><span class="lobby-icon">🗂</span><b>ארכיון מנהלים</b><span class="muted small">כל מה שנשלח · תמונות בלי לוגו</span></button>
     </div>
-    <div class="kol-foot"><a href="../kolungvar/" target="_blank">🌐 הדף הציבורי (ungvar.org/kolungvar)</a> · <button type="button" class="linkish" id="kol-set">⚙ הגדרות (לוגו, ראש ותחתית)</button>
-      <span class="muted small">· שולח: ${h(K.from)} · נשארו היום: ${h(K.quota)} מיילים</span></div>
+    <div class="kol-foot"><a href="/kolungvar/" target="_blank">🌐 הדף הציבורי (ungvar.org/kolungvar)</a> · <button type="button" class="linkish" id="kol-set">⚙ הגדרות (לוגו, ראש ותחתית)</button>
+      <span class="muted small">· ${L('שולח: {f} · נשארו היום: {q} מיילים', { f: K.from, q: K.quota })}</span></div>
     <div class="kol-logo" id="kol-logo"></div>`;
   logoBox($('#kol-logo'));
   $$('[data-k]', main).forEach((b) => { b.onclick = () => ({ weekly: openWeekly, once: openOnce, arch: adminArchive })[b.dataset.k](); });
@@ -213,18 +233,18 @@ async function openOnce() {
   const pend = K.emails.filter((x) => x.kind === 'once' && x.status !== 'sent').sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
   const sent = K.emails.filter((x) => x.kind === 'once' && x.status === 'sent');
   const row = (x, isSent) => `<tr data-id="${h(x.id)}"><td><b>${h(x.title || fillTags(x.subject, x) || '(בלי שם)')}</b><div class="muted small">${h(fillTags(x.subject, x))}</div></td>
-    <td class="small">${h(isSent ? `נשלח ${x.sent_at} · ${x.sent_n} נמענים` : `עודכן ${x.updated_at} · ${String(x.updated_by).split('@')[0]}`)}</td>
+    <td class="small">${h(isSent ? L('נשלח {a} · {n} נמענים', { a: x.sent_at, n: x.sent_n }) : L('עודכן {a} · {u}', { a: x.updated_at, u: String(x.updated_by).split('@')[0] }))}</td>
     <td>${isSent ? '<button type="button" class="btn small-btn" data-dup>⧉ שכפול</button>' : '<button type="button" class="btn small-btn primary" data-open>✏️ פתיחה</button> <button type="button" class="btn small-btn danger" data-del>🗑</button>'}</td></tr>`;
   main.innerHTML = `<p><button type="button" class="btn primary" id="ko-new">＋ אימייל חד פעמי חדש</button></p>
-    <h3>⏳ ממתינים לשליחה (${pend.length})</h3>
+    <h3>⏳ ${L('ממתינים לשליחה')} (${pend.length})</h3>
     ${pend.length ? `<table class="ms-table kol-tbl"><tbody>${pend.map((x) => row(x, false)).join('')}</tbody></table>` : '<p class="muted">אין.</p>'}
     <h3>✔ נשלחו לאחרונה</h3>
     ${sent.length ? `<table class="ms-table kol-tbl"><tbody>${sent.map((x) => row(x, true)).join('')}</tbody></table>` : '<p class="muted">אין עדיין. (העותקים המלאים — ב"דואר יוצא" של kol@ungvar.org)</p>'}`;
   const byId = (el) => K.emails.find((x) => x.id === el.closest('tr').dataset.id);
   $('#ko-new').onclick = () => editor({ kind: 'once', title: '', subject: '', blocks: [], opts: { ...(K.defaults || {}) }, status: 'draft' }, openOnce);
   $$('[data-open]', main).forEach((b) => { b.onclick = () => editor(byId(b), openOnce); });
-  $$('[data-dup]', main).forEach((b) => { b.onclick = () => { const x = byId(b); editor({ kind: 'once', title: `${x.title || ''} (עותק)`, subject: x.subject, blocks: JSON.parse(JSON.stringify(x.blocks)), opts: { ...x.opts }, status: 'draft' }, openOnce); }; });
-  $$('[data-del]', main).forEach((b) => { b.onclick = async () => { const x = byId(b); if (!confirm(`למחוק את "${x.title || x.subject}"?`)) return; try { await api('remove', { id: x.id }); openOnce(); } catch (err) { toast(msg(err), 'error'); } }; });
+  $$('[data-dup]', main).forEach((b) => { b.onclick = () => { const x = byId(b); editor({ kind: 'once', title: `${x.title || ''} (${L('עותק')})`, subject: x.subject, blocks: JSON.parse(JSON.stringify(x.blocks)), opts: { ...x.opts }, status: 'draft' }, openOnce); }; });
+  $$('[data-del]', main).forEach((b) => { b.onclick = async () => { const x = byId(b); if (!confirm(L('למחוק את "{x}"?', { x: x.title || x.subject }))) return; try { await api('remove', { id: x.id }); openOnce(); } catch (err) { toast(msg(err), 'error'); } }; });
 }
 
 // ---------------------------------------------------------------- עורך טקסט עשיר
@@ -288,14 +308,14 @@ function editor(e0, back) {
   main.innerHTML = `<div class="kol-ed-wrap">
     <div class="kol-left">
       <div class="kol-bar">
-        ${sent ? '' : `<span class="small">📅 אם יפורסם היום: <b>${h(dayText(dateOf(E)))}</b> · ${h(shabbatTitle(weekOf(E)))}</span>`}
+        ${sent ? '' : `<span class="small">📅 ${L('אם יפורסם היום:')} <b>${h(dayText(dateOf(E)))}</b> · ${h(shabbatTitle(weekOf(E)))}</span>`}
         <span class="spacer"></span><span class="muted small" id="ke-st"></span>
       </div>
-      ${sent ? `<p class="kol-sent">✔ נשלח ${h(E.sent_at)} ל-${h(E.sent_n)} נמענים${E.sent_by ? ` (${h(String(E.sent_by).split('@')[0])})` : ''}. אי אפשר לערוך מייל שנשלח.</p>` : ''}
+      ${sent ? `<p class="kol-sent">✔ ${h(L('נשלח {a} ל-{n} נמענים', { a: E.sent_at, n: E.sent_n }))}${E.sent_by ? ` (${h(String(E.sent_by).split('@')[0])})` : ''}. ${L('אי אפשר לערוך מייל שנשלח.')}</p>` : ''}
       ${E.kind === 'once' ? `<label class="kol-f">שם פנימי (רק לכם)<input id="ke-title" value="${h(E.title)}" placeholder="למשל: הזמנה לדינער"${sent ? ' disabled' : ''}></label>` : ''}
       <label class="kol-f">נושא המייל<input id="ke-subj" value="${h(E.subject)}" placeholder="נושא — אפשר {פרשת השבוע}"${sent ? ' disabled' : ''}></label>
       <div id="ke-blocks"></div>
-      ${sent ? '' : `<div class="kol-add"><span class="muted small">הוספה:</span>${Object.entries(KINDS).map(([k, v]) => `<button type="button" class="btn" data-add="${k}">${v.icon} ${v.name}</button>`).join('')}</div>
+      ${sent ? '' : `<div class="kol-add"><span class="muted small">הוספה:</span>${Object.entries(KINDS).map(([k, v]) => `<button type="button" class="btn" data-add="${k}">${v.icon} ${L(v.name)}</button>`).join('')}</div>
       <details class="kol-look"><summary>🎨 עיצוב כללי</summary>
         <label>רקע מסביב <input type="color" data-o="bg" value="${h(E.opts.bg || '#efe9dc')}"></label>
         <label>רקע המייל <input type="color" data-o="card" value="${h(E.opts.card || '#ffffff')}"></label>
@@ -314,8 +334,8 @@ function editor(e0, back) {
     </div>
     <div class="kol-right"><div class="muted small">תצוגה מקדימה <button type="button" class="linkish" id="ke-mob">📱 טלפון</button></div><iframe id="ke-prev-f" title="תצוגה מקדימה"></iframe></div>
   </div>`;
-  const st = (t) => { $('#ke-st').textContent = t; };
-  st(E.updated_at ? `נשמר ${E.updated_at} · ${String(E.updated_by || '').split('@')[0]}` : 'עוד לא נשמר');
+  const st = (t) => { $('#ke-st').textContent = L(t); };
+  st(E.updated_at ? L('נשמר {a} · {u}', { a: E.updated_at, u: String(E.updated_by || '').split('@')[0] }) : L('עוד לא נשמר'));
   // תצוגה מקדימה
   let pv = null;
   const preview = () => { clearTimeout(pv); pv = setTimeout(() => { $('#ke-prev-f').srcdoc = emailHtml(E, 'preview', ctx()); }, 250); };
@@ -328,15 +348,18 @@ function editor(e0, back) {
     try {
       const r = await api('save', { email: { id: E.id, kind: E.kind, week: E.week, title: E.title, subject: E.subject, blocks: E.blocks, opts: E.opts }, base });
       E.id = r.email.id; E.updated_at = base = r.email.updated_at; E.updated_by = r.email.updated_by; dirty = false;
-      st(`נשמר ${E.updated_at}`);
+      st(L('נשמר {a}', { a: E.updated_at }));
     } catch (err) {
       st('⚠ לא נשמר'); toast(msg(err), 'error');
       if (String(err.message).startsWith('conflict')) { await loadList(); const fresh = K.emails.find((x) => x.id === E.id); if (fresh) editor(fresh, back); }
     } finally { saving = false; }
   };
   const changed = () => { dirty = true; st('לא נשמר עדיין…'); preview(); clearTimeout(timer); timer = setTimeout(save, 2500); };
-  window.onbeforeunload = () => (dirty ? 'יש שינויים שלא נשמרו' : undefined);
-  document.onvisibilitychange = () => { if (document.hidden && dirty) save(); }; // יוצאים מהלשונית — שומרים
+  window.onbeforeunload = () => (dirty ? L('יש שינויים שלא נשמרו') : undefined);
+  VIS = () => { if (document.hidden && dirty) save(); }; // יוצאים מהלשונית — שומרים
+  ONLEAVE = () => { if (dirty) save(); }; // יוצאים מהמסך (לובי / גליון) — שומרים
+  // חוזרים למסך (למשל אחרי עריכת הגליון) — מרעננים את הגליון ואת התצוגה
+  ONSHOW = () => { if (!sent && E.blocks.some(isLive)) refreshLive(true, E).then(() => { preview(); drawBlocks(); }).catch(() => {}); };
 
   if (!sent) {
     $('#ke-subj').oninput = (ev) => { E.subject = ev.target.value; changed(); };
@@ -349,11 +372,11 @@ function editor(e0, back) {
       const btn = ev.currentTarget; btn.disabled = true;
       try {
         await burn((t) => { btn.textContent = t; });
-        if (E.blocks.some(isLive)) { await refreshLive(true); await burnLive((t) => { btn.textContent = t; }); }
+        if (E.blocks.some(isLive)) { await refreshLive(true, E); await burnLive((t) => { btn.textContent = t; }); }
         await save();
         btn.textContent = '⏳ שולח…';
         const html = emailHtml(E, 'mail', ctx());
-        if (sizeOk(html)) { const r = await api('test', { subject: `[ניסיון] ${fillTags(E.subject, E)}`, html, text: emailText(E), files: fileIds() }); toast(`נשלח ניסיון ל-${r.to}.`); }
+        if (sizeOk(html)) { const r = await api('test', { subject: `[ניסיון] ${fillTags(E.subject, E)}`, html, text: emailText(E), files: fileIds() }); toast(L('נשלח ניסיון ל-{x}.', { x: r.to })); }
       } catch (err) { toast(msg(err), 'error'); }
       btn.disabled = false; btn.textContent = '📨 שלח ניסיון אליי';
     };
@@ -373,10 +396,10 @@ function editor(e0, back) {
     // רשימות התפוצה
     const lsel = $('#ke-list');
     const fillLists = () => { lsel.innerHTML = listNames().map((n) => `<option${n === (E.opts.list || LIST_NAME) ? ' selected' : ''}>${h(n)}</option>`).join(''); rcpInfo(); };
-    const rcpInfo = () => { const r = recipients(lsel.value); $('#ke-rcp').innerHTML = `👥 רשימת התפוצה "<b>${h(lsel.value)}</b>": <b>${r.send.length}</b> נמענים${r.off.length ? ` · ${r.off.length} הסירו את עצמם (לא יקבלו)` : ''}.`; };
+    const rcpInfo = () => { const r = recipients(lsel.value); $('#ke-rcp').innerHTML = `👥 ${L('רשימת התפוצה')} "<b>${h(lsel.value)}</b>": <b>${r.send.length}</b> ${L('נמענים')}${r.off.length ? ` · ${h(L('{n} הסירו את עצמם (לא יקבלו)', { n: r.off.length }))}` : ''}.`; };
     lsel.onchange = () => { E.opts.list = lsel.value; changed(); rcpInfo(); };
     $('#ke-rcp').textContent = 'טוען את רשימת הנמענים…';
-    loadPeople().then(fillLists).catch((err) => { $('#ke-rcp').innerHTML = `<span class="rf-err">לא הצלחתי לטעון את אנשי הקשר: ${h(msg(err))}</span>`; });
+    loadPeople().then(fillLists).catch((err) => { $('#ke-rcp').innerHTML = `<span class="rf-err">${L('לא הצלחתי לטעון את אנשי הקשר:')} ${h(msg(err))}</span>`; });
     $('#ke-pub').onclick = publish;
   }
   const fileIds = () => E.blocks.filter((b) => b.type === 'file' && b.attach && b.file?.id).map((b) => b.file.id);
@@ -385,16 +408,25 @@ function editor(e0, back) {
   function sizeOk(html) {
     const kb = Math.round(new Blob([html]).size / 1024);
     if (kb <= 95) return true;
-    return confirm(`המייל גדול (${kb}KB). ב-Gmail מייל מעל ~100KB נחתך באמצע עם "[ההודעה נחתכה]", וזה גם פוגע במוניטין.\nכדאי לקצר טקסט / לפצל לשני מיילים.\n\nלשלוח בכל זאת?`);
+    return confirm(L('המייל גדול ({kb}KB). ב-Gmail מייל מעל ~100KB נחתך באמצע עם "[ההודעה נחתכה]", וזה גם פוגע במוניטין.\nכדאי לקצר טקסט / לפצל לשני מיילים.\n\nלשלוח בכל זאת?', { kb }));
   }
   /** שמחות / זמני שבת → תמונה (רק אם השתנה מאז הצריבה הקודמת) */
   async function burnLive(say = () => {}) {
     for (const b of E.blocks.filter(isLive)) {
+      if (b.type === 'simchos' && OPT.gliyon) {
+        const g = await glFor(Number(b.shift) || 0);
+        if (!g?.dataUrl) { if (b.burn) { delete b.burn; b.alt = ''; dirty = true; } continue; }
+        if (b.burn?.id && b.burn.key === g.sig) continue;
+        say(`⏳ ${L('הגליון → תמונה…')}`);
+        const r = await upload(g.dataUrl, 'simchos.jpg');
+        b.burn = { id: r.id, key: g.sig }; b.alt = g.text; dirty = true;
+        continue;
+      }
       const html = liveHtml(b, E);
       if (!html) { delete b.burn; b.alt = ''; dirty = true; continue; }
       const key = hashOf(html);
       if (b.burn?.id && b.burn.key === key) continue;
-      say(`⏳ ${KINDS[b.type].name} → תמונה…`);
+      say(`⏳ ${L(KINDS[b.type].name)} → ${L('תמונה…')}`);
       const data = await boxToJpeg(html);
       const r = await upload(data, `${b.type}.jpg`);
       b.burn = { id: r.id, key }; b.alt = boxText(html); dirty = true;
@@ -424,6 +456,13 @@ function editor(e0, back) {
         <div class="kol-row"><button type="button" class="btn small-btn" data-xadd>➕ שורה</button><button type="button" class="btn small-btn" data-relive>🔄 לחשב מחדש מהגיליון (מבטל שינויים במייל הזה)</button></div>
         <p class="muted small">שינוי שם / שעה / הסתרה — רק במייל הזה. בפרסום הקופסה נצרבת לתמונה. לא עולה לארכיון.</p>`;
     }
+    if (OPT.gliyon) {
+      const g = K.gl[Number(b.shift) || 0];
+      return `<div class="kol-row kol-glnav"><button type="button" class="btn small-btn" data-gsh="-1">› ${L('גליון קודם')}</button><b>🎉 ${g ? h(g.title) : '⏳'}</b><button type="button" class="btn small-btn" data-gsh="1">${L('גליון הבא')} ‹</button></div>
+        ${!g ? `<p class="muted">⏳ ${L('מכין את הגליון…')}</p>` : g.blob ? `<div class="kol-glprev"><img src="${g.blob}" alt=""></div><p class="muted small">${L('{n} עמודים בגליון — במייל הם מחוברים לתמונה אחת ארוכה.', { n: g.pages })}</p>` : `<p class="muted">${L('אין שמחות בגליון הזה. (הקופסה לא תופיע במייל)')}</p>`}
+        <div class="kol-row"><button type="button" class="btn small-btn" data-relive>🔄 ${L('לרענן מהגליון')}</button>${OPT.openGliyon && g ? `<button type="button" class="btn small-btn" data-glopen>✏️ ${L('לפתוח את הגליון לעריכה')}</button>` : ''}</div>
+        <p class="muted small">${L('את השמחות, הסדר, הנוסח, הגופן והרקע עורכים בגליון ("שהשמחה במעונם"). בפרסום הגליון נצרב לתמונה. לא עולה לארכיון.')}</p>`;
+    }
     const xrow = (x, i, perm) => `<div class="kol-row kol-xr" data-x="${i}" data-perm="${perm ? 1 : ''}"><textarea data-xs rows="2" placeholder="למשל: משפחת … לרגל …">${h(x.text || '')}</textarea>${scopeSel(perm)}<button type="button" class="btn small-btn danger" data-xdel>🗑</button></div>`;
     const txt = (html) => { const t = document.createElement('div'); t.innerHTML = String(html).replace(/<br\s*\/?>/gi, '\n').replace(/<\/div>/gi, '\n'); return t.textContent.trim(); };
     return `${D.list.map((x) => { const o = b.over[x.id] || {}; return `<div class="kol-row kol-sm" data-sid="${h(x.id)}"><input type="checkbox" data-show${o.hide ? '' : ' checked'} title="להציג"><textarea data-st rows="2">${h(o.text ?? txt(x.html))}</textarea>${o.text != null ? '<button type="button" class="linkish" data-sreset title="לחזור לנוסח מהגיליון">↺</button>' : ''}</div>`; }).join('') || '<p class="muted small">אין כרגע שמחות ברשימה של מסך התצוגה.</p>'}
@@ -435,7 +474,9 @@ function editor(e0, back) {
   function wireLiveForm(f, b, up) {
     const P = () => liveSet()[b.type];
     const redraw = () => { up(); drawBlocks(); };
-    $('[data-relive]', f)?.addEventListener('click', async (ev) => { ev.target.disabled = true; try { await refreshLive(true); b.over = {}; delete b.title; delete b.sub; redraw(); toast('✓ עודכן מהגיליון.'); } catch (err) { ev.target.disabled = false; toast(msg(err), 'error'); } });
+    $$('[data-gsh]', f).forEach((x) => { x.onclick = async () => { b.shift = (Number(b.shift) || 0) + Number(x.dataset.gsh); redraw(); try { await glFor(b.shift); } catch (err) { toast(msg(err), 'error'); } redraw(); }; });
+    $('[data-glopen]', f)?.addEventListener('click', async () => { if (dirty) await save(); OPT.openGliyon(K.gl[Number(b.shift) || 0].key); });
+    $('[data-relive]', f)?.addEventListener('click', async (ev) => { ev.target.disabled = true; try { await refreshLive(true, E); b.over = {}; delete b.title; delete b.sub; redraw(); toast('✓ עודכן מהגיליון.'); } catch (err) { ev.target.disabled = false; toast(msg(err), 'error'); } });
     $$('[data-sh]', f).forEach((el) => { el.oninput = () => { b[el.dataset.sh] = el.value; up(); }; });
     $('[data-shperm]', f)?.addEventListener('click', () => { const p = P(); p.title = $('[data-sh="title"]', f).value; p.sub = $('[data-sh="sub"]', f).value; delete b.title; delete b.sub; saveLiveSet(); toast('✓ נשמר כקבוע לכל שבוע.'); up(); });
     $$('tr[data-key]', f).forEach((tr) => {
@@ -478,7 +519,7 @@ function editor(e0, back) {
     });
     let n = 0;
     for (const [it, b, key] of jobs) {
-      say(`⏳ לוגו ${++n} / ${jobs.length}…`);
+      say(`⏳ ${L('לוגו')} ${++n} / ${jobs.length}…`);
       const data = await toJpeg(await driveData(it.id), { logo: await logoData(), pos: b.lpos || 'bl' });
       const r = await upload(data, 'עם-לוגו.jpg'); it.pub = r.id; it.pubKey = key;
     }
@@ -515,19 +556,20 @@ function editor(e0, back) {
   const addBlock = (k) => { E.blocks.push(NEW[k]()); open = E.blocks.length - 1; drawBlocks(); changed(); setTimeout(() => $(`[data-i="${open}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50); };
   const summary = (b) => {
     const strip = (x) => String(x || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 70);
-    if (b.type === 'text') return strip(b.html) || '(ריק)';
-    if (isLive(b)) return sent ? 'כמו שיצא במייל' : `מתמלא לבד מגיליון התצוגה${b.over && Object.keys(b.over).length || b.extra?.length ? ' · עם שינויים' : ''} · לא לארכיון`;
-    if (b.type === 'button') return b.label || '(בלי כיתוב)';
-    if (b.type === 'video') return b.title || b.url || '(בלי קישור)';
-    if (b.type === 'file') return b.file?.name || '(בלי קובץ)';
+    if (b.type === 'text') return strip(b.html) || L('(ריק)');
+    if (b.type === 'simchos' && OPT.gliyon && !sent) { const g = K.gl[Number(b.shift) || 0]; return g ? `${g.title} · ${g.blob ? L('{n} עמודים', { n: g.pages }) : L('אין שמחות')} · ${L('מהגליון · לא לארכיון')}` : L('מהגליון · לא לארכיון'); }
+    if (isLive(b)) return sent ? L('כמו שיצא במייל') : `${L('מתמלא לבד מגיליון התצוגה')}${b.over && Object.keys(b.over).length || b.extra?.length ? ` · ${L('עם שינויים')}` : ''} · ${L('לא לארכיון')}`;
+    if (b.type === 'button') return b.label || L('(בלי כיתוב)');
+    if (b.type === 'video') return b.title || b.url || L('(בלי קישור)');
+    if (b.type === 'file') return b.file?.name || L('(בלי קובץ)');
     const n = imgsOf(b).length;
-    return (n > 1 ? `${n} תמונות · ` : '') + (strip(b.text) || (n || b.img ? '' : '(בלי תמונה)'));
+    return (n > 1 ? `${L('{n} תמונות', { n })} · ` : '') + (strip(b.text) || (n || b.img ? '' : L('(בלי תמונה)')));
   };
   const thumbOf = (b) => { const id = imgsOf(b)[0]?.id || b.img?.id || b.thumb?.id; return id ? `<img src="${imgUrl(id, 160)}" alt="">` : `<span class="kol-ic">${KINDS[b.type].icon}</span>`; };
   function drawBlocks() {
     const box = $('#ke-blocks');
     box.innerHTML = E.blocks.map((b, i) => `<div class="kol-blk${open === i ? ' open' : ''}" data-i="${i}">
-      <div class="kol-bh">${thumbOf(b)}<div class="kol-bt"><b>${KINDS[b.type].icon} ${KINDS[b.type].name}</b><span class="muted small">${h(summary(b))}</span></div>
+      <div class="kol-bh">${thumbOf(b)}<div class="kol-bt"><b>${KINDS[b.type].icon} ${L(KINDS[b.type].name)}</b><span class="muted small">${h(summary(b))}</span></div>
         ${E.kind === 'weekly' && !isLive(b) ? `<label class="kol-arch" title="לעלות גם לדף הציבורי"><input type="checkbox" data-arch${b.arch !== false ? ' checked' : ''}${sent ? ' disabled' : ''}> לארכיון</label>` : ''}
         ${sent ? '' : `<button type="button" class="btn small-btn" data-up title="למעלה"${i ? '' : ' disabled'}>▲</button><button type="button" class="btn small-btn" data-down title="למטה"${i < E.blocks.length - 1 ? '' : ' disabled'}>▼</button>
         <button type="button" class="btn small-btn" data-edit>${open === i ? 'סגירה' : '✏️ עריכה'}</button><button type="button" class="btn small-btn danger" data-rm title="מחיקה">🗑</button>`}</div>
@@ -538,7 +580,7 @@ function editor(e0, back) {
       $('[data-up]', el)?.addEventListener('click', () => { [E.blocks[i - 1], E.blocks[i]] = [E.blocks[i], E.blocks[i - 1]]; open = open === i ? i - 1 : open; drawBlocks(); changed(); });
       $('[data-down]', el)?.addEventListener('click', () => { [E.blocks[i + 1], E.blocks[i]] = [E.blocks[i], E.blocks[i + 1]]; open = open === i ? i + 1 : open; drawBlocks(); changed(); });
       $('[data-edit]', el)?.addEventListener('click', () => { open = open === i ? -1 : i; drawBlocks(); });
-      $('[data-rm]', el)?.addEventListener('click', () => { if (!confirm(`למחוק את ה${KINDS[b.type].name}?`)) return; E.blocks.splice(i, 1); open = -1; drawBlocks(); changed(); });
+      $('[data-rm]', el)?.addEventListener('click', () => { if (!confirm(L('למחוק את ה{x}?', { x: L(KINDS[b.type].name) }))) return; E.blocks.splice(i, 1); open = -1; drawBlocks(); changed(); });
       const f = $('.kol-bf', el); if (f) form(f, b);
     });
   }
@@ -546,17 +588,17 @@ function editor(e0, back) {
   function form(f, b) {
     const refresh = () => { const s = f.closest('.kol-blk'); if (s) { $('.kol-bt span', s).textContent = summary(b); const t = $('.kol-bh > img, .kol-bh > .kol-ic', s); if (t) t.outerHTML = thumbOf(b); } };
     const up = () => { changed(); refresh(); };
-    const inp = (k, label, ph = '', type = 'text', ltr = false) => `<label class="kol-f">${h(label)}<input data-k="${k}" type="${type}" value="${h(b[k] || '')}" placeholder="${h(ph)}"${ltr ? ' dir="ltr"' : ''}></label>`;
-    const colors = (pairs) => `<div class="kol-row">${pairs.map(([k, l, d]) => `<label>${h(l)} <input type="color" data-k="${k}" value="${h(b[k] || d)}"></label>`).join('')}</div>`;
+    const inp = (k, label, ph = '', type = 'text', ltr = false) => `<label class="kol-f">${h(L(label))}<input data-k="${k}" type="${type}" value="${h(b[k] || '')}" placeholder="${h(L(ph))}"${ltr ? ' dir="ltr"' : ''}></label>`;
+    const colors = (pairs) => `<div class="kol-row">${pairs.map(([k, l, d]) => `<label>${h(L(l))} <input type="color" data-k="${k}" value="${h(b[k] || d)}"></label>`).join('')}</div>`;
     const bgRow = `<div class="kol-row"><label>רקע לרכיב <input type="color" data-k="bg" value="${h(b.bg || '#ffffff')}"></label> <button type="button" class="linkish" data-nobg>בלי רקע</button>
       <label>יישור <select data-k="align">${[['center', 'מרכז'], ['right', 'ימין'], ['left', 'שמאל'], ['justify', 'מיושר']].map(([v, n]) => `<option value="${v}"${(b.align || 'center') === v ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div>`;
-    const imgPick = (label, accept) => `<div class="kol-row"><button type="button" class="btn" data-pick>⬆ ${h(label)}</button><span class="small muted" data-pst></span></div>`;
+    const imgPick = (label, accept) => `<div class="kol-row"><button type="button" class="btn" data-pick>⬆ ${h(L(label))}</button><span class="small muted" data-pst></span></div>`;
     if ((b.type === 'ad' || b.type === 'photo') && !b.imgs) { b.imgs = imgsOf(b); delete b.img; delete b.pdf; }
     const ov = (it) => (b.type === 'photo' && b.logo !== false && !it.gif && !it.baked ? `<img class="kol-ov ${b.lpos || 'bl'}" src="${K.logo ? imgUrl(K.logo, 200) : SITE_LOGO}" alt="">` : '');
     const gallery = (label) => `<div class="kol-gal">${b.imgs.map((it, j) => `<div class="kol-gi" data-j="${j}"><span class="kol-gw"><img src="${imgUrl(it.id, 240)}" alt="">${ov(it)}</span>
         <div class="kol-gb"><button type="button" class="btn small-btn" data-rot title="סיבוב 90°">⟳</button><button type="button" class="btn small-btn" data-crop title="חיתוך">✂</button>${b.imgs.length > 1 ? `<button type="button" class="btn small-btn" data-mv="-1" title="לפני"${j ? '' : ' disabled'}>▶</button><button type="button" class="btn small-btn" data-mv="1" title="אחרי"${j < b.imgs.length - 1 ? '' : ' disabled'}>◀</button>` : ''}<button type="button" class="btn small-btn danger" data-del title="הסרה">🗑</button></div>
         ${it.pdf ? '<span class="small muted">📄 PDF</span>' : ''}</div>`).join('')}</div>
-      <div class="kol-row"><button type="button" class="btn" data-add>➕ ${h(label)}</button><span class="small muted" data-pst></span></div>`;
+      <div class="kol-row"><button type="button" class="btn" data-add>➕ ${h(L(label))}</button><span class="small muted" data-pst></span></div>`;
     let html = '';
     if (b.type === 'ad') html = `${gallery(b.imgs.length ? 'הוספת מודעה לאותה קבוצה' : 'בחירת מודעה (JPG / PNG / GIF / PDF)')}${inp('link', 'קישור בלחיצה על המודעה (רשות)', 'https://…', 'url', true)}${b.imgs.some((x) => x.pdf) ? '<p class="muted small">📄 PDF: בלחיצה נפתח ה-PDF המלא (אם לא כתבתם קישור אחר).</p>' : ''}<div class="kol-f">טקסט מתחת למודעה</div><div data-rich="text"></div>${bgRow}`;
     if (b.type === 'photo') html = `<div class="kol-row"><label class="check"><input type="checkbox" data-logo${b.logo !== false ? ' checked' : ''}> להוסיף את הלוגו</label>
@@ -566,7 +608,7 @@ function editor(e0, back) {
       <div class="kol-f">טקסט מתחת לתמונה</div><div data-rich="text"></div>${inp('moreLink', 'קישור לעוד תמונות מהמעמד (רשות)', 'https://…', 'url', true)}${inp('moreLabel', 'כיתוב הכפתור', 'לעוד תמונות מהמעמד')}${colors([['btnBg', 'צבע הכפתור', '#7a1f1f'], ['btnColor', 'צבע הכיתוב', '#ffffff']])}${bgRow}`;
     if (b.type === 'file') html = `<div class="kol-row"><button type="button" class="btn" data-file>📎 בחירת קובץ</button><span class="small">${b.file ? `${h(b.file.name)} (${Math.round((b.file.size || 0) / 1024)}KB)` : ''}</span></div>
       <label class="check"><input type="checkbox" data-attach${b.attach ? ' checked' : ''}> לצרף את הקובץ גם כקובץ מצורף למייל (עד 20MB) — אחרת רק קישור להורדה</label>
-      ${imgPick('מודעה / תמונה שקשורה לקובץ (רשות)')}<div class="kol-f">טקסט</div><div data-rich="text"></div>${inp('btnLabel', 'כיתוב כפתור ההורדה', `להורדת ${b.file?.name || 'הקובץ'}`)}${colors([['btnBg', 'צבע הכפתור', '#2c4a6e'], ['btnColor', 'צבע הכיתוב', '#ffffff']])}${bgRow}`;
+      ${imgPick('מודעה / תמונה שקשורה לקובץ (רשות)')}<div class="kol-f">טקסט</div><div data-rich="text"></div>${inp('btnLabel', 'כיתוב כפתור ההורדה', b.file?.name ? L('להורדת {x}', { x: b.file.name }) : L('להורדת הקובץ'))}${colors([['btnBg', 'צבע הכפתור', '#2c4a6e'], ['btnColor', 'צבע הכיתוב', '#ffffff']])}${bgRow}`;
     if (b.type === 'text') html = `<div data-rich="html"></div>${bgRow}`;
     if (isLive(b)) html = liveForm(b);
     if (b.type === 'video') html = `${inp('url', 'קישור לסרטון בדרייב (פתוח לכל מי שיש לו קישור)', 'https://drive.google.com/file/d/…', 'url', true)}${inp('title', 'כותרת', 'לצפייה בסרטון')}
@@ -586,17 +628,17 @@ function editor(e0, back) {
       const files = await pickFiles(b.type === 'ad' ? 'image/*,application/pdf' : 'image/*'); if (!files.length) return;
       let n = 0;
       for (const file of files) {
-        busy(`⏳ מעלה ${++n} / ${files.length}…`);
+        busy(`⏳ ${L('מעלה')} ${++n} / ${files.length}…`);
         try {
           const it = { clean: true };
           if (file.type === 'image/gif') {
-            if (file.size > 8 * 1024 * 1024) throw new Error(`${file.name}: ה-GIF גדול מדי (עד 8MB).`);
+            if (file.size > 8 * 1024 * 1024) throw new Error(`${file.name}: ${L('ה-GIF גדול מדי (עד 8MB).')}`);
             const r = await upload(await readUrl(file), file.name); it.id = r.id; it.gif = true;
             if (!r.public) toast('הקובץ הועלה, אבל לא נפתח לכולם — ייתכן שלא יופיע במייל.', 'error');
           } else {
             let plain;
             if (file.type === 'application/pdf') {
-              if (file.size > 20 * 1024 * 1024) throw new Error(`${file.name}: ה-PDF גדול מדי (עד 20MB).`);
+              if (file.size > 20 * 1024 * 1024) throw new Error(`${file.name}: ${L('ה-PDF גדול מדי (עד 20MB).')}`);
               plain = await pdfFirstPage(file);
               const pdf = await upload(await readUrl(file), file.name); it.pdf = { id: pdf.id, name: file.name };
             } else plain = await toJpeg(await readUrl(file));
@@ -672,15 +714,15 @@ function editor(e0, back) {
     if (!String(E.subject || '').trim()) { toast('חסר נושא.', 'error'); return; }
     if (!K.phones) { toast('רשימת הנמענים עוד לא נטענה.', 'error'); return; }
     const r = recipients(name);
-    if (!r.send.length) { toast(`אין נמענים ברשימה "${name}".`, 'error'); return; }
-    if (r.send.length > K.quota) { toast(`נשארו היום רק ${K.quota} מיילים, וברשימה ${r.send.length}. אפשר לשלוח עכשיו חלק, ולהמשיך מחר (מי שכבר קיבל — לא יקבל שוב).`, 'error'); }
-    if (!confirm(`לשלוח את "${fillTags(E.subject, E)}" ל-${r.send.length} נמענים ברשימה "${name}"?\nאחרי השליחה אי אפשר לבטל.`)) return;
+    if (!r.send.length) { toast(L('אין נמענים ברשימה "{x}".', { x: name }), 'error'); return; }
+    if (r.send.length > K.quota) { toast(L('נשארו היום רק {q} מיילים, וברשימה {n}. אפשר לשלוח עכשיו חלק, ולהמשיך מחר (מי שכבר קיבל — לא יקבל שוב).', { q: K.quota, n: r.send.length }), 'error'); }
+    if (!confirm(L('לשלוח את "{s}" ל-{n} נמענים ברשימה "{l}"?\nאחרי השליחה אי אפשר לבטל.', { s: fillTags(E.subject, E), n: r.send.length, l: name }))) return;
     const btn = $('#ke-pub'); btn.disabled = true;
     try {
       await burn((t) => { btn.textContent = t; });
       if (E.kind === 'weekly') E.week = weekOf(E); // השבת של יום הפרסום
       // שמחות וזמני שבת — כמו שהם ברגע הפרסום, נצרבים לתמונה
-      if (E.blocks.some(isLive)) { await refreshLive(true); await burnLive((t) => { btn.textContent = t; }); }
+      if (E.blocks.some(isLive)) { await refreshLive(true, E); await burnLive((t) => { btn.textContent = t; }); }
       if (!E.opts.hf?.own) E.opts.hfSent = { header: K.header, footer: K.footer }; // הראש / התחתית כמו שיצאו
       dirty = true; await save();
     } catch (err) { toast(msg(err), 'error'); btn.disabled = false; btn.textContent = '🚀 פרסום'; return; }
@@ -692,24 +734,24 @@ function editor(e0, back) {
     try {
       for (let i = 0; i < r.send.length; i += SIZE) {
         const last = i + SIZE >= r.send.length;
-        if (i) for (let t = PAUSE; t > 0; t--) { btn.textContent = `⏸ ${sentN} נשלחו · ממשיך בעוד ${t} שנ'…`; await new Promise((ok) => { setTimeout(ok, 1000); }); }
-        btn.textContent = `⏳ שולח… ${Math.min(i + SIZE, r.send.length)} / ${r.send.length}`;
+        if (i) for (let t = PAUSE; t > 0; t--) { btn.textContent = `⏸ ${L('{n} נשלחו · ממשיך בעוד {t} שנ\'…', { n: sentN, t })}`; await new Promise((ok) => { setTimeout(ok, 1000); }); }
+        btn.textContent = `⏳ ${L('שולח…')} ${Math.min(i + SIZE, r.send.length)} / ${r.send.length}`;
         const res = await api('publish', { id: E.id, subject, html, text, files, recipients: r.send.slice(i, i + SIZE), final: last, first: i === 0 }, 330000);
-        if (res.scanned && (res.scanned.bounce || res.scanned.mail)) toast(`הוסרו מהרשימה: ${res.scanned.bounce || 0} כתובות שחזרו, ${res.scanned.mail || 0} שביקשו הסרה במייל.`);
+        if (res.scanned && (res.scanned.bounce || res.scanned.mail)) toast(L('הוסרו מהרשימה: {a} כתובות שחזרו, {b} שביקשו הסרה במייל.', { a: res.scanned.bounce || 0, b: res.scanned.mail || 0 }));
         sentN += res.sent; errs += (res.errors || []).length; K.quota = res.quota;
         if ((res.errors || []).some((x) => x.error === 'daily-limit')) { toast('הגענו למגבלה היומית. מחר אפשר ללחוץ שוב "פרסום" — מי שכבר קיבל לא יקבל שוב.', 'error'); break; }
       }
-      toast(`✔ נשלח ל-${sentN} נמענים${errs ? ` · ${errs} שגיאות` : ''}.`);
+      toast(`✔ ${L('נשלח ל-{n} נמענים', { n: sentN })}${errs ? ` · ${L('{n} שגיאות', { n: errs })}` : ''}.`);
       dirty = false; window.onbeforeunload = null;
       if (E.kind === 'weekly') { toast('נפתחה טיוטה חדשה לשבוע הבא.'); editor(newWeekly(), back); } else { await loadList(); const fresh = K.emails.find((x) => x.id === E.id); if (fresh) editor(fresh, back); }
     } catch (err) {
-      toast(`השליחה נעצרה: ${msg(err)}. אפשר ללחוץ שוב "פרסום" — מי שכבר קיבל לא יקבל שוב.`, 'error');
+      toast(L('השליחה נעצרה: {e}. אפשר ללחוץ שוב "פרסום" — מי שכבר קיבל לא יקבל שוב.', { e: msg(err) }), 'error');
       btn.disabled = false; btn.textContent = '🚀 פרסום';
     }
   }
   drawBlocks(); preview();
   // התוכן ה"חי" (שמחות / זמני שבת) — לתצוגה
-  if (!sent && E.blocks.some(isLive)) refreshLive().then(() => { preview(); if (open >= 0 && isLive(E.blocks[open])) drawBlocks(); }).catch(() => toast('לא הצלחתי לטעון את השמחות / זמני השבת מגיליון התצוגה.', 'error'));
+  if (!sent && E.blocks.some(isLive)) refreshLive(false, E).then(() => { preview(); if (open >= 0 && isLive(E.blocks[open])) drawBlocks(); }).catch(() => toast('לא הצלחתי לטעון את השמחות / זמני השבת מגיליון התצוגה.', 'error'));
 }
 
 // ---------------------------------------------------------------- הגדרות
@@ -789,9 +831,9 @@ function settingsDialog() {
   d.innerHTML = `<h2>⚙ הגדרות קול אונגוואר</h2>
     <div class="kol-setg"><div><div id="ks-logo" class="kol-logo"></div><div id="ks-hf"></div></div>
       <div class="kol-right"><div class="muted small">תצוגה מקדימה (ראש ותחתית לכל המיילים)</div><iframe id="ks-pv" title="תצוגה"></iframe></div></div>
-    <p class="muted small">המיילים יוצאים מ-<b>${h(K.from)}</b>. הסרות מהרשימה: ${K.unsubs.size}. מייל שסומן בו "ראש ותחתית מיוחדים" — לא מושפע מכאן.</p>
+    <p class="muted small">${h(L('המיילים יוצאים מ-{f}. הסרות מהרשימה: {n}. מייל שסומן בו "ראש ותחתית מיוחדים" — לא מושפע מכאן.', { f: K.from, n: K.unsubs.size }))}</p>
     <div class="actions"><button type="button" class="btn primary" id="ks-save">💾 שמירת הראש והתחתית</button><button type="button" class="btn" id="ks-x">סגירה</button></div>`;
-  document.body.append(d); d.showModal();
+  document.body.append(d); watch(d); d.showModal();
   const sample = { kind: 'once', subject: 'דוגמה', status: 'draft', opts: { ...(K.defaults || {}) }, blocks: [{ type: 'text', html: '<p>[כאן התוכן של המייל]</p>', arch: true }] };
   const show = () => { clearTimeout(pv); pv = setTimeout(() => { $('#ks-pv', d).srcdoc = emailHtml(sample, 'preview', ctx({ header: hf.header, footer: hf.footer })); }, 250); };
   const close = () => { if (dirtyHf && !confirm('יש שינויים בראש / בתחתית שלא נשמרו. לסגור בלי לשמור?')) return; d.close(); d.remove(); };
@@ -815,15 +857,15 @@ async function adminArchive() {
   try { all = (await api('sentAll')).emails || []; } catch (err) { main.innerHTML = `<p class="rf-err">${h(msg(err))}</p>`; return; }
   const weekly = all.filter((e) => e.kind === 'weekly'); const once = all.filter((e) => e.kind === 'once');
   const yearOf = (e) => (toHebrew(weekOf(e)) || {}).y || 0;
-  main.innerHTML = `<div class="kol-tabs"><button type="button" class="btn" data-t="w">📅 מהנעשה והנשמע (${weekly.length})</button><button type="button" class="btn" data-t="o">✉️ חד פעמי (${once.length})</button></div><div id="ka-body"></div>`;
+  main.innerHTML = `<div class="kol-tabs"><button type="button" class="btn" data-t="w">📅 מהנעשה והנשמע (${weekly.length})</button><button type="button" class="btn" data-t="o">✉️ ${L('חד פעמי')} (${once.length})</button></div><div id="ka-body"></div>`;
   const body = $('#ka-body');
   const view = (e, full) => `<div class="kol-av"><h2 class="kp-h2">${h(fillTags(e.subject, e))}</h2>
-    <p class="muted small">${h(dayText(dateOf(e)))} · ${h(e.sent_at)} · ${h(e.sent_n)} נמענים${e.sent_by ? ` · ${h(String(e.sent_by).split('@')[0])}` : ''}</p>
-    ${full ? `<iframe class="kol-aif" title="המייל"></iframe>` : emailHtml(e, 'archive', ctx({ clean: true, dl: true }))}</div>`;
+    <p class="muted small">${h(dayText(dateOf(e)))} · ${h(e.sent_at)} · ${h(e.sent_n)} ${L('נמענים')}${e.sent_by ? ` · ${h(String(e.sent_by).split('@')[0])}` : ''}</p>
+    ${full ? `<iframe class="kol-aif" title="המייל"></iframe>` : `<div class="kol-notr">${emailHtml(e, 'archive', ctx({ clean: true, dl: true }))}</div>`}</div>`;
   const weeklyTab = () => {
     if (!weekly.length) { body.innerHTML = '<p class="muted">עוד לא פורסם.</p>'; return; }
     const years = [...new Set(weekly.map(yearOf))].sort((a, b) => b - a);
-    body.innerHTML = `<p class="muted small">כמו הדף הציבורי — אבל התמונות בלי הלוגו, עם ⬇ הורדה.</p><div class="kp-arch"><nav class="kp-nav">${years.map((y, i) => `<details${i ? '' : ' open'}><summary>שנת ${h(yearLabel(y))}</summary>
+    body.innerHTML = `<p class="muted small">כמו הדף הציבורי — אבל התמונות בלי הלוגו, עם ⬇ הורדה.</p><div class="kp-arch"><nav class="kp-nav">${years.map((y, i) => `<details${i ? '' : ' open'}><summary>${L('שנת')} ${h(yearLabel(y))}</summary>
       ${weekly.filter((e) => yearOf(e) === y).map((e) => `<a href="#" data-id="${h(e.id)}">${h(shabbatTitle(weekOf(e)).replace(/^פרשת /, ''))} <span class="muted small">${h(isoToHebrewText(dateOf(e)))}</span></a>`).join('')}</details>`).join('')}</nav><section id="ka-view"></section></div>`;
     const show = (e) => { $('#ka-view').innerHTML = view(e, false); $$('[data-id]', body).forEach((a) => a.classList.toggle('on', a.dataset.id === e.id)); };
     $$('[data-id]', body).forEach((a) => { a.onclick = (ev) => { ev.preventDefault(); show(weekly.find((x) => x.id === a.dataset.id)); }; });
@@ -831,43 +873,49 @@ async function adminArchive() {
   };
   const onceTab = () => {
     body.innerHTML = once.length ? `<table class="ms-table kol-tbl"><tbody>${once.map((e) => `<tr data-id="${h(e.id)}"><td><b>${h(e.title || fillTags(e.subject, e))}</b><div class="muted small">${h(fillTags(e.subject, e))}</div></td>
-      <td class="small">${h(e.sent_at)} · ${h(e.sent_n)} נמענים${e.sent_by ? ` · ${h(String(e.sent_by).split('@')[0])}` : ''}</td>
+      <td class="small">${h(e.sent_at)} · ${h(e.sent_n)} ${L('נמענים')}${e.sent_by ? ` · ${h(String(e.sent_by).split('@')[0])}` : ''}</td>
       <td><button type="button" class="btn small-btn" data-v>👁 צפייה</button> <button type="button" class="btn small-btn" data-dup>⧉ שכפול</button></td></tr>`).join('')}</tbody></table><div id="ka-view"></div>` : '<p class="muted">עוד לא נשלח מייל חד פעמי.</p>';
     const byId = (el) => once.find((x) => x.id === el.closest('tr').dataset.id);
     $$('[data-v]', body).forEach((b) => { b.onclick = () => {
-      const e = byId(b); const v = $('#ka-view'); v.innerHTML = `${view(e, true)}<details><summary>⬇ התמונות בלי לוגו</summary>${emailHtml({ ...e, blocks: e.blocks.filter((x) => x.type === 'photo' || x.type === 'ad') }, 'archive', ctx({ clean: true, dl: true }))}</details>`;
+      const e = byId(b); const v = $('#ka-view'); v.innerHTML = `${view(e, true)}<details><summary>⬇ התמונות בלי לוגו</summary><div class="kol-notr">${emailHtml({ ...e, blocks: e.blocks.filter((x) => x.type === 'photo' || x.type === 'ad') }, 'archive', ctx({ clean: true, dl: true }))}</div></details>`;
       $('.kol-aif', v).srcdoc = emailHtml(e, 'mail', ctx({ clean: true })); v.scrollIntoView({ behavior: 'smooth' });
     }; });
-    $$('[data-dup]', body).forEach((b) => { b.onclick = () => { const x = byId(b); const o = JSON.parse(JSON.stringify(x.opts || {})); delete o.hfSent; editor({ kind: 'once', title: `${x.title || ''} (עותק)`, subject: x.subject, blocks: JSON.parse(JSON.stringify(x.blocks)), opts: o, status: 'draft' }, adminArchive); }; });
+    $$('[data-dup]', body).forEach((b) => { b.onclick = () => { const x = byId(b); const o = JSON.parse(JSON.stringify(x.opts || {})); delete o.hfSent; editor({ kind: 'once', title: `${x.title || ''} (${L('עותק')})`, subject: x.subject, blocks: JSON.parse(JSON.stringify(x.blocks)), opts: o, status: 'draft' }, adminArchive); }; });
   };
   $$('[data-t]', main).forEach((b) => { b.onclick = () => { $$('[data-t]', main).forEach((x) => x.classList.toggle('primary', x === b)); (b.dataset.t === 'w' ? weeklyTab : onceTab)(); }; });
   $('[data-t="w"]', main).click();
 }
 
-// ---------------------------------------------------------------- התחלה
-async function start() {
-  if (!CONFIG.KOL_URL) { main.innerHTML = '<p>המערכת עוד לא מחוברת.</p>'; return; }
-  await initAuth();
-  const go = async () => {
-    main.innerHTML = '<p class="muted">נכנס…</p>';
-    try {
-      if (!hasSavedSession()) await requestToken('select_account');
-      const email = String(await getUserEmail()).toLowerCase();
-      $('#kol-user').textContent = email;
-      const r = await api('me');
-      Object.assign(K, { me: r.email, from: r.from, quota: r.quota, logo: r.logo || '' });
-      try { K.header = JSON.parse(r.header || '{}') || {}; } catch { K.header = {}; }
-      try { K.liveSet = JSON.parse(r.live || '{}') || {}; } catch { K.liveSet = {}; }
-      try { K.footer = JSON.parse(r.footer || '{}') || {}; } catch { K.footer = {}; }
-      try { K.defaults = JSON.parse(r.defaults || '{}') || {}; } catch { K.defaults = {}; }
-      hub();
-    } catch (err) {
-      main.innerHTML = `<div class="sa-login"><p>${h(msg(err))}</p><button type="button" class="btn" id="kol-again">כניסה עם חשבון אחר</button></div>`;
-      $('#kol-again').onclick = async () => { await requestToken('select_account'); go(); };
-    }
-  };
-  main.innerHTML = '<div class="sa-login"><h2>📻 קול אונגוואר</h2><p>מערכת המיילים</p><button type="button" class="btn primary" id="kol-in">כניסה עם Google</button></div>';
-  $('#kol-in').onclick = go;
-  if (hasSavedSession()) go();
+// ---------------------------------------------------------------- התחלה (מסך בתוך האתר הכללי)
+let VIS = null;
+document.addEventListener('visibilitychange', () => VIS?.());
+let mounted = null; let mountedLang = '';
+/** host — האלמנט של המסך; opt: { toast, gliyon(iso, shift), openGliyon(key), lang } */
+export async function mountKol(host, opt = {}) {
+  OPT = opt;
+  if (mounted === host && mountedLang === (opt.lang || '')) { ONSHOW?.(); return; }
+  if (mounted === host && ONLEAVE) { mountedLang = opt.lang || ''; ONSHOW?.(); return; } // באמצע עריכה — לא מחליפים שפה עכשיו
+  mounted = host; mountedLang = opt.lang || '';
+  host.innerHTML = `<div class="kol-app"><div class="kol-top" id="kol-top"><b id="kol-title"></b><span class="sp"></span><span class="muted small" id="kol-user"></span></div><div id="kol-main"></div></div>`;
+  main = $('#kol-main', host);
+  watch(host);
+  if (!CONFIG.KOL_URL) { main.innerHTML = `<p>${L('המערכת עוד לא מחוברת.')}</p>`; return; }
+  main.innerHTML = `<p class="muted">${L('טוען…')}</p>`;
+  try {
+    const email = String(opt.email || await getUserEmail()).toLowerCase();
+    $('#kol-user').textContent = email;
+    const r = await api('me');
+    Object.assign(K, { me: r.email, from: r.from, quota: r.quota, logo: r.logo || '' });
+    try { K.header = JSON.parse(r.header || '{}') || {}; } catch { K.header = {}; }
+    try { K.liveSet = JSON.parse(r.live || '{}') || {}; } catch { K.liveSet = {}; }
+    try { K.footer = JSON.parse(r.footer || '{}') || {}; } catch { K.footer = {}; }
+    try { K.defaults = JSON.parse(r.defaults || '{}') || {}; } catch { K.defaults = {}; }
+    hub();
+  } catch (err) {
+    mounted = null;
+    main.innerHTML = `<div class="sa-login"><p>${h(msg(err))}</p><button type="button" class="btn" id="kol-again">${L('לנסות שוב')}</button></div>`;
+    $('#kol-again').onclick = () => mountKol(host, opt);
+  }
 }
-start();
+/** יוצאים מהמסך: שומרים טיוטה שלא נשמרה */
+export function kolLeave() { ONLEAVE?.(); }
