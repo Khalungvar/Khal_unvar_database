@@ -1,13 +1,13 @@
 // 📻 קול אונגוואר — מערכת המיילים (שבועי "מהנעשה והנשמע" + חד פעמי), כמסך בתוך האתר הכללי (mountKol).
 // כתובת ישירה: ungvar.org/kol → האתר הכללי, ישר למסך הזה. השרת: apps-script/kol.gs (רץ בשם kol@ungvar.org).
 // הנמענים: רשימת התפוצה "מהנעשה והנשמע" — מסומנת ליד המייל של איש הקשר באתר הכללי (email_1_tags / email_2_tags).
-import { getUserEmail, currentToken, readTabs } from '../google.js?v=701';
-import { L, tr, watch } from './lang.js?v=701';
-import { CONFIG } from '../config.js?v=701';
-import { shabbatTitle } from '../parasha.js?v=701';
-import { isoToHebrewText, toHebrew, yearLabel } from '../hebdate.js?v=701';
-import { FONTS, DEF_FONT, KINDS, LIST_NAME, DEF_HEADER, DEF_FOOTER, emailHtml, emailText, fillTags, imgUrl, dlUrl, imgsOf, driveId, cleanHtml, dateOf, dayText, weekOf, hfOf, isLive } from './render.js?v=701';
-import { loadLive, simchosList, shabbosTimes, composeShabbos, composeSimchos, shabbosBox, simchosBox, boxText, boxToJpeg, DEF_SH_TITLE, DEF_SH_SUB } from './live.js?v=701';
+import { getUserEmail, currentToken, readTabs } from '../google.js?v=702';
+import { L, tr, watch } from './lang.js?v=702';
+import { CONFIG } from '../config.js?v=702';
+import { shabbatTitle } from '../parasha.js?v=702';
+import { isoToHebrewText, toHebrew, yearLabel } from '../hebdate.js?v=702';
+import { FONTS, DEF_FONT, KINDS, LIST_NAME, DEF_HEADER, DEF_FOOTER, emailHtml, emailText, fillTags, imgUrl, dlUrl, imgsOf, driveId, cleanHtml, dateOf, dayText, weekOf, hfOf, isLive } from './render.js?v=702';
+import { loadLive, simchosList, shabbosTimes, composeShabbos, composeSimchos, shabbosBox, simchosBox, boxText, boxToJpeg, DEF_SH_TITLE, DEF_SH_SUB } from './live.js?v=702';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -459,7 +459,7 @@ function editor(e0, back) {
     if (OPT.gliyon) {
       const g = K.gl[Number(b.shift) || 0];
       return `<div class="kol-row kol-glnav"><button type="button" class="btn small-btn" data-gsh="-1">› ${L('גליון קודם')}</button><b>🎉 ${g ? h(g.title) : '⏳'}</b><button type="button" class="btn small-btn" data-gsh="1">${L('גליון הבא')} ‹</button></div>
-        ${!g ? `<p class="muted">⏳ ${L('מכין את הגליון…')}</p>` : g.blob ? `<div class="kol-glprev"><img src="${g.blob}" alt=""></div><p class="muted small">${L('{n} עמודים בגליון — במייל הם מחוברים לתמונה אחת ארוכה.', { n: g.pages })}</p>` : `<p class="muted">${L('אין שמחות בגליון הזה. (הקופסה לא תופיע במייל)')}</p>`}
+        ${!g ? `<p class="muted">⏳ ${L('מכין את הגליון…')}</p>` : g.blob ? `<div class="kol-glprev"><img src="${g.blob}" alt=""></div><p class="muted small">${g.pages > 1 ? L('{n} עמודים בגליון — במייל הם מחוברים לתמונה אחת ארוכה.', { n: g.pages }) : L('עמוד אחד בגליון.')}</p>` : `<p class="muted">${L('אין שמחות בגליון הזה. (הקופסה לא תופיע במייל)')}</p>`}
         <div class="kol-row"><button type="button" class="btn small-btn" data-relive>🔄 ${L('לרענן מהגליון')}</button>${OPT.openGliyon && g ? `<button type="button" class="btn small-btn" data-glopen>✏️ ${L('לפתוח את הגליון לעריכה')}</button>` : ''}</div>
         <p class="muted small">${L('את השמחות, הסדר, הנוסח, הגופן והרקע עורכים בגליון ("שהשמחה במעונם"). בפרסום הגליון נצרב לתמונה. לא עולה לארכיון.')}</p>`;
     }
@@ -557,7 +557,7 @@ function editor(e0, back) {
   const summary = (b) => {
     const strip = (x) => String(x || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 70);
     if (b.type === 'text') return strip(b.html) || L('(ריק)');
-    if (b.type === 'simchos' && OPT.gliyon && !sent) { const g = K.gl[Number(b.shift) || 0]; return g ? `${g.title} · ${g.blob ? L('{n} עמודים', { n: g.pages }) : L('אין שמחות')} · ${L('מהגליון · לא לארכיון')}` : L('מהגליון · לא לארכיון'); }
+    if (b.type === 'simchos' && OPT.gliyon && !sent) { const g = K.gl[Number(b.shift) || 0]; return g ? `${g.title} · ${g.blob ? (g.pages > 1 ? L('{n} עמודים', { n: g.pages }) : L('עמוד אחד')) : L('אין שמחות')} · ${L('מהגליון · לא לארכיון')}` : L('מהגליון · לא לארכיון'); }
     if (isLive(b)) return sent ? L('כמו שיצא במייל') : `${L('מתמלא לבד מגיליון התצוגה')}${b.over && Object.keys(b.over).length || b.extra?.length ? ` · ${L('עם שינויים')}` : ''} · ${L('לא לארכיון')}`;
     if (b.type === 'button') return b.label || L('(בלי כיתוב)');
     if (b.type === 'video') return b.title || b.url || L('(בלי קישור)');
