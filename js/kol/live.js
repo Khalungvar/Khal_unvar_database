@@ -2,11 +2,11 @@
 // אותו מקור ואותו חישוב כמו דף הבית של האתר (js/public/home.js): גיליון התצוגה (פומבי, gviz) —
 // ShulConfig / Minyanim / RebbeAway / Simchos. רק זמני שבת וחג (לא ימות החול).
 // בעריכה — מה שעדכני ליום הפרסום (היום); בפרסום — התוכן ננעל בתוך המייל (b.snap).
-import { buildYear, isoOf, nOf, dowOf, hdOf } from '../luach/engine.js?v=702';
-import { zmanim, hhmm } from '../luach/zmanim.js?v=702';
-import { defaults, normData, computeSpecial, computeHoly, chagOn } from '../luach/minyanim.js?v=702';
-import { SHULS, DEFAULT_SHUL, normShul, applyShul } from '../luach/shul.js?v=702';
-import { isoToHebrewText } from '../hebdate.js?v=702';
+import { buildYear, isoOf, nOf, dowOf, hdOf } from '../luach/engine.js?v=703';
+import { zmanim, hhmm } from '../luach/zmanim.js?v=703';
+import { defaults, normData, computeSpecial, computeHoly, chagOn } from '../luach/minyanim.js?v=703';
+import { SHULS, DEFAULT_SHUL, normShul, applyShul } from '../luach/shul.js?v=703';
+import { isoToHebrewText } from '../hebdate.js?v=703';
 
 const SHEET = SHULS[DEFAULT_SHUL].sheetId;
 const h = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

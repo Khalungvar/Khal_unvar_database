@@ -1314,7 +1314,7 @@ const ACTIONS = {
     } finally { lock.releaseLock(); }
   },
   // ---------- 📆 הוצאות והכנסות קבועות + מאזן — הרשאה נפרדת "budget" (לא נשלח עם ההגדרות הכלליות) ----------
-  // { opening: { date, amount }, items: [{ id, kind: 'exp'|'inc', name, amount, freq: 'week'|'heb'|'greg'|'once', dow, hday, gday, date, from, to, note }] }
+  // { opening: { date, amount }, items: [{ id, kind: 'exp'|'inc', name, amount, freq: 'week'|'heb'|'greg'|'once', dow, hday, gday, date, from, to, note, since, paid: [iso] }] }
   budgetGet: function (M, me) {
     need(me, 'budget');
     const ex = objs(M.book.getSheetByName('Settings')).filter(function (x) { return S(x.key) === 'budget'; })[0];
@@ -1330,7 +1330,9 @@ const ACTIONS = {
     const items = [].concat(b.items || []).slice(0, 300).map(function (x, i) {
       return { id: S(x.id).slice(0, 30) || ('b' + i), kind: S(x.kind) === 'inc' ? 'inc' : 'exp', name: S(x.name).slice(0, 120) || '—', amount: num(x.amount),
         freq: { week: 1, heb: 1, greg: 1, once: 1 }[S(x.freq)] ? S(x.freq) : 'greg', dow: Math.max(0, Math.min(6, Number(x.dow) || 0)), hday: Math.max(1, Math.min(30, Number(x.hday) || 1)),
-        gday: Math.max(1, Math.min(31, Number(x.gday) || 1)), date: d10(x.date), from: d10(x.from), to: d10(x.to), note: S(x.note).slice(0, 300) };
+        gday: Math.max(1, Math.min(31, Number(x.gday) || 1)), date: d10(x.date), from: d10(x.from), to: d10(x.to), note: S(x.note).slice(0, 300),
+        // 💳 מעקב תשלומים (הוצאות): מאיזה תאריך, ואיזה מועדים סומנו כשולמו
+        since: d10(x.since), paid: [].concat(x.paid || []).map(d10).filter(Boolean).sort().slice(-300) };
     });
     const v = { opening: { date: d10(b.opening && b.opening.date), amount: b.opening && S(b.opening.amount) !== '' ? num(b.opening.amount) : '' }, items: items };
     putSetting(M, me, 'budget', JSON.stringify(v));

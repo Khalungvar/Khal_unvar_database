@@ -5,9 +5,9 @@ import { downloadXlsx } from '../excel.js?v=653';
 import { colFilters } from '../sorttables.js?v=653';
 import { todayIso, isoToHebrewText, toHebrew, fromHebrew, monthHe, yearLabel } from '../hebdate.js?v=653';
 import { shabbatTitle, shabbatOfWeek } from '../parasha.js?v=653';
-import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=702';
-import { letterhead, heShort } from './brand.js?v=702';
-import { dayInfo, rulesOf } from './hdays.js?v=702';
+import { loadSchool, schoolLoaded, activeStudents, zmanim, currentZman } from './school.js?v=703';
+import { letterhead, heShort } from './brand.js?v=703';
+import { dayInfo, rulesOf } from './hdays.js?v=703';
 
 let X = null;
 export function initJournal(ctx) { X = ctx; }
@@ -983,6 +983,8 @@ function stipTypesDialog(after) {
     try { const r = await X.call(X.KEY, 'stipTypesSave', { types: list }); X.st.settings = r.settings || { ...X.st.settings, stip_types: JSON.stringify(list) }; d.close(); X.toast('נשמר.'); after(); } catch (err) { X.toast(X.msg(err), 'err'); }
   };
 }
+/** ✉ פתקים / מזומן רק למי שעוד לא שולם (נזכר בדפדפן; ברירת מחדל: כן) */
+const unpaidOnly = () => { try { return localStorage.getItem('stipUnpaidOnly') !== '0'; } catch { return true; } };
 async function renderStip(body, type) {
   const { h } = X;
   const months = hebMonths();
@@ -1007,6 +1009,7 @@ async function renderStip(body, type) {
       <label class="check"><input type="checkbox" id="st-all"${J.stipAll ? ' checked' : ''}> גם מי שלא מגיע לו</label>
       <span class="spacer"></span>
       ${canPay ? '<button type="button" class="btn" id="st-paidall">✓ סמן הכל כשולם</button>' : ''}
+      <label class="check" title="פתקי מלגה והכנת מזומן — רק לבחורים שעוד לא סומנו ✓ שולם"><input type="checkbox" id="st-unpaid"${unpaidOnly() ? ' checked' : ''}> רק מי שעוד לא שולם לו</label>
       <button type="button" class="btn primary" id="st-notes">✉ פתקי מלגה</button>
       <button type="button" class="btn" id="st-cash">💵 הכנת מזומן</button>
       <button type="button" class="btn" id="st-print">🖨 סיכום</button><button type="button" class="btn" id="st-xl">⬇ Excel</button>
@@ -1030,12 +1033,15 @@ async function renderStip(body, type) {
     setPaid(todo.map((id) => ({ contact_id: id, paid: true, amt: D.of(id).total })));
   });
   X.$('#st-all', body).onchange = (e) => { J.stipAll = e.target.checked; renderStip(body, type); };
+  X.$('#st-unpaid', body).onchange = (e) => { try { localStorage.setItem('stipUnpaidOnly', e.target.checked ? '1' : '0'); } catch { /* */ } };
+  // ✉ / 💵 — אם מסומן "רק מי שעוד לא שולם": בלי מי שכבר סומן ✓ שולם
+  const forPrint = (ids) => { if (!X.$('#st-unpaid', body)?.checked) return ids; const out = ids.filter((id) => !paid[id]); if (!out.length) X.toast('כולם כבר סומנו ✓ שולם — אין למי להדפיס. (אפשר להוריד את הסימון "רק מי שעוד לא שולם לו")', 'err'); return out; };
   const title = `מלגות ${type ? `${type.name} ` : ''}${mon.label}`;
   X.$('#st-print', body).onclick = () => printList(title, '', { cols: [...ss.map((s) => ({ t: s.name, c: 'c' })), { t: 'סה"כ ₪', c: 'c' }], rows: list.map((id) => ({ id, cells: [...ss.map((s) => cell(id, s)), D.of(id).total] })) });
   X.$('#st-xl', body).onclick = () => downloadXlsx(title, ['#', 'שם', ...ss.flatMap((s) => [...(hasStip(s) ? [`${s.name} — השתתפויות`] : []), ...(s.exam?.on ? [`${s.name} — מבחנים שעבר`] : [])]), 'סה"כ ₪', 'שולם'],
     list.map((id, i) => { const o = D.of(id); return [i + 1, full(id), ...ss.flatMap((s) => [...(hasStip(s) ? [o.cnt[s.key] || 0] : []), ...(s.exam?.on ? [o.ex[s.key]?.pass || 0] : [])]), o.total, paid[id] ? 'כן' : '']; }), { rtl: true });
-  X.$('#st-cash', body).onclick = () => cashSheet(title, list.filter((id) => D.of(id).total > 0), D);
-  X.$('#st-notes', body).onclick = () => stipNotes(mon, list.filter((id) => J.stipAll || D.of(id).total > 0), D, type);
+  X.$('#st-cash', body).onclick = () => { const ids = forPrint(list.filter((id) => D.of(id).total > 0)); if (ids.length) cashSheet(title, ids, D); };
+  X.$('#st-notes', body).onclick = () => { const ids = forPrint(list.filter((id) => J.stipAll || D.of(id).total > 0)); if (ids.length) stipNotes(mon, ids, D, type); };
   colFilters(body);
 }
 /** 💵 וואס צו גרייטן: יעדער בחור מיט זיינע שטרות און מטבעות, און דער סך הכל פון יעדן סארט */

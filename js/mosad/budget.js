@@ -2,6 +2,7 @@
 // פריט: { id, kind: 'exp'|'inc', name, amount, freq, dow, hday, gday, date, from, to, note }
 //   freq: 'week' = כל שבוע ביום dow · 'heb' = כל חודש עברי ביום hday · 'greg' = כל חודש לועזי ביום gday · 'once' = פעם אחת בתאריך date
 //   from / to = מתי זה בתוקף (ריק = תמיד)
+// 💳 הוצאה: since = מאיזה תאריך עוקבים אחרי תשלומים; paid = [תאריכי מועדים ששולמו]. מועד שעבר ולא סומן ✓ — נשאר "בפיגור" (לא מתגלגל) עד שמסמנים.
 // מאזן: יתרת פתיחה (סכום + תאריך) + הכנסות − הוצאות, יום אחר יום.
 import { todayIso, toHebrew, isoToHebrewText, hebrewNumber } from '../hebdate.js?v=653';
 import { downloadXlsx } from '../excel.js?v=653';
@@ -35,6 +36,22 @@ function hits(x, iso) {
   }
   return false;
 }
+/** כל המועדים של הפריט בטווח */
+function occ(x, from, to) { const out = []; for (let d = from; d <= to; d = isoAdd(d, 1)) if (hits(x, d)) out.push(d); return out; }
+/** 💳 הוצאה: מועדים שעברו ולא שולמו (מהישן לחדש) */
+function overdue(x, today) {
+  if (x.kind !== 'exp' || !x.since) return [];
+  const from = x.from && x.from > x.since ? x.from : x.since;
+  if (from >= today) return [];
+  const paid = new Set(x.paid || []);
+  return occ(x, from, isoAdd(today, -1)).filter((d) => !paid.has(d));
+}
+/** המועד הבא (מהיום והלאה) שעוד לא סומן כשולם */
+function nextDue(x, today) {
+  const paid = new Set(x.paid || []);
+  for (let d = today, i = 0; i < 400; d = isoAdd(d, 1), i += 1) { if (x.to && d > x.to) return ''; if (hits(x, d) && !paid.has(d)) return d; }
+  return '';
+}
 const when = (x) => (x.freq === 'week' ? `כל יום ${DAYS[x.dow]}` : x.freq === 'heb' ? `כל ${hebrewNumber(Number(x.hday))} בחודש העברי` : x.freq === 'greg' ? `כל ${x.gday} בחודש הלועזי` : x.date ? `ב-${isoToHebrewText(x.date)} (${x.date})` : '—')
   + (x.from || x.to ? ` · ${x.from ? `מ-${x.from}` : ''}${x.to ? ` עד ${x.to}` : ''}` : '');
 
@@ -62,6 +79,11 @@ export async function renderBudget(box) {
     B.data.items ||= []; B.data.opening ||= { date: '', amount: '' };
   }
   const today = todayIso();
+  // הוצאה בלי since (מלפני שהיה מעקב תשלומים) — מתחילים לעקוב מהיום, בלי "פיגורים" ישנים
+  let fresh = false;
+  B.data.items.forEach((x) => { if (x.kind === 'exp' && !x.since) { x.since = today; fresh = true; } x.paid ||= []; });
+  if (fresh && !B.dirty) X.call(X.KEY, 'budgetSave', { budget: B.data }).catch(() => {}); // נשמר בשקט — שהמעקב יתחיל מהיום ולא יזוז
+  const late = B.data.items.filter((x) => x.kind === 'exp').flatMap((x) => overdue(x, today).map((d) => ({ x, d }))).sort((a, b) => a.d.localeCompare(b.d));
   const to = isoAdd(today, B.days - 1);
   const mv = moves(today, to);
   const start = balanceBefore(today);
@@ -74,6 +96,11 @@ export async function renderBudget(box) {
   const o = B.data.opening;
   box.innerHTML = `<h2 class="ms-h">📆 הוצאות קבועות ומאזן</h2>
     <p class="muted small">🔒 הדף הזה גלוי רק למי שקיבל את ההרשאה "הוצאות קבועות ומאזן".</p>
+    ${late.length ? `<section class="me-card bd-late"><h3 class="err-txt">⚠ הוצאות שעבר המועד שלהן ועוד לא סומנו כשולמו (${late.length})</h3>
+      <p class="muted small">הוצאה שלא סומנה ✓ נשארת כאן ולא עוברת לבד למועד הבא. מסמנים ✓ כשהיא שולמה.</p>
+      <div class="ms-wrap"><table class="ms-table"><thead><tr><th class="c">שולם</th><th>מועד</th><th>שם</th><th class="c">סכום</th></tr></thead><tbody>
+        ${late.map(({ x, d }) => `<tr><td class="c"><input type="checkbox" data-pay="${h(x.id)}" data-d="${h(d)}" title="סמן ששולם"></td><td><b>${h(isoToHebrewText(d))}</b> <span class="muted small">${h(d.slice(8, 10))}/${h(d.slice(5, 7))}/${h(d.slice(0, 4))}</span></td><td>${h(x.name)}</td><td class="c err-txt">${h(shekel(x.amount))}</td></tr>`).join('')}
+      </tbody></table></div></section>` : ''}
     <section class="me-card"><h3>🔮 צפי לימים הקרובים</h3>
       <div class="ms-bar"><label>לכמה ימים <select id="bd-days">${[7, 14, 30, 60, 90].map((n) => `<option${n === B.days ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
         <span class="spacer"></span><button type="button" class="btn" id="bd-xl">⬇ Excel</button></div>
@@ -86,7 +113,7 @@ export async function renderBudget(box) {
       ${start == null ? '<p class="muted small">כדי לראות יתרה — מלא "יתרת פתיחה" למטה (כמה יש בחשבון ובאיזה תאריך).</p>' : ''}
       <div class="ms-wrap"><table class="ms-table"><thead><tr><th>תאריך</th><th>מה</th><th class="c">הכנסה</th><th class="c">הוצאה</th>${start != null ? '<th class="c">יתרה</th>' : ''}</tr></thead><tbody>
         ${byDay.map((g) => g.list.map((m, i) => { run += m.amt; return `<tr${i === 0 ? ' class="bd-day"' : ''}><td>${i === 0 ? `<b>${h(DAYS[dowOf(g.iso)])}</b> ${h(isoToHebrewText(g.iso))} <span class="muted small">${h(g.iso.slice(8, 10))}/${h(g.iso.slice(5, 7))}</span>` : ''}</td>
-          <td>${h(m.x.name)}</td><td class="c ok-txt">${m.amt > 0 ? h(shekel(m.amt)) : ''}</td><td class="c err-txt">${m.amt < 0 ? h(shekel(-m.amt)) : ''}</td>${start != null ? `<td class="c${run < 0 ? ' err-txt' : ''}">${i === g.list.length - 1 ? `<b>${h(shekel(run))}</b>` : ''}</td>` : ''}</tr>`; }).join('')).join('') || `<tr><td colspan="5" class="muted">אין תנועות ב-${B.days} הימים הקרובים.</td></tr>`}
+          <td>${h(m.x.name)}${m.amt < 0 && (m.x.paid || []).includes(m.iso) ? ' <span class="ok-txt small">✓ שולם</span>' : ''}</td><td class="c ok-txt">${m.amt > 0 ? h(shekel(m.amt)) : ''}</td><td class="c err-txt">${m.amt < 0 ? h(shekel(-m.amt)) : ''}</td>${start != null ? `<td class="c${run < 0 ? ' err-txt' : ''}">${i === g.list.length - 1 ? `<b>${h(shekel(run))}</b>` : ''}</td>` : ''}</tr>`; }).join('')).join('') || `<tr><td colspan="5" class="muted">אין תנועות ב-${B.days} הימים הקרובים.</td></tr>`}
       </tbody></table></div>
     </section>
     <section class="me-card"><h3>💼 יתרת פתיחה</h3>
@@ -96,10 +123,10 @@ export async function renderBudget(box) {
     <section class="me-card"><h3>🔁 הכנסות והוצאות קבועות</h3>
       <div class="ms-bar"><button type="button" class="btn" id="bd-add-exp">➖ הוצאה קבועה</button><button type="button" class="btn" id="bd-add-inc">➕ הכנסה קבועה</button>
         <span class="spacer"></span><button type="button" class="btn primary" id="bd-save"${B.dirty ? '' : ' disabled'}>💾 שמירה</button></div>
-      <div class="ms-wrap"><table class="ms-table"><thead><tr><th></th><th>שם</th><th class="c">סכום</th><th>מתי</th><th>הערה</th><th></th></tr></thead><tbody>
+      <div class="ms-wrap"><table class="ms-table"><thead><tr><th></th><th>שם</th><th class="c">סכום</th><th>מתי</th><th>💳 תשלום</th><th>הערה</th><th></th></tr></thead><tbody>
         ${items.map((x) => `<tr><td>${x.kind === 'inc' ? '<span class="ok-txt">➕ הכנסה</span>' : '<span class="err-txt">➖ הוצאה</span>'}</td><td><b>${h(x.name)}</b></td><td class="c">${h(shekel(x.amount))}</td>
-          <td class="small">${h(when(x))}</td><td class="small muted">${h(x.note || '')}</td>
-          <td><button type="button" class="linkish" data-ed="${h(x.id)}" title="עריכה">✎</button> <button type="button" class="linkish" data-del="${h(x.id)}" title="מחיקה">🗑</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">עוד אין. לחץ "➖ הוצאה קבועה" או "➕ הכנסה קבועה".</td></tr>'}
+          <td class="small">${h(when(x))}</td><td class="small">${payCell(x, today)}</td><td class="small muted">${h(x.note || '')}</td>
+          <td><button type="button" class="linkish" data-ed="${h(x.id)}" title="עריכה">✎</button> <button type="button" class="linkish" data-del="${h(x.id)}" title="מחיקה">🗑</button></td></tr>`).join('') || '<tr><td colspan="7" class="muted">עוד אין. לחץ "➖ הוצאה קבועה" או "➕ הכנסה קבועה".</td></tr>'}
       </tbody></table></div>
     </section>`;
   const dirty = () => { B.dirty = true; X.$('#bd-save', box).disabled = false; };
@@ -109,6 +136,22 @@ export async function renderBudget(box) {
   X.$('#bd-add-exp', box).onclick = () => itemDialog({ kind: 'exp' }, box);
   X.$('#bd-add-inc', box).onclick = () => itemDialog({ kind: 'inc' }, box);
   X.$$('[data-ed]', box).forEach((b) => { b.onclick = () => itemDialog(B.data.items.find((x) => x.id === b.dataset.ed), box); });
+  // 💳 ✓ שולם / ↺ ביטול — נשמר מיד
+  const savePay = async (msg) => {
+    try { B.data = (await X.call(X.KEY, 'budgetSave', { budget: B.data })).budget; B.dirty = false; X.toast(msg); } catch (err) { X.toast(X.msg(err), 'err'); }
+    renderBudget(box);
+  };
+  X.$$('[data-pay]', box).forEach((c) => { c.onchange = () => {
+    const x = B.data.items.find((z) => z.id === c.dataset.pay); if (!x) return;
+    x.paid = [...new Set([...(x.paid || []), c.dataset.d])].sort();
+    savePay(`✓ "${x.name}" — ${isoToHebrewText(c.dataset.d)} סומן כשולם.`);
+  }; });
+  X.$$('[data-unpay]', box).forEach((b) => { b.onclick = () => {
+    const x = B.data.items.find((z) => z.id === b.dataset.unpay); if (!x) return;
+    if (!window.confirm(`לבטל את הסימון "שולם" של ${isoToHebrewText(b.dataset.d)}?`)) return;
+    x.paid = (x.paid || []).filter((d) => d !== b.dataset.d);
+    savePay('הסימון בוטל.');
+  }; });
   X.$$('[data-del]', box).forEach((b) => { b.onclick = () => { if (!window.confirm('למחוק?')) return; B.data.items = B.data.items.filter((x) => x.id !== b.dataset.del); B.dirty = true; renderBudget(box); }; });
   X.$('#bd-save', box).onclick = async (e) => {
     e.target.disabled = true;
@@ -116,6 +159,18 @@ export async function renderBudget(box) {
   };
   X.$('#bd-xl', box).onclick = () => { let r = start ?? 0; downloadXlsx(`צפי הוצאות והכנסות ${today} - ${to}`, ['תאריך', 'תאריך עברי', 'מה', 'הכנסה', 'הוצאה', ...(start != null ? ['יתרה'] : [])],
     mv.map((m) => { r += m.amt; return [m.iso, isoToHebrewText(m.iso), m.x.name, m.amt > 0 ? m.amt : '', m.amt < 0 ? -m.amt : '', ...(start != null ? [r] : [])]; }), { rtl: true }); };
+}
+
+/** 💳 עמודת התשלום ברשימה: בפיגור (אדום) / המועד הבא עם ✓ / שולם לאחרונה עם ↺ */
+function payCell(x, today) {
+  const { h } = X;
+  if (x.kind !== 'exp') return '';
+  const od = overdue(x, today);
+  const last = [...(x.paid || [])].sort().pop();
+  const undo = last ? `<div class="muted">✓ שולם לאחרונה: ${h(isoToHebrewText(last))} <button type="button" class="linkish" data-unpay="${h(x.id)}" data-d="${h(last)}" title="ביטול הסימון">↺</button></div>` : '';
+  if (od.length) return `<label class="check err-txt"><input type="checkbox" data-pay="${h(x.id)}" data-d="${h(od[0])}"> ⚠ לא שולם: ${h(isoToHebrewText(od[0]))}${od.length > 1 ? ` (ועוד ${od.length - 1})` : ''}</label>${undo}`;
+  const nx = nextDue(x, today);
+  return `${nx ? `<label class="check"><input type="checkbox" data-pay="${h(x.id)}" data-d="${h(nx)}"> הבא: ${h(isoToHebrewText(nx))}${nx === today ? ' (היום)' : ''}</label>` : '<span class="muted">אין מועד קרוב</span>'}${undo}`;
 }
 
 function itemDialog(x0, box) {
@@ -144,8 +199,10 @@ function itemDialog(x0, box) {
   form.onsubmit = (e) => {
     e.preventDefault();
     const E = form.elements;
-    const y = { id: x.id || uid(), kind: x.kind, name: X.S(E.name.value), amount: Number(E.amount.value) || 0, freq: E.freq.value, dow: Number(E.dow.value), hday: Number(E.hday.value),
+    const y = { ...x, id: x.id || uid(), kind: x.kind, name: X.S(E.name.value), amount: Number(E.amount.value) || 0, freq: E.freq.value, dow: Number(E.dow.value), hday: Number(E.hday.value),
       gday: Math.max(1, Math.min(31, Number(E.gday.value) || 1)), date: E.date.value, from: E.from.value, to: E.to.value, note: X.S(E.note.value) };
+    if (y.kind === 'exp' && !y.since) y.since = y.freq === 'once' ? (y.date < todayIso() ? y.date : todayIso()) : (y.from && y.from > todayIso() ? y.from : todayIso());
+    y.paid ||= [];
     if (!y.name || !y.amount) { X.toast('חסר שם או סכום.', 'err'); return; }
     const i = B.data.items.findIndex((z) => z.id === y.id);
     if (i >= 0) B.data.items[i] = y; else B.data.items.push(y);

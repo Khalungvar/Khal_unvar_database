@@ -1,7 +1,7 @@
 // 📻 קול אונגוואר — בניית המייל (HTML שמתאים לכל תוכנות המייל: טבלאות, סגנון בתוך התגיות, בלי גופנים מבחוץ).
 // אותו בנאי משמש לתצוגה מקדימה, לשליחה ולדף הציבורי (ungvar.org/kolungvar).
-import { shabbatOfWeek, shabbatTitle } from '../parasha.js?v=702';
-import { todayIso, isoToHebrewText } from '../hebdate.js?v=702';
+import { shabbatOfWeek, shabbatTitle } from '../parasha.js?v=703';
+import { todayIso, isoToHebrewText } from '../hebdate.js?v=703';
 
 export const SITE = 'https://ungvar.org';
 export const LIST_NAME = 'מהנעשה והנשמע';
