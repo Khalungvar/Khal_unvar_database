@@ -1794,6 +1794,14 @@ function installJobsTrigger() {
   Logger.log('ok — trigger');
 }
 
+/** 2026-11-12 (זמני): admin@ungvar.org באקומט רעדאגירן אויף אלע באשיצטע לשוניות פונעם הויפט-גיליון — פאר דעם נייעם סקריפט (קיים בעורך החי) */
+function grantAdminProtections() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  let n = 0;
+  ss.getProtections(SpreadsheetApp.ProtectionType.SHEET).concat(ss.getProtections(SpreadsheetApp.ProtectionType.RANGE)).forEach(function (p) { try { p.addEditor('admin@ungvar.org'); n++; } catch (e) { Logger.log('skip: ' + p.getDescription() + ' ' + e); } });
+  Logger.log('ok: ' + n);
+}
+
 /** פונעם עדיטאר: אלע פרטים פון די Toll-Free בקשות (כדי צו זען פארוואס מ'האט אפגעזאגט) */
 function logTfFull() {
   const key = PropertiesService.getScriptProperties().getProperty('TELNYX_API_KEY');
