@@ -2086,7 +2086,7 @@ function gwKeyEn_(w) {
   w = String(w || '').toLowerCase().replace(/[^a-z]/g, '');
   if (!w) return '';
   w = GW_NICK[w] || w;
-  w = w.replace(/sch/g, 'sh').replace(/sz/g, 's').replace(/tz|ts/g, 'z').replace(/ck/g, 'k').replace(/ph/g, 'f').replace(/kh|ch/g, 'h').replace(/w/g, 'v')
+  w = w.replace(/sch/g, 'sh').replace(/sz/g, 's').replace(/tz|ts/g, 'z').replace(/ck/g, 'k').replace(/ph/g, 'f').replace(/kh|ch/g, 'x').replace(/w/g, 'v')
     .replace(/[yj]/g, 'i').replace(/c(?=[eiy])/g, 's').replace(/[cq]/g, 'k').replace(/x/g, 'ks').replace(/(.)\1+/g, '$1');
   return w[0] + w.slice(1).replace(/[aeiouh]/g, '');
 }
@@ -2107,8 +2107,8 @@ function gwSame_(q, k) {
   const a = q.slice(2); const b = k.slice(2);
   if (!a || !b) return false;
   if (a === b) return true;
-  if (a.length >= 2 && b.length >= 2 && (a.indexOf(b) === 0 || b.indexOf(a) === 0)) return true;
-  return a.length >= 3 && b.length >= 3 && gwLev_(a, b) <= 1;
+  if (Math.min(a.length, b.length) >= 3 && (a.indexOf(b) === 0 || b.indexOf(a) === 0)) return true;
+  return a.length >= 4 && b.length >= 4 && gwLev_(a, b) <= 1;
 }
 function gwWords_(s) { return norm(s).split(' ').filter(function (w) { return w && TITLES.indexOf(w) < 0 && !/\d/.test(w); }); }
 /** מציון: כל מילה בשאלה צריכה להתאים, ולפחות אחת לשם המשפחה */
