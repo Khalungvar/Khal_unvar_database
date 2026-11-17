@@ -99,6 +99,11 @@ function doPost(e) {
   try {
     const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     const props = PropertiesService.getScriptProperties();
+    // 📱 הקו הזמני (SMS Gateway for Android ביוניהרץ) — עם קוד סודי בכתובת
+    if (req.event && e.parameter && e.parameter.k) {
+      if (!props.getProperty('GW_SECRET') || e.parameter.k !== props.getProperty('GW_SECRET')) return out({ error: 'bad-key' });
+      return out(gwInbound_(req));
+    }
     if (req.secret) {
       if (req.secret !== props.getProperty('SHARED_SECRET')) return out({ error: 'bad-secret' });
       return out(fromWorker(req));
@@ -1876,8 +1881,10 @@ function jbdTick() {
   const P = PropertiesService.getScriptProperties();
   const pause = Number(P.getProperty('JBD_PAUSE_UNTIL') || 0);
   if (pause && Date.now() < pause) return { paused: true };
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(5000)) return { busy: true };
+  // לא מחזיקים את הנעילה בזמן ההמתנה — כדי לא לעכב את ה-SMS של הגבאים
+  const C = CacheService.getScriptCache();
+  if (C.get('jbd_running')) return { busy: true };
+  C.put('jbd_running', '1', 90);
   try {
     const q = jbdQueue_();
     if (!q.left.length) { jbdStop(); return { finished: true }; }
@@ -1890,7 +1897,7 @@ function jbdTick() {
       out.push(res);
     }
     return { checked: out };
-  } finally { lock.releaseLock(); }
+  } finally { C.remove('jbd_running'); }
 }
 
 // ---- השוואה ----
@@ -1958,4 +1965,551 @@ function jbdCheckOne_(c, pr) {
 }
 function jbdWrite_(row) {
   jbdSheet_().appendRow(JBD_HEAD.map(function (h) { return row[h] === undefined ? '' : txt(row[h]); }));
+}
+
+// ======================================================================
+// 📱 קו זמני לגבאים — SMS Gateway for Android (היוניהרץ, 718-928-5098)
+//   רק עבודה על הרשימה: חיפוש (רשימה + מחסן), הוספה, עדכון, תיוג, משפחה, הערה, מחיקה.
+//   Script Properties (מכניס הרב בעצמו): GW_USER, GW_PASS — מהאפליקציה (Cloud server).
+//   gwSetup() — פעם אחת אחרי פריסה: יוצר GW_SECRET ורושם את ה-webhook באפליקציה.
+// ======================================================================
+const GW_API = 'https://api.sms-gate.app/3rdparty/v1';
+function gwAuth_() {
+  const P = PropertiesService.getScriptProperties();
+  const u = P.getProperty('GW_USER'); const p = P.getProperty('GW_PASS');
+  if (!u || !p) throw new Error('חסרים GW_USER / GW_PASS ב-Script Properties');
+  return 'Basic ' + Utilities.base64Encode(u + ':' + p);
+}
+function gwSetup() {
+  const P = PropertiesService.getScriptProperties();
+  let k = P.getProperty('GW_SECRET');
+  if (!k) { k = Utilities.getUuid().replace(/-/g, ''); P.setProperty('GW_SECRET', k); }
+  const url = ScriptApp.getService().getUrl();
+  if (!url) throw new Error('הסקריפט עוד לא פורסם כ-Web app');
+  const hook = url + '?k=' + k;
+  const H = { Authorization: gwAuth_() };
+  const list = JSON.parse(UrlFetchApp.fetch(GW_API + '/webhooks', { headers: H, muteHttpExceptions: true }).getContentText() || '[]');
+  (Array.isArray(list) ? list : []).forEach(function (w) {
+    if (w.event === 'sms:received' && String(w.url || '').indexOf(url) === 0) UrlFetchApp.fetch(GW_API + '/webhooks/' + w.id, { method: 'delete', headers: H, muteHttpExceptions: true });
+  });
+  const r = UrlFetchApp.fetch(GW_API + '/webhooks', { method: 'post', contentType: 'application/json', headers: H, payload: JSON.stringify({ url: hook, event: 'sms:received' }), muteHttpExceptions: true });
+  Logger.log('webhook: ' + r.getResponseCode() + ' ' + r.getContentText().slice(0, 200));
+}
+function gwSend_(to, text) {
+  text = String(text || '').slice(0, 1500);
+  let st = 'sent'; let err = '';
+  try {
+    const r = UrlFetchApp.fetch(GW_API + '/messages', { method: 'post', contentType: 'application/json', headers: { Authorization: gwAuth_() },
+      payload: JSON.stringify({ textMessage: { text: text }, phoneNumbers: [e164(to)], ttl: 3600 }), muteHttpExceptions: true });
+    if (r.getResponseCode() >= 300) { st = 'error'; err = r.getContentText().slice(0, 200); }
+  } catch (e) { st = 'error'; err = String(e.message || e).slice(0, 200); }
+  try { sheetOf('SmsLog').appendRow(rowOf('SmsLog', { at: stamp(), dir: 'out', line: 'gw', from: 'gw', to: e164(to), text: text + (err ? ' ⚠ ' + err : ''), status: st })); } catch (e) { /* */ }
+}
+function gwInbound_(req) {
+  const p = req.payload || {};
+  const mid = String(p.messageId || p.id || req.id || '');
+  const C = CacheService.getScriptCache();
+  if (mid) { if (C.get('gwm:' + mid)) return { ok: true, dup: true }; C.put('gwm:' + mid, '1', 21600); }
+  const from = String(p.sender || p.phoneNumber || '');
+  const text = String(p.message || p.text || '').trim();
+  try { sheetOf('SmsLog').appendRow(rowOf('SmsLog', { at: stamp(), dir: 'in', line: 'gw', from: e164(from), to: 'gw', text: text })); } catch (e) { /* */ }
+  const g = gabbaiByPhone(from);
+  const lang0 = langOf(text);
+  if (!g) {
+    if (!C.get('gwun:' + last10(from))) { C.put('gwun:' + last10(from), '1', 21600); gwSend_(from, say('notReg', lang0)); notifyAdmins('sms_unknown', 'SMS (קו זמני): ' + fmtPhone(from), 'מספר לא רשום שלח לקו הזמני: ' + fmtPhone(from) + '\n"' + text.slice(0, 300) + '"'); }
+    return { ok: true, handled: 'unregistered' };
+  }
+  let reply = '';
+  try { reply = gwHandle_(from, text, g); } catch (err) {
+    reply = say('error', lang0) + ' ' + String(err && err.message || err).slice(0, 120);
+    ev('error', { g: g, phone: from, text: text, detail: 'gw: ' + String(err && err.message || err) });
+  }
+  if (reply) gwSend_(from, reply);
+  return { ok: true };
+}
+
+// ---- מצב שיחה ----
+function gwSt_(ph) { const v = CacheService.getScriptCache().get('gw:' + last10(ph)); return v ? JSON.parse(v) : {}; }
+function gwPut_(ph, st) { CacheService.getScriptCache().put('gw:' + last10(ph), JSON.stringify(st), 21600); }
+function gwClr_(ph) { CacheService.getScriptCache().remove('gw:' + last10(ph)); }
+
+// ---- טקסטים ----
+const GWT = {
+  help: { he: 'כתבו שם לחיפוש (אפשר להוסיף כתובת / טלפון).\nלהוספה: "חדש" + שם ופרטים.\n0 = סיום', yi: 'שרייבט א נאמען צו זוכן (מ\'קען צולייגן אדרעס / טעלעפאן).\nצולייגן: "נייע" + נאמען און פרטים.\n0 = ענדיגן', en: 'Text a name to search (you can add address / phone).\nTo add: "new" + name and details.\n0 = end' },
+  menu: { he: 'מה לעשות?\n1 עדכון פרטים\n2 תיוג\n3 קשר משפחה\n4 הערה\n5 מחיקה\n0 סיום', yi: 'וואס צו טון?\n1 טוישן פרטים\n2 תיוג\n3 משפחה\n4 הערה\n5 אויסמעקן\n0 ענדיגן', en: 'What to do?\n1 Update details\n2 Tags\n3 Family\n4 Note\n5 Delete\n0 End' },
+  upd: { he: 'מה לעדכן?\n1 כתובת\n2 טלפון\n3 שם', yi: 'וואס צו טוישן?\n1 אדרעס\n2 טעלעפאן\n3 נאמען', en: 'Update what?\n1 Address\n2 Phone\n3 Name' },
+  phKind: { he: 'איזה טלפון?\n1 נייד\n2 בית\n3 נייד אשה', yi: 'וועלכער טעלעפאן?\n1 סעלפאן\n2 שטוב\n3 סעלפאן פון ווייב', en: 'Which phone?\n1 Cell\n2 Home\n3 Wife cell' },
+  askAddr: { he: 'כתבו את הכתובת החדשה:', yi: 'שרייבט די נייע אדרעס:', en: 'Text the new address:' },
+  askPh: { he: 'כתבו את המספר:', yi: 'שרייבט דעם נומער:', en: 'Text the number:' },
+  askName: { he: 'כתבו את השם הנכון:', yi: 'שרייבט דעם ריכטיגן נאמען:', en: 'Text the correct name:' },
+  tagMode: { he: '1 הוספת תיוג\n2 הסרת תיוג', yi: '1 צולייגן א תיוג\n2 אראפנעמען א תיוג', en: '1 Add tag\n2 Remove tag' },
+  askTag: { he: 'איזה תיוג? כתבו את שמו:', yi: 'וועלכער תיוג? שרייבט דעם נאמען:', en: 'Which tag? Text its name:' },
+  noTag: { he: 'אין תיוג כזה ברשימה (לא פותחים חדש ב-SMS).', yi: 'אזא תיוג איז נישטא (מ\'מאכט נישט קיין נייעם אין SMS).', en: 'No such tag (new tags are not created by SMS).' },
+  noTags: { he: 'אין לו תיוגים.', yi: 'ער האט נישט קיין תיוגים.', en: 'No tags.' },
+  rel: { he: 'הוא...\n1 בן של\n2 אבא של\n3 חתן של\n4 חותן של\n5 אח של\n6 מחיקת קשר קיים', yi: 'ער איז...\n1 זון פון\n2 טאטע פון\n3 איידעם פון\n4 שווער פון\n5 ברודער פון\n6 אויסמעקן א קשר', en: 'He is...\n1 Son of\n2 Father of\n3 Son-in-law of\n4 Father-in-law of\n5 Brother of\n6 Delete a relation' },
+  relWho: { he: 'של מי? כתבו שם (ואפשר כתובת):', yi: 'פון וועמען? שרייבט א נאמען (מ\'קען צולייגן אדרעס):', en: 'Of whom? Text a name (address helps):' },
+  noRels: { he: 'אין קשרים רשומים.', yi: 'קיין קשרים.', en: 'No relations.' },
+  askNote: { he: 'כתבו את ההערה:', yi: 'שרייבט די הערה:', en: 'Text the note:' },
+  pick: { he: 'השיבו במספר:', yi: 'ענטפערט מיטן נומער:', en: 'Reply with the number:' },
+  notFound: { he: '✗ לא נמצא ברשימה ולא במחסן:', yi: '✗ נישט געפונען, נישט אין דער רשימה און נישט אין מחסן:', en: '✗ Not found (list or warehouse):' },
+  addQ: { he: 'להוסיף כחדש? 1 כן, 2 לא', yi: 'צולייגן ווי א נייער? 1 יא, 2 ניין', en: 'Add as new? 1 yes, 2 no' },
+  dup: { he: 'אולי זה אחד מאלה? השיבו במספר, או 9 = בכל זאת להוסיף חדש:', yi: 'אפשר איז עס איינער פון די? ענטפערט מיטן נומער, אדער 9 = יא צולייגן א נייעם:', en: 'Is it one of these? Reply with the number, or 9 = add new anyway:' },
+  newAddr: { he: 'כתובת? (או 0 לדלג)', yi: 'אדרעס? (אדער 0 איבערשפרינגען)', en: 'Address? (or 0 to skip)' },
+  newPh: { he: 'טלפון? (או 0 לדלג)', yi: 'טעלעפאן? (אדער 0 איבערשפרינגען)', en: 'Phone? (or 0 to skip)' },
+  jbdQ: { he: 'לחפש בספר JBD את "{n}"? 1 כן, 2 לא', yi: 'זוכן אין JBD "{n}"? 1 יא, 2 ניין', en: 'Search JBD for "{n}"? 1 yes, 2 no' },
+  jbdNone: { he: 'לא נמצא ב-JBD.', yi: 'נישט געפונען אין JBD.', en: 'Not found in JBD.' },
+  jbdPick: { he: 'מ-JBD — השיבו במספר, או 0 אף אחד:', yi: 'פון JBD — ענטפערט מיטן נומער, אדער 0 קיינער:', en: 'From JBD — reply with the number, or 0 none:' },
+  mMove: { he: '1 להעביר לרשימה\n0 סיום', yi: '1 אריבערפירן צו דער רשימה\n0 ענדיגן', en: '1 Move to the list\n0 End' },
+  confirm: { he: '1 לאישור, 2 לביטול', yi: '1 באשטעטיגן, 2 אפזאגן', en: '1 confirm, 2 cancel' },
+  canceled: { he: 'בוטל.', yi: 'אפגעזאגט.', en: 'Canceled.' },
+  done: { he: 'בוצע ✓', yi: 'געטון ✓', en: 'Done ✓' },
+  bye: { he: 'סיום ✓', yi: 'געענדיגט ✓', en: 'Ended ✓' },
+  notAvail: { he: 'בקו הזה אפשר רק לעבוד על הרשימה (חיפוש, הוספה, עדכון, תיוג, משפחה, הערה, מחיקה).', yi: 'אויף די ליניע קען מען נאר ארבעטן אויף דער רשימה (זוכן, צולייגן, טוישן, תיוג, משפחה, הערה, אויסמעקן).', en: 'This line only works on the list (search, add, update, tags, family, note, delete).' },
+  delQ: { he: 'למחוק את {n}? (אפשר לשחזר באתר)', yi: 'אויסמעקן {n}? (מ\'קען צוריקברענגען אויפן אתר)', en: 'Delete {n}? (can be restored on the site)' },
+  inM: { he: '📦 במחסן (לא ברשימה):', yi: '📦 אין מחסן (נישט אין דער רשימה):', en: '📦 In the warehouse (not on the list):' },
+  inL: { he: '✓ ברשימה:', yi: '✓ אין דער רשימה:', en: '✓ On the list:' },
+};
+function gt_(k, lang, vars) {
+  let s = (GWT[k] || {})[lang] || (GWT[k] || {}).he || k;
+  Object.keys(vars || {}).forEach(function (v) { s = s.split('{' + v + '}').join(vars[v]); });
+  return s;
+}
+
+// ---- חיפוש חכם ----
+const GW_NICK = { shea: 'yehoshua', shaya: 'yeshaya', mottie: 'mordechai', motty: 'mordechai', mordche: 'mordechai', motti: 'mordechai', shloime: 'shlomo', yossi: 'yosef', yossie: 'yosef', yoely: 'yoel', srulik: 'yisroel', sruly: 'yisroel', hershy: 'hersh', chaskel: 'yechezkel', cheskel: 'yechezkel', chesky: 'yechezkel', lipa: 'lipa', berish: 'berish', zishe: 'zisha', mendy: 'menachem', mendel: 'menachem', nachman: 'nachman', duvid: 'dovid', david: 'dovid', moishe: 'moshe', moishy: 'moshe' };
+function gwKeyEn_(w) {
+  w = String(w || '').toLowerCase().replace(/[^a-z]/g, '');
+  if (!w) return '';
+  w = GW_NICK[w] || w;
+  w = w.replace(/sch/g, 'sh').replace(/sz/g, 's').replace(/tz|ts/g, 'z').replace(/ck/g, 'k').replace(/ph/g, 'f').replace(/kh|ch/g, 'h').replace(/w/g, 'v')
+    .replace(/[yj]/g, 'i').replace(/c(?=[eiy])/g, 's').replace(/[cq]/g, 'k').replace(/x/g, 'ks').replace(/(.)\1+/g, '$1');
+  return w[0] + w.slice(1).replace(/[aeiouh]/g, '');
+}
+function gwKeyHe_(w) {
+  w = norm(w).replace(/[^א-ת]/g, '');
+  if (!w) return '';
+  w = w.replace(/(.)\1+/g, '$1');
+  return w.length <= 2 ? w : w[0] + w.slice(1).replace(/[אהויע]/g, '');
+}
+function gwKey_(w) { return /[א-ת]/.test(w) ? 'h:' + gwKeyHe_(w) : 'e:' + gwKeyEn_(w); }
+function gwLev_(a, b) {
+  if (Math.abs(a.length - b.length) > 1) return 9;
+  const d = []; for (let i = 0; i <= a.length; i += 1) { d[i] = [i]; for (let j = 1; j <= b.length; j += 1) d[i][j] = i ? Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)) : j; }
+  return d[a.length][b.length];
+}
+function gwSame_(q, k) {
+  if (!q || !k || q.slice(0, 2) !== k.slice(0, 2)) return false;
+  const a = q.slice(2); const b = k.slice(2);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.length >= 2 && b.length >= 2 && (a.indexOf(b) === 0 || b.indexOf(a) === 0)) return true;
+  return a.length >= 3 && b.length >= 3 && gwLev_(a, b) <= 1;
+}
+function gwWords_(s) { return norm(s).split(' ').filter(function (w) { return w && TITLES.indexOf(w) < 0 && !/\d/.test(w); }); }
+/** מציון: כל מילה בשאלה צריכה להתאים, ולפחות אחת לשם המשפחה */
+function gwScore_(qw, firstArr, lastArr) {
+  const fk = firstArr.join(' ').split(' ').filter(String).map(gwKey_); const lk = lastArr.join(' ').split(' ').filter(String).map(gwKey_);
+  let hit = 0; let lastHit = false;
+  qw.forEach(function (w) {
+    const k = gwKey_(w);
+    if (lk.some(function (x) { return gwSame_(k, x); })) { hit += 1; lastHit = true; } else if (fk.some(function (x) { return gwSame_(k, x); })) hit += 1;
+  });
+  if (!lastHit || hit < qw.length - (qw.length >= 3 ? 1 : 0)) return 0;
+  return hit * 2 + (qw.length === 1 ? 0 : 1);
+}
+function gwAddrKey_(s) { return jbdAddrKey_(s); }
+function gwAddrHit_(q, addr) {
+  const a = gwAddrKey_(q); const b = gwAddrKey_(addr);
+  if (!a || !b) return false;
+  const na = (a.match(/^\d+/) || [''])[0]; const nb = (b.match(/^\d+/) || [''])[0];
+  if (na && nb && na !== nb) return false;
+  return a === b || (na && na === nb && a.split(' ')[1] === b.split(' ')[1]);
+}
+let MACHSAN = null;
+function gwMachsan_() { if (!MACHSAN) MACHSAN = readTab('Machsan').rows.filter(function (m) { return !String(m.contact_id || '').trim() && m.status !== 'added' && String(m.decision || '') !== 'delete'; }); return MACHSAN; }
+/** q: { name, phone, address, he:[], en:[] } → { list:[contact], mach:[machsan rows] } */
+function gwFind_(q) {
+  const names = [q.name].concat(q.he || [], q.en || []).filter(function (x) { return String(x || '').trim(); });
+  const dig = String(q.phone || '').replace(/\D/g, '');
+  const P = phonesMap();
+  const scored = {};
+  const bump = function (id, s) { scored[id] = Math.max(scored[id] || 0, 0) + s; };
+  if (dig.length >= 7) contacts().forEach(function (c) {
+    const p = P[String(c.contact_id)] || {};
+    if (['mobile', 'home_phone', 'wife_mobile', 'other_phone'].some(function (k) { const d = String(p[k] || '').replace(/\D/g, ''); return d && d.slice(-7) === dig.slice(-7); })) bump(c.contact_id, 20);
+  });
+  names.forEach(function (nm) {
+    const qw = gwWords_(nm);
+    if (!qw.length) return;
+    contacts().forEach(function (c) {
+      let s = Math.max(gwScore_(qw, [c.first_name_he], [c.last_name_he]), gwScore_(qw, [c.first_name_en], [c.last_name_en]));
+      if (!s) return;
+      if (norm(c.first_name_he) === norm(qw.slice(0, -1).join(' ')) || norm(c.first_name_en) === norm(qw.slice(0, -1).join(' '))) s += 1;
+      if (!scored[c.contact_id] || scored[c.contact_id] < 20) scored[c.contact_id] = Math.max(scored[c.contact_id] || 0, s);
+      else scored[c.contact_id] += s;
+    });
+  });
+  if (q.address) Object.keys(scored).forEach(function (id) { const c = byId(id); if (c && gwAddrHit_(q.address, c.address)) scored[id] += 5; });
+  let list = Object.keys(scored).sort(function (a, b) { return scored[b] - scored[a]; });
+  if (list.length > 1 && scored[list[0]] >= 20 && scored[list[1]] < 20) list = [list[0]];
+  else if (list.length > 1 && q.address && scored[list[0]] - scored[list[1]] >= 5) list = [list[0]];
+  list = list.slice(0, 6).map(byId).filter(Boolean);
+  // מחסן
+  const ms = [];
+  gwMachsan_().forEach(function (m) {
+    let s = 0;
+    const md = String(m.phones || '').split(/[,;]/).map(function (x) { return x.replace(/\D/g, '').slice(-7); });
+    if (dig.length >= 7 && md.indexOf(dig.slice(-7)) >= 0) s += 20;
+    names.forEach(function (nm) { const qw = gwWords_(nm); if (qw.length) s = Math.max(s, s >= 20 ? s : 0, gwScore_(qw, [m.first], [m.last, m.last_he])); });
+    if (s && q.address && gwAddrHit_(q.address, m.address)) s += 5;
+    if (s) ms.push({ m: m, s: s });
+  });
+  ms.sort(function (a, b) { return b.s - a.s; });
+  return { list: list, mach: ms.slice(0, list.length ? 2 : 4).map(function (x) { return x.m; }) };
+}
+function gwLine_(c) { return (heName(c) || enName(c)) + (c.address ? ', ' + c.address : (c.city ? ', ' + c.city : '')); }
+function gwMLine_(m) { return '📦 ' + [m.title, m.first, m.last].join(' ').replace(/\s+/g, ' ').trim() + (m.address ? ', ' + m.address : '') + (m.city ? ', ' + m.city : ''); }
+
+// ---- כרטיס ----
+const GW_REL = { 'זון פון': 'בן של', 'טאטע פון': 'אבא של', 'איידעם פון': 'חתן של', 'שווער פון': 'חותן של', 'ברודער פון': 'אח של', 'שוואגער פון': 'גיס של', 'זיידע פון': 'סבא של', 'אייניקל פון': 'נכד של' };
+function gwTagNodes_() {
+  const rows = readTab('TagTree').rows; const by = {};
+  rows.forEach(function (r) { by[String(r.node_id)] = r; });
+  return { by: by, rows: rows };
+}
+function gwTagPath_(T, id) { const p = []; let n = T.by[String(id)]; let g = 0; while (n && g < 10) { p.unshift(String(n.node_id)); n = String(n.parent_id || '').trim() ? T.by[String(n.parent_id)] : null; g += 1; } return p; }
+function gwTagLabel_(T, p) { return p.filter(function (x) { return T.by[x]; }).map(function (x) { return T.by[x].name; }).slice(-2).join(' › '); }
+function gwTagsOf_(c) { try { const j = JSON.parse(String(c.tags || '[]')); return Array.isArray(j) ? j : []; } catch (e) { return []; } }
+function gwCard_(id, lang) {
+  CONTACTS = null; RELS = null; PHONES = null;
+  const c = byId(id); if (!c) return gt_('notFound', lang);
+  const p = phonesMap()[String(id)] || {};
+  const L = [(heName(c) + (enName(c) ? ' / ' + enName(c) : '')) + ' (#' + id + ')'];
+  if (c.address) L.push('📍 ' + [c.address, c.city, c.state, c.zip].filter(function (x) { return String(x || '').trim(); }).join(', '));
+  const ph = [['📱', p.mobile], ['☎', p.home_phone], ['אשה', p.wife_mobile]].filter(function (x) { return String(x[1] || '').trim(); }).map(function (x) { return x[0] + ' ' + x[1]; });
+  if (ph.length) L.push(ph.join(' · '));
+  const T = gwTagNodes_();
+  const tg = gwTagsOf_(c).filter(function (t) { return t.s !== 'f' && t.s !== 'auto' && (t.p || []).every(function (x) { return T.by[String(x)]; }); }).map(function (t) { return gwTagLabel_(T, t.p.map(String)); });
+  if (tg.length) L.push('🏷 ' + tg.join(' · '));
+  rels().filter(function (r) { return String(r.contact_id_a) === String(id); }).slice(0, 6).forEach(function (r) { const o = byId(r.contact_id_b); if (o) L.push('👪 ' + (GW_REL[r.relation_type] || r.relation_type) + ' ' + heName(o)); });
+  readTab('OrgNotes').rows.filter(function (n) { return String(n.contact_id) === String(id); }).slice(-2).forEach(function (n) { L.push('📝 ' + String(n.text || n.note || '').slice(0, 120)); });
+  return L.join('\n') + '\n\n' + gt_('menu', lang);
+}
+function gwMCard_(m, lang) {
+  const L = [gwMLine_(m)];
+  if (m.state || m.zip) L.push([m.state, m.zip].filter(String).join(' '));
+  if (m.phones) L.push('☎ ' + m.phones);
+  if (m.codes) L.push('קודים: ' + m.codes);
+  if (m.gift_total) L.push('$' + m.gift_total + (m.gift_years ? ' · ' + m.gift_years + ' שנים' : ''));
+  return gt_('inM', lang) + '\n' + L.join('\n') + '\n\n' + gt_('mMove', lang);
+}
+
+// ---- AI ----
+function gwParse_(text, ctxName) {
+  const sys = [
+    'You read SMS messages from gabbaim of a Chassidic synagogue (Khal Ungvar, Brooklyn) who work on the contacts list. Messages are Yiddish, Hebrew or English.',
+    ctxName ? 'The gabbai currently has this contact open: "' + ctxName + '". If the message is about him (no other person named), set who.self=true.' : '',
+    'Return ONLY JSON: {"lang":"yi|he|en","intent":"find|add|update|tag|untag|delete|note|relation|other",',
+    '"who":{"name":"","address":"","phone":"","self":false,"he":["name in Hebrew letters, up to 2 spellings"],"en":["name in English letters, up to 3 spellings"]},',
+    '"fields":{"first_name_he":"","last_name_he":"","first_name_en":"","last_name_en":"","address":"","city":"","state":"","zip":"","mobile":"","home_phone":""},',
+    '"tag":"","note":"","relation":{"type":"son|father|son_in_law|father_in_law|brother","name":"","address":""}}',
+    'find = just a name (maybe with address/phone) → is he on the list? add = new person ("new", "חדש", "נייע", "add"). fields = only what is given for add/update.',
+    'other = donations, simchas, broadcasts, credits or anything that is not about the contacts list. Hebrew names in Hebrew letters, English in English; split US addresses; phones digits only. Never invent.',
+  ].join('\n');
+  return geminiJson(sys, [{ text: text }]);
+}
+function gwSplitAddr_(text) {
+  try { return geminiJson('Split this US address into JSON {"address":"","city":"","state":"","zip":""}. Default city Brooklyn, state NY only if it is clearly a Brooklyn street. Return ONLY JSON.', [{ text: text }]); } catch (e) { return { address: text }; }
+}
+function gwSplitName_(text) {
+  try { return geminiJson('Split this Jewish man\'s name into JSON {"first_name_he":"","last_name_he":"","first_name_en":"","last_name_en":""}. Fill only the script that was given (Hebrew letters → _he, English → _en). Return ONLY JSON.', [{ text: text }]); } catch (e) { return {}; }
+}
+
+// ---- JBD לפי בקשה ----
+function gwJbd_(first, last) {
+  const r = UrlFetchApp.fetch('https://thejbd.com/directory-search?q=' + encodeURIComponent((last + ' ' + String(first || '').split(/\s+/)[0]).trim()),
+    { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, muteHttpExceptions: true });
+  if (r.getResponseCode() !== 200) return [];
+  const out = [];
+  (JSON.parse(r.getContentText()).data || []).filter(function (d) { return !d.business && jbdName_(d.lastName) === jbdName_(last) && (!first || jbdFirstOk_(first, d.firstName)); }).forEach(function (d) {
+    (d.locations || []).forEach(function (l) {
+      out.push({ name: [d.title, d.firstName, d.lastName].join(' ').replace(/\s+/g, ' ').trim() + (d.benReb ? ' (בן ר\' ' + d.benReb + ')' : ''), addr: l.fullAddress || ((l.addressFirst || '') + ', ' + (l.addressLast || '')), tel: l.telephone || '' });
+    });
+  });
+  return out.slice(0, 5);
+}
+
+// ---- המוח ----
+function gwHandle_(from, text, g) {
+  const st = gwSt_(from);
+  const lang = text && !/^\d+$/.test(text) ? langOf(text) : (st.lang || 'he');
+  const L = st.lang || lang;
+  const t = text.trim();
+  const num = /^\d{1,2}$/.test(t) ? Number(t) : null;
+  if (/^(0|תפריט|menu|סוף|end)$/i.test(t) && ['add_addr', 'add_ph', 'jbd_pick'].indexOf(st.step) < 0) { gwClr_(from); return st.step ? gt_('bye', L) : gt_('help', lang); }
+  if (/^(\?|עזרה|help)$/i.test(t)) return gt_('help', lang);
+  const put = function (o) { o.lang = o.lang || L; gwPut_(from, o); };
+  const cid = st.cid;
+  const c = cid ? byId(cid) : null;
+
+  // --- שלבים שמחכים למספר ---
+  if (num !== null) {
+    if (st.step === 'pick') {
+      const o = (st.opts || [])[num - 1];
+      if (st.add && num === 9) return gwAddAsk_(from, st.add, L, put);
+      if (o && o.k === 'c') { put({ step: 'card', cid: o.id }); return gwCard_(o.id, L); }
+      if (o && o.k === 'm') { put({ step: 'mcard', mrow: o.row }); const m = gwMachsan_().filter(function (x) { return String(x._row) === String(o.row); })[0]; return m ? gwMCard_(m, L) : gt_('notFound', L); }
+    }
+    if (st.step === 'notfound') { if (num === 1) return gwAddAsk_(from, st.add || {}, L, put); gwClr_(from); return gt_('bye', L); }
+    if (st.step === 'mcard' && num === 1) return gwMove_(from, st.mrow, g, L, put);
+    if (st.step === 'card' && c) {
+      if (num === 1) { put({ step: 'upd', cid: cid }); return gt_('upd', L); }
+      if (num === 2) { put({ step: 'tagmode', cid: cid }); return gt_('tagMode', L); }
+      if (num === 3) { put({ step: 'rel', cid: cid }); return gt_('rel', L); }
+      if (num === 4) { put({ step: 'note', cid: cid }); return gt_('askNote', L); }
+      if (num === 5) { put({ step: 'confirm', cid: cid, act: { a: 'delete' } }); return gt_('delQ', L, { n: heName(c) || enName(c) }) + '\n' + gt_('confirm', L); }
+    }
+    if (st.step === 'upd' && c) {
+      if (num === 1) { put({ step: 'upd_addr', cid: cid }); return gt_('askAddr', L); }
+      if (num === 2) { put({ step: 'phkind', cid: cid }); return gt_('phKind', L); }
+      if (num === 3) { put({ step: 'upd_name', cid: cid }); return gt_('askName', L); }
+    }
+    if (st.step === 'phkind' && c && num >= 1 && num <= 3) { put({ step: 'upd_ph', cid: cid, kind: ['mobile', 'home_phone', 'wife_mobile'][num - 1] }); return gt_('askPh', L); }
+    if (st.step === 'tagmode' && c) {
+      if (num === 1) { put({ step: 'tag_name', cid: cid }); return gt_('askTag', L); }
+      if (num === 2) {
+        const T = gwTagNodes_();
+        const mine = gwTagsOf_(c).filter(function (x) { return x.s !== 'auto' && (x.p || []).every(function (y) { return T.by[String(y)]; }); });
+        if (!mine.length) { put({ step: 'card', cid: cid }); return gt_('noTags', L) + '\n\n' + gt_('menu', L); }
+        put({ step: 'untag_pick', cid: cid, opts: mine.map(function (x) { return x.p.map(String); }) });
+        return gt_('pick', L) + '\n' + mine.map(function (x, i) { return (i + 1) + '. ' + gwTagLabel_(T, x.p.map(String)); }).join('\n');
+      }
+    }
+    if (st.step === 'tag_pick' && c && st.opts[num - 1]) { const T = gwTagNodes_(); const p = st.opts[num - 1]; put({ step: 'confirm', cid: cid, act: { a: 'tag', p: p } }); return '🏷 + ' + gwTagLabel_(T, p) + ' → ' + heName(c) + '\n' + gt_('confirm', L); }
+    if (st.step === 'untag_pick' && c && st.opts[num - 1]) { const T = gwTagNodes_(); const p = st.opts[num - 1]; put({ step: 'confirm', cid: cid, act: { a: 'untag', p: p } }); return '🏷 − ' + gwTagLabel_(T, p) + ' ← ' + heName(c) + '\n' + gt_('confirm', L); }
+    if (st.step === 'rel' && c) {
+      if (num >= 1 && num <= 5) { put({ step: 'rel_who', cid: cid, rt: ['זון פון', 'טאטע פון', 'איידעם פון', 'שווער פון', 'ברודער פון'][num - 1] }); return gt_('relWho', L); }
+      if (num === 6) {
+        const mine = rels().filter(function (r) { return String(r.contact_id_a) === String(cid); });
+        if (!mine.length) { put({ step: 'card', cid: cid }); return gt_('noRels', L) + '\n\n' + gt_('menu', L); }
+        put({ step: 'unrel_pick', cid: cid, opts: mine.map(function (r) { return [String(r.contact_id_b), r.relation_type]; }) });
+        return gt_('pick', L) + '\n' + mine.map(function (r, i) { const o = byId(r.contact_id_b); return (i + 1) + '. ' + (GW_REL[r.relation_type] || r.relation_type) + ' ' + (o ? heName(o) : '#' + r.contact_id_b); }).join('\n');
+      }
+    }
+    if (st.step === 'rel_pick' && c && st.opts[num - 1]) { const o = byId(st.opts[num - 1]); put({ step: 'confirm', cid: cid, act: { a: 'rel', rt: st.rt, other: st.opts[num - 1] } }); return heName(c) + ' — ' + (GW_REL[st.rt] || st.rt) + ' ' + (o ? gwLine_(o) : '') + '\n' + gt_('confirm', L); }
+    if (st.step === 'unrel_pick' && c && st.opts[num - 1]) { const x = st.opts[num - 1]; const o = byId(x[0]); put({ step: 'confirm', cid: cid, act: { a: 'unrel', other: x[0], rt: x[1] } }); return '✗ ' + heName(c) + ' — ' + (GW_REL[x[1]] || x[1]) + ' ' + (o ? heName(o) : '') + '\n' + gt_('confirm', L); }
+    if (st.step === 'jbd_q') {
+      if (num === 1) {
+        const a = st.add; const res = gwJbd_(a.first_name_en, a.last_name_en);
+        if (!res.length) return gwAddNext_(from, a, L, put, gt_('jbdNone', L) + '\n');
+        put({ step: 'jbd_pick', add: a, opts: res });
+        return gt_('jbdPick', L) + '\n' + res.map(function (x, i) { return (i + 1) + '. ' + x.name + ', ' + x.addr + (x.tel ? ', ' + x.tel : ''); }).join('\n');
+      }
+      st.add._noaddr = true; return gwAddNext_(from, st.add, L, put);
+    }
+    if (st.step === 'jbd_pick') {
+      const a = st.add; const x = st.opts[num - 1];
+      if (x) { const sp = gwSplitAddr_(x.addr); ['address', 'city', 'state', 'zip'].forEach(function (k) { if (sp[k]) a[k] = sp[k]; }); if (x.tel && !a.home_phone && !a.mobile) a.home_phone = x.tel; }
+      else a._noaddr = true;
+      return gwAddNext_(from, a, L, put);
+    }
+    if (st.step === 'confirm') {
+      if (num === 1) { const r = gwExec_(st, g, L); const nid = r.id || cid; if (nid) { put({ step: 'card', cid: nid }); return r.msg + '\n\n' + gwCard_(nid, L); } gwClr_(from); return r.msg; }
+      if (num === 2) { if (cid) { put({ step: 'card', cid: cid }); return gt_('canceled', L) + '\n\n' + gt_('menu', L); } gwClr_(from); return gt_('canceled', L); }
+    }
+  }
+
+  // --- שלבים שמחכים לטקסט ---
+  if (t && c) {
+    if (st.step === 'upd_addr') { const f = gwSplitAddr_(t); put({ step: 'confirm', cid: cid, act: { a: 'upd', f: f } }); return heName(c) + ':\n' + fieldsLine(f) + '\n' + gt_('confirm', L); }
+    if (st.step === 'upd_ph') { const d = last10(t); if (!d) return gt_('askPh', L); const f = {}; f[st.kind] = d; put({ step: 'confirm', cid: cid, act: { a: 'upd', f: f } }); return heName(c) + ': ' + fmtPhone(d) + '\n' + gt_('confirm', L); }
+    if (st.step === 'upd_name') { const f = gwSplitName_(t); put({ step: 'confirm', cid: cid, act: { a: 'upd', f: f } }); return '#' + cid + ':\n' + fieldsLine(f) + '\n' + gt_('confirm', L); }
+    if (st.step === 'note') { put({ step: 'confirm', cid: cid, act: { a: 'note', note: t.slice(0, 1000) } }); return '📝 ' + heName(c) + ': "' + t.slice(0, 300) + '"\n' + gt_('confirm', L); }
+    if (st.step === 'tag_name') return gwTagSearch_(from, cid, t, L, put);
+    if (st.step === 'rel_who') {
+      const pr = (function () { try { return gwParse_(t); } catch (e) { return {}; } })();
+      const w = pr.who || {}; const r = gwFind_({ name: w.name || t, address: w.address, phone: w.phone, he: w.he, en: w.en });
+      const list = r.list.filter(function (x) { return String(x.contact_id) !== String(cid); });
+      if (!list.length) { put({ step: 'card', cid: cid }); return gt_('notFound', L) + ' ' + t + '\n(להוסיף אותו קודם ואז לקשר)\n\n' + gt_('menu', L); }
+      put({ step: 'rel_pick', cid: cid, rt: st.rt, opts: list.map(function (x) { return String(x.contact_id); }) });
+      return gt_('pick', L) + '\n' + list.map(function (x, i) { return (i + 1) + '. ' + gwLine_(x); }).join('\n');
+    }
+  }
+  if (t && (st.step === 'add_addr' || st.step === 'add_ph')) {
+    const a = st.add;
+    if (st.step === 'add_addr') { if (t === '0') { a._askJbd = true; } else { const sp = gwSplitAddr_(t); ['address', 'city', 'state', 'zip'].forEach(function (k) { if (sp[k]) a[k] = sp[k]; }); } }
+    else { if (t === '0') a._noph = true; else { const d = last10(t); if (d) a.mobile = d; else return gt_('newPh', L); } }
+    return gwAddNext_(from, a, L, put);
+  }
+
+  // --- הודעה חדשה (או טקסט חופשי כשאיש פתוח) ---
+  const pr = gwParse_(t, c ? heName(c) || enName(c) : '');
+  const lg = pr.lang || lang;
+  const w = pr.who || {};
+  if (pr.intent === 'other') return gt_('notAvail', lg);
+  if (pr.intent === 'add') {
+    const f = pr.fields || {};
+    if (!f.last_name_he && !f.last_name_en) return gt_('help', lg);
+    const nm = [f.first_name_he, f.last_name_he].join(' ').trim() || [f.first_name_en, f.last_name_en].join(' ').trim();
+    const r = gwFind_({ name: nm, phone: f.mobile || f.home_phone, address: f.address, he: w.he, en: w.en });
+    if (r.list.length || r.mach.length) return gwPickList_(from, r, lg, put, f);
+    return gwAddAsk_(from, f, lg, put);
+  }
+  // מי?
+  let target = c && w.self ? c : null;
+  if (!target) {
+    const q = { name: w.name || (pr.intent === 'find' ? t : ''), address: w.address, phone: w.phone, he: w.he, en: w.en };
+    if (!q.name && !q.phone) return gt_('help', lg);
+    const r = gwFind_(q);
+    if (pr.intent === 'find' || !r.list.length || r.list.length > 1) {
+      if (!r.list.length && !r.mach.length) {
+        const f = pr.fields || {}; const add = {};
+        const nm = String(w.name || t).trim();
+        if (/[א-ת]/.test(nm)) { const p = nm.split(/\s+/); add.last_name_he = p.pop(); add.first_name_he = p.join(' '); } else { const p = nm.split(/\s+/); add.last_name_en = p.pop(); add.first_name_en = p.join(' '); }
+        if (w.en && w.en[0] && !add.last_name_en) { const p = String(w.en[0]).split(/\s+/); add.last_name_en = p.pop(); add.first_name_en = p.join(' '); }
+        if (w.address) { const sp = gwSplitAddr_(w.address); Object.assign(add, sp); }
+        if (w.phone) add.mobile = w.phone;
+        Object.keys(f).forEach(function (k) { if (f[k] && !add[k]) add[k] = f[k]; });
+        put({ step: 'notfound', add: add, lang: lg });
+        return gt_('notFound', lg) + ' ' + nm + '\n' + gt_('addQ', lg);
+      }
+      if (r.list.length === 1 && !r.mach.length) { put({ step: 'card', cid: r.list[0].contact_id, lang: lg }); return gt_('inL', lg) + '\n' + gwCard_(r.list[0].contact_id, lg); }
+      return gwPickList_(from, r, lg, put, null);
+    }
+    target = r.list[0];
+  }
+  const tid = String(target.contact_id);
+  if (pr.intent === 'update') {
+    const f = pr.fields || {};
+    if (!Object.keys(f).some(function (k) { return String(f[k] || '').trim(); })) { put({ step: 'upd', cid: tid, lang: lg }); return heName(target) + '\n' + gt_('upd', lg); }
+    put({ step: 'confirm', cid: tid, act: { a: 'upd', f: f }, lang: lg }); return gwLine_(target) + ':\n' + fieldsLine(f) + '\n' + gt_('confirm', lg);
+  }
+  if (pr.intent === 'tag' && pr.tag) return gwTagSearch_(from, tid, pr.tag, lg, put);
+  if (pr.intent === 'note' && pr.note) { put({ step: 'confirm', cid: tid, act: { a: 'note', note: pr.note }, lang: lg }); return '📝 ' + heName(target) + ': "' + pr.note + '"\n' + gt_('confirm', lg); }
+  if (pr.intent === 'delete') { put({ step: 'confirm', cid: tid, act: { a: 'delete' }, lang: lg }); return gt_('delQ', lg, { n: gwLine_(target) }) + '\n' + gt_('confirm', lg); }
+  if (pr.intent === 'relation' && pr.relation && pr.relation.name) {
+    const rt = { son: 'זון פון', father: 'טאטע פון', son_in_law: 'איידעם פון', father_in_law: 'שווער פון', brother: 'ברודער פון' }[pr.relation.type];
+    if (rt) {
+      const r2 = gwFind_({ name: pr.relation.name, address: pr.relation.address }).list.filter(function (x) { return String(x.contact_id) !== tid; });
+      if (r2.length) { put({ step: 'rel_pick', cid: tid, rt: rt, opts: r2.map(function (x) { return String(x.contact_id); }), lang: lg }); return heName(target) + ' — ' + GW_REL[rt] + ':\n' + gt_('pick', lg) + '\n' + r2.map(function (x, i) { return (i + 1) + '. ' + gwLine_(x); }).join('\n'); }
+    }
+  }
+  put({ step: 'card', cid: tid, lang: lg });
+  return gwCard_(tid, lg);
+}
+function gwPickList_(from, r, lang, put, add) {
+  const opts = r.list.map(function (c) { return { k: 'c', id: String(c.contact_id) }; }).concat(r.mach.map(function (m) { return { k: 'm', row: m._row }; }));
+  put({ step: 'pick', opts: opts, add: add || null, lang: lang });
+  const lines = r.list.map(function (c, i) { return (i + 1) + '. ' + gwLine_(c); }).concat(r.mach.map(function (m, i) { return (r.list.length + i + 1) + '. ' + gwMLine_(m); }));
+  return (add ? gt_('dup', lang) : (r.list.length ? gt_('inL', lang) + ' (' + r.list.length + ')' : gt_('inM', lang)) + '\n' + gt_('pick', lang)) + '\n' + lines.join('\n');
+}
+function gwTagSearch_(from, cid, q, lang, put) {
+  const T = gwTagNodes_(); const qn = norm(q);
+  const hits = T.rows.filter(function (r) { return String(r.parent_id || '').trim() && String(r.name || '').trim() && (norm(r.name).indexOf(qn) >= 0 || qn.indexOf(norm(r.name)) >= 0); }).slice(0, 8);
+  if (!hits.length) { put({ step: 'card', cid: cid, lang: lang }); return gt_('noTag', lang) + ' "' + q + '"\n\n' + gt_('menu', lang); }
+  const opts = hits.map(function (r) { return gwTagPath_(T, r.node_id); });
+  put({ step: 'tag_pick', cid: cid, opts: opts, lang: lang });
+  return gt_('pick', lang) + '\n' + opts.map(function (p, i) { return (i + 1) + '. ' + gwTagLabel_(T, p); }).join('\n');
+}
+// ---- הוספה ----
+function gwAddAsk_(from, a, lang, put) { return gwAddNext_(from, a || {}, lang, put); }
+function gwAddNext_(from, a, lang, put, pre) {
+  pre = pre || '';
+  if (!a.address && !a._noaddr) {
+    if (a._askJbd) {
+      delete a._askJbd;
+      if (!a.last_name_en) {
+        try { const v = geminiJson('Write this Jewish name in English letters as JSON {"first":"","last":""}. Return ONLY JSON.', [{ text: [a.first_name_he, a.last_name_he].join(' ') }]); a.first_name_en = a.first_name_en || v.first; a.last_name_en = v.last; } catch (e) { /* */ }
+      }
+      if (a.last_name_en) { put({ step: 'jbd_q', add: a, lang: lang }); return pre + gt_('jbdQ', lang, { n: [a.first_name_en, a.last_name_en].join(' ').trim() }); }
+      a._noaddr = true;
+    } else { put({ step: 'add_addr', add: a, lang: lang }); return pre + gt_('newAddr', lang); }
+  }
+  if (!a.mobile && !a.home_phone && !a._noph) { put({ step: 'add_ph', add: a, lang: lang }); return pre + gt_('newPh', lang); }
+  const show = {}; CFIELDS.concat(['mobile', 'home_phone']).forEach(function (k) { if (a[k]) show[k] = a[k]; });
+  put({ step: 'confirm', act: { a: 'add', f: a }, lang: lang });
+  return pre + (LBL.add_contact[lang] || LBL.add_contact.he) + ':\n' + fieldsLine(show) + '\n' + gt_('confirm', lang);
+}
+function gwMove_(from, row, g, lang, put) {
+  const lock = LockService.getScriptLock(); lock.waitLock(25000);
+  try {
+    const m = readTab('Machsan').rows.filter(function (x) { return String(x._row) === String(row); })[0];
+    if (!m || String(m.contact_id || '').trim()) { gwClr_(from); return gt_('notFound', lang); }
+    const ph = String(m.phones || '').split(/[,;]/).map(function (s) { return s.trim(); }).filter(String);
+    const x = { first_name_en: m.first, last_name_en: m.last, last_name_he: m.last_he, address: m.address, city: m.city, state: m.state, zip: m.zip, home_phone: ph[0] || '' };
+    const res = addContact(x, g, lang);
+    const id = (res.match(/#(\d+)/) || [])[1];
+    if (id) { setFields('Machsan', m._row, { contact_id: id, status: 'added', updated_at: stamp(), updated_by: g.email }); MACHSAN = null; }
+    ev('action', { g: g, phone: from, contact_id: id || '', text: 'gw', detail: 'מחסן → רשימה' });
+    if (!id) return res;
+    put({ step: 'card', cid: id, lang: lang });
+    return gt_('done', lang) + '\n\n' + gwCard_(id, lang);
+  } finally { lock.releaseLock(); }
+}
+// ---- ביצוע (אחרי "1") ----
+function gwExec_(st, g, lang) {
+  const a = st.act || {}; const id = st.cid;
+  const lock = LockService.getScriptLock(); lock.waitLock(25000);
+  try {
+    CONTACTS = null; PHONES = null; RELS = null;
+    if (a.a === 'add') {
+      const f = a.f || {};
+      const res = addContact(f, g, lang);
+      const nid = (res.match(/#(\d+)/) || [])[1];
+      const miss = []; if (!f.address) miss.push('כתובת'); if (!f.mobile && !f.home_phone) miss.push('טלפון');
+      if (nid && miss.length) generalTask('⚠ להשלים ' + miss.join(' ו') + ' ל' + ([f.first_name_he, f.last_name_he].join(' ').trim() || [f.first_name_en, f.last_name_en].join(' ').trim()) + ' (#' + nid + ') — נוסף ב-SMS ע"י ' + g.name, nid);
+      ev('action', { g: g, phone: '', contact_id: nid || '', text: 'gw', detail: 'הוספה' + (miss.length ? ' (חסר ' + miss.join(', ') + ')' : '') });
+      return { msg: res, id: nid };
+    }
+    const c = byId(id); if (!c) return { msg: gt_('notFound', lang) };
+    if (a.a === 'upd') {
+      const f = Object.assign({}, a.f || {});
+      if (f.wife_mobile) {
+        const pt = readTab('Phones'); const p = pt.rows.filter(function (r) { return String(r.contact_id) === String(id); })[0];
+        history(g.email, 'phones', id, id, 'wife_mobile', p ? p.wife_mobile : '', fmtPhone(f.wife_mobile));
+        if (p) setFields('Phones', p._row, { wife_mobile: fmtPhone(f.wife_mobile) }); else appendObj('Phones', { contact_id: id, wife_mobile: fmtPhone(f.wife_mobile) });
+        delete f.wife_mobile;
+      }
+      updateContact(id, f, g, lang);
+      ev('action', { g: g, contact_id: id, text: 'gw', detail: 'עדכון ' + Object.keys(a.f || {}).join(',') });
+      return { msg: gt_('done', lang), id: id };
+    }
+    if (a.a === 'note') { addNote(id, a.note, g, lang); return { msg: gt_('done', lang), id: id }; }
+    if (a.a === 'delete') {
+      setFields('Contacts', c._row, { deleted_at: stamp(), deleted_by: g.email });
+      history(g.email, 'contact', id, id, 'deleted_at', '', stamp() + ' (SMS)');
+      ev('action', { g: g, contact_id: id, text: 'gw', detail: 'מחיקה' });
+      return { msg: gt_('done', lang) + ' ✗ ' + heName(c) };
+    }
+    if (a.a === 'tag' || a.a === 'untag') {
+      const list = gwTagsOf_(c); const key = a.p.join('>');
+      const old = JSON.stringify(list);
+      let out = list.filter(function (x) { return (x.p || []).map(String).join('>') !== key; });
+      if (a.a === 'tag') out.push({ p: a.p, s: 'a', d: today() });
+      setFields('Contacts', c._row, { tags: JSON.stringify(out), updated_at: stamp(), updated_by: g.email });
+      history(g.email, 'contact', id, id, 'tags', old, JSON.stringify(out));
+      ev('action', { g: g, contact_id: id, text: 'gw', detail: (a.a === 'tag' ? 'תיוג + ' : 'תיוג − ') + key });
+      return { msg: gt_('done', lang), id: id };
+    }
+    if (a.a === 'rel' || a.a === 'unrel') {
+      const INV = { 'זון פון': 'טאטע פון', 'טאטע פון': 'זון פון', 'איידעם פון': 'שווער פון', 'שווער פון': 'איידעם פון', 'ברודער פון': 'ברודער פון', 'שוואגער פון': 'שוואגער פון', 'זיידע פון': 'אייניקל פון', 'אייניקל פון': 'זיידע פון' };
+      const sh = sheetOf('Relations');
+      if (a.a === 'rel') {
+        const n = nextId('Relations', 1);
+        sh.appendRow([n, Number(id), a.rt, Number(a.other)]);
+        sh.appendRow([n + 1, Number(a.other), INV[a.rt] || a.rt, Number(id)]);
+      } else {
+        const t = readTab('Relations');
+        const rows = t.rows.filter(function (r) {
+          return (String(r.contact_id_a) === String(id) && String(r.contact_id_b) === String(a.other) && r.relation_type === a.rt)
+            || (String(r.contact_id_a) === String(a.other) && String(r.contact_id_b) === String(id) && r.relation_type === (INV[a.rt] || a.rt));
+        }).map(function (r) { return r._row; }).sort(function (x, y) { return y - x; });
+        rows.forEach(function (rw) { sh.deleteRow(rw); });
+      }
+      history(g.email, 'relation', id, id, a.rt, a.a === 'rel' ? '' : String(a.other), a.a === 'rel' ? String(a.other) : '');
+      ev('action', { g: g, contact_id: id, text: 'gw', detail: (a.a === 'rel' ? 'קשר + ' : 'קשר − ') + a.rt + ' ' + a.other });
+      return { msg: gt_('done', lang), id: id };
+    }
+    return { msg: gt_('notAvail', lang) };
+  } finally { lock.releaseLock(); }
 }
