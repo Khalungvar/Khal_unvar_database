@@ -4,7 +4,7 @@
 // שום דבר לא משתנה בלי לחיצה. כל עדכון נרשם ב-History (saveCellEdits), וההחלטה נכתבת בעמודה decision.
 import { otherSheet } from './google.js';
 import { CONFIG } from './config.js';
-import { state, saveCellEdits } from './data.js';
+import { state, saveCellEdits, saveRecord, reloadMessages, displayName } from './data.js';
 import { escapeHtml as h, nowStamp, formatPhone, detectArea } from './util.js';
 
 const HEAD = ['contact_id', 'priority', 'name', 'sys_address', 'sys_phones', 'status', 'jbd_name', 'jbd_address', 'jbd_phone', 'note', 'checked_at', 'decision'];
@@ -20,6 +20,8 @@ let filter = 'todo';
 let shown = PAGE;
 const later = new Set(); // ⏭ — רק לסשן הזה
 const busy = new Set();
+let addrAt = new Map(); // contact_id → מתי הכתובת עודכנה אצלנו לאחרונה (מתוך History)
+const ADDR_HIST = new Set(['address', 'city', 'state', 'zip']);
 
 export function initJbd(helpers) { ui = helpers; }
 
@@ -37,6 +39,7 @@ const GROUPS = [
   ['multi', '? כמה אפשרויות', (r) => /^\? כמה/.test(r.status)],
   ['ok', '✓ תואם', (r) => /^✓/.test(r.status)],
   ['none', '✗ לא נמצא', (r) => /^[✗—]/.test(r.status)],
+  ['task', '☑ יש משימה', (r) => openTasks(r.contact_id).length > 0],
   ['done', '✔ טופל', (r) => Boolean(String(r.decision || '').trim())],
   ['all', 'הכל', () => true],
 ];
@@ -44,12 +47,53 @@ const GROUPS = [
 async function load(force = false) {
   if (rows && !force) return rows;
   if (loading && !force) return loading;
+  loadAddrDates();
   loading = sheet().read(`JBD_Check!A2:${DEC_COL}`).then((vals) => {
     rows = vals.map((v, i) => { const o = { row: i + 2 }; HEAD.forEach((k, j) => { o[k] = v[j] ?? ''; }); o.contact_id = String(o.contact_id); return o; })
       .filter((r) => r.contact_id);
     return rows;
   }).finally(() => { loading = null; });
   return loading;
+}
+
+/** מתוך History: התאריך האחרון שבו השתנתה הכתובת של כל איש קשר. נטען פעם אחת, ברקע. */
+async function loadAddrDates(force = false) {
+  if (addrAt.size && !force) return;
+  try {
+    const [hd = [], ...body] = await sheet().read('History!A1:H');
+    const ix = (k) => hd.indexOf(k);
+    const [iAt, iEnt, iCid, iF] = [ix('at'), ix('entity'), ix('contact_id'), ix('field')];
+    const m = new Map();
+    body.forEach((r) => {
+      if (String(r[iEnt] || '') !== 'contact' || !ADDR_HIST.has(String(r[iF] || ''))) return;
+      const id = String(r[iCid] || ''); const at = String(r[iAt] || '');
+      if (id && at > (m.get(id) || '')) m.set(id, at);
+    });
+    addrAt = m;
+    const main = document.getElementById('jbd-main');
+    if (main && rows && main.querySelector('.jbd-list')) draw(main);
+  } catch (e) { console.warn('JBD: history read failed', e); }
+}
+
+/** משימות כלליות (To Do כללי) פתוחות על האיש הזה */
+function openTasks(id) {
+  return (state.tasks || []).filter((x) => String(x.assigned_to || '') === 'all' && (x.status || 'open') !== 'done' && String(x.contact_id || '') === String(id));
+}
+function addrDateHtml(c) {
+  const at = addrAt.get(String(c?.contact_id || ''));
+  if (at) {
+    const days = (Date.now() - new Date(at.slice(0, 10)).getTime()) / 864e5;
+    return `<div class="jbd-row jbd-when"><span class="jbd-k">📅</span><span>הכתובת עודכנה אצלנו: <bdi dir="ltr">${h(at.slice(0, 10))}</bdi>${days <= 365 ? ' <span class="jbd-new">🆕 עדכון מהשנה האחרונה — אולי חדש יותר מ-JBD</span>' : ''}</span></div>`;
+  }
+  if (!addrAt.size) return '';
+  return '<div class="jbd-row jbd-when muted small"><span class="jbd-k">📅</span><span>הכתובת לא שונתה אצלנו מאז שהמערכת התחילה לרשום שינויים</span></div>';
+}
+function tasksHtml(id) {
+  const ts = openTasks(id);
+  if (!ts.length) return '';
+  return `<div class="jbd-tasks">${ts.map((x) => `<div class="jbd-task" data-jtask="${h(x.task_id)}">
+      <span>☑ <b>${h(x.text)}</b> <span class="muted small">· ${h(displayName(x.from_email || x.created_by))} · <bdi dir="ltr">${h(String(x.created_at || '').slice(0, 10))}</bdi></span></span>
+      <button type="button" class="btn small" data-jtdone="${h(x.task_id)}">✓ המשימה בוצעה</button></div>`).join('')}</div>`;
 }
 
 export function openJbd() { filter = 'todo'; shown = PAGE; ui.showView('jbd'); }
@@ -146,9 +190,10 @@ function card(r) {
       <div class="jbd-ours"><h4>אצלנו</h4>
         <div class="jbd-row"><span class="jbd-k">📍</span><span dir="ltr">${h(myAddr || '—')}</span></div>
         <div class="jbd-row"><span class="jbd-k">📞</span><span dir="ltr">${h(myPh.join(' · ') || '—')}</span></div>
-        ${c ? '' : '<p class="muted small">איש הקשר לא נמצא (אולי נמחק).</p>'}</div>
+        ${c ? addrDateHtml(c) : '<p class="muted small">איש הקשר לא נמצא (אולי נמחק).</p>'}</div>
       <div class="jbd-theirs"><h4>ב-JBD</h4>${optHtml || '<p class="muted small">לא נמצא ב-JBD.</p>'}</div>
     </div>
+    ${tasksHtml(r.contact_id)}
     <footer>${dec ? `<span class="muted small">✔ ${h(dec)}</span> <button type="button" class="btn ghost small" data-jundo="${r.row}">↺ לבטל סימון</button>`
     : `<button type="button" class="btn small" data-jkeep="${r.row}">✗ להשאיר כמו שזה</button>
        ${filter === 'todo' ? `<button type="button" class="btn ghost small" data-jlater="${r.row}">⏭ אחר כך</button>` : ''}`}</footer>
@@ -195,8 +240,20 @@ async function onClick(e) {
   const main = document.getElementById('jbd-main');
   if (b.dataset.jf) { filter = b.dataset.jf; shown = PAGE; draw(main); return; }
   if (b.hasAttribute('data-jmore')) { shown += PAGE; draw(main); return; }
-  if (b.hasAttribute('data-jreload')) { rows = null; renderJbd(); return; }
+  if (b.hasAttribute('data-jreload')) { rows = null; addrAt = new Map(); renderJbd(); return; }
   if (b.dataset.jopen) { ui.openCard(b.dataset.jopen); return; }
+  if (b.dataset.jtdone) {
+    const x = (state.tasks || []).find((y) => String(y.task_id) === b.dataset.jtdone);
+    if (!x || !confirm(`לסמן את המשימה כבוצעה?\n\n${x.text}`)) return;
+    b.disabled = true;
+    try {
+      await saveRecord('Tasks', 'task_id', { ...x, status: 'done', done_at: nowStamp(), done_by: state.email });
+      await reloadMessages();
+      ui.toast('המשימה סומנה כבוצעה.');
+    } catch (err) { ui.toast(ui.friendlyError ? ui.friendlyError(err) : err.message); }
+    draw(main);
+    return;
+  }
   const rowN = Number(b.dataset.jaddr || b.dataset.jtel || b.dataset.jkeep || b.dataset.jlater || b.dataset.jundo);
   const r = rows?.find((x) => x.row === rowN);
   if (!r) return;
