@@ -38,6 +38,8 @@ const TABS = {
     'recipients', 'recips_at', 'last_job', 'created_at', 'created_by', 'updated_at', 'occ_mod'],
   // תשובות מהציבור: א תיבה פאר אלע (נישט פאר איין גבאי — מ'ווייסט נישט אויף וועלכע מעסעדזש ער ענטפערט)
   SmsInbox: ['at', 'phone', 'contact_id', 'name', 'text', 'status', 'done_by', 'done_at', 'context'],
+  // גבאים של הקו הזמני בלבד (נוספו ב-SMS ע"י מנהלי קו) — לא מופיעים באתר
+  SmsGabbaim: ['name', 'phone', 'added_by', 'added_at', 'note'],
 };
 const DEFAULT_CONFIG = {
   price_sms: '0.01', price_mms: '0.03', price_call: '0.03', quiet_from: '21', quiet_to: '8', friday_cutoff: '13',
@@ -260,6 +262,13 @@ function gabbaiByPhone(phone) {
       return { email: s[i].gabbai_email ? lower(s[i].gabbai_email) : 'sms:' + d, name: s[i].gabbai_name || s[i].gabbai_email, smsAdmin: isT(s[i].sms_admin) };
     }
   }
+  // גבאים של הקו בלבד (לשונית SmsGabbaim)
+  try {
+    const q = readTab('SmsGabbaim').rows;
+    for (let j = 0; j < q.length; j += 1) {
+      if (String(q[j].phone || '').split(/[,;\/]/).map(last10).indexOf(d) >= 0 && String(q[j].name || '').trim()) return { email: 'sms:' + d, name: q[j].name, smsAdmin: false, smsOnly: true };
+    }
+  } catch (e) { /* */ }
   return null;
 }
 function last10(p) { const d = String(p || '').replace(/\D/g, ''); return d.length >= 10 ? d.slice(-10) : ''; }
@@ -2523,18 +2532,24 @@ function gwExec_(st, g, lang) {
 }
 
 // ---- 👤 מנהלי קו: הוספה / הסרה של גבאים ב-SMS (עמודה sms_admin בהגדרות) ----
+//   גבאי שנוסף ב-SMS נשמר בלשונית SmsGabbaim בלבד — לא באתר. גבאי מהאתר מוסרים רק באתר.
 function gwGabbaiRows_() {
-  const t = readTab('Settings');
-  return t.rows.filter(function (r) { return String(r.gabbai_name || '').trim() || String(r.gabbai_email || '').trim(); });
+  const out = [];
+  readTab('Settings').rows.forEach(function (r) {
+    if (String(r.gabbai_name || '').trim() || String(r.gabbai_email || '').trim()) out.push({ src: 'site', row: r._row, name: r.gabbai_name || r.gabbai_email, email: r.gabbai_email || '', phone: r.gabbai_phone || '', admin: isT(r.sms_admin) });
+  });
+  readTab('SmsGabbaim').rows.forEach(function (r) {
+    if (String(r.name || '').trim()) out.push({ src: 'sms', row: r._row, name: r.name, email: '', phone: r.phone || '', admin: false });
+  });
+  return out;
 }
 function gwGabbaiFind_(q) {
   const qd = last10(q.phone || q.name || ''); const qn = norm(q.name || '');
-  const rows = gwGabbaiRows_();
-  return rows.filter(function (r) {
-    if (qd && String(r.gabbai_phone || '').split(/[,;\/]/).map(last10).indexOf(qd) >= 0) return true;
+  return gwGabbaiRows_().filter(function (r) {
+    if (qd && String(r.phone || '').split(/[,;\/]/).map(last10).indexOf(qd) >= 0) return true;
     if (!qn) return false;
-    const n = norm(r.gabbai_name);
-    return qn.split(' ').filter(function (w) { return w && TITLES.indexOf(w) < 0; }).every(function (w) { return n.indexOf(w) >= 0; });
+    const n = norm(r.name);
+    return qn.split(' ').filter(function (w) { return w && TITLES.indexOf(w) < 0 && !/\d/.test(w); }).every(function (w) { return n.indexOf(w) >= 0; });
   });
 }
 function gwGabbaiCmd_(from, pr, g, lang, put) {
@@ -2542,59 +2557,61 @@ function gwGabbaiCmd_(from, pr, g, lang, put) {
   const q = pr.gabbai || {};
   if (pr.intent === 'gabbai_list') {
     gwClr_(from);
-    return gwGabbaiRows_().map(function (r, i) { return (i + 1) + '. ' + r.gabbai_name + (r.gabbai_phone ? ' · ' + String(r.gabbai_phone).split(/[,;\/]/).map(fmtPhone).join(', ') : ' · (אין טלפון)') + (isT(r.sms_admin) ? ' 👤' : ''); }).join('\n') || '—';
+    return gwGabbaiRows_().map(function (r, i) {
+      return (i + 1) + '. ' + (r.src === 'site' ? '🌐 ' : '📱 ') + r.name + (r.phone ? ' · ' + String(r.phone).split(/[,;\/]/).map(fmtPhone).join(', ') : ' · (אין טלפון)') + (r.admin ? ' 👤' : '');
+    }).join('\n') + '\n\n🌐 = מהאתר · 📱 = רק לקו · 👤 = מנהל קו';
   }
   if (pr.intent === 'gabbai_add') {
     const d = last10(q.phone);
     if (!q.name || !d) return 'צריך שם ומספר טלפון. לדוגמה: גבאי חדש: משה כ"ץ 718-555-1234';
     if (gabbaiByPhone(d)) return 'המספר ' + fmtPhone(d) + ' כבר רשום כגבאי.';
     put({ step: 'confirm', act: { a: 'g_add', name: q.name, phone: d }, lang: lang });
-    return 'להוסיף גבאי: ' + q.name + ' · ' + fmtPhone(d) + '\n' + gt_('confirm', lang);
+    return 'להוסיף גבאי לקו (לא לאתר): ' + q.name + ' · ' + fmtPhone(d) + '\n' + gt_('confirm', lang);
   }
   const m = gwGabbaiFind_(q);
   if (!m.length) return 'לא נמצא גבאי: ' + (q.name || q.phone || '');
-  if (m.length > 1) return 'יש כמה גבאים בשם הזה, כתבו שם מלא:\n' + m.map(function (r) { return '· ' + r.gabbai_name; }).join('\n');
+  if (m.length > 1) return 'יש כמה גבאים כאלה, כתבו שם מלא:\n' + m.map(function (r) { return '· ' + r.name; }).join('\n');
   const r = m[0];
   if (pr.intent === 'gabbai_remove') {
-    if (lower(r.gabbai_email) === g.email || String(r.gabbai_phone || '').split(/[,;\/]/).map(last10).indexOf(last10(from)) >= 0) return 'אי אפשר להסיר את עצמך.';
-    put({ step: 'confirm', act: { a: 'g_remove', row: r._row, name: r.gabbai_name, email: r.gabbai_email || '' }, lang: lang });
-    return 'להסיר את ' + r.gabbai_name + ' מהקו?' + (r.gabbai_email ? '\n(הכניסה שלו לאתר נשארת — רק הטלפון יוסר)' : '') + '\n' + gt_('confirm', lang);
+    if (r.src === 'site') return r.name + ' רשום באתר — מסירים אותו רק באתר.';
+    put({ step: 'confirm', act: { a: 'g_remove', name: r.name, phone: r.phone }, lang: lang });
+    return 'להסיר את ' + r.name + ' מהקו?\n' + gt_('confirm', lang);
   }
   if (pr.intent === 'gabbai_phone') {
     const d = last10(q.phone);
     if (!d) return 'איזה מספר להוסיף?';
     if (gabbaiByPhone(d)) return 'המספר ' + fmtPhone(d) + ' כבר רשום.';
-    put({ step: 'confirm', act: { a: 'g_phone', row: r._row, name: r.gabbai_name, phone: d }, lang: lang });
-    return 'להוסיף ל' + r.gabbai_name + ' את המספר ' + fmtPhone(d) + '\n' + gt_('confirm', lang);
+    put({ step: 'confirm', act: { a: 'g_phone', src: r.src, name: r.name, old: r.phone, phone: d }, lang: lang });
+    return 'להוסיף ל' + r.name + ' את המספר ' + fmtPhone(d) + '\n' + gt_('confirm', lang);
   }
   return gt_('notAvail', lang);
 }
+/** מוצא שורה מחדש לפי שם+טלפון (השורות יכולות לזוז בין האישור לביצוע) */
+function gwGabbaiRowNow_(src, name, phone) {
+  return gwGabbaiRows_().filter(function (r) { return r.src === src && r.name === name && String(r.phone || '') === String(phone || ''); })[0] || null;
+}
 function gwGabbaiExec_(a, g, lang) {
   if (!g.smsAdmin) return gt_('notAvail', lang);
-  const t = readHead('Settings');
-  const col = function (k) { return t.head.indexOf(k) + 1; };
   if (a.a === 'g_add') {
     if (gabbaiByPhone(a.phone)) return 'המספר כבר רשום.';
-    const rows = readTab('Settings').rows;
-    let row = 0;
-    for (let i = 0; i < rows.length; i += 1) { const r = rows[i]; if (!String(r.gabbai_name || '').trim() && !String(r.gabbai_email || '').trim() && !String(r.gabbai_phone || '').trim()) { row = r._row; break; } }
-    if (!row) row = t.sheet.getLastRow() + 1;
-    t.sheet.getRange(row, col('gabbai_name')).setValue(a.name);
-    t.sheet.getRange(row, col('gabbai_phone')).setValue(fmtPhone(a.phone));
-    notifyAdmins('sms_gabbai', 'SMS: גבאי חדש', g.name + ' הוסיף גבאי בקו ה-SMS: ' + a.name + ' · ' + fmtPhone(a.phone));
+    appendObj('SmsGabbaim', { name: a.name, phone: fmtPhone(a.phone), added_by: g.name, added_at: stamp() });
+    notifyAdmins('sms_gabbai', 'SMS: גבאי חדש לקו', g.name + ' הוסיף גבאי לקו ה-SMS: ' + a.name + ' · ' + fmtPhone(a.phone));
     ev('action', { g: g, text: 'gw', detail: 'גבאי + ' + a.name + ' ' + fmtPhone(a.phone) });
     return gt_('done', lang) + ' ' + a.name + ' יכול לעבוד עכשיו בקו.';
   }
   if (a.a === 'g_remove') {
-    t.sheet.getRange(a.row, col('gabbai_phone')).setValue('');
-    if (!a.email) t.sheet.getRange(a.row, col('gabbai_name')).setValue('');
-    notifyAdmins('sms_gabbai', 'SMS: הוסר גבאי', g.name + ' הסיר מקו ה-SMS: ' + a.name);
+    const r = gwGabbaiRowNow_('sms', a.name, a.phone);
+    if (!r) return 'לא נמצא (אולי כבר הוסר).';
+    sheetOf('SmsGabbaim').deleteRow(r.row);
+    notifyAdmins('sms_gabbai', 'SMS: הוסר גבאי מהקו', g.name + ' הסיר מקו ה-SMS: ' + a.name);
     ev('action', { g: g, text: 'gw', detail: 'גבאי − ' + a.name });
     return gt_('done', lang) + ' ' + a.name + ' הוסר מהקו.';
   }
   if (a.a === 'g_phone') {
-    const cur = String(t.sheet.getRange(a.row, col('gabbai_phone')).getValue() || '').trim();
-    t.sheet.getRange(a.row, col('gabbai_phone')).setValue((cur ? cur + ', ' : '') + fmtPhone(a.phone));
+    const r = gwGabbaiRowNow_(a.src, a.name, a.old);
+    if (!r) return 'לא נמצא.';
+    const val = (String(r.phone || '').trim() ? String(r.phone).trim() + ', ' : '') + fmtPhone(a.phone);
+    if (a.src === 'site') setFields('Settings', r.row, { gabbai_phone: val }); else setFields('SmsGabbaim', r.row, { phone: val });
     notifyAdmins('sms_gabbai', 'SMS: מספר לגבאי', g.name + ' הוסיף ל' + a.name + ' את המספר ' + fmtPhone(a.phone));
     ev('action', { g: g, text: 'gw', detail: 'גבאי טלפון ' + a.name + ' ' + fmtPhone(a.phone) });
     return gt_('done', lang);
