@@ -1974,6 +1974,7 @@ function jbdWrite_(row) {
 //   gwSetup() — פעם אחת אחרי פריסה: יוצר GW_SECRET ורושם את ה-webhook באפליקציה.
 // ======================================================================
 const GW_API = 'https://api.sms-gate.app/3rdparty/v1';
+const GW_EXEC_URL = 'https://script.google.com/macros/s/AKfycbzK63Qd9P3Gb-255-gVFGvqkF_NddBjJ9i5yHKrnaK_E8PwLsB_7WDO6Lh2iyqO1vPZ/exec';
 function gwAuth_() {
   const P = PropertiesService.getScriptProperties();
   const u = P.getProperty('GW_USER'); const p = P.getProperty('GW_PASS');
@@ -1985,8 +1986,8 @@ function gwSetup() {
   // כל הרצה: קוד סודי חדש (הישן נמחק עם ה-webhook הישן)
   const k = Utilities.getUuid().replace(/-/g, '');
   P.setProperty('GW_SECRET', k);
-  // מהעורך מתקבלת כתובת /dev (דורשת כניסה) — האפליקציה צריכה את /exec
-  const url = String(ScriptApp.getService().getUrl() || '').replace(/\/dev$/, '/exec');
+  // הכתובת של הפריסה הפעילה (Manage deployments) — לא getService().getUrl(), שמחזיר כתובת בדיקה
+  const url = P.getProperty('WEB_APP_URL') || GW_EXEC_URL;
   if (!url) throw new Error('הסקריפט עוד לא פורסם כ-Web app');
   const hook = url + '?k=' + k;
   const H = { Authorization: gwAuth_() };
