@@ -1992,7 +1992,7 @@ function gwSetup() {
   const H = { Authorization: gwAuth_() };
   const list = JSON.parse(UrlFetchApp.fetch(GW_API + '/webhooks', { headers: H, muteHttpExceptions: true }).getContentText() || '[]');
   (Array.isArray(list) ? list : []).forEach(function (w) {
-    if (w.event === 'sms:received' && String(w.url || '').indexOf(url) === 0) UrlFetchApp.fetch(GW_API + '/webhooks/' + w.id, { method: 'delete', headers: H, muteHttpExceptions: true });
+    if (w.event === 'sms:received' && String(w.url || '').indexOf('script.google.com/macros/') >= 0) UrlFetchApp.fetch(GW_API + '/webhooks/' + w.id, { method: 'delete', headers: H, muteHttpExceptions: true });
   });
   const r = UrlFetchApp.fetch(GW_API + '/webhooks', { method: 'post', contentType: 'application/json', headers: H, payload: JSON.stringify({ url: hook, event: 'sms:received' }), muteHttpExceptions: true });
   Logger.log('webhook: ' + r.getResponseCode() + ' ' + r.getContentText().slice(0, 200));
