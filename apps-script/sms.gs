@@ -2618,3 +2618,12 @@ function gwGabbaiExec_(a, g, lang) {
   }
   return gt_('notAvail', lang);
 }
+
+/** בדיקה מרחוק: מצב הטלפון בשרת של SMSGate (מתי נראה לאחרונה וכו') + ה-webhooks */
+function gwStatus() {
+  const H = { Authorization: gwAuth_() };
+  const d = UrlFetchApp.fetch(GW_API + '/devices', { headers: H, muteHttpExceptions: true });
+  Logger.log('devices: ' + d.getResponseCode() + ' ' + d.getContentText().slice(0, 1500));
+  const w = UrlFetchApp.fetch(GW_API + '/webhooks', { headers: H, muteHttpExceptions: true });
+  Logger.log('webhooks: ' + w.getContentText().replace(/k=[0-9a-f]+/g, 'k=***').slice(0, 800));
+}
