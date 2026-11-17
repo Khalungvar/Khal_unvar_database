@@ -1,13 +1,13 @@
 // 📻 קול אונגוואר — מערכת המיילים (שבועי "מהנעשה והנשמע" + חד פעמי), כמסך בתוך האתר הכללי (mountKol).
 // כתובת ישירה: ungvar.org/kol → האתר הכללי, ישר למסך הזה. השרת: apps-script/kol.gs (רץ בשם kol@ungvar.org).
 // הנמענים: רשימת התפוצה "מהנעשה והנשמע" — מסומנת ליד המייל של איש הקשר באתר הכללי (email_1_tags / email_2_tags).
-import { getUserEmail, currentToken, readTabs } from '../google.js?v=703';
-import { L, tr, watch } from './lang.js?v=703';
-import { CONFIG } from '../config.js?v=703';
-import { shabbatTitle } from '../parasha.js?v=703';
-import { isoToHebrewText, toHebrew, yearLabel } from '../hebdate.js?v=703';
-import { FONTS, DEF_FONT, KINDS, LIST_NAME, DEF_HEADER, DEF_FOOTER, emailHtml, emailText, fillTags, imgUrl, dlUrl, imgsOf, driveId, cleanHtml, dateOf, dayText, weekOf, hfOf, isLive } from './render.js?v=703';
-import { loadLive, simchosList, shabbosTimes, composeShabbos, composeSimchos, shabbosBox, simchosBox, boxText, boxToJpeg, DEF_SH_TITLE, DEF_SH_SUB } from './live.js?v=703';
+import { getUserEmail, currentToken, readTabs } from '../google.js?v=704';
+import { L, tr, watch } from './lang.js?v=704';
+import { CONFIG } from '../config.js?v=704';
+import { shabbatTitle } from '../parasha.js?v=704';
+import { isoToHebrewText, toHebrew, yearLabel } from '../hebdate.js?v=704';
+import { FONTS, DEF_FONT, KINDS, LIST_NAME, DEF_HEADER, DEF_FOOTER, emailHtml, emailText, fillTags, imgUrl, dlUrl, imgsOf, driveId, cleanHtml, dateOf, dayText, weekOf, hfOf, isLive } from './render.js?v=704';
+import { loadLive, simchosList, shabbosTimes, composeShabbos, composeSimchos, shabbosBox, simchosBox, boxText, boxToJpeg, DEF_SH_TITLE, DEF_SH_SUB } from './live.js?v=704';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];

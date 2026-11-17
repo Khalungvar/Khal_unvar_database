@@ -20,6 +20,8 @@ const lsSet = (k, v) => { try { localStorage.setItem(`pub:${k}`, JSON.stringify(
 // ---------- שפה ----------
 const LANGS = ['yi', 'he', 'en'];
 function pickLang() {
+  // ?lang=en (למשל לקישור פאר בודקים) — גובר על הכל, ונשמר
+  try { const q = new URLSearchParams(location.search).get('lang'); if (LANGS.includes(q)) { lsSet('lang', q); return q; } } catch { /* */ }
   const mine = lsGet('lang'); if (LANGS.includes(mine)) return mine;
   try { const app = localStorage.getItem('khal-lang'); if (LANGS.includes(app)) return app; } catch { /* */ }
   for (const l of navigator.languages || [navigator.language || '']) {
