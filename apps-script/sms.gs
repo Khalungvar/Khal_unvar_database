@@ -1778,5 +1778,19 @@ function installJobsTrigger() {
   Logger.log('ok — trigger');
 }
 
+/** פונעם עדיטאר: אלע פרטים פון די Toll-Free בקשות (כדי צו זען פארוואס מ'האט אפגעזאגט) */
+function logTfFull() {
+  const key = PropertiesService.getScriptProperties().getProperty('TELNYX_API_KEY');
+  if (!key) { Logger.log('no-key'); return; }
+  const r = UrlFetchApp.fetch('https://api.telnyx.com/v2/messaging_tollfree/verification/requests?page=1&page_size=20', { headers: { Authorization: 'Bearer ' + key }, muteHttpExceptions: true });
+  Logger.log('HTTP ' + r.getResponseCode());
+  const j = JSON.parse(r.getContentText() || '{}');
+  (j.records || []).forEach(function (x) {
+    const o = {};
+    Object.keys(x).forEach(function (k) { if (!/email|phone(?!Numbers)|contact/i.test(k)) o[k] = x[k]; });
+    Logger.log(JSON.stringify(o, null, 1));
+  });
+}
+
 /** פונעם עדיטאר: דער סטאטוס פון Toll-Free אימות ביי Telnyx */
 function logTf() { Logger.log(JSON.stringify(tfStatus(), null, 1)); }
