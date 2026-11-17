@@ -1982,9 +1982,11 @@ function gwAuth_() {
 }
 function gwSetup() {
   const P = PropertiesService.getScriptProperties();
-  let k = P.getProperty('GW_SECRET');
-  if (!k) { k = Utilities.getUuid().replace(/-/g, ''); P.setProperty('GW_SECRET', k); }
-  const url = ScriptApp.getService().getUrl();
+  // כל הרצה: קוד סודי חדש (הישן נמחק עם ה-webhook הישן)
+  const k = Utilities.getUuid().replace(/-/g, '');
+  P.setProperty('GW_SECRET', k);
+  // מהעורך מתקבלת כתובת /dev (דורשת כניסה) — האפליקציה צריכה את /exec
+  const url = String(ScriptApp.getService().getUrl() || '').replace(/\/dev$/, '/exec');
   if (!url) throw new Error('הסקריפט עוד לא פורסם כ-Web app');
   const hook = url + '?k=' + k;
   const H = { Authorization: gwAuth_() };
