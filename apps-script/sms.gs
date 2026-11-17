@@ -1792,5 +1792,26 @@ function logTfFull() {
   });
 }
 
+/** פונעם עדיטאר: שיקט נאכאמאל א Toll-Free בקשה וואס מ'האט אפגעזאגט, מיט א טויש אין אתר + הערה */
+function tfResubmit() {
+  const ID = 'b78ceb10-40f8-5f19-b6d7-babfbc06809b';
+  const key = PropertiesService.getScriptProperties().getProperty('TELNYX_API_KEY');
+  const base = 'https://api.telnyx.com/v2/messaging_tollfree/verification/requests/' + ID;
+  const g = UrlFetchApp.fetch(base, { headers: { Authorization: 'Bearer ' + key }, muteHttpExceptions: true });
+  if (g.getResponseCode() !== 200) { Logger.log('GET ' + g.getResponseCode() + ' ' + g.getContentText()); return; }
+  const x = JSON.parse(g.getContentText());
+  const rec = x.data || x;
+  ['id', 'verificationStatus', 'reason', 'createdAt', 'updatedAt', 'ticketNumber'].forEach(function (k) { delete rec[k]; });
+  rec.corporateWebsite = 'https://ungvar.org/?lang=en';
+  rec.additionalInformation = 'Website (English): https://ungvar.org/?lang=en - the home page of Khal Ungvar, our synagogue (EIN 11-2330829). '
+    + 'The SMS signup is the round "SMS" button on the home page (opens the consent form, see the opt-in image). '
+    + 'Full SMS program terms: https://ungvar.org/sms.html ; privacy policy: https://ungvar.org/privacy.html (both linked in the home page footer). '
+    + 'No purchased or third-party lists. Every recipient\'s consent is recorded with its source and date. STOP and HELP are handled automatically.';
+  Object.keys(rec).forEach(function (k) { if (rec[k] === null) delete rec[k]; });
+  const r = UrlFetchApp.fetch(base, { method: 'patch', contentType: 'application/json', headers: { Authorization: 'Bearer ' + key }, payload: JSON.stringify(rec), muteHttpExceptions: true });
+  Logger.log('PATCH ' + r.getResponseCode());
+  try { const j = JSON.parse(r.getContentText()); const d = j.data || j; Logger.log(JSON.stringify({ status: d.verificationStatus, website: d.corporateWebsite, errors: j.errors }, null, 1)); } catch (e) { Logger.log(r.getContentText().slice(0, 1500)); }
+}
+
 /** פונעם עדיטאר: דער סטאטוס פון Toll-Free אימות ביי Telnyx */
 function logTf() { Logger.log(JSON.stringify(tfStatus(), null, 1)); }
