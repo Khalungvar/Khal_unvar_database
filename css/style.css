@@ -2528,3 +2528,28 @@ body.le-wide .le-wrap { max-height: calc(100vh - 290px); }
 /* פארשוי פון א קבלה מיט א בריוו: די בלעטער איינס אונטער'ן צווייטן */
 .rx-prev-pages { gap: 12px; background: #e2dccf; }
 .rx-prev-pages > .mx-letter, .rx-prev-pages > .rx-prev-rc { box-shadow: 0 1px 6px rgba(0,0,0,.25); background: #fff; }
+
+/* 🔎 JBD Check */
+.jbd-head h1 { margin: 0 0 4px; }
+.jbd-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0 14px; }
+.jbd-filters .chip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.jbd-list { display: grid; gap: 12px; }
+.jbd-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.jbd-card.jbd-done { opacity: .65; }
+.jbd-card header { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin-bottom: 8px; }
+.jbd-card header .link { background: none; border: 0; padding: 0; cursor: pointer; font-size: 17px; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.jbd-st { font-weight: 600; }
+.jbd-cols { display: grid; grid-template-columns: 1fr 1.4fr; gap: 12px; }
+@media (max-width: 760px) { .jbd-cols { grid-template-columns: 1fr; } }
+.jbd-cols h4 { margin: 0 0 6px; font-size: 13px; color: var(--muted, #777); }
+.jbd-ours { background: rgba(0,0,0,.035); border-radius: 8px; padding: 8px 10px; }
+.jbd-theirs { display: grid; gap: 8px; }
+.jbd-opt { border: 1px dashed var(--line, #ddd); border-radius: 8px; padding: 8px 10px; }
+.jbd-opt-who { font-size: 13px; margin-bottom: 4px; }
+.jbd-row { display: flex; gap: 6px; align-items: baseline; margin: 2px 0; }
+.jbd-k { width: 1.4em; flex: none; }
+.jbd-diff { background: #fdecc8; border-radius: 4px; padding: 0 4px; font-weight: 600; }
+.jbd-same { color: #2e7d32; }
+.jbd-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.jbd-card footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.jbd-more { text-align: center; margin: 14px 0; }
