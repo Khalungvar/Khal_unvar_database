@@ -197,7 +197,6 @@ function renderLobby() {
         <button type="button" class="lobby-quick" data-quick="donation">＋ ${h(t('quickDonation'))}</button>
         <button type="button" class="lobby-quick" data-quick="occasion">＋ ${h(t('quickOccasion'))}</button>
         <button type="button" class="lobby-quick lobby-gtd" data-quick="gtodo">☑ ${h(t('gtdName'))} <span class="count-pill" id="gtd-count"${generalOpenCount() ? '' : ' hidden'}>${generalOpenCount()}</span></button>
-        <button type="button" class="lobby-quick" data-quick="kol">📻 ${h(t('kolName'))}</button>
       </div>
     </div>
     <div class="lobby-grid">
@@ -212,8 +211,9 @@ function renderLobby() {
       <div class="lobby-pair">${typeTile(ORG_FIELDS[2], '🤝')}${tile('area', '📍', t('area'), t('lobbyAreaSub', { n: areas.length }))}</div>
       ${tile('faces', '📸', t('fcTitle'), t('fcTileSub', { n: (state.faceEvents || []).length }))}
       ${tile('calls', '📞', 'Calls & SMS', t('lobbyCallsSub'))}
-      ${tile('jbd', '🔎', 'JBD Check', 'השוואת כתובות וטלפונים מול JBD')}
       <div class="lobby-pair">${tile('books', `<img class="tile-logo bk-tile-logo" src="${BOOKS_LOGO}" alt="">`, BOOKS_ORG, t('bkTileSub', { n: allBooks().length }))}${tile('luach', '🕰', t('luachTile'), t('luachTileSub'))}</div>
+      <button type="button" class="lobby-quick lobby-mini" data-quick="jbd" title="השוואת כתובות וטלפונים מול JBD">🔎 JBD Check</button>
+      <button type="button" class="lobby-quick lobby-mini" data-quick="kol">📻 ${h(t('kolName'))}</button>
     </div>
     ${open ? `<div class="lobby-choose">
       <span class="muted">${h(t('lobbyChoose'))}</span>
@@ -276,6 +276,7 @@ function lobbyClick(e) {
     if (quick.dataset.quick === 'occasion') openOccasionForm();
     if (quick.dataset.quick === 'gtodo') openGeneralTodo();
     if (quick.dataset.quick === 'kol') openKol();
+    if (quick.dataset.quick === 'jbd') { enterScope(null); document.body.classList.add('solo-mode'); openJbd(); }
     return;
   }
   const hit = e.target.closest('[data-open-card]');
