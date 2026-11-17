@@ -42,6 +42,7 @@ import { workCardHtml, workFormHtml, wireWorkForm, readWorkForm, workSearchText 
 import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, markChecked, hasRealTags, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
 import { initSimchos, openSimchos, renderSimchos, gliyonForEmail, openSimchosWeek } from './simchos.js';
 import { initFaces, openFaces, renderFaces } from './faces.js';
+import { initJbd, openJbd, renderJbd } from './jbd.js';
 import { initListSync } from './listsync.js';
 import { initBulk, openBulk } from './bulkedit.js';
 import { initMachsan, machsanSearch, hitsHtml as machsanHits, openMachsan, wireRelMachsan } from './machsan.js';
@@ -211,6 +212,7 @@ function renderLobby() {
       <div class="lobby-pair">${typeTile(ORG_FIELDS[2], '🤝')}${tile('area', '📍', t('area'), t('lobbyAreaSub', { n: areas.length }))}</div>
       ${tile('faces', '📸', t('fcTitle'), t('fcTileSub', { n: (state.faceEvents || []).length }))}
       ${tile('calls', '📞', 'Calls & SMS', t('lobbyCallsSub'))}
+      ${tile('jbd', '🔎', 'JBD Check', 'השוואת כתובות וטלפונים מול JBD')}
       <div class="lobby-pair">${tile('books', `<img class="tile-logo bk-tile-logo" src="${BOOKS_LOGO}" alt="">`, BOOKS_ORG, t('bkTileSub', { n: allBooks().length }))}${tile('luach', '🕰', t('luachTile'), t('luachTileSub'))}</div>
     </div>
     ${open ? `<div class="lobby-choose">
@@ -309,6 +311,7 @@ function lobbyClick(e) {
   if (key === 'personal') { document.body.classList.add('solo-mode'); openPersonal(); return; }
   if (key === 'receipts') { enterScope(null); document.body.classList.add('solo-mode'); openReceipts(); return; }
   if (key === 'faces') { enterScope(null); document.body.classList.add('solo-mode'); openFaces(); return; }
+  if (key === 'jbd') { enterScope(null); document.body.classList.add('solo-mode'); openJbd(); return; }
   if (key === 'books') { enterScope(null); document.body.classList.add('solo-mode'); openBooks(); return; }
   if (key === 'luach') { enterScope(null); document.body.classList.add('solo-mode'); openLuach(); return; }
   // נדבות / לוח המאורעות: א באזונדערער בלאט פון אלע רעקארדס — אן די לשוניות
@@ -399,6 +402,7 @@ function showView(name) {
   if (name === 'books') renderBooks();
   if (name === 'luach') renderLuach();
   if (name === 'faces') renderFaces();
+  if (name === 'jbd') renderJbd();
   renderListsSide();
   setHelpView(name); applyTips(name);
   $('#btn-admin')?.classList.toggle('on', name === 'admin');
@@ -2128,6 +2132,7 @@ function start() {
   initMerge({ contactById, fullNameHe, pickerLabel, fieldLabel, toast, friendlyError, refreshAll, openCard });
   initListSync({ toast, friendlyError, fullNameHe, refreshAll });
   initFaces({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard, openForm });
+  initJbd({ showView, toast, friendlyError, fullNameHe, openCard });
   initMachsan({ state, toast, openForm, openCard, fullNameHe });
   document.addEventListener('click', (e) => { const b = e.target.closest('[data-mx]'); if (!b) return; e.stopPropagation(); e.preventDefault(); openMachsan(Number(b.dataset.mx)); }, true);
   initLuach({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard, openCompose });
