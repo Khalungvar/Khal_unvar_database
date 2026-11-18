@@ -7,7 +7,7 @@ import { CONFIG } from './config.js';
 import { state, saveCellEdits, saveRecord, reloadMessages, displayName } from './data.js';
 import { escapeHtml as h, nowStamp, formatPhone, detectArea } from './util.js';
 
-const HEAD = ['contact_id', 'priority', 'name', 'sys_address', 'sys_phones', 'status', 'jbd_name', 'jbd_address', 'jbd_phone', 'note', 'checked_at', 'decision'];
+const HEAD = ['contact_id', 'priority', 'name', 'sys_address', 'sys_phones', 'status', 'jbd_name', 'jbd_address', 'jbd_phone', 'note', 'checked_at', 'decision', 'source'];
 const DEC_COL = 'L';
 const PHONE_KEYS = ['mobile', 'home_phone', 'wife_mobile', 'other_phone'];
 const PAGE = 25;
@@ -39,6 +39,7 @@ const GROUPS = [
   ['multi', '? כמה אפשרויות', (r) => /^\? כמה/.test(r.status)],
   ['ok', '✓ תואם', (r) => /^✓/.test(r.status)],
   ['none', '✗ לא נמצא', (r) => /^[✗—]/.test(r.status)],
+  ['vibe', 'לייקווד (The Vibe)', (r) => r.source === 'Vibe'],
   ['task', '☑ יש משימה', (r) => openTasks(r.contact_id).length > 0],
   ['done', '✔ טופל', (r) => Boolean(String(r.decision || '').trim())],
   ['all', 'הכל', () => true],
@@ -48,7 +49,7 @@ async function load(force = false) {
   if (rows && !force) return rows;
   if (loading && !force) return loading;
   loadAddrDates();
-  loading = sheet().read(`JBD_Check!A2:${DEC_COL}`).then((vals) => {
+  loading = sheet().read('JBD_Check!A2:M').then((vals) => {
     rows = vals.map((v, i) => { const o = { row: i + 2 }; HEAD.forEach((k, j) => { o[k] = v[j] ?? ''; }); o.contact_id = String(o.contact_id); return o; })
       .filter((r) => r.contact_id);
     return rows;
@@ -115,7 +116,7 @@ function draw(main) {
   main.innerHTML = `
     <div class="jbd-head">
       <h1>🔎 JBD Check</h1>
-      <p class="muted small">השוואה בין מה שרשום אצלנו לבין ספר הטלפונים JBD. שום דבר לא משתנה בלי לחיצה, וכל עדכון נרשם בהיסטוריה של איש הקשר.
+      <p class="muted small">השוואה בין מה שרשום אצלנו לבין ספרי הטלפונים (JBD, ולאזור לייקווד The Vibe). שום דבר לא משתנה בלי לחיצה, וכל עדכון נרשם בהיסטוריה של איש הקשר.
         נבדקו עד עכשיו <b>${total}</b>.</p>
       <div class="jbd-filters">${GROUPS.map(([k, label, fn]) => `<button type="button" class="chip${k === filter ? ' on' : ''}" data-jf="${k}">${h(label)} <span class="count-pill">${rows.filter(fn).length}</span></button>`).join('')}
         <button type="button" class="btn ghost small" data-jreload>↻ רענון</button></div>
@@ -150,6 +151,8 @@ function prettyStreet(s) {
   return String(s || '').replace(/\bAv\b\.?/g, 'Ave')
     .replace(/^(\S+\s+(?:[NSEW]\s+)?)(\d+)\s+(St|Ave|Rd|Pl|Dr|Ct|Ln|Ter|Terr)\b/i, (all, pre, n, suf) => `${pre}${ord(n)} ${suf}`);
 }
+
+const srcName = (r) => (r.source === 'Vibe' ? 'The Vibe' : 'JBD');
 
 function options(r) {
   const out = [];
@@ -191,7 +194,7 @@ function card(r) {
         <div class="jbd-row"><span class="jbd-k">📍</span><span dir="ltr">${h(myAddr || '—')}</span></div>
         <div class="jbd-row"><span class="jbd-k">📞</span><span dir="ltr">${h(myPh.join(' · ') || '—')}</span></div>
         ${c ? addrDateHtml(c) : '<p class="muted small">איש הקשר לא נמצא (אולי נמחק).</p>'}</div>
-      <div class="jbd-theirs"><h4>ב-JBD</h4>${optHtml || '<p class="muted small">לא נמצא ב-JBD.</p>'}</div>
+      <div class="jbd-theirs"><h4>ב-${srcName(r)}</h4>${optHtml || `<p class="muted small">לא נמצא ב-${srcName(r)}.</p>`}</div>
     </div>
     ${tasksHtml(r.contact_id)}
     <footer>${dec ? `<span class="muted small">✔ ${h(dec)}</span> <button type="button" class="btn ghost small" data-jundo="${r.row}">↺ לבטל</button>`
