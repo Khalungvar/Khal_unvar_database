@@ -501,7 +501,7 @@ function phonesOf(c) {
 function haystack(c) {
   const p = phonesOf(c);
   const text = [
-    c.first_name_he, c.last_name_he, c.first_name_en, c.last_name_en, c.legal_first_name,
+    c.first_name_he, c.last_name_he, c.first_name_en, c.last_name_en, c.legal_first_name, c.role,
     c.wife_name_he, c.wife_name_en, c.city, c.address, c.zip, c.area, c.contact_id,
     p.email_1, p.email_2, workSearchText(c),
   ].map(normalize).join(' ');
@@ -767,10 +767,13 @@ function fatherLine(c) {
   const id = String(c.contact_id);
   const names = (m) => (m.get(id) || []).map((x) => state.contacts.find((k) => String(k.contact_id) === x)).filter(Boolean)
     .map((d) => fullNameHe(d)).join(' / ');
+  // תפקיד (אבד"ק…, ר"מ ב…) קודם, ואחריו "בן של" / "חתן של"
+  const role = String(c.role || '').trim();
   const dad = names(fatherMap);
-  if (dad) return `<span class="row-father">${h(t('sonOfLine', { name: dad }))}</span>`;
-  const sw = names(inLawMap);
-  return sw ? `<span class="row-father">${h(t('sonInLawLine', { name: sw }))}</span>` : '';
+  const sw = dad ? '' : names(inLawMap);
+  const rel = dad ? t('sonOfLine', { name: dad }) : (sw ? t('sonInLawLine', { name: sw }) : '');
+  const txt = [role, rel].filter(Boolean).join(' · ');
+  return txt ? `<span class="row-father">${h(txt)}</span>` : '';
 }
 
 function renderList() {
@@ -881,6 +884,7 @@ function openCard(id, tab = null) {
       </label>
       <div class="card-head-text">
         <h2 dir="auto">${h(fullNameHe(c))}</h2>
+        ${String(c.role || '').trim() ? `<p class="card-role" dir="rtl">${h(c.role)}</p>` : ''}
         <p class="sub">#${h(c.contact_id)} · ${t('code')} ${h(primaryCode(c.first_name_he, c.last_name_he))}${!isAlive(c.is_alive) ? ` · ${t('deceased')}` : ''}</p>
         <button type="button" class="linkish photo-del" hidden>${h(t('photoRemove'))}</button>
       </div>
@@ -1001,7 +1005,7 @@ const ENTITY_ICON = { contact: '👤', phones: '📞', donation: '💰', occasio
 
 function fieldLabel(entity, field) {
   const map = {
-    title_he: t('title'), first_name_he: t('firstHe'), last_name_he: t('lastHe'), is_alive: t('deceased'),
+    title_he: t('title'), first_name_he: t('firstHe'), last_name_he: t('lastHe'), role: t('roleField'), is_alive: t('deceased'),
     marital_status: t('marital'), title_en: 'Title', first_name_en: 'First name', last_name_en: 'Last name',
     legal_first_name: t('legalName'), wife_name_he: t('wife'), wife_name_en: 'Wife', wife_is_rebbetzin: 'Rebbetzin',
     wife_is_alive: t('deceasedF'), wife_in_neshei: t('nesheiFull'), beis_medrash: t('orgBeisMedrash'), kollel: t('orgKollel'),
@@ -1591,6 +1595,7 @@ function openForm(c = {}, opts = {}) {
         <label>${t('firstHe')}<input name="first_name_he" dir="rtl" ${c.contact_id ? "" : "required"} value="${v('first_name_he')}" placeholder="יוסף חיים"></label>
         <label>${t('lastHe')}<input name="last_name_he" dir="rtl" required value="${v('last_name_he')}"></label>
       </div>
+      <label class="role-line">${t('roleField')}<input name="role" dir="rtl" value="${v('role')}" placeholder="אבד&quot;ק… / ר&quot;מ ב… / מעורכי…"></label>
       <div class="grid status-row">
         <label>${t('marital')}<select name="marital_status">${options(state.lists.marital_status, c.marital_status || (isNew ? 'נשוי' : ''), maritalLabel)}</select></label>
         <label class="check"><input type="checkbox" name="deceased" ${!isAlive(c.is_alive) ? 'checked' : ''}> ${t('deceased')}</label>
@@ -1868,6 +1873,7 @@ function collect(form, original) {
     title_he: val('title_he'),
     first_name_he: val('first_name_he').replace(/\s+/g, ' '),
     last_name_he: val('last_name_he').replace(/\s+/g, ' '),
+    role: val('role').replace(/\s+/g, ' '),
     is_alive: !form.elements.deceased.checked,
     marital_status: val('marital_status'),
     title_en: val('title_en'),
