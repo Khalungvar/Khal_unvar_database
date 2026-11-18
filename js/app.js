@@ -2144,7 +2144,7 @@ function start() {
   initListSync({ toast, friendlyError, fullNameHe, refreshAll });
   initFaces({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard, openForm });
   initJbd({ showView, toast, friendlyError, fullNameHe, openCard });
-  initGvoice({ showView, toast, friendlyError, openForm });
+  initGvoice({ showView, toast, friendlyError, openForm, openCard });
   initMachsan({ state, toast, openForm, openCard, fullNameHe });
   document.addEventListener('click', (e) => { const b = e.target.closest('[data-mx]'); if (!b) return; e.stopPropagation(); e.preventDefault(); openMachsan(Number(b.dataset.mx)); }, true);
   initLuach({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard, openCompose });
