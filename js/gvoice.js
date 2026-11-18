@@ -13,7 +13,7 @@ let ui = null;
 let rows = null;
 let filter = 'open';
 let kindF = 'all';
-let tab = 'pick'; // pick = רשימת החתונה · rec = הקלטות
+let tab = 'pick'; // pick = אישורים · add = איש קשר חדש · note = הערות
 const busy = new Set();
 
 export function initGvoice(helpers) { ui = helpers; }
@@ -53,10 +53,13 @@ function picks() {
   return out;
 }
 function tabsHtml() {
-  const n = picks().length; const m = rows.filter((r) => r.kind !== 'pick' && !isDone(r)).length;
+  const n = picks().length;
+  const open = (k) => rows.filter((r) => r.kind === k && !isDone(r)).length;
+  const t = (k, label) => `<button type="button" class="chip${tab === k ? ' on' : ''}" data-gvtab="${k}">${label}</button>`;
   return `<div class="gv-tabs">
-    <button type="button" class="chip${tab === 'pick' ? ' on' : ''}" data-gvtab="pick">🎉 רשימת החתונה (${n})</button>
-    <button type="button" class="chip${tab === 'rec' ? ' on' : ''}" data-gvtab="rec">🎙 הקלטות — הוספה והערות (${m} פתוחות)</button>
+    ${t('pick', `🎉 אישורים (${n})`)}
+    ${t('add', `➕ איש קשר חדש (${open('add')} פתוחים)`)}
+    ${t('note', `📝 הערות (${open('note')} פתוחות)`)}
     <button type="button" class="btn" data-gvreload>↻ רענון</button>
   </div>`;
 }
@@ -79,21 +82,18 @@ function drawPicks(main) {
 
 function draw(main) {
   if (tab === 'pick') { drawPicks(main); return; }
-  const list = rows.filter((r) => r.kind !== 'pick').filter((r) => (filter === 'all' || (filter === 'open' ? !isDone(r) : isDone(r))) && (kindF === 'all' || r.kind === kindF));
-  const cnt = (f) => rows.filter((r) => r.kind !== 'pick').filter((r) => (f === 'all' || (f === 'open' ? !isDone(r) : isDone(r)))).length;
+  const mine = rows.filter((r) => r.kind === tab);
+  const list = mine.filter((r) => filter === 'all' || (filter === 'open' ? !isDone(r) : isDone(r)));
+  const cnt = (f) => mine.filter((r) => (f === 'all' || (f === 'open' ? !isDone(r) : isDone(r)))).length;
   const chip = (k, label, cur, attr) => `<button type="button" class="chip${cur === k ? ' on' : ''}" ${attr}="${k}">${label}</button>`;
   main.innerHTML = `
     <h1>📞 קו גבאים זמני</h1>
     ${tabsHtml()}
-    <p class="muted" dir="rtl">ההקלטות שהגבאים השאירו בטלפון 929-219-1653: הוספת איש קשר (מקש 2) והערות (מקש 4).</p>
+    <p class="muted" dir="rtl">${tab === 'add' ? 'אנשים חדשים שגבאים הקליטו בטלפון 929-219-1653 (מקש 2). "צור איש קשר" פותח טופס עם הפרטים שהובנו.' : 'הערות שגבאים השאירו בטלפון 929-219-1653 (מקש 4).'}</p>
     <div class="gv-filters">
       ${chip('open', `פתוח (${cnt('open')})`, filter, 'data-gvf')}
       ${chip('done', `טופל (${cnt('done')})`, filter, 'data-gvf')}
       ${chip('all', `הכל (${cnt('all')})`, filter, 'data-gvf')}
-      <span class="gv-sep"></span>
-      ${chip('all', 'כל הסוגים', kindF, 'data-gvk')}
-      ${chip('add', KINDS.add, kindF, 'data-gvk')}
-      ${chip('note', KINDS.note, kindF, 'data-gvk')}
     </div>
     <div class="gv-list">${list.length ? list.map(item).join('') : '<p class="muted">אין כאן כלום כרגע.</p>'}</div>`;
   main.onclick = onClick;
@@ -105,7 +105,7 @@ function item(r) {
   const f = fieldsOf(r);
   const fl = [['first_name_he', 'שם פרטי'], ['last_name_he', 'שם משפחה'], ['first_name_en', 'First'], ['last_name_en', 'Last'], ['address', 'כתובת'], ['city', 'עיר'], ['zip', 'מיקוד'], ['mobile', 'נייד'], ['home_phone', 'בית']]
     .filter(([k]) => String(f[k] || '').trim()).map(([k, l]) => `<span class="gv-f"><b>${h(l)}:</b> ${h(f[k])}</span>`).join('');
-  const audio = r.drive_id ? `<audio controls preload="none" src="https://drive.google.com/uc?export=download&id=${encodeURIComponent(r.drive_id)}"></audio>
+  const audio = r.drive_id ? `<iframe class="gv-player" src="https://drive.google.com/file/d/${encodeURIComponent(r.drive_id)}/preview" allow="autoplay" loading="lazy" title="הקלטה"></iframe>
       <a href="https://drive.google.com/file/d/${encodeURIComponent(r.drive_id)}/view" target="_blank" rel="noopener">פתיחה בדרייב</a>` : '<span class="muted">אין קובץ הקלטה</span>';
   const done = isDone(r);
   return `<article class="gv-item${done ? ' done' : ''}" data-row="${r.row}">
@@ -140,7 +140,7 @@ function onClick(e) {
   if (b.dataset.gvf) { filter = b.dataset.gvf; draw(this); return; }
   if (b.dataset.gvk) { kindF = b.dataset.gvk; draw(this); return; }
   if ('gvreload' in b.dataset) { rows = null; renderGvoice(); return; }
-  if (b.dataset.gvtab) { tab = b.dataset.gvtab; draw(this); return; }
+  if (b.dataset.gvtab) { tab = b.dataset.gvtab; filter = 'open'; draw(this); return; }
   if (b.dataset.gvcard) { if (ui.openCard) ui.openCard(b.dataset.gvcard); return; }
   if ('gvcopy' in b.dataset) {
     const txt = picks().map((r) => r.transcript || r.cid).join('\n');
