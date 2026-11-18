@@ -43,6 +43,7 @@ import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS a
 import { initSimchos, openSimchos, renderSimchos, gliyonForEmail, openSimchosWeek } from './simchos.js';
 import { initFaces, openFaces, renderFaces } from './faces.js';
 import { initJbd, openJbd, renderJbd } from './jbd.js';
+import { initGvoice, openGvoice, renderGvoice } from './gvoice.js';
 import { initListSync } from './listsync.js';
 import { initBulk, openBulk } from './bulkedit.js';
 import { initMachsan, machsanSearch, hitsHtml as machsanHits, openMachsan, wireRelMachsan } from './machsan.js';
@@ -214,6 +215,7 @@ function renderLobby() {
       <div class="lobby-pair">${tile('books', `<img class="tile-logo bk-tile-logo" src="${BOOKS_LOGO}" alt="">`, BOOKS_ORG, t('bkTileSub', { n: allBooks().length }))}${tile('luach', '🕰', t('luachTile'), t('luachTileSub'))}</div>
       <button type="button" class="lobby-quick lobby-mini" data-quick="jbd" title="השוואת כתובות וטלפונים מול JBD">🔎 JBD Check</button>
       <button type="button" class="lobby-quick lobby-mini" data-quick="kol">📻 ${h(t('kolName'))}</button>
+      <button type="button" class="lobby-quick lobby-mini" data-quick="gvoice" title="ההקלטות מקו הגבאים (929)">📞 קו גבאים זמני</button>
     </div>
     ${open ? `<div class="lobby-choose">
       <span class="muted">${h(t('lobbyChoose'))}</span>
@@ -276,6 +278,7 @@ function lobbyClick(e) {
     if (quick.dataset.quick === 'occasion') openOccasionForm();
     if (quick.dataset.quick === 'gtodo') openGeneralTodo();
     if (quick.dataset.quick === 'kol') openKol();
+    if (quick.dataset.quick === 'gvoice') { enterScope(null); document.body.classList.add('solo-mode'); openGvoice(); }
     if (quick.dataset.quick === 'jbd') { enterScope(null); document.body.classList.add('solo-mode'); openJbd(); }
     return;
   }
@@ -404,6 +407,7 @@ function showView(name) {
   if (name === 'luach') renderLuach();
   if (name === 'faces') renderFaces();
   if (name === 'jbd') renderJbd();
+  if (name === 'gvoice') renderGvoice();
   renderListsSide();
   setHelpView(name); applyTips(name);
   $('#btn-admin')?.classList.toggle('on', name === 'admin');
@@ -2140,6 +2144,7 @@ function start() {
   initListSync({ toast, friendlyError, fullNameHe, refreshAll });
   initFaces({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard, openForm });
   initJbd({ showView, toast, friendlyError, fullNameHe, openCard });
+  initGvoice({ showView, toast, friendlyError, openForm });
   initMachsan({ state, toast, openForm, openCard, fullNameHe });
   document.addEventListener('click', (e) => { const b = e.target.closest('[data-mx]'); if (!b) return; e.stopPropagation(); e.preventDefault(); openMachsan(Number(b.dataset.mx)); }, true);
   initLuach({ showView, toast, friendlyError, contactById, fullNameHe, pickerLabel, openCard, openCompose });
