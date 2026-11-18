@@ -2560,3 +2560,6 @@ body.le-wide .le-wrap { max-height: calc(100vh - 290px); }
 .jbd-task { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; background: #fff7e0; border: 1px solid #f0d58a; border-radius: 8px; padding: 6px 10px; }
 .jbd-undo { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; gap: 10px; align-items: center; background: #222; color: #fff; padding: 8px 14px; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,.25); }
 .jbd-undo[hidden] { display: none; }
+.card-role { margin: 2px 0 4px; font-weight: 600; color: var(--accent); }
+.role-line { display: block; margin: 8px 0 4px; }
+.role-line input { width: 100%; }
