@@ -13,10 +13,11 @@ let ui = null;
 let rows = null;
 let filter = 'open';
 let kindF = 'all';
+let tab = 'pick'; // pick = רשימת החתונה · rec = הקלטות
 const busy = new Set();
 
 export function initGvoice(helpers) { ui = helpers; }
-export function openGvoice() { filter = 'open'; kindF = 'all'; rows = null; ui.showView('gvoice'); }
+export function openGvoice() { filter = 'open'; kindF = 'all'; tab = 'pick'; rows = null; ui.showView('gvoice'); }
 
 async function load() {
   let vals = [];
@@ -25,7 +26,7 @@ async function load() {
     throw e;
   }
   return vals.map((v, i) => { const o = { row: i + 2 }; HEAD.forEach((k, j) => { o[k] = v[j] ?? ''; }); return o; })
-    .filter((r) => r.call_id && (r.kind === 'add' || r.kind === 'note'))
+    .filter((r) => r.call_id && (r.kind === 'add' || r.kind === 'note' || r.kind === 'pick'))
     .reverse();
 }
 
@@ -42,12 +43,48 @@ export async function renderGvoice() {
 const isDone = (r) => String(r.status) === 'done';
 const KINDS = { add: '➕ הוספת איש קשר', note: '📝 הערה' };
 
+/** רשימת החתונה: מי שגבאי אישר בטלפון (מקש המספר אחרי החיפוש). אחד לכל איש. */
+function picks() {
+  const seen = new Set(); const out = [];
+  rows.filter((r) => r.kind === 'pick' && r.status !== 'removed').forEach((r) => {
+    const cid = String(fieldsOf(r).contact_id || ''); if (!cid || seen.has(cid)) return;
+    seen.add(cid); out.push({ ...r, cid });
+  });
+  return out;
+}
+function tabsHtml() {
+  const n = picks().length; const m = rows.filter((r) => r.kind !== 'pick' && !isDone(r)).length;
+  return `<div class="gv-tabs">
+    <button type="button" class="chip${tab === 'pick' ? ' on' : ''}" data-gvtab="pick">🎉 רשימת החתונה (${n})</button>
+    <button type="button" class="chip${tab === 'rec' ? ' on' : ''}" data-gvtab="rec">🎙 הקלטות — הוספה והערות (${m} פתוחות)</button>
+    <button type="button" class="btn" data-gvreload>↻ רענון</button>
+  </div>`;
+}
+function drawPicks(main) {
+  const list = picks();
+  main.innerHTML = `
+    <h1>📞 קו גבאים זמני</h1>
+    ${tabsHtml()}
+    <p class="muted" dir="rtl">אנשים שגבאי אישר בטלפון שהם ברשימת ההזמנות לחתונה. כל איש מופיע פעם אחת.</p>
+    ${list.length ? `<p><button type="button" class="btn" data-gvcopy>📋 העתקת הרשימה</button></p>` : ''}
+    <div class="gv-list">${list.length ? list.map((r) => `<article class="gv-item gv-pick">
+      <div class="gv-head"><b>${h(r.transcript || ('#' + r.cid))}</b></div>
+      <div class="muted">אושר ע"י ${h(r.gabbai)} · ${h(r.at)}</div>
+      <div class="gv-actions">
+        <button type="button" class="btn" data-gvcard="${h(r.cid)}">👤 כרטיס</button>
+        <button type="button" class="btn" data-gvrm="${r.row}">✗ להוריד מהרשימה</button>
+      </div></article>`).join('') : '<p class="muted">עוד אין אף אחד ברשימה.</p>'}</div>`;
+  main.onclick = onClick;
+}
+
 function draw(main) {
-  const list = rows.filter((r) => (filter === 'all' || (filter === 'open' ? !isDone(r) : isDone(r))) && (kindF === 'all' || r.kind === kindF));
-  const cnt = (f) => rows.filter((r) => (f === 'all' || (f === 'open' ? !isDone(r) : isDone(r)))).length;
+  if (tab === 'pick') { drawPicks(main); return; }
+  const list = rows.filter((r) => r.kind !== 'pick').filter((r) => (filter === 'all' || (filter === 'open' ? !isDone(r) : isDone(r))) && (kindF === 'all' || r.kind === kindF));
+  const cnt = (f) => rows.filter((r) => r.kind !== 'pick').filter((r) => (f === 'all' || (f === 'open' ? !isDone(r) : isDone(r)))).length;
   const chip = (k, label, cur, attr) => `<button type="button" class="chip${cur === k ? ' on' : ''}" ${attr}="${k}">${label}</button>`;
   main.innerHTML = `
     <h1>📞 קו גבאים זמני</h1>
+    ${tabsHtml()}
     <p class="muted" dir="rtl">ההקלטות שהגבאים השאירו בטלפון 929-219-1653: הוספת איש קשר (מקש 2) והערות (מקש 4).</p>
     <div class="gv-filters">
       ${chip('open', `פתוח (${cnt('open')})`, filter, 'data-gvf')}
@@ -57,7 +94,6 @@ function draw(main) {
       ${chip('all', 'כל הסוגים', kindF, 'data-gvk')}
       ${chip('add', KINDS.add, kindF, 'data-gvk')}
       ${chip('note', KINDS.note, kindF, 'data-gvk')}
-      <button type="button" class="btn" data-gvreload>↻ רענון</button>
     </div>
     <div class="gv-list">${list.length ? list.map(item).join('') : '<p class="muted">אין כאן כלום כרגע.</p>'}</div>`;
   main.onclick = onClick;
@@ -104,6 +140,21 @@ function onClick(e) {
   if (b.dataset.gvf) { filter = b.dataset.gvf; draw(this); return; }
   if (b.dataset.gvk) { kindF = b.dataset.gvk; draw(this); return; }
   if ('gvreload' in b.dataset) { rows = null; renderGvoice(); return; }
+  if (b.dataset.gvtab) { tab = b.dataset.gvtab; draw(this); return; }
+  if (b.dataset.gvcard) { if (ui.openCard) ui.openCard(b.dataset.gvcard); return; }
+  if ('gvcopy' in b.dataset) {
+    const txt = picks().map((r) => r.transcript || r.cid).join('\n');
+    navigator.clipboard?.writeText(txt).then(() => ui.toast('הרשימה הועתקה.'), () => ui.toast('לא הצלחתי להעתיק.'));
+    return;
+  }
+  if (b.dataset.gvrm) {
+    const r = rows.find((x) => String(x.row) === b.dataset.gvrm); if (!r || busy.has(r.row)) return;
+    const old = r.status; r.status = 'removed'; draw(this); busy.add(r.row);
+    sheet().write(`GabbaiCalls!I${r.row}:K${r.row}`, [['removed', state.email || '', nowStamp()]])
+      .then(() => ui.toast('הורד מהרשימה.'), (err) => { r.status = old; draw(this); ui.toast(ui.friendlyError ? ui.friendlyError(err) : err.message); })
+      .finally(() => busy.delete(r.row));
+    return;
+  }
   const r = rows.find((x) => String(x.row) === (b.dataset.gvdone || b.dataset.gvundo || b.dataset.gvadd));
   if (!r) return;
   if (b.dataset.gvdone) { setStatus(r, true); return; }
