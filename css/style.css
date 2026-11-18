@@ -2574,3 +2574,4 @@ body.le-wide .le-wrap { max-height: calc(100vh - 290px); }
 .gv-audio{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0}
 .gv-audio audio{height:34px;max-width:100%}
 .gv-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.gv-tabs{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 12px}
