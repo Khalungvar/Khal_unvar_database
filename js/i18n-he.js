@@ -222,6 +222,7 @@ export const HE = {
   "marital": "מצב משפחתי",
   "enName": "שם באנגלית",
   "legalName": "שם חוקי (לקבלות)",
+  "roleField": "תפקיד",
   "mailingName": "פנייה במכתב",
   "wife": "אישה",
   "community": "קשר עם הקהילה",
