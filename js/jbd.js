@@ -166,7 +166,7 @@ function card(r) {
   const myAddr = sysAddr(c, r);
   const myPh = PHONE_KEYS.map((k) => ph[k]).filter((x) => String(x || '').trim());
   const opts = options(r);
-  const dec = String(r.decision || '').trim();
+  const dec = decText(r);
   const name = c ? ui.fullNameHe(c) : r.name;
   const en = c ? [c.first_name_en, c.last_name_en].filter(Boolean).join(' ') : '';
   const optHtml = opts.map((o, i) => {
@@ -194,18 +194,34 @@ function card(r) {
       <div class="jbd-theirs"><h4>ב-JBD</h4>${optHtml || '<p class="muted small">לא נמצא ב-JBD.</p>'}</div>
     </div>
     ${tasksHtml(r.contact_id)}
-    <footer>${dec ? `<span class="muted small">✔ ${h(dec)}</span> <button type="button" class="btn ghost small" data-jundo="${r.row}">↺ לבטל סימון</button>`
+    <footer>${dec ? `<span class="muted small">✔ ${h(dec)}</span> <button type="button" class="btn ghost small" data-jundo="${r.row}">↺ לבטל</button>`
     : `<button type="button" class="btn small" data-jkeep="${r.row}">✗ להשאיר כמו שזה</button>
        ${filter === 'todo' ? `<button type="button" class="btn ghost small" data-jlater="${r.row}">⏭ אחר כך</button>` : ''}`}</footer>
   </article>`;
 }
 
 // ---------- פעולות ----------
-async function setDecision(r, text) {
-  const v = text ? `${text} · ${state.email} · ${nowStamp()}` : '';
+// בלי חלונות אישור: כל לחיצה מבוצעת מיד, והכרטיס עובר ל"✔ טופל". הערך הקודם נשמר בעמודת ההחלטה
+// (אחרי " ¦ "), כך ש"↺ לבטל" מחזיר אותו — גם אחרי רענון הדף.
+const UNDO_SEP = ' ¦ ';
+const decText = (r) => String(r.decision || '').split(UNDO_SEP)[0].trim();
+function decUndo(r) { try { return JSON.parse(String(r.decision || '').split(UNDO_SEP)[1] || 'null'); } catch { return null; } }
+
+async function setDecision(r, text, undo = null) {
+  const v = text ? `${text} · ${state.email} · ${nowStamp()}${undo ? UNDO_SEP + JSON.stringify(undo) : ''}` : '';
   await sheet().write(`JBD_Check!${DEC_COL}${r.row}`, [[v]]);
   r.decision = v;
 }
+
+/** מחזיר את מה שהשתנה (כתובת / טלפון) לערך הקודם */
+async function applyUndo(id, u) {
+  if (!u) return;
+  const e = { id };
+  if (u.c && Object.keys(u.c).length) e.contact = u.c;
+  if (u.p && Object.keys(u.p).length) e.phones = u.p;
+  if (e.contact || e.phones) await saveCellEdits([e]);
+}
+const mergeUndo = (a, b) => ({ c: { ...(b?.c || {}), ...(a?.c || {}) }, p: { ...(b?.p || {}), ...(a?.p || {}) } });
 
 async function updateAddress(r, o) {
   const c = contactOf(r.contact_id);
@@ -215,10 +231,9 @@ async function updateAddress(r, o) {
   const set = { address: p.address, city: p.city || c.city || '', state: p.state || c.state || '', zip: p.zip || c.zip || '' };
   const area = detectArea(state.areas || [], { zip: set.zip, city: set.city, country: c.country || '' });
   if (area) set.area = area;
-  const before = sysAddr(c, r);
-  if (!confirm(`לעדכן את הכתובת של ${ui.fullNameHe(c)}?\n\nהיום:  ${before || '—'}\nחדש:   ${[set.address, set.city, set.state, set.zip].filter(Boolean).join(', ')}`)) return false;
+  const old = {}; Object.keys(set).forEach((k) => { old[k] = c[k] ?? ''; });
   await saveCellEdits([{ id: c.contact_id, contact: set }]);
-  return 'כתובת';
+  return { did: 'כתובת', undo: { c: old } };
 }
 
 async function addPhone(r, o) {
@@ -226,12 +241,32 @@ async function addPhone(r, o) {
   if (!c) throw new Error('איש הקשר לא נמצא');
   const ph = phonesOf(c.contact_id);
   const slot = ['home_phone', 'other_phone', 'mobile'].find((k) => !String(ph[k] || '').trim());
-  if (!slot) { alert('אין משבצת ריקה לטלפון. אפשר להוסיף אותו ידנית בכרטיס.'); return false; }
+  if (!slot) { ui.toast('אין משבצת ריקה לטלפון. אפשר להוסיף אותו ידנית בכרטיס.'); return null; }
   const tel = formatPhone(o.tel) || o.tel;
-  const label = { home_phone: 'טלפון בבית', other_phone: 'טלפון נוסף', mobile: 'נייד' }[slot];
-  if (!confirm(`להוסיף ל${ui.fullNameHe(c)} את הטלפון ${tel}?\n(יישמר כ"${label}")`)) return false;
   await saveCellEdits([{ id: c.contact_id, phones: { [slot]: tel } }]);
-  return 'טלפון';
+  return { did: 'טלפון', undo: { p: { [slot]: '' } } };
+}
+
+// פס "↺ לבטל" למטה, לכמה שניות אחרי כל פעולה
+let undoTimer = null;
+function undoBar(text, fn) {
+  let bar = document.getElementById('jbd-undo');
+  if (!bar) { bar = document.createElement('div'); bar.id = 'jbd-undo'; bar.className = 'jbd-undo'; document.body.append(bar); }
+  bar.innerHTML = `<span>${h(text)}</span> <button type="button" class="btn small">↺ לבטל</button>`;
+  bar.hidden = false;
+  bar.querySelector('button').onclick = async () => {
+    bar.hidden = true; clearTimeout(undoTimer);
+    try { await fn(); ui.toast('בוטל.'); } catch (err) { ui.toast(ui.friendlyError ? ui.friendlyError(err) : err.message); }
+    const main = document.getElementById('jbd-main'); if (main) draw(main);
+  };
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(() => { bar.hidden = true; }, 8000);
+}
+
+async function undoRow(r) {
+  await applyUndo(r.contact_id, mergeUndo(decUndo(r), r.pend));
+  r.pend = null; r.did = [];
+  await setDecision(r, '');
 }
 
 async function onClick(e) {
@@ -244,12 +279,12 @@ async function onClick(e) {
   if (b.dataset.jopen) { ui.openCard(b.dataset.jopen); return; }
   if (b.dataset.jtdone) {
     const x = (state.tasks || []).find((y) => String(y.task_id) === b.dataset.jtdone);
-    if (!x || !confirm(`לסמן את המשימה כבוצעה?\n\n${x.text}`)) return;
+    if (!x) return;
     b.disabled = true;
     try {
       await saveRecord('Tasks', 'task_id', { ...x, status: 'done', done_at: nowStamp(), done_by: state.email });
       await reloadMessages();
-      ui.toast('המשימה סומנה כבוצעה.');
+      undoBar('המשימה סומנה כבוצעה.', async () => { await saveRecord('Tasks', 'task_id', { ...x, status: 'open', done_at: '', done_by: '' }); await reloadMessages(); });
     } catch (err) { ui.toast(ui.friendlyError ? ui.friendlyError(err) : err.message); }
     draw(main);
     return;
@@ -261,17 +296,28 @@ async function onClick(e) {
   if (busy.has(r.row)) return;
   busy.add(r.row); b.disabled = true;
   try {
-    if (b.dataset.jkeep) { await setDecision(r, 'להשאיר'); ui.toast('סומן: להשאיר.'); }
-    else if (b.dataset.jundo) { await setDecision(r, ''); ui.toast('הסימון בוטל.'); }
-    else {
+    if (b.dataset.jkeep) {
+      await setDecision(r, 'להשאיר', r.pend);
+      undoBar('סומן: להשאיר כמו שזה.', () => undoRow(r));
+    } else if (b.dataset.jundo) {
+      await undoRow(r);
+      ui.toast('בוטל — הוחזר כמו שהיה.');
+    } else {
       const o = options(r)[Number(b.dataset.jo) || 0];
-      const did = b.dataset.jaddr ? await updateAddress(r, o) : await addPhone(r, o);
-      if (did) {
-        // אם נשאר עוד מה לעשות באותו כרטיס (למשל גם טלפון) — לא סוגרים אותו
+      const res = b.dataset.jaddr ? await updateAddress(r, o) : await addPhone(r, o);
+      if (res) {
+        r.pend = mergeUndo(res.undo, r.pend);
+        r.did = [...(r.did || []), res.did];
+        // אם נשאר עוד מה לעשות באותו כרטיס (למשל גם טלפון) — הוא נשאר פתוח
         const still = options(r).some((x) => (x.addr && addrKey(x.addr) !== addrKey(sysAddr(contactOf(r.contact_id), r))) || (x.tel && !phoneKnown(r.contact_id, x.tel)));
-        r.did = [...(r.did || []), did];
-        if (!still || /^\? כמה/.test(r.status)) await setDecision(r, `עודכן: ${r.did.join(', ')}`);
-        ui.toast(`עודכן: ${did}.`);
+        if (!still || /^\? כמה/.test(r.status)) { await setDecision(r, `עודכן: ${r.did.join(', ')}`, r.pend); r.pend = null; }
+        const one = res.undo; const name = r.name;
+        undoBar(`עודכן: ${res.did} — ${name}`, async () => {
+          await applyUndo(r.contact_id, one);
+          r.did = (r.did || []).filter((x) => x !== res.did);
+          if (decText(r)) { const u = decUndo(r); if (u) { u.c = u.c || {}; u.p = u.p || {}; Object.keys(one.c || {}).forEach((k) => delete u.c[k]); Object.keys(one.p || {}).forEach((k) => delete u.p[k]); } await setDecision(r, r.did.length ? `עודכן: ${r.did.join(', ')}` : '', r.did.length ? u : null); }
+          else if (r.pend) { Object.keys(one.c || {}).forEach((k) => delete r.pend.c[k]); Object.keys(one.p || {}).forEach((k) => delete r.pend.p[k]); }
+        });
       }
     }
   } catch (err) {
