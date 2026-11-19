@@ -22,7 +22,7 @@ const T = {
     who: 'מי ממלא?', whoName: 'שם', whoPhone: 'טלפון', save: '💾 שמירה', saving: 'שומר…',
     pending: '{n} שינויים שעוד לא נשמרו', none: 'אין עדיין שינויים', saved: '✓ נשמר — תודה רבה!',
     errWho: 'נא למלא שם וטלפון של מי שממלא', err: 'משהו השתבש, נסו שוב', busy: 'יותר מדי פעמים, נסו מאוחר יותר',
-    errAddr: 'את הכתובת צריך לבחור מהרשימה שנפתחת מתחת לשדה (תתחילו להקליד ותבחרו)', errOut: 'צריך למלא יארצייט או לסמן "התגרשו"', errName: 'צריך למלא שם',
+    errAddr: 'את הכתובת צריך לבחור מהרשימה שנפתחת מתחת לשדה (תתחילו להקליד ותבחרו)', errOut: 'צריך למלא יארצייט או לסמן "התגרשו"', errName: 'צריך למלא שם', errRel: 'צריך לסמן למעלה: {a} או {b}',
     leave: 'יש שינויים שעוד לא נשמרו', divNote: 'הבת תקבל כרטיס משלה ברשימה, והחתן יוסר.' },
   en: { dir: 'ltr', loading: 'Loading…', notFound: 'Page not found.', people: '{n} people',
     introView: 'This is the family list as we have it.',
@@ -39,7 +39,7 @@ const T = {
     who: "Who's filling this in?", whoName: 'Name', whoPhone: 'Phone', save: '💾 Save', saving: 'Saving…',
     pending: '{n} unsaved changes', none: 'No changes yet', saved: '✓ Saved — thank you!',
     errWho: 'Please enter your name and phone', err: 'Something went wrong, please try again', busy: 'Too many tries, please try later',
-    errAddr: 'Please pick the address from the list that opens under the field', errOut: 'Fill in the yahrzeit or check "Divorced"', errName: 'Please enter a name',
+    errAddr: 'Please pick the address from the list that opens under the field', errOut: 'Fill in the yahrzeit or check "Divorced"', errName: 'Please enter a name', errRel: 'Please choose at the top: {a} or {b}',
     leave: 'You have unsaved changes', divNote: 'The daughter will get her own card; the son-in-law will be removed.' },
 };
 const store = { get: (k) => { try { return localStorage.getItem(k) || ''; } catch { return ''; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* */ } } };
@@ -147,7 +147,7 @@ function newFs(kind, x, home) {
   if (kind !== 'edit') { v.t = home ? '' : 'מו"ה'; v.wr = '0'; v.l = ''; }
   const e = kind === 'edit' ? edits[x.k] : null;
   return {
-    v, home: kind === 'edit' ? Boolean(x.lw) : home, rel: kind === 'edit' ? (x.r || '') : (home ? 's' : 's'),
+    v, home: kind === 'edit' ? Boolean(x.lw) : home, rel: kind === 'edit' ? (x.r || '') : '',
     out: e?.out ? { ...e.out } : null, outOpen: e?.out?.side || '', remarry: Boolean(e?.out?.side === 'w' && e.out.type === 'div' && e.fields?.w),
     married: false, moved: false, addrOk: true, isHead: kind === 'edit' && Boolean(x.hd), ext: kind === 'edit' && Boolean(x.x), note: e?.note || '',
   };
@@ -256,6 +256,7 @@ const FIELDS = ['t', 'f', 'l', 'fe', 'le', 'm', 'e', 'w', 'we', 'wr', 'wm', 'e2'
 function commitForm() {
   readForm();
   const fs = open.fs; const v = fs.v; formErr = '';
+  if (open.kind === 'add' && !fs.rel) { const hm = fs.home && !fs.married; formErr = tr('errRel').replace('{a}', tr('s')).replace('{b}', tr(hm ? 'd' : 'h')); render(); return false; }
   if (!fs.addrOk) { formErr = tr('errAddr'); render(); return false; }
   if (fs.out && fs.out.type === 'dead' && !(fs.out.yz?.d && fs.out.yz?.m) && fs.outOpen) { formErr = tr('errOut'); render(); return false; }
   const notes = [];
@@ -334,7 +335,7 @@ document.addEventListener('click', async (e) => {
   if (k('addm') || k('addh')) {
     const home = Boolean(k('addh')); const key = k('addm') || k('addh'); const p = x(key);
     formErr = ''; open = { kind: 'add', key, fs: newFs('add', p, home) };
-    if (p) { open.fs.v.l = cur(p).l || ''; open.fs.v.le = cur(p).le || ''; }
+    if (p) { open.fs.pl = cur(p).l || ''; open.fs.ple = cur(p).le || ''; } // שם המשפחה של האבא — נכנס רק כשמסמנים בן/בת
     render(); focusForm(); return;
   }
   if (b.hasAttribute('data-close')) { open = null; formErr = ''; render(); return; }
@@ -374,7 +375,15 @@ document.addEventListener('submit', (e) => { if (!e.target.closest('[data-form]'
 document.addEventListener('change', (e) => {
   const i = e.target; if (!open || !i.closest('[data-form]')) return;
   const fs = open.fs;
-  if (i.name === 'rel') { rerenderForm(); return; }
+  if (i.name === 'rel') {
+    readForm();
+    if (open.kind === 'add') {
+      const v = fs.v;
+      if (fs.rel === 's' || fs.rel === 'd') { if (!v.l) v.l = fs.pl || ''; if (!v.le) v.le = fs.ple || ''; }
+      else if (fs.rel === 'h') { if (v.l && v.l === fs.pl) v.l = ''; if (v.le && v.le === fs.ple) v.le = ''; }
+    }
+    render(); return;
+  }
   if (i.matches('[data-div]')) { rerenderForm(); return; }
   // אויטאמאטישע תרגום: נאר ווען דער ענגלישער פעלד איז ליידיג
   const form = i.closest('[data-form]');
