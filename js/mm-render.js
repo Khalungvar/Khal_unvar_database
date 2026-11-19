@@ -124,8 +124,10 @@ const imgSrc = (v) => (/^(data:image\/|img\/|https:\/\/)/.test(String(v || '')) 
 
 // ---------- די פעלדער ----------
 const nz = (v) => String(v ?? '').trim();
-const cityLine = (c) => [[nz(c.city), nz(c.state)].filter(Boolean).join(', '), nz(c.zip)].filter(Boolean).join(' ');
-const countryOf = (c) => (c.country && !/^(usa|us|u\.s\.a?\.?|united states)$/i.test(nz(c.country)) ? nz(c.country) : '');
+// ארץ ישראל: הדואר יוצא מהארץ — "עיר מיקוד" בלי מחוז, ובלי שם הארץ
+const isIL = (c) => /^(israel|il|ישראל|ארץ ישראל)$/i.test(nz(c.country));
+const cityLine = (c) => (isIL(c) ? [nz(c.city), nz(c.zip)].filter(Boolean).join(' ') : [[nz(c.city), nz(c.state)].filter(Boolean).join(', '), nz(c.zip)].filter(Boolean).join(' '));
+const countryOf = (c) => (c.country && !isIL(c) && !/^(usa|us|u\.s\.a?\.?|united states)$/i.test(nz(c.country)) ? nz(c.country) : '');
 const wifeEn = (c) => [isTrue(c.wife_is_rebbetzin) ? 'Rebbetzin' : 'Mrs.', nz(c.wife_name_en), nz(c.last_name_en)].filter(Boolean).join(' ');
 export const longDateEn = (iso) => {
   if (!iso) return '';
@@ -557,5 +559,5 @@ export function pageFor(D, c, opts = {}) {
 // ---------- וואס פעלט ----------
 export const hasAddr = (c) => Boolean(nz(c?.address) && (nz(c?.zip) || nz(c?.city)));
 export const partAddr = (c) => Boolean(nz(c?.address)) && !(nz(c?.city) && nz(c?.zip));
-export const addrKey = (c) => `${nz(c.address).toLowerCase().replace(/[^a-z0-9]/g, '')}|${nz(c.zip).slice(0, 5)}`;
+export const addrKey = (c) => `${nz(c.address).toLowerCase().replace(/[^a-z0-9\u0590-\u05ff]/g, '')}|${nz(c.zip).slice(0, 5)}`;
 export const isDeceased = (c) => !c._ext && !isAlive(c.is_alive) && !(c.marital_status === 'נשוי' && isAlive(c.wife_is_alive));
