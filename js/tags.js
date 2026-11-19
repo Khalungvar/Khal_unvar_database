@@ -132,9 +132,18 @@ function autoDonors(c, stored) {
   return out;
 }
 /** אלע תגיות — די געשפייכלערטע פלוס די אויטאמאטישע תורמים */
+// 👨‍👩‍👦 תגיות מחושבות מבחוץ (תיוג אוטומטי מרשימות משפחה) — לא נשמרות בגיליון
+let extraTagsFn = null;
+export function setExtraTags(fn) { extraTagsFn = fn; }
+function extraTags(c, stored) {
+  if (!extraTagsFn) return [];
+  let x = [];
+  try { x = extraTagsFn(c) || []; } catch { x = []; }
+  return x.filter((e) => !stored.some((s) => s.s !== 'auto' && pathKey(s.p) === pathKey(e.p)));
+}
 export function tagsOf(c) {
   const st = storedTags(c);
-  return [...st.filter((x) => x.s !== 'auto'), ...autoDonors(c, st)];
+  return [...st.filter((x) => x.s !== 'auto'), ...autoDonors(c, st), ...extraTags(c, st)];
 }
 export const serialize = (list) => (list.length ? JSON.stringify(list.map((x) => { const o = { p: x.p, s: x.s }; if (x.d) o.d = x.d; if (x.n) o.n = 1; if (x.o) o.o = x.o; return o; })) : '');
 // "⚠ לא נבדק": יעדער קאנטאקט ביז מ'זאגט "נבדק" (א סימן { p: ['_ok'] }). מ'קען עס נישט צוריקלייגן.
@@ -199,7 +208,7 @@ export function linesOf(c) {
     if (!map.has(key)) map.set(key, { g: root.group, key, lp, title: lineTitle(lp), items: [], root });
     map.get(key).items.push(x);
   });
-  return [...map.values()].map((l) => ({ ...l, st: lineSt(l.items), send: !l.items.every((x) => x.n), auto: l.items.find((x) => x.auto)?.auto || '' }));
+  return [...map.values()].map((l) => ({ ...l, st: lineSt(l.items), send: !l.items.every((x) => x.n), auto: l.items.find((x) => x.auto)?.auto || '', fam: l.items.find((x) => x.fam)?.fam || '' }));
 }
 /** די תפקידים ביים נאמען (גבאי · צוות · …) */
 export function roleMarks(c) {
@@ -232,7 +241,8 @@ export function cardTagsHtml(c) {
         <div class="tg-ctop">${dot(l.st)}<b>${h(l.title)}</b>
           <button type="button" class="tg-send${l.send ? ' on' : ''}" data-send="${h(l.key)}" title="${h(t('tgSendTip'))}">${l.send ? '☑' : '☐'} 📬 ${h(t('tgSend'))}</button></div>
         ${lineDetail(l) ? `<div class="tg-cdet">${lineDetail(l)}</div>` : ''}
-        ${l.auto ? `<div class="tg-cdet muted">${h(t('tgDonorLast', { d: l.auto }))}</div>` : ''}</div>`).join('') : '<p class="muted">—</p>'}</div>`;
+        ${l.auto ? `<div class="tg-cdet muted">${h(t('tgDonorLast', { d: l.auto }))}</div>` : ''}
+        ${l.fam ? `<div class="tg-cdet muted">👨‍👩‍👦 ${h(l.fam)}</div>` : ''}</div>`).join('') : '<p class="muted">—</p>'}</div>`;
   };
   const old = lines.filter((l) => l.g === 'old').flatMap((l) => l.items.map((x) => nameOf(x.p[x.p.length - 1])));
   return `<section class="tg-card"><h3>🏷 ${h(t('tgTitle'))}${hasUnchecked(c) ? ` <span class="tg-warn">⚠ ${h(t('tgUnchecked'))}</span>` : ''}</h3>
