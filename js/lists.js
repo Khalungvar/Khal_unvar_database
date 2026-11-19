@@ -462,6 +462,13 @@ async function openAllFamLinks(e) {
   $('#fl-copy', dlg).addEventListener('click', () => navigator.clipboard?.writeText(text).then(() => ui.toast('כל הקישורים הועתקו'), () => ui.toast('לא הצלחתי להעתיק', 'error')));
   renderBuilder();
 }
+/** 👁/✏ ליד Excel/PDF: מעתיק את קישור הצפייה / העריכה של רשימת משפחה */
+const famLinkBtns = () => {
+  const pub = current?.cr?.meta?.kind === 'family' ? current.cr.meta.pub : null;
+  if (!pub?.slug) return '';
+  const es = editSlugOf(pub);
+  return `${pub.on ? `<button type="button" class="btn" data-publink="${h(PUB_BASE + slugOf(pub.slug))}" title="מעתיק את קישור הצפייה">👁 קישור צפייה</button>` : ''}${pub.edit?.on && es ? `<button type="button" class="btn" data-publink="${h(PUB_BASE + es)}" title="מעתיק את קישור העריכה">✏ קישור עריכה</button>` : ''}`;
+};
 const randKey = () => { const a = 'abcdefghjkmnpqrstuvwxyz23456789'; let k = ''; const b = crypto.getRandomValues(new Uint8Array(6)); b.forEach((x) => { k += a[x % a.length]; }); return k; };
 const slugOf = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9֐-׿-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 
@@ -805,7 +812,7 @@ function tabHtml(tab, rows, ch, edit) {
   const nosendLine = (list) => (list.length ? `<p class="muted small">📭 ${h(t('L2nosendList', { n: list.length }))}: ${list.map((r) => h(nm(r.c))).join(' · ')}</p>` : '');
   if (tab === 'names') {
     const nExt = rows.filter((r) => r.ext).length;
-    return `<div class="l2-actions"><button type="button" class="btn" data-x="names">Excel</button><button type="button" class="btn" data-pdf="names">PDF</button>
+    return `<div class="l2-actions"><button type="button" class="btn" data-x="names">Excel</button><button type="button" class="btn" data-pdf="names">PDF</button>${famLinkBtns()}
       ${nExt && edit && current.list_id ? `<span class="spacer"></span><button type="button" class="btn" id="l2-extall">＋ ${h(t(state.isAdmin ? 'L2extAll' : 'L2extAllReq', { n: nExt }))}</button>` : ''}</div>
       <table class="lb-table"><thead><tr><th>${h(t('colNameHe'))}</th><th>${h(t('L2parent'))}</th><th>${h(t('enName'))}</th><th>${h(t('area'))}</th><th></th></tr></thead>
       <tbody>${rows.map((r) => `<tr data-open="${h(r.key)}"><td>${rowName(r)}</td><td class="muted small">${h(parentLine(r.key))}</td><td dir="ltr">${h([r.c.first_name_en, r.c.last_name_en].filter(Boolean).join(' '))}</td><td>${h(r.c.area || r.c.city || '')}</td>
@@ -814,7 +821,7 @@ function tabHtml(tab, rows, ch, edit) {
   }
   if (tab === 'phones') {
     const c = ch.phones;
-    return `<div class="l2-actions"><button type="button" class="btn" data-x="phones">Excel</button><button type="button" class="btn" data-pdf="phones">PDF</button></div>
+    return `<div class="l2-actions"><button type="button" class="btn" data-x="phones">Excel</button><button type="button" class="btn" data-pdf="phones">PDF</button>${famLinkBtns()}</div>
       <table class="lb-table"><thead><tr><th>${h(t('colNameHe'))}</th>${PHONE_KEYS.map(([, l]) => `<th>${h(t(l))}</th>`).join('')}<th class="print-only">✓</th></tr></thead>
       <tbody>${c.rows.map((r) => `<tr data-open="${h(r.key)}"><td>${rowName(r)}</td>${PHONE_KEYS.map(([k]) => `<td dir="ltr">${h(phonesOfRow(r)[k] || '')}</td>`).join('')}<td class="print-only"></td></tr>`).join('')}</tbody></table>
       ${missLine(c.missing)}${nosendLine(c.nosend)}`;
@@ -825,7 +832,7 @@ function tabHtml(tab, rows, ch, edit) {
     return `<div class="l2-actions">
         <label>${h(t('L2mailMode'))} <select data-mem="mailMode">${[['one', 'L2mmOne'], ['all', 'L2mmAll'], ['each', 'L2mmEach']].map(([k, l]) => `<option value="${k}"${mode === k ? ' selected' : ''}>${h(t(l))}</option>`).join('')}</select></label>
         <span class="spacer"></span>
-        ${current.list_id ? `<button type="button" class="btn primary" id="l2-mm">✉ ${h(t('L2mailMerge'))}</button>` : ''}<button type="button" class="btn" data-x="mail">Excel</button><button type="button" class="btn" data-pdf="mail">PDF</button></div>
+        ${current.list_id ? `<button type="button" class="btn primary" id="l2-mm">✉ ${h(t('L2mailMerge'))}</button>` : ''}<button type="button" class="btn" data-x="mail">Excel</button><button type="button" class="btn" data-pdf="mail">PDF</button>${famLinkBtns()}</div>
       <p class="muted small">${h(t('L2mailCount', { n: recips.length, p: c.rows.length }))}</p>
       <table class="lb-table"><thead><tr><th>${h(t('mailingName'))}</th><th>${h(t('address'))}</th><th>City</th><th>ZIP</th></tr></thead>
       <tbody>${recips.map((x) => `<tr data-open="${h(x.contact_id)}"><td dir="ltr">${h(mailingName(x) || nm(x))}</td><td dir="ltr">${h(x.address || '')}</td><td dir="ltr">${h([x.city, x.state].filter(Boolean).join(', '))}</td><td dir="ltr">${h(x.zip || '')}</td></tr>`).join('')}</tbody></table>
@@ -834,7 +841,7 @@ function tabHtml(tab, rows, ch, edit) {
   if (tab === 'email') {
     const c = ch.email; const both = Boolean(mem.email2);
     return `<div class="l2-actions"><label class="check"><input type="checkbox" data-mem="email2"${both ? ' checked' : ''}> ${h(t('L2email2'))}</label>
-        <span class="spacer"></span><button type="button" class="btn primary" id="l2-mail">✉ ${h(t('L2sendEmail'))}</button><button type="button" class="btn" data-x="email">Excel</button><button type="button" class="btn" data-pdf="email">PDF</button></div>
+        <span class="spacer"></span><button type="button" class="btn primary" id="l2-mail">✉ ${h(t('L2sendEmail'))}</button><button type="button" class="btn" data-x="email">Excel</button><button type="button" class="btn" data-pdf="email">PDF</button>${famLinkBtns()}</div>
       <table class="lb-table"><thead><tr><th>${h(t('colNameHe'))}</th><th>Email 1</th><th>Email 2</th></tr></thead>
       <tbody>${c.rows.map((r) => `<tr data-open="${h(r.key)}"><td>${rowName(r)}</td><td dir="ltr">${h(phonesOfRow(r).email_1 || '')}</td><td dir="ltr">${h(phonesOfRow(r).email_2 || '')}</td></tr>`).join('')}</tbody></table>
       ${missLine(c.missing)}${nosendLine(c.nosend)}`;
@@ -842,7 +849,7 @@ function tabHtml(tab, rows, ch, edit) {
   // פרטים
   const cols = detailCols(); const sel = mem.cols || ['name_he', 'mailing', 'address', 'city', 'zip', 'mobile'];
   return `<div class="l2-actions"><div class="tags lb-chips">${cols.map(([k, l]) => `<button type="button" class="chip toggle${sel.includes(k) ? ' on' : ''}" data-col="${k}">${h(l)}</button>`).join('')}</div>
-      <span class="spacer"></span><button type="button" class="btn" data-x="details">Excel</button><button type="button" class="btn" data-pdf="details">PDF</button></div>
+      <span class="spacer"></span><button type="button" class="btn" data-x="details">Excel</button><button type="button" class="btn" data-pdf="details">PDF</button>${famLinkBtns()}</div>
     <table class="lb-table"><thead><tr>${sel.map((k) => `<th>${h(cols.find(([x]) => x === k)?.[1] || k)}</th>`).join('')}</tr></thead>
     <tbody>${rows.map((r) => `<tr data-open="${h(r.key)}">${sel.map((k) => `<td>${h(cols.find(([x]) => x === k)?.[2](r) ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
@@ -1150,6 +1157,8 @@ function wireBuilder(main, rows, ch, P) {
     if (rs) { current.cr.remove = current.cr.remove.filter((x) => String(x.id) !== rs.dataset.restore); await saveAndRender(); return; }
     const mk = e.target.closest('[data-mk]');
     if (mk) { e.stopPropagation(); makeContact(mk.dataset.mk); return; }
+    const pl = e.target.closest('[data-publink]');
+    if (pl) { navigator.clipboard?.writeText(pl.dataset.publink).then(() => ui.toast('הקישור הועתק'), () => ui.toast(pl.dataset.publink)); return; }
     const x = e.target.closest('[data-x]');
     if (x) { exportTab(x.dataset.x, rows, ch); return; }
     const pdf = e.target.closest('[data-pdf]');
