@@ -1,7 +1,7 @@
 :root{--ink:#1b2430;--muted:#5b6472;--line:#ddd8cc;--bg:#f6f4ee;--pri:#1d4e89;--ok:#1f7a3a;--bad:#b42318;--new:#9a5b00;
   --c0:#1d4e89;--b0:#e6eef9;--c1:#1f7a3a;--b1:#eaf6ec;--c2:#b45309;--b2:#fff3e2;--c3:#6b3fa0;--b3:#f3ecfb}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:19px/1.55 "Segoe UI",Arial,"Noto Sans Hebrew",sans-serif}
+body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.45 "Segoe UI",Arial,"Noto Sans Hebrew",sans-serif}
 #fam{max-width:900px;margin:0 auto;padding:16px 14px 210px}
 .muted{color:var(--muted)}
 .fam-langs{display:flex;gap:8px;justify-content:flex-end}
@@ -15,54 +15,68 @@ body{margin:0;background:var(--bg);color:var(--ink);font:19px/1.55 "Segoe UI",Ar
 .lg{font-size:15px;font-weight:700;border-radius:20px;padding:3px 12px;border:2px solid}
 .lg.lv0{color:var(--c0);background:var(--b0);border-color:var(--c0)}.lg.lv1{color:var(--c1);background:var(--b1);border-color:var(--c1)}
 .lg.lv2{color:var(--c2);background:var(--b2);border-color:var(--c2)}.lg.lv3{color:var(--c3);background:var(--b3);border-color:var(--c3)}
-.fam-tree,.fp-kids{list-style:none;margin:0;padding:0}
-.fp-kids{padding-inline-start:26px;margin-top:10px}
-.fp{margin:10px 0}
-/* כרטיס לכל אדם — צבע לפי הדור */
-.fp-card{background:#fff;border:2px solid var(--line);border-inline-start:10px solid var(--c);border-radius:14px;padding:12px 14px;box-shadow:0 1px 3px #0001}
+/* כרטיס לכל אדם — צבע לפי הדור; כפתורים בטור בצד */
 .lv0{--c:var(--c0);--b:var(--b0)}.lv1{--c:var(--c1);--b:var(--b1)}.lv2{--c:var(--c2);--b:var(--b2)}.lv3{--c:var(--c3);--b:var(--b3)}
-.fp-card{background:linear-gradient(to left,var(--b),#fff 70%)}
-[dir=ltr] .fp-card{background:linear-gradient(to right,var(--b),#fff 70%)}
-.lv0>.fp-card{border-width:3px;border-inline-start-width:12px}
-.lv0>.fp-card .fp-name b{font-size:26px}
-.fp-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.fp-rel{display:inline-block;font-size:15px;font-weight:700;color:#fff;background:var(--c);border-radius:8px;padding:1px 10px}
-.fp-name{margin:4px 0 2px}.fp-name b{font-size:22px}
-.fp-line{font-size:17px;color:var(--muted)}
-.fp-more{display:flex;flex-wrap:wrap;gap:4px 16px}
-.fp-more span{direction:ltr;unicode-bidi:isolate}
-.fp-tag{font-size:14px;font-weight:700;border-radius:8px;padding:1px 9px;color:#fff}
-.fp-tag.bad{background:var(--bad)}.fp-tag.new{background:var(--new)}.fp-tag.ok{background:var(--ok)}
-/* ענף: בן/חתן עם כל המשפחה שלו — מסגרת נפרדת */
-.fp.branch{border:2px solid var(--c);border-radius:18px;padding:10px 12px 12px;background:#fffffffa;margin:22px 0}
-.fp-branchhead{font-weight:700;color:var(--c);font-size:18px;margin:0 4px 8px}
-.fp-branchhead span{font-weight:400;color:var(--muted);font-size:16px}
-.fp.branch .fp.branch{margin:12px 0}
-.fp.gone>.fp-card{opacity:.55}.fp.gone>.fp-card .fp-name b{text-decoration:line-through}
+.fp{margin:6px 0}
+.fp-card{display:grid;grid-template-columns:auto 1fr 1fr;grid-template-areas:"acts he en" "acts det det";gap:2px 14px;align-items:start;
+  background:linear-gradient(to left,var(--b),#fff 60%);border:2px solid var(--line);border-inline-start:8px solid var(--c);border-radius:12px;padding:8px 12px;box-shadow:0 1px 2px #0001}
+.fp-card.view{grid-template-columns:1fr 1fr;grid-template-areas:"he en" "det det"}
+.fp-acts{grid-area:acts;display:flex;flex-direction:column;gap:4px;min-width:118px}
+.fp-he{grid-area:he;text-align:right}.fp-en{grid-area:en;text-align:left}
+.fp-det{grid-area:det;display:flex;flex-wrap:wrap;gap:2px 16px;font-size:15px;color:var(--muted)}
+.fp-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.fp-rel{display:inline-block;font-size:13px;font-weight:700;color:#fff;background:var(--c);border-radius:7px;padding:0 8px}
+.fp-name b{font-size:19px}.lv0>.fp-card .fp-name b{font-size:22px}
+.fp-wife{font-size:16px;color:#333}
+.zl{color:var(--muted);font-size:15px}
+.lv0>.fp-card{border-width:3px;border-inline-start-width:10px}
+.fp-tag{font-size:12px;font-weight:700;border-radius:7px;padding:0 7px;color:#fff}
+.fp-tag.bad{background:var(--bad)}.fp-tag.new{background:var(--new)}.fp-tag.ok{background:var(--ok)}.fp-tag.home{background:#4b7bb5}.fp-tag.grey{background:#888}
+.fp.athome>.fp-card{border-style:dashed;border-inline-start-style:solid}
+.fam-tree,.fp-kids{list-style:none;margin:0;padding:0}
+.fp-kids{padding-inline-start:22px;margin-top:4px}
+/* ענף: בן/חתן עם כל המשפחה שלו */
+.fp.branch{border:2px solid var(--c);border-radius:16px;padding:6px 10px 8px;background:#fffffff2;margin:14px 0}
+.fp-branchhead{font-weight:700;color:var(--c);font-size:16px;margin:0 4px 4px}
+.fp-branchhead span{font-weight:400;color:var(--muted);font-size:15px}
+.fp.gone>.fp-card{opacity:.5}.fp.gone>.fp-card .fp-name b{text-decoration:line-through}
 .fp.new>.fp-card{border-color:#e0b25b}
 .fp.changed>.fp-card{box-shadow:0 0 0 3px #7fb38f}
-/* כפתורים גדולים וברורים */
-.fp-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-.fp-acts button,.fp-formacts button{font:inherit;font-size:17px;border:2px solid var(--line);background:#fff;border-radius:10px;padding:7px 16px;cursor:pointer;min-height:44px}
+.fp-acts button,.fp-formacts button,.ff-btns button,.b-out,.fp-out button{font:inherit;font-size:14px;border:2px solid var(--line);background:#fff;border-radius:8px;padding:3px 10px;cursor:pointer;text-align:center;white-space:nowrap}
 .fp-acts .b-edit{border-color:var(--pri);color:var(--pri);font-weight:700}
-.fp-acts .fp-addbtn{border-color:var(--ok);color:var(--ok);font-weight:700}
+.b-add{border-color:var(--ok)!important;color:var(--ok);font-weight:700}
 .fp-acts .b-del{color:var(--bad);border-color:#e7b8b3}
-.fp-acts button:hover{filter:brightness(.95)}
-.fp-form{background:#fff;border:3px solid var(--pri);border-radius:14px;padding:14px;margin:10px 0}
-.fp-addform{border-color:var(--ok);margin-inline-start:26px}
-.fp-addtitle{margin:0 0 10px;font-weight:700;font-size:20px;color:var(--pri)}
-.fp-addform .fp-addtitle{color:var(--ok)}
-.ff-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
-.ff-grid label,.ff-rel{display:flex;flex-direction:column;font-size:16px;font-weight:600;color:var(--ink);position:relative}
-.ff-a{grid-column:1/-1}
-.ff-rel{margin-bottom:10px;max-width:220px}
-.fp-form input,.fp-form select,.fam-who input{font:inherit;font-size:19px;padding:8px 10px;border:2px solid #c9c2b0;border-radius:9px;color:var(--ink);background:#fff;min-height:46px}
-.fp-form input:focus,.fp-form select:focus,.fam-who input:focus{outline:3px solid #9cc0ea;border-color:var(--pri)}
+.b-out{color:#6b4e00;border-color:#d9c48a;margin-top:6px}
+/* טופס */
+.fp-form{background:#fff;border:3px solid var(--pri);border-radius:14px;padding:12px 14px;margin:8px 0}
+.fp-addform{border-color:var(--ok);margin-inline-start:22px}
+.fp-formtitle{margin:0 0 8px;font-weight:700;font-size:19px;color:var(--pri)}
+.fp-addform .fp-formtitle{color:var(--ok)}
+.ff-relrow{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:17px}
+.ff-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ff-col{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fbfaf6}
+.ff-col.one{max-width:520px}
+.ff-col h4{margin:0 0 6px;font-size:17px;color:var(--pri)}
+.ff-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.fp-form label{display:flex;flex-direction:column;font-size:14px;font-weight:600;color:var(--ink);position:relative}
+.fp-form label.check{flex-direction:row;align-items:center;gap:6px;font-size:16px}
+.ff-full{margin-top:10px}.ff-full .ff-pair{max-width:520px}
+.ff-addr,.ff-note{margin-top:8px}
+.fp-form input,.fp-form select,.fp-form textarea,.fam-who input{font:inherit;font-size:17px;padding:6px 9px;border:2px solid #c9c2b0;border-radius:8px;color:var(--ink);background:#fff;min-height:40px}
+.fp-form input:focus,.fp-form select:focus,.fp-form textarea:focus,.fam-who input:focus{outline:3px solid #9cc0ea;border-color:var(--pri)}
+.ff-btns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.fp-out{margin-top:8px;border:2px solid #d9c48a;background:#fffaf0;border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px}
+.fp-yz{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.fp-yz select,.fp-yz input{min-height:38px;font-size:16px}
+.fp-yz input{width:120px}
+.ff-err{color:var(--bad);font-weight:700;margin:8px 0 0}
+.small{font-size:14px}
 .ff-sugg{position:absolute;top:100%;inset-inline:0;z-index:5;background:#fff;border:2px solid #c9c2b0;border-radius:9px;box-shadow:0 6px 18px #0003;max-height:280px;overflow:auto}
-.ff-sugg button{display:block;width:100%;text-align:start;border:0;border-bottom:1px solid #eee;background:#fff;padding:10px 12px;font:inherit;font-size:18px;cursor:pointer}
+.ff-sugg button{display:block;width:100%;text-align:start;border:0;border-bottom:1px solid #eee;background:#fff;padding:9px 12px;font:inherit;font-size:16px;cursor:pointer}
 .ff-sugg button:hover{background:#eef2f7}
 .fp-formacts{display:flex;gap:10px;margin-top:12px}
-.fp-formacts .pri{background:var(--pri);color:#fff;border-color:var(--pri);font-weight:700;padding:8px 26px}
+.fp-formacts button{font-size:17px;padding:7px 18px}
+.fp-formacts .pri{background:var(--pri);color:#fff;border-color:var(--pri);font-weight:700;padding:7px 28px}
 .fp-addform .fp-formacts .pri{background:var(--ok);border-color:var(--ok)}
 /* פס השמירה */
 .fam-savebar{position:fixed;bottom:0;inset-inline:0;background:#fff;border-top:3px solid var(--ok);box-shadow:0 -4px 16px #0002;padding:12px 14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center}
@@ -73,4 +87,8 @@ body{margin:0;background:var(--bg);color:var(--ink);font:19px/1.55 "Segoe UI",Ar
 .fam-save{font:inherit;font-size:26px;font-weight:700;background:var(--ok);color:#fff;border:0;border-radius:14px;padding:14px 42px;cursor:pointer}
 .fam-save:disabled{background:#a9c2b0;cursor:default}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
-@media (max-width:600px){body{font-size:18px}.fp-kids{padding-inline-start:12px}.fp.branch{padding:8px}.fam-save{width:100%}.fam-savewrap{flex-direction:column;width:100%}.fam-who input{width:100%}.fp-acts button{flex:1 1 auto}}
+@media (max-width:640px){body{font-size:17px}#fam{padding:10px 8px 230px}.fp-kids{padding-inline-start:8px}.fp.branch{padding:6px}
+  .fp-card,.fp-card.view{grid-template-columns:1fr;grid-template-areas:"he" "en" "det" "acts"}.fp-en{text-align:left}
+  .fp-acts{flex-direction:row;flex-wrap:wrap;min-width:0}.fp-acts button{flex:1 1 45%;padding:8px 6px;font-size:15px}
+  .ff-cols{grid-template-columns:1fr}.ff-pair{grid-template-columns:1fr}.fp-addform{margin-inline-start:0}
+  .fam-save{width:100%}.fam-savewrap{flex-direction:column;width:100%}.fam-who input{width:100%}}
