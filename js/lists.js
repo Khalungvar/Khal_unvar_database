@@ -24,6 +24,7 @@ const FAM_RELS = ['self', 'sons', 'sil', 'gk', 'gkd', 'ggk', 'father', 'fil', 'b
 const TABS = ['names', 'phones', 'mail', 'email', 'details'];
 
 let page = 'overview';
+let ovMode = 'lists'; // 'lists' = רשימות רגילות · 'family' = רשימות משפחות
 let current = null; // { list_id, name, scope, visibility, created_by, cr, tab }
 
 // ---------- תנאים ----------
@@ -194,8 +195,14 @@ const contactOf = (id) => state.contacts.find((c) => String(c.contact_id) === St
 function famIds(fam) {
   const m = new Map(); // id → [color indexes]
   (fam || []).slice(0, 4).forEach((f, i) => {
+    const put = (x) => { if (!m.has(x)) m.set(x, []); m.get(x).push(i); };
+    if (f?.list) { // רשימת משפחה שמורה (מ"רשימות משפחות")
+      const l = listById(f.list);
+      if (l && isFamilyList(l)) evaluate(parseSaved(l).cr, new Set([String(f.list)])).forEach((r) => { if (!r.ext) put(r.key); });
+      return;
+    }
     if (!f?.id) return;
-    familyOf(f.id, f.rel || []).forEach((x) => { if (!m.has(x)) m.set(x, []); m.get(x).push(i); });
+    familyOf(f.id, f.rel || []).forEach(put);
   });
   return m;
 }
@@ -222,6 +229,10 @@ function exceptIds(ex, seen) {
   return out;
 }
 export const listById = (id) => state.savedLists.find((l) => String(l.list_id) === String(id));
+/** 👨‍👩‍👦 רשימת משפחה (נבנית ב"רשימות משפחות"; ברשימות רגילות בוחרים אותה ב"לפי משפחה") */
+export function isFamilyList(l) { try { return JSON.parse(l?.criteria || '{}')?.meta?.kind === 'family'; } catch { return false; } }
+const PUB_BASE = 'https://ungvar.org/f/';
+const slugOf = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9֐-׿-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 
 /** די מענטשן פון א רשימה: [{ key, c, ext?, manual?, until?, colors, total }] */
 const SUB_FIELDS = ['mobile', 'home_phone', 'wife_mobile', 'other_phone', 'email_1', 'email_2'];
@@ -476,8 +487,9 @@ export function renderListsSide() {
     : `<p class="muted small side-empty">${h(t('noSavedLists'))}</p>`;
 }
 
-export function openOverview() {
-  if (!listsCanLeave(openOverview)) return;
+export function openOverview(mode) {
+  if (!listsCanLeave(() => openOverview(mode))) return;
+  if (mode === 'lists' || mode === 'family') ovMode = mode;
   page = 'overview';
   ui.showView('lists');
 }
@@ -494,6 +506,7 @@ export function openBuilder(saved = null, preset = null) {
     visibility: saved ? (saved.visibility || 'public') : 'private', created_by: saved?.created_by || state.email, cr,
     tab: cr.meta.firstTab || 'names',
   };
+  ovMode = cr.meta.kind === 'family' ? 'family' : 'lists';
   ui.showView('lists');
   if (!saved) setTimeout(() => openSettings(), 0);
 }
@@ -518,7 +531,8 @@ export function renderBuilder() {
   const barCls = nProb ? 'bad' : missingHere ? 'warn' : 'ok';
   main.innerHTML = `
     <div class="camp-page-head">
-      <div><h2>${current.visibility === 'private' ? '🔒 ' : ''}${h(current.name || t('newListTitle'))}</h2>
+      <div><h2>${current.visibility === 'private' ? '🔒 ' : ''}${current.cr.meta.kind === 'family' ? '👨‍👩‍👦 ' : ''}${h(current.name || (current.cr.meta.kind === 'family' ? 'משפחה חדשה' : t('newListTitle')))}</h2>
+        ${current.cr.meta.kind === 'family' && current.cr.meta.pub?.slug ? `<p class="muted small">🌐 <bdi dir="ltr">${h(PUB_BASE + current.cr.meta.pub.slug)}</bdi> ${current.cr.meta.pub.on ? '· פעיל' : '· כבוי'}</p>` : ''}
         ${current.cr.meta.note ? `<p class="muted">${h(current.cr.meta.note)}</p>` : ''}
         <p class="hint-line">${h(t('L2by', { name: displayName(current.created_by) }))}${current.scope ? ` · ${h(current.scope.split('|')[1] || '')}` : ''}</p></div>
       <span class="spacer"></span>
@@ -528,7 +542,7 @@ export function renderBuilder() {
         : `<button type="button" class="btn" id="l2-askedit">✋ ${h(t('L2askEdit'))}</button>`}
       ${edit ? `<div class="l2-addwrap"><button type="button" class="btn" id="l2-add">＋ ${h(t('L2addPeople'))} ▾</button>
         <div class="l2-addmenu" hidden><button type="button" data-add="one">👤 ${h(t('L2addOne'))}</button><button type="button" data-add="paste">📋 ${h(t('L2addPaste'))}</button><button type="button" data-add="excel">📄 ${h(t('L2addExcel'))}</button><button type="button" data-add="list">📋 ${h(t('L2addList'))}</button><button type="button" data-add="event">📸 ${h(t('L2addEvent'))}</button></div></div>` : ''}
-      <button type="button" class="btn" id="lb-back">← ${h(t('allLists'))}</button>
+      <button type="button" class="btn" id="lb-back">← ${current.cr.meta.kind === 'family' ? 'כל רשימות המשפחות' : h(t('allLists'))}</button>
     </div>
     <nav class="adm-tabs l2-tabs">${tabBtn('names', `👥 ${t('L2tabNames')}`, rows.length)}${tabBtn('phones', `📞 ${t('L2tabPhones')}`, ch.phones.rows.length)}${tabBtn('mail', `📬 ${t('L2tabMail')}`, ch.mail.groups.length)}${tabBtn('email', `✉ ${t('L2tabEmail')}`, ch.email.rows.length)}${tabBtn('details', `📊 ${t('L2tabDetails')}`)}</nav>
     <div id="l2-body">${editing ? editHtml(current.tab, rows) : tabHtml(current.tab, rows, ch, edit)}</div>
@@ -1010,8 +1024,19 @@ function openAdd(kind) {
       <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-close>${h(t('cancel'))}</button><button type="button" class="btn primary" id="l2-one-ok">${h(t('lbAddBtn'))}</button></div>`);
     $('#l2-one', dlg).focus();
     $('#l2-one-ok', dlg).onclick = async () => {
-      const m = $('#l2-one', dlg).value.match(/\(#(\d+)\)/);
-      if (!m || !contactOf(m[1])) { ui.toast(t('pickValid'), 'error'); return; }
+      const val = $('#l2-one', dlg).value.trim();
+      const m = val.match(/\(#(\d+)\)/);
+      if (!m || !contactOf(m[1])) {
+        // לא מהמאגר → שורה "רק ברשימה" (אחר כך: "יצירת איש קשר")
+        const x = val && parseLines(val)[0];
+        if (!x || !(x.last_he || x.last_en)) { ui.toast(t('pickValid'), 'error'); return; }
+        const until = readDuration(dlg);
+        current.cr.ext.push({ key: Math.random().toString(36).slice(2, 9), ...x, ...(until ? { until } : {}) });
+        dlg.close();
+        await saveAndRender();
+        ui.toast('נוסף לרשימה (לא מהמאגר) — אפשר ללחוץ "יצירת איש קשר" לידו');
+        return;
+      }
       const until = readDuration(dlg);
       addIds([m[1]], until);
       dlg.close();
@@ -1217,7 +1242,24 @@ function areaPick(sel, prefix) {
   return `<div class="tags lb-chips" data-area="${prefix}">${allAreas().map((a) => `<button type="button" class="chip toggle${sel.includes(a) ? ' on' : ''}" data-v="${h(a)}">${h(areaLabel(a))}</button>`).join('')}</div>
     ${prefix === 'x' ? `<button type="button" class="linkish" data-allbut="${prefix}">${h(t('L2allBut'))}</button>` : ''}`;
 }
+/** ברשימה רגילה: "לפי משפחה" = בוחרים רשימות משפחות שמורות (עד 4, כל אחת בצבע) */
+function famListPick(list, prefix) {
+  const fams = state.savedLists.filter((l) => String(l.list_id || '').trim() && isFamilyList(l) && canSee(l));
+  const chosen = (list || []).filter((f) => f.list).map((f) => String(f.list));
+  const legacy = (list || []).filter((f) => !f.list && f.id);
+  const color = (id) => { const i = chosen.indexOf(String(id)); return i >= 0 && i < 4 ? `<i class="l2-fam" style="background:${FAM_COLORS[i]}"></i>` : ''; };
+  return `${fams.length ? `<div class="l2-lists">${fams.map((l) => `<div><label class="check"><input type="checkbox" data-${prefix}fl="${h(l.list_id)}"${chosen.includes(String(l.list_id)) ? ' checked' : ''}> ${color(l.list_id)}👨‍👩‍👦 ${h(l.name)} <span class="muted small">(${evaluate(parseSaved(l).cr).length})</span></label></div>`).join('')}</div>
+    <p class="muted small">עד 4 משפחות. משפחה חדשה בונים ב"רשימות מוכנות" ← "👨‍👩‍👦 רשימות משפחות".</p>`
+    : '<p class="muted small">עוד אין רשימות משפחות. בונים אותן ב"רשימות מוכנות" ← "👨‍👩‍👦 רשימות משפחות".</p>'}
+    ${legacy.map((f, j) => { const c = contactOf(f.id); return `<label class="check muted small"><input type="checkbox" data-${prefix}flegacy="${h(JSON.stringify(f))}" checked> (הגדרה ישנה) ${h(c ? nm(c) : `#${f.id}`)} — ${(f.rel || []).map((r) => t(`L2rel_${r}`)).join(', ')}</label>`; }).join('')}`;
+}
+function readFamList(root, prefix) {
+  const lists = $$(`[data-${prefix}fl]:checked`, root).map((x) => ({ list: x.getAttribute(`data-${prefix}fl`) }));
+  const legacy = $$(`[data-${prefix}flegacy]:checked`, root).map((x) => { try { return JSON.parse(x.getAttribute(`data-${prefix}flegacy`)); } catch { return null; } }).filter(Boolean);
+  return [...lists, ...legacy].slice(0, 4);
+}
 function famPick(list, prefix) {
+  if (current?.cr?.meta?.kind !== 'family') return famListPick(list, prefix);
   const rows = [0, 1, 2, 3].map((i) => {
     const f = list[i] || { id: '', rel: ['self', 'sons', 'sil'] };
     const c = f.id ? contactOf(f.id) : null;
@@ -1228,6 +1270,7 @@ function famPick(list, prefix) {
   return `${rows}<datalist id="dl-l2f">${state.contacts.map((x) => `<option value="${h(ui.pickerLabel(x))}">`).join('')}</datalist>`;
 }
 function readFam(root, prefix) {
+  if (current?.cr?.meta?.kind !== 'family') return readFamList(root, prefix);
   return [0, 1, 2, 3].map((i) => {
     const m = String($(`[data-${prefix}fam="${i}"]`, root)?.value || '').match(/\(#(\d+)\)/);
     if (!m) return null;
@@ -1266,6 +1309,8 @@ const BASES = [['tags', '🏷', 'L2bTags'], ['area', '📍', 'L2bArea'], ['famil
 
 function openSettings() {
   const cr = current.cr; const ex = cr.except;
+  const fam = cr.meta.kind === 'family';
+  const pub = cr.meta.pub || {};
   const own = isOwner({ created_by: current.created_by }) || state.isAdmin;
   const scopeOpts = [['', t('L2allOrgs')], ...ORG_TYPES.flatMap((k) => (state.lists[k] || []).map((v) => [`${k}|${v}`, v]))];
   const xParts = { tags: ex.tags.keys.length > 0, area: ex.areas.length > 0, family: ex.family.length > 0, donation: Boolean(ex.donation), lists: ex.lists.length > 0 };
@@ -1280,19 +1325,29 @@ function openSettings() {
       <label>${h(t('L2purpose'))}<select name="firstTab">${TABS.map((k) => `<option value="${k}"${(cr.meta.firstTab || 'names') === k ? ' selected' : ''}>${h(t(`L2tab${k[0].toUpperCase()}${k.slice(1)}`))}</option>`).join('')}</select></label>
       ${own && current.list_id ? `<div class="l2-access">${['editors', 'viewers'].map((k) => `<p><b>${h(t(`L2${k}`))}:</b> ${(cr.meta[k] || []).map((e) => `<span class="chip">${h(displayName(e))} <button type="button" class="linkish" data-revoke="${k}|${h(e)}">✕</button></span>`).join(' ') || '—'}</p>`).join('')}</div>` : ''}
     </fieldset>
-    <fieldset><legend>✚ ${h(t('L2whoIn'))}</legend>
+    ${fam ? `<fieldset><legend>👪 ראשי המשפחה (עד 4) ואילו קרובים לכלול</legend>
+      <input type="radio" name="base" value="family" checked hidden>
+      ${famPick(cr.family, 'i')}
+      <p class="muted small">אחרי השמירה אפשר להוסיף ידנית אנשים (גם כאלה שלא במאגר) בכפתור "＋ הוספת אנשים", ולהוריד מי שלא שייך ב-✕.</p>
+    </fieldset>
+    <fieldset><legend>🌐 דף ציבורי</legend>
+      <label>כתובת הקישור <span class="l2-pubrow"><bdi dir="ltr" class="muted">${h(PUB_BASE)}</bdi><input name="slug" dir="ltr" value="${h(pub.slug || '')}" placeholder="klein"></span></label>
+      <label class="check"><input type="checkbox" name="pubOn"${pub.on ? ' checked' : ''}> הקישור פעיל (כבוי = מי שנכנס לא רואה כלום)</label>
+      <label>סוג הדף<select name="pubType"><option value="form"${(pub.type || 'form') === 'form' ? ' selected' : ''}>טופס — לאשר, לתקן ולהוסיף</option><option value="view"${pub.type === 'view' ? ' selected' : ''}>תצוגה בלבד</option></select></label>
+      <p><button type="button" class="btn small-btn" id="l2-copylink">📋 העתקת הקישור</button> <span class="muted small">הדף עצמו (מה שהמשפחה רואה) ייבנה בשלב הבא.</span></p>
+    </fieldset>` : `<fieldset><legend>✚ ${h(t('L2whoIn'))}</legend>
       <div class="l2-row">${BASES.map(([k, ic, l]) => `<label class="check l2-base"><input type="radio" name="base" value="${k}"${cr.base === k ? ' checked' : ''}> ${ic} ${h(t(l))}</label>`).join('')}</div>
       <div class="l2-basebox" data-for="tags"${cr.base === 'tags' ? '' : ' hidden'}>${tagPick(cr.tags, 'i')}</div>
       <div class="l2-basebox" data-for="area"${cr.base === 'area' ? '' : ' hidden'}>${areaPick(cr.areas, 'i')}</div>
       <div class="l2-basebox" data-for="family"${cr.base === 'family' ? '' : ' hidden'}>${famPick(cr.family, 'i')}</div>
       <div class="l2-basebox" data-for="donation"${cr.base === 'donation' ? '' : ' hidden'}>${donPick(cr.donation, 'i')}</div>
       <h4>＋ ${h(t('L2fromLists'))}</h4>${listPick(cr.lists, true)}
-    </fieldset>
-    <fieldset><legend>⊖ ${h(t('L2except'))}</legend>
+    </fieldset>`}
+    ${fam ? '' : `<fieldset><legend>⊖ ${h(t('L2except'))}</legend>
       ${[['tags', '🏷', 'L2bTags', () => tagPick(ex.tags, 'x')], ['area', '📍', 'L2bArea', () => areaPick(ex.areas, 'x')], ['family', '👪', 'L2bFamily', () => famPick(ex.family, 'x')],
         ['donation', '💰', 'L2bDonation', () => donPick(ex.donation || DON(), 'x')], ['lists', '📋', 'L2fromLists', () => listPick(ex.lists.map((id) => ({ id })), false)]]
         .map(([k, ic, l, fn]) => `<details class="l2-xpart" data-xp="${k}"${xParts[k] ? ' open' : ''}><summary><label class="check"><input type="checkbox" data-xon="${k}"${xParts[k] ? ' checked' : ''}> ${ic} ${h(t(l))}</label></summary><div class="l2-xbody">${fn()}</div></details>`).join('')}
-    </fieldset>
+    </fieldset>`}
     <fieldset><legend>${h(t('L2filters'))}</legend>
       <div class="tags lb-chips" data-marital>${(state.lists.marital_status || []).map((m) => `<button type="button" class="chip toggle${cr.marital.includes(m) ? ' on' : ''}" data-v="${h(m)}">${h(m)}</button>`).join('')}</div>
       <label class="check"><input type="checkbox" name="dead"${cr.includeDeceased ? ' checked' : ''}> ${h(t('lbInclDeceased'))}</label>
@@ -1307,11 +1362,11 @@ function openSettings() {
   const form = $('#l2-set', dlg);
   const read = () => {
     const base = $('[name=base]:checked', form)?.value || '';
-    const on = (k) => $(`[data-xon="${k}"]`, form).checked;
+    const on = (k) => Boolean($(`[data-xon="${k}"]`, form)?.checked);
     const famX = readFam(form, 'x');
     return normalize({
       ...cr, v: 2, base,
-      tags: readTagPick($('[data-for=tags]', form), 'i', cr.tags),
+      tags: fam ? cr.tags : readTagPick($('[data-for=tags]', form), 'i', cr.tags),
       areas: $$('[data-area=i] .chip.on', form).map((b) => b.dataset.v),
       family: readFam(form, 'i'),
       donation: readDon(form, 'i') || DON(),
@@ -1325,7 +1380,8 @@ function openSettings() {
       },
       marital: $$('[data-marital] .chip.on', form).map((b) => b.dataset.v),
       includeDeceased: form.elements.dead.checked, includeInactive: form.elements.inact.checked, includeNoSend: form.elements.nosend.checked,
-      meta: { ...cr.meta, note: form.elements.note.value.trim(), firstTab: form.elements.firstTab.value },
+      meta: { ...cr.meta, note: form.elements.note.value.trim(), firstTab: form.elements.firstTab.value,
+        ...(fam ? { pub: { slug: slugOf(form.elements.slug.value), on: form.elements.pubOn.checked, type: form.elements.pubType.value } } : {}) },
     });
   };
   const preview = () => { try { $('#l2-preview', dlg).textContent = t('lbCount', { n: evaluate(read()).length }); } catch { /* */ } };
@@ -1363,6 +1419,11 @@ function openSettings() {
     const rv = e.target.closest('[data-revoke]');
     if (rv) { const [k, em] = rv.dataset.revoke.split('|'); cr.meta[k] = (cr.meta[k] || []).filter((x) => x !== em); rv.closest('.chip').remove(); }
   });
+  $('#l2-copylink', dlg)?.addEventListener('click', () => {
+    const sl = slugOf(form.elements.slug.value);
+    if (!sl) { ui.toast('קודם כתבו כתובת לקישור', 'error'); form.elements.slug.focus(); return; }
+    navigator.clipboard?.writeText(PUB_BASE + sl).then(() => ui.toast('הקישור הועתק'), () => ui.toast(PUB_BASE + sl));
+  });
   $('#l2-delreq', dlg)?.addEventListener('click', async () => {
     const { submitRequest } = await import('./requests.js');
     if (await submitRequest('list_delete', { list_id: String(current.list_id) }, t('L2reqDelete', { name: current.name }))) dlg.close();
@@ -1375,6 +1436,12 @@ function openSettings() {
     e.preventDefault();
     const name = form.elements.name.value.trim();
     if (!name) { ui.toast(t('lbNameRequired'), 'error'); form.elements.name.focus(); return; }
+    if (fam) {
+      const sl = slugOf(form.elements.slug.value);
+      const taken = sl && state.savedLists.some((l) => String(l.list_id) !== String(current.list_id) && isFamilyList(l) && slugOf(parseSaved(l).cr.meta.pub?.slug) === sl);
+      if (taken) { ui.toast('הכתובת הזו כבר בשימוש אצל משפחה אחרת', 'error'); form.elements.slug.focus(); return; }
+      if (form.elements.pubOn.checked && !sl) { ui.toast('כדי להפעיל את הקישור צריך כתובת', 'error'); form.elements.slug.focus(); return; }
+    }
     current.cr = read();
     current.name = name; current.visibility = $('[name=vis]:checked', form).value; current.scope = form.elements.scope.value;
     const btn = $('[type=submit]', form); btn.disabled = true;
@@ -1431,14 +1498,22 @@ function openProblems(P) {
 
 // ---------- איבערבליק ----------
 function renderOverview(main) {
-  const lists = savedInScope({ all: true });
+  const famMode = ovMode === 'family';
+  const all = savedInScope({ all: true });
+  const lists = all.filter((l) => isFamilyList(l) === famMode);
+  const nFam = all.filter(isFamilyList).length;
   const myReqs = (state.requests || []).filter((r) => ['list_access', 'list_delete'].includes(r.type) && (r.status || 'pending') === 'pending')
     .filter((r) => { try { const l = listById(JSON.parse(r.payload).list_id); return l && isOwner(l) && !state.isAdmin; } catch { return false; } });
   main.innerHTML = `
     <div class="camp-page-head">
-      <div><h2>${t('savedLists')}</h2><p class="muted">${h(t('L2listsHint'))}</p></div>
+      ${famMode ? `<div><h2>👨‍👩‍👦 רשימות משפחות</h2><p class="muted">כל משפחה: ראשי משפחה וקרובים לפי הקשרים בכרטיסים, ועוד אנשים שמוסיפים ידנית. ברשימות רגילות בוחרים אותה ב"לפי משפחה". לכל משפחה אפשר להגדיר קישור לדף ציבורי.</p></div>
+      <span class="spacer"></span>
+      <button type="button" class="btn primary" id="lo-newfam">+ משפחה חדשה</button>
+      <button type="button" class="btn" id="lo-tolists">← ${h(t('allLists'))}</button>`
+    : `<div><h2>${t('savedLists')}</h2><p class="muted">${h(t('L2listsHint'))}</p></div>
       <span class="spacer"></span>
       <button type="button" class="btn primary" id="lo-new">${t('newList')}</button>
+      <button type="button" class="btn" id="lo-fam">👨‍👩‍👦 רשימות משפחות${nFam ? ` (${nFam})` : ''}</button>`}
     </div>
     ${myReqs.length ? `<div class="l2-reqs"><h3>✋ ${h(t('L2reqsMine'))}</h3>${myReqs.map((r) => `<div class="l2-prow" data-rq="${h(r.request_id)}"><b>${h(r.summary)}</b> · ${h(displayName(r.requested_by))}
       <button type="button" class="btn small-btn primary" data-rqok="approved">✓</button><button type="button" class="btn small-btn danger" data-rqok="declined">✕</button></div>`).join('')}</div>` : ''}
@@ -1446,12 +1521,15 @@ function renderOverview(main) {
       <thead><tr><th>${t('lbNamePh')}</th><th>${t('lbCountCol')}</th><th>${t('lbUpdated')}</th><th></th></tr></thead>
       <tbody>${lists.map((l) => {
         const see = canSee(l); const { cr } = parseSaved(l);
-        return `<tr data-open="${h(l.list_id)}"${see ? '' : ' class="l2-locked"'}><td><b>${l.visibility === 'private' ? '🔒 ' : ''}${h(l.name)}</b>${cr.meta.note ? `<div class="muted small">${h(cr.meta.note)}</div>` : ''}</td>
+        return `<tr data-open="${h(l.list_id)}"${see ? '' : ' class="l2-locked"'}><td><b>${l.visibility === 'private' ? '🔒 ' : ''}${famMode ? '👨‍👩‍👦 ' : ''}${h(l.name)}</b>${cr.meta.note ? `<div class="muted small">${h(cr.meta.note)}</div>` : ''}${famMode && cr.meta.pub?.slug ? `<div class="muted small">🌐 <bdi dir="ltr">${h(PUB_BASE + cr.meta.pub.slug)}</bdi>${cr.meta.pub.on ? '' : ' · כבוי'}</div>` : ''}</td>
           <td class="num">${see ? evaluate(cr).length : '—'}</td>
           <td class="muted small"><bdi dir="ltr">${h(l.updated_at || '')}</bdi> · ${h(displayName(l.created_by))}</td>
           <td class="lo-btns">${see ? `<button type="button" class="btn small-btn" data-copy="${h(l.list_id)}">${t('lbDuplicate')}</button>` : `<button type="button" class="btn small-btn" data-ask="${h(l.list_id)}">✋ ${h(t('L2askView'))}</button>`}</td></tr>`;
-      }).join('')}</tbody></table>` : `<p class="empty">${t('noSavedLists')}</p>`}`;
-  $('#lo-new', main).onclick = () => openBuilder();
+      }).join('')}</tbody></table>` : `<p class="empty">${famMode ? 'עוד אין רשימות משפחות. לחצו "+ משפחה חדשה".' : t('noSavedLists')}</p>`}`;
+  $('#lo-new', main)?.addEventListener('click', () => openBuilder());
+  $('#lo-fam', main)?.addEventListener('click', () => openOverview('family'));
+  $('#lo-tolists', main)?.addEventListener('click', () => openOverview('lists'));
+  $('#lo-newfam', main)?.addEventListener('click', () => openBuilder(null, { name: '', criteria: { v: 2, base: 'family', family: [], meta: { kind: 'family', firstTab: 'names' } } }));
   main.onclick = async (e) => {
     const ok = e.target.closest('[data-rqok]');
     if (ok) {
@@ -1467,7 +1545,7 @@ function renderOverview(main) {
       e.stopPropagation();
       const l = listById(cp.dataset.copy);
       const { cr } = parseSaved(l);
-      openBuilder(null, { name: `${l.name} (${t('copyWord')})`, criteria: { ...cr, meta: { ...cr.meta, editors: [], viewers: [] } } });
+      openBuilder(null, { name: `${l.name} (${t('copyWord')})`, criteria: { ...cr, meta: { ...cr.meta, editors: [], viewers: [], pub: undefined } } });
       return;
     }
     const row = e.target.closest('[data-open]');
