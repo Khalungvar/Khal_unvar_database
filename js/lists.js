@@ -296,9 +296,14 @@ export async function publishFamPage(l) {
   const ids = (await readColumn(FP_TAB, 'B')).map(String);
   const idx = ids.findIndex((x, i) => i > 0 && x === String(l.list_id));
   if (!pub.slug && idx < 0) return null;
-  const people = pub.slug ? famSnapshot(l) : [];
+  // קומפאקט: בלי שדות ריקים; תא בגוגל מחזיק עד 50,000 תווים — רשימה גדולה מתחלקת לכמה תאים (F + J, K, …)
+  const people = (pub.slug ? famSnapshot(l) : []).map((o) => Object.fromEntries(Object.entries(o).filter(([k, v]) => v !== '' && v !== undefined && !((k === 'fe' && o.f) || (k === 'le' && o.l)))));
+  const json = JSON.stringify(people);
+  const parts = []; for (let i = 0; i < json.length; i += 45000) parts.push(json.slice(i, i + 45000));
+  if (!parts.length) parts.push('[]');
   const es = editSlugOf(pub);
-  const row = [slugOf(pub.slug), String(l.list_id), Boolean(pub.on && pub.slug), '', l.name || '', JSON.stringify(people), nowStamp(), es, Boolean(pub.edit?.on && es)];
+  const extra = parts.slice(1); while (extra.length < 8) extra.push('');
+  const row = [slugOf(pub.slug), String(l.list_id), Boolean(pub.on && pub.slug), '', l.name || '', parts[0], nowStamp(), es, Boolean(pub.edit?.on && es), ...extra];
   if (idx > 0) await updateRow(FP_TAB, idx + 1, row); else await appendRow(FP_TAB, row);
   return people.length;
 }
@@ -1061,7 +1066,7 @@ async function persist(extra = {}) {
   await loadAll();
   current.list_id = id;
   current.base = JSON.parse(JSON.stringify({ add: current.cr.add, remove: current.cr.remove, ext: current.cr.ext }));
-  if (current.cr.meta.kind === 'family') publishFamPage(listById(id)).catch(() => {});
+  if (current.cr.meta.kind === 'family') publishFamPage(listById(id)).catch((err) => ui.toast(`הדף הציבורי לא עודכן: ${ui.friendlyError(err)}`, 'error'));
 }
 async function memSet(k, v) {
   current.cr.meta.mem = { ...(current.cr.meta.mem || {}), [k]: v };
