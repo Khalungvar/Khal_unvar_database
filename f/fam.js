@@ -1,5 +1,6 @@
 // 👨‍👩‍👦 דף משפחה ציבורי: ungvar.org/f/<כתובת> (צפייה) או ungvar.org/f/<כתובת>-<קוד> (עריכה). בלי כניסה.
 import { suggest, details, placesEnabled } from '/js/places.js?v=724';
+import { downloadXlsx } from '/js/excel.js?v=726';
 import { suggestFirstName, suggestLastName } from '/js/names.js';
 
 const API = 'https://script.google.com/macros/s/AKfycbzK63Qd9P3Gb-255-gVFGvqkF_NddBjJ9i5yHKrnaK_E8PwLsB_7WDO6Lh2iyqO1vPZ/exec';
@@ -8,6 +9,7 @@ const TITLE_EN = { 'מו"ה': 'Mr.', 'הרב': 'Rabbi', 'הרה"ג': 'Rabbi', '�
 const MONTHS = ['תשרי', 'חשון', 'כסלו', 'טבת', 'שבט', 'אדר', 'אדר א\'', 'אדר ב\'', 'ניסן', 'אייר', 'סיון', 'תמוז', 'אב', 'אלול'];
 const T = {
   he: { dir: 'rtl', loading: 'טוען…', notFound: 'הדף לא נמצא.', people: '{n} אנשים',
+    dlPending: 'יש שינויים שעוד לא נשמרו — שמרו קודם, ואז הורידו', dlCols: ['דור', 'של מי', 'שם בעברית', 'שם באנגלית', 'כתובת'], of: 'של {n}', popup: 'הדפדפן חסם חלון חדש — אפשרו חלונות קופצים לאתר',
     introView: 'זו רשימת המשפחה כפי שהיא רשומה אצלנו.',
     introEdit: 'אנא עברו על הרשימה. אפשר לתקן פרטים, להוסיף ילדים שחסרים, ולהוריד מי שלא שייך. בסיום לחצו "💾 שמירה" למטה.',
     lv: ['ראש המשפחה', 'בן', 'נכד', 'נין', 'בן נין'], lvh: ['', 'חתן', 'חתן (נכד)', 'חתן (נין)', 'חתן'], lvd: ['', 'בת', 'נכדה', 'נינה', 'בת'], other: 'קרוב', branch: 'משפחת {name}', kids: '{n} ילדים',
@@ -25,6 +27,7 @@ const T = {
     errAddr: 'את הכתובת צריך לבחור מהרשימה שנפתחת מתחת לשדה (תתחילו להקליד ותבחרו)', errOut: 'צריך למלא יארצייט או לסמן "התגרשו"', errName: 'צריך למלא שם', errRel: 'צריך לסמן למעלה: {a} או {b}',
     leave: 'יש שינויים שעוד לא נשמרו', divNote: 'הבת תקבל כרטיס משלה ברשימה, והחתן יוסר.' },
   en: { dir: 'ltr', loading: 'Loading…', notFound: 'Page not found.', people: '{n} people',
+    dlPending: 'You have unsaved changes — save first, then download', dlCols: ['Relation', 'Of', 'Hebrew name', 'English name', 'Address'], of: 'of {n}', popup: 'The browser blocked a new window — please allow pop-ups for this site',
     introView: 'This is the family list as we have it.',
     introEdit: 'Please review the list. You can fix details, add missing children, and remove anyone who doesn\'t belong. When done, press "💾 Save" at the bottom.',
     lv: ['Head of family', 'Son', 'Grandson', 'Great-grandson', 'Son'], lvh: ['', 'Son-in-law', 'Grandson-in-law', 'Great-grandson-in-law', 'Son-in-law'], lvd: ['', 'Daughter', 'Granddaughter', 'Great-granddaughter', 'Daughter'], other: 'Relative', branch: 'The {name} family', kids: '{n} children',
@@ -124,7 +127,7 @@ function personHtml(x0, kids, seen, depth) {
   const branch = !x.lw && (depth === 1 || (depth === 0 && !x.hd));
   const tags = [x.lw ? `<span class="fp-tag home">${h(tr('home'))}</span>` : '', x.ms === 'גרוש' ? `<span class="fp-tag grey">${h(tr('div'))}</span>` : '',
     gone ? `<span class="fp-tag bad">${h(tr('removed'))}</span>` : x._new ? `<span class="fp-tag new">${h(tr('added'))}</span>` : ch ? `<span class="fp-tag ok">${h(tr('changed'))}</span>` : ''].join('');
-  const det = edit ? [addrText(x), x.m, x.e, x.hp].filter(Boolean) : [x.city].filter(Boolean);
+  const det = edit ? [addrText(x), x.m, x.e, x.hp].filter(Boolean) : [addrText(x) || x.city].filter(Boolean);
   const btn = (attr, label, cls = '') => `<button type="button" class="${cls}" ${attr}="${h(x.k)}">${h(label)}</button>`;
   const acts = !edit ? '' : gone ? btn('data-undel', tr('undo'))
     : x._new ? btn('data-unadd', tr('undo'))
@@ -232,11 +235,46 @@ function readForm() {
 }
 function rerenderForm() { readForm(); render(); }
 
+// ---------- ⬇ הורדה: Excel / PDF — רק מה ששמור (בלי טלפונים ואימייל) ----------
+function famRows() {
+  const keys = new Set(data.people.map((x) => String(x.k)));
+  const kids = new Map(); const roots = [];
+  data.people.forEach((x) => { const p = x.p && keys.has(String(x.p)) && String(x.p) !== String(x.k) ? String(x.p) : ''; if (p) { if (!kids.has(p)) kids.set(p, []); kids.get(p).push(x); } else roots.push(x); });
+  roots.sort((a, b) => (b.hd || 0) - (a.hd || 0)); kids.forEach((l) => l.sort((a, b) => (a.lw || 0) - (b.lw || 0)));
+  const out = []; const seen = new Set();
+  const nameOf = (x) => (lang === 'he' ? heName(x) : enName(x) || heName(x));
+  const walk = (x, depth, par) => {
+    if (seen.has(String(x.k))) return; seen.add(String(x.k));
+    const he = [heName(x) + (x.d ? ' ז"ל' : ''), x.w ? wifeHe(x) + (x.wd ? ' ע"ה' : '') : ''].filter(Boolean).join(' · ');
+    const en = [enName(x) + (x.d && enName(x) ? ' z"l' : ''), x.we ? wifeEn(x) + (x.wd ? ' a"h' : '') : ''].filter(Boolean).join(' & ');
+    out.push({ depth, row: [relLabel(x, depth), par ? tr('of', { n: nameOf(par) }) : '', he, en, addrText(x)] });
+    (kids.get(String(x.k)) || []).forEach((y) => walk(y, depth + 1, x));
+  };
+  roots.forEach((x) => walk(x, 0, null));
+  return out;
+}
+function download(kind) {
+  if (nPending()) { msg = tr('dlPending'); render(); return; }
+  const rows = famRows(); const cols = T[lang].dlCols; const name = data.name || 'family';
+  if (kind === 'xlsx') { downloadXlsx(name, cols, rows.map((r) => r.row), { sheet: 'Family', rtl: lang === 'he' }); return; }
+  const w = window.open('', '_blank'); if (!w) { msg = tr('popup'); render(); return; }
+  const dir = T[lang].dir;
+  w.document.write(`<!doctype html><html dir="${dir}" lang="${lang}"><head><meta charset="utf-8"><title>${h(name)}</title><style>
+    @page{size:letter;margin:12mm}body{font-family:Arial,'Segoe UI',sans-serif;font-size:11pt;color:#222}h1{font-size:17pt;margin:0 0 8px}
+    table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ccc;padding:5px 6px;text-align:start;vertical-align:top}th{background:#eee;font-size:10pt}
+    tr.d0 td{background:#f3e9d2;font-weight:bold}tr.d1 td:first-child{padding-inline-start:14px}tr.d2 td:first-child{padding-inline-start:26px}tr.d3 td:first-child{padding-inline-start:38px}
+    tr.d1{border-top:2px solid #999}.en,.ad{direction:ltr;text-align:left}td.ad{font-size:10pt;color:#333}tr{page-break-inside:avoid}
+  </style></head><body><h1>${h(name)}</h1><table><thead><tr>${cols.map((c, i) => `<th${i > 2 ? ' class="en"' : ''}>${h(c)}</th>`).join('')}</tr></thead><tbody>
+  ${rows.map((r) => `<tr class="d${Math.min(r.depth, 3)}">${r.row.map((v, i) => `<td${i === 3 ? ' class="en"' : i === 4 ? ' class="ad" dir="auto"' : ''}>${h(v)}</td>`).join('')}</tr>`).join('')}
+  </tbody></table></body></html>`);
+  w.document.close(); w.focus(); setTimeout(() => w.print(), 500);
+}
+
 function render() {
   const el = root();
   document.documentElement.lang = lang;
   document.documentElement.dir = T[lang].dir;
-  const langs = `<div class="fam-langs">${[['he', 'עברית'], ['en', 'English']].map(([k, l]) => `<button type="button" data-lang="${k}" class="${lang === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+  const langs = `<div class="fam-langs">${data ? '<button type="button" data-dl="xlsx">⬇ Excel</button><button type="button" data-dl="pdf">⬇ PDF</button>' : ''}${[['he', 'עברית'], ['en', 'English']].map(([k, l]) => `<button type="button" data-lang="${k}" class="${lang === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
   if (!data) { el.innerHTML = `${langs}<p class="fam-msg">${h(msg || tr('loading'))}</p>`; return; }
   const { roots, kids } = tree();
   const seen = new Set();
@@ -340,6 +378,7 @@ document.addEventListener('click', async (e) => {
   const k = (a) => b.dataset[a];
   const x = (key) => data.people.find((p) => String(p.k) === String(key)) || adds.find((a) => a.temp === key);
   if (k('lang')) { readForm(); lang = k('lang'); store.set('famLang', lang); render(); return; }
+  if (k('dl')) { download(k('dl')); return; }
   if (k('edit')) { formErr = ''; open = { kind: 'edit', key: k('edit'), fs: newFs('edit', x(k('edit'))) }; render(); focusForm(); return; }
   if (k('addm') || k('addh')) {
     const home = Boolean(k('addh')); const key = k('addm') || k('addh'); const p = x(key);
