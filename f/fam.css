@@ -26,7 +26,9 @@ body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 "Segoe UI",Ari
 .fp-tag.bad{background:var(--bad)}.fp-tag.new{background:var(--new)}.fp-tag.ok{background:var(--ok)}
 .fp-acts{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 .fp-acts button,.fp-formacts button,.fp-addbtn{font:inherit;font-size:14px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:3px 9px;cursor:pointer;white-space:nowrap}
-.fp-addbtn{color:var(--pri);border-style:dashed;margin:4px 0}
+.fp-addbtn{color:var(--pri);border-style:dashed}
+.fp-addform{margin-inline-start:22px;border-color:#e0b25b}
+.fp-addtitle{margin:0 0 8px;font-weight:700;color:var(--pri)}
 .fp-form{background:#fff;border:2px solid var(--pri);border-radius:10px;padding:10px;margin:6px 0}
 .ff-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
 .ff-grid label,.ff-rel{display:flex;flex-direction:column;font-size:13px;color:var(--muted);position:relative}
