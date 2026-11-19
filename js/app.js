@@ -308,7 +308,7 @@ function lobbyClick(e) {
   if (key === 'area') { lobbyOpen = lobbyOpen === 'area' ? '' : 'area'; renderLobby(); return; }
   if (key === 'umbrella') { lobbyOpen = ''; enterScope(null); showView('contacts'); return; }
   if (ORG_FIELDS.some(([n]) => n === key)) { lobbyOpen = lobbyOpen === key ? '' : key; renderLobby(); return; }
-  if (key === 'lists') { openOverview(); return; }
+  if (key === 'lists') { document.body.classList.add('solo-mode'); openOverview('lists'); return; }
   if (key === 'simchos') { enterScope(null); document.body.classList.add('solo-mode'); openSimchos(); return; }
   if (key === 'mailmerge') { openMailMerge(); return; }
   if (key === 'calls') { enterScope(null); openCalls(); return; }
