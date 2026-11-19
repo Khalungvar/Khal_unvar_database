@@ -16,7 +16,7 @@ const T = {
     t: 'תואר', f: 'שם פרטי', l: 'שם משפחה', fe: 'שם פרטי באנגלית', le: 'שם משפחה באנגלית', m: 'טלפון נייד', e: 'אימייל',
     wt: 'תואר', mrs: 'מרת', reb: 'הרבנית', addr: 'כתובת (לבחור מהרשימה שנפתחת)', hp: 'טלפון בבית', note: 'הערה',
     outH: 'נפטר / יצא', outW: 'נפטרה / יצאה', yz: 'יארצייט:', day: 'יום', month: 'חודש', year: 'שנה (לא חובה)',
-    divH: 'התגרשו — הוא יצא מהמשפחה', divW: 'התגרשו — היא יצאה מהמשפחה', outNone: 'ביטול',
+    divH: 'התגרשו — הוא יצא מהמשפחה', divW: 'התגרשו — היא יצאה מהמשפחה', divOtherW: 'התגרשו — האשה יוצאת מהמשפחה', divOtherH: 'התגרשו — החתן יוצא מהמשפחה', zip: 'מיקוד (ZIP)', outNone: 'ביטול',
     remarry: '💍 התחתן מחדש', remarried: 'האשה החדשה:', married: '💍 התחתן', moved: '🏠 עבר דירה', home: 'גר בבית',
     zl: 'ז"ל', zlF: 'ע"ה', div: 'גרוש', widow: 'אלמן', removed: 'יוסר', added: 'חדש', changed: 'תוקן',
     who: 'מי ממלא?', whoName: 'שם', whoPhone: 'טלפון', save: '💾 שמירה', saving: 'שומר…',
@@ -33,7 +33,7 @@ const T = {
     t: 'Title', f: 'First name (Hebrew)', l: 'Last name (Hebrew)', fe: 'First name', le: 'Last name', m: 'Cell phone', e: 'Email',
     wt: 'Title', mrs: 'Mrs.', reb: 'Rebbetzin', addr: 'Address (pick from the list)', hp: 'Home phone', note: 'Note',
     outH: 'Passed away / left', outW: 'Passed away / left', yz: 'Yahrzeit:', day: 'Day', month: 'Month', year: 'Year (optional)',
-    divH: 'Divorced — he left the family', divW: 'Divorced — she left the family', outNone: 'Cancel',
+    divH: 'Divorced — he left the family', divW: 'Divorced — she left the family', divOtherW: 'Divorced — the wife leaves the family', divOtherH: 'Divorced — the son-in-law leaves the family', zip: 'ZIP / Postal code', outNone: 'Cancel',
     remarry: '💍 Remarried', remarried: 'New wife:', married: '💍 Got married', moved: '🏠 Moved out', home: 'Lives at home',
     zl: 'z"l', zlF: 'a"h', div: 'Divorced', widow: 'Widower', removed: 'Will be removed', added: 'New', changed: 'Edited',
     who: "Who's filling this in?", whoName: 'Name', whoPhone: 'Phone', save: '💾 Save', saving: 'Saving…',
@@ -67,7 +67,13 @@ async function api(body) {
   return r.json();
 }
 const nPending = () => Object.keys(edits).length + dels.size + adds.length;
-const known = () => (data?.people || []).map((p) => ({ first_name_he: p.f, first_name_en: p.fe, last_name_he: p.l, last_name_en: p.le, wife_name_he: p.w, wife_name_en: p.we }));
+// לומדים שמות באנגלית מהמשפחה — אבל לא שם משפחה באנגלית ששייך בדרך כלל לשם עברי אחר (למשל Klein אצל רויזנבוים בטעות)
+const known = () => {
+  const ppl = data?.people || []; const cnt = new Map();
+  ppl.forEach((p) => { if (p.l && p.le) { const k = p.le.trim().toLowerCase(); const m = cnt.get(k) || new Map(); m.set(p.l, (m.get(p.l) || 0) + 1); cnt.set(k, m); } });
+  const top = (le) => { let b = ''; let n = 0; (cnt.get(le.trim().toLowerCase()) || new Map()).forEach((v, k) => { if (v > n) { n = v; b = k; } }); return b; };
+  return ppl.map((p) => ({ first_name_he: p.f, first_name_en: p.fe, last_name_he: p.l, last_name_en: p.le && p.l && top(p.le) !== p.l ? '' : p.le, wife_name_he: p.w, wife_name_en: p.we }));
+};
 const enFirst = (he) => { try { return suggestFirstName(he, known()); } catch { return ''; } };
 const enLast = (he) => { try { return suggestLastName(he, known()); } catch { return ''; } };
 const addrText = (o) => [o.a, o.city, [o.st, o.zip].filter(Boolean).join(' '), o.co && o.co !== 'USA' ? o.co : ''].filter(Boolean).join(', ');
@@ -156,13 +162,13 @@ const inp = (fs, k, lbl, attrs = '') => `<label class="ff-${k}"><span>${h(tr(lbl
 const sel = (fs, k, lbl, opts) => `<label class="ff-${k}"><span>${h(tr(lbl || k))}</span><select data-f="${k}">${opts.map(([v, l]) => `<option value="${h(v)}"${String(fs.v[k] ?? '') === v ? ' selected' : ''}>${h(l)}</option>`).join('')}</select></label>`;
 function outPanel(fs, side) {
   const o = fs.out && fs.out.side === side ? fs.out : { yz: {} };
-  const canDiv = side === 'w' ? fs.rel !== 'h' : fs.rel === 'h';
+  const canDiv = side === 'w' ? fs.rel !== 'h' : fs.rel === 'h'; // מי שנכנס מבחוץ; בצד השני: "התגרשו" = בן/בת הזוג יוצא
   return `<div class="fp-out" data-side="${side}">
     <div class="fp-yz"><b>${h(tr('yz'))}</b>
       <select data-yz="d"><option value="">${h(tr('day'))}</option>${Array.from({ length: 30 }, (_, i) => `<option${String(o.yz?.d) === String(i + 1) ? ' selected' : ''}>${i + 1}</option>`).join('')}</select>
       <select data-yz="m"><option value="">${h(tr('month'))}</option>${MONTHS.map((m) => `<option${o.yz?.m === m ? ' selected' : ''}>${h(m)}</option>`).join('')}</select>
       <input data-yz="y" placeholder="${h(tr('year'))}" value="${h(o.yz?.y || '')}"></div>
-    ${canDiv ? `<label class="check"><input type="checkbox" data-div${o.type === 'div' ? ' checked' : ''}> ${h(tr(side === 'h' ? 'divH' : 'divW'))}</label>${side === 'h' ? `<p class="muted small">${h(tr('divNote'))}</p>` : ''}` : ''}
+    ${canDiv ? `<label class="check"><input type="checkbox" data-div${o.type === 'div' ? ' checked' : ''}> ${h(tr(side === 'h' ? 'divH' : 'divW'))}</label>${side === 'h' ? `<p class="muted small">${h(tr('divNote'))}</p>` : ''}` : `<label class="check"><input type="checkbox" data-div data-divother> ${h(tr(side === 'h' ? 'divOtherW' : 'divOtherH'))}</label>`}
     <button type="button" data-outclose>${h(tr('outNone'))}</button></div>`;
 }
 function coupleHtml(fs) {
@@ -186,7 +192,7 @@ function coupleHtml(fs) {
     </div></div>`;
 }
 function addrHtml(fs) {
-  return `<label class="ff-addr"><span>${h(tr('addr'))}</span><input data-addr dir="auto" value="${h(addrText(fs.v))}" autocomplete="off"><div class="ff-sugg" hidden></div></label>`;
+  return `<label class="ff-addr"><span>${h(tr('addr'))}</span><input data-addr dir="auto" value="${h(addrText({ ...fs.v, zip: '' }))}" autocomplete="off"><div class="ff-sugg" hidden></div></label>`;
 }
 function formHtml(x) {
   const fs = open.fs; const add = open.kind === 'add';
@@ -203,8 +209,8 @@ function formHtml(x) {
         <div class="ff-pair" dir="ltr">${inp(fs, 'fe', 'fe', 'dir="ltr"')}${inp(fs, 'le', 'le', 'dir="ltr"')}</div>
         <div class="ff-pair">${inp(fs, 'm', 'm', 'type="tel" dir="ltr"')}${inp(fs, 'e', 'e', 'type="email" dir="ltr"')}</div>
         <div class="ff-btns"><button type="button" class="b-add" data-married>${h(tr('married'))}</button>${fs.moved ? '' : `<button type="button" class="b-add" data-moved>${h(tr('moved'))}</button>`}</div>
-        ${fs.moved ? addrHtml(fs) : ''}</div>`
-    : `${coupleHtml(fs)}<div class="ff-full">${fs.ext ? '' : addrHtml(fs)}<div class="ff-pair">${inp(fs, 'hp', 'hp', 'type="tel" dir="ltr"')}</div></div>`}
+        ${fs.moved ? `${addrHtml(fs)}<div class="ff-pair">${inp(fs, 'zip', 'zip', 'dir="ltr"')}</div>` : ''}</div>`
+    : `${coupleHtml(fs)}<div class="ff-full">${fs.ext ? '' : addrHtml(fs)}<div class="ff-pair">${inp(fs, 'hp', 'hp', 'type="tel" dir="ltr"')}${fs.ext ? '' : inp(fs, 'zip', 'zip', 'dir="ltr"')}</div></div>`}
     ${fs.ext ? '' : `<label class="ff-note"><span>${h(tr('note'))}</span><textarea data-note rows="2">${h(fs.note)}</textarea></label>`}
     ${formErr ? `<p class="ff-err">${h(formErr)}</p>` : ''}
     <div class="fp-formacts"><button type="submit" class="pri">${h(tr('ok'))}</button><button type="button" data-close>${h(tr('cancel'))}</button></div></form>`;
@@ -220,7 +226,8 @@ function readForm() {
   if (p) {
     const yz = { d: p.querySelector('[data-yz=d]').value, m: p.querySelector('[data-yz=m]').value, y: p.querySelector('[data-yz=y]').value.trim() };
     const div = p.querySelector('[data-div]')?.checked;
-    fs.out = { side: p.dataset.side, type: div ? 'div' : 'dead', yz: div ? {} : yz };
+    if (div && p.querySelector('[data-divother]')) { const o = p.dataset.side === 'h' ? 'w' : 'h'; fs.out = { side: o, type: 'div', yz: {} }; fs.outOpen = o; } // בצד של הבן: האשה יוצאת (ולהפך)
+    else fs.out = { side: p.dataset.side, type: div ? 'div' : 'dead', yz: div ? {} : yz };
   }
 }
 function rerenderForm() { readForm(); render(); }
@@ -263,7 +270,8 @@ function commitForm() {
   if (v.wl && v.l && v.wl !== v.l && (!fs.out || fs.remarry || fs.out.side !== 'w')) notes.push(`שם המשפחה של האשה: ${v.wl}${v.wle && v.wle !== v.le ? ` (${v.wle})` : ''}`);
   if (fs.note) notes.push(fs.note);
   const note = notes.join(' · ');
-  const addrF = (o) => { if (fs.addr) Object.assign(o, fs.addr); return o; };
+  if (fs.addr && v.zip !== undefined) fs.addr.zip = v.zip; // מיקוד שתוקן ביד
+  const addrF = (o) => { if (fs.addr) Object.assign(o, fs.addr); else if (v.zip) o.zip = v.zip; return o; };
   const home = fs.home && !fs.married;
   if (open.kind === 'add') {
     if (!v.f && !v.l && !v.w) { formErr = tr('errName'); render(); return false; }
@@ -289,6 +297,7 @@ function commitForm() {
         if (String(v[k]) !== old || (fs.remarry && ['w', 'we', 'wr', 'wm', 'e2'].includes(k))) f[k] = v[k];
       });
       if (fs.addr) Object.assign(f, fs.addr);
+      else if (v.zip !== undefined && v.zip !== String(x.zip || '')) f.zip = v.zip;
       const e = { fields: f };
       if (fs.out && fs.outOpen) e.out = fs.out;
       if (fs.rel && fs.rel !== (x.r || '') && x.p) e.rel = fs.rel;
@@ -387,7 +396,8 @@ document.addEventListener('change', (e) => {
   if (i.matches('[data-div]')) { rerenderForm(); return; }
   // אויטאמאטישע תרגום: נאר ווען דער ענגלישער פעלד איז ליידיג
   const form = i.closest('[data-form]');
-  const fill = (to, val) => { const t = form.querySelector(`[data-f="${to}"]`); if (t && !t.value.trim() && val) { t.value = val; fs.v[to] = val; } };
+  // מתעדכן אחרי השם בעברית — חוץ ממה שכתבו ביד בטופס הזה
+  const fill = (to, val) => { const t = form.querySelector(`[data-f="${to}"]`); if (t && val && !fs.typed?.[to] && t.value.trim() !== val) { t.value = val; fs.v[to] = val; if (to === 'le') fill('wle', val); if (to === 'wl') fill('wle', enLast(val)); } };
   if (i.dataset.f === 'f') fill('fe', enFirst(i.value));
   if (i.dataset.f === 'w') fill('we', enFirst(i.value));
   if (i.dataset.f === 'l') { fill('le', enLast(i.value)); fill('wl', i.value.trim()); }
@@ -398,6 +408,7 @@ document.addEventListener('input', (e) => {
   const i = e.target;
   if (i.id === 'who-name') store.set('famWho', i.value);
   if (i.id === 'who-phone') store.set('famPhone', i.value);
+  if (open && ['fe', 'le', 'we', 'wle', 'wl'].includes(i.dataset?.f)) { open.fs.typed = open.fs.typed || {}; open.fs.typed[i.dataset.f] = true; }
   if (!i.hasAttribute('data-addr') || !open) return;
   open.fs.addrOk = !i.value.trim() && !open.fs.married && !open.fs.moved; // ליידיג = בלי כתובת (נאר ביי א טויש)
   if (!placesEnabled()) { open.fs.addrOk = true; open.fs.addr = { a: i.value.trim() }; return; }
