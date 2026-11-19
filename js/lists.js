@@ -3,7 +3,7 @@
 // א פאס פון פראבלעמען אונטן. פרטי/ציבורי, עורכים, שייכות צו א מוסד, און א "זכרון" פאר יעדע רשימה.
 import { batchUpdate } from './google.js';
 import {
-  tagsOf, storedTags, linesOf, serialize, hasUnchecked, nameOf as tagName, roots as tagRoots, childrenOf as tagChildren, pathKey, GROUPS,
+  tagsOf, setExtraTags, storedTags, linesOf, serialize, hasUnchecked, nameOf as tagName, roots as tagRoots, childrenOf as tagChildren, pathKey, GROUPS,
 } from './tags.js';
 import { state, loadAll, saveSavedList, deleteSavedList, displayName, saveRecord, saveContact, importContacts, careOf, contactRows, saveCellEdits, hostOf, guestsOf, ADDR_FIELDS } from './data.js';
 import { t } from './i18n.js';
@@ -232,6 +232,37 @@ export const listById = (id) => state.savedLists.find((l) => String(l.list_id) =
 /** 👨‍👩‍👦 רשימת משפחה (נבנית ב"רשימות משפחות"; ברשימות רגילות בוחרים אותה ב"לפי משפחה") */
 export function isFamilyList(l) { try { return JSON.parse(l?.criteria || '{}')?.meta?.kind === 'family'; } catch { return false; } }
 const PUB_BASE = 'https://ungvar.org/f/';
+// 🏷 תיוג אוטומטי: כל מי שברשימת משפחה מקבל את התגית שנבחרה (מחושב — יוצא מהרשימה = התגית יורדת)
+let autoTagMemo = { key: null, at: 0, map: new Map() }; let autoTagBusy = false;
+function autoTagMap() {
+  const now = Date.now();
+  if (autoTagMemo.key === state.savedLists && autoTagMemo.c === state.contacts && now - autoTagMemo.at < 5000) return autoTagMemo.map;
+  if (autoTagBusy) return autoTagMemo.map;
+  autoTagBusy = true;
+  const m = new Map();
+  try {
+    (state.savedLists || []).forEach((l) => {
+      if (!isFamilyList(l)) return;
+      const cr = parseSaved(l).cr; const k = cr.meta?.autoTag;
+      if (!k) return;
+      const p = String(k).split('>');
+      evaluate(cr, new Set([String(l.list_id)])).forEach((r) => {
+        if (r.ext || String(r.key).startsWith('x:')) return;
+        if (!m.has(r.key)) m.set(r.key, []);
+        if (!m.get(r.key).some((x) => pathKey(x.p) === k)) m.get(r.key).push({ p, s: 'a', fam: l.name });
+      });
+    });
+  } catch { /* */ } finally { autoTagBusy = false; }
+  autoTagMemo = { key: state.savedLists, c: state.contacts, at: now, map: m };
+  return m;
+}
+setExtraTags((c) => (autoTagBusy ? [] : (autoTagMap().get(String(c?.contact_id)) || []).map((x) => ({ ...x, p: [...x.p] }))));
+/** כל התגיות כרשימה אחת (לבחירה בתיוג אוטומטי) */
+function tagOptions(cur) {
+  const out = [];
+  const walk = (path, depth) => { if (depth > 0) out.push([pathKey(path), `${'  '.repeat(depth - 1)}${depth > 1 ? '└ ' : ''}${tagName(path[path.length - 1])}`, depth]); tagChildren(path).forEach((k) => walk([...path, k.id], depth + 1)); };
+  return [...GROUPS, 'old'].map((g) => tagRoots().filter((r) => r.group === g).map((r) => { out.length = 0; walk([r.id], 0); return out.length ? `<optgroup label="${h(tagName(r.id))}">${out.map(([k, l]) => `<option value="${h(k)}"${k === cur ? ' selected' : ''}>${h(l.replace(/ /g, '\u00a0'))}</option>`).join('')}</optgroup>` : ''; }).join('')).join('');
+}
 const slugOf = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9֐-׿-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 
 /** די מענטשן פון א רשימה: [{ key, c, ext?, manual?, until?, colors, total }] */
@@ -1330,6 +1361,10 @@ function openSettings() {
       ${famPick(cr.family, 'i')}
       <p class="muted small">אחרי השמירה אפשר להוסיף ידנית אנשים (גם כאלה שלא במאגר) בכפתור "＋ הוספת אנשים", ולהוריד מי שלא שייך ב-✕.</p>
     </fieldset>
+    <fieldset><legend>🏷 תיוג אוטומטי</legend>
+      <label>כל מי שברשימה מקבל את התגית<select name="autoTag"><option value="">— בלי —</option>${tagOptions(cr.meta.autoTag || '')}</select></label>
+      <p class="muted small">התגית מופיעה בכרטיס כל עוד האדם ברשימה, ויורדת ממנו כשהוא יוצא. מי שעדיין לא במאגר יקבל אותה אחרי "יצירת איש קשר".</p>
+    </fieldset>
     <fieldset><legend>🌐 דף ציבורי</legend>
       <label>כתובת הקישור <span class="l2-pubrow"><bdi dir="ltr" class="muted">${h(PUB_BASE)}</bdi><input name="slug" dir="ltr" value="${h(pub.slug || '')}" placeholder="klein"></span></label>
       <label class="check"><input type="checkbox" name="pubOn"${pub.on ? ' checked' : ''}> הקישור פעיל (כבוי = מי שנכנס לא רואה כלום)</label>
@@ -1381,7 +1416,7 @@ function openSettings() {
       marital: $$('[data-marital] .chip.on', form).map((b) => b.dataset.v),
       includeDeceased: form.elements.dead.checked, includeInactive: form.elements.inact.checked, includeNoSend: form.elements.nosend.checked,
       meta: { ...cr.meta, note: form.elements.note.value.trim(), firstTab: form.elements.firstTab.value,
-        ...(fam ? { pub: { slug: slugOf(form.elements.slug.value), on: form.elements.pubOn.checked, type: form.elements.pubType.value } } : {}) },
+        ...(fam ? { pub: { slug: slugOf(form.elements.slug.value), on: form.elements.pubOn.checked, type: form.elements.pubType.value }, autoTag: form.elements.autoTag.value || '' } : {}) },
     });
   };
   const preview = () => { try { $('#l2-preview', dlg).textContent = t('lbCount', { n: evaluate(read()).length }); } catch { /* */ } };
