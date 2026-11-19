@@ -59,7 +59,7 @@ function underCap(kind, cap) {
  * הצעות לכתובת: [{ prediction, text }].
  * מחזיר 'cap' כשהגענו לתקרה היומית, ו-'error' כשמשהו נכשל (הפרטים ב-placesError()).
  */
-export async function suggest(input, regions = ['us']) {
+export async function suggest(input, regions = ['us'], language = '') {
   if (!placesEnabled() || input.trim().length < 3) return [];
   if (!underCap('autocomplete', CONFIG.PLACES_DAILY_AUTOCOMPLETE)) return 'cap';
   try {
@@ -67,6 +67,7 @@ export async function suggest(input, regions = ['us']) {
     if (!sessionToken) sessionToken = new AutocompleteSessionToken();
     const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
       input, sessionToken, ...(regions && regions.length ? { includedRegionCodes: regions.slice(0, 15) } : {}),
+      ...(language ? { language } : {}),
     });
     return (suggestions || [])
       .map((s) => s.placePrediction)
@@ -94,6 +95,19 @@ export async function details(prediction) {
     const street = [get('street_number'), get('route')].filter(Boolean).join(' ');
     const unit = get('subpremise');
     const country = get('country', true);
+    // ארץ ישראל: הכתובת נשמרת בעברית (הדואר יוצא מהארץ) — עוד שליפה אחת של אותו מקום בעברית
+    if (country === 'IL') {
+      try {
+        const { Place } = await lib();
+        const he = new Place({ id: place.id, requestedLanguage: 'he' });
+        await he.fetchFields({ fields: ['addressComponents'] });
+        const hc = he.addressComponents || [];
+        const g = (type) => { const c = hc.find((x) => x.types?.includes(type)); return c ? c.longText || '' : ''; };
+        const st = [g('route'), g('street_number')].filter(Boolean).join(' ');
+        const un = g('subpremise');
+        return { address: un ? `${st} דירה ${un}` : st, city: g('locality') || g('sublocality') || g('neighborhood'), state: '', zip: g('postal_code') || get('postal_code'), country: 'Israel', countryCode: 'IL', neighborhood: [g('neighborhood'), g('sublocality_level_1')].filter(Boolean).join(' ') };
+      } catch (e) { console.error('Places Hebrew details failed:', e); }
+    }
     return {
       address: unit ? `${street} #${unit}` : street,
       city: get('locality') || get('sublocality') || get('postal_town') || get('neighborhood'),
