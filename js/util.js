@@ -129,7 +129,7 @@ export function escapeHtml(text) {
 
 const EUROPE = new Set(['GB', 'UK', 'BE', 'FR', 'DE', 'AT', 'CH', 'NL', 'HU', 'RO', 'SK', 'CZ', 'UA', 'PL',
   'IT', 'ES', 'DK', 'SE', 'NO', 'IE', 'LU', 'LT', 'LV', 'EE', 'PT', 'GR', 'BG', 'HR', 'SI', 'RS']);
-const COUNTRY_CODES = { israel: 'IL', 'united kingdom': 'GB', england: 'GB', belgium: 'BE', france: 'FR',
+const COUNTRY_CODES = { israel: 'IL', 'ישראל': 'IL', 'ארץ ישראל': 'IL', 'united kingdom': 'GB', england: 'GB', belgium: 'BE', france: 'FR',
   germany: 'DE', austria: 'AT', switzerland: 'CH', netherlands: 'NL', hungary: 'HU', romania: 'RO',
   slovakia: 'SK', ukraine: 'UA', usa: 'US', 'united states': 'US', canada: 'CA', uk: 'GB' };
 
