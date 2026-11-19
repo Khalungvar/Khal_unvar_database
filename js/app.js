@@ -1838,7 +1838,7 @@ function wireAddressAutocomplete(form) {
       // לפי שדה "ארץ": ישראל / ארה"ב; ריק = שתיהן; ארץ אחרת = כל העולם
       const co = String(form.elements.country?.value || '').trim().toLowerCase().replace(/["'.״]/g, '');
       const regions = !co ? ['us', 'il'] : /^(usa|us|united states|america|ארהב|ארצות הברית)$/.test(co) ? ['us'] : /^(israel|il|ישראל|ארץ ישראל|אי)$/.test(co) ? ['il'] : [];
-      const result = await suggest(input.value, regions);
+      const result = await suggest(input.value, regions, (regions.length === 1 && regions[0] === 'il') || /[\u0590-\u05FF]/.test(input.value) ? 'he' : '');
       if (result === 'cap' || result === 'error') {
         if (!warned) {
           toast(result === 'cap'
