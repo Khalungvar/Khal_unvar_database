@@ -247,7 +247,7 @@ function lobbySearch() {
     .sort((a, b) => String(a.last_name_he).localeCompare(String(b.last_name_he), 'he')).slice(0, 12);
   box.hidden = false;
   box.innerHTML = found.length ? found.map((c) => `<button type="button" class="lobby-hit" data-open-card="${h(c.contact_id)}">
-      <b>${h(fullNameHe(c))}</b>
+      <span class="muted small" dir="ltr">#${h(c.contact_id)}</span><b>${h(fullNameHe(c))}</b>
       <span class="muted small">${h([c.address ? [c.address, c.city].filter(Boolean).join(', ') : (c.area || c.city), [c.first_name_en, c.last_name_en].filter(Boolean).join(' ')].filter(Boolean).join(' · '))}</span>
       ${!isAlive(c.is_alive) ? `<span class="badge muted">${t('deceased')}</span>` : ''}</button>`).join('')
     : `<p class="muted small lobby-none">${h(t('noResults'))}</p>`;
