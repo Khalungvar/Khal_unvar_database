@@ -76,7 +76,7 @@ function rels() {
     if (!a || !b) return;
     R.any.add(`${a}|${b}`); R.any.add(`${b}|${a}`);
     if (ty === 'טאטע פון') { add(R.sons, a, b); add(R.fathers, b, a); }
-    if (ty === 'זון פון') { add(R.sons, b, a); add(R.fathers, a, b); }
+    if (ty === 'זון פון' || ty === 'טאכטער פון') { add(R.sons, b, a); add(R.fathers, a, b); }
     if (ty === 'שווער פון') { add(R.sil, a, b); add(R.fil, b, a); }
     if (ty === 'איידעם פון') { add(R.sil, b, a); add(R.fil, a, b); }
     if (ty === 'ברודער פון') { add(R.bro, a, b); add(R.bro, b, a); }
@@ -272,16 +272,19 @@ function famSnapshot(l) {
   const heads = new Set((cr.family || []).map((f) => String(f.id || '')).filter(Boolean));
   return rows.map((r) => {
     const c = r.c;
-    if (r.ext) return { k: String(r.key), f: c.first_name_he || c.first_name_en || '', l: c.last_name_he || c.last_name_en || '', w: r.ext.wife || '', city: c.city || '', a: c.address || '', st: c.state || '', zip: c.zip || '', m: r.ext.phone || '', e: r.ext.email || '', x: 1, ...(r.ext.parent ? { p: r.ext.parent, r: r.ext.rel || 's' } : {}) };
+    if (r.ext) return { k: String(r.key), f: c.first_name_he || '', l: c.last_name_he || '', fe: c.first_name_en || '', le: c.last_name_en || '', w: r.ext.wife || '', city: c.city || '', a: c.address || '', st: c.state || '', zip: c.zip || '', m: r.ext.phone || '', e: r.ext.email || '', x: 1, ...(r.ext.parent ? { p: r.ext.parent, r: r.ext.rel || 's' } : {}) };
     const id = String(c.contact_id);
     let par = ''; let rel = '';
     const fa = [...(R.fathers.get(id) || [])].find((x) => keys.has(x) && x !== id);
     const fl = fa ? '' : [...(R.fil.get(id) || [])].find((x) => keys.has(x) && x !== id);
-    if (fa) { par = fa; rel = 's'; } else if (fl) { par = fl; rel = 'h'; }
+    if (fa) { par = fa; rel = (state.relations || []).some((x) => String(x.contact_id_a) === id && String(x.contact_id_b) === fa && x.relation_type === 'טאכטער פון') ? 'd' : 's'; } else if (fl) { par = fl; rel = 'h'; }
     const ph = state.phones.get(id) || {};
-    const o = { k: id, t: c.title_he || '', f: c.first_name_he || '', l: c.last_name_he || '', fe: c.first_name_en || '', le: c.last_name_en || '', w: c.wife_name_he || '', city: c.city || '',
-      a: c.address || '', st: c.state || '', zip: c.zip || '', m: ph.mobile || '', e: ph.email_1 || '' };
+    const o = { k: id, t: c.title_he || '', f: c.first_name_he || '', l: c.last_name_he || '', fe: c.first_name_en || '', le: c.last_name_en || '', w: c.wife_name_he || '', we: c.wife_name_en || '', city: c.city || '',
+      a: c.address || '', st: c.state || '', zip: c.zip || '', co: c.country || '', m: ph.mobile || '', e: ph.email_1 || '', wm: ph.wife_mobile || '', e2: ph.email_2 || '', hp: ph.home_phone || '', ms: c.marital_status || '' };
     if (!isAlive(c.is_alive)) o.d = 1;
+    if (isTrue(c.wife_is_rebbetzin)) o.wr = 1;
+    if (o.w && c.wife_is_alive !== '' && c.wife_is_alive !== undefined && !isAlive(c.wife_is_alive)) o.wd = 1;
+    if (String(c.lives_with || '').trim()) o.lw = 1;
     if (par) { o.p = par; o.r = rel; }
     if (heads.has(id)) o.hd = 1;
     return o;
@@ -297,7 +300,7 @@ export async function publishFamPage(l) {
   const idx = ids.findIndex((x, i) => i > 0 && x === String(l.list_id));
   if (!pub.slug && idx < 0) return null;
   // קומפאקט: בלי שדות ריקים; תא בגוגל מחזיק עד 50,000 תווים — רשימה גדולה מתחלקת לכמה תאים (F + J, K, …)
-  const people = (pub.slug ? famSnapshot(l) : []).map((o) => Object.fromEntries(Object.entries(o).filter(([k, v]) => v !== '' && v !== undefined && !((k === 'fe' && o.f) || (k === 'le' && o.l)))));
+  const people = (pub.slug ? famSnapshot(l) : []).map((o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== '' && v !== undefined)));
   const json = JSON.stringify(people);
   const parts = []; for (let i = 0; i < json.length; i += 45000) parts.push(json.slice(i, i + 45000));
   if (!parts.length) parts.push('[]');
@@ -309,8 +312,8 @@ export async function publishFamPage(l) {
 }
 // ---------- 📜 שינויים שהמשפחה עשתה דרך קישור העריכה (FamilyReplies — נכתב ע"י השרת) + ביטול ----------
 const FR_TAB = 'FamilyReplies';
-const FR_KIND = { fix: '✏ תיקון', del: '✕ הורד מהרשימה', add: '➕ נוסף' };
-const FR_FIELD = { t: 'תואר', f: 'שם פרטי', l: 'שם משפחה', w: 'שם האשה', a: 'כתובת', city: 'עיר', st: 'מדינה', zip: 'מיקוד', m: 'טלפון', e: 'אימייל', rel: 'קרבה', parent: 'מתחת ל' };
+const FR_KIND = { fix: '✏ תיקון', del: '✕ הורד מהרשימה', add: '➕ נוסף', out: '🕯 נפטר / יצא' };
+const FR_FIELD = { t: 'תואר', f: 'שם פרטי', l: 'שם משפחה', fe: 'First', le: 'Last', w: 'שם האשה', we: 'Wife', wr: 'הרבנית', a: 'כתובת', city: 'עיר', st: 'מדינה', zip: 'מיקוד', co: 'ארץ', m: 'נייד', e: 'אימייל', wm: 'נייד האשה', e2: 'אימייל 2', hp: 'טלפון בבית', rel: 'קרבה', parent: 'מתחת ל', note: 'הערה', out: 'מצב', married: 'התחתן', moved: 'עבר דירה', remarry: 'התחתן מחדש', home: 'בבית', purge: 'נמחק' };
 const C_FIELD = { t: 'title_he', f: 'first_name_he', l: 'last_name_he', w: 'wife_name_he', a: 'address', city: 'city', st: 'state', zip: 'zip' };
 const P_FIELD = { m: 'mobile', e: 'email_1' };
 const X_FIELD = { f: 'first_he', l: 'last_he', w: 'wife', a: 'address', city: 'city', st: 'state', zip: 'zip', m: 'phone', e: 'email' };
@@ -329,44 +332,42 @@ async function refreshFamLogCount() {
   } catch { /* */ }
 }
 const colA1 = (i) => colLetter(i);
+/** ביטול: מחזירים את כל ה-ops של השינוי (מהסוף להתחלה) */
 async function undoFamChange(r) {
-  const k = String(r.target_key);
-  if (r.kind === 'fix') {
-    if (k.startsWith('x:')) {
-      const x = current.cr.ext.find((e) => `x:${e.key}` === k);
-      if (x) Object.entries(r.d).forEach(([f, v]) => { if (X_FIELD[f]) x[X_FIELD[f]] = v.o ?? ''; });
-      await persist();
-    } else {
-      const data = [];
-      const cRow = (await contactRows()).get(k);
-      Object.entries(r.d).forEach(([f, v]) => {
-        if (C_FIELD[f] && cRow) data.push({ range: `Contacts!${colA1(state.headers.Contacts.indexOf(C_FIELD[f]))}${cRow}`, values: [[v.o ?? '']] });
-      });
-      const pf = Object.entries(r.d).filter(([f]) => P_FIELD[f]);
-      if (pf.length) {
-        const ids = (await readColumn('Phones', 'A')).map(String);
-        const pRow = ids.indexOf(k) + 1;
-        if (pRow > 1) pf.forEach(([f, v]) => data.push({ range: `Phones!${colA1(state.headers.Phones.indexOf(P_FIELD[f]))}${pRow}`, values: [[v.o ?? '']] }));
-      }
-      if (data.length) await batchUpdate(data);
-      await loadAll();
-      await publishFamPage(listById(current.list_id));
+  const ops = Array.isArray(r.d.ops) ? [...r.d.ops].reverse() : null;
+  if (!ops) throw new Error('אין מידע לביטול');
+  // קודם מביאים את מה שהמשפחה שינתה ברשימה, כדי שהשמירה אחרי הביטול לא "תחזיר" אותו
+  try { await mergeFamRemote(); current.base = JSON.parse(JSON.stringify({ add: current.cr.add, remove: current.cr.remove, ext: current.cr.ext })); } catch { /* */ }
+  const rowsOf = {}; const rowOf = async (tab, id) => { if (!rowsOf[tab]) rowsOf[tab] = (await readColumn(tab, 'A')).map(String); const i = rowsOf[tab].indexOf(String(id)); return i > 0 ? i + 1 : 0; };
+  const H = async (tab) => { if (state.headers[tab]) return state.headers[tab]; const v = (await readTabs([tab]))[tab] || []; return (v[0] || []).map(String); };
+  const data = []; let listTouched = false;
+  for (const op of ops) {
+    if (op.s === 'set') {
+      const row = await rowOf(op.t, op.id); const head = await H(op.t); const j = head.indexOf(op.c);
+      if (row && j >= 0) data.push({ range: `${op.t}!${colLetter(j)}${row}`, values: [[op.o === 'TRUE' ? true : op.o === 'FALSE' ? false : op.o]] });
+    } else if (op.s === 'new') {
+      const row = await rowOf(op.t, op.id); const head = await H(op.t);
+      if (!row) continue;
+      if (op.t === 'Contacts') { data.push({ range: `Contacts!${colLetter(head.indexOf('deleted_at'))}${row}`, values: [[nowStamp()]] }, { range: `Contacts!${colLetter(head.indexOf('deleted_by'))}${row}`, values: [[state.email]] }); }
+      else if (op.t !== 'Phones') data.push({ range: `${op.t}!A${row}:${colLetter(head.length - 1)}${row}`, values: [head.map(() => '')] });
+    } else if (op.s === 'clr') {
+      const head = await H(op.t); const m = new Map(op.row);
+      if (data.length) { await batchUpdate(data.splice(0)); }
+      await appendRow(op.t, head.map((x) => m.get(x) ?? ''));
+    } else if (op.s === 'list') {
+      const idOf = (x) => String(op.k === 'ext' ? x.key : x.id);
+      if (op.op === '+') current.cr[op.k] = (current.cr[op.k] || []).filter((x) => idOf(x) !== idOf(op.v));
+      else if (!(current.cr[op.k] || []).some((x) => idOf(x) === idOf(op.v))) current.cr[op.k].push(op.v);
+      listTouched = true;
+    } else if (op.s === 'ext') {
+      const i = current.cr.ext.findIndex((x) => x.key === op.key);
+      if (i >= 0) current.cr.ext[i] = op.o; else current.cr.ext.push(op.o);
+      listTouched = true;
     }
-  } else if (r.kind === 'del') {
-    if (k.startsWith('x:') && r.d.ext) { if (!current.cr.ext.some((e) => `x:${e.key}` === k)) current.cr.ext.push(r.d.ext); }
-    else current.cr.remove = current.cr.remove.filter((x) => String(x.id) !== k);
-    if (r.d.wasAdd && !current.cr.add.some((x) => String(x.id) === k)) current.cr.add.push({ id: k });
-    await persist();
-  } else if (r.kind === 'add') {
-    current.cr.add = current.cr.add.filter((x) => String(x.id) !== k);
-    if (!current.cr.remove.some((x) => String(x.id) === k)) current.cr.remove.push({ id: k });
-    const cRow = (await contactRows()).get(k);
-    if (cRow) {
-      const H = state.headers.Contacts;
-      await batchUpdate([{ range: `Contacts!${colA1(H.indexOf('deleted_at'))}${cRow}`, values: [[nowStamp()]] }, { range: `Contacts!${colA1(H.indexOf('deleted_by'))}${cRow}`, values: [[state.email]] }]);
-    }
-    await persist();
   }
+  if (data.length) await batchUpdate(data);
+  if (listTouched) await persist(); // persist טוט אויך loadAll + דעם דף
+  else { await loadAll({ full: true }); await publishFamPage(listById(current.list_id)); }
 }
 async function openFamLog() {
   let all = [];
@@ -374,7 +375,7 @@ async function openFamLog() {
   const nameOfKey = (k) => { const c = contactOf(k); return c ? ui.fullNameHe(c) : ''; };
   const dlg = dialog('<div id="fr-box"></div>', true);
   const box = $('#fr-box', dlg);
-  const val = (v) => (v && typeof v === 'object' && 'n' in v ? `<s class="muted">${h(v.o || '—')}</s> ← <b>${h(v.n || '—')}</b>` : h(typeof v === 'object' ? '' : v));
+  const val = (v) => (v && typeof v === 'object' && 'n' in v ? ('o' in v ? `<s class="muted">${h(v.o || '—')}</s> ← <b>${h(v.n || '—')}</b>` : `<b>${h(v.n)}</b>`) : h(typeof v === 'object' ? '' : v));
   const draw = () => {
     const mine = all.filter((r) => String(r.list_id) === String(current.list_id)).reverse();
     box.innerHTML = `<h2>📜 שינויים מהמשפחה — ${h(current.name)}</h2>
@@ -384,9 +385,9 @@ async function openFamLog() {
         <td class="small">${h(r.at)}${r.status === 'applied' && !r.handled_by ? ' <b class="fr-new">חדש</b>' : ''}<br>${h(r.who_name)} <bdi dir="ltr">${h(r.who_phone)}</bdi></td>
         <td>${h(FR_KIND[r.kind] || r.kind)}</td>
         <td>${h(r.target_name || nameOfKey(r.target_key))}</td>
-        <td class="small">${Object.entries(r.d).filter(([f]) => FR_FIELD[f]).map(([f, v]) => `<b>${h(FR_FIELD[f])}:</b> ${f === 'parent' ? h(nameOfKey(v) || v) : f === 'rel' ? h(v === 'h' ? 'חתן' : 'בן') : val(v)}`).join('<br>')}</td>
+        <td class="small">${Object.entries(r.d.sum || r.d).filter(([f]) => FR_FIELD[f]).map(([f, v]) => `<b>${h(FR_FIELD[f])}:</b> ${f === 'rel' ? h(({ s: 'בן', h: 'חתן', d: 'בת' })[v?.n ?? v] || '') : val(v)}`).join('<br>')}</td>
         <td class="fr-acts">${r.status === 'undone' ? `בוטל (${h(displayName(r.handled_by))})` : `
-          ${!String(r.target_key).startsWith('x:') && r.kind !== 'del' ? `<button type="button" class="btn small-btn" data-frcard="${h(r.target_key)}">👤 כרטיס</button>` : ''}
+          ${!String(r.target_key).startsWith('x:') && r.kind !== 'del' && contactOf(r.target_key) ? `<button type="button" class="btn small-btn" data-frcard="${h(r.target_key)}">👤 כרטיס</button>` : ''}
           <button type="button" class="btn small-btn" data-frundo="${r._row}">↩ ביטול</button>`}</td></tr>`).join('')}</tbody></table>`
         : '<p class="muted">עדיין לא נעשו שינויים דרך קישור העריכה.</p>'}
       <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-close>סגירה</button></div>`;
