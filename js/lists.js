@@ -1,7 +1,7 @@
 // רשימות: א רשימה = מענטשן לויט תנאים (א בסיס, נאך רשימות, "חוץ מ...", ידני), געשפייכלערט ווי תנאים —
 // זי ווערט יעדעס מאל אויסגערעכנט פון ס'ניי. פון די מענטשן קומען לשוניות: נעמען / טעלעפאנען / פאסט / אימעיל / פרטים.
 // א פאס פון פראבלעמען אונטן. פרטי/ציבורי, עורכים, שייכות צו א מוסד, און א "זכרון" פאר יעדע רשימה.
-import { batchUpdate } from './google.js';
+import { batchUpdate, readColumn, readCell, readTabs, appendRow, updateRow } from './google.js';
 import {
   tagsOf, setExtraTags, storedTags, linesOf, serialize, hasUnchecked, nameOf as tagName, roots as tagRoots, childrenOf as tagChildren, pathKey, GROUPS,
 } from './tags.js';
@@ -263,6 +263,155 @@ function tagOptions(cur) {
   const walk = (path, depth) => { if (depth > 0) out.push([pathKey(path), `${'  '.repeat(depth - 1)}${depth > 1 ? '└ ' : ''}${tagName(path[path.length - 1])}`, depth]); tagChildren(path).forEach((k) => walk([...path, k.id], depth + 1)); };
   return [...GROUPS, 'old'].map((g) => tagRoots().filter((r) => r.group === g).map((r) => { out.length = 0; walk([r.id], 0); return out.length ? `<optgroup label="${h(tagName(r.id))}">${out.map(([k, l]) => `<option value="${h(k)}"${k === cur ? ' selected' : ''}>${h(l.replace(/ /g, '\u00a0'))}</option>`).join('')}</optgroup>` : ''; }).join('')).join('');
 }
+// ---------- 🌐 דף ציבורי למשפחה: "צילום" של הרשימה ללשונית FamilyPages (הדף הציבורי קורא רק אותו) ----------
+function famSnapshot(l) {
+  const { cr } = parseSaved(l);
+  const rows = evaluate(cr, new Set([String(l.list_id)]));
+  const R = rels();
+  const keys = new Set(rows.filter((r) => !r.ext).map((r) => String(r.key)));
+  const heads = new Set((cr.family || []).map((f) => String(f.id || '')).filter(Boolean));
+  return rows.map((r) => {
+    const c = r.c;
+    if (r.ext) return { k: String(r.key), f: c.first_name_he || c.first_name_en || '', l: c.last_name_he || c.last_name_en || '', w: r.ext.wife || '', city: c.city || '', a: c.address || '', st: c.state || '', zip: c.zip || '', m: r.ext.phone || '', e: r.ext.email || '', x: 1, ...(r.ext.parent ? { p: r.ext.parent, r: r.ext.rel || 's' } : {}) };
+    const id = String(c.contact_id);
+    let par = ''; let rel = '';
+    const fa = [...(R.fathers.get(id) || [])].find((x) => keys.has(x) && x !== id);
+    const fl = fa ? '' : [...(R.fil.get(id) || [])].find((x) => keys.has(x) && x !== id);
+    if (fa) { par = fa; rel = 's'; } else if (fl) { par = fl; rel = 'h'; }
+    const ph = state.phones.get(id) || {};
+    const o = { k: id, t: c.title_he || '', f: c.first_name_he || '', l: c.last_name_he || '', fe: c.first_name_en || '', le: c.last_name_en || '', w: c.wife_name_he || '', city: c.city || '',
+      a: c.address || '', st: c.state || '', zip: c.zip || '', m: ph.mobile || '', e: ph.email_1 || '' };
+    if (!isAlive(c.is_alive)) o.d = 1;
+    if (par) { o.p = par; o.r = rel; }
+    if (heads.has(id)) o.hd = 1;
+    return o;
+  });
+}
+const FP_TAB = 'FamilyPages';
+/** כותב/מעדכן את השורה של הרשימה ב-FamilyPages (אם יש כתובת). מחזיר מספר אנשים או null */
+export async function publishFamPage(l) {
+  if (!l || !isFamilyList(l)) return null;
+  const { cr } = parseSaved(l);
+  const pub = cr.meta.pub || {};
+  const ids = (await readColumn(FP_TAB, 'B')).map(String);
+  const idx = ids.findIndex((x, i) => i > 0 && x === String(l.list_id));
+  if (!pub.slug && idx < 0) return null;
+  const people = pub.slug ? famSnapshot(l) : [];
+  const es = editSlugOf(pub);
+  const row = [slugOf(pub.slug), String(l.list_id), Boolean(pub.on && pub.slug), '', l.name || '', JSON.stringify(people), nowStamp(), es, Boolean(pub.edit?.on && es)];
+  if (idx > 0) await updateRow(FP_TAB, idx + 1, row); else await appendRow(FP_TAB, row);
+  return people.length;
+}
+// ---------- 📜 שינויים שהמשפחה עשתה דרך קישור העריכה (FamilyReplies — נכתב ע"י השרת) + ביטול ----------
+const FR_TAB = 'FamilyReplies';
+const FR_KIND = { fix: '✏ תיקון', del: '✕ הורד מהרשימה', add: '➕ נוסף' };
+const FR_FIELD = { t: 'תואר', f: 'שם פרטי', l: 'שם משפחה', w: 'שם האשה', a: 'כתובת', city: 'עיר', st: 'מדינה', zip: 'מיקוד', m: 'טלפון', e: 'אימייל', rel: 'קרבה', parent: 'מתחת ל' };
+const C_FIELD = { t: 'title_he', f: 'first_name_he', l: 'last_name_he', w: 'wife_name_he', a: 'address', city: 'city', st: 'state', zip: 'zip' };
+const P_FIELD = { m: 'mobile', e: 'email_1' };
+const X_FIELD = { f: 'first_he', l: 'last_he', w: 'wife', a: 'address', city: 'city', st: 'state', zip: 'zip', m: 'phone', e: 'email' };
+async function readFamLog() {
+  const v = (await readTabs([FR_TAB]))[FR_TAB] || [];
+  const head = (v[0] || []).map(String);
+  return v.slice(1).map((r, i) => { const o = { _row: i + 2 }; head.forEach((k, j) => { o[k] = r[j] ?? ''; }); try { o.d = JSON.parse(o.data || '{}'); } catch { o.d = {}; } return o; }).filter((o) => o.reply_id !== '');
+}
+let famLogCount = { lid: null, n: 0 };
+async function refreshFamLogCount() {
+  if (!current?.list_id || current.cr.meta.kind !== 'family') return;
+  try {
+    const n = (await readFamLog()).filter((r) => String(r.list_id) === String(current.list_id) && r.status === 'applied' && !r.handled_by).length;
+    famLogCount = { lid: current.list_id, n };
+    const b = $('#l2-famlog'); if (b) b.querySelector('.count-pill').textContent = n;
+  } catch { /* */ }
+}
+const colA1 = (i) => colLetter(i);
+async function undoFamChange(r) {
+  const k = String(r.target_key);
+  if (r.kind === 'fix') {
+    if (k.startsWith('x:')) {
+      const x = current.cr.ext.find((e) => `x:${e.key}` === k);
+      if (x) Object.entries(r.d).forEach(([f, v]) => { if (X_FIELD[f]) x[X_FIELD[f]] = v.o ?? ''; });
+      await persist();
+    } else {
+      const data = [];
+      const cRow = (await contactRows()).get(k);
+      Object.entries(r.d).forEach(([f, v]) => {
+        if (C_FIELD[f] && cRow) data.push({ range: `Contacts!${colA1(state.headers.Contacts.indexOf(C_FIELD[f]))}${cRow}`, values: [[v.o ?? '']] });
+      });
+      const pf = Object.entries(r.d).filter(([f]) => P_FIELD[f]);
+      if (pf.length) {
+        const ids = (await readColumn('Phones', 'A')).map(String);
+        const pRow = ids.indexOf(k) + 1;
+        if (pRow > 1) pf.forEach(([f, v]) => data.push({ range: `Phones!${colA1(state.headers.Phones.indexOf(P_FIELD[f]))}${pRow}`, values: [[v.o ?? '']] }));
+      }
+      if (data.length) await batchUpdate(data);
+      await loadAll();
+      await publishFamPage(listById(current.list_id));
+    }
+  } else if (r.kind === 'del') {
+    if (k.startsWith('x:') && r.d.ext) { if (!current.cr.ext.some((e) => `x:${e.key}` === k)) current.cr.ext.push(r.d.ext); }
+    else current.cr.remove = current.cr.remove.filter((x) => String(x.id) !== k);
+    if (r.d.wasAdd && !current.cr.add.some((x) => String(x.id) === k)) current.cr.add.push({ id: k });
+    await persist();
+  } else if (r.kind === 'add') {
+    current.cr.add = current.cr.add.filter((x) => String(x.id) !== k);
+    if (!current.cr.remove.some((x) => String(x.id) === k)) current.cr.remove.push({ id: k });
+    const cRow = (await contactRows()).get(k);
+    if (cRow) {
+      const H = state.headers.Contacts;
+      await batchUpdate([{ range: `Contacts!${colA1(H.indexOf('deleted_at'))}${cRow}`, values: [[nowStamp()]] }, { range: `Contacts!${colA1(H.indexOf('deleted_by'))}${cRow}`, values: [[state.email]] }]);
+    }
+    await persist();
+  }
+}
+async function openFamLog() {
+  let all = [];
+  try { all = await readFamLog(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); return; }
+  const nameOfKey = (k) => { const c = contactOf(k); return c ? ui.fullNameHe(c) : ''; };
+  const dlg = dialog('<div id="fr-box"></div>', true);
+  const box = $('#fr-box', dlg);
+  const val = (v) => (v && typeof v === 'object' && 'n' in v ? `<s class="muted">${h(v.o || '—')}</s> ← <b>${h(v.n || '—')}</b>` : h(typeof v === 'object' ? '' : v));
+  const draw = () => {
+    const mine = all.filter((r) => String(r.list_id) === String(current.list_id)).reverse();
+    box.innerHTML = `<h2>📜 שינויים מהמשפחה — ${h(current.name)}</h2>
+      <p class="muted small">כל מה שנשמר דרך קישור העריכה כבר נכנס למאגר. כאן רואים מה השתנה, ואפשר לבטל.</p>
+      ${mine.some((r) => r.status === 'applied' && !r.handled_by) ? '<p><button type="button" class="btn small-btn" id="fr-seen">✓ סמן הכל כנראה</button></p>' : ''}
+      ${mine.length ? `<table class="data-table fr-table"><thead><tr><th>מתי / מי</th><th>מה</th><th>על מי</th><th>פרטים</th><th></th></tr></thead><tbody>${mine.map((r) => `<tr class="${r.status === 'undone' ? 'muted' : ''}">
+        <td class="small">${h(r.at)}${r.status === 'applied' && !r.handled_by ? ' <b class="fr-new">חדש</b>' : ''}<br>${h(r.who_name)} <bdi dir="ltr">${h(r.who_phone)}</bdi></td>
+        <td>${h(FR_KIND[r.kind] || r.kind)}</td>
+        <td>${h(r.target_name || nameOfKey(r.target_key))}</td>
+        <td class="small">${Object.entries(r.d).filter(([f]) => FR_FIELD[f]).map(([f, v]) => `<b>${h(FR_FIELD[f])}:</b> ${f === 'parent' ? h(nameOfKey(v) || v) : f === 'rel' ? h(v === 'h' ? 'חתן' : 'בן') : val(v)}`).join('<br>')}</td>
+        <td class="fr-acts">${r.status === 'undone' ? `בוטל (${h(displayName(r.handled_by))})` : `
+          ${!String(r.target_key).startsWith('x:') && r.kind !== 'del' ? `<button type="button" class="btn small-btn" data-frcard="${h(r.target_key)}">👤 כרטיס</button>` : ''}
+          <button type="button" class="btn small-btn" data-frundo="${r._row}">↩ ביטול</button>`}</td></tr>`).join('')}</tbody></table>`
+        : '<p class="muted">עדיין לא נעשו שינויים דרך קישור העריכה.</p>'}
+      <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-close>סגירה</button></div>`;
+  };
+  const byRow = (n) => all.find((r) => String(r._row) === String(n));
+  box.addEventListener('click', async (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    try {
+      if (b.id === 'fr-seen') {
+        const rows = all.filter((r) => String(r.list_id) === String(current.list_id) && r.status === 'applied' && !r.handled_by);
+        await batchUpdate(rows.map((r) => ({ range: `${FR_TAB}!L${r._row}`, values: [[state.email]] })));
+        rows.forEach((r) => { r.handled_by = state.email; });
+      } else if (b.dataset.frcard) { ui.openCard(b.dataset.frcard); return; }
+      else if (b.dataset.frundo) {
+        const r = byRow(b.dataset.frundo);
+        if (!confirm('לבטל את השינוי הזה ולהחזיר את מה שהיה?')) return;
+        b.disabled = true;
+        await undoFamChange(r);
+        await batchUpdate([{ range: `${FR_TAB}!K${r._row}:L${r._row}`, values: [['undone', state.email]] }]);
+        r.status = 'undone'; r.handled_by = state.email;
+        renderBuilder(); ui.toast('השינוי בוטל');
+      } else return;
+      draw(); refreshFamLogCount();
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); b.disabled = false; }
+  });
+  draw();
+}
+/** קישור העריכה: הכתובת + חלק אקראי */
+const editSlugOf = (pub) => (pub?.slug && pub?.edit?.key ? `${slugOf(pub.slug)}-${pub.edit.key}` : '');
+const randKey = () => { const a = 'abcdefghjkmnpqrstuvwxyz23456789'; let k = ''; const b = crypto.getRandomValues(new Uint8Array(6)); b.forEach((x) => { k += a[x % a.length]; }); return k; };
 const slugOf = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9֐-׿-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 
 /** די מענטשן פון א רשימה: [{ key, c, ext?, manual?, until?, colors, total }] */
@@ -537,6 +686,7 @@ export function openBuilder(saved = null, preset = null) {
     visibility: saved ? (saved.visibility || 'public') : 'private', created_by: saved?.created_by || state.email, cr,
     tab: cr.meta.firstTab || 'names',
   };
+  current.base = JSON.parse(JSON.stringify({ add: cr.add, remove: cr.remove, ext: cr.ext }));
   ovMode = cr.meta.kind === 'family' ? 'family' : 'lists';
   ui.showView('lists');
   if (!saved) setTimeout(() => openSettings(), 0);
@@ -563,7 +713,10 @@ export function renderBuilder() {
   main.innerHTML = `
     <div class="camp-page-head">
       <div><h2>${current.visibility === 'private' ? '🔒 ' : ''}${current.cr.meta.kind === 'family' ? '👨‍👩‍👦 ' : ''}${h(current.name || (current.cr.meta.kind === 'family' ? 'משפחה חדשה' : t('newListTitle')))}</h2>
-        ${current.cr.meta.kind === 'family' && current.cr.meta.pub?.slug ? `<p class="muted small">🌐 <bdi dir="ltr">${h(PUB_BASE + current.cr.meta.pub.slug)}</bdi> ${current.cr.meta.pub.on ? '· פעיל' : '· כבוי'}</p>` : ''}
+        ${current.cr.meta.kind === 'family' && current.cr.meta.pub?.slug ? `<p class="muted small">🌐 <a href="${h(PUB_BASE + current.cr.meta.pub.slug)}" target="_blank" rel="noopener"><bdi dir="ltr">${h(PUB_BASE + current.cr.meta.pub.slug)}</bdi></a> ${current.cr.meta.pub.on ? '· צפייה פעיל' : '· צפייה כבוי'}
+          ${edit ? ' <button type="button" class="btn small-btn" id="l2-pubsync" title="אם שיניתם פרטים בכרטיסים — לעדכן את מה שהמשפחה רואה">🔄 עדכון הדף</button>' : ''}
+          ${current.cr.meta.pub?.edit?.on && editSlugOf(current.cr.meta.pub) ? ` · ✏ <a href="${h(PUB_BASE + editSlugOf(current.cr.meta.pub))}" target="_blank" rel="noopener">קישור עריכה</a>` : ''}
+          <button type="button" class="btn small-btn" id="l2-famlog">📜 שינויים מהמשפחה <span class="count-pill">${famLogCount.lid === current.list_id ? famLogCount.n : '…'}</span></button></p>` : ''}
         ${current.cr.meta.note ? `<p class="muted">${h(current.cr.meta.note)}</p>` : ''}
         <p class="hint-line">${h(t('L2by', { name: displayName(current.created_by) }))}${current.scope ? ` · ${h(current.scope.split('|')[1] || '')}` : ''}</p></div>
       <span class="spacer"></span>
@@ -580,6 +733,13 @@ export function renderBuilder() {
     <button type="button" class="l2-bar ${barCls}" id="l2-bar">${nProb ? `⚠ ${h(t('L2probs', { n: nProb }))}` : missingHere ? `● ${h(t('L2missingHere', { n: missingHere }))}` : `✓ ${h(t('L2allOk'))}`}
       ${P.find((p) => p.type === 'nosend') ? ` · 📭 ${h(t('L2nosendN', { n: P.find((p) => p.type === 'nosend').items.length }))}` : ''} <span class="muted small">${h(t('L2barOpen'))}</span></button>`;
   wireBuilder(main, rows, ch, P);
+  $('#l2-famlog', main)?.addEventListener('click', openFamLog);
+  $('#l2-pubsync', main)?.addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    try { const n = await publishFamPage(listById(current.list_id)); ui.toast(`הדף עודכן (${n ?? 0} אנשים)`); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+    e.target.disabled = false;
+  });
+  if (current.cr.meta.kind === 'family' && current.cr.meta.pub?.slug && famLogCount.lid !== current.list_id) refreshFamLogCount();
   if (editing) wireEdit(main, rows);
   renderListsSide();
 }
@@ -873,8 +1033,26 @@ function printTable(title, cols, list, checkCol) {
 }
 
 // ---------- שפייכלערן ----------
+/** רשימת משפחה: המשפחה יכולה לשנות את הרשימה (קישור העריכה) בזמן שהיא פתוחה כאן — ממזגים את מה שהם שינו */
+async function mergeFamRemote() {
+  if (current.cr.meta.kind !== 'family' || !current.list_id || !current.base) return;
+  const ids = (await readColumn('SavedLists', 'A')).map(String);
+  const row = ids.indexOf(String(current.list_id)) + 1;
+  if (row < 2) return;
+  let fresh; try { fresh = JSON.parse(await readCell(`SavedLists!C${row}`) || '{}'); } catch { return; }
+  const base = current.base;
+  ['add', 'remove', 'ext'].forEach((k) => {
+    const idOf = (x) => String(k === 'ext' ? x.key : x.id);
+    const b = new Set((base[k] || []).map(idOf)); const f = new Map((fresh[k] || []).map((x) => [idOf(x), x]));
+    const cur = current.cr[k] || [];
+    f.forEach((x, id) => { if (!b.has(id) && !cur.some((y) => idOf(y) === id)) cur.push(x); }); // נוסף שם
+    current.cr[k] = cur.filter((y) => !(b.has(idOf(y)) && !f.has(idOf(y)))); // נמחק שם
+    if (k === 'ext') current.cr.ext = current.cr.ext.map((y) => (f.has(idOf(y)) && JSON.stringify((base.ext || []).find((z) => idOf(z) === idOf(y))) === JSON.stringify(y) ? f.get(idOf(y)) : y)); // עודכן שם
+  });
+}
 async function persist(extra = {}) {
   if (!current.list_id && !extra.forceCreate) return; // נאך נישט געשפייכלערט — נאר אין זכרון
+  try { await mergeFamRemote(); } catch { /* */ }
   const l = listById(current.list_id) || {};
   const id = await saveSavedList({
     ...l, list_id: current.list_id || '', name: current.name, criteria: JSON.stringify(current.cr), columns: '',
@@ -882,6 +1060,8 @@ async function persist(extra = {}) {
   });
   await loadAll();
   current.list_id = id;
+  current.base = JSON.parse(JSON.stringify({ add: current.cr.add, remove: current.cr.remove, ext: current.cr.ext }));
+  if (current.cr.meta.kind === 'family') publishFamPage(listById(id)).catch(() => {});
 }
 async function memSet(k, v) {
   current.cr.meta.mem = { ...(current.cr.meta.mem || {}), [k]: v };
@@ -1367,9 +1547,13 @@ function openSettings() {
     </fieldset>
     <fieldset><legend>🌐 דף ציבורי</legend>
       <label>כתובת הקישור <span class="l2-pubrow"><bdi dir="ltr" class="muted">${h(PUB_BASE)}</bdi><input name="slug" dir="ltr" value="${h(pub.slug || '')}" placeholder="klein"></span></label>
-      <label class="check"><input type="checkbox" name="pubOn"${pub.on ? ' checked' : ''}> הקישור פעיל (כבוי = מי שנכנס לא רואה כלום)</label>
-      <label>סוג הדף<select name="pubType"><option value="form"${(pub.type || 'form') === 'form' ? ' selected' : ''}>טופס — לאשר, לתקן ולהוסיף</option><option value="view"${pub.type === 'view' ? ' selected' : ''}>תצוגה בלבד</option></select></label>
-      <p><button type="button" class="btn small-btn" id="l2-copylink">📋 העתקת הקישור</button> <span class="muted small">הדף עצמו (מה שהמשפחה רואה) ייבנה בשלב הבא.</span></p>
+      <div class="l2-publink"><label class="check"><input type="checkbox" name="pubOn"${pub.on ? ' checked' : ''}> 👁 קישור לצפייה בלבד — פעיל</label>
+        <button type="button" class="btn small-btn" data-copylink="view">📋 העתקה</button></div>
+      <div class="l2-publink"><label class="check"><input type="checkbox" name="editOn"${pub.edit?.on ? ' checked' : ''}> ✏ קישור לעריכה — פעיל</label>
+        <button type="button" class="btn small-btn" data-copylink="edit">📋 העתקה</button>
+        <button type="button" class="btn small-btn" id="l2-newkey" title="הקישור הישן יפסיק לעבוד">🔁 קישור עריכה חדש</button></div>
+      <p class="muted small" id="l2-editurl"><bdi dir="ltr">${h(editSlugOf(pub) ? PUB_BASE + editSlugOf(pub) : '')}</bdi></p>
+      <p class="muted small">⚠ מה שמשנים בקישור העריכה נכנס מיד למאגר, בלי אישור (אפשר לבטל ב"📜 שינויים מהמשפחה"). כבוי = מי שנכנס בקישור הזה לא רואה כלום.</p>
     </fieldset>` : `<fieldset><legend>✚ ${h(t('L2whoIn'))}</legend>
       <div class="l2-row">${BASES.map(([k, ic, l]) => `<label class="check l2-base"><input type="radio" name="base" value="${k}"${cr.base === k ? ' checked' : ''}> ${ic} ${h(t(l))}</label>`).join('')}</div>
       <div class="l2-basebox" data-for="tags"${cr.base === 'tags' ? '' : ' hidden'}>${tagPick(cr.tags, 'i')}</div>
@@ -1416,7 +1600,7 @@ function openSettings() {
       marital: $$('[data-marital] .chip.on', form).map((b) => b.dataset.v),
       includeDeceased: form.elements.dead.checked, includeInactive: form.elements.inact.checked, includeNoSend: form.elements.nosend.checked,
       meta: { ...cr.meta, note: form.elements.note.value.trim(), firstTab: form.elements.firstTab.value,
-        ...(fam ? { pub: { slug: slugOf(form.elements.slug.value), on: form.elements.pubOn.checked, type: form.elements.pubType.value }, autoTag: form.elements.autoTag.value || '' } : {}) },
+        ...(fam ? { pub: { slug: slugOf(form.elements.slug.value), on: form.elements.pubOn.checked, edit: { key: editKey, on: form.elements.editOn.checked } }, autoTag: form.elements.autoTag.value || '' } : {}) },
     });
   };
   const preview = () => { try { $('#l2-preview', dlg).textContent = t('lbCount', { n: evaluate(read()).length }); } catch { /* */ } };
@@ -1454,11 +1638,22 @@ function openSettings() {
     const rv = e.target.closest('[data-revoke]');
     if (rv) { const [k, em] = rv.dataset.revoke.split('|'); cr.meta[k] = (cr.meta[k] || []).filter((x) => x !== em); rv.closest('.chip').remove(); }
   });
-  $('#l2-copylink', dlg)?.addEventListener('click', () => {
-    const sl = slugOf(form.elements.slug.value);
-    if (!sl) { ui.toast('קודם כתבו כתובת לקישור', 'error'); form.elements.slug.focus(); return; }
-    navigator.clipboard?.writeText(PUB_BASE + sl).then(() => ui.toast('הקישור הועתק'), () => ui.toast(PUB_BASE + sl));
-  });
+  let editKey = pub.edit?.key || '';
+  const editUrl = () => { const sl = slugOf(form.elements.slug.value); return sl && editKey ? `${PUB_BASE}${sl}-${editKey}` : ''; };
+  const showEditUrl = () => { const el = $('#l2-editurl', dlg); if (el) el.innerHTML = `<bdi dir="ltr">${h(editUrl())}</bdi>`; };
+  if (fam) {
+    form.elements.editOn.addEventListener('change', () => { if (form.elements.editOn.checked && !editKey) editKey = randKey(); showEditUrl(); });
+    form.elements.slug.addEventListener('input', showEditUrl);
+    $('#l2-newkey', dlg).addEventListener('click', () => { if (editKey && !confirm('לעשות קישור עריכה חדש? הקישור הישן יפסיק לעבוד (אחרי השמירה).')) return; editKey = randKey(); showEditUrl(); });
+    $$('[data-copylink]', dlg).forEach((b) => b.addEventListener('click', () => {
+      const sl = slugOf(form.elements.slug.value);
+      if (!sl) { ui.toast('קודם כתבו כתובת לקישור', 'error'); form.elements.slug.focus(); return; }
+      if (b.dataset.copylink === 'edit' && !editKey) editKey = randKey();
+      showEditUrl();
+      const url = b.dataset.copylink === 'edit' ? editUrl() : PUB_BASE + sl;
+      navigator.clipboard?.writeText(url).then(() => ui.toast('הקישור הועתק'), () => ui.toast(url));
+    }));
+  }
   $('#l2-delreq', dlg)?.addEventListener('click', async () => {
     const { submitRequest } = await import('./requests.js');
     if (await submitRequest('list_delete', { list_id: String(current.list_id) }, t('L2reqDelete', { name: current.name }))) dlg.close();
@@ -1475,7 +1670,8 @@ function openSettings() {
       const sl = slugOf(form.elements.slug.value);
       const taken = sl && state.savedLists.some((l) => String(l.list_id) !== String(current.list_id) && isFamilyList(l) && slugOf(parseSaved(l).cr.meta.pub?.slug) === sl);
       if (taken) { ui.toast('הכתובת הזו כבר בשימוש אצל משפחה אחרת', 'error'); form.elements.slug.focus(); return; }
-      if (form.elements.pubOn.checked && !sl) { ui.toast('כדי להפעיל את הקישור צריך כתובת', 'error'); form.elements.slug.focus(); return; }
+      if ((form.elements.pubOn.checked || form.elements.editOn.checked) && !sl) { ui.toast('כדי להפעיל קישור צריך כתובת', 'error'); form.elements.slug.focus(); return; }
+      if (form.elements.editOn.checked && !editKey) editKey = randKey();
     }
     current.cr = read();
     current.name = name; current.visibility = $('[name=vis]:checked', form).value; current.scope = form.elements.scope.value;
