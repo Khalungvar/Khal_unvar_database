@@ -266,7 +266,8 @@ function tagOptions(cur) {
 // ---------- 🌐 דף ציבורי למשפחה: "צילום" של הרשימה ללשונית FamilyPages (הדף הציבורי קורא רק אותו) ----------
 function famSnapshot(l) {
   const { cr } = parseSaved(l);
-  const rows = evaluate(cr, new Set([String(l.list_id)]));
+  // גם נפטרים (עם ז"ל) — אחרת ראש משפחה ז"ל חסר והבנים/החתנים שלו נראים "קרוב" בלי קשר
+  const rows = evaluate({ ...cr, includeDeceased: true }, new Set([String(l.list_id)]));
   const R = rels();
   const keys = new Set(rows.filter((r) => !r.ext).map((r) => String(r.key)));
   const heads = new Set((cr.family || []).map((f) => String(f.id || '')).filter(Boolean));
