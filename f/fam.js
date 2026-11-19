@@ -84,14 +84,15 @@ function personHtml(x, kids, seen, depth) {
         ${edit && !x._new && (val(x, 'a') || val(x, 'm')) ? `<div class="fp-more muted">${h([val(x, 'a'), val(x, 'm'), val(x, 'e')].filter(Boolean).join(' · '))}</div>` : ''}</div>
       ${edit ? `<div class="fp-acts">${gone ? `<button type="button" data-undel="${h(x.k)}">${h(tr('undo'))}</button>`
         : x._new ? `<button type="button" data-unadd="${h(x.k)}">${h(tr('undo'))}</button>`
-        : `<button type="button" data-edit="${h(x.k)}">${h(tr('edit'))}</button>${ch ? `<button type="button" data-unedit="${h(x.k)}">${h(tr('undo'))}</button>` : ''}<button type="button" data-del="${h(x.k)}">${h(tr('del'))}</button>`}</div>` : ''}
+        : `<button type="button" data-edit="${h(x.k)}">${h(tr('edit'))}</button>${ch ? `<button type="button" data-unedit="${h(x.k)}">${h(tr('undo'))}</button>` : ''}<button type="button" data-del="${h(x.k)}">${h(tr('del'))}</button>`}
+        ${!gone ? `<button type="button" class="fp-addbtn" data-add="${h(x.k)}">${h(tr('add'))}</button>` : ''}</div>` : ''}
     </div>
     ${isOpen && open.kind === 'edit' ? `<form class="fp-form" data-for="${h(x.k)}">${fieldsHtml(x)}<div class="fp-formacts"><button type="submit" class="pri">${h(tr('ok'))}</button><button type="button" data-close>${h(tr('cancel'))}</button></div></form>` : ''}
-    ${(sub || (edit && !gone)) ? `<ul>${sub}
-      ${edit && !gone ? (isOpen && open.kind === 'add' ? `<li class="fp-addli"><form class="fp-form" data-add="${h(x.k)}">
+    ${edit && !gone && isOpen && open.kind === 'add' ? `<form class="fp-form fp-addform" data-add="${h(x.k)}">
+          <p class="fp-addtitle">${h(tr('add'))} — ${h(nameOf(shown))}</p>
           <label class="ff-rel"><span>${h(tr('rel'))}</span><select data-f="rel"><option value="s">${h(tr('s'))}</option><option value="h">${h(tr('h'))}</option></select></label>
-          ${fieldsHtml({}, true)}<div class="fp-formacts"><button type="submit" class="pri">${h(tr('ok'))}</button><button type="button" data-close>${h(tr('cancel'))}</button></div></form></li>`
-        : `<li class="fp-addli"><button type="button" class="fp-addbtn" data-add="${h(x.k)}">${h(tr('add'))}</button></li>`) : ''}</ul>` : ''}
+          ${fieldsHtml({}, true)}<div class="fp-formacts"><button type="submit" class="pri">${h(tr('ok'))}</button><button type="button" data-close>${h(tr('cancel'))}</button></div></form>` : ''}
+    ${sub ? `<ul>${sub}</ul>` : ''}
   </li>`;
 }
 function render() {
