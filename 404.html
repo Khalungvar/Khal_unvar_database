@@ -12,7 +12,7 @@
 <script>
   // ungvar.org/f/<כתובת> — דף משפחה. כל השאר: לא נמצא.
   if (/^\/f\/[^/]+\/?$/.test(location.pathname)) {
-    var s = document.createElement('script'); s.type = 'module'; s.src = '/f/fam.js?v=6'; document.body.appendChild(s);
+    var s = document.createElement('script'); s.type = 'module'; s.src = '/f/fam.js?v=7'; document.body.appendChild(s);
   } else {
     document.getElementById('fam').innerHTML = '<p class="fam-msg">הדף לא נמצא · Page not found</p><p class="fam-msg" style="font-size:16px;margin-top:10px"><a href="/">ungvar.org</a></p>';
   }
