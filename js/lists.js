@@ -417,6 +417,50 @@ async function openFamLog() {
 }
 /** קישור העריכה: הכתובת + חלק אקראי */
 const editSlugOf = (pub) => (pub?.slug && pub?.edit?.key ? `${slugOf(pub.slug)}-${pub.edit.key}` : '');
+/** 🌐 לכל רשימות המשפחה: כתובת + קישור צפייה + קישור עריכה (מה שחסר), שמירה, עדכון הדף, ורשימה של כל הקישורים */
+async function openAllFamLinks(e) {
+  const fams = state.savedLists.filter(isFamilyList).filter((l) => canEdit(l));
+  if (!fams.length) return;
+  const need = fams.filter((l) => { const p = parseSaved(l).cr.meta.pub || {}; return !p.slug || !p.on || !p.edit?.key || !p.edit?.on; });
+  if (need.length && !confirm(`לפתוח קישור צפייה וקישור עריכה ל-${need.length} משפחות? (משפחות שכבר יש להן קישור נשארות עם אותו קישור)`)) return;
+  const btn = e?.target; if (btn) { btn.disabled = true; btn.textContent = '⏳ פותח קישורים…'; }
+  const taken = new Set(fams.map((l) => slugOf(parseSaved(l).cr.meta.pub?.slug)).filter(Boolean));
+  const mkSlug = (l, cr) => {
+    const head = contactOf((cr.family || [])[0]?.id);
+    let base = slugOf([head?.last_name_en, head?.first_name_en].filter(Boolean).join(' ')) || slugOf(String(l.name || '').replace(/^משפחת\s*/, '').replace(/ז"ל|מו"ה|הרב/g, '')) || `fam${l.list_id}`;
+    let s = base; let n = 2; while (taken.has(s)) { s = `${base}-${n}`; n += 1; }
+    taken.add(s); return s;
+  };
+  const done = [];
+  try {
+    for (const l of fams) {
+      const { cr } = parseSaved(l);
+      const p = { ...(cr.meta.pub || {}) };
+      let changed = false;
+      if (!p.slug) { p.slug = mkSlug(l, cr); changed = true; }
+      if (!p.on) { p.on = true; changed = true; }
+      if (!p.edit?.key || !p.edit?.on) { p.edit = { key: p.edit?.key || randKey(), on: true }; changed = true; }
+      if (changed) {
+        cr.meta.pub = p;
+        await saveSavedList({ ...l, criteria: JSON.stringify(cr) });
+      }
+      done.push({ l, p });
+    }
+    await loadAll();
+    for (const { l } of done) await publishFamPage(listById(l.list_id));
+  } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  if (btn) { btn.disabled = false; btn.textContent = '🌐 קישורים לכל המשפחות'; }
+  const rows = done.map(({ l, p }) => ({ name: l.name, view: PUB_BASE + slugOf(p.slug), edit: PUB_BASE + editSlugOf(p) }));
+  const text = rows.map((r) => `${r.name}\nצפייה: ${r.view}\nעריכה: ${r.edit}`).join('\n\n');
+  const dlg = dialog(`<h2>🌐 הקישורים של כל המשפחות (${rows.length})</h2>
+    <p><button type="button" class="btn primary" id="fl-copy">📋 העתקת הכל</button> <span class="muted small">אפשר גם לסמן ולהעתיק מהטבלה.</span></p>
+    <table class="data-table"><thead><tr><th>משפחה</th><th>👁 צפייה</th><th>✏ עריכה</th></tr></thead><tbody>
+    ${rows.map((r) => `<tr><td>${h(r.name)}</td><td><a href="${h(r.view)}" target="_blank" rel="noopener"><bdi dir="ltr">${h(r.view)}</bdi></a></td><td><a href="${h(r.edit)}" target="_blank" rel="noopener"><bdi dir="ltr">${h(r.edit)}</bdi></a></td></tr>`).join('')}
+    </tbody></table>
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-close>סגירה</button></div>`, true);
+  $('#fl-copy', dlg).addEventListener('click', () => navigator.clipboard?.writeText(text).then(() => ui.toast('כל הקישורים הועתקו'), () => ui.toast('לא הצלחתי להעתיק', 'error')));
+  renderBuilder();
+}
 const randKey = () => { const a = 'abcdefghjkmnpqrstuvwxyz23456789'; let k = ''; const b = crypto.getRandomValues(new Uint8Array(6)); b.forEach((x) => { k += a[x % a.length]; }); return k; };
 const slugOf = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9֐-׿-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 
@@ -1746,6 +1790,7 @@ function renderOverview(main) {
       ${famMode ? `<div><h2>👨‍👩‍👦 רשימות משפחות</h2><p class="muted">כל משפחה: ראשי משפחה וקרובים לפי הקשרים בכרטיסים, ועוד אנשים שמוסיפים ידנית. ברשימות רגילות בוחרים אותה ב"לפי משפחה". לכל משפחה אפשר להגדיר קישור לדף ציבורי.</p></div>
       <span class="spacer"></span>
       <button type="button" class="btn primary" id="lo-newfam">+ משפחה חדשה</button>
+      <button type="button" class="btn" id="lo-alllinks" title="פותח קישור צפייה וקישור עריכה לכל משפחה שעוד אין לה, ומציג את כל הקישורים">🌐 קישורים לכל המשפחות</button>
       <button type="button" class="btn" id="lo-tolists">← ${h(t('allLists'))}</button>`
     : `<div><h2>${t('savedLists')}</h2><p class="muted">${h(t('L2listsHint'))}</p></div>
       <span class="spacer"></span>
@@ -1766,6 +1811,7 @@ function renderOverview(main) {
   $('#lo-new', main)?.addEventListener('click', () => openBuilder());
   $('#lo-fam', main)?.addEventListener('click', () => openOverview('family'));
   $('#lo-tolists', main)?.addEventListener('click', () => openOverview('lists'));
+  $('#lo-alllinks', main)?.addEventListener('click', openAllFamLinks);
   $('#lo-newfam', main)?.addEventListener('click', () => openBuilder(null, { name: '', criteria: { v: 2, base: 'family', family: [], meta: { kind: 'family', firstTab: 'names' } } }));
   main.onclick = async (e) => {
     const ok = e.target.closest('[data-rqok]');
