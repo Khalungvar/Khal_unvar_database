@@ -3,16 +3,6 @@ import { suggest, details, placesEnabled } from '/js/places.js';
 
 const API = 'https://script.google.com/macros/s/AKfycbzK63Qd9P3Gb-255-gVFGvqkF_NddBjJ9i5yHKrnaK_E8PwLsB_7WDO6Lh2iyqO1vPZ/exec';
 const T = {
-  yi: { dir: 'rtl', loading: 'לאדט…', notFound: 'דער בלאט איז נישט געפונען.', people: '{n} מענטשן',
-    introView: 'דאס איז די ליסטע פון דער משפחה אזוי ווי זי שטייט ביי אונז.',
-    introEdit: 'ביטע קוקט איבער די ליסטע. מ\'קען פאררעכטן נעמען, אדרעסן און טעלעפאנען, צולייגן קינדער און איידעמס וואס פעלן, און אראפנעמען ווער עס געהערט נישט. ווען איר זענט פארטיג — דריקט "💾 שפייכלערן".',
-    s: 'זון', h: 'איידעם', wife: 'די פרוי', edit: '✏ פאררעכטן', del: '✕ געהערט נישט', add: '➕ צולייגן א קינד / איידעם', undo: '↩ צוריק', ok: '✓ גוט', cancel: 'אפלייגן',
-    t: 'טיטל', f: 'ערשטע נאמען', l: 'פאמיליע', w: 'נאמען פון די פרוי', a: 'אדרעס', city: 'שטאט', st: 'סטעיט', zip: 'זיפ', m: 'טעלעפאן', e: 'אימעיל', rel: 'ער איז א',
-    removed: 'ווערט אראפגענומען', added: 'נייע', changed: 'פאררעכט',
-    who: 'ווער פילט אויס?', whoName: 'נאמען', whoPhone: 'טעלעפאן', save: '💾 שפייכלערן', saving: 'שפייכלערט…',
-    pending: '{n} ענדערונגען נאך נישט געשפייכלערט', none: 'נאך קיין ענדערונגען', saved: '✓ געשפייכלערט — יישר כח!',
-    errWho: 'ביטע שרייבט אייער נאמען און טעלעפאן', err: 'עפעס איז נישט געגאנגען, ביטע פרובירט נאכאמאל', busy: 'צו אסאך מאל, ביטע פרובירט שפעטער',
-    leave: 'איר האט ענדערונגען וואס זענען נאך נישט געשפייכלערט' },
   he: { dir: 'rtl', loading: 'טוען…', notFound: 'הדף לא נמצא.', people: '{n} אנשים',
     introView: 'זו רשימת המשפחה כפי שהיא רשומה אצלנו.',
     introEdit: 'אנא עברו על הרשימה. אפשר לתקן שמות, כתובות וטלפונים, להוסיף ילדים וחתנים שחסרים, ולהוריד מי שלא שייך. בסיום לחצו "💾 שמירה".',
@@ -36,7 +26,7 @@ const T = {
 };
 const FIELDS = ['t', 'f', 'l', 'w', 'a', 'city', 'st', 'zip', 'm', 'e'];
 const store = { get: (k) => { try { return localStorage.getItem(k) || ''; } catch { return ''; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* */ } } };
-let lang = ['yi', 'he', 'en'].includes(store.get('famLang')) ? store.get('famLang') : 'yi';
+let lang = ['he', 'en'].includes(store.get('famLang')) ? store.get('famLang') : 'he';
 const tr = (k, v = {}) => String(T[lang][k] ?? k).replace(/\{(\w+)\}/g, (_, x) => v[x] ?? '');
 const h = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const $ = (s, r = document) => r.querySelector(s);
@@ -106,9 +96,9 @@ function personHtml(x, kids, seen, depth) {
 }
 function render() {
   const el = root();
-  document.documentElement.lang = lang === 'yi' ? 'yi' : lang;
+  document.documentElement.lang = lang;
   document.documentElement.dir = T[lang].dir;
-  const langs = `<div class="fam-langs">${[['yi', 'אידיש'], ['he', 'עברית'], ['en', 'English']].map(([k, l]) => `<button type="button" data-lang="${k}" class="${lang === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+  const langs = `<div class="fam-langs">${[['he', 'עברית'], ['en', 'English']].map(([k, l]) => `<button type="button" data-lang="${k}" class="${lang === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
   if (!data) { el.innerHTML = `${langs}<p class="fam-msg">${h(msg || tr('loading'))}</p>`; return; }
   const { roots, kids } = tree();
   const seen = new Set();
