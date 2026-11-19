@@ -1,5 +1,5 @@
 // 👨‍👩‍👦 דף משפחה ציבורי: ungvar.org/f/<כתובת> (צפייה) או ungvar.org/f/<כתובת>-<קוד> (עריכה). בלי כניסה.
-import { suggest, details, placesEnabled } from '/js/places.js';
+import { suggest, details, placesEnabled } from '/js/places.js?v=724';
 import { suggestFirstName, suggestLastName } from '/js/names.js';
 
 const API = 'https://script.google.com/macros/s/AKfycbzK63Qd9P3Gb-255-gVFGvqkF_NddBjJ9i5yHKrnaK_E8PwLsB_7WDO6Lh2iyqO1vPZ/exec';
@@ -415,7 +415,7 @@ document.addEventListener('input', (e) => {
   const box = i.parentElement.querySelector('.ff-sugg');
   clearTimeout(suggT);
   suggT = setTimeout(async () => {
-    const list = await suggest(i.value, []);
+    const list = await suggest(i.value, [], /[\u0590-\u05FF]/.test(i.value) ? 'he' : '');
     if (!Array.isArray(list) || !list.length) { box.hidden = true; return; }
     box._list = list;
     box.innerHTML = list.map((p, n) => `<button type="button" data-pick="${n}">${h(p.text)}</button>`).join('');
