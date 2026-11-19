@@ -186,7 +186,7 @@ function coupleHtml(fs) {
     </div></div>`;
 }
 function addrHtml(fs) {
-  return `<label class="ff-addr"><span>${h(tr('addr'))}</span><input data-addr value="${h(addrText(fs.v))}" autocomplete="off"><div class="ff-sugg" hidden></div></label>`;
+  return `<label class="ff-addr"><span>${h(tr('addr'))}</span><input data-addr dir="auto" value="${h(addrText(fs.v))}" autocomplete="off"><div class="ff-sugg" hidden></div></label>`;
 }
 function formHtml(x) {
   const fs = open.fs; const add = open.kind === 'add';
