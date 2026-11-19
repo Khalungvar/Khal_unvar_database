@@ -256,7 +256,7 @@ const FIELDS = ['t', 'f', 'l', 'fe', 'le', 'm', 'e', 'w', 'we', 'wr', 'wm', 'e2'
 function commitForm() {
   readForm();
   const fs = open.fs; const v = fs.v; formErr = '';
-  if (open.kind === 'add' && !fs.rel) { const hm = fs.home && !fs.married; formErr = tr('errRel').replace('{a}', tr('s')).replace('{b}', tr(hm ? 'd' : 'h')); render(); return false; }
+  if (open.kind === 'add' && !fs.rel) { const hm = fs.home && !fs.married; formErr = tr('errRel', { a: tr('s'), b: tr(hm ? 'd' : 'h') }); render(); return false; }
   if (!fs.addrOk) { formErr = tr('errAddr'); render(); return false; }
   if (fs.out && fs.out.type === 'dead' && !(fs.out.yz?.d && fs.out.yz?.m) && fs.outOpen) { formErr = tr('errOut'); render(); return false; }
   const notes = [];
