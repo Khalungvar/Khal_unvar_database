@@ -2579,3 +2579,5 @@ body.le-wide .le-wrap { max-height: calc(100vh - 290px); }
 .gv-audio{flex-direction:column;align-items:flex-start;gap:6px}
 .gv-audio .gv-player{display:block;width:100%;max-width:480px;height:120px;overflow:hidden}
 .l2-pubrow{display:flex;align-items:center;gap:4px;direction:ltr}.l2-pubrow input{flex:1;min-width:120px}
+.l2-publink{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0}
+.fr-table td{vertical-align:top}.fr-acts{white-space:nowrap}.fr-new{color:#fff;background:#b45309;border-radius:6px;padding:0 5px;font-size:11px}
