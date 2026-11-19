@@ -6,7 +6,8 @@ const T = {
   he: { dir: 'rtl', loading: 'טוען…', notFound: 'הדף לא נמצא.', people: '{n} אנשים',
     introView: 'זו רשימת המשפחה כפי שהיא רשומה אצלנו.',
     introEdit: 'אנא עברו על הרשימה. אפשר לתקן שמות, כתובות וטלפונים, להוסיף ילדים וחתנים שחסרים, ולהוריד מי שלא שייך. בסיום לחצו "💾 שמירה".',
-    s: 'בן', h: 'חתן', wife: 'אשתו', edit: '✏ תיקון', del: '✕ לא שייך', add: '➕ הוספת ילד / חתן', undo: '↩ ביטול', ok: '✓ אישור', cancel: 'ביטול',
+    lv: ['ראש המשפחה', 'בן', 'נכד', 'נין', 'בן נין'], lvh: ['', 'חתן', 'חתן (נכד)', 'חתן (נין)', 'חתן'], other: 'קרוב', branch: 'משפחת {name}', kids: '{n} ילדים וחתנים',
+    s: 'בן', h: 'חתן', wife: 'אשתו', edit: 'תיקון פרטים', del: 'לא שייך למשפחה', add: '➕ הוספת ילד / חתן', undo: '↩ ביטול', ok: '✓ אישור', cancel: 'ביטול',
     t: 'תואר', f: 'שם פרטי', l: 'שם משפחה', w: 'שם האשה', a: 'כתובת', city: 'עיר', st: 'מדינה', zip: 'מיקוד', m: 'טלפון', e: 'אימייל', rel: 'הוא',
     removed: 'יוסר', added: 'חדש', changed: 'תוקן',
     who: 'מי ממלא?', whoName: 'שם', whoPhone: 'טלפון', save: '💾 שמירה', saving: 'שומר…',
@@ -16,7 +17,8 @@ const T = {
   en: { dir: 'ltr', loading: 'Loading…', notFound: 'Page not found.', people: '{n} people',
     introView: 'This is the family list as we have it.',
     introEdit: 'Please review the list. You can fix names, addresses and phones, add missing children and sons-in-law, and remove anyone who doesn\'t belong. When done, press "💾 Save".',
-    s: 'Son', h: 'Son-in-law', wife: 'Wife', edit: '✏ Edit', del: '✕ Remove', add: '➕ Add child / son-in-law', undo: '↩ Undo', ok: '✓ OK', cancel: 'Cancel',
+    lv: ['Head of family', 'Son', 'Grandson', 'Great-grandson', 'Gr. great-grandson'], lvh: ['', 'Son-in-law', 'Grandson-in-law', 'Great-grandson-in-law', 'Son-in-law'], other: 'Relative', branch: 'The {name} family', kids: '{n} children & sons-in-law',
+    s: 'Son', h: 'Son-in-law', wife: 'Wife', edit: 'Edit details', del: 'Not in this family', add: '➕ Add child / son-in-law', undo: '↩ Undo', ok: '✓ OK', cancel: 'Cancel',
     t: 'Title', f: 'First name', l: 'Last name', w: "Wife's name", a: 'Address', city: 'City', st: 'State', zip: 'ZIP', m: 'Phone', e: 'Email', rel: 'He is a',
     removed: 'Will be removed', added: 'New', changed: 'Edited',
     who: "Who's filling this in?", whoName: 'Name', whoPhone: 'Phone', save: '💾 Save', saving: 'Saving…',
@@ -66,6 +68,11 @@ function fieldsHtml(x, isNew) {
     <input data-f="${f}" value="${h(isNew ? '' : val(x, f))}" ${['m', 'e', 'zip'].includes(f) ? 'dir="ltr"' : ''} ${f === 'm' ? 'type="tel"' : f === 'e' ? 'type="email"' : ''} autocomplete="off">
     ${f === 'a' ? '<div class="ff-sugg" hidden></div>' : ''}</label>`).join('')}</div>`;
 }
+function relLabel(x, depth) {
+  if (depth === 0) return x.hd ? T[lang].lv[0] : tr('other');
+  const d = Math.min(depth, 4);
+  return x.r === 'h' ? T[lang].lvh[d] : T[lang].lv[d];
+}
 function personHtml(x, kids, seen, depth) {
   if (seen.has(String(x.k))) return '';
   seen.add(String(x.k));
@@ -75,25 +82,34 @@ function personHtml(x, kids, seen, depth) {
   const w = val(x, 'w'); const city = val(x, 'city');
   const shown = { ...x, ...(edits[x.k] || {}) };
   const isOpen = open && String(open.key) === String(x.k);
-  const sub = (kids.get(String(x.k)) || []).map((y) => personHtml(y, kids, seen, depth + 1)).join('');
-  return `<li class="fp${gone ? ' gone' : ''}${x._new ? ' new' : ''}${ch ? ' changed' : ''}${x.hd ? ' head' : ''}">
-    <div class="fp-row">
-      <div class="fp-name">${x.r ? `<span class="fp-rel">${h(tr(x.r === 'h' ? 'h' : 's'))}</span>` : ''}<b>${h(nameOf(shown))}</b>${x.d ? ' <span class="muted">ז"ל</span>' : ''}
-        ${w ? `<span class="fp-wife">· ${h(tr('wife'))}: ${h(w)}</span>` : ''}${city ? `<span class="fp-city">· ${h(city)}</span>` : ''}
-        ${gone ? `<span class="fp-tag bad">${h(tr('removed'))}</span>` : x._new ? `<span class="fp-tag new">${h(tr('added'))}</span>` : ch ? `<span class="fp-tag ok">${h(tr('changed'))}</span>` : ''}
-        ${edit && !x._new && (val(x, 'a') || val(x, 'm')) ? `<div class="fp-more muted">${h([val(x, 'a'), val(x, 'm'), val(x, 'e')].filter(Boolean).join(' · '))}</div>` : ''}</div>
+  const myKids = kids.get(String(x.k)) || [];
+  const sub = myKids.map((y) => personHtml(y, kids, seen, depth + 1)).join('');
+  const lv = depth === 0 ? (x.hd ? 0 : 1) : Math.min(depth, 3);
+  const branch = depth === 1 || (depth === 0 && !x.hd);
+  const more = edit && !x._new ? [val(x, 'a'), [city, val(x, 'st'), val(x, 'zip')].filter(Boolean).join(' '), val(x, 'm'), val(x, 'e')].filter(Boolean) : [];
+  const card = `<div class="fp-card">
+      <div class="fp-top"><span class="fp-rel">${h(relLabel(x, depth))}</span>
+        ${gone ? `<span class="fp-tag bad">${h(tr('removed'))}</span>` : x._new ? `<span class="fp-tag new">${h(tr('added'))}</span>` : ch ? `<span class="fp-tag ok">${h(tr('changed'))}</span>` : ''}</div>
+      <div class="fp-name"><b>${h(nameOf(shown))}</b>${x.d ? ' <span class="muted">ז"ל</span>' : ''}</div>
+      ${w ? `<div class="fp-line">${h(tr('wife'))}: <b>${h(w)}</b></div>` : ''}
+      ${more.length ? `<div class="fp-line fp-more">${more.map((m) => `<span>${h(m)}</span>`).join('')}</div>` : !edit && city ? `<div class="fp-line">${h(city)}</div>` : ''}
       ${edit ? `<div class="fp-acts">${gone ? `<button type="button" data-undel="${h(x.k)}">${h(tr('undo'))}</button>`
         : x._new ? `<button type="button" data-unadd="${h(x.k)}">${h(tr('undo'))}</button>`
-        : `<button type="button" data-edit="${h(x.k)}">${h(tr('edit'))}</button>${ch ? `<button type="button" data-unedit="${h(x.k)}">${h(tr('undo'))}</button>` : ''}<button type="button" data-del="${h(x.k)}">${h(tr('del'))}</button>`}
-        ${!gone ? `<button type="button" class="fp-addbtn" data-add="${h(x.k)}">${h(tr('add'))}</button>` : ''}</div>` : ''}
+        : `<button type="button" class="b-edit" data-edit="${h(x.k)}">${h(tr('edit'))}</button>${ch ? `<button type="button" data-unedit="${h(x.k)}">${h(tr('undo'))}</button>` : ''}
+           <button type="button" class="fp-addbtn" data-add="${h(x.k)}">${h(tr('add'))}</button>
+           <button type="button" class="b-del" data-del="${h(x.k)}">${h(tr('del'))}</button>`}</div>` : ''}
     </div>
-    ${isOpen && open.kind === 'edit' ? `<form class="fp-form" data-for="${h(x.k)}">${fieldsHtml(x)}<div class="fp-formacts"><button type="submit" class="pri">${h(tr('ok'))}</button><button type="button" data-close>${h(tr('cancel'))}</button></div></form>` : ''}
+    ${isOpen && open.kind === 'edit' ? `<form class="fp-form" data-for="${h(x.k)}"><p class="fp-addtitle">${h(tr('edit'))} — ${h(nameOf(shown))}</p>${fieldsHtml(x)}<div class="fp-formacts"><button type="submit" class="pri">${h(tr('ok'))}</button><button type="button" data-close>${h(tr('cancel'))}</button></div></form>` : ''}
     ${edit && !gone && isOpen && open.kind === 'add' ? `<form class="fp-form fp-addform" data-add="${h(x.k)}">
           <p class="fp-addtitle">${h(tr('add'))} — ${h(nameOf(shown))}</p>
           <label class="ff-rel"><span>${h(tr('rel'))}</span><select data-f="rel"><option value="s">${h(tr('s'))}</option><option value="h">${h(tr('h'))}</option></select></label>
           ${fieldsHtml({}, true)}<div class="fp-formacts"><button type="submit" class="pri">${h(tr('ok'))}</button><button type="button" data-close>${h(tr('cancel'))}</button></div></form>` : ''}
-    ${sub ? `<ul>${sub}</ul>` : ''}
-  </li>`;
+    ${sub ? `<ul class="fp-kids">${sub}</ul>` : ''}`;
+  const cls = `fp lv${lv}${gone ? ' gone' : ''}${x._new ? ' new' : ''}${ch ? ' changed' : ''}`;
+  if (branch) {
+    return `<li class="${cls} branch"><div class="fp-branchhead">${h(tr('branch', { name: [shown.f || shown.fe, shown.l || shown.le].filter(Boolean).join(' ') }))}${myKids.length ? ` <span>· ${h(tr('kids', { n: myKids.length }))}</span>` : ''}</div>${card}</li>`;
+  }
+  return `<li class="${cls}">${card}</li>`;
 }
 function render() {
   const el = root();
@@ -108,6 +124,7 @@ function render() {
   el.innerHTML = `${langs}
     <header class="fam-head"><h1>${h(data.name)}</h1><p class="muted">${h(tr('people', { n: data.people.length }))}</p>
       <p class="fam-intro">${h(tr(edit ? 'introEdit' : 'introView'))}</p></header>
+    <div class="fam-legend">${[0, 1, 2, 3].map((i) => `<span class="lg lv${i}">${h(T[lang].lv[i])}${i && T[lang].lvh[i] ? ` / ${h(T[lang].lvh[i])}` : ''}</span>`).join('')}</div>
     <ul class="fam-tree">${roots.map((x) => personHtml(x, kids, seen, 0)).join('')}</ul>
     ${edit ? `<div class="fam-savebar">
       <div class="fam-who"><b>${h(tr('who'))}</b>
