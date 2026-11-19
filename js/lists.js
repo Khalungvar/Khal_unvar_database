@@ -584,7 +584,7 @@ export function templates() { return []; }
 const phonesOfRow = (r) => (r.c._phones || ui.phonesOf(r.c) || {});
 const PHONE_KEYS = [['mobile', 'colMobile'], ['home_phone', 'colHome'], ['wife_mobile', 'L2wifeMobile'], ['other_phone', 'L2otherPhone']];
 const hasAddr = (c) => String(c.address || '').trim() && String(c.zip || c.city || '').trim();
-const addrKey = (c) => `${String(c.address || '').toLowerCase().replace(/[^a-z0-9]/g, '')}|${String(c.zip || '').slice(0, 5)}`;
+const addrKey = (c) => `${String(c.address || '').toLowerCase().replace(/[^a-z0-9\u0590-\u05ff]/g, '')}|${String(c.zip || '').slice(0, 5)}`;
 const emailOk = (e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(e || '').trim());
 /** שיקט מען אים? (ווען אלע זיינע שורות האבן "שיקן" אויסגעלאשן — ניין) */
 function sendOk(r) {
