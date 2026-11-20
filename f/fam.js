@@ -127,7 +127,7 @@ function personHtml(x0, kids, seen, depth) {
   const sub = myKids.map((y) => personHtml(y, kids, seen, depth + 1)).join('');
   const lv = depth === 0 ? (x.hd ? 0 : 1) : Math.min(depth, 3);
   const branch = !x.lw && (depth === 1 || (depth === 0 && !x.hd));
-  const tags = [x.lw ? `<span class="fp-tag home">${h(tr('home'))}</span>` : '', x.ms === 'גרוש' ? `<span class="fp-tag grey">${h(tr('div'))}</span>` : '',
+  const tags = [x.lw ? `<span class="fp-tag home">${h(tr('home'))}</span>` : '',
     gone ? `<span class="fp-tag bad">${h(tr('removed'))}</span>` : x._new ? `<span class="fp-tag new">${h(tr('added'))}</span>` : ch ? `<span class="fp-tag ok">${h(tr('changed'))}</span>` : ''].join('');
   const det = edit ? [addrText(x), x.m, x.e, x.hp].filter(Boolean) : [addrText(x) || x.city].filter(Boolean);
   const btn = (attr, label, cls = '') => `<button type="button" class="${cls}" ${attr}="${h(x.k)}">${h(label)}</button>`;
