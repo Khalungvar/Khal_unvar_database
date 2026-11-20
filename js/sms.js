@@ -4,7 +4,7 @@ import { CONFIG } from './config.js';
 import { state, allUsers } from './data.js';
 import { readTabs, appendRows, updateRow, currentToken } from './google.js';
 import { t } from './i18n.js';
-import { escapeHtml as h, nowStamp, digits } from './util.js';
+import { escapeHtml as h, nowStamp, digits, isWidow } from './util.js';
 import { evaluate, parseSaved, savedInScope, channel, openBuilder } from './lists.js';
 import { fromHebrew, toHebrew, todayIso } from './hebdate.js';
 import { autoVars, fillTemplate, nextOccurrence, schedText, lineParts, modOf, renderAuto } from './luach/autovars.js';
@@ -126,7 +126,9 @@ export function recipientsOf(listId, kind) {
   const list = [];
   all.forEach((r) => {
     const p = phonesOf(r.c);
-    const d = last10(kind === 'call' ? (p.mobile || p.home_phone) : p.mobile);
+    // 👩 אלמנה — לנייד שלה ("נייד אשה") אם יש
+    const mob = isWidow(r.c) && String(p.wife_mobile || '').trim() ? p.wife_mobile : p.mobile;
+    const d = last10(kind === 'call' ? (mob || p.home_phone) : mob);
     if (!d) { st.nophone.push(r.c); return; }
     const o = data?.opt.get(d);
     if (o && String(o.status) === 'out') { st.out.push(r.c); return; }
