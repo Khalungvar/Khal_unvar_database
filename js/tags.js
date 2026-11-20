@@ -4,7 +4,7 @@
 //   applies = "מוסד|מוסד" — דער ענף ווייזט זיך נאר אונטער די מוסדות (ליידיג = אלע).
 //   mirror = node_id — די קינדער זענען די פון יענעם ענף (למשל רבני הביהמ"ד → די בתי מדרש).
 // ביי א קאנטאקט: c.tags = JSON [{ p: [ids פון שלב 1 ביזן לעצטן], s: status, d: date, o?: 'f' (במקור לשעבר) }].
-import { state, saveRecord, deleteRecord, loadAll, NESHEI_ORG, contactRows } from './data.js';
+import { state, saveRecord, deleteRecord, loadAll, NESHEI_ORG, contactRows, bulkSetContactFields } from './data.js';
 import { batchUpdate } from './google.js';
 import { effectiveOrg } from './scope.js';
 import { t } from './i18n.js';
@@ -232,9 +232,12 @@ function lineDetail(l) {
   const parts = l.items.filter((x) => x.p.length > from).map((x) => ({ txt: pathLabel(x.p, from), off: x.s === 'f' }));
   return parts.map((x) => `<span class="${x.off ? 'tg-off' : ''}">${h(x.txt)}${x.off ? ` (${h(statusLabel('f'))})` : ''}</span>`).join(' · ');
 }
+/** 💍 רשימת חתונה — מצב קבוע בכרטיס (עמודה wedding_list), לא תגית */
+const isWl = (c) => /^(true|1|yes|כן)$/i.test(String(c.wedding_list ?? '').trim());
+const wlBtn = (c) => `<button type="button" class="tg-wl${isWl(c) ? ' on' : ''}" data-wl>${isWl(c) ? '☑' : '☐'} ${h(t('weddingList'))}</button>`;
 export function cardTagsHtml(c) {
   const lines = linesOf(c);
-  if (!lines.length) return hasUnchecked(c) ? `<section class="tg-card"><h3>🏷 ${h(t('tgTitle'))} <span class="tg-warn">⚠ ${h(t('tgUnchecked'))}</span></h3></section>` : '';
+  if (!lines.length) return `<section class="tg-card"><h3>🏷 ${h(t('tgTitle'))}${hasUnchecked(c) ? ` <span class="tg-warn">⚠ ${h(t('tgUnchecked'))}</span>` : ''}${wlBtn(c)}</h3></section>`;
   const col = (g) => {
     const ls = lines.filter((l) => l.g === g);
     return `<div class="tg-col tg-g${g}"><h4>${h(groupName(g))}</h4>${ls.length ? ls.map((l) => `<div class="tg-cline${l.st === 'f' ? ' off' : ''}">
@@ -245,7 +248,7 @@ export function cardTagsHtml(c) {
         ${l.fam ? `<div class="tg-cdet muted">👨‍👩‍👦 ${h(l.fam)}</div>` : ''}</div>`).join('') : '<p class="muted">—</p>'}</div>`;
   };
   const old = lines.filter((l) => l.g === 'old').flatMap((l) => l.items.map((x) => nameOf(x.p[x.p.length - 1])));
-  return `<section class="tg-card"><h3>🏷 ${h(t('tgTitle'))}${hasUnchecked(c) ? ` <span class="tg-warn">⚠ ${h(t('tgUnchecked'))}</span>` : ''}</h3>
+  return `<section class="tg-card"><h3>🏷 ${h(t('tgTitle'))}${hasUnchecked(c) ? ` <span class="tg-warn">⚠ ${h(t('tgUnchecked'))}</span>` : ''}${wlBtn(c)}</h3>
     <div class="tg-cols">${GROUPS.map(col).join('')}</div>
     ${old.length ? `<p class="tg-oldline">◦ ${h(nameOf(roots().find((r) => r.group === 'old')?.id || '8'))}: ${h(old.join(' · '))}</p>` : ''}
   </section>`;
@@ -253,6 +256,14 @@ export function cardTagsHtml(c) {
 /** דאס 📬 אין כרטיס — טוישן און שפייכלערן גלייך (נאר די tags צעל) */
 export function wireCardTags(box, c, onSaved) {
   box.addEventListener('click', async (e) => {
+    const w = e.target.closest('[data-wl]');
+    if (w) {
+      const v = isWl(c) ? '' : 'TRUE';
+      w.disabled = true;
+      try { await bulkSetContactFields([{ c, set: { wedding_list: v } }]); c.wedding_list = v; onSaved?.(); }
+      catch (err) { ui?.toast(ui.friendlyError(err), 'error'); w.disabled = false; }
+      return;
+    }
     const b = e.target.closest('[data-send]');
     if (!b) return;
     const key = b.dataset.send;
@@ -303,6 +314,7 @@ export function tagsEditorHtml(c) {
       <div class="tg-ebody">${rs.map((r) => nodeHtml([r.id], entries)).join('')}</div></details>`;
   };
   return `<fieldset class="tg-edit"><legend>🏷 ${h(t('tgTitle'))}</legend>
+    <label class="tg-wl-edit"><input type="checkbox" name="wedding_list"${isWl(c) ? ' checked' : ''}> ${h(t('weddingList'))}</label>
     <div class="tg-ecols">${GROUPS.map(col).join('')}</div>
     <p class="hint-line">${h(t('tgHint'))}</p>
   </fieldset>`;
