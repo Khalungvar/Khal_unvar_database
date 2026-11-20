@@ -79,6 +79,14 @@ export function isTrue(v) {
 export function isAlive(v) {
   return !(v === false || v === 'FALSE' || v === 'false');
 }
+/** 👩 אלמנה: הבעל נפטר, ויש בכרטיס אשה בחיים — הכרטיס "חי" (רשימות, דואר) ונשלח אליה */
+export const hasWife = (c) => Boolean(String(c?.wife_name_he || '').trim() || String(c?.wife_name_en || '').trim());
+export const isWidow = (c) => Boolean(c) && !isAlive(c.is_alive) && hasWife(c) && isAlive(c.wife_is_alive);
+export const cardAlive = (c) => isAlive(c?.is_alive) || isWidow(c);
+/** שם האלמנה בעברית: "מרת/הרבנית שרה קליין" */
+export function widowHe(c) {
+  return [isTrue(c.wife_is_rebbetzin) ? 'הרבנית' : 'מרת', c.wife_name_he, c.last_name_he].map((x) => String(x || '').trim()).filter(Boolean).join(' ');
+}
 
 export function splitTags(v) {
   return String(v ?? '').split(',').map((t) => t.trim()).filter(Boolean);
@@ -107,7 +115,8 @@ export function mailingName(c) {
   if (!first && !last) return null; // אין שם באנגלית — אי אפשר לפנות בדואר
 
   if (married && husbandAlive && wifeAlive) return join(`${title} & ${wifeTitle}`, first, last);
-  if (married && !husbandAlive && wifeAlive) return join(wifeTitle, (c.wife_name_en || '').trim(), last);
+  // אלמנה — Mrs./Rebbetzin + השם שלה (גם כשהמצב המשפחתי לא "נשוי")
+  if (!husbandAlive && isWidow(c)) return last ? join(wifeTitle, (c.wife_name_en || '').trim(), last) : null;
   if (husbandAlive) return join(title, first, last);
   return null;
 }
