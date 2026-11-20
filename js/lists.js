@@ -7,7 +7,7 @@ import {
 } from './tags.js';
 import { onLoaded, bulkSetContactFields, state, loadAll, saveSavedList, deleteSavedList, displayName, saveRecord, saveContact, importContacts, careOf, contactRows, saveCellEdits, hostOf, guestsOf, ADDR_FIELDS } from './data.js';
 import { t } from './i18n.js';
-import { isTrue, isAlive, escapeHtml as h, mailingName, digits, nowStamp } from './util.js';
+import { isTrue, isAlive, escapeHtml as h, mailingName, digits, nowStamp, cardAlive, isWidow, widowHe } from './util.js';
 import { todayIso } from './hebdate.js';
 import { effectiveOrg, getScope, NO_AREA, ORG_TYPES, isEntityOrg } from './scope.js';
 import { allCampaigns } from './campaigns.js';
@@ -286,7 +286,7 @@ export async function syncWeddingFamily() {
       kids(stack.pop()).forEach((k) => { if (blocked.has(k) || setOf(k) === 'on' || setOf(k) === 'off') return; blocked.add(k); stack.push(k); });
     }
     const todo = [...mem].map((id) => byId.get(id)).filter((c) => c && !on(c) && !setOf(String(c.contact_id)) && !blocked.has(String(c.contact_id))
-      && !String(c.deleted_at || '').trim() && isAlive(c.is_alive));
+      && !String(c.deleted_at || '').trim() && cardAlive(c));
     if (!todo.length) return 0;
     // הרבה בבת אחת (למשל בפעם הראשונה) — לשאול קודם
     if (todo.length > 20 && !confirm(`🎉 שמחת בית אונגוואר: ${todo.length} אנשים מעצי המשפחות יקבלו V אוטומטית. להמשיך?`)) return 0;
@@ -521,7 +521,7 @@ export function subscribers(name) {
 export function evaluate(raw, seen = new Set()) {
   const subName = raw && raw.__name;
   const cr = normalize(raw);
-  const general = (c) => (cr.includeDeceased || isAlive(c.is_alive))
+  const general = (c) => (cr.includeDeceased || cardAlive(c))
     && (cr.includeInactive || isTrue(c.is_active) || c.is_active === '' || c.is_active === undefined)
     && (!cr.marital.length || cr.marital.includes(c.marital_status));
   const base = cr.base === 'tags' ? setFrom(cr.tags, 'tags') : cr.base === 'area' ? setFrom(cr.areas, 'area')
@@ -670,7 +670,8 @@ export function savedMailRows(l) {
 }
 
 // ---------- פראבלעמען ----------
-const nm = (c) => ui.fullNameHe(c) || [c.first_name_en, c.last_name_en].join(' ');
+// 👩 אלמנה — בשמה (מרת/הרבנית ...), לא בשם הבעל ז"ל
+const nm = (c) => (isWidow(c) && widowHe(c)) || ui.fullNameHe(c) || [c.first_name_en, c.last_name_en].join(' ');
 /** "זון פון X" (דער טאטע), אדער "איידעם פון Y" (דער שווער) */
 function parentLine(key) {
   if (String(key).startsWith('x:')) return '';
@@ -725,7 +726,7 @@ export function problems(rows, cr) {
   add('title', 1, real.filter((r) => !String(r.c.title_he || '').trim()));
   add('addr', 1, rows.filter((r) => String(r.c.address || '').trim() && !(String(r.c.city || '').trim() && String(r.c.zip || '').trim())));
   add('bademail', 1, rows.filter((r) => { const p = phonesOfRow(r); return [p.email_1, p.email_2].some((e) => String(e || '').trim() && !emailOk(e)); }));
-  add('dead', 2, real.filter((r) => !isAlive(r.c.is_alive)));
+  add('dead', 2, real.filter((r) => !cardAlive(r.c)));
   add('bochur', 2, real.filter((r) => ['נשוי', 'גרוש', 'אלמן'].includes(r.c.marital_status)
     && storedTags(r.c).some((x) => x.p.includes('o:חבורת הבחורים') && x.s !== 'f')));
   const week = new Date(`${todayIso()}T12:00:00`); week.setDate(week.getDate() + 7);
@@ -1066,7 +1067,7 @@ export function listsCanLeave(next = () => {}) {
 function exportTab(kind, rows, ch) {
   const name = current.name || 'list';
   const mem = current.cr.meta.mem || {};
-  if (kind === 'names') downloadXlsx(name, [t('colNameHe'), t('L2parent'), t('enName'), t('area')], rows.map((r) => [nm(r.c), parentLine(r.key), [r.c.first_name_en, r.c.last_name_en].filter(Boolean).join(' '), r.c.area || '']), { sheet: name });
+  if (kind === 'names') downloadXlsx(name, [t('colNameHe'), t('L2parent'), t('enName'), t('area')], rows.map((r) => [nm(r.c), parentLine(r.key), [isWidow(r.c) ? r.c.wife_name_en : r.c.first_name_en, r.c.last_name_en].filter(Boolean).join(' '), r.c.area || '']), { sheet: name });
   if (kind === 'phones') downloadXlsx(name, [t('colNameHe'), ...PHONE_KEYS.map(([, l]) => t(l))], ch.phones.rows.map((r) => [nm(r.c), ...PHONE_KEYS.map(([k]) => phonesOfRow(r)[k] || '')]), { sheet: name });
   if (kind === 'email') downloadXlsx(name, [t('colNameHe'), 'Email 1', 'Email 2'], ch.email.rows.map((r) => [nm(r.c), phonesOfRow(r).email_1 || '', phonesOfRow(r).email_2 || '']), { sheet: name });
   if (kind === 'mail') downloadXlsx(name, [t('mailingName'), 'c/o', t('address'), 'City', 'State', 'ZIP'], mailRecipients(ch.mail, mem.mailMode || 'one').map((x) => [mailingName(x) || nm(x), careOf(x), x.address || '', x.city || '', x.state || '', x.zip || '']), { sheet: name });
