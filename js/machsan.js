@@ -3,7 +3,7 @@
 // מי שכבר במאגר (contact_id) או שכבר נוסף — לא מופיע.
 import { otherSheet, updateRange } from './google.js';
 import { CONFIG } from './config.js';
-import { state as dstate, saveDonations, saveContact } from './data.js';
+import { state as dstate, saveDonations, saveContact, appendComment } from './data.js';
 import { fromHebrew, yearLabel, toHebrew } from './hebdate.js';
 
 export const MCOLS = ['m_id', 'title', 'first', 'last', 'last_he', 'city', 'ph4', 'decision', 'contact_id', 'status', 'wife', 'c_o', 'address', 'state', 'zip', 'country',
@@ -144,11 +144,27 @@ async function bringDonations(row, cid) {
   } catch (err) { ui.toast(`תרומות ישנות: ${err.message}`, 'error'); }
 }
 
+// 📝 ההערה מהרשימה הישנה → שדה "הערות" בכרטיס (בלי קטעי תרומה — הם נכנסים כתרומות)
+const DON_RX = [/\$\s?[\d,]+(?:\.\d+)?\s*[A-Za-z]{2,}\s?\d\d(?:\s?&\s?\d\d)*\b/g, /\b[A-Z]{2,}\s?\d\d(?:\s?&\s?\d\d)*\s*\$\s?[\d,]+(?:\.\d+)?/g, /\$\s?[\d,]+(?:\.\d+)?\s+\d{1,2}-\d{1,2}-\d{2}\b/g];
+export function oldNote(comments) {
+  let t = String(comments || '');
+  DON_RX.forEach((rx) => { t = t.replace(rx, ' '); });
+  t = t.replace(/\s*,\s*(?=,|$)/g, '').replace(/^[\s,;|·]+|[\s,;|·]+$/g, '').replace(/\s{2,}/g, ' ').trim();
+  return /[A-Za-z\u0590-\u05FF]/.test(t) ? `אלטע רשימה: ${t}` : '';
+}
+async function bringNote(row, cid) {
+  try {
+    const r = (await sheet().read(`Machsan!${col('comments')}${row}`))[0] || [];
+    const n = oldNote(r[0]); if (n && await appendComment(cid, n)) ui.toast('📝 ההערה מהרשימה הישנה נוספה לכרטיס');
+  } catch (err) { ui.toast(`הערה ישנה: ${err.message}`, 'error'); }
+}
+
 async function mark(row, contactId, status) {
   await updateRange(`Machsan!${col('contact_id')}${row}:${col('status')}${row}`, [[String(contactId), status]]);
   await updateRange(`Machsan!${col('updated_at')}${row}:${col('updated_by')}${row}`, [[new Date().toISOString().slice(0, 16).replace('T', ' '), ui.state.email || '']]);
   const x = IDX?.find((y) => y.row === Number(row)); if (x) { x.contact_id = String(contactId); x.status = status; }
   await bringDonations(row, contactId);
+  await bringNote(row, contactId);
 }
 
 // ---------- 👪 קשר משפחתי: לבחור מישהו מהמחסן (למשל אבא שנפטר) ----------
