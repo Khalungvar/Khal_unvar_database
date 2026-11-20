@@ -1,7 +1,7 @@
 // Mail Merge — דאס צייכענען: קאנווערטן, לעיבלס, בריוו. אלע מאסן אין אינטשעס (96px = 1in).
 // יעדע פונקציע באקומט דעם עיצוב (D) — אזוי קען מען צייכענען אויך אן אנדערן עיצוב (למשל די קאנווערטן פאר "א פּאָר").
 import { state, orgLogo, NESHEI_ORG, orgDetailsOf, careOf } from './data.js';
-import { escapeHtml as h, mailingName, isTrue, isAlive, splitTags } from './util.js';
+import { escapeHtml as h, mailingName, isTrue, isAlive, splitTags, isWidow, cardAlive, widowHe } from './util.js';
 import { imageOf } from './images.js';
 import { isoToHebrewText, todayIso } from './hebdate.js';
 import { money } from './donations.js';
@@ -279,6 +279,16 @@ export function valuesFor(D, c, ctx = null) {
     city: nz(c.city), state: nz(c.state), zip: nz(c.zip), country: v.Country,
     legal: [c.legal_first_name || c.first_name_en, c.last_name_en].map(nz).filter(Boolean).join(' '), hebrew: fullHe,
   });
+  // 👩 אלמנה: כל השמות שלה (מרת/הרבנית, השם הפרטי שלה) — לא של הבעל ז"ל
+  if (isWidow(c) && !c._toWife) {
+    const wFirstEn = nz(c.wife_name_en);
+    Object.assign(v, {
+      תואר: isTrue(c.wife_is_rebbetzin) ? 'הרבנית' : 'מרת', שם_פרטי: nz(c.wife_name_he),
+      שם: [c.wife_name_he, c.last_name_he].map(nz).filter(Boolean).join(' '), שם_מלא: widowHe(c), אשה: '',
+      First: wFirstEn, 'Legal/First': wFirstEn, Wife: '', first: wFirstEn, wife: '', hebrew: widowHe(c),
+      legal: [wFirstEn, c.last_name_en].map(nz).filter(Boolean).join(' '),
+    });
+  }
   return v;
 }
 
@@ -560,4 +570,4 @@ export function pageFor(D, c, opts = {}) {
 export const hasAddr = (c) => Boolean(nz(c?.address) && (nz(c?.zip) || nz(c?.city)));
 export const partAddr = (c) => Boolean(nz(c?.address)) && !(nz(c?.city) && nz(c?.zip));
 export const addrKey = (c) => `${nz(c.address).toLowerCase().replace(/[^a-z0-9\u0590-\u05ff]/g, '')}|${nz(c.zip).slice(0, 5)}`;
-export const isDeceased = (c) => !c._ext && !isAlive(c.is_alive) && !(c.marital_status === 'נשוי' && isAlive(c.wife_is_alive));
+export const isDeceased = (c) => !c._ext && !cardAlive(c);
