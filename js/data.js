@@ -6,7 +6,7 @@ import {
   pickSheet, sheetPermissions, shareSheet, unshareSheet,
 } from './google.js';
 import { CONFIG } from './config.js';
-import { nowStamp } from './util.js';
+import { nowStamp, detectArea } from './util.js';
 import { t } from './i18n.js';
 import { resolveState, persistImages, storeImage, fetchImages, imageOf, isDrv as isDrvRef } from './images.js';
 
@@ -263,6 +263,8 @@ export async function loadAll({ full = false } = {}) {
   if (has('Lists')) {
     Object.assign(state, parseLists(tabs.Lists));
   }
+  // 📍 האזור חי: תמיד לפי הכתובת (לא נשמר כבחירה ידנית) — כך כל שינוי כתובת, מכל מקום, משנה גם את האזור
+  if (has('Contacts') || has('Lists')) liveAreas();
 
   if (has('Settings')) {
     const settings = rowsToObjects(tabs.Settings).objects;
@@ -1477,6 +1479,11 @@ export async function saveCellEdits(list) {
   });
   return done.length;
 }
+
+export function areaFor(c) {
+  return detectArea(state.areas || [], { zip: c.zip, city: c.city, country: c.country, state: c.state, address: c.address });
+}
+function liveAreas() { if (!(state.areas || []).length) return; (state.contacts || []).forEach((c) => { c.area = areaFor(c); }); }
 
 export async function bulkSetContactFields(changes, note = '') {
   const hdr = state.headers.Contacts || [];
