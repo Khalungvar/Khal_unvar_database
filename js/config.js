@@ -30,8 +30,8 @@ export const CONFIG = {
   MAPS_API_KEY: 'AIzaSyCjsrUujYSZwuRf270KtvsLbAjiPwRZzIo',
 
   // תקרה יומית (לכל דפדפן) כדי להישאר בתוך המכסה החינמית של גוגל
-  PLACES_DAILY_AUTOCOMPLETE: 160,
-  PLACES_DAILY_DETAILS: 300,
+  PLACES_DAILY_AUTOCOMPLETE: 500,
+  PLACES_DAILY_DETAILS: 500,
 
   // מספר איש הקשר הראשון
   FIRST_CONTACT_ID: 2001, // 2026-10-18: די ניסיון-קאנטאקטן (1001–1735) זענען אויסגעמעקט; נדבות וכו' פון זיי בלייבן — נישט ווידער באנוצן די נומערן
