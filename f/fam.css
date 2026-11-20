@@ -59,6 +59,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.45 "Segoe UI",Ar
 .ff-col h4{margin:0 0 6px;font-size:17px;color:var(--pri)}
 .ff-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:6px}
 .fp-form label{display:flex;flex-direction:column;font-size:14px;font-weight:600;color:var(--ink);position:relative}
+.ff-cap{margin:0;padding:8px 10px;color:#8a5a00;background:#fff6e0;font-size:15px}
 .fp-form label.check{flex-direction:row;align-items:center;gap:6px;font-size:16px;white-space:nowrap}
 .fp-form input[type=radio],.fp-form input[type=checkbox]{width:20px;height:20px;min-height:0;padding:0;flex:none;margin:0}
 .ff-full{margin-top:10px}.ff-full .ff-pair{max-width:520px}
