@@ -2581,3 +2581,12 @@ body.le-wide .le-wrap { max-height: calc(100vh - 290px); }
 .l2-pubrow{display:flex;align-items:center;gap:4px;direction:ltr}.l2-pubrow input{flex:1;min-width:120px}
 .l2-publink{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0}
 .fr-table td{vertical-align:top}.fr-acts{white-space:nowrap}.fr-new{color:#fff;background:#b45309;border-radius:6px;padding:0 5px;font-size:11px}
+
+/* 💍 רשימת חתונה — מצב קבוע: על קו המסגרת של התגיות (בצד השני) ובכרטיס */
+.tg-edit { position: relative; }
+.tg-wl-edit { position: absolute; top: -14px; inset-inline-end: 16px; background: var(--card, #fff); padding: 2px 10px; border: 1.5px solid #c9a227; border-radius: 16px; display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; color: #633806; cursor: pointer; }
+.tg-wl-edit input { width: 18px; height: 18px; margin: 0; }
+.tg-wl-edit:has(input:checked) { background: #fff3c4; border-color: #b8860b; }
+.tg-card h3 { display: flex; align-items: center; gap: 8px; }
+.tg-card .tg-wl { margin-inline-start: auto; border: 1.5px solid #c9a227; border-radius: 16px; background: #fff; color: #633806; font: inherit; font-size: 14px; font-weight: 600; padding: 2px 12px; cursor: pointer; }
+.tg-card .tg-wl.on { background: #fff3c4; border-color: #b8860b; }
