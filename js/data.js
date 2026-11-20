@@ -289,7 +289,11 @@ export async function loadAll({ full = false } = {}) {
   // בילדער וואס ליגן אין דרייב (drv:<id>) → אין זכרון. ווען דער הילף ענטפערט נישט — די בילדער זענען בלויז ליידיג.
   const imgTabs = ['MailTemplates', 'OrgDetails', 'YearlyCampaigns', 'Books', 'OrgLogos'];
   if (state.isAllowed && imgTabs.some(has)) { try { await resolveState(state); } catch { /* */ } }
+  afterLoadHooks.forEach((f) => { try { f(); } catch { /* */ } });
 }
+/** 🪝 פונקציות שרצות אחרי כל טעינה (למשל: סימון שמחת בית אונגוואר לפי עצי המשפחה) */
+const afterLoadHooks = [];
+export function onLoaded(f) { afterLoadHooks.push(f); }
 
 /** המספר הבא, לפי מה שכתוב בגליון ממש עכשיו (למקרה שגבאי אחר הוסיף בינתיים). */
 async function nextContactId() {
