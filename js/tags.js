@@ -260,7 +260,8 @@ export function wireCardTags(box, c, onSaved) {
     if (w) {
       const v = isWl(c) ? '' : 'TRUE';
       w.disabled = true;
-      try { await bulkSetContactFields([{ c, set: { wedding_list: v } }]); c.wedding_list = v; onSaved?.(); }
+      const ws = v ? 'on' : 'off'; // 🖐 ביד — נשמר, כדי שהסימון האוטומטי לפי המשפחה לא ישנה אותו
+      try { await bulkSetContactFields([{ c, set: { wedding_list: v, wedding_set: ws } }]); c.wedding_list = v; c.wedding_set = ws; onSaved?.(); }
       catch (err) { ui?.toast(ui.friendlyError(err), 'error'); w.disabled = false; }
       return;
     }
