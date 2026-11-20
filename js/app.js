@@ -1664,7 +1664,7 @@ function openForm(c = {}, opts = {}) {
         <label>State<input name="state" list="dl-state" value="${v('state')}"></label>
         <label>ZIP<input name="zip" value="${v('zip')}" inputmode="numeric"></label>
         <label>Country<input name="country" value="${v('country') || 'USA'}"></label>
-        <label class="area-field" dir="rtl">${t('area')}<select name="area">${options(state.lists.area, c.area)}</select></label>
+        <label class="area-field" dir="rtl">${t('area')}<input name="area" readonly tabindex="-1" class="area-auto" value="${h(c.area || '')}" title="נקבע אוטומטית לפי הכתובת"></label>
       </div>
     </fieldset>
 
@@ -1781,20 +1781,18 @@ function wireForm(form, original) {
 
   // געגנט: זיהוי אוטומטי לפי הכתובת (אפור עד אישור). לא דורס בחירה שכבר אושרה.
   const suggestArea = () => {
-    const sel = f('area');
-    if (sel.value && !sel.classList.contains('suggested')) return;
-    const guess = detectArea(state.areas, {
-      zip: f('zip').value, city: f('city').value, country: f('country').value,
+    // 📍 האזור תמיד לפי הכתובת — מתעדכן מיד כשמשנים כתובת
+    f('area').value = detectArea(state.areas, {
+      zip: f('zip').value, city: f('city').value, country: f('country').value, state: f('state').value, address: f('address').value,
       neighborhood: form.dataset.neighborhood || '',
     });
-    if (guess && guess !== sel.value) { sel.value = guess; sel.classList.add('suggested'); sel.title = t('suggestedTip'); }
   };
-  ['zip', 'city', 'country'].forEach((n) => f(n).addEventListener('change', suggestArea));
+  ['zip', 'city', 'country', 'state', 'address'].forEach((n) => f(n).addEventListener('change', suggestArea));
   form.addEventListener('address-picked', suggestArea);
   const confirmArea = () => { f('area').classList.remove('suggested'); f('area').title = ''; };
   f('area').addEventListener('change', confirmArea);
   f('area').addEventListener('mousedown', confirmArea);
-  if (!f('area').value) suggestArea(); // לאנשי קשר ישנים בלי געגנט — הצעה כשפותחים לעריכה
+  suggestArea(); // 📍 האזור תמיד לפי הכתובת הנוכחית
 
   // גלילות מרובות-בחירה: הכותרת מראה מה נבחר; רק אחת פתוחה בכל פעם
   $$('details.multi', form).forEach((d) => {
