@@ -137,7 +137,7 @@ const COUNTRY_CODES = { israel: 'IL', 'ישראל': 'IL', 'ארץ ישראל': '
  * מזהה את הגעגנט (שכונה/עיר) לפי הכתובת. areas = [{ name, zips[], keywords[] }] מלשונית Lists.
  * סדר: מדינה (ארץ ישראל / אירופה) → ZIP → שם שכונה/עיר. מחזיר '' אם לא זוהה.
  */
-export function detectArea(areas, { zip = '', city = '', neighborhood = '', country = '' } = {}) {
+export function detectArea(areas, { zip = '', city = '', neighborhood = '', country = '', state = '', address = '' } = {}) {
   const cc = (COUNTRY_CODES[String(country).trim().toLowerCase()] || String(country).trim().toUpperCase()).slice(0, 2);
   const cityText = `${neighborhood} ${city}`.toLowerCase();
   const cityKeys = (a) => a.keywords.filter((k) => k && !k.toLowerCase().startsWith('country:'));
@@ -149,12 +149,20 @@ export function detectArea(areas, { zip = '', city = '', neighborhood = '', coun
       || (EUROPE.has(cc) ? areas.find((a) => a.keywords.some((k) => k.toLowerCase() === 'country:eu')) : null);
     return byCountry ? byCountry.name : '';
   }
-  const z = String(zip).trim().slice(0, 5);
+  // מיקוד שנכתב בתוך שורת הכתובת ("156 Hooper street 11211") — רק כשהוא המילה האחרונה
+  const zAddr = (String(address).trim().match(/\s(\d{5})(?:-\d{4})?$/) || [])[1] || '';
+  const z = (String(zip).trim() || zAddr).slice(0, 5);
   const byZip = z && areas.find((a) => a.zips.includes(z));
   if (byZip) return byZip.name;
-  const text = `${neighborhood} ${city}`.toLowerCase();
+  const text = `${neighborhood} ${city} ${String(zip).trim() ? '' : address}`.toLowerCase();
   const byName = areas.find((a) => a.keywords.some((k) => !k.startsWith('country:') && k && text.includes(k.toLowerCase())));
-  return byName ? byName.name : '';
+  if (byName) return byName.name;
+  // שאר ארה"ב (country:US): כתובת בארה"ב שלא נפלה לאף אזור — רק כשיש כתובת בפועל
+  const us = areas.find((a) => a.keywords.some((k) => k.toLowerCase() === 'country:us'));
+  const hasAddr = z || String(city).trim() || String(address).trim();
+  const usState = /^[A-Za-z]{2}$/.test(String(state).trim());
+  if (us && hasAddr && (cc === 'US' || (!cc && (/^\d{5}$/.test(z) || usState)))) return us.name;
+  return '';
 }
 
 /**
