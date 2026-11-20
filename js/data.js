@@ -1480,6 +1480,24 @@ export async function saveCellEdits(list) {
   return done.length;
 }
 
+/** 📝 מוסיף שורה לשדה "הערות" (Phones.comments) — קורא את התא מהגיליון, לא מוחק מה שכבר כתוב, ולא מוסיף פעמיים */
+export async function appendComment(cid, text) {
+  const id = String(cid); const add = String(text || '').trim(); if (!add) return false;
+  const ci = (state.headers.Phones || []).indexOf('comments'); if (ci < 0) return false;
+  const row = await findRow('Phones', id);
+  let nv = add;
+  if (!row) await appendRow('Phones', objectToRow(state.headers.Phones, { contact_id: id, comments: add }));
+  else {
+    const a1 = `Phones!${columnLetter(ci)}${row}`;
+    const cur = String((await readCell(a1)) ?? '');
+    if (cur.includes(add.replace(/^אלטע רשימה: /, ''))) return false;
+    nv = cur.trim() ? `${cur.trim()} | ${add}` : add;
+    await updateCell(a1, nv);
+  }
+  const p = state.phones.get(id); if (p) p.comments = nv; else state.phones.set(id, { contact_id: id, comments: nv });
+  return true;
+}
+
 export function areaFor(c) {
   return detectArea(state.areas || [], { zip: c.zip, city: c.city, country: c.country, state: c.state, address: c.address });
 }
