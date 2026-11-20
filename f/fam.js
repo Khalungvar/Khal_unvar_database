@@ -1,5 +1,5 @@
 // 👨‍👩‍👦 דף משפחה ציבורי: ungvar.org/f/<כתובת> (צפייה) או ungvar.org/f/<כתובת>-<קוד> (עריכה). בלי כניסה.
-import { suggest, details, placesEnabled } from '/js/places.js?v=724';
+import { suggest, details, placesEnabled } from '/js/places.js?v=727';
 import { downloadXlsx } from '/js/excel.js?v=726';
 import { suggestFirstName, suggestLastName } from '/js/names.js';
 
@@ -9,6 +9,7 @@ const TITLE_EN = { 'מו"ה': 'Mr.', 'הרב': 'Rabbi', 'הרה"ג': 'Rabbi', '�
 const MONTHS = ['תשרי', 'חשון', 'כסלו', 'טבת', 'שבט', 'אדר', 'אדר א\'', 'אדר ב\'', 'ניסן', 'אייר', 'סיון', 'תמוז', 'אב', 'אלול'];
 const T = {
   he: { dir: 'rtl', loading: 'טוען…', notFound: 'הדף לא נמצא.', people: '{n} אנשים',
+    capMsg: 'הגעתם למכסה היומית של חיפוש כתובות — אפשר לכתוב את הכתובת ביד, והיא תישמר כמו שהיא',
     dlPending: 'יש שינויים שעוד לא נשמרו — שמרו קודם, ואז הורידו', dlCols: ['דור', 'של מי', 'שם בעברית', 'שם באנגלית', 'כתובת'], of: 'של {n}', popup: 'הדפדפן חסם חלון חדש — אפשרו חלונות קופצים לאתר',
     introView: 'זו רשימת המשפחה כפי שהיא רשומה אצלנו.',
     introEdit: 'אנא עברו על הרשימה. אפשר לתקן פרטים, להוסיף ילדים שחסרים, ולהוריד מי שלא שייך. בסיום לחצו "💾 שמירה" למטה.',
@@ -27,6 +28,7 @@ const T = {
     errAddr: 'את הכתובת צריך לבחור מהרשימה שנפתחת מתחת לשדה (תתחילו להקליד ותבחרו)', errOut: 'צריך למלא יארצייט או לסמן "התגרשו"', errName: 'צריך למלא שם', errRel: 'צריך לסמן למעלה: {a} או {b}',
     leave: 'יש שינויים שעוד לא נשמרו', divNote: 'הבת תקבל כרטיס משלה ברשימה, והחתן יוסר.' },
   en: { dir: 'ltr', loading: 'Loading…', notFound: 'Page not found.', people: '{n} people',
+    capMsg: 'The daily address-search limit was reached — type the address by hand and it will be saved as written',
     dlPending: 'You have unsaved changes — save first, then download', dlCols: ['Relation', 'Of', 'Hebrew name', 'English name', 'Address'], of: 'of {n}', popup: 'The browser blocked a new window — please allow pop-ups for this site',
     introView: 'This is the family list as we have it.',
     introEdit: 'Please review the list. You can fix details, add missing children, and remove anyone who doesn\'t belong. When done, press "💾 Save" at the bottom.',
@@ -455,6 +457,7 @@ document.addEventListener('input', (e) => {
   clearTimeout(suggT);
   suggT = setTimeout(async () => {
     const list = await suggest(i.value, [], /[\u0590-\u05FF]/.test(i.value) ? 'he' : '');
+    if (list === 'cap') { open.fs.addrOk = true; open.fs.addr = { a: i.value.trim() }; box._list = []; box.innerHTML = `<p class="ff-cap">${h(tr('capMsg'))}</p>`; box.hidden = false; return; }
     if (!Array.isArray(list) || !list.length) { box.hidden = true; return; }
     box._list = list;
     box.innerHTML = list.map((p, n) => `<button type="button" data-pick="${n}">${h(p.text)}</button>`).join('');
