@@ -61,10 +61,12 @@ function underCap(kind, cap) {
  */
 export async function suggest(input, regions = ['us'], language = '') {
   if (!placesEnabled() || input.trim().length < 3) return [];
-  if (!underCap('autocomplete', CONFIG.PLACES_DAILY_AUTOCOMPLETE)) return 'cap';
+  // נספר פעם אחת לכל כתובת ("סשן" — עד שבוחרים כתובת, או 3 דקות), לא לכל הקלדה
+  if (sessionToken && Date.now() - (suggest.t0 || 0) > 180000) sessionToken = null;
+  if (!sessionToken && !underCap('autocomplete', CONFIG.PLACES_DAILY_AUTOCOMPLETE)) return 'cap';
   try {
     const { AutocompleteSuggestion, AutocompleteSessionToken } = await lib();
-    if (!sessionToken) sessionToken = new AutocompleteSessionToken();
+    if (!sessionToken) { sessionToken = new AutocompleteSessionToken(); suggest.t0 = Date.now(); }
     const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
       input, sessionToken, ...(regions && regions.length ? { includedRegionCodes: regions.slice(0, 15) } : {}),
       ...(language ? { language } : {}),
