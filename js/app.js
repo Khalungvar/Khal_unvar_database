@@ -507,9 +507,10 @@ function haystack(c) {
   const text = [
     c.first_name_he, c.last_name_he, c.first_name_en, c.last_name_en, c.legal_first_name, c.role,
     c.wife_name_he, c.wife_name_en, c.city, c.address, c.zip, c.area, c.contact_id,
-    p.email_1, p.email_2, workSearchText(c),
+    p.email_1, p.email_2, workSearchText(c), p.comments,
   ].map(normalize).join(' ');
-  const phoneDigits = phoneFields().map(([k]) => digits(p[k])).join(' ');
+  // 📝 גם מספרי טלפון שכתובים בתוך ההערות
+  const phoneDigits = [...phoneFields().map(([k]) => digits(p[k])), ...(String(p.comments || '').match(/[\d()\-. ]{7,}/g) || []).map(digits)].join(' ');
   return `${text} ${phoneDigits}`;
 }
 
