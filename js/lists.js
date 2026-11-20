@@ -525,7 +525,8 @@ export function evaluate(raw, seen = new Set()) {
     && (cr.includeInactive || isTrue(c.is_active) || c.is_active === '' || c.is_active === undefined)
     && (!cr.marital.length || cr.marital.includes(c.marital_status));
   const base = cr.base === 'tags' ? setFrom(cr.tags, 'tags') : cr.base === 'area' ? setFrom(cr.areas, 'area')
-    : cr.base === 'family' ? setFrom(cr.family, 'family') : cr.base === 'donation' ? setFrom(cr.donation, 'donation') : new Set();
+    : cr.base === 'family' ? setFrom(cr.family, 'family') : cr.base === 'donation' ? setFrom(cr.donation, 'donation')
+    : cr.base === 'wedding' ? new Set(state.contacts.filter((c) => /^(true|1|yes|כן)$/i.test(String(c.wedding_list ?? '').trim())).map((c) => String(c.contact_id))) : new Set();
   const fam = cr.base === 'family' ? famIds(cr.family) : new Map();
   const don = cr.base === 'donation' ? donors(cr.donation) : null;
   const ex = exceptIds(cr.except, seen);
@@ -1609,7 +1610,7 @@ function listPick(sel, withEx) {
   return `<div class="l2-lists">${opts.map((l) => `<div><label class="check"><input type="checkbox" data-${withEx ? 'il' : 'xl'}="${h(l.list_id)}"${on.has(String(l.list_id)) ? ' checked' : ''}> 📋 ${h(l.name)}</label>
     ${withEx ? `<label class="check muted small"><input type="checkbox" data-ilex="${h(l.list_id)}"${on.get(String(l.list_id))?.ex === false ? '' : ' checked'}> ${h(t('L2exApplies'))}</label>` : ''}</div>`).join('')}</div>`;
 }
-const BASES = [['tags', '🏷', 'L2bTags'], ['area', '📍', 'L2bArea'], ['family', '👪', 'L2bFamily'], ['donation', '💰', 'L2bDonation']];
+const BASES = [['tags', '🏷', 'L2bTags'], ['area', '📍', 'L2bArea'], ['family', '👪', 'L2bFamily'], ['donation', '💰', 'L2bDonation'], ['wedding', '🎉', 'weddingList']];
 
 function openSettings() {
   const cr = current.cr; const ex = cr.except;
@@ -1888,7 +1889,7 @@ void nowStamp; void saveRecord;
 
 // ---------- לשונית "רשימות" אין כרטיס: אין וועלכע רשימות איז ער, און צולייגן / ארויסנעמען ----------
 // די זעלבע רעכטן ווי אויף דער רשימה אליין (canSee / canEdit)
-const BASE_LBL = { tags: 'clBaseTags', area: 'clBaseArea', family: 'clBaseFamily', donation: 'clBaseDonation' };
+const BASE_LBL = { tags: 'clBaseTags', area: 'clBaseArea', family: 'clBaseFamily', donation: 'clBaseDonation', wedding: 'weddingList' };
 function cardMemberships(c) {
   const id = String(c.contact_id);
   return state.savedLists.filter((l) => String(l.list_id || '').trim() && canSee(l)).map((l) => {
