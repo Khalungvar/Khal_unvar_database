@@ -5,7 +5,7 @@ import { batchUpdate, readColumn, readCell, readTabs, appendRow, updateRow } fro
 import {
   tagsOf, setExtraTags, storedTags, linesOf, serialize, hasUnchecked, nameOf as tagName, roots as tagRoots, childrenOf as tagChildren, pathKey, GROUPS,
 } from './tags.js';
-import { state, loadAll, saveSavedList, deleteSavedList, displayName, saveRecord, saveContact, importContacts, careOf, contactRows, saveCellEdits, hostOf, guestsOf, ADDR_FIELDS } from './data.js';
+import { onLoaded, bulkSetContactFields, state, loadAll, saveSavedList, deleteSavedList, displayName, saveRecord, saveContact, importContacts, careOf, contactRows, saveCellEdits, hostOf, guestsOf, ADDR_FIELDS } from './data.js';
 import { t } from './i18n.js';
 import { isTrue, isAlive, escapeHtml as h, mailingName, digits, nowStamp } from './util.js';
 import { todayIso } from './hebdate.js';
@@ -263,6 +263,39 @@ function tagOptions(cur) {
   const walk = (path, depth) => { if (depth > 0) out.push([pathKey(path), `${'  '.repeat(depth - 1)}${depth > 1 ? '└ ' : ''}${tagName(path[path.length - 1])}`, depth]); tagChildren(path).forEach((k) => walk([...path, k.id], depth + 1)); };
   return [...GROUPS, 'old'].map((g) => tagRoots().filter((r) => r.group === g).map((r) => { out.length = 0; walk([r.id], 0); return out.length ? `<optgroup label="${h(tagName(r.id))}">${out.map(([k, l]) => `<option value="${h(k)}"${k === cur ? ' selected' : ''}>${h(l.replace(/ /g, '\u00a0'))}</option>`).join('')}</optgroup>` : ''; }).join('')).join('');
 }
+// ---------- 🎉 שמחת בית אונגוואר: כל מי שבעץ משפחתי מקבל V אוטומטית ----------
+// חוץ ממי שהורידו לו ביד (wedding_set=off) וכל הצאצאים שלו (בנים, חתנים, נכדים...) —
+// עד מי שהדליקו לו ביד (wedding_set=on): ממנו והלאה שוב אוטומטי. אף פעם לא מוריד סימון.
+let wlBusy = false;
+export async function syncWeddingFamily() {
+  if (wlBusy || !state.isAdmin || !(state.headers?.Contacts || []).includes('wedding_set')) return 0;
+  wlBusy = true;
+  try {
+    const on = (c) => /^(true|1|yes|כן)$/i.test(String(c.wedding_list ?? '').trim());
+    const byId = new Map((state.contacts || []).map((c) => [String(c.contact_id), c]));
+    const setOf = (id) => String(byId.get(id)?.wedding_set || '').trim().toLowerCase();
+    const mem = new Set();
+    (state.savedLists || []).forEach((l) => {
+      if (!isFamilyList(l)) return;
+      try { evaluate(parseSaved(l).cr, new Set([String(l.list_id)])).forEach((r) => { if (!r.ext && !String(r.key).startsWith('x:')) mem.add(String(r.key)); }); } catch { /* */ }
+    });
+    const R = rels();
+    const kids = (id) => [...(R.sons.get(id) || []), ...(R.sil.get(id) || []), ...(R.gk.get(id) || [])].map(String);
+    const blocked = new Set(); const stack = [...byId.keys()].filter((id) => setOf(id) === 'off');
+    while (stack.length) {
+      kids(stack.pop()).forEach((k) => { if (blocked.has(k) || setOf(k) === 'on' || setOf(k) === 'off') return; blocked.add(k); stack.push(k); });
+    }
+    const todo = [...mem].map((id) => byId.get(id)).filter((c) => c && !on(c) && !setOf(String(c.contact_id)) && !blocked.has(String(c.contact_id))
+      && !String(c.deleted_at || '').trim() && isAlive(c.is_alive));
+    if (!todo.length) return 0;
+    // הרבה בבת אחת (למשל בפעם הראשונה) — לשאול קודם
+    if (todo.length > 20 && !confirm(`🎉 שמחת בית אונגוואר: ${todo.length} אנשים מעצי המשפחות יקבלו V אוטומטית. להמשיך?`)) return 0;
+    await bulkSetContactFields(todo.map((c) => ({ c, set: { wedding_list: 'TRUE' } })), 'auto: family tree');
+    todo.forEach((c) => { c.wedding_list = 'TRUE'; });
+    return todo.length;
+  } catch (e) { console.warn('wedding family', e); return 0; } finally { wlBusy = false; }
+}
+onLoaded(() => { setTimeout(() => { syncWeddingFamily(); }, 4000); });
 // ---------- 🌐 דף ציבורי למשפחה: "צילום" של הרשימה ללשונית FamilyPages (הדף הציבורי קורא רק אותו) ----------
 function famSnapshot(l) {
   const { cr } = parseSaved(l);
