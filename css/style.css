@@ -2575,6 +2575,9 @@ body.le-wide .le-wrap { max-height: calc(100vh - 290px); }
 .gv-audio audio{height:34px;max-width:100%}
 .gv-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .gv-tabs{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 12px}
+.gv-hist{border-collapse:collapse;font-size:.93em}
+.gv-hist th,.gv-hist td{padding:3px 10px;border-bottom:1px solid var(--line,#eee);text-align:right}
+.gv-hist th{font-weight:600;color:#666}
 .gv-player{width:100%;max-width:440px;height:64px;border:0;border-radius:8px;background:transparent}
 .gv-audio{flex-direction:column;align-items:flex-start;gap:6px}
 .gv-audio .gv-player{display:block;width:100%;max-width:480px;height:120px;overflow:hidden}
