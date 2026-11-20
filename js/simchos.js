@@ -1110,6 +1110,26 @@ export function openSimchaForm(s = {}) {
         draw();
       };
     };
+    // 🎖 יש לו תפקיד בכרטיס? — לשאול אם להוסיף (מחליף את ההערה)
+    const offerRole = (fs, c) => {
+      const cid = String(c.contact_id); const prev = $('.sg-role-offer', fs);
+      if (prev && prev.dataset.cid === cid) return; // שוין דא (א צווייטער "change" ביים בלור)
+      prev?.remove();
+      const role = String(c.role || '').trim();
+      if (!role || fs.dataset.roleNo === cid || $('.sg-note-in', fs).value.includes(role)) return;
+      const box = document.createElement('div');
+      box.className = 'sg-offer sg-role-offer';
+      box.dataset.cid = cid;
+      box.innerHTML = `<span class="small">יש לו תפקיד: <b>${h(role)}</b> — להוסיף לשמחה?</span>
+        <button type="button" class="btn small-btn primary sg-role-yes">הוסף</button>
+        <button type="button" class="linkish sg-role-no">לא</button>`;
+      $$('.sg-h-line', fs).pop().after(box);
+      $('.sg-role-no', box).onclick = () => { fs.dataset.roleNo = cid; box.remove(); };
+      $('.sg-role-yes', box).onclick = () => {
+        $('.sg-note-on', fs).checked = true; $('.sg-note-in', fs).hidden = false; $('.sg-note-in', fs).value = role;
+        box.remove(); read(); live();
+      };
+    };
     $$('.sg-remove', form).forEach((b) => { b.onclick = () => { read(); hs.splice(Number(b.closest('.sg-h').dataset.i), 1); draw(); }; });
     $$('.sg-h', form).forEach((fs) => {
       $('.sg-pick', fs).addEventListener('change', () => {
@@ -1124,6 +1144,7 @@ export function openSimchaForm(s = {}) {
           if (c.name_note) { $('.sg-note-on', fs).checked = true; $('.sg-note-in', fs).hidden = false; }
         }
         read(); refreshLinks(); live();
+        if (c) offerRole(fs, c); else $('.sg-role-offer', fs)?.remove();
         if (c) offerRelatives(fs, c);
       });
       $('.sg-note-on', fs).addEventListener('change', (e) => { $('.sg-note-in', fs).hidden = !e.target.checked; });
