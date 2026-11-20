@@ -1910,6 +1910,11 @@ function collect(form, original) {
     unverified_fields: joinTags($$('.suggested[name]', form).filter((i) => i.value.trim()).map((i) => i.name)),
   };
   delete contact._row; delete contact._phones;
+  // 🖐 שמחת בית אונגוואר שונה ביד בטופס → נשמר כבחירה ידנית (לא ישתנה אוטומטית לפי המשפחה)
+  if (form.elements.wedding_list) {
+    const was = /^(true|1|yes|כן)$/i.test(String(original?.wedding_list ?? '').trim());
+    if (form.elements.wedding_list.checked !== was) contact.wedding_set = form.elements.wedding_list.checked ? 'on' : 'off';
+  }
 
   const phones = { comments: val('comments') };
   phoneFields().forEach(([k]) => {
