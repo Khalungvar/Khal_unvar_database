@@ -13,11 +13,11 @@ let ui = null;
 let rows = null;
 let filter = 'open';
 let kindF = 'all';
-let tab = 'pick'; // pick = אישורים · add = איש קשר חדש · note = הערות
+let tab = 'add'; // add = איש קשר חדש · note = הערות · pick = אישורים (היסטוריה)
 const busy = new Set();
 
 export function initGvoice(helpers) { ui = helpers; }
-export function openGvoice() { filter = 'open'; kindF = 'all'; tab = 'pick'; rows = null; ui.showView('gvoice'); }
+export function openGvoice() { filter = 'open'; kindF = 'all'; tab = 'add'; rows = null; ui.showView('gvoice'); }
 
 async function load() {
   let vals = [];
@@ -57,26 +57,24 @@ function tabsHtml() {
   const open = (k) => rows.filter((r) => r.kind === k && !isDone(r)).length;
   const t = (k, label) => `<button type="button" class="chip${tab === k ? ' on' : ''}" data-gvtab="${k}">${label}</button>`;
   return `<div class="gv-tabs">
-    ${t('pick', `🎉 אישורים (${n})`)}
     ${t('add', `➕ איש קשר חדש (${open('add')} פתוחים)`)}
     ${t('note', `📝 הערות (${open('note')} פתוחות)`)}
+    ${t('pick', `🎉 אישורים (${n})`)}
     <button type="button" class="btn" data-gvreload>↻ רענון</button>
   </div>`;
 }
 function drawPicks(main) {
+  // 🎉 היסטוריה בלבד: כל אישור של גבאי כבר מסמן "שמחת בית אונגוואר" בכרטיס (בשרת) — אין כאן מה ללחוץ
   const list = picks();
+  const nm = (r) => { const c = state.contacts.find((x) => String(x.contact_id) === r.cid); const n = c ? [c.title_he, c.first_name_he, c.last_name_he].filter(Boolean).join(' ') : ''; return n || r.transcript || ('#' + r.cid); };
+  const gb = (g) => String(g || '').replace(/^גבאי\s*/, '');
   main.innerHTML = `
     <h1>📞 קו גבאים זמני</h1>
     ${tabsHtml()}
-    <p class="muted" dir="rtl">אנשים שגבאי אישר בטלפון שהם ברשימת ההזמנות לחתונה. כל איש מופיע פעם אחת.</p>
-    ${list.length ? `<p><button type="button" class="btn" data-gvcopy>📋 העתקת הרשימה</button></p>` : ''}
-    <div class="gv-list">${list.length ? list.map((r) => `<article class="gv-item gv-pick">
-      <div class="gv-head"><b>${h(r.transcript || ('#' + r.cid))}</b></div>
-      <div class="muted">אושר ע"י ${h(r.gabbai)} · ${h(r.at)}</div>
-      <div class="gv-actions">
-        <button type="button" class="btn" data-gvcard="${h(r.cid)}">👤 כרטיס</button>
-        <button type="button" class="btn" data-gvrm="${r.row}">✗ להוריד מהרשימה</button>
-      </div></article>`).join('') : '<p class="muted">עוד אין אף אחד ברשימה.</p>'}</div>`;
+    <p class="muted" dir="rtl">מי שגבאי אישר בטלפון — מסומן אוטומטית "שמחת בית אונגוואר" בכרטיס. ${list.length} אישורים.</p>
+    ${list.length ? `<table class="gv-hist"><thead><tr><th>שם</th><th>אושר ע"י</th><th>מתי</th></tr></thead><tbody>${list.map((r) => `<tr>
+      <td><a href="#" data-gvcardlink="${h(r.cid)}">${h(nm(r))}</a></td><td>${h(gb(r.gabbai))}</td><td class="muted" dir="ltr">${h(r.at)}</td></tr>`).join('')}</tbody></table>`
+    : '<p class="muted">עוד אין אישורים.</p>'}`;
   main.onclick = onClick;
 }
 
@@ -136,6 +134,7 @@ async function setStatus(r, done) {
 }
 
 function onClick(e) {
+  const a = e.target.closest('[data-gvcardlink]'); if (a) { e.preventDefault(); if (ui.openCard) ui.openCard(a.dataset.gvcardlink); return; }
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.gvf) { filter = b.dataset.gvf; draw(this); return; }
   if (b.dataset.gvk) { kindF = b.dataset.gvk; draw(this); return; }
