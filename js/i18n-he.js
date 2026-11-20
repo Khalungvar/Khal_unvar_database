@@ -1896,6 +1896,7 @@ export const HE = {
   "fbView_admin": "ניהול",
   "fbView_soon": "לובי",
   "tgTitle": "תגיות",
+  "weddingList": "רשימת חתונה",
   "tfAllStatus": "כל המצבים",
   "tfActive": "פעיל (מאוד + לפעמים)",
   "tfAny": "— הכל —",
