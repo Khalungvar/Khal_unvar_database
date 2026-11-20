@@ -2590,3 +2590,6 @@ body.le-wide .le-wrap { max-height: calc(100vh - 290px); }
 .tg-card h3 { display: flex; align-items: center; gap: 8px; }
 .tg-card .tg-wl { margin-inline-start: auto; border: 1.5px solid #c9a227; border-radius: 16px; background: #fff; color: #633806; font: inherit; font-size: 14px; font-weight: 600; padding: 2px 12px; cursor: pointer; }
 .tg-card .tg-wl.on { background: #fff3c4; border-color: #b8860b; }
+
+/* 📍 אזור אוטומטי לפי הכתובת */
+.area-auto { background: #f4f1e8; color: #555; cursor: default; }
