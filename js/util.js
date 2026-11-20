@@ -81,11 +81,16 @@ export function isAlive(v) {
 }
 /** 👩 אלמנה: הבעל נפטר, ויש בכרטיס אשה בחיים — הכרטיס "חי" (רשימות, דואר) ונשלח אליה */
 export const hasWife = (c) => Boolean(String(c?.wife_name_he || '').trim() || String(c?.wife_name_en || '').trim());
-export const isWidow = (c) => Boolean(c) && !isAlive(c.is_alive) && hasWife(c) && isAlive(c.wife_is_alive);
+// בלי שם אשה — לפי המצב המשפחתי: "נשוי" והאשה לא מסומנת נפטרת (בחור/גרוש/אלמן שנפטר — נשאר נפטר)
+export const isWidow = (c) => Boolean(c) && !isAlive(c.is_alive) && isAlive(c.wife_is_alive) && (hasWife(c) || String(c.marital_status || '').trim() === 'נשוי');
 export const cardAlive = (c) => isAlive(c?.is_alive) || isWidow(c);
 /** שם האלמנה בעברית: "מרת/הרבנית שרה קליין" */
 export function widowHe(c) {
-  return [isTrue(c.wife_is_rebbetzin) ? 'הרבנית' : 'מרת', c.wife_name_he, c.last_name_he].map((x) => String(x || '').trim()).filter(Boolean).join(' ');
+  const s = (x) => String(x || '').trim();
+  if (s(c.wife_name_he)) return [isTrue(c.wife_is_rebbetzin) ? 'הרבנית' : 'מרת', c.wife_name_he, c.last_name_he].map(s).filter(Boolean).join(' ');
+  // בלי שם האשה: "אלמנת ר' / הרב [שם הבעל] ז"ל"
+  const him = [s(c.first_name_he), s(c.last_name_he)].filter(Boolean).join(' ');
+  return him ? `אלמנת ${/^הרב/.test(s(c.title_he)) ? 'הרב' : "ר'"} ${him} ז"ל` : '';
 }
 
 export function splitTags(v) {
