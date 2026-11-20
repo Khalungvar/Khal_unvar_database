@@ -1602,7 +1602,7 @@ function openForm(c = {}, opts = {}) {
       </div>
       <label class="role-line">${t('roleField')}<input name="role" dir="rtl" value="${v('role')}" placeholder="אבד&quot;ק… / ר&quot;מ ב… / מעורכי…"></label>
       <div class="grid status-row">
-        <label>${t('marital')}<select name="marital_status">${options(state.lists.marital_status, c.marital_status || (isNew ? 'נשוי' : ''), maritalLabel)}</select></label>
+        <label>${t('marital')}<select name="marital_status">${options(state.lists.marital_status, c.marital_status || '', maritalLabel)}</select></label>
         <label class="check"><input type="checkbox" name="deceased" ${!isAlive(c.is_alive) ? 'checked' : ''}> ${t('deceased')}</label>
         <label class="check"><input type="checkbox" name="inactive" ${!isNew && c.is_active !== '' && !isTrue(c.is_active) ? 'checked' : ''}> ${t('inactive')}</label>
       </div>
@@ -1928,6 +1928,16 @@ function collect(form, original) {
   return { contact, phones };
 }
 
+function warnMarital(form) {
+  const d = document.createElement('dialog'); d.className = 'sheet warn-dlg';
+  d.innerHTML = `<h3>⚠ חסר מצב משפחתי</h3><p>צריך לבחור מצב משפחתי (${h((state.lists.marital_status || []).join(' / '))}) לפני השמירה.</p>
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn primary">הבנתי</button></div>`;
+  document.body.append(d);
+  d.querySelector('button').onclick = () => d.close();
+  d.onclose = () => { d.remove(); const sel = form.elements.marital_status; sel?.scrollIntoView({ block: 'center' }); sel?.focus(); sel?.classList.add('need-fill'); sel?.addEventListener('change', () => sel.classList.remove('need-fill'), { once: true }); };
+  d.showModal();
+}
+
 async function submit(form, original) {
   form._relPending?.(); // א קשר וואס מ'האט אויסגעקליבן אבער נישט צוגעלייגט
   const { contact, phones } = collect(form, original);
@@ -1936,6 +1946,8 @@ async function submit(form, original) {
   if (tg.error) { toast(tg.error, 'error'); $('.tg-missing', form)?.scrollIntoView({ block: 'center' }); return; }
   contact.tags = tg.tags;
   contact.work = readWorkForm(form, original);
+  // איש קשר חדש — חובה לבחור מצב משפחתי (קובע אלמנה / נפטר ברשימות)
+  if (!original?.contact_id && !String(contact.marital_status || '').trim()) { warnMarital(form); return; }
   applyMaritalRule(contact, original);
   nesheiFromTags(contact);
   contact.is_active = !form.elements.inactive.checked;
