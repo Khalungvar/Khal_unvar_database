@@ -19,7 +19,8 @@ let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const money = (n) => `$${Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
-const FAM_COLORS = ['#2b6cb0', '#2f855a', '#b7791f', '#9b2c2c'];
+const FAM_COLORS = ['#2b6cb0', '#2f855a', '#b7791f', '#9b2c2c', '#6b46c1', '#c05621', '#2c7a7b', '#b83280', '#4a5568', '#718096'];
+const FAM_MAX = 10; // רשימת משפחה: עד 10 ראשי משפחה (ברשימה רגילה "לפי משפחה" — עד 4 רשימות)
 const FAM_RELS = ['self', 'sons', 'sil', 'gk', 'gkd', 'ggk', 'father', 'fil', 'bro', 'bil', 'mech', 'mechg'];
 const TABS = ['names', 'phones', 'mail', 'email', 'details'];
 
@@ -194,7 +195,7 @@ const areaMatch = (c, areas) => areas.some((a) => (a === NO_AREA ? !String(c.are
 const contactOf = (id) => state.contacts.find((c) => String(c.contact_id) === String(id));
 function famIds(fam) {
   const m = new Map(); // id → [color indexes]
-  (fam || []).slice(0, 4).forEach((f, i) => {
+  (fam || []).slice(0, FAM_MAX).forEach((f, i) => {
     const put = (x) => { if (!m.has(x)) m.set(x, []); m.get(x).push(i); };
     if (f?.list) { // רשימת משפחה שמורה (מ"רשימות משפחות")
       const l = listById(f.list);
@@ -340,7 +341,9 @@ export async function publishFamPage(l) {
   if (!parts.length) parts.push('[]');
   const es = editSlugOf(pub);
   const extra = parts.slice(1); while (extra.length < 8) extra.push('');
-  const row = [slugOf(pub.slug), String(l.list_id), Boolean(pub.on && pub.slug), '', l.name || '', parts[0], nowStamp(), es, Boolean(pub.edit?.on && es), ...extra];
+  // הכותרת: שם הרשימה, ובשורה שנייה כותרת המשנה (הדף מפריד לפי שורה)
+  const title = [l.name || '', String(cr.meta.famTitle || '').trim()].filter(Boolean).join('\n');
+  const row = [slugOf(pub.slug), String(l.list_id), Boolean(pub.on && pub.slug), '', title, parts[0], nowStamp(), es, Boolean(pub.edit?.on && es), ...extra];
   if (idx > 0) await updateRow(FP_TAB, idx + 1, row); else await appendRow(FP_TAB, row);
   return people.length;
 }
@@ -1566,7 +1569,9 @@ function readFamList(root, prefix) {
 }
 function famPick(list, prefix) {
   if (current?.cr?.meta?.kind !== 'family') return famListPick(list, prefix);
-  const rows = [0, 1, 2, 3].map((i) => {
+  // שורות: כמה שיש + אחת ריקה (עד 10), ולפחות 4
+  const nRows = Math.min(FAM_MAX, Math.max(4, (list || []).length + 1));
+  const rows = [...Array(nRows).keys()].map((i) => {
     const f = list[i] || { id: '', rel: ['self', 'sons', 'sil'] };
     const c = f.id ? contactOf(f.id) : null;
     return `<div class="l2-fam-row" data-fi="${i}"><i class="l2-fam" style="background:${FAM_COLORS[i]}"></i>
@@ -1577,7 +1582,7 @@ function famPick(list, prefix) {
 }
 function readFam(root, prefix) {
   if (current?.cr?.meta?.kind !== 'family') return readFamList(root, prefix);
-  return [0, 1, 2, 3].map((i) => {
+  return [...Array(FAM_MAX).keys()].map((i) => {
     const m = String($(`[data-${prefix}fam="${i}"]`, root)?.value || '').match(/\(#(\d+)\)/);
     if (!m) return null;
     return { id: m[1], rel: $$(`[data-${prefix}rel^="${i}|"]:checked`, root).map((x) => x.getAttribute(`data-${prefix}rel`).split('|')[1]) };
@@ -1631,7 +1636,7 @@ function openSettings() {
       <label>${h(t('L2purpose'))}<select name="firstTab">${TABS.map((k) => `<option value="${k}"${(cr.meta.firstTab || 'names') === k ? ' selected' : ''}>${h(t(`L2tab${k[0].toUpperCase()}${k.slice(1)}`))}</option>`).join('')}</select></label>
       ${own && current.list_id ? `<div class="l2-access">${['editors', 'viewers'].map((k) => `<p><b>${h(t(`L2${k}`))}:</b> ${(cr.meta[k] || []).map((e) => `<span class="chip">${h(displayName(e))} <button type="button" class="linkish" data-revoke="${k}|${h(e)}">✕</button></span>`).join(' ') || '—'}</p>`).join('')}</div>` : ''}
     </fieldset>
-    ${fam ? `<fieldset><legend>👪 ראשי המשפחה (עד 4) ואילו קרובים לכלול</legend>
+    ${fam ? `<fieldset><legend>👪 ראשי המשפחה (עד 10) ואילו קרובים לכלול</legend>
       <input type="radio" name="base" value="family" checked hidden>
       ${famPick(cr.family, 'i')}
       <p class="muted small">אחרי השמירה אפשר להוסיף ידנית אנשים (גם כאלה שלא במאגר) בכפתור "＋ הוספת אנשים", ולהוריד מי שלא שייך ב-✕.</p>
@@ -1641,6 +1646,7 @@ function openSettings() {
       <p class="muted small">התגית מופיעה בכרטיס כל עוד האדם ברשימה, ויורדת ממנו כשהוא יוצא. מי שעדיין לא במאגר יקבל אותה אחרי "יצירת איש קשר".</p>
     </fieldset>
     <fieldset><legend>🌐 דף ציבורי</legend>
+      <label>כותרת משנה בראש הדף (לא חובה) <input name="famTitle" value="${h(cr.meta.famTitle || '')}" placeholder='למשל: צאצאי בעל הבאר דוד זצ"ל'></label>
       <label>כתובת הקישור <span class="l2-pubrow"><bdi dir="ltr" class="muted">${h(PUB_BASE)}</bdi><input name="slug" dir="ltr" value="${h(pub.slug || '')}" placeholder="klein"></span></label>
       <div class="l2-publink"><label class="check"><input type="checkbox" name="pubOn"${pub.on ? ' checked' : ''}> 👁 קישור לצפייה בלבד — פעיל</label>
         <button type="button" class="btn small-btn" data-copylink="view">📋 העתקה</button></div>
@@ -1695,7 +1701,7 @@ function openSettings() {
       marital: $$('[data-marital] .chip.on', form).map((b) => b.dataset.v),
       includeDeceased: form.elements.dead.checked, includeInactive: form.elements.inact.checked, includeNoSend: form.elements.nosend.checked,
       meta: { ...cr.meta, note: form.elements.note.value.trim(), firstTab: form.elements.firstTab.value,
-        ...(fam ? { pub: { slug: slugOf(form.elements.slug.value), on: form.elements.pubOn.checked, edit: { key: editKey, on: form.elements.editOn.checked } }, autoTag: form.elements.autoTag.value || '' } : {}) },
+        ...(fam ? { pub: { slug: slugOf(form.elements.slug.value), on: form.elements.pubOn.checked, edit: { key: editKey, on: form.elements.editOn.checked } }, autoTag: form.elements.autoTag.value || '', famTitle: form.elements.famTitle.value.trim() } : {}) },
     });
   };
   const preview = () => { try { $('#l2-preview', dlg).textContent = t('lbCount', { n: evaluate(read()).length }); } catch { /* */ } };
