@@ -29,6 +29,16 @@ body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.45 "Segoe UI",Ar
 .fp-name b{font-size:19px}.lv0>.fp-card .fp-name b{font-size:22px}
 .fp-wife{font-size:16px;color:#333}
 .zl{color:var(--muted);font-size:15px}
+/* ▾ פתיחה/סגירה של הצאצאים — כפתור גדול בצד השני של כפתורי העריכה */
+.fp-card.has-tog{grid-template-columns:auto 1fr 1fr auto;grid-template-areas:"acts he en tog" "acts det det tog"}
+.fp-card.view.has-tog{grid-template-columns:1fr 1fr auto;grid-template-areas:"he en tog" "det det tog"}
+html[lang=en] .fp-card.has-tog{grid-template-areas:"acts en he tog" "acts det det tog"}html[lang=en] .fp-card.view.has-tog{grid-template-areas:"en he tog" "det det tog"}
+.fp-tog{grid-area:tog;align-self:center;font:inherit;font-size:16px;font-weight:700;border:2px solid var(--c);background:var(--c);color:#fff;border-radius:12px;padding:8px 14px;cursor:pointer;white-space:nowrap}
+.fp-tog.on{background:#fff;color:var(--c)}
+.fam-sub{font-size:21px;font-weight:700;color:var(--pri)}
+.fam-gens{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0 4px}
+.fam-gens button{border:2px solid var(--line);background:#fff;border-radius:18px;padding:5px 14px;cursor:pointer;font:inherit;font-size:16px}
+.fam-gens button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
 /* השפה השנייה — קטנה; באנגלית: האנגלית קודם */
 .fp-card .sec .fp-name b,.lv0>.fp-card .sec .fp-name b{font-size:15px;font-weight:600}.fp-card .sec{color:#555;padding-top:2px}.fp-card .sec .fp-wife{font-size:14px;color:#555}
 html[lang=en] .fp-card{grid-template-areas:"acts en he" "acts det det"}html[lang=en] .fp-card.view{grid-template-areas:"en he" "det det"}
@@ -95,6 +105,9 @@ html[lang=en] .fp-card{grid-template-areas:"acts en he" "acts det det"}html[lang
 @media (max-width:640px){body{font-size:17px}#fam{padding:10px 8px 230px}.fp-kids{padding-inline-start:8px}.fp.branch{padding:6px}
   .fp-card,.fp-card.view{grid-template-columns:1fr;grid-template-areas:"he" "en" "det" "acts"}.fp-en{text-align:left}
   html[lang=en] .fp-card,html[lang=en] .fp-card.view{grid-template-areas:"en" "he" "det" "acts"}
+  .fp-card.has-tog,.fp-card.view.has-tog{grid-template-columns:1fr;grid-template-areas:"he" "en" "det" "acts" "tog"}
+  html[lang=en] .fp-card.has-tog,html[lang=en] .fp-card.view.has-tog{grid-template-areas:"en" "he" "det" "acts" "tog"}
+  .fp-tog{width:100%}
   .fp-acts{flex-direction:row;flex-wrap:wrap;min-width:0}.fp-acts button{flex:1 1 45%;padding:8px 6px;font-size:15px}
   .ff-cols{grid-template-columns:1fr}.ff-pair{grid-template-columns:1fr}.fp-addform{margin-inline-start:0}
   .fam-save{width:100%}.fam-savewrap{flex-direction:column;width:100%}.fam-who input{width:100%}}
