@@ -1,4 +1,5 @@
 // מסך אנשי הקשר: התחברות, חיפוש, כרטיס אישי, הוספה ועריכה.
+import { fuzzySearch } from './fuzzy.js';
 import {
   initAuth, requestToken, signOut, getUserEmail, hasSavedSession, setSilent, setOnExpire, rememberEmail, hasSheetsScope,
 } from './google.js';
@@ -243,14 +244,18 @@ function lobbySearch() {
   const q = $('#lobby-q').value;
   const box = $('#lobby-results');
   if (!q.trim()) { box.innerHTML = ''; box.hidden = true; return; }
-  const found = state.contacts.filter((c) => matches(c, q))
-    .sort((a, b) => String(a.last_name_he).localeCompare(String(b.last_name_he), 'he')).slice(0, 12);
+  const exact = state.contacts.filter((c) => matches(c, q))
+    .sort((a, b) => String(a.last_name_he).localeCompare(String(b.last_name_he), 'he'));
+  const found = exact.slice(0, 12);
+  // 🔎 אחרי המדויקים — שמות דומים
+  const fz = fuzzyOk(q) ? fuzzySearch(state.contacts, q, { exclude: new Set(exact), limit: Math.max(5, 12 - found.length) }) : [];
   box.hidden = false;
-  box.innerHTML = found.length ? found.map((c) => `<button type="button" class="lobby-hit" data-open-card="${h(c.contact_id)}">
+  const hit = (c, cls = '') => `<button type="button" class="lobby-hit${cls}" data-open-card="${h(c.contact_id)}">
       <span class="muted small" dir="ltr">#${h(c.contact_id)}</span><b>${h(fullNameHe(c))}</b>
       <span class="muted small">${h([c.address ? [c.address, c.city].filter(Boolean).join(', ') : (c.area || c.city), [c.first_name_en, c.last_name_en].filter(Boolean).join(' ')].filter(Boolean).join(' · '))}</span>
-      ${!isAlive(c.is_alive) ? `<span class="badge muted">${t('deceased')}</span>` : ''}</button>`).join('')
-    : `<p class="muted small lobby-none">${h(t('noResults'))}</p>`;
+      ${!isAlive(c.is_alive) ? `<span class="badge muted">${t('deceased')}</span>` : ''}</button>`;
+  box.innerHTML = (found.length ? found.map((c) => hit(c)).join('') : (fz.length ? '' : `<p class="muted small lobby-none">${h(t('noResults'))}</p>`))
+    + (fz.length ? `<p class="fz-sep">🔎 אולי התכוונת:</p>${fz.map((c) => hit(c, ' fz-hit')).join('')}` : '');
   oldListHits(q, box);
 }
 /** 📦 מהרשימה הישנה (המחסן) — רק למנהלים; באפור, אחרי התוצאות */
@@ -733,8 +738,10 @@ function fillOrgTagFilter() {
   sel.hidden = !groups.size;
 }
 
-function visibleContacts() {
-  const query = $('#search').value;
+/** חיפוש דומים — רק כשיש אותיות (לא מספר טלפון / קוד) */
+const fuzzyOk = (q) => /[a-zA-Z\u05D0-\u05EA]{2}/.test(q) && !parseCodeQuery(q);
+function visibleContacts(withQuery = true) {
+  const query = withQuery ? $('#search').value : '';
   const tag = $('#tag-filter').value;
   const area = $('#area-filter').value;
   const showInactive = $('#show-inactive').checked;
@@ -781,6 +788,14 @@ function fatherLine(c) {
   return txt ? `<span class="row-father">${h(txt)}</span>` : '';
 }
 
+/** 🔎 אחרי התוצאות המדויקות: שמות דומים (באותם סינונים) */
+function fuzzyRows(list) {
+  const q = $('#search').value;
+  if (!q.trim() || !fuzzyOk(q)) return '';
+  const fz = fuzzySearch(visibleContacts(false), q, { exclude: new Set(list), limit: 30 });
+  return fz.length ? `<p class="fz-sep">🔎 אולי התכוונת (${fz.length}):</p><div class="fz-rows">${fz.map(contactRow).join('')}</div>` : '';
+}
+
 function renderList() {
   buildFatherMap();
   fillOrgTagFilter();
@@ -790,11 +805,11 @@ function renderList() {
   $('#count').textContent = t('count', { n: list.length }) + (sc ? ` · ${scopeLabel(sc)}` : '');
   const body = $('#list');
   if (!list.length) {
-    body.innerHTML = `<p class="empty">${h(state.contacts.length ? t('noResults') : t('emptyDb'))}</p>`;
+    body.innerHTML = `<p class="empty">${h(state.contacts.length ? t('noResults') : t('emptyDb'))}</p>` + fuzzyRows(list);
     oldListHits($('#search').value, body);
     return;
   }
-  body.innerHTML = list.map(contactRow).join('');
+  body.innerHTML = list.map(contactRow).join('') + fuzzyRows(list);
   oldListHits($('#search').value, body);
 }
 
