@@ -2604,3 +2604,7 @@ select.need-fill, input.need-fill { outline: 2px solid #c0392b; outline-offset: 
 /* 🔎 אולי התכוונת */
 .fz-sep { margin: 10px 14px 4px; color: #8a7a55; font-size: .9em; border-top: 1px dashed color-mix(in srgb, var(--gold) 50%, transparent); padding-top: 6px; }
 .fz-hit, .fz-rows > * { opacity: .85; }
+
+/* 🔎 JBD בכרטיס */
+.jbd-in-card { margin: 14px 0 6px; padding-top: 10px; border-top: 1px dashed color-mix(in srgb, var(--gold) 45%, transparent); }
+.jbd-in-card .jbd-one:not(:empty) { margin-top: 8px; }
