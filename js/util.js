@@ -87,10 +87,8 @@ export const cardAlive = (c) => isAlive(c?.is_alive) || isWidow(c);
 /** שם האלמנה בעברית: "מרת/הרבנית שרה קליין" */
 export function widowHe(c) {
   const s = (x) => String(x || '').trim();
-  if (s(c.wife_name_he)) return [isTrue(c.wife_is_rebbetzin) ? 'הרבנית' : 'מרת', c.wife_name_he, c.last_name_he].map(s).filter(Boolean).join(' ');
-  // בלי שם האשה: "אלמנת ר' / הרב [שם הבעל] ז"ל"
-  const him = [s(c.first_name_he), s(c.last_name_he)].filter(Boolean).join(' ');
-  return him ? `אלמנת ${/^הרב/.test(s(c.title_he)) ? 'הרב' : "ר'"} ${him} ז"ל` : '';
+  // בלי השם של הבעל; בלי השם שלה — רק "מרת קליין"
+  return [isTrue(c.wife_is_rebbetzin) ? 'הרבנית' : 'מרת', s(c.wife_name_he), s(c.last_name_he)].filter(Boolean).join(' ');
 }
 
 export function splitTags(v) {
@@ -107,12 +105,32 @@ const RABBI_TITLES = ['Rabbi', 'Grand Rabbi'];
  * הפנייה בדואר באנגלית, לפי כללי הפנייה שבאפיון.
  * מחזיר null כשאין למי לשלוח (שניהם נפטרו).
  */
+/** 🎩 התואר באנגלית — תמיד לפי התואר בעברית (כדי שלא יהיה פער); Dr./Prof. נשארים */
+const HE2EN = [[/^כ"ק/, 'Grand Rabbi'], [/^(הרב|הרה"ג|הרה"צ|הגה"צ|הגאון)/, 'Rabbi'], [/^הרבנית/, 'Rebbetzin'], [/^מרת/, 'Mrs.'], [/^(מו"ה|ר'|הבה"ח|הר"ר)/, 'Mr.']];
+export function titleEnOf(c) {
+  const en = String(c?.title_en || '').trim().replace(/\s*&.*$/, '').replace(/^(mr|mrs|ms|dr|prof)$/i, (m) => `${m[0].toUpperCase()}${m.slice(1).toLowerCase()}.`);
+  if (/^(Dr\.?|Prof\.?)$/i.test(en)) return en;
+  const he = String(c?.title_he || '').trim();
+  const hit = he && HE2EN.find(([rx]) => rx.test(he));
+  if (hit) return hit[1];
+  return en || '';
+}
+const WOMAN_T = /^(Mrs\.?|Ms\.?|Miss|Rebbetzin)$/i;
+/** כרטיס של ארגון / עסק: אין שם פרטי (לא בעברית ולא באנגלית) ואין תואר */
+export const isOrgCard = (c) => !String(c?.first_name_he || '').trim() && !String(c?.first_name_en || '').trim() && !String(c?.title_he || '').trim() && !String(c?.title_en || '').trim();
+
 export function mailingName(c) {
   if (c?._mailing) return c._mailing; // עטליכע נעמען אויף איין קאנווערט
-  const title = (c.title_en || 'Mr.').trim();
   const wifeTitle = isTrue(c.wife_is_rebbetzin) ? 'Rebbetzin' : 'Mrs.';
   const first = (c.first_name_en || '').trim();
-  const last = (c.last_name_en || '').trim();
+  let last = (c.last_name_en || '').trim();
+  // עורך דין / רואה חשבון — "Mark Halberstam, Esq." בלי תואר לפני
+  const prof = last.match(/[\s,]+(Esq|CPA)\.?$/i);
+  if (prof && isAlive(c.is_alive)) { last = last.slice(0, prof.index); return `${[first, last].filter(Boolean).join(' ')}, ${prof[1].toUpperCase() === 'CPA' ? 'CPA' : 'Esq.'}`; }
+  if (isOrgCard(c)) return last || null; // ארגון / עסק — בלי Mr.
+  const title = titleEnOf(c) || 'Mr.';
+  // כרטיס של אשה (מרת / הרבנית) — רק היא
+  if (WOMAN_T.test(title)) return isAlive(c.is_alive) && (first || last) ? [title, first, last].filter(Boolean).join(' ') : null;
   const husbandAlive = isAlive(c.is_alive);
   const wifeAlive = isAlive(c.wife_is_alive);
   const married = c.marital_status === 'נשוי';
