@@ -283,8 +283,8 @@ export function valuesFor(D, c, ctx = null) {
   if (isWidow(c) && !c._toWife) {
     const wFirstEn = nz(c.wife_name_en);
     Object.assign(v, {
-      תואר: nz(c.wife_name_he) ? (isTrue(c.wife_is_rebbetzin) ? 'הרבנית' : 'מרת') : '', שם_פרטי: nz(c.wife_name_he),
-      שם: nz(c.wife_name_he) ? [c.wife_name_he, c.last_name_he].map(nz).filter(Boolean).join(' ') : widowHe(c), שם_מלא: widowHe(c), אשה: '',
+      תואר: isTrue(c.wife_is_rebbetzin) ? 'הרבנית' : 'מרת', שם_פרטי: nz(c.wife_name_he),
+      שם: [c.wife_name_he, c.last_name_he].map(nz).filter(Boolean).join(' '), שם_מלא: widowHe(c), אשה: '',
       First: wFirstEn, 'Legal/First': wFirstEn, Wife: '', first: wFirstEn, wife: '', hebrew: widowHe(c),
       legal: [wFirstEn, c.last_name_en].map(nz).filter(Boolean).join(' '),
     });
