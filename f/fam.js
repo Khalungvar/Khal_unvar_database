@@ -9,6 +9,7 @@ const TITLE_EN = { 'מו"ה': 'Mr.', 'הרב': 'Rabbi', 'הרה"ג': 'Rabbi', '�
 const MONTHS = ['תשרי', 'חשון', 'כסלו', 'טבת', 'שבט', 'אדר', 'אדר א\'', 'אדר ב\'', 'ניסן', 'אייר', 'סיון', 'תמוז', 'אב', 'אלול'];
 const T = {
   he: { dir: 'rtl', loading: 'טוען…', notFound: 'הדף לא נמצא.', people: '{n} אנשים',
+    gens: 'להציג:', gen0: 'ראשי משפחה', genN: 'עד דור {n}', genAll: 'הכל', togOpen: '▸ פתח ({n})', togClose: '▾ סגור ({n})',
     capMsg: 'הגעתם למכסה היומית של חיפוש כתובות — אפשר לכתוב את הכתובת ביד, והיא תישמר כמו שהיא',
     dlPending: 'יש שינויים שעוד לא נשמרו — שמרו קודם, ואז הורידו', dlCols: ['דור', 'של מי', 'שם בעברית', 'שם באנגלית', 'כתובת'], of: 'של {n}', popup: 'הדפדפן חסם חלון חדש — אפשרו חלונות קופצים לאתר',
     introView: 'זו רשימת המשפחה כפי שהיא רשומה אצלנו.',
@@ -31,6 +32,7 @@ const T = {
     capMsg: 'The daily address-search limit was reached — type the address by hand and it will be saved as written',
     dlPending: 'You have unsaved changes — save first, then download', dlCols: ['Relation', 'Of', 'Hebrew name', 'English name', 'Address'], of: 'of {n}', popup: 'The browser blocked a new window — please allow pop-ups for this site',
     introView: 'This is the family list as we have it.',
+    gens: 'Show:', gen0: 'Heads only', genN: 'Up to generation {n}', genAll: 'All', togOpen: '▸ Open ({n})', togClose: '▾ Close ({n})',
     introEdit: 'Please review the list. You can fix details, add missing children, and remove anyone who doesn\'t belong. When done, press "💾 Save" at the bottom.',
     lv: ['Head of family', 'Son', 'Grandson', 'Great-grandson', 'Son'], lvh: ['', 'Son-in-law', 'Grandson-in-law', 'Great-grandson-in-law', 'Son-in-law'], lvd: ['', 'Daughter', 'Granddaughter', 'Great-granddaughter', 'Daughter'], other: 'Relative', branch: 'The {name} family', kids: '{n} children',
     edit: 'Edit details', addM: '➕ Married child', addH: '➕ Child at home', del: 'Not in family', undo: '↩ Undo', ok: '✓ OK', cancel: 'Cancel',
@@ -49,10 +51,16 @@ const T = {
 };
 const store = { get: (k) => { try { return localStorage.getItem(k) || ''; } catch { return ''; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* */ } } };
 let lang = ['he', 'en'].includes(store.get('famLang')) ? store.get('famLang') : 'he';
+// 👁 מה פתוח: דור מקסימלי (null = הכל) + פתיחה/סגירה ידנית לכל אחד — נשמר בדפדפן לכל דף
+let view = { g: null, ov: {} };
 const tr = (k, v = {}) => String(T[lang][k] ?? k).replace(/\{(\w+)\}/g, (_, x) => v[x] ?? '');
 const h = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const $ = (s, r = document) => r.querySelector(s);
 
+const VIEW_KEY = () => `famView:${slug}`;
+function loadView() { try { const v = JSON.parse(store.get(VIEW_KEY()) || '{}'); view = { g: Number.isInteger(v.g) ? v.g : null, ov: v.ov && typeof v.ov === 'object' ? v.ov : {} }; } catch { /* */ } }
+const saveView = () => store.set(VIEW_KEY(), JSON.stringify(view));
+const isOpenKids = (k, depth) => (view.ov[k] !== undefined ? view.ov[k] : (view.g === null || depth < view.g));
 const slug = (() => {
   const m = location.pathname.match(/^\/f\/([^/?#]+)/);
   return decodeURIComponent((m && m[1]) || new URLSearchParams(location.search).get('s') || '').trim().toLowerCase();
@@ -117,6 +125,11 @@ const wifeHe = (x) => (x.w ? [x.wr ? 'הרבנית' : 'מרת', x.w].join(' ') :
 const wifeEn = (x) => (x.we ? [x.wr ? 'Rebbetzin' : 'Mrs.', x.we].join(' ') : '');
 
 // ---------- כרטיס ----------
+function countDesc(k, kids, seen) {
+  let n = 0;
+  (kids.get(k) || []).forEach((y) => { const yk = String(y.k); if (seen.has(yk)) return; seen.add(yk); n += 1 + countDesc(yk, kids, seen); });
+  return n;
+}
 function personHtml(x0, kids, seen, depth) {
   if (seen.has(String(x0.k))) return '';
   seen.add(String(x0.k));
@@ -126,7 +139,10 @@ function personHtml(x0, kids, seen, depth) {
   const ch = Boolean(edits[x.k]);
   const isOpen = open && String(open.key) === String(x.k);
   const myKids = kids.get(String(x.k)) || [];
-  const sub = myKids.map((y) => personHtml(y, kids, seen, depth + 1)).join('');
+  const kOpen = isOpenKids(String(x.k), depth);
+  const nDesc = countDesc(String(x.k), kids, new Set());
+  const sub = kOpen ? myKids.map((y) => personHtml(y, kids, seen, depth + 1)).join('') : '';
+  const tog = myKids.length ? `<button type="button" class="fp-tog${kOpen ? ' on' : ''}" data-tog="${h(x.k)}" data-depth="${depth}">${h(tr(kOpen ? 'togClose' : 'togOpen', { n: nDesc }))}</button>` : '';
   const lv = depth === 0 ? (x.hd ? 0 : 1) : Math.min(depth, 3);
   const branch = !x.lw && (depth === 1 || (depth === 0 && !x.hd));
   const tags = [x.lw ? `<span class="fp-tag home">${h(tr('home'))}</span>` : '',
@@ -136,7 +152,7 @@ function personHtml(x0, kids, seen, depth) {
   const acts = !edit ? '' : gone ? btn('data-undel', tr('undo'))
     : x._new ? btn('data-unadd', tr('undo'))
       : [btn('data-edit', tr('edit'), 'b-edit'), ch ? btn('data-unedit', tr('undo')) : '', x.lw ? '' : btn('data-addm', tr('addM'), 'b-add'), x.lw ? '' : btn('data-addh', tr('addH'), 'b-add'), x.hd ? '' : btn('data-del', tr('del'), 'b-del')].join('');
-  const card = `<div class="fp-card${edit ? '' : ' view'}">
+  const card = `<div class="fp-card${edit ? '' : ' view'}${tog ? ' has-tog' : ''}">${tog}
       ${edit ? `<div class="fp-acts">${acts}</div>` : ''}
       ${(() => {
         // השפה שנבחרה — שמות גדולים + התווית; השפה השנייה קטנה בצד
@@ -265,7 +281,7 @@ function famRows() {
 }
 function download(kind) {
   if (nPending()) { msg = tr('dlPending'); render(); return; }
-  const rows = famRows(); const cols = T[lang].dlCols; const name = data.name || 'family';
+  const rows = famRows(); const cols = T[lang].dlCols; const name = nameMain() || 'family';
   if (kind === 'xlsx') { downloadXlsx(name, cols, rows.map((r) => r.row), { sheet: 'Family', rtl: lang === 'he' }); return; }
   const w = window.open('', '_blank'); if (!w) { msg = tr('popup'); render(); return; }
   const dir = T[lang].dir;
@@ -280,6 +296,15 @@ function download(kind) {
   w.document.close(); w.focus(); setTimeout(() => w.print(), 500);
 }
 
+// השם: שורה ראשונה = שם הרשימה, שורה שנייה (לא חובה) = כותרת משנה
+const nameMain = () => String(data?.name || '').split('\n')[0];
+const nameSub = () => String(data?.name || '').split('\n').slice(1).join(' ').trim();
+function maxDepth(roots, kids) {
+  let m = 0; const seen = new Set();
+  const walk = (x, d) => { const k = String(x.k); if (seen.has(k)) return; seen.add(k); m = Math.max(m, d); (kids.get(k) || []).forEach((y) => walk(y, d + 1)); };
+  roots.forEach((x) => walk(x, 0));
+  return m;
+}
 function render() {
   const el = root();
   document.documentElement.lang = lang;
@@ -292,9 +317,10 @@ function render() {
   const n = nPending();
   const sy = window.scrollY;
   el.innerHTML = `${langs}
-    <header class="fam-head"><h1>${h(data.name)}</h1><p class="muted">${h(tr('people', { n: data.people.length }))}</p>
+    <header class="fam-head"><h1>${h(nameMain())}</h1>${nameSub() ? `<p class="fam-sub">${h(nameSub())}</p>` : ''}<p class="muted">${h(tr('people', { n: data.people.length }))}</p>
       <p class="fam-intro">${h(tr(edit ? 'introEdit' : 'introView'))}</p></header>
     <div class="fam-legend">${[0, 1, 2, 3].map((i) => `<span class="lg lv${i}">${h(T[lang].lv[i])}${i && T[lang].lvh[i] ? ` / ${h(T[lang].lvh[i])}` : ''}</span>`).join('')}</div>
+    ${maxDepth(roots, kids) > 0 ? `<div class="fam-gens"><b>${h(tr('gens'))}</b>${[...Array(maxDepth(roots, kids)).keys()].map((i) => `<button type="button" data-gen="${i}" class="${view.g === i && !Object.keys(view.ov).length ? 'on' : ''}">${h(i === 0 ? tr('gen0') : tr('genN', { n: i + 1 }))}</button>`).join('')}<button type="button" data-gen="all" class="${view.g === null && !Object.keys(view.ov).length ? 'on' : ''}">${h(tr('genAll'))}</button></div>` : ''}
     <ul class="fam-tree">${roots.map((x) => personHtml(x, kids, seen, 0)).join('')}</ul>
     ${edit ? `<div class="fam-savebar">
       <div class="fam-who"><b>${h(tr('who'))}</b>
@@ -388,11 +414,14 @@ document.addEventListener('click', async (e) => {
   const k = (a) => b.dataset[a];
   const x = (key) => data.people.find((p) => String(p.k) === String(key)) || adds.find((a) => a.temp === key);
   if (k('lang')) { readForm(); lang = k('lang'); store.set('famLang', lang); render(); return; }
+  if (k('tog')) { readForm(); const key = k('tog'); view.ov[key] = !isOpenKids(key, Number(k('depth'))); saveView(); render(); return; }
+  if (k('gen')) { readForm(); view = { g: k('gen') === 'all' ? null : Number(k('gen')), ov: {} }; saveView(); render(); return; }
   if (k('dl')) { download(k('dl')); return; }
   if (k('edit')) { formErr = ''; open = { kind: 'edit', key: k('edit'), fs: newFs('edit', x(k('edit'))) }; render(); focusForm(); return; }
   if (k('addm') || k('addh')) {
     const home = Boolean(k('addh')); const key = k('addm') || k('addh'); const p = x(key);
     formErr = ''; open = { kind: 'add', key, fs: newFs('add', p, home) };
+    view.ov[key] = true; saveView(); // הילד החדש יופיע מתחת — לפתוח
     if (p) { open.fs.pl = cur(p).l || ''; open.fs.ple = cur(p).le || ''; } // שם המשפחה של האבא — נכנס רק כשמסמנים בן/בת
     render(); focusForm(); return;
   }
@@ -492,6 +521,6 @@ window.addEventListener('beforeunload', (e) => { if (data?.mode === 'edit' && (n
   try {
     const r = await api({ action: 'fam_get', slug });
     if (r.error || !r.people) { msg = tr('notFound'); render(); return; }
-    data = r; document.title = r.name; render();
+    data = r; document.title = nameMain(); loadView(); render();
   } catch { msg = tr('err'); render(); }
 }());
