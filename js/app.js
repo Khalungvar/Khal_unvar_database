@@ -43,7 +43,7 @@ import { workCardHtml, workFormHtml, wireWorkForm, readWorkForm, workSearchText 
 import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, markChecked, hasRealTags, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
 import { initSimchos, openSimchos, renderSimchos, gliyonForEmail, openSimchosWeek } from './simchos.js';
 import { initFaces, openFaces, renderFaces } from './faces.js';
-import { initJbd, openJbd, renderJbd } from './jbd.js';
+import { initJbd, openJbd, renderJbd, jbdCheckInCard } from './jbd.js';
 import { initGvoice, openGvoice, renderGvoice } from './gvoice.js';
 import { initListSync } from './listsync.js';
 import { initBulk, openBulk } from './bulkedit.js';
@@ -949,6 +949,7 @@ function openCard(id, tab = null) {
       ${orgTagsPaneHtml(c)}
     </div>
     ${schoolCount(c) ? `<div class="card-pane" data-tab="school">${schoolSection(c)}</div>` : ''}
+    <div class="jbd-in-card"><button type="button" class="btn small" id="card-jbd" title="בדיקת הכתובת והטלפון של איש הקשר הזה ב-JBD (ובלייקווד גם ב-The Vibe)">🔎 בדוק ב-JBD</button><div class="jbd-one"></div></div>
     <p class="meta">
       ${c.created_at ? `<span>${h(t('created', { date: `\u2066${c.created_at}\u2069`, by: displayName(c.created_by) || '—' }))}</span>` : ''}
       ${c.updated_at && c.updated_at !== c.created_at ? `<span>${h(t('updated', { date: `\u2066${c.updated_at}\u2069`, by: displayName(c.updated_by) }))}</span>` : ''}
@@ -966,6 +967,7 @@ function openCard(id, tab = null) {
   $$('[data-lw]', $('#card-body')).forEach((a) => { a.onclick = (e) => { e.preventDefault(); openCard(a.dataset.lw); }; });
   wirePhoto(c);
   wireHistory(c);
+  $('#card-jbd').onclick = () => jbdCheckInCard(c.contact_id, $('#card-body .jbd-one'));
   const scPane = $('#card-body .card-pane[data-tab="school"]');
   if (scPane) wireSchoolSection(scPane);
   if (String(currentCardId) !== String(c.contact_id)) cardTab = 'details';
