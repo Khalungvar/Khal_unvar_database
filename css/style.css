@@ -2600,3 +2600,7 @@ body.le-wide .le-wrap { max-height: calc(100vh - 290px); }
 /* ⚠ שדה חובה שחסר */
 select.need-fill, input.need-fill { outline: 2px solid #c0392b; outline-offset: 1px; }
 .warn-dlg { max-width: 420px; }
+
+/* 🔎 אולי התכוונת */
+.fz-sep { margin: 10px 14px 4px; color: #8a7a55; font-size: .9em; border-top: 1px dashed color-mix(in srgb, var(--gold) 50%, transparent); padding-top: 6px; }
+.fz-hit, .fz-rows > * { opacity: .85; }
