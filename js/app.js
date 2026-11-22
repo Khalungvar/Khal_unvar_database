@@ -1945,14 +1945,23 @@ function collect(form, original) {
   return { contact, phones };
 }
 
-function warnMarital(form) {
+/** ⚠ חלון אזהרה על שדה חובה שחסר — אחרי הסגירה: לשדה, מסומן באדום */
+function warnMissing(form, title, text, field) {
   const d = document.createElement('dialog'); d.className = 'sheet warn-dlg';
-  d.innerHTML = `<h3>⚠ חסר מצב משפחתי</h3><p>צריך לבחור מצב משפחתי (${h((state.lists.marital_status || []).join(' / '))}) לפני השמירה.</p>
+  d.innerHTML = `<h3>⚠ ${h(title)}</h3><p>${h(text)}</p>
     <div class="actions"><span class="spacer"></span><button type="button" class="btn primary">הבנתי</button></div>`;
   document.body.append(d);
   d.querySelector('button').onclick = () => d.close();
-  d.onclose = () => { d.remove(); const sel = form.elements.marital_status; sel?.scrollIntoView({ block: 'center' }); sel?.focus(); sel?.classList.add('need-fill'); sel?.addEventListener('change', () => sel.classList.remove('need-fill'), { once: true }); };
+  d.onclose = () => {
+    d.remove(); const el = form.elements[field]; if (!el) return;
+    el.closest('details')?.setAttribute('open', '');
+    el.scrollIntoView({ block: 'center' }); el.focus(); el.classList.add('need-fill');
+    el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => el.classList.remove('need-fill'), { once: true });
+  };
   d.showModal();
+}
+function warnMarital(form) {
+  warnMissing(form, 'חסר מצב משפחתי', `צריך לבחור מצב משפחתי (${(state.lists.marital_status || []).join(' / ')}) לפני השמירה.`, 'marital_status');
 }
 
 async function submit(form, original) {
@@ -1963,6 +1972,9 @@ async function submit(form, original) {
   if (tg.error) { toast(tg.error, 'error'); $('.tg-missing', form)?.scrollIntoView({ block: 'center' }); return; }
   contact.tags = tg.tags;
   contact.work = readWorkForm(form, original);
+  // שם חסר — חלון אזהרה (לא רק הודעה קטנה)
+  if (!String(contact.first_name_he || '').trim() && !original?.contact_id) { warnMissing(form, 'חסר שם פרטי', 'צריך למלא שם פרטי בעברית לפני השמירה.', 'first_name_he'); return; }
+  if (!String(contact.last_name_he || '').trim()) { warnMissing(form, 'חסר שם משפחה', 'צריך למלא שם משפחה בעברית לפני השמירה.', 'last_name_he'); return; }
   // איש קשר חדש — חובה לבחור מצב משפחתי (קובע אלמנה / נפטר ברשימות)
   if (!original?.contact_id && !String(contact.marital_status || '').trim()) { warnMarital(form); return; }
   applyMaritalRule(contact, original);
