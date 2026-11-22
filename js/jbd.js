@@ -2,7 +2,7 @@
 // הבדיקה עצמה רצה ברקע ב-Apps Script (jbdTick). כאן: כל איש ככרטיס — "אצלנו" מול "ב-JBD",
 // עם כפתורים: ✓ לעדכן כתובת / ✓ להוסיף טלפון / ✗ להשאיר / ⏭ אחר כך.
 // שום דבר לא משתנה בלי לחיצה. כל עדכון נרשם ב-History (saveCellEdits), וההחלטה נכתבת בעמודה decision.
-import { otherSheet } from './google.js';
+import { otherSheet, currentToken } from './google.js';
 import { CONFIG } from './config.js';
 import { state, saveCellEdits, saveRecord, reloadMessages, displayName } from './data.js';
 import { escapeHtml as h, nowStamp, formatPhone, detectArea } from './util.js';
@@ -123,7 +123,7 @@ function draw(main) {
     </div>
     <div class="jbd-list">${list.length ? list.slice(0, shown).map(card).join('') : `<p class="muted">${filter === 'todo' ? 'אין כרגע מה לטפל. ✔' : 'אין שורות.'}</p>`}</div>
     ${list.length > shown ? `<p class="jbd-more"><button type="button" class="btn" data-jmore>להציג עוד (${list.length - shown})</button></p>` : ''}`;
-  main.onclick = onClick;
+  main.onclick = (e) => { repaint = null; onClick(e); };
 }
 
 // ---------- כרטיס ----------
@@ -199,11 +199,14 @@ function card(r) {
     ${tasksHtml(r.contact_id)}
     <footer>${dec ? `<span class="muted small">✔ ${h(dec)}</span> <button type="button" class="btn ghost small" data-jundo="${r.row}">↺ לבטל</button>`
     : `<button type="button" class="btn small" data-jkeep="${r.row}">✗ להשאיר כמו שזה</button>
-       ${filter === 'todo' ? `<button type="button" class="btn ghost small" data-jlater="${r.row}">⏭ אחר כך</button>` : ''}`}</footer>
+       ${filter === 'todo' && !repaint ? `<button type="button" class="btn ghost small" data-jlater="${r.row}">⏭ אחר כך</button>` : ''}`}</footer>
   </article>`;
 }
 
 // ---------- פעולות ----------
+// 🔎 בכרטיס איש קשר (repaint) או במסך JBD Check
+let repaint = null;
+function redraw() { if (repaint) { repaint(); return; } const main = document.getElementById('jbd-main'); if (main) draw(main); }
 // בלי חלונות אישור: כל לחיצה מבוצעת מיד, והכרטיס עובר ל"✔ טופל". הערך הקודם נשמר בעמודת ההחלטה
 // (אחרי " ¦ "), כך ש"↺ לבטל" מחזיר אותו — גם אחרי רענון הדף.
 const UNDO_SEP = ' ¦ ';
@@ -260,7 +263,7 @@ function undoBar(text, fn) {
   bar.querySelector('button').onclick = async () => {
     bar.hidden = true; clearTimeout(undoTimer);
     try { await fn(); ui.toast('בוטל.'); } catch (err) { ui.toast(ui.friendlyError ? ui.friendlyError(err) : err.message); }
-    const main = document.getElementById('jbd-main'); if (main) draw(main);
+    redraw();
   };
   clearTimeout(undoTimer);
   undoTimer = setTimeout(() => { bar.hidden = true; }, 8000);
@@ -276,8 +279,8 @@ async function onClick(e) {
   const b = e.target.closest('button');
   if (!b) return;
   const main = document.getElementById('jbd-main');
-  if (b.dataset.jf) { filter = b.dataset.jf; shown = PAGE; draw(main); return; }
-  if (b.hasAttribute('data-jmore')) { shown += PAGE; draw(main); return; }
+  if (b.dataset.jf) { filter = b.dataset.jf; shown = PAGE; redraw(); return; }
+  if (b.hasAttribute('data-jmore')) { shown += PAGE; redraw(); return; }
   if (b.hasAttribute('data-jreload')) { rows = null; addrAt = new Map(); renderJbd(); return; }
   if (b.dataset.jopen) { ui.openCard(b.dataset.jopen); return; }
   if (b.dataset.jtdone) {
@@ -289,13 +292,13 @@ async function onClick(e) {
       await reloadMessages();
       undoBar('המשימה סומנה כבוצעה.', async () => { await saveRecord('Tasks', 'task_id', { ...x, status: 'open', done_at: '', done_by: '' }); await reloadMessages(); });
     } catch (err) { ui.toast(ui.friendlyError ? ui.friendlyError(err) : err.message); }
-    draw(main);
+    redraw();
     return;
   }
   const rowN = Number(b.dataset.jaddr || b.dataset.jtel || b.dataset.jkeep || b.dataset.jlater || b.dataset.jundo);
   const r = rows?.find((x) => x.row === rowN);
   if (!r) return;
-  if (b.dataset.jlater) { later.add(r.row); draw(main); return; }
+  if (b.dataset.jlater) { later.add(r.row); redraw(); return; }
   if (busy.has(r.row)) return;
   busy.add(r.row); b.disabled = true;
   try {
@@ -326,5 +329,29 @@ async function onClick(e) {
   } catch (err) {
     ui.toast(ui.friendlyError ? ui.friendlyError(err) : err.message);
   } finally { busy.delete(r.row); }
-  draw(main);
+  redraw();
+}
+
+// ---------- 🔎 בדיקה של איש קשר אחד — מתוך הכרטיס ----------
+let oneBusy = false;
+export async function jbdCheckInCard(id, box) {
+  if (oneBusy) return;
+  oneBusy = true;
+  box.innerHTML = '<p class="muted">🔎 בודק ב-JBD (ובלייקווד גם ב-The Vibe)… זה לוקח עד חצי דקה.</p>';
+  try {
+    const res = await fetch(CONFIG.SMS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'jbd_one', id: String(id), token: currentToken() }) });
+    const r = await res.json();
+    if (r.error) throw new Error(r.error);
+    await load(true);
+    const paint = () => {
+      if (!box.isConnected) { repaint = null; return; }
+      const mine = (rows || []).filter((x) => x.contact_id === String(id));
+      box.innerHTML = (r.jbdErr || r.vibeErr ? `<p class="err small">${r.jbdErr ? 'JBD' : 'The Vibe'} לא ענה כרגע — כדאי לנסות שוב בעוד כמה דקות.</p>` : '')
+        + (mine.length ? mine.map(card).join('') : '<p class="muted">לא נמצא ב-JBD / Vibe.</p>');
+    };
+    repaint = paint; paint();
+    box.onclick = (e) => { if (e.target.closest('[data-jopen]')) return; repaint = paint; onClick(e); };
+  } catch (err) {
+    box.innerHTML = `<p class="err">${h(ui.friendlyError ? ui.friendlyError(err) : err.message)}</p>`;
+  } finally { oneBusy = false; }
 }
