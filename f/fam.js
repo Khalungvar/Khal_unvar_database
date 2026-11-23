@@ -265,7 +265,8 @@ function readForm() {
 function rerenderForm() { readForm(); render(); }
 
 // ---------- ⬇ הורדה: Excel / PDF — רק מה ששמור (בלי טלפונים ואימייל) ----------
-function famRows() {
+// xls = לאקסל (להזמנות): בלי זוג ששניהם נפטרו / נפטר בלי אשה; אלמנה — רק היא (בלי שם הבעל)
+function famRows(xls) {
   const keys = new Set(data.people.map((x) => String(x.k)));
   const kids = new Map(); const roots = [];
   data.people.forEach((x) => { const p = x.p && keys.has(String(x.p)) && String(x.p) !== String(x.k) ? String(x.p) : ''; if (p) { if (!kids.has(p)) kids.set(p, []); kids.get(p).push(x); } else roots.push(x); });
@@ -274,9 +275,16 @@ function famRows() {
   const nameOf = (x) => (lang === 'he' ? heName(x) : enName(x) || heName(x));
   const walk = (x, depth, par) => {
     if (seen.has(String(x.k))) return; seen.add(String(x.k));
-    const he = [heName(x) + (x.d ? ' ז"ל' : ''), x.w ? wifeHe(x) + (x.wd ? ' ע"ה' : '') : ''].filter(Boolean).join(' · ');
-    const en = [enName(x) + (x.d && enName(x) ? ' z"l' : ''), x.we ? wifeEn(x) + (x.wd ? ' a"h' : '') : ''].filter(Boolean).join(' & ');
-    out.push({ depth, row: [relLabel(x, depth), par ? tr('of', { n: nameOf(par) }) : '', he, en, addrText(x)] });
+    const widow = x.d && !x.wd && (x.w || x.we);
+    if (xls && x.d && !widow) { /* אין למי לשלוח — לא בקובץ; הילדים כן */ } else if (xls && widow) {
+      const he = [x.wr ? 'הרבנית' : 'מרת', x.w, x.l].filter(Boolean).join(' ');
+      const en = [x.wr ? 'Rebbetzin' : 'Mrs.', x.we, x.le].filter(Boolean).join(' ');
+      out.push({ depth, row: [relLabel(x, depth), par ? tr('of', { n: nameOf(par) }) : '', he, en, addrText(x)] });
+    } else {
+      const he = [heName(x) + (x.d ? ' ז"ל' : ''), x.w ? wifeHe(x) + (x.wd ? ' ע"ה' : '') : ''].filter(Boolean).join(' · ');
+      const en = [enName(x) + (x.d && enName(x) ? ' z"l' : ''), x.we ? wifeEn(x) + (x.wd ? ' a"h' : '') : ''].filter(Boolean).join(' & ');
+      out.push({ depth, row: [relLabel(x, depth), par ? tr('of', { n: nameOf(par) }) : '', he, en, addrText(x)] });
+    }
     (kids.get(String(x.k)) || []).forEach((y) => walk(y, depth + 1, x));
   };
   roots.forEach((x) => walk(x, 0, null));
@@ -284,7 +292,7 @@ function famRows() {
 }
 function download(kind) {
   if (nPending()) { msg = tr('dlPending'); render(); return; }
-  const rows = famRows(); const cols = T[lang].dlCols; const name = nameMain() || 'family';
+  const rows = famRows(kind === 'xlsx'); const cols = T[lang].dlCols; const name = nameMain() || 'family';
   if (kind === 'xlsx') { downloadXlsx(name, cols, rows.map((r) => r.row), { sheet: 'Family', rtl: lang === 'he' }); return; }
   const w = window.open('', '_blank'); if (!w) { msg = tr('popup'); render(); return; }
   const dir = T[lang].dir;
