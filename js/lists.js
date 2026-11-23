@@ -304,7 +304,8 @@ function famSnapshot(l) {
   const rows = evaluate({ ...cr, includeDeceased: true }, new Set([String(l.list_id)]));
   const R = rels();
   const keys = new Set(rows.filter((r) => !r.ext).map((r) => String(r.key)));
-  const heads = new Set((cr.family || []).map((f) => String(f.id || '')).filter(Boolean));
+  // ראשי המשפחה לפי הסדר ברשימה (1, 2, 3…) — כדי שבדף יופיעו בסדר הזה
+  const heads = new Map((cr.family || []).map((f) => String(f.id || '')).filter(Boolean).map((id, i) => [id, i + 1]));
   return rows.map((r) => {
     const c = r.c;
     if (r.ext) return { k: String(r.key), f: c.first_name_he || '', l: c.last_name_he || '', fe: c.first_name_en || '', le: c.last_name_en || '', w: r.ext.wife || '', city: c.city || '', a: c.address || '', st: c.state || '', zip: c.zip || '', m: r.ext.phone || '', e: r.ext.email || '', x: 1, ...(r.ext.parent ? { p: r.ext.parent, r: r.ext.rel || 's' } : {}) };
@@ -321,7 +322,7 @@ function famSnapshot(l) {
     if (o.w && c.wife_is_alive !== '' && c.wife_is_alive !== undefined && !isAlive(c.wife_is_alive)) o.wd = 1;
     if (String(c.lives_with || '').trim()) o.lw = 1;
     if (par) { o.p = par; o.r = rel; }
-    if (heads.has(id)) o.hd = 1;
+    if (heads.has(id)) o.hd = heads.get(id);
     return o;
   });
 }
