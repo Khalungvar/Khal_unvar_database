@@ -9,7 +9,7 @@ const TITLE_EN = { 'מו"ה': 'Mr.', 'הרב': 'Rabbi', 'הרה"ג': 'Rabbi', '�
 const MONTHS = ['תשרי', 'חשון', 'כסלו', 'טבת', 'שבט', 'אדר', 'אדר א\'', 'אדר ב\'', 'ניסן', 'אייר', 'סיון', 'תמוז', 'אב', 'אלול'];
 const T = {
   he: { dir: 'rtl', loading: 'טוען…', notFound: 'הדף לא נמצא.', people: '{n} אנשים',
-    gens: 'להציג:', gen0: 'ראשי משפחה', genN: 'עד דור {n}', genAll: 'הכל', togOpen: '▸ פתח ({n})', togClose: '▾ סגור ({n})',
+    oldAddr: '🏚 כתובת ישנה', gens: 'להציג:', gen0: 'ראשי משפחה', genN: 'עד דור {n}', genAll: 'הכל', togOpen: '▸ פתח ({n})', togClose: '▾ סגור ({n})',
     capMsg: 'הגעתם למכסה היומית של חיפוש כתובות — אפשר לכתוב את הכתובת ביד, והיא תישמר כמו שהיא',
     dlPending: 'יש שינויים שעוד לא נשמרו — שמרו קודם, ואז הורידו', dlCols: ['דור', 'של מי', 'שם בעברית', 'שם באנגלית', 'כתובת'], of: 'של {n}', popup: 'הדפדפן חסם חלון חדש — אפשרו חלונות קופצים לאתר',
     introView: 'זו רשימת המשפחה כפי שהיא רשומה אצלנו.',
@@ -32,7 +32,7 @@ const T = {
     capMsg: 'The daily address-search limit was reached — type the address by hand and it will be saved as written',
     dlPending: 'You have unsaved changes — save first, then download', dlCols: ['Relation', 'Of', 'Hebrew name', 'English name', 'Address'], of: 'of {n}', popup: 'The browser blocked a new window — please allow pop-ups for this site',
     introView: 'This is the family list as we have it.',
-    gens: 'Show:', gen0: 'Heads only', genN: 'Up to generation {n}', genAll: 'All', togOpen: '▸ Open ({n})', togClose: '▾ Close ({n})',
+    oldAddr: '🏚 Old address', gens: 'Show:', gen0: 'Heads only', genN: 'Up to generation {n}', genAll: 'All', togOpen: '▸ Open ({n})', togClose: '▾ Close ({n})',
     introEdit: 'Please review the list. You can fix details, add missing children, and remove anyone who doesn\'t belong. When done, press "💾 Save" at the bottom.',
     lv: ['Head of family', 'Son', 'Grandson', 'Great-grandson', 'Son'], lvh: ['', 'Son-in-law', 'Grandson-in-law', 'Great-grandson-in-law', 'Son-in-law'], lvd: ['', 'Daughter', 'Granddaughter', 'Great-granddaughter', 'Daughter'], other: 'Relative', branch: 'The {name} family', kids: '{n} children',
     edit: 'Edit details', addM: '➕ Married child', addH: '➕ Child at home', del: 'Not in family', undo: '↩ Undo', ok: '✓ OK', cancel: 'Cancel',
@@ -220,7 +220,10 @@ function coupleHtml(fs) {
     </div></div>`;
 }
 function addrHtml(fs) {
-  return `<label class="ff-addr"><span>${h(tr('addr'))}</span><input data-addr dir="auto" value="${h(addrText({ ...fs.v, zip: '' }))}" autocomplete="off"><div class="ff-sugg" hidden></div></label>`;
+  const lab = `<label class="ff-addr"><span>${h(tr('addr'))}</span><input data-addr dir="auto" value="${h(addrText({ ...fs.v, zip: '' }))}" autocomplete="off"><div class="ff-sugg" hidden></div></label>`;
+  // 🏚 כתובת ישנה: הכתובת עוברת להערה והשדה מתרוקן (עדיף בלי כתובת מאשר לשלוח למקום לא נכון)
+  const old = open?.kind === 'edit' && addrText(fs.v) ? `<button type="button" class="b-old" data-oldaddr>${h(tr('oldAddr'))}</button>` : '';
+  return old ? `<div class="ff-addrrow">${lab}${old}</div>` : lab;
 }
 function formHtml(x) {
   const fs = open.fs; const add = open.kind === 'add';
@@ -434,6 +437,12 @@ document.addEventListener('click', async (e) => {
   if (open) {
     const fs = open.fs;
     if (k('outopen')) { readForm(); fs.outOpen = k('outopen'); fs.out = { side: k('outopen'), type: 'dead', yz: {} }; render(); return; }
+    if (b.hasAttribute('data-oldaddr')) {
+      readForm(); const old = addrText(fs.v); if (!old) return;
+      fs.note = [fs.note, `כתובת ישנה: ${old}`].filter(Boolean).join(' · ');
+      fs.addr = { a: '', city: '', st: '', zip: '', co: '' }; Object.assign(fs.v, fs.addr); fs.addrOk = true; formErr = '';
+      render(); return;
+    }
     if (b.hasAttribute('data-outclose')) { readForm(); fs.outOpen = ''; fs.out = null; fs.remarry = false; render(); return; }
     if (b.hasAttribute('data-remarry')) { readForm(); fs.remarry = true; ['w', 'we', 'wm', 'e2', 'wl', 'wle'].forEach((q) => { fs.v[q] = ''; }); fs.v.wr = '0'; render(); return; }
     if (b.hasAttribute('data-married')) {
