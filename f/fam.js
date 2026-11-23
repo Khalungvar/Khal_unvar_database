@@ -110,7 +110,7 @@ function tree() {
   const keys = new Set(all.map((x) => String(x.k)));
   const kids = new Map(); const roots = [];
   all.forEach((x) => { const p = x.p && keys.has(String(x.p)) && String(x.p) !== String(x.k) ? String(x.p) : ''; if (p) { if (!kids.has(p)) kids.set(p, []); kids.get(p).push(x); } else roots.push(x); });
-  roots.sort((a, b) => (b.hd || 0) - (a.hd || 0));
+  roots.sort((a, b) => (a.hd ? 0 : 1) - (b.hd ? 0 : 1) || (a.hd || 0) - (b.hd || 0));
   kids.forEach((list) => list.sort((a, b) => (a.lw || 0) - (b.lw || 0)));
   return { roots, kids };
 }
@@ -266,7 +266,7 @@ function famRows() {
   const keys = new Set(data.people.map((x) => String(x.k)));
   const kids = new Map(); const roots = [];
   data.people.forEach((x) => { const p = x.p && keys.has(String(x.p)) && String(x.p) !== String(x.k) ? String(x.p) : ''; if (p) { if (!kids.has(p)) kids.set(p, []); kids.get(p).push(x); } else roots.push(x); });
-  roots.sort((a, b) => (b.hd || 0) - (a.hd || 0)); kids.forEach((l) => l.sort((a, b) => (a.lw || 0) - (b.lw || 0)));
+  roots.sort((a, b) => (a.hd ? 0 : 1) - (b.hd ? 0 : 1) || (a.hd || 0) - (b.hd || 0)); kids.forEach((l) => l.sort((a, b) => (a.lw || 0) - (b.lw || 0)));
   const out = []; const seen = new Set();
   const nameOf = (x) => (lang === 'he' ? heName(x) : enName(x) || heName(x));
   const walk = (x, depth, par) => {
