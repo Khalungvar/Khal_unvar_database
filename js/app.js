@@ -25,7 +25,7 @@ import {
 } from './campaigns.js';
 import { initReceipts, renderReceipts, openReceipts, printForDonation, openOrgDetails, openQuickReceipt, cancelDoc } from './receipts.js';
 import { initSortTables } from './sorttables.js';
-import { initLists, renderListsSide, renderBuilder, openOverview, listsCanLeave, listsDirty, exportContacts, linkPendingExt, cardListsHtml, wireCardLists, cardListsCount } from './lists.js';
+import { initLists, renderListsSide, renderBuilder, openOverview, listsCanLeave, listsDirty, exportContacts, linkPendingExt, cardListsHtml, wireCardLists, cardListsCount, refreshFamPagesFor } from './lists.js';
 import { initAdmin, renderAdmin, adminDirty, setAdminTab } from './admin.js';
 import { initMailMerge, renderMailMerge, openMailMerge, mailMergeCanLeave } from './mailmerge.js';
 import { initMail, openCompose, emailOf } from './mail.js';
@@ -2031,6 +2031,9 @@ async function submit(form, original) {
       try { await addGeneralTask(form.elements.gtd_missing_text.value.trim() || t('cfMissingDefault'), id); } catch { /* */ }
     }
     await loadAll();
+    // 🔄 דפי המשפחה הציבוריים שהכרטיס בהם — מתעדכנים לבד (ברקע)
+    const famIds = [id, ...(form._relAdds || []).map((a) => a.b), ...(form._relRemoves || []).flatMap((r) => [r.contact_id_a, r.contact_id_b])];
+    refreshFamPagesFor(famIds).then((n) => { if (n) toast(`דף המשפחה עודכן (${n})`); }).catch((e2) => toast(`דף המשפחה לא עודכן: ${friendlyError(e2)}`, 'error'));
     if (original._createdNow) { try { if (await linkPendingExt(id)) renderBuilder(); } catch { /* */ } }
     const onSaved = form._onSaved; form._onSaved = null;
     if (onSaved) { try { await onSaved(id); } catch (e2) { toast(friendlyError(e2), 'error'); } }
