@@ -10,6 +10,7 @@ import { todayIso } from './hebdate.js';
 import { openBuilder, openOverview } from './lists.js';
 import { money, donorName, openDonationForm } from './donations.js';
 import { myRequestsHtml, wireMyRequests, pendingRequests } from './requests.js';
+import { jbdCheckInCard } from './jbd.js';
 
 let ui = null;
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -496,6 +497,36 @@ export async function addGeneralTask(text, contactId) {
   await createTasks({ text, contact_id: String(contactId || '') }, ['all']);
 }
 
+/** ➕ חלון קטן: משימה חדשה ל-To Do הכללי, עם איש קשר (לא חובה) */
+function gtdNewTask(after) {
+  let d = $('#gtd-new');
+  if (!d) { d = document.createElement('dialog'); d.id = 'gtd-new'; d.className = 'sheet gtd-new'; document.body.append(d); }
+  const people = (state.contacts || []).filter((c) => !c.deleted_at);
+  const lab = (c) => `${ui.fullNameHe ? ui.fullNameHe(c) : [c.first_name_he, c.last_name_he].join(' ')}${c.city ? ` — ${c.city}` : ''} (#${c.contact_id})`;
+  d.innerHTML = `<form method="dialog" class="gtd-new-f">
+    <h3>➕ ${h(t('gtdName'))}</h3>
+    <label>מה צריך לעשות<textarea name="text" rows="3" dir="auto" required></textarea></label>
+    <label>איש קשר (לא חובה)<input name="who" list="gtd-dl" autocomplete="off" placeholder="שם / טלפון…"></label>
+    <datalist id="gtd-dl">${people.map((c) => `<option value="${h(lab(c))}">`).join('')}</datalist>
+    <p class="err small" data-nerr hidden></p>
+    <div class="td-btns"><button type="submit" class="btn primary" data-nsave>${h(t('gtdSave'))}</button><button type="button" class="btn" data-ncancel>${h(t('gtdCancel'))}</button></div>
+  </form>`;
+  const f = $('form', d);
+  $('[data-ncancel]', d).onclick = () => d.close();
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    const text = f.elements.text.value.trim();
+    const who = f.elements.who.value.trim();
+    const m = who.match(/\(#(\d+)\)/);
+    const err = $('[data-nerr]', d);
+    if (!text) { f.elements.text.focus(); return; }
+    if (who && !m) { err.hidden = false; err.textContent = 'צריך לבחור איש קשר מהרשימה (או להשאיר ריק)'; f.elements.who.focus(); return; }
+    $('[data-nsave]', d).disabled = true;
+    try { await addGeneralTask(text, m ? m[1] : ''); d.close(); after?.(); } catch (er) { ui.toast(ui.friendlyError(er), 'error'); $('[data-nsave]', d).disabled = false; }
+  };
+  d.showModal();
+  f.elements.text.focus();
+}
 let gtdEditing = null; // ✏️ איזו משימה פתוחה לעריכה
 export function openGeneralTodo() {
   let dlg = $('#gtd-dialog');
@@ -515,45 +546,39 @@ export function openGeneralTodo() {
       const c = x.contact_id ? ui.contactById?.(x.contact_id) : null;
       const editing = String(gtdEditing) === String(x.task_id);
       const edited = x.edited_at ? ` · ✏️ ${h(t('gtdEdited', { who: displayName(x.edited_by) }))} <bdi dir="ltr">${h(String(x.edited_at).slice(0, 10))}</bdi>` : '';
-      return `<div class="td-row${open(x) ? '' : ' done'}" data-g="${h(x.task_id)}">
+      return `<div class="td-wrap" data-gw="${h(x.task_id)}"><div class="td-row${open(x) ? '' : ' done'}" data-g="${h(x.task_id)}">
         ${open(x) && !editing ? `<button type="button" class="td-check" data-gdone title="${h(t('tdDone'))}">✓</button>` : ''}
         <div class="td-main">${editing
           ? `<textarea class="td-edit" rows="3" dir="auto">${h(x.text)}</textarea><div class="td-btns"><button type="button" class="btn small-btn primary" data-gsave>${h(t('gtdSave'))}</button><button type="button" class="btn small-btn" data-gcancel>${h(t('gtdCancel'))}</button></div>`
           : `<div class="td-text">${h(x.text)}</div>`}
           <div class="muted small">${c ? `<a href="#" data-gcard="${h(c.contact_id)}">👤 ${h(ui.fullNameHe(c))}</a> · ` : ''}${h(displayName(x.from_email || x.created_by))} · <bdi dir="ltr">${h(String(x.created_at || '').slice(0, 10))}</bdi>
           ${edited}${open(x) ? '' : ` · ✓ ${h(displayName(x.done_by))} <bdi dir="ltr">${h(String(x.done_at || '').slice(0, 10))}</bdi>`}</div></div>
-        ${editing ? '' : `<div class="td-btns">${open(x) ? `<button type="button" class="btn small-btn" data-gedit>✏️ ${h(t('gtdEdit'))}</button><button type="button" class="btn small-btn primary" data-gdone>${t('tdDone')}</button>` : `<button type="button" class="btn small-btn" data-greopen>${t('tdReopen')}</button>`}</div>`}
-      </div>`;
+        ${editing ? '' : `<div class="td-btns">${c ? `<button type="button" class="btn small-btn" data-gjbd title="בדיקת הכתובת והטלפון ב-JBD (ובלייקווד גם ב-The Vibe)">🔎 JBD</button>` : ''}${open(x) ? `<button type="button" class="btn small-btn" data-gedit>✏️ ${h(t('gtdEdit'))}</button><button type="button" class="btn small-btn primary" data-gdone>${t('tdDone')}</button>` : `<button type="button" class="btn small-btn" data-greopen>${t('tdReopen')}</button>`}</div>`}
+      </div><div class="gtd-jbd"></div></div>`;
     };
     dlg.innerHTML = `<div class="gtd">
       <button type="button" class="x-close" data-gx aria-label="${h(t('close'))}">✕</button>
       <h2>☑ ${h(t('gtdName'))} ${openL.length ? `<span class="count-pill">${openL.length}</span>` : ''}</h2>
       <p class="muted small">${h(t('gtdIntro'))}</p>
-      <form class="td-add" id="gtd-add" onsubmit="return false">
-        <input name="text" placeholder="${h(t('tdAddPh'))}" autocomplete="off">
-        <button type="submit" class="btn primary">${t('admAdd')}</button>
-      </form>
+      <button type="button" class="btn primary" data-gnew>➕ ${h(t('admAdd'))}</button>
       ${openL.length > 1 ? `<div class="gtd-sort"><button type="button" class="btn small-btn${oldFirst ? '' : ' primary'}" data-gsort="new">⬇ ${h(t('gtdNewFirst'))}</button><button type="button" class="btn small-btn${oldFirst ? ' primary' : ''}" data-gsort="old">⬆ ${h(t('gtdOldFirst'))}</button></div>` : ''}
       <div class="td-list">${openL.map(row).join('') || `<p class="empty">${h(t('gtdEmpty'))}</p>`}</div>
       ${doneL.length ? `<details class="td-more"><summary>✓ ${t('tdDoneList')} (${doneL.length})</summary>${doneL.map(row).join('')}</details>` : ''}
     </div>`;
     $('[data-gx]', dlg).onclick = () => dlg.close();
-    $('#gtd-add', dlg).onsubmit = async (e) => {
-      e.preventDefault();
-      const f = $('#gtd-add', dlg).elements; const text = f.text.value.trim();
-      if (!text) { f.text.focus(); return; }
-      try { await addGeneralTask(text, ''); draw(); $('#gtd-add [name=text]', dlg).focus(); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
-    };
+
     dlg.onclick = async (e) => {
       if (e.target === dlg) { dlg.close(); return; }
       const cl = e.target.closest('[data-gcard]');
       if (cl) { e.preventDefault(); ui.openCard(cl.dataset.gcard); return; }
+      if (e.target.closest('[data-gnew]')) { gtdNewTask(draw); return; }
       const so = e.target.closest('[data-gsort]');
       if (so) { localStorage.setItem('gtdOldFirst', so.dataset.gsort === 'old' ? '1' : ''); draw(); return; }
       const r = e.target.closest('[data-g]');
       if (!r) return;
       const x = state.tasks.find((y) => String(y.task_id) === r.dataset.g);
       if (!x) return;
+      if (e.target.closest('[data-gjbd]')) { const box = $(`[data-gw="${x.task_id}"] .gtd-jbd`, dlg); if (box) jbdCheckInCard(x.contact_id, box); return; }
       if (e.target.closest('[data-gedit]')) { gtdEditing = x.task_id; draw(); const ta = $('.td-edit', dlg); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } return; }
       if (e.target.closest('[data-gcancel]')) { gtdEditing = null; draw(); return; }
       try {
