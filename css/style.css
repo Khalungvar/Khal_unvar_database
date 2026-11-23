@@ -700,6 +700,11 @@ body.solo-mode .tabs, body.solo-mode #scope-bar { display: none !important; }
 .td-btns { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .td-edit { width: 100%; font: inherit; font-size: 16px; padding: 6px 8px; border: 1px solid var(--gold); border-radius: 8px; margin-bottom: 6px; box-sizing: border-box; }
 .gtd-sort { display: flex; gap: 6px; margin: 6px 0; flex-wrap: wrap; }
+.gtd-jbd:not(:empty) { margin: 0 4px 10px; }
+.gtd-new { max-width: 480px; }
+.gtd-new-f { display: grid; gap: 10px; }
+.gtd-new-f label { display: grid; gap: 4px; }
+.gtd-new-f textarea, .gtd-new-f input { font: inherit; font-size: 16px; padding: 6px 8px; border: 1px solid var(--gold); border-radius: 8px; }
 .td-more { margin-top: 8px; }
 .td-more summary { cursor: pointer; color: var(--muted); }
 
