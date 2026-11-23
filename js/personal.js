@@ -496,6 +496,7 @@ export async function addGeneralTask(text, contactId) {
   await createTasks({ text, contact_id: String(contactId || '') }, ['all']);
 }
 
+let gtdEditing = null; // ✏️ איזו משימה פתוחה לעריכה
 export function openGeneralTodo() {
   let dlg = $('#gtd-dialog');
   if (!dlg) {
@@ -506,16 +507,22 @@ export function openGeneralTodo() {
   }
   const draw = () => {
     const list = (state.tasks || []).filter(isGeneral);
-    const openL = list.filter(open).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+    // סדר: חדש→ישן (ברירת מחדל) או ישן→חדש — נשמר בדפדפן
+    const oldFirst = localStorage.getItem('gtdOldFirst') === '1';
+    const openL = list.filter(open).sort((a, b) => (oldFirst ? 1 : -1) * String(a.created_at).localeCompare(String(b.created_at)));
     const doneL = list.filter((x) => !open(x)).sort((a, b) => String(b.done_at).localeCompare(String(a.done_at))).slice(0, 30);
     const row = (x) => {
       const c = x.contact_id ? ui.contactById?.(x.contact_id) : null;
+      const editing = String(gtdEditing) === String(x.task_id);
+      const edited = x.edited_at ? ` · ✏️ ${h(t('gtdEdited', { who: displayName(x.edited_by) }))} <bdi dir="ltr">${h(String(x.edited_at).slice(0, 10))}</bdi>` : '';
       return `<div class="td-row${open(x) ? '' : ' done'}" data-g="${h(x.task_id)}">
-        ${open(x) ? `<button type="button" class="td-check" data-gdone title="${h(t('tdDone'))}">✓</button>` : ''}
-        <div class="td-main"><div class="td-text">${h(x.text)}</div>
+        ${open(x) && !editing ? `<button type="button" class="td-check" data-gdone title="${h(t('tdDone'))}">✓</button>` : ''}
+        <div class="td-main">${editing
+          ? `<textarea class="td-edit" rows="3" dir="auto">${h(x.text)}</textarea><div class="td-btns"><button type="button" class="btn small-btn primary" data-gsave>${h(t('gtdSave'))}</button><button type="button" class="btn small-btn" data-gcancel>${h(t('gtdCancel'))}</button></div>`
+          : `<div class="td-text">${h(x.text)}</div>`}
           <div class="muted small">${c ? `<a href="#" data-gcard="${h(c.contact_id)}">👤 ${h(ui.fullNameHe(c))}</a> · ` : ''}${h(displayName(x.from_email || x.created_by))} · <bdi dir="ltr">${h(String(x.created_at || '').slice(0, 10))}</bdi>
-          ${open(x) ? '' : ` · ✓ ${h(displayName(x.done_by))} <bdi dir="ltr">${h(String(x.done_at || '').slice(0, 10))}</bdi>`}</div></div>
-        <div class="td-btns">${open(x) ? `<button type="button" class="btn small-btn primary" data-gdone>${t('tdDone')}</button>` : `<button type="button" class="btn small-btn" data-greopen>${t('tdReopen')}</button>`}</div>
+          ${edited}${open(x) ? '' : ` · ✓ ${h(displayName(x.done_by))} <bdi dir="ltr">${h(String(x.done_at || '').slice(0, 10))}</bdi>`}</div></div>
+        ${editing ? '' : `<div class="td-btns">${open(x) ? `<button type="button" class="btn small-btn" data-gedit>✏️ ${h(t('gtdEdit'))}</button><button type="button" class="btn small-btn primary" data-gdone>${t('tdDone')}</button>` : `<button type="button" class="btn small-btn" data-greopen>${t('tdReopen')}</button>`}</div>`}
       </div>`;
     };
     dlg.innerHTML = `<div class="gtd">
@@ -526,6 +533,7 @@ export function openGeneralTodo() {
         <input name="text" placeholder="${h(t('tdAddPh'))}" autocomplete="off">
         <button type="submit" class="btn primary">${t('admAdd')}</button>
       </form>
+      ${openL.length > 1 ? `<div class="gtd-sort"><button type="button" class="btn small-btn${oldFirst ? '' : ' primary'}" data-gsort="new">⬇ ${h(t('gtdNewFirst'))}</button><button type="button" class="btn small-btn${oldFirst ? ' primary' : ''}" data-gsort="old">⬆ ${h(t('gtdOldFirst'))}</button></div>` : ''}
       <div class="td-list">${openL.map(row).join('') || `<p class="empty">${h(t('gtdEmpty'))}</p>`}</div>
       ${doneL.length ? `<details class="td-more"><summary>✓ ${t('tdDoneList')} (${doneL.length})</summary>${doneL.map(row).join('')}</details>` : ''}
     </div>`;
@@ -540,12 +548,21 @@ export function openGeneralTodo() {
       if (e.target === dlg) { dlg.close(); return; }
       const cl = e.target.closest('[data-gcard]');
       if (cl) { e.preventDefault(); ui.openCard(cl.dataset.gcard); return; }
+      const so = e.target.closest('[data-gsort]');
+      if (so) { localStorage.setItem('gtdOldFirst', so.dataset.gsort === 'old' ? '1' : ''); draw(); return; }
       const r = e.target.closest('[data-g]');
       if (!r) return;
       const x = state.tasks.find((y) => String(y.task_id) === r.dataset.g);
       if (!x) return;
+      if (e.target.closest('[data-gedit]')) { gtdEditing = x.task_id; draw(); const ta = $('.td-edit', dlg); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } return; }
+      if (e.target.closest('[data-gcancel]')) { gtdEditing = null; draw(); return; }
       try {
-        if (e.target.closest('[data-gdone]')) await saveRecord('Tasks', 'task_id', { ...x, status: 'done', done_at: nowStamp(), done_by: state.email });
+        if (e.target.closest('[data-gsave]')) {
+          const text = String($('.td-edit', r)?.value || '').trim();
+          if (!text) { $('.td-edit', r)?.focus(); return; }
+          if (text !== x.text) await saveRecord('Tasks', 'task_id', { ...x, text, edited_at: nowStamp(), edited_by: state.email });
+          gtdEditing = null;
+        } else if (e.target.closest('[data-gdone]')) await saveRecord('Tasks', 'task_id', { ...x, status: 'done', done_at: nowStamp(), done_by: state.email });
         else if (e.target.closest('[data-greopen]')) await saveRecord('Tasks', 'task_id', { ...x, status: 'open', done_at: '', done_by: '' });
         else return;
         await reloadMessages(); ui.updateBadges?.(); draw();
