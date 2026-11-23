@@ -77,6 +77,8 @@ html[lang=en] .fp-card{grid-template-areas:"acts en he" "acts det det"}html[lang
 .fp-form input[type=radio],.fp-form input[type=checkbox]{width:20px;height:20px;min-height:0;padding:0;flex:none;margin:0}
 .ff-full{margin-top:10px}.ff-full .ff-pair{max-width:520px}
 .ff-addr,.ff-note{margin-top:8px}
+.ff-addrrow{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}.ff-addrrow .ff-addr{flex:1}
+.b-old{font:inherit;font-size:15px;border:2px solid var(--line);background:#fff;border-radius:10px;padding:6px 12px;min-height:40px;cursor:pointer;white-space:nowrap}
 .fp-form input,.fp-form select,.fp-form textarea,.fam-who input{font:inherit;font-size:17px;padding:6px 9px;border:2px solid #c9c2b0;border-radius:8px;color:var(--ink);background:#fff;min-height:40px;width:100%;min-width:0}
 .fp-form input:focus,.fp-form select:focus,.fp-form textarea:focus,.fam-who input:focus{outline:3px solid #9cc0ea;border-color:var(--pri)}
 .ff-btns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
