@@ -1296,6 +1296,10 @@ function familySection(c) {
   </section>`;
 }
 
+/** 🔄 דפי המשפחה הציבוריים שהאנשים האלה בהם — מתעדכנים ברקע (אחרי loadAll) */
+function famRefresh(ids) {
+  refreshFamPagesFor(ids).then((n) => { if (n) toast(`דף המשפחה עודכן (${n})`); }).catch((e2) => toast(`דף המשפחה לא עודכן: ${friendlyError(e2)}`, 'error'));
+}
 function wireFamily(c) {
   const box = $('#card-body .family');
   const mine = state.relations.filter((r) => String(r.contact_id_a) === String(c.contact_id));
@@ -1306,9 +1310,11 @@ function wireFamily(c) {
     b.onclick = async () => {
       if (!confirm(t('removeRelConfirm'))) return;
       try {
-        await removeRelation(mine[Number(b.dataset.i)]);
+        const rel = mine[Number(b.dataset.i)];
+        await removeRelation(rel);
         await loadAll();
         toast(t('relRemoved'));
+        famRefresh([c.contact_id, rel?.contact_id_b]);
         openCard(c.contact_id);
       } catch (err) { toast(friendlyError(err), 'error'); }
     };
@@ -1334,6 +1340,7 @@ function wireFamily(c) {
       await afterRelation(c.contact_id, type, Number(m[1]));
       await loadAll();
       toast(t('relAdded'));
+      famRefresh([c.contact_id, m[1]]);
       openCard(c.contact_id);
     } catch (err) {
       toast(friendlyError(err), 'error');
@@ -2033,7 +2040,7 @@ async function submit(form, original) {
     await loadAll();
     // 🔄 דפי המשפחה הציבוריים שהכרטיס בהם — מתעדכנים לבד (ברקע)
     const famIds = [id, ...(form._relAdds || []).map((a) => a.b), ...(form._relRemoves || []).flatMap((r) => [r.contact_id_a, r.contact_id_b])];
-    refreshFamPagesFor(famIds).then((n) => { if (n) toast(`דף המשפחה עודכן (${n})`); }).catch((e2) => toast(`דף המשפחה לא עודכן: ${friendlyError(e2)}`, 'error'));
+    famRefresh(famIds);
     if (original._createdNow) { try { if (await linkPendingExt(id)) renderBuilder(); } catch { /* */ } }
     const onSaved = form._onSaved; form._onSaved = null;
     if (onSaved) { try { await onSaved(id); } catch (e2) { toast(friendlyError(e2), 'error'); } }
