@@ -328,6 +328,21 @@ function famSnapshot(l) {
 }
 const FP_TAB = 'FamilyPages';
 /** כותב/מעדכן את השורה של הרשימה ב-FamilyPages (אם יש כתובת). מחזיר מספר אנשים או null */
+/** 🔄 אחרי שמירת כרטיס: מעדכן לבד את דפי המשפחה (הציבוריים) שהכרטיס (או קרוב שנוסף/הוסר) נמצא בהם. מחזיר כמה דפים עודכנו */
+export async function refreshFamPagesFor(ids) {
+  const want = new Set((ids || []).map(String).filter(Boolean));
+  if (!want.size) return 0;
+  let n = 0;
+  for (const l of state.savedLists || []) {
+    if (!isFamilyList(l)) continue;
+    let cr; try { ({ cr } = parseSaved(l)); } catch { continue; }
+    if (!cr.meta?.pub?.slug) continue;
+    const rows = evaluate({ ...cr, includeDeceased: true }, new Set([String(l.list_id)]));
+    if (!rows.some((r) => !r.ext && want.has(String(r.key)))) continue;
+    await publishFamPage(l); n += 1;
+  }
+  return n;
+}
 export async function publishFamPage(l) {
   if (!l || !isFamilyList(l)) return null;
   const { cr } = parseSaved(l);
@@ -833,7 +848,8 @@ export function renderBuilder() {
   $('#l2-famlog', main)?.addEventListener('click', openFamLog);
   $('#l2-pubsync', main)?.addEventListener('click', async (e) => {
     e.target.disabled = true;
-    try { const n = await publishFamPage(listById(current.list_id)); ui.toast(`הדף עודכן (${n ?? 0} אנשים)`); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+    // טוענים קודם את הנתונים העדכניים — אחרת דף שפתוח הרבה זמן מפרסם פרטים (וכתובת דף) ישנים
+    try { const id = current.list_id; await loadAll({ full: true }); const n = await publishFamPage(listById(id)); ui.toast(`הדף עודכן (${n ?? 0} אנשים)`); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
     e.target.disabled = false;
   });
   if (current.cr.meta.kind === 'family' && current.cr.meta.pub?.slug && famLogCount.lid !== current.list_id) refreshFamLogCount();
