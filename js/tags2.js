@@ -141,7 +141,7 @@ function autoBar(c, list) {
     } else if (r === RB && RB_LV.includes(a)) {
       const i = RB_LV.indexOf(a);
       if (act(x)) { hasActive = true; put(i <= 1 ? 2 : i === 2 ? 3 : 4, lbl(x)); } else put(4, `${lbl(x)} (${tx('former')})`);
-    } else if (r === FAM && act(x)) { hasActive = true; put(2, lbl(x)); }
+    } else if (r === FAM && act(x)) { hasActive = true; const f = String(x.p[1]); put(f === '70' ? 2 : f === '71' || f === '72' ? 3 : 4, lbl(x)); } // קליין 2 · בלום-פרענקל/דנציגר 3 · אלכסנדר/רשימת הרבנית 4
     else if (r === TR && act(x)) put(3, lbl(x));
     else if (r === FRIEND && act(x)) put(3, tx('friend'));
   });
