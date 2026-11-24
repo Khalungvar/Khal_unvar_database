@@ -145,7 +145,7 @@ export function tagsOf(c) {
   const st = storedTags(c);
   return [...st.filter((x) => x.s !== 'auto'), ...autoDonors(c, st), ...extraTags(c, st)];
 }
-export const serialize = (list) => (list.length ? JSON.stringify(list.map((x) => { const o = { p: x.p, s: x.s }; if (x.d) o.d = x.d; if (x.n) o.n = 1; if (x.o) o.o = x.o; return o; })) : '');
+export const serialize = (list) => (list.length ? JSON.stringify(list.map((x) => { const o = { p: x.p, s: x.s }; if (x.d) o.d = x.d; if (x.n) o.n = 1; if (x.o) o.o = x.o; if (x.v !== undefined) o.v = x.v; return o; })) : '');
 // "⚠ לא נבדק": יעדער קאנטאקט ביז מ'זאגט "נבדק" (א סימן { p: ['_ok'] }). מ'קען עס נישט צוריקלייגן.
 const OK = '_ok';
 export const hasUnchecked = (c) => !storedTags(c).some((x) => x.p[0] === OK);
@@ -192,7 +192,7 @@ export function lineOf(p) {
 function lineTitle(lp) {
   const root = byId().get(String(lp[0]));
   if (!root) return nameOf(lp[lp.length - 1]);
-  if (root.kind === 'orgs:all' && lp[1]) return `${root.id === donorRoot()?.id ? 'תורם' : 'ידיד'} · ${nameOf(lp[1])}`;
+  if (root.kind === 'orgs:all' && lp[1]) return `${root.id === donorRoot()?.id ? 'תורם' : root.id === '350' ? 'נגיד' : 'ידיד'} · ${nameOf(lp[1])}`;
   if (orgCol(root)) return lp[1] ? nameOf(lp[1]) : root.name;
   if (root.id === '4') return lp[1] ? `אנ"ש · ${nameOf(lp[1])}` : root.name;
   return lp[1] ? nameOf(lp[1]) : root.name;
