@@ -25,7 +25,7 @@ import {
 } from './campaigns.js';
 import { initReceipts, renderReceipts, openReceipts, printForDonation, openOrgDetails, openQuickReceipt, cancelDoc } from './receipts.js';
 import { initSortTables } from './sorttables.js';
-import { initLists, renderListsSide, renderBuilder, openOverview, listsCanLeave, listsDirty, exportContacts, linkPendingExt, cardListsHtml, wireCardLists, cardListsCount, refreshFamPagesFor } from './lists.js';
+import { initLists, renderListsSide, renderBuilder, openOverview, listsCanLeave, listsDirty, exportContacts, linkPendingExt, cardListsHtml, wireCardLists, cardListsCount, refreshFamPagesFor, openCardListAdd } from './lists.js';
 import { initAdmin, renderAdmin, adminDirty, setAdminTab } from './admin.js';
 import { initMailMerge, renderMailMerge, openMailMerge, mailMergeCanLeave } from './mailmerge.js';
 import { initMail, openCompose, emailOf } from './mail.js';
@@ -40,6 +40,7 @@ import { initUpdateCheck } from './update.js';
 import { strictMember, tagsOf as tagEntries } from './tags.js';
 import { initSms, openCalls, renderCalls, smsCardHtml, wireSmsCard } from './sms.js';
 import { workCardHtml, workFormHtml, wireWorkForm, readWorkForm, workSearchText } from './work.js';
+import { tags2Html, wireTags2, tags2Guard, tags2Dirty, tags2Discard } from './tags2.js';
 import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, markChecked, hasRealTags, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
 import { initSimchos, openSimchos, renderSimchos, gliyonForEmail, openSimchosWeek } from './simchos.js';
 import { initFaces, openFaces, renderFaces } from './faces.js';
@@ -860,16 +861,26 @@ let cardTab = 'details'; // הלשונית הפתוחה בכרטיס
 
 /** 📬 שיקן אין כרטיס — א קליק טוישט און שפייכלערט */
 function wireCardTagBox(c) {
-  const box = $('#card-body .tg-card');
+  const box = $('#card-body .t2-card');
   if (!box) return;
-  wireCardTags(box, c, () => {
-    box.outerHTML = cardTagsHtml(c);
-    wireCardTagBox(c);
-    renderList();
+  wireTags2(box, c, {
+    rerender: () => { const b = $('#card-body .t2-card'); if (!b) return; b.outerHTML = tags2Html(c); wireCardTagBox(c); renderList(); },
+    showTab: (name) => { $$('#card-body .card-tabs button').find((b) => b.dataset.tab === name)?.click(); },
+    openCard: (id) => openCard(id),
+    openListAdd: (x) => openCardListAdd(x),
+    toast, friendlyError,
   });
 }
+/** 🏷 לפני סגירה / מעבר: שינויים בתגיות שלא נשמרו → אישור / ביטול */
+async function tagsGuard() {
+  if (!tags2Dirty() || !currentCardId) { tags2Discard(); return true; }
+  const c = state.contacts.find((x) => String(x.contact_id) === String(currentCardId));
+  if (!c) return true;
+  try { const r = await tags2Guard(c, choose); if (r === 'saved') renderList(); return r !== false; } catch (err) { toast(friendlyError(err), 'error'); return false; }
+}
 
-function openCard(id, tab = null) {
+async function openCard(id, tab = null) {
+  if (currentCardId && String(currentCardId) !== String(id) && $('#card-dialog').open && tags2Dirty() && !(await tagsGuard())) return;
   const c = state.contacts.find((x) => String(x.contact_id) === String(id));
   if (!c) return;
   const p = phonesOf(c);
@@ -928,7 +939,7 @@ function openCard(id, tab = null) {
       ${hasRealTags(c) ? '' : field(t('organizations'), orgLabels(c).map((o) => orgChip(o, 'chip')).join(''))}
       ${hasRealTags(c) ? '' : field(t('community'), tagChips(c.community_tags))}
     </section>
-    ${cardTagsHtml(c)}
+    ${tags2Html(c)}
     ${address || c.area ? `<section><h3>${t('address')}${c.area ? ` · ${unverifiedWrap(c, ['area'], h(c.area))}` : ''}</h3><p dir="ltr" class="addr">${address}</p>${lwHtml}</section>` : lwHtml ? `<section>${lwHtml}</section>` : ''}
     ${workCardHtml(c)}
     ${phones || emails ? `<section><h3>${t('phonesEmail')}</h3>${phones}${emails}${smsCardHtml(c)}</section>` : ''}
@@ -1007,8 +1018,9 @@ function openCard(id, tab = null) {
     } catch (err) { toast(friendlyError(err), 'error'); }
   };
   $('#card-merge').onclick = () => openMerge(c);
-  $('#card-edit').onclick = () => {
+  $('#card-edit').onclick = async () => {
     if (cardDirty() && !confirm(t('kvitelUnsaved'))) return;
+    if (!(await tagsGuard())) return;
     $('#card-dialog').close(); openForm(c);
   };
   if (!$('#card-dialog').open) $('#card-dialog').showModal();
@@ -2172,8 +2184,9 @@ function start() {
     setTimeout(() => { if (!anyDialogOpen() && Math.abs(window.scrollY - y) > 5) window.scrollTo(0, y); }, 400);
   }, true);
   // הכרטיס: אם יש קוויטל שלא נשמר — שואלים לפני שסוגרים
-  const closeCard = () => {
+  const closeCard = async () => {
     if (cardDirty() && !confirm(t('kvitelUnsaved'))) return;
+    if (!(await tagsGuard())) return;
     $('#card-dialog').close();
   };
   $$('#card-dialog [data-close]').forEach((b) => { b.onclick = closeCard; });
