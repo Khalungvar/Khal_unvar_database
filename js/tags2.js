@@ -18,6 +18,7 @@ const FAM = '5'; const FAM_BTN = ['70', '71', '72', '73', '306'];
 const RB = '7'; const RB_LV = ['90', '91', '92', '93'];
 const FRIEND = '14';
 const LISTS = '340'; const LUACH = '341';
+const GEN = '_gen'; // דור שני ושלישי באונגוואר: { p:['_gen'], s:'a' } = דלוק ביד, s:'f' = כבוי ביד; בלי = אוטומטי
 const BAR = '_bar'; const NAGID = '350'; // נגידים: [350] = כלל מוסדות, [350, o:מוסד] = מוסד מסוים
 const CLOSED_YESHIVOS = ['ישיבה גדולה דבארא פארק', 'ישיבה רמות ירושלים'];
 const BIG_DONOR = 1800;
@@ -51,6 +52,9 @@ const TX = {
   backAuto: ['צוריק אויטאמאטיש', 'חזרה לאוטומטי', 'Back to auto'],
   by: ['לויט', 'נקבע לפי', 'by'], wasAuto: ['לויט די תגיות וואלט געווען', 'לפי התגיות היה', 'by tags it would be'],
   b1: ['אנ"ש', 'אנ"ש', 'Anash'], b2: ['נאנט', 'קרוב', 'Close'], b3: ['קשר', 'קשר', 'Connected'], b4: ['ווייט', 'רחוק', 'Distant'], b5: ['נישט אקטיוו', 'לא פעיל', 'Inactive'],
+  gen: ['צווייטער און דריטער דור אין אונגוואר', 'דור שני ושלישי באונגוואר', '2nd/3rd generation in Ungvar'],
+  genAuto: ['אויטאמאטיש: דער טאטע איז א מתפלל', 'אוטומטי: האבא מתפלל', 'auto: the father davens here'],
+  genAuto1: ['אויטאמאטיש: דער טאטע איז אנ"ש', 'אוטומטי: האבא אנ"ש', 'auto: the father is Anash'],
   anashOnly: ['אנ"ש — נאר מיט דער האנט', 'אנ"ש — רק ידני', 'Anash — manual only'],
   lists: ['ליסטעס', 'רשימות', 'Lists'], wl: ['שמחת בית אונגוואר', 'שמחת בית אונגוואר', 'Simchas Beis Ungvar'],
   neshei: ['נשי אונגוואר', 'נשי אונגוואר', 'Neshei Ungvar'], luach: ['לוח שנה', 'לוח שנה', 'Luach'],
@@ -105,6 +109,32 @@ function eldersOf(id) { // הורים וחותנים
   return [...out].map(byIdC).filter(Boolean);
 }
 
+function parentsOf(id) { // רק הורים (בלי חותנים)
+  const out = new Set(); const s = String(id);
+  (state.relations || []).forEach((r) => {
+    const a = String(r.contact_id_a); const b = String(r.contact_id_b); const t = String(r.relation_type);
+    if (b === s && ['טאטע פון', 'מאמע פון'].includes(t)) out.add(a);
+    if (a === s && ['זון פון', 'טאכטער פון'].includes(t)) out.add(b);
+  });
+  return [...out].map(byIdC).filter((c) => c && !String(c.deleted_at || '').trim());
+}
+/** דור שני ושלישי – אוטומטי: האבא מתפלל שבת קבוע/לפעמים או ימות החול קבוע (לא לשעבר), או ילד/חתן של אנ"ש (בר 1) */
+function genAuto(c) {
+  let why = '';
+  parentsOf(c.contact_id).forEach((p) => {
+    const t = storedTags(p);
+    if (t.some((x) => String(x.p[0]) === BM && isOrg(x.p[1]) && ['301', '302', '303'].includes(String(x.p[2])) && x.s !== 'f')) why = why || 'genAuto';
+  });
+  if (eldersOf(c.contact_id).some((p) => storedTags(p).some((x) => x.p[0] === BAR && Number(x.v) === 1))) why = 'genAuto1'; // אנ"ש דור 2 (גם חתן)
+  return why;
+}
+/** { on, auto, manual } */
+function genOf(c, list) {
+  const m = list.find((x) => x.p[0] === GEN);
+  const auto = genAuto(c);
+  return { on: m ? m.s !== 'f' : Boolean(auto), auto, manual: Boolean(m) };
+}
+
 // ---------- תרומות ----------
 function donorInfo(c) {
   const id = String(c.contact_id);
@@ -152,7 +182,7 @@ function autoBar(c, list) {
     });
   });
   // אנ"ש דור 2
-  if (eldersOf(c.contact_id).some((p) => storedTags(p).some((x) => x.p[0] === BAR && Number(x.v) === 1))) put(3, `${tx('b1')} 2`);
+  if (genOf(c, list).on) put(3, tx('gen'));
   // תורם
   const d = donorInfo(c);
   if (d.in3) put(hasActive ? 2 : 3, tx('donor').split('·')[0].trim());
@@ -280,6 +310,12 @@ function donorRow(c) {
       <button type="button" class="linkish" data-act="ngadd">${h(tx('addOrg'))}</button></div>` : ''}</div>`;
 }
 
+function genSw(c) {
+  const g = genOf(c, D.list);
+  const tip = g.auto && !g.manual ? tx(g.auto) : g.manual ? tx('manual') : '';
+  return `<button type="button" class="t2-sw t2-sw-s${g.on ? ' on' : ''}" data-act="gen" aria-pressed="${g.on ? 'true' : 'false'}"${tip ? ` title="${h(tip)}"` : ''}><i></i> ${h(tx('gen'))}${g.on && g.auto && !g.manual ? ' 🤖' : ''}</button>`;
+}
+
 function barRow(c) {
   const a = autoBar(c, [...D.list, ...tagsOf(c).filter((x) => x.fam)]);
   const m = D.list.find((x) => x.p[0] === BAR);
@@ -287,7 +323,7 @@ function barRow(c) {
   const names = ['b1', 'b2', 'b3', 'b4', 'b5'];
   return `<div class="t2-barh"><span>${h(tx('bar'))}: <b>${h(m ? tx('manual') : tx('auto'))}</b></span>${m ? `<button type="button" class="linkish" data-act="barauto">${h(tx('backAuto'))}</button>` : ''}</div>
     <div class="t2-bar">${names.map((n, i) => `<button type="button" class="${i + 1 >= v ? 'on' : ''}${i === 0 ? ' top' : ''}${i + 1 === v ? ' cur' : ''}" data-act="bar" data-v="${i + 1}">${i + 1} · ${h(tx(n))}</button>`).join('')}</div>
-    <p class="muted small">${m ? `${h(tx('wasAuto'))}: ${a.lv} · ${h(tx(names[a.lv - 1]))}${a.why ? ` (${h(a.why)})` : ''}` : a.why ? `${h(tx('by'))}: ${h(a.why)}` : ''} · ${h(tx('anashOnly'))}</p>`;
+    <div class="t2-byrow"><p class="muted small">${m ? `${h(tx('wasAuto'))}: ${a.lv} · ${h(tx(names[a.lv - 1]))}${a.why ? ` (${h(a.why)})` : ''}` : a.why ? `${h(tx('by'))}: ${h(a.why)}` : ''} · ${h(tx('anashOnly'))}</p>${genSw(c)}</div>`;
 }
 
 function listsRow() {
@@ -322,7 +358,7 @@ function setLevel(i, root, levels, idx) {
 /** החלונית "מה השתנה" (שורות טקסט) */
 export function tags2Changes(c) {
   if (!D) return [];
-  const lbl = (x) => x.p.map((q) => (String(q) === BAR ? tx('bar') : String(q) === NAGID ? tx('nagid') : isOrg(q) ? org(q) : nameOf(q))).join(' › ') + (String(x.p[0]) === NAGID && x.p.length === 1 ? ` › ${tx('allOrgs')}` : '')
+  const lbl = (x) => x.p.map((q) => (String(q) === BAR ? tx('bar') : String(q) === GEN ? tx('gen') : String(q) === NAGID ? tx('nagid') : isOrg(q) ? org(q) : nameOf(q))).join(' › ') + (String(x.p[0]) === NAGID && x.p.length === 1 ? ` › ${tx('allOrgs')}` : '')
     + (x.p[0] === BAR ? ` = ${x.v}` : '') + (x.s === 'f' ? ` (${tx('former')})` : '');
   const before = storedTags(byIdC(D.id) || c);
   const now = D.list.filter((x) => !x._new && !x._newY);
@@ -440,6 +476,10 @@ export function wireTags2(box, c, opts) {
     else if (act === 'bar') {
       const v = Number(el.dataset.v); const ix = D.list.findIndex((x) => x.p[0] === BAR);
       if (ix >= 0) D.list[ix].v = v; else D.list.push({ p: [BAR], s: 'ok', v, d: today() });
+    } else if (act === 'gen') {
+      const g = genOf(c, D.list); const want = !g.on;
+      D.list = D.list.filter((x) => x.p[0] !== GEN);
+      if (want !== Boolean(g.auto)) D.list.push({ p: [GEN], s: want ? 'a' : 'f', d: today() });
     } else if (act === 'barauto') { const ix = D.list.findIndex((x) => x.p[0] === BAR); if (ix >= 0) D.list.splice(ix, 1); }
     else if (act === 'wl') D.wl = !D.wl;
     else if (act === 'neshei') setNeshei(!D.neshei);
