@@ -2631,6 +2631,7 @@ select.need-fill, input.need-fill { outline: 2px solid #c0392b; outline-offset: 
 .t2-slot select { width: 100%; margin-bottom: 4px; }
 .t2-sl { display: flex; gap: 8px; justify-content: center; margin-top: 6px; }
 .t2-sl input[type=range] { writing-mode: vertical-lr; direction: rtl; height: 110px; width: 22px; }
+.t2-slot.was .t2-sl input[type=range] { accent-color: #a39e94; filter: grayscale(1); opacity: .75; }
 .t2-lv { display: flex; flex-direction: column; justify-content: space-between; font-size: 12px; color: #8a8170; text-align: right; min-height: 110px; }
 .t2-lv .cur { color: #222; font-weight: 600; }
 .t2-stb { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 6px; }
