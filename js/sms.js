@@ -929,6 +929,7 @@ async function adminTab(body) {
     <section><h3>🔑 ${h(t('csJoinTitle'))}</h3><p class="muted small">${h(t('csJoinHint'))}</p>
       <select id="cfg-join"><option value="">${h(t('csJoinNone'))}</option>${phoneListNames().map((n) => `<option value="${h(n)}"${n === String(c.join_list || '') ? ' selected' : ''}>${h(n)}</option>`).join('')}</select></section>
     <section><h3>📱 ${h(t('csGbTitle'))}</h3><div id="cs-gb-card"></div></section>
+    <section><h3>📱 ${h(t('glTitle'))}</h3><div id="gl-card" class="muted">…</div></section>
     <section><h3>📊 ${h(t('smsReport'))}</h3><div id="sms-report" class="muted">…</div></section>
     <section><h3>➕ ${h(t('smsAddCredit'))}</h3>
       <select id="cr-user">${users.map((u) => `<option value="${h(u.email)}">${h(u.name)}</option>`).join('')}</select>
@@ -945,6 +946,7 @@ async function adminTab(body) {
   $('#cfg-tx', body).onclick = () => textsDialog();
   $('#cfg-join', body).onchange = async (e) => { try { await call('config_set', { values: { join_list: e.target.value } }); await loadSms(true); ui.toast(t('saved')); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); } };
   import('./admin.js').then(({ adminCardInto }) => adminCardInto($('#cs-gb-card', body), 'admGabbaim', () => renderCalls())).catch(() => {});
+  glCard($('#gl-card', body)).catch((err) => { const el = $('#gl-card', body); if (el) el.textContent = ui.friendlyError(err); });
   // דער אישור פון די Toll-Free נומערן (טעלניקס)
   call('tf_status').then((r) => {
     const TF = { Verified: ['✓', 'ok', 'csTfOk'], Rejected: ['✕', 'warn', 'csTfRej'], 'Waiting For Customer': ['⚠', 'warn', 'csTfFix'] };
@@ -967,6 +969,58 @@ async function adminTab(body) {
       ${rep.avg_cost ? `<p class="${warn ? 'warn' : ''}">${warn ? '⚠ ' : ''}${h(t('smsRepAvg', { a: `${(rep.avg_cost * 100).toFixed(2)}¢`, p: `${((Number(c.price_sms) || 0.01) * 100).toFixed(2)}¢` }))}</p>` : ''}
       <p>Telnyx: ${bal.balance ? `<b>${money(bal.balance.balance)}</b>${Number(bal.balance.balance) < 10 ? ` <span class="warn">⚠ ${h(t('smsLowBalance'))}</span>` : ''}` : h(bal.error || '—')}</p>`;
   } catch (err) { $('#sms-report', body).textContent = ui.friendlyError(err); }
+}
+
+// ---------- 📱 קו הגבאים ב-SMS (866-830-0089): מי יכול להשתמש בו, רמה, אישור קבלת הודעות, הודעת פתיחה ----------
+const GL_HEAD = ['name', 'phone', 'added_by', 'added_at', 'note', 'level', 'sms', 'consent_by', 'consent_at'];
+async function glCard(el) {
+  if (!el) return;
+  const rows = (await readTabs(['SmsGabbaim'])).SmsGabbaim || [];
+  const [hd = [], ...b] = rows;
+  const head = hd.length ? hd.map(String) : GL_HEAD;
+  const miss = GL_HEAD.filter((k) => !head.includes(k));
+  const list = b.map((r, i) => ({ _row: i + 2, ...Object.fromEntries(head.map((k, j) => [k, r[j] ?? ''])) })).filter((o) => String(o.name || o.phone).trim());
+  const me = (allUsers().find((u) => u.email === state.email) || {}).name || state.email;
+  el.className = '';
+  el.innerHTML = `<p class="muted small">${h(t('glHint'))}</p>${miss.length ? `<p class="warn small">⚠ ${h(miss.join(', '))}</p>` : ''}
+    <table class="lapsed-table small gl-table"><thead><tr><th>${h(t('glName'))}</th><th>${h(t('glPhone'))}</th><th>${h(t('glLevel'))}</th><th>SMS</th><th>${h(t('glConsent'))}</th><th></th></tr></thead>
+    <tbody>${list.map((o) => { const on = String(o.sms) !== 'off'; const ok = on && String(o.consent_at || '').trim();
+      return `<tr data-r="${o._row}"><td><input data-f="name" value="${h(o.name)}"></td><td dir="ltr">${h(String(o.phone).split(/[,;/]/).map(fmtPhone).join(', '))}</td>
+      <td><select data-f="level"><option value="gabbai">${h(t('glLvGabbai'))}</option><option value="admin"${/admin/.test(String(o.level)) ? ' selected' : ''}>${h(t('glLvAdmin'))}</option></select></td>
+      <td><input type="checkbox" data-f="sms"${on ? ' checked' : ''} title="${h(t('glSms'))}"></td>
+      <td><label><input type="checkbox" data-f="consent"${String(o.consent_at || '').trim() ? ' checked' : ''}> <span class="muted">${h([o.consent_by, String(o.consent_at || '').slice(0, 10)].filter(Boolean).join(' · '))}</span></label></td>
+      <td><button type="button" class="linkish" data-welcome="${h(o.phone)}"${ok ? '' : ' disabled'} title="${h(ok ? '' : t('glNoConsent'))}">📩 ${h(t('glWelcomeBtn'))}</button></td></tr>`; }).join('')}</tbody></table>
+    <div class="gl-add"><input id="gl-n" placeholder="${h(t('glName'))}"> <input id="gl-p" placeholder="${h(t('glPhone'))}" dir="ltr" style="width:130px">
+      <label><input type="checkbox" id="gl-c"> ${h(t('glConsentAdd'))}</label> <button type="button" class="btn" id="gl-add">➕ ${h(t('glAdd'))}</button></div>
+    <p class="muted small">👤 ${h(t('glAdminsNote'))}</p>`;
+  const save = async (tr) => {
+    const o = list.find((x) => String(x._row) === tr.dataset.r); if (!o) return;
+    const v = (f) => $(`[data-f="${f}"]`, tr);
+    o.name = v('name').value.trim() || o.name; o.level = v('level').value; o.sms = v('sms').checked ? 'on' : 'off';
+    if (v('consent').checked && !String(o.consent_at || '').trim()) { o.consent_by = me; o.consent_at = nowStamp(); }
+    if (!v('consent').checked) { o.consent_by = ''; o.consent_at = ''; }
+    try { await updateRow('SmsGabbaim', o._row, head.map((k) => o[k] ?? '')); ui.toast(t('saved')); await glCard(el); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  };
+  $$('tr[data-r]', el).forEach((tr) => { $$('[data-f]', tr).forEach((f) => { f.onchange = () => save(tr); }); });
+  const welcome = async (phone, btn) => {
+    if (btn) btn.disabled = true;
+    try { const r = await call('gl_welcome', { phone }); ui.toast(r.ok ? t('glWelcomeSent') : String(r.status || 'error'), r.ok ? undefined : 'error'); } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+    if (btn) btn.disabled = false;
+  };
+  $$('[data-welcome]', el).forEach((btn) => { btn.onclick = () => { if (confirm(t('glWelcomeQ'))) welcome(btn.dataset.welcome, btn); }; });
+  $('#gl-add', el).onclick = async () => {
+    const name = $('#gl-n', el).value.trim(); const d = last10($('#gl-p', el).value);
+    if (!name || !d) { ui.toast(t('glNeed'), 'error'); return; }
+    if (list.some((o) => String(o.phone).split(/[,;/]/).map(last10).includes(d))) { ui.toast(t('glExists'), 'error'); return; }
+    const c = $('#gl-c', el).checked;
+    const row = { name, phone: fmtPhone(d), added_by: me, added_at: nowStamp(), note: 'נוסף באתר', level: 'gabbai', sms: 'on', consent_by: c ? me : '', consent_at: c ? nowStamp() : '' };
+    try {
+      await appendRows('SmsGabbaim', [(hd.length ? head : GL_HEAD).map((k) => row[k] ?? '')]);
+      ui.toast(t('saved'));
+      if (c && confirm(t('glWelcomeQ'))) await welcome(d);
+      await glCard(el);
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  };
 }
 
 // ---------- אינעם כרטיס: "מאשר SMS" ----------
