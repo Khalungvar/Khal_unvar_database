@@ -54,6 +54,17 @@ Keywords: card, details, family, kvitel, organization, notes
 - Tabs: **Details**, **Family** (relations + yahrzeits/occasions), **Donations**, **Organization** (free text boxes), **Kvitel**, **History**.
 - Buttons at the bottom: **✉ Email** (when there is an email), **☑ Task**, **Edit**, **🗑 Delete**.
 
+## Tags in the card (new system)
+Keywords: tags, beis medrash, yeshiva, kollel, group, family, rabbonim, donor, nagid, closeness, former, unchecked, lists
+
+- In the card, under **Details** — the **🏷 Tags** box. You change it right there, no need for **Edit**.
+- Three columns: **Beis Medrash** (pick Boro Park / Monsey / Jerusalem and set the level), **Yeshiva, Kollel, Groups** (pick the type, then the place; level staff · talmid, groups: active · sometimes; **Talmidim** buttons; **Parent of a talmid** shows by itself from the children; **"+ parent of a talmid"** picks the child and yeshiva), **Family & Rabbonim** (family buttons, **Friend**, and a Rabbonim level).
+- **Former** — no longer here; press again to undo. **"+"** — add another. **⚠ Unchecked** — came from the old list; press to confirm.
+- **Donor** — last-3-years total (all mosdos), automatic; over $1,800 shows **Major donor**. **Nagid** — manual only, for all mosdos or a specific one.
+- **Closeness** (bottom): 1 Anash (manual only) · 2 close · 3 connected · 4 distant · 5 inactive — automatic from the tags, can be set by hand, **Back to auto** resets.
+- **Lists**: Simchas Beis Ungvar, Neshei Ungvar, Luach, and **"+ add to a list"**.
+- Nothing is saved until **Save**. Closing the card with changes asks: **OK – save** or **Cancel – discard**.
+
 ## A person's photo
 Keywords: photo, picture, image, larger, zoom
 
