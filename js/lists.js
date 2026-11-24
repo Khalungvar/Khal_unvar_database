@@ -1975,7 +1975,7 @@ export function wireCardLists(c) {
     if (e.target.closest('#cl-add')) openCardListAdd(c);
   };
 }
-function openCardListAdd(c) {
+export function openCardListAdd(c) {
   const id = String(c.contact_id);
   const inIds = new Set(cardMemberships(c).map((m) => String(m.l.list_id)));
   const cand = state.savedLists.filter((l) => String(l.list_id || '').trim() && canEdit(l) && !inIds.has(String(l.list_id)))
