@@ -2615,3 +2615,53 @@ select.need-fill, input.need-fill { outline: 2px solid #c0392b; outline-offset: 
 /* 🔎 JBD בכרטיס */
 .jbd-in-card { margin: 14px 0 6px; padding-top: 10px; border-top: 1px dashed color-mix(in srgb, var(--gold) 45%, transparent); }
 .jbd-in-card .jbd-one:not(:empty) { margin-top: 8px; }
+
+/* 🏷 מסך התגיות החדש (tags2) */
+.t2-card { border: 1px solid var(--line, #e2d9c6); border-radius: 12px; padding: 10px 12px; margin: 10px 0; }
+.t2-card h3 { margin: 0 0 8px; }
+.t2-dirty { display: flex; gap: 8px; align-items: center; background: #fff4d6; border: 1px solid #e0b84f; border-radius: 8px; padding: 6px 10px; margin-bottom: 8px; font-size: 14px; }
+.t2-dirty span { flex: 1; }
+.t2-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: start; }
+@media (max-width: 700px) { .t2-cols { grid-template-columns: 1fr; } }
+.t2-col { display: flex; flex-direction: column; gap: 8px; }
+.t2-col h4 { margin: 0; font-size: 14px; color: #7a6a4f; }
+.t2-slot { border: 1px solid #e6dcc6; border-radius: 8px; padding: 8px; text-align: center; background: #fff; }
+.t2-slot.was { background: #f3f1ec; }
+.t2-slot.off .t2-sl { opacity: .4; }
+.t2-slot select { width: 100%; margin-bottom: 4px; }
+.t2-sl { display: flex; gap: 8px; justify-content: center; margin-top: 6px; }
+.t2-sl input[type=range] { writing-mode: vertical-lr; direction: rtl; height: 110px; width: 22px; }
+.t2-lv { display: flex; flex-direction: column; justify-content: space-between; font-size: 12px; color: #8a8170; text-align: right; min-height: 110px; }
+.t2-lv .cur { color: #222; font-weight: 600; }
+.t2-stb { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 6px; }
+.t2-fm, .t2-u { font-size: 12px; padding: 2px 10px; border-radius: 6px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+.t2-fm.on { background: #faeeda; color: #633806; border-color: #ba7517; }
+.t2-u { background: #fff4d6; border-color: #e0b84f; }
+.t2-add { font-size: 13px; border: 1px dashed #c9b98f; background: transparent; border-radius: 8px; padding: 4px; cursor: pointer; }
+.t2-sub { border-top: 1px dashed #e6dcc6; padding-top: 6px; font-size: 13px; }
+.t2-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.t2-tg { font-size: 13px; border: 1px solid #d8cdb5; background: #fff; border-radius: 8px; padding: 3px 8px; cursor: pointer; }
+.t2-tg.on { background: #e9e6fb; color: #3c3489; border-color: #7f77dd; }
+.t2-tg[disabled] { opacity: .85; cursor: default; }
+.t2-kid { font-size: 13px; margin-top: 3px; }
+.t2-kid.was { color: #8a8170; }
+.t2-kidadd select { width: 100%; margin-top: 4px; }
+.t2-chk { display: flex; gap: 6px; justify-content: center; font-size: 13px; }
+.t2-legacy { margin: 8px 0 0; }
+.t2-donor { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-top: 1px solid #eee3cc; margin-top: 10px; padding-top: 8px; }
+.t2-sum { font-size: 20px; font-weight: 600; }
+.t2-big { font-size: 12px; padding: 2px 8px; border-radius: 6px; background: #faeeda; color: #633806; }
+.t2-sw { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; cursor: pointer; font-size: 14px; }
+.t2-sw i { width: 36px; height: 20px; border-radius: 10px; background: #ccc; position: relative; display: inline-block; }
+.t2-sw i::after { content: ''; position: absolute; top: 3px; right: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: right .15s; }
+.t2-sw.on i { background: #7f77dd; }
+.t2-sw.on i::after { right: 19px; }
+.t2-ng { display: flex; flex-direction: column; gap: 4px; }
+.t2-ngr { display: flex; gap: 4px; align-items: center; }
+.t2-barh { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-top: 12px; }
+.t2-bar { display: flex; gap: 4px; margin: 4px 0; }
+.t2-bar button { flex: 1; height: 30px; border-radius: 8px; border: 1px solid #ddd; background: #fff; font-size: 12px; cursor: pointer; }
+.t2-bar button.on { background: #9fe1cb; color: #085041; border-color: #1d9e75; }
+.t2-bar button.top.on { background: #cecbf6; color: #3c3489; border-color: #7f77dd; }
+.t2-bar button.cur { font-weight: 700; }
+.t2-lists { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-top: 1px solid #eee3cc; margin-top: 8px; padding-top: 8px; font-size: 13px; }
