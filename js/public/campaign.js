@@ -78,31 +78,48 @@ async function guard(body) {
 
 let DATA = null; let SLUG = ''; let SCREEN = false;
 // 🎞 סרט תמונות נע בראש הדף: img/<slug>-gallery.json = [{src, cap}] (אם אין קובץ — אין סרט)
-let GAL = null; const REEL_T0 = Date.now(); const REEL_SEC = 70;
+let GAL = null; const REEL_T0 = Date.now(); const REEL_PX = 38; // מהירות הסרט: פיקסלים לשנייה
 async function loadGallery() {
   if (GAL !== null) return; GAL = [];
   try { const r = await fetch(`img/${encodeURIComponent(SLUG)}-gallery.json`); if (r.ok) { const j = await r.json(); if (Array.isArray(j)) GAL = j.filter((x) => x && x.src); } } catch { /* */ }
   if (GAL.length && !document.getElementById('cp-reel-css')) {
     const st = document.createElement('style'); st.id = 'cp-reel-css';
-    st.textContent = `.cp-main{min-width:0}.cp-reel{position:relative;height:210px;width:100%;overflow:hidden;contain:inline-size;direction:ltr;background:#2a1414}
-.cp-reel-track{display:flex;height:100%;width:max-content;animation:cpReel ${REEL_SEC}s linear infinite}
+    st.textContent = `.cp-main{min-width:0}.cp-reel{--s:34px;--g:10px;position:relative;height:210px;width:100%;overflow:hidden;contain:inline-size;direction:ltr;background:linear-gradient(180deg,#ecd28c,#c9a23f 55%,#9c7425)}
+.cp-reel-track{display:flex;height:100%;width:max-content;animation:cpReel 120s linear infinite}
 .cp-reel:hover .cp-reel-track{animation-play-state:paused}
-.cp-reel figure{position:relative;margin:0;height:100%;flex:none;border-left:3px solid #2a1414}
+.cp-reel figure{position:relative;margin:0 0 0 calc(var(--g) - var(--s));height:100%;flex:none;clip-path:polygon(var(--s) 0,100% 0,calc(100% - var(--s)) 100%,0 100%)}
 .cp-reel img{height:100%;width:auto;display:block}
-.cp-reel figcaption{position:absolute;inset:auto 0 0 0;padding:22px 10px 7px;direction:rtl;text-align:center;color:#fff;font-size:14px;line-height:1.3;font-weight:600;background:linear-gradient(transparent,rgba(0,0,0,.72));text-shadow:0 1px 2px rgba(0,0,0,.6)}
-.cp-reel-logo{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:172px;height:172px;border-radius:18px;background:rgba(255,255,255,.95);box-shadow:0 4px 18px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:2}
-.cp-reel-logo img{width:160px;height:160px;object-fit:contain;border-radius:12px}
+.cp-reel figcaption{position:absolute;inset:auto 0 0 0;padding:22px calc(var(--s) + 8px) 7px;direction:rtl;text-align:center;color:#fff;font-size:14px;line-height:1.3;font-weight:600;background:linear-gradient(transparent,rgba(0,0,0,.72));text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.cp-reel-logo{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);height:88%;aspect-ratio:1126/1185;display:flex;align-items:center;justify-content:center;z-index:2;pointer-events:none}
+.cp-reel-logo img{height:100%;width:100%;object-fit:contain;filter:drop-shadow(0 10px 14px rgba(0,0,0,.55)) drop-shadow(0 3px 4px rgba(0,0,0,.45))}
+.cp-bnr > .cp-reel-logo{top:calc(var(--h) * .155);height:calc(var(--h) * 1.045);transform:translateX(-50%);z-index:3}
 .cp-reel + .cp-pic{min-height:0;padding-top:14px}
+body.cp-banner .cp-top{display:none}body.cp-banner #cp-root{margin-top:0}
+.cp-bnr{--h:340px;width:100vw;margin:0 calc(50% - 50vw) 18px;position:relative}
+.cp-bnr .cp-reel{height:var(--h);--s:46px;--g:12px}
+.cp-bnr .cp-pic{min-height:calc(var(--h) * .24);padding:14px max(22px,calc(50vw - 574px)) 16px}
 @keyframes cpReel{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-@media (max-width:640px){.cp-reel{height:150px}.cp-reel figcaption{font-size:12px;padding:16px 6px 5px}.cp-reel-logo{width:124px;height:124px;border-radius:14px}.cp-reel-logo img{width:114px;height:114px}}
-@media (prefers-reduced-motion:reduce){.cp-reel-track{animation-duration:${REEL_SEC * 3}s}}`;
+@media (max-width:640px){.cp-bnr{--h:190px}.cp-reel{height:170px}.cp-reel,.cp-bnr .cp-reel{--s:24px;--g:7px}.cp-reel figcaption{font-size:12px;padding:16px calc(var(--s) + 4px) 5px}}`;
     document.head.appendChild(st);
   }
 }
+/** מהירות קבועה לפי רוחב הסרט, וממשיך מאותה נקודה גם כשהדף מתרנדר מחדש */
+function fixReel() {
+  const tr = $('.cp-reel-track'); if (!tr) return;
+  const dur = Math.max(20, tr.scrollWidth / 2 / REEL_PX);
+  tr.style.animationDuration = `${dur.toFixed(1)}s`;
+  tr.style.animationDelay = `-${(((Date.now() - REEL_T0) / 1000) % dur).toFixed(2)}s`;
+}
+let reelResize = false;
+/** באנר לכל רוחב העמוד: סרט התמונות + הלוגו באמצע + שם הקמפיין */
+function bannerHtml(c) {
+  const logo = /#logo$/.test(c.image || '');
+  const src = logo ? c.image.replace(/#logo$/, '') : '';
+  return `<section class="cp-bnr">${reelHtml(c, '')}${src ? `<div class="cp-reel-logo"><img src="${h(src)}" alt="${h(tr(c, 'title'))}"></div>` : ''}<div class="cp-pic"><div><small>${h(tr(c, 'sub'))}</small><h1>${h(tr(c, 'title'))}</h1></div></div></section>`;
+}
 function reelHtml(c, logoSrc) {
   const one = GAL.map((g) => `<figure><img src="${h(g.src)}" alt="${h(g.cap || '')}"${g.w && g.h ? ` width="${Number(g.w)}" height="${Number(g.h)}"` : ''}>${g.cap ? `<figcaption>${h(g.cap)}</figcaption>` : ''}</figure>`).join('');
-  const delay = (((Date.now() - REEL_T0) / 1000) % REEL_SEC).toFixed(2); // ממשיך מאותה נקודה גם כשהדף מתרנדר מחדש
-  return `<div class="cp-reel"><div class="cp-reel-track" style="animation-delay:-${delay}s">${one}${one}</div>${logoSrc ? `<div class="cp-reel-logo"><img src="${h(logoSrc)}" alt="${h(tr(c, 'title'))}"></div>` : ''}</div>`;
+  return `<div class="cp-reel"><div class="cp-reel-track">${one}${one}</div>${logoSrc ? `<div class="cp-reel-logo"><img src="${h(logoSrc)}" alt="${h(tr(c, 'title'))}"></div>` : ''}</div>`;
 }
 const F = { amount: 0, pkg: '', preset: '', monthly: false, months: 0, fee: true, anon: false };
 
@@ -137,9 +154,8 @@ function heroHtml(c) {
   const img = c.image && !logo ? `style="background-image:linear-gradient(180deg,rgba(40,10,10,.05),rgba(40,10,10,.65)),url('${h(c.image)}')"` : '';
   const reel = GAL && GAL.length;
   return `<section class="pb-card cp-hero">
-    ${reel ? reelHtml(c, logo ? c.image.replace(/#logo$/, '') : '') : ''}
     ${logo && !reel ? `<div style="text-align:center;padding:14px 10px 4px"><img src="${h(c.image.replace(/#logo$/, ''))}" alt="${h(tr(c, 'title'))}" style="width:min(320px,80%);height:auto"></div>` : ''}
-    <div class="cp-pic${c.image && !logo ? ' has-img' : ''}" ${img}><div><small>${h(tr(c, 'sub'))}</small><h1>${h(tr(c, 'title'))}</h1></div></div>
+    ${reel ? '' : `<div class="cp-pic${c.image && !logo ? ' has-img' : ''}" ${img}><div><small>${h(tr(c, 'sub'))}</small><h1>${h(tr(c, 'title'))}</h1></div></div>`}
     <div class="cp-hb">${tr(c, 'desc') ? `<p class="cp-desc" dir="auto">${h(tr(c, 'desc')).replace(/\n/g, '<br>')}</p>` : ''}
       ${matchHtml(c)}
       ${c.donors_mode === 'none' && !goal ? '' : `<div class="cp-prog"><span class="cp-big">${money(shown())}</span>
@@ -212,7 +228,10 @@ function render() {
   const c = DATA.campaign;
   document.title = `${tr(c, 'title')} – Khal Ungvar`;
   if (SCREEN) { root.innerHTML = screenHtml(c); return; }
-  root.innerHTML = `<div class="cp-grid"><div class="cp-main">${heroHtml(c)}${pkgsHtml(c)}${recentHtml(c)}</div><div class="cp-side">${formHtml(c)}</div></div>`;
+  const bnr = !!(GAL && GAL.length);
+  document.body.classList.toggle('cp-banner', bnr);
+  root.innerHTML = `${bnr ? bannerHtml(c) : ''}<div class="cp-grid"><div class="cp-main">${heroHtml(c)}${pkgsHtml(c)}${recentHtml(c)}</div><div class="cp-side">${formHtml(c)}</div></div>`;
+  if (bnr) { fixReel(); if (!reelResize) { reelResize = true; addEventListener('resize', fixReel); } }
   wire();
 }
 
