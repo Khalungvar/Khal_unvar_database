@@ -3,7 +3,7 @@ import { suggest, details, placesEnabled } from '/js/places.js?v=727';
 import { downloadXlsx } from '/js/excel.js?v=726';
 import { suggestFirstName, suggestLastName, suggestHeFirstName, suggestHeLastName } from '/js/names.js';
 
-const API = 'https://script.google.com/macros/s/AKfycbzK63Qd9P3Gb-255-gVFGvqkF_NddBjJ9i5yHKrnaK_E8PwLsB_7WDO6Lh2iyqO1vPZ/exec';
+const API = 'https://script.google.com/macros/s/AKfycbyv9meo6icqEcUbUJjsJ-3rX0RXQoCX5sLScBciAk1W0q9b3jvOR3DF939vnmGyemwP/exec';
 const MEN = ['מו"ה', 'הרב', 'הרה"ג', 'הרה"צ', 'הבה"ח'];
 const TITLE_EN = { 'מו"ה': 'Mr.', 'הרב': 'Rabbi', 'הרה"ג': 'Rabbi', 'הרה"צ': 'Rabbi', 'כ"ק': 'Grand Rabbi', 'הבה"ח': 'Mr.', 'מרת': 'Mrs.', 'הרבנית': 'Rebbetzin' };
 const MONTHS = ['תשרי', 'חשון', 'כסלו', 'טבת', 'שבט', 'אדר', 'אדר א\'', 'אדר ב\'', 'ניסן', 'אייר', 'סיון', 'תמוז', 'אב', 'אלול'];
