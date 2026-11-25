@@ -3,6 +3,7 @@
 // קבוצות עמודות: שמות / כתובת / טלפונים / אימייל / אחר / 🏷 תגיות (לחצנים). שומרים רק תאים ששונו (יומן שינויים, בדיקת "מישהו אחר שינה").
 import { state, loadAll, saveCellEdits, guestsOf, hostOf, ADDR_FIELDS, saveSavedList } from './data.js';
 import { escapeHtml as h, isTrue, isAlive, digits } from './util.js';
+import { t2PickHtml } from './tags2.js';
 import { tagSelHtml, readTagSel, matchesTagSel, storedTags, serialize, pathKey, pathLabel } from './tags.js';
 import { allCampaigns } from './campaigns.js';
 import { yearLabel, yearFromLabel, toHebrew, todayIso } from './hebdate.js';
@@ -459,7 +460,7 @@ function dlg(html) {
   return d;
 }
 function tagDialog(keys, onOk, title, sel = null) {
-  const d = dlg(`<h3>${h(title)}</h3>${tagSelHtml({ keys, st: sel?.st || [], send: sel ? sel.send : false })}
+  const d = dlg(`<h3>${h(title)}</h3>${tagSelHtml({ keys, st: sel?.st || [], send: sel ? sel.send : false, noTree: true })}${t2PickHtml(keys, 'data-tgk')}
     <div class="actions"><button type="button" class="btn primary" id="bt-ok">אישור</button><span class="spacer"></span><button type="button" class="btn" data-x>ביטול</button></div>`);
   d.classList.add('wide');
   $('#bt-ok', d).onclick = () => { const r = readTagSel(d); d.close(); onOk(r.keys, r); };
