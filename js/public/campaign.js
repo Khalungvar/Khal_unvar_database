@@ -77,6 +77,33 @@ async function guard(body) {
 }
 
 let DATA = null; let SLUG = ''; let SCREEN = false;
+// 🎞 סרט תמונות נע בראש הדף: img/<slug>-gallery.json = [{src, cap}] (אם אין קובץ — אין סרט)
+let GAL = null; const REEL_T0 = Date.now(); const REEL_SEC = 70;
+async function loadGallery() {
+  if (GAL !== null) return; GAL = [];
+  try { const r = await fetch(`img/${encodeURIComponent(SLUG)}-gallery.json`); if (r.ok) { const j = await r.json(); if (Array.isArray(j)) GAL = j.filter((x) => x && x.src); } } catch { /* */ }
+  if (GAL.length && !document.getElementById('cp-reel-css')) {
+    const st = document.createElement('style'); st.id = 'cp-reel-css';
+    st.textContent = `.cp-main{min-width:0}.cp-reel{position:relative;height:210px;width:100%;overflow:hidden;contain:inline-size;direction:ltr;background:#2a1414}
+.cp-reel-track{display:flex;height:100%;width:max-content;animation:cpReel ${REEL_SEC}s linear infinite}
+.cp-reel:hover .cp-reel-track{animation-play-state:paused}
+.cp-reel figure{position:relative;margin:0;height:100%;flex:none;border-left:3px solid #2a1414}
+.cp-reel img{height:100%;width:auto;display:block}
+.cp-reel figcaption{position:absolute;inset:auto 0 0 0;padding:22px 10px 7px;direction:rtl;text-align:center;color:#fff;font-size:14px;line-height:1.3;font-weight:600;background:linear-gradient(transparent,rgba(0,0,0,.72));text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.cp-reel-logo{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:172px;height:172px;border-radius:18px;background:rgba(255,255,255,.95);box-shadow:0 4px 18px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:2}
+.cp-reel-logo img{width:160px;height:160px;object-fit:contain;border-radius:12px}
+.cp-reel + .cp-pic{min-height:0;padding-top:14px}
+@keyframes cpReel{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (max-width:640px){.cp-reel{height:150px}.cp-reel figcaption{font-size:12px;padding:16px 6px 5px}.cp-reel-logo{width:124px;height:124px;border-radius:14px}.cp-reel-logo img{width:114px;height:114px}}
+@media (prefers-reduced-motion:reduce){.cp-reel-track{animation-duration:${REEL_SEC * 3}s}}`;
+    document.head.appendChild(st);
+  }
+}
+function reelHtml(c, logoSrc) {
+  const one = GAL.map((g) => `<figure><img src="${h(g.src)}" alt="${h(g.cap || '')}"${g.w && g.h ? ` width="${Number(g.w)}" height="${Number(g.h)}"` : ''}>${g.cap ? `<figcaption>${h(g.cap)}</figcaption>` : ''}</figure>`).join('');
+  const delay = (((Date.now() - REEL_T0) / 1000) % REEL_SEC).toFixed(2); // ממשיך מאותה נקודה גם כשהדף מתרנדר מחדש
+  return `<div class="cp-reel"><div class="cp-reel-track" style="animation-delay:-${delay}s">${one}${one}</div>${logoSrc ? `<div class="cp-reel-logo"><img src="${h(logoSrc)}" alt="${h(tr(c, 'title'))}"></div>` : ''}</div>`;
+}
 const F = { amount: 0, pkg: '', preset: '', monthly: false, months: 0, fee: true, anon: false };
 
 function applyLang() {
@@ -108,8 +135,10 @@ function heroHtml(c) {
   if (c.end_date) { const d = Math.ceil((new Date(`${c.end_date}T23:59:59`) - new Date()) / 864e5); left = d >= 0 ? L().daysLeft(d) : L().ended; }
   const logo = /#logo$/.test(c.image || ''); // תמונה שמסתיימת ב-#logo = לוגו במרכז (לא רקע)
   const img = c.image && !logo ? `style="background-image:linear-gradient(180deg,rgba(40,10,10,.05),rgba(40,10,10,.65)),url('${h(c.image)}')"` : '';
+  const reel = GAL && GAL.length;
   return `<section class="pb-card cp-hero">
-    ${logo ? `<div style="text-align:center;padding:14px 10px 4px"><img src="${h(c.image.replace(/#logo$/, ''))}" alt="${h(tr(c, 'title'))}" style="width:min(320px,80%);height:auto"></div>` : ''}
+    ${reel ? reelHtml(c, logo ? c.image.replace(/#logo$/, '') : '') : ''}
+    ${logo && !reel ? `<div style="text-align:center;padding:14px 10px 4px"><img src="${h(c.image.replace(/#logo$/, ''))}" alt="${h(tr(c, 'title'))}" style="width:min(320px,80%);height:auto"></div>` : ''}
     <div class="cp-pic${c.image && !logo ? ' has-img' : ''}" ${img}><div><small>${h(tr(c, 'sub'))}</small><h1>${h(tr(c, 'title'))}</h1></div></div>
     <div class="cp-hb">${tr(c, 'desc') ? `<p class="cp-desc" dir="auto">${h(tr(c, 'desc')).replace(/\n/g, '<br>')}</p>` : ''}
       ${matchHtml(c)}
@@ -122,7 +151,7 @@ function heroHtml(c) {
 function pkgsHtml(c) {
   if (!c.packages.length) return '';
   // אפשרות עם months = תשלומים חודשיים (הוראת קבע ל-X חודשים), לא "הקדשה" אחת. head_* באפשרות הראשונה = כותרת המקטע
-  return `<section class="pb-card"><h2 class="cp-h">${h(tr(c.packages[0], 'head') || L().pkgs)}</h2><div class="cp-pkgs">${c.packages.map((p) => {
+  return `<section class="pb-card"><h2 class="cp-h">${h(tr(c.packages[0], 'head') || L().pkgs)}</h2><div class="cp-pkgs"${c.packages.some((p) => Number(p.months)) ? ' style="grid-template-columns:repeat(2,minmax(0,1fr))"' : ''}>${c.packages.map((p) => {
     const lim = Number(p.limit) || 0; const used = DATA.taken[p.id] || 0; const full = lim && used >= lim;
     const on = Number(p.months) ? F.preset === p.id : F.pkg === p.id;
     return `<button type="button" class="cp-pkg${on ? ' on' : ''}${full ? ' taken' : ''}" data-pkg="${h(p.id)}"${full ? ' disabled' : ''}>
@@ -271,11 +300,13 @@ function pay(form) {
 }
 
 async function load() {
+  const gal = SCREEN ? Promise.resolve() : loadGallery();
   try { DATA = await guard({ action: 'webCampaign', c: SLUG, preview: new URLSearchParams(location.search).get('preview') || '' }); } catch { DATA = { error: 'net' }; }
   if (DATA.campaign) {
     if (!F.amount && !F.pkg) { const a = String(DATA.campaign.amounts || '').split(/[,\s]+/).map(Number).filter((x) => x > 0); F.amount = a[3] || a[0] || 180; }
     if (!SCREEN && DATA.pay && DATA.ifields) { try { await loadIfields(); } catch { DATA.pay = false; } }
   }
+  await gal;
   render(); if (!SCREEN) setupIfields();
 }
 
