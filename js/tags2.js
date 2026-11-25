@@ -18,6 +18,7 @@ const FAM = '5'; const FAM_BTN = ['70', '71', '72', '73', '306'];
 const RB = '7'; const RB_LV = ['90', '91', '92', '93'];
 const FRIEND = '14';
 const LISTS = '340'; const LUACH = '341';
+const NOSEND = '_nosend'; // 📭 לא לשלוח – על כל הכרטיס: { p:['_nosend'], s:'a' }
 const GEN = '_gen'; // דור שני ושלישי באונגוואר: { p:['_gen'], s:'a' } = דלוק ביד, s:'f' = כבוי ביד; בלי = אוטומטי
 const BAR = '_bar'; const NAGID = '350'; // נגידים: [350] = כלל מוסדות, [350, o:מוסד] = מוסד מסוים
 const CLOSED_YESHIVOS = ['ישיבה גדולה דבארא פארק', 'ישיבה רמות ירושלים'];
@@ -55,6 +56,8 @@ const TX = {
   gen: ['צווייטער און דריטער דור אין אונגוואר', 'דור שני ושלישי באונגוואר', '2nd/3rd generation in Ungvar'],
   genAuto: ['אויטאמאטיש: דער טאטע איז א מתפלל', 'אוטומטי: האבא מתפלל', 'auto: the father davens here'],
   genAuto1: ['אויטאמאטיש: דער טאטע איז אנ"ש', 'אוטומטי: האבא אנ"ש', 'auto: the father is Anash'],
+  nosend: ['📭 נישט שיקן', '📭 לא לשלוח', '📭 Do not send'],
+  nosendT: ['ער קומט נישט אריין אין קיין שליחה (פאסט, SMS, אימעיל) — סיידן מ\'צייכנט ביי דער ליסטע "אויך די וואס נישט שיקן"', 'לא נכנס לשום משלוח (דואר, SMS, אימייל) – אלא אם מסמנים ברשימה "כולל לא לשלוח"', 'Left out of every mailing (post, SMS, e-mail) unless the list includes "do not send"'],
   helpT: ['ווי ווערט די קירבה באשטימט', 'איך נקבעת הקירבה', 'How closeness is set'],
   helpIntro: ['די דרגה איז לויט די נאנטסטע תגית אין כרטיס. ווער עס איז א מתפלל שבת קבוע דארף מען נישט צייכענען אויך ימות החול — די העכערע דרגה באשטימט.', 'הדרגה נקבעת לפי התגית הכי קרובה שיש בכרטיס. מי שמתפלל שבת קבוע לא צריך לסמן גם ימות החול, כי הדרגה הגבוהה כבר קובעת.', 'The level comes from the closest tag on the card. Someone who davens Shabbos regularly needs no weekday mark too — the higher level decides.'],
   help1: ['נאר מיט דער האנט.', 'רק ידני.', 'manual only.'],
@@ -342,9 +345,11 @@ function barRow(c) {
 function listsRow() {
   const nOn = D.neshei;
   const lu = D.list.some((x) => String(x.p[0]) === LISTS && String(x.p[1]) === LUACH && x.s !== 'f');
+  const ns = D.list.some((x) => x.p[0] === NOSEND && x.s !== 'f');
   const b = (act, on, label) => `<button type="button" class="t2-tg${on ? ' on' : ''}" data-act="${act}">${on ? '☑' : '☐'} ${h(label)}</button>`;
   return `<div class="t2-lists"><b>${h(tx('lists'))}</b>${b('wl', D.wl, tx('wl'))}${b('neshei', nOn, tx('neshei'))}${b('luach', lu, tx('luach'))}
-    <button type="button" class="linkish" data-act="listadd">${h(tx('addList'))}</button></div>`;
+    <button type="button" class="linkish" data-act="listadd">${h(tx('addList'))}</button>
+    <span class="spacer"></span><button type="button" class="t2-tg t2-nosend${ns ? ' on' : ''}" data-act="nosend" title="${h(tx('nosendT'))}">${ns ? '☑' : '☐'} ${h(tx('nosend'))}</button></div>`;
 }
 
 export function tags2Html(c) {
@@ -371,7 +376,7 @@ function setLevel(i, root, levels, idx) {
 /** החלונית "מה השתנה" (שורות טקסט) */
 export function tags2Changes(c) {
   if (!D) return [];
-  const lbl = (x) => x.p.map((q) => (String(q) === BAR ? tx('bar') : String(q) === GEN ? tx('gen') : String(q) === NAGID ? tx('nagid') : isOrg(q) ? org(q) : nameOf(q))).join(' › ') + (String(x.p[0]) === NAGID && x.p.length === 1 ? ` › ${tx('allOrgs')}` : '')
+  const lbl = (x) => x.p.map((q) => (String(q) === BAR ? tx('bar') : String(q) === GEN ? tx('gen') : String(q) === NOSEND ? tx('nosend') : String(q) === NAGID ? tx('nagid') : isOrg(q) ? org(q) : nameOf(q))).join(' › ') + (String(x.p[0]) === NAGID && x.p.length === 1 ? ` › ${tx('allOrgs')}` : '')
     + (x.p[0] === BAR ? ` = ${x.v}` : '') + (x.s === 'f' ? ` (${tx('former')})` : '');
   const before = storedTags(byIdC(D.id) || c);
   const now = D.list.filter((x) => !x._new && !x._newY);
@@ -496,7 +501,10 @@ export function wireTags2(box, c, opts) {
     } else if (act === 'barauto') { const ix = D.list.findIndex((x) => x.p[0] === BAR); if (ix >= 0) D.list.splice(ix, 1); }
     else if (act === 'wl') D.wl = !D.wl;
     else if (act === 'neshei') setNeshei(!D.neshei);
-    else if (act === 'luach') {
+    else if (act === 'nosend') {
+      const ix = D.list.findIndex((x) => x.p[0] === NOSEND);
+      if (ix >= 0) D.list.splice(ix, 1); else D.list.push({ p: [NOSEND], s: 'a', d: today() });
+    } else if (act === 'luach') {
       const ix = D.list.findIndex((x) => String(x.p[0]) === LISTS && String(x.p[1]) === LUACH);
       if (ix >= 0) D.list.splice(ix, 1); else D.list.push({ p: [LISTS, LUACH], s: 'a', d: today() });
     } else return;
@@ -519,4 +527,41 @@ export function barOf(c) {
   const m = storedTags(c).find((x) => x.p[0] === BAR);
   if (m) return Number(m.v) || 5;
   return autoBar(c, tagsOf(c)).lv;
+}
+
+// ---------- לרשימות / סינון ----------
+/** 📭 לא לשלוח – על כל הכרטיס */
+export const noSendCard = (c) => storedTags(c).some((x) => x.p[0] === NOSEND && x.s !== 'f');
+/** דור שני ושלישי – דלוק (ידני או אוטומטי) */
+export const genOn = (c) => genOf(c, storedTags(c)).on;
+/** תורם גדול – מעל $1,800 ב-3 שנים */
+export const bigDonor = (c) => donorInfo(c).sum >= BIG_DONOR;
+
+/** שם קצר של מפתח תגית ("1>o:ביהמ\"ד בארא פארק>301" → "בארא פארק · שבת קבוע") */
+export function t2KeyLabel(key) {
+  const p = String(key).split('>');
+  const [r] = p;
+  if (r === NAGID && p.length === 1) return tx('nagid');
+  if (r === FRIEND && p.length === 1) return tx('friend');
+  if (r === RB && p.length === 1) return tx('rabbonim');
+  return p.map((q) => (isOrg(q) ? short(org(q)) : nameOf(q))).filter((x) => x && !String(x).startsWith('#')).slice(r === BM || r === YK || r === CH ? 1 : 0).join(' · ') || nameOf(p[p.length - 1]);
+}
+
+/** 🏷 בחירת תגיות בסגנון הכרטיס (3 טורים) – לרשימות, לסינון ולעריכה קבוצתית.
+ *  attr = שם התכונה של התיבות (למשל data-ik); הערך = המפתח (נתיב בעץ, עם >) */
+export function t2PickHtml(keys, attr) {
+  const K = new Set(keys || []);
+  const cb = (key, label, cls = '') => `<label class="t2p-c${cls}${K.has(key) ? ' on' : ''}"><input type="checkbox" ${attr}="${h(key)}"${K.has(key) ? ' checked' : ''}> ${h(label)}</label>`;
+  const box = (root, o, lv, title) => `<div class="t2p-org">${cb(`${root}>o:${o}`, title, ' t2p-ob')}<div class="t2p-lv">${lv.map((id) => cb(`${root}>o:${o}>${id}`, lvName(id))).join('')}</div></div>`;
+  const sub = (title, inner) => (inner ? `<div class="t2p-sub"><b>${h(title)}</b>${inner}</div>` : '');
+  const c1 = bmOrgs().map((o) => box(BM, o, BM_LV, short(o))).join('');
+  const c2 = sub(tx('yeshivos'), yOrgs().map((o) => box(YK, o, YK_LV, o)).join(''))
+    + sub(tx('kollelim'), kOrgs().map((o) => box(YK, o, YK_LV, o)).join(''))
+    + sub(tx('chaburos'), chOrgs().map((o) => box(CH, o, CH_LV, o)).join(''))
+    + sub(tx('tr'), `<div class="t2p-lv">${TR_BTN.map((id) => cb(`${TR}>${id}`, lvName(id))).join('')}</div>`);
+  const c3 = sub(tx('family'), `<div class="t2p-lv">${FAM_BTN.filter((id) => !lvName(id).startsWith('#')).map((id) => cb(`${FAM}>${id}`, lvName(id))).join('')}${cb(FRIEND, tx('friend'))}</div>`)
+    + sub(tx('rabbonim'), `<div class="t2p-lv">${cb(RB, tx('rabbonim'), ' t2p-ob')}${RB_LV.map((id) => cb(`${RB}>${id}`, lvName(id))).join('')}</div>`)
+    + sub(tx('nagid'), `<div class="t2p-lv">${cb(NAGID, tx('nagid'))}</div>`)
+    + sub(tx('lists'), `<div class="t2p-lv">${cb(`${CH}>o:${NESHEI_ORG}`, tx('neshei'))}${cb(`${LISTS}>${LUACH}`, tx('luach'))}</div>`);
+  return `<div class="t2p"><div class="t2p-col"><h4>${h(tx('c1'))}</h4>${c1}</div><div class="t2p-col"><h4>${h(tx('c2'))}</h4>${c2}</div><div class="t2p-col"><h4>${h(tx('c3'))}</h4>${c3}</div></div>`;
 }
