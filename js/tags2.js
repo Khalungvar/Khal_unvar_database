@@ -339,7 +339,7 @@ export function tags2Html(c) {
   const leg = legacyLines(c);
   return `<section class="t2-card" data-cid="${h(c.contact_id)}">
     <div class="t2-dirty"${tags2Dirty() ? '' : ' hidden'}><span>⚠ ${h(tx('dirty'))}</span><button type="button" class="btn primary small-btn" data-act="save">${h(tx('save'))}</button><button type="button" class="btn small-btn" data-act="discard">${h(tx('cancel'))}</button></div>
-    <h3>🏷 ${h(tx('title'))}</h3>
+    <h3>🏷 ${h(tx('title'))}<span class="t2-clips"><a href="https://drive.google.com/file/d/1BDlGeRzUQXU83twafPZ7-LamFyIUHzMS/view" target="_blank" rel="noopener">▶ הסבר אויף די תגיות (קליפ)</a><a href="https://drive.google.com/file/d/1GSrobrNHR1A3Cfi5L-25HOwODzSJbGPO/view" target="_blank" rel="noopener" dir="ltr">▶ Tags explained (clip)</a></span></h3>
     <div class="t2-cols">${colBm()}${colY(c)}${col3(c)}</div>
     ${leg.length ? `<p class="t2-legacy muted small">◦ ${h(tx('legacy'))}: ${h(leg.map((x) => x.p.map((q) => (isOrg(q) ? org(q) : nameOf(q))).join(' › ') + (x.s === 'f' ? ` (${tx('former')})` : '')).join(' · '))}</p>` : ''}
     ${donorRow(c)}
