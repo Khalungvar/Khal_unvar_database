@@ -2672,3 +2672,7 @@ select.need-fill, input.need-fill { outline: 2px solid #c0392b; outline-offset: 
 .t2-sw.t2-sw-s i { width: 28px; height: 16px; border-radius: 8px; }
 .t2-sw.t2-sw-s i::after { top: 2px; right: 2px; width: 12px; height: 12px; }
 .t2-sw.t2-sw-s.on i::after { right: 14px; }
+
+.t2-clips { display:inline-flex; gap:14px; margin-inline-start:14px; font-size:.78rem; font-weight:400; vertical-align:middle }
+.t2-clips a { color:#1a5fb4; text-decoration:none }
+.t2-clips a:hover { text-decoration:underline }
