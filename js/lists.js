@@ -6,7 +6,9 @@ import {
   tagsOf, setExtraTags, storedTags, linesOf, serialize, hasUnchecked, nameOf as tagName, roots as tagRoots, childrenOf as tagChildren, pathKey, GROUPS,
 } from './tags.js';
 import { onLoaded, bulkSetContactFields, state, loadAll, saveSavedList, deleteSavedList, displayName, saveRecord, saveContact, importContacts, careOf, contactRows, saveCellEdits, hostOf, guestsOf, ADDR_FIELDS } from './data.js';
-import { t } from './i18n.js';
+import { t, getLang } from './i18n.js';
+import { t2PickHtml, t2KeyLabel, barOf, genOn, bigDonor, noSendCard } from './tags2.js';
+const L3 = (a) => a[{ yi: 0, he: 1, en: 2 }[getLang()] ?? 0];
 import { isTrue, isAlive, escapeHtml as h, mailingName, digits, nowStamp, cardAlive, isWidow, widowHe } from './util.js';
 import { todayIso } from './hebdate.js';
 import { effectiveOrg, getScope, NO_AREA, ORG_TYPES, isEntityOrg } from './scope.js';
@@ -35,6 +37,7 @@ const EMPTY = () => ({
   v: 2, base: '', tags: TAGSEL('a'), areas: [], family: [], donation: DON(), lists: [],
   except: { tags: TAGSEL('both'), areas: [], family: [], donation: null, lists: [] },
   marital: [], includeDeceased: false, includeInactive: false, includeNoSend: false,
+  close: [], gen: false, big: false,
   add: [], remove: [], ext: [],
   meta: { note: '', editors: [], viewers: [], firstTab: 'names', mem: {}, sep: [], notDup: [] },
 });
@@ -542,7 +545,9 @@ export function evaluate(raw, seen = new Set()) {
   const cr = normalize(raw);
   const general = (c) => (cr.includeDeceased || cardAlive(c))
     && (cr.includeInactive || isTrue(c.is_active) || c.is_active === '' || c.is_active === undefined)
-    && (!cr.marital.length || cr.marital.includes(c.marital_status));
+    && (!cr.marital.length || cr.marital.includes(c.marital_status))
+    && (!(cr.close || []).length || cr.close.map(Number).includes(barOf(c)))
+    && (!cr.gen || genOn(c)) && (!cr.big || bigDonor(c));
   const base = cr.base === 'tags' ? setFrom(cr.tags, 'tags') : cr.base === 'area' ? setFrom(cr.areas, 'area')
     : cr.base === 'family' ? setFrom(cr.family, 'family') : cr.base === 'donation' ? setFrom(cr.donation, 'donation')
     : cr.base === 'wedding' ? new Set(state.contacts.filter((c) => /^(true|1|yes|כן)$/i.test(String(c.wedding_list ?? '').trim())).map((c) => String(c.contact_id))) : new Set();
@@ -642,6 +647,7 @@ const emailOk = (e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(e || '').trim())
 /** שיקט מען אים? (ווען אלע זיינע שורות האבן "שיקן" אויסגעלאשן — ניין) */
 function sendOk(r) {
   if (r.ext || r.manual) return true;
+  if (noSendCard(r.c)) return false;
   const ls = linesOf(r.c).filter((l) => GROUPS.includes(l.g));
   return !ls.length || ls.some((l) => l.send);
 }
@@ -1551,8 +1557,8 @@ function tagPick(sel, prefix) {
   };
   const grp = (g, title) => { const rs = tagRoots().filter((r) => r.group === g); return rs.length ? `<div class="tg-sel-g tg-g${g === 'old' ? 'old' : g}"><b>${h(title)}</b><ul class="l2-tree">${rs.map((r) => node([r.id], 0)).join('')}</ul></div>` : ''; };
   return `<div class="l2-st">${h(t('L2status'))} ${[['a', 'L2stA'], ['f', 'L2stF'], ['both', 'L2stBoth'], ['per', 'L2stPer']].map(([v, l]) => `<label class="check"><input type="radio" name="${prefix}st" value="${v}"${sel.st === v ? ' checked' : ''}> ${h(t(l))}</label>`).join('')}</div>
-    <p class="hint-line">${h(t('L2tagHint'))}</p>
-    <div class="tg-sel-cols">${GROUPS.map((g) => grp(g, t(`tgG${g}`))).join('')}${grp('old', t('tgGroupOld'))}</div>`;
+    ${sel.st === 'per' && keys.size ? `<div class="l2-per">${[...keys].map((key) => `<div><span>${h(t2KeyLabel(key))}</span> <select data-${prefix}per="${h(key)}">${[['a', 'L2stA'], ['f', 'L2stF'], ['both', 'L2stBoth']].map(([v, l]) => `<option value="${v}"${(sel.per[key] || 'a') === v ? ' selected' : ''}>${h(t(l))}</option>`).join('')}</select></div>`).join('')}</div>` : ''}
+    ${t2PickHtml([...keys], `data-${prefix}k`)}`;
 }
 function readTagPick(root, prefix, prev) {
   const keys = $$(`[data-${prefix}k]:checked`, root).map((x) => x.getAttribute(`data-${prefix}k`));
@@ -1690,6 +1696,10 @@ function openSettings() {
       <label class="check"><input type="checkbox" name="dead"${cr.includeDeceased ? ' checked' : ''}> ${h(t('lbInclDeceased'))}</label>
       <label class="check"><input type="checkbox" name="inact"${cr.includeInactive ? ' checked' : ''}> ${h(t('inclInactive'))}</label>
       <label class="check"><input type="checkbox" name="nosend"${cr.includeNoSend ? ' checked' : ''}> 📭 ${h(t('L2inclNoSend'))}</label>
+      <div class="l2-close"><b>${h(L3(['קירבה:', 'קירבה:', 'Closeness:']))}</b> ${[1, 2, 3, 4, 5].map((n) => `<label class="check"><input type="checkbox" data-close="${n}"${(cr.close || []).map(Number).includes(n) ? ' checked' : ''}> ${n} · ${h(L3([['אנ"ש', 'נאנט', 'קשר', 'ווייט', 'נישט אקטיוו'], ['אנ"ש', 'קרוב', 'קשר', 'רחוק', 'לא פעיל'], ['Anash', 'Close', 'Connected', 'Distant', 'Inactive']])[n - 1])}</label>`).join('')}
+        <span class="muted small">${h(L3(['ליידיג = אלע', 'ריק = כולם', 'none = all']))}</span></div>
+      <label class="check"><input type="checkbox" name="gen"${cr.gen ? ' checked' : ''}> ${h(L3(['נאר צווייטער און דריטער דור אין אונגוואר', 'רק דור שני ושלישי באונגוואר', 'Only 2nd/3rd generation in Ungvar']))}</label>
+      <label class="check"><input type="checkbox" name="big"${cr.big ? ' checked' : ''}> ${h(L3(['נאר גרויסע נדבנים ($1,800+ אין 3 יאר)', 'רק תורמים גדולים ($1,800+ ב-3 שנים)', 'Only major donors ($1,800+ in 3 years)']))}</label>
     </fieldset>
     <div class="actions">${current.list_id && own ? `<button type="button" class="btn danger" id="l2-del">🗑 ${h(t('deleteBtn'))}</button>` : ''}
       ${current.list_id && !own ? `<button type="button" class="btn" id="l2-delreq">🗑 ${h(t('L2askDelete'))}</button>` : ''}
@@ -1717,6 +1727,7 @@ function openSettings() {
       },
       marital: $$('[data-marital] .chip.on', form).map((b) => b.dataset.v),
       includeDeceased: form.elements.dead.checked, includeInactive: form.elements.inact.checked, includeNoSend: form.elements.nosend.checked,
+      close: $$('[data-close]:checked', form).map((x) => Number(x.dataset.close)), gen: form.elements.gen.checked, big: form.elements.big.checked,
       meta: { ...cr.meta, note: form.elements.note.value.trim(), firstTab: form.elements.firstTab.value,
         ...(fam ? { pub: { slug: slugOf(form.elements.slug.value), on: form.elements.pubOn.checked, edit: { key: editKey, on: form.elements.editOn.checked } }, autoTag: form.elements.autoTag.value || '', famTitle: form.elements.famTitle.value.trim() } : {}) },
     });
