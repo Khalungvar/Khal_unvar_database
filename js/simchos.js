@@ -835,6 +835,7 @@ export function whoHint(c) {
   const orgGroups = new Set(tagRoots().filter((r) => r.kind.startsWith('orgs:')).map((r) => r.id));
   const seen = new Set(); const tags = [];
   tagEntries(c).forEach((x) => {
+    if (String(x.p[0]).startsWith('_')) return; // _bar / _gen / _ok / _nosend – לא תגיות
     const label = orgGroups.has(String(x.p[0])) && x.p[1] ? tagNodeName(x.p[1]) : tagNodeName(x.p[x.p.length > 1 ? 1 : 0]);
     if (String(x.p[0]) === String(tagRoots().find((r) => r.name === 'אלטע רשימה')?.id)) return;
     if (!seen.has(label)) { seen.add(label); tags.push(`${label}${x.s === TAG_U ? ' ⚠' : ''}`); }
