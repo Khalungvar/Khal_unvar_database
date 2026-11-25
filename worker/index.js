@@ -18,8 +18,12 @@ const b64bytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 const hex = (buf) => [...new Uint8Array(buf)].map((x) => x.toString(16).padStart(2, '0')).join('');
 const texml = (inner) => `<?xml version="1.0" encoding="UTF-8"?><Response>${inner}</Response>`;
 
-async function brain(env, payload) {
-  const r = await fetch(env.APPS_SCRIPT_URL, {
+// 📞 קו הגבאים (929-219-1653): ישר לפרויקט "Mosdos Ungvar Tools (admin)" (חוסך זמן בכל לחיצה). לא סודי.
+const GV_URL = 'https://script.google.com/macros/s/AKfycbyv9meo6icqEcUbUJjsJ-3rX0RXQoCX5sLScBciAk1W0q9b3jvOR3DF939vnmGyemwP/exec';
+const GV_NUM = '9292191653';
+
+async function brain(env, payload, target) {
+  const r = await fetch(target || env.APPS_SCRIPT_URL, {
     method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ ...payload, secret: env.SHARED_SECRET }),
   });
@@ -89,7 +93,16 @@ export default {
       const signed = await verifyTelnyx(env, req, raw).catch(() => false);
       const f = await formOf(req);
       const action = path === '/voice' ? 'call_in' : path === '/voice/menu' ? 'call_menu' : 'call_recorded';
-      const r = await brain(env, { action, signed, from: f.From, to: f.To, digits: f.Digits, url: f.RecordingUrl, duration: f.RecordingDuration });
+      const p = { action, signed, from: f.From, to: f.To, digits: f.Digits, url: f.RecordingUrl, duration: f.RecordingDuration };
+      const gv = String(f.To || '').replace(/\D/g, '').slice(-10) === GV_NUM;
+      const target = gv ? GV_URL : env.APPS_SCRIPT_URL;
+      if (gv && action === 'call_recorded') {
+        // קו הגבאים: עונים לטלפון מיד, וההקלטה מעובדת ברקע (התמלול / החיפוש מוכנים כשההודעה נגמרת)
+        ctx.waitUntil(brain(env, { ...p, bg: true }, target));
+        const a = await brain(env, { ...p, action: 'call_rec_ack' }, target);
+        return xml(a.xml || texml('<Hangup/>'));
+      }
+      const r = await brain(env, p, target);
       return xml(r.xml || texml('<Hangup/>'));
     }
     if (path === '/voice/play') {
