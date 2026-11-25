@@ -2676,3 +2676,9 @@ select.need-fill, input.need-fill { outline: 2px solid #c0392b; outline-offset: 
 .t2-clips { display:inline-flex; gap:14px; margin-inline-start:14px; font-size:.78rem; font-weight:400; vertical-align:middle }
 .t2-clips a { color:#1a5fb4; text-decoration:none }
 .t2-clips a:hover { text-decoration:underline }
+.t2-help { display:inline-block; position:relative; margin-inline-start:6px; vertical-align:middle }
+.t2-help > summary { list-style:none; cursor:pointer; width:18px; height:18px; border:1.5px solid #8a8478; border-radius:50%; color:#6b665c; font-size:.72rem; font-weight:700; line-height:15px; text-align:center; user-select:none }
+.t2-help > summary::-webkit-details-marker { display:none }
+.t2-help[open] > summary { background:#6b665c; color:#fff; border-color:#6b665c }
+.t2-helpbox { position:absolute; top:24px; inset-inline-start:0; z-index:30; width:min(520px, 86vw); background:#fffdf7; border:1px solid #d9d2c3; border-radius:10px; box-shadow:0 6px 22px rgba(0,0,0,.14); padding:10px 14px; font-weight:400; font-size:.84rem; line-height:1.5; color:#333 }
+.t2-helpbox p { margin:6px 0 0 }
