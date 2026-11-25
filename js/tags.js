@@ -30,6 +30,9 @@ const groupName = (g) => t(`tgG${g}`);
 const ROLE_MARKS = [[(p) => p.includes('13'), 'גבאי'], [(p) => p.includes('42'), 'צוות'], [(p) => p.includes('115'), 'אברך'], [(p) => p.includes('43'), 'ראש כולל'], [(p) => p.includes('60'), 'אנ"ש'], [(p) => p[0] === '7', 'רבנים']];
 
 // ---------- דער בוים ----------
+/** צמתים מהשיטה הישנה (לפני 24/11) – לא מוצגים יותר בבחירות ובסינונים (נשארים לשמות בכרטיסים ישנים) */
+const LEGACY = new Set(['4', '8', '10', '11', '12', '13', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '41', '43', '44', '50', '51', '60', '61', '82', '83', ...Array.from({ length: 16 }, (_, i) => String(100 + i))]);
+export const isLegacyNode = (id) => LEGACY.has(String(id));
 const DEF_GROUP = { 1: '1', 2: '1', 3: '1', 4: '3', 5: '2', 6: '2', 7: '3', 8: 'old', 9: '3', 14: '3' };
 // דער בוים ווערט גערעכנט איינמאל פער "טיק" (א רענדער רופט עס טויזנטער מאל) — נאך דעם ווערט עס ווידער פריש
 let nodesTick = null; let byIdTick = null;
@@ -77,7 +80,7 @@ export function childrenOf(path) {
   if (n.mirror) return childrenOf([n.mirror]);
   const col = orgCol(n);
   if (col && path.length === 1) return orgsOfCol(col).map((v) => ({ id: `o:${v}`, name: v }));
-  return sorted(nodes().filter((x) => x.parent === n.id && fits(x))).map((x) => ({ id: x.id, name: x.name }));
+  return sorted(nodes().filter((x) => x.parent === n.id && fits(x) && !LEGACY.has(x.id))).map((x) => ({ id: x.id, name: x.name }));
 }
 
 // ---------- די תגיות פון א קאנטאקט ----------
@@ -213,7 +216,9 @@ export function linesOf(c) {
 /** די תפקידים ביים נאמען (גבאי · צוות · …) */
 export function roleMarks(c) {
   const live = tagsOf(c).filter((x) => x.s !== 'f' && !isArchive(x.p[0]));
-  return ROLE_MARKS.filter(([fn]) => live.some((x) => fn(x.p))).map(([, l]) => l);
+  const out = ROLE_MARKS.filter(([fn]) => live.some((x) => fn(x.p))).map(([, l]) => l);
+  if (!out.includes('אנ"ש') && storedTags(c).some((x) => x.p[0] === '_bar' && Number(x.v) === 1)) out.push('אנ"ש'); // אנ"ש = בר קירבה 1
+  return out;
 }
 
 // ---------- רשימה: די טשיפס ----------
@@ -559,7 +564,7 @@ export function tagSelHtml(sel = {}) {
       ${kids.length ? `<details${open ? ' open' : ''}><summary class="muted small">▸</summary><ul>${kids.map((k) => item([...path, k.id])).join('')}</ul></details>` : ''}</li>`;
   };
   const grp = (g, title) => { const rs = roots().filter((r) => r.group === g); return rs.length ? `<div class="tg-sel-g tg-g${g === "old" ? "old" : g}"><b>${h(title)}</b><ul class="tg-sel-tree">${rs.map((r) => item([r.id])).join('')}</ul></div>` : ''; };
-  return `<div class="tg-sel"><div class="tg-sel-cols">${GROUPS.map((g) => grp(g, groupName(g))).join('')}${grp('old', t('tgGroupOld'))}</div>
+  return `<div class="tg-sel">${sel.noTree ? '' : `<div class="tg-sel-cols">${GROUPS.map((g) => grp(g, groupName(g))).join('')}${grp('old', t('tgGroupOld'))}</div>`}
     <div class="tg-sel-st"><span class="quick-label">${h(t('tgStatuses'))}</span>
       ${[...STATUSES, [UNCHECKED, statusLabel(UNCHECKED)]].map(([k, l]) => `<label class="check"><input type="checkbox" data-tgs="${k}"${st.includes(k) ? ' checked' : ''}> ${h(l)}</label>`).join('')}
       <label class="check" title="${h(t('tgSendTip'))}"><input type="checkbox" data-tgsend${send ? ' checked' : ''}> 📬 ${h(t('tgSendOnly'))}</label></div></div>`;
