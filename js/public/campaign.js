@@ -77,7 +77,7 @@ async function guard(body) {
 }
 
 let DATA = null; let SLUG = ''; let SCREEN = false;
-const F = { amount: 0, pkg: '', monthly: false, months: 0, fee: true, anon: false };
+const F = { amount: 0, pkg: '', preset: '', monthly: false, months: 0, fee: true, anon: false };
 
 function applyLang() {
   document.documentElement.lang = LANG; document.documentElement.dir = LANG === 'en' ? 'ltr' : 'rtl';
@@ -106,9 +106,11 @@ function heroHtml(c) {
   const goal = Number(c.goal) || 0; const pct = goal ? Math.min(100, Math.round((shown() / goal) * 100)) : 0;
   let left = '';
   if (c.end_date) { const d = Math.ceil((new Date(`${c.end_date}T23:59:59`) - new Date()) / 864e5); left = d >= 0 ? L().daysLeft(d) : L().ended; }
-  const img = c.image ? `style="background-image:linear-gradient(180deg,rgba(40,10,10,.05),rgba(40,10,10,.65)),url('${h(c.image)}')"` : '';
+  const logo = /#logo$/.test(c.image || ''); // תמונה שמסתיימת ב-#logo = לוגו במרכז (לא רקע)
+  const img = c.image && !logo ? `style="background-image:linear-gradient(180deg,rgba(40,10,10,.05),rgba(40,10,10,.65)),url('${h(c.image)}')"` : '';
   return `<section class="pb-card cp-hero">
-    <div class="cp-pic${c.image ? ' has-img' : ''}" ${img}><div><small>${h(tr(c, 'sub'))}</small><h1>${h(tr(c, 'title'))}</h1></div></div>
+    ${logo ? `<div style="text-align:center;padding:14px 10px 4px"><img src="${h(c.image.replace(/#logo$/, ''))}" alt="${h(tr(c, 'title'))}" style="width:min(320px,80%);height:auto"></div>` : ''}
+    <div class="cp-pic${c.image && !logo ? ' has-img' : ''}" ${img}><div><small>${h(tr(c, 'sub'))}</small><h1>${h(tr(c, 'title'))}</h1></div></div>
     <div class="cp-hb">${tr(c, 'desc') ? `<p class="cp-desc" dir="auto">${h(tr(c, 'desc')).replace(/\n/g, '<br>')}</p>` : ''}
       ${matchHtml(c)}
       ${c.donors_mode === 'none' && !goal ? '' : `<div class="cp-prog"><span class="cp-big">${money(shown())}</span>
@@ -119,10 +121,12 @@ function heroHtml(c) {
 }
 function pkgsHtml(c) {
   if (!c.packages.length) return '';
-  return `<section class="pb-card"><h2 class="cp-h">${h(L().pkgs)}</h2><div class="cp-pkgs">${c.packages.map((p) => {
+  // אפשרות עם months = תשלומים חודשיים (הוראת קבע ל-X חודשים), לא "הקדשה" אחת. head_* באפשרות הראשונה = כותרת המקטע
+  return `<section class="pb-card"><h2 class="cp-h">${h(tr(c.packages[0], 'head') || L().pkgs)}</h2><div class="cp-pkgs">${c.packages.map((p) => {
     const lim = Number(p.limit) || 0; const used = DATA.taken[p.id] || 0; const full = lim && used >= lim;
-    return `<button type="button" class="cp-pkg${F.pkg === p.id ? ' on' : ''}${full ? ' taken' : ''}" data-pkg="${h(p.id)}"${full ? ' disabled' : ''}>
-      <b dir="auto">${h(tr(p, 'name'))}</b><span>${money(p.amount)}</span><em dir="auto">${full ? h(L().taken) : h(tr(p, 'note'))}</em></button>`;
+    const on = Number(p.months) ? F.preset === p.id : F.pkg === p.id;
+    return `<button type="button" class="cp-pkg${on ? ' on' : ''}${full ? ' taken' : ''}" data-pkg="${h(p.id)}"${full ? ' disabled' : ''}>
+      <b dir="auto">${h(tr(p, 'name'))}</b><span>${money(p.amount)}${Number(p.months) ? ` <small>× ${Number(p.months)}</small>` : ''}</span><em dir="auto">${full ? h(L().taken) : h(tr(p, 'note'))}</em></button>`;
   }).join('')}</div></section>`;
 }
 function recentHtml(c) {
@@ -145,6 +149,7 @@ function formHtml(c) {
         ${F.monthly ? `<label class="cp-l">${h(T0.months)} <select name="months"><option value="0">${h(T0.monthsAll)}</option>${[3, 6, 10, 12, 18, 24, 36].map((m) => `<option value="${m}"${F.months === m ? ' selected' : ''}>${m}</option>`).join('')}</select></label>` : ''}` : ''}
       ${F.pkg ? '' : `<div class="cp-amts">${amts.map((a) => `<button type="button" data-amt="${a}" class="${F.amount === a ? 'on' : ''}">${money(a)}</button>`).join('')}
         <input type="number" min="1" step="1" inputmode="decimal" name="custom" placeholder="${h(T0.other)}" value="${amts.includes(F.amount) || !F.amount ? '' : F.amount}"></div>`}
+      ${F.preset ? `<p class="cp-pkgsel">✓ <b>${h(tr(c.packages.find((p) => p.id === F.preset), 'name'))}</b> — ${money(F.amount)} × ${F.months}</p>` : ''}
       ${F.pkg ? `<p class="cp-pkgsel">✓ <b>${h(tr(c.packages.find((p) => p.id === F.pkg), 'name'))}</b> — ${money(totalOf().base)} <button type="button" class="cp-link" data-unpkg>✕</button></p>` : ''}
       <p class="cp-l">${h(T0.ded)}</p>
       <div class="cp-row"><select name="dedType">${T0.dedTypes.map((x) => `<option>${h(x)}</option>`).join('')}</select><input name="dedText" maxlength="120" placeholder="${h(T0.dedText)}"></div>
@@ -218,12 +223,18 @@ function wire() {
     const f2 = $('#cp-form form'); Object.entries(vals).forEach(([k, v]) => { if (f2[k]) f2[k].value = v; }); if (f2.dedType) f2.dedType.selectedIndex = dt;
     setupIfields();
   };
-  $$('[data-pkg]').forEach((b) => { b.onclick = () => { F.pkg = F.pkg === b.dataset.pkg ? '' : b.dataset.pkg; F.monthly = false; rerender(); $('#cp-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
+  $$('[data-pkg]').forEach((b) => { b.onclick = () => {
+    const p = c.packages.find((x) => x.id === b.dataset.pkg) || {};
+    if (Number(p.months)) { // תשלומים: סכום חודשי + הוראת קבע ל-X חודשים
+      F.pkg = ''; F.preset = F.preset === p.id ? '' : p.id;
+      if (F.preset) { F.amount = Number(p.amount) || 0; F.monthly = true; F.months = Number(p.months); } else { F.monthly = false; F.months = 0; }
+    } else { F.preset = ''; F.pkg = F.pkg === b.dataset.pkg ? '' : b.dataset.pkg; F.monthly = false; F.months = 0; }
+    rerender(); $('#cp-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
   $$('[data-unpkg]').forEach((b) => { b.onclick = () => { F.pkg = ''; rerender(); }; });
-  $$('[data-amt]').forEach((b) => { b.onclick = () => { F.amount = Number(b.dataset.amt); rerender(); }; });
-  $$('[data-mon]').forEach((b) => { b.onclick = () => { F.monthly = b.dataset.mon === '1'; rerender(); }; });
-  if (form.custom) form.custom.onchange = () => { F.amount = Math.max(0, Number(form.custom.value) || 0); rerender(); };
-  if (form.months) form.months.onchange = () => { F.months = Number(form.months.value) || 0; };
+  $$('[data-amt]').forEach((b) => { b.onclick = () => { F.preset = ''; F.amount = Number(b.dataset.amt); rerender(); }; });
+  $$('[data-mon]').forEach((b) => { b.onclick = () => { F.preset = ''; F.monthly = b.dataset.mon === '1'; rerender(); }; });
+  if (form.custom) form.custom.onchange = () => { F.preset = ''; F.amount = Math.max(0, Number(form.custom.value) || 0); rerender(); };
+  if (form.months) form.months.onchange = () => { F.preset = ''; F.months = Number(form.months.value) || 0; rerender(); };
   if (form.fee) form.fee.onchange = () => { F.fee = form.fee.checked; rerender(); };
   if (form.anon) form.anon.onchange = () => { F.anon = form.anon.checked; };
   if (form.exp) form.exp.oninput = () => { let v = form.exp.value.replace(/\D/g, '').slice(0, 4); if (v.length > 2) v = `${v.slice(0, 2)}/${v.slice(2)}`; form.exp.value = v; };
@@ -253,7 +264,7 @@ function pay(form) {
       $('#cp-form').innerHTML = `<h2 class="cp-h">${h(T0.thanks)}</h2><p>${h(T0.thanksTxt(money(j.amount), j.last4 || ''))}</p>
         ${j.monthly ? `<p>${h(j.sched ? T0.thanksM : T0.schedErr)}</p>` : ''}
         <p><button type="button" class="pb-btn primary" data-again>${h(T0.again)}</button></p>`;
-      $('[data-again]').onclick = () => { F.pkg = ''; load(); };
+      $('[data-again]').onclick = () => { F.pkg = ''; F.preset = ''; load(); };
       setTimeout(load, 4000);
     } catch { fail('gateway'); }
   }, () => fail('need-card'), 30000);
