@@ -40,8 +40,8 @@ import { initUpdateCheck } from './update.js';
 import { strictMember, tagsOf as tagEntries } from './tags.js';
 import { initSms, openCalls, renderCalls, smsCardHtml, wireSmsCard } from './sms.js';
 import { workCardHtml, workFormHtml, wireWorkForm, readWorkForm, workSearchText } from './work.js';
-import { tags2Html, wireTags2, tags2Guard, tags2Dirty, tags2Discard } from './tags2.js';
-import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, markChecked, hasRealTags, roots as tagRoots, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
+import { tags2Html, wireTags2, tags2Guard, tags2Dirty, tags2Discard, tags2Save } from './tags2.js';
+import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, markChecked, hasRealTags, roots as tagRoots, isLegacyNode, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
 import { initSimchos, openSimchos, renderSimchos, gliyonForEmail, openSimchosWeek } from './simchos.js';
 import { initFaces, openFaces, renderFaces } from './faces.js';
 import { initJbd, openJbd, renderJbd, jbdCheckInCard } from './jbd.js';
@@ -662,7 +662,7 @@ function renderTagFilter() {
   const base = state.contacts.filter((c) => contactInScope(c));
   const count = (p) => base.filter((c) => tfMatch(c, p)).length;
   const levels = [];
-  let opts = tagRoots().map((r) => ({ id: r.id, name: r.name, group: r.group }));
+  let opts = tagRoots().filter((r) => !isLegacyNode(r.id)).map((r) => ({ id: r.id, name: r.name, group: r.group }));
   for (let i = 0; i < 4 && opts.length; i += 1) {
     const sel = tf.path[i];
     const prefix = tf.path.slice(0, i);
@@ -707,7 +707,7 @@ function fillTreeFilter() {
     opts.push(`<option value="${h(tagKey(path))}">${'\u00a0\u00a0'.repeat(depth)}${h(tagName(path[path.length - 1]))}</option>`);
     if (depth < 2) tagChildren(path).forEach((k) => walk([...path, k.id], depth + 1));
   };
-  tagRoots().forEach((r) => walk([r.id], 0));
+  tagRoots().filter((r) => !isLegacyNode(r.id)).forEach((r) => walk([r.id], 0));
   const nU = state.contacts.filter(hasUnchecked).length;
   sel.innerHTML = `<option value="">🏷 ${h(t('tgAll'))}</option>${nU ? `<option value="__u">⚠ ${h(t('tgUnchecked'))} (${nU})</option>` : ''}${opts.join('')}`;
   sel.value = [...sel.options].some((o) => o.value === cur) ? cur : '';
@@ -869,6 +869,15 @@ function wireCardTagBox(c) {
     openCard: (id) => openCard(id),
     openListAdd: (x) => openCardListAdd(x),
     toast, friendlyError,
+  });
+}
+/** 🏷 מסך התגיות גם במצב עריכה (אותו מסך כמו בכרטיס) */
+function wireFormTagBox(c) {
+  const box = $('#form-dialog .t2-card');
+  if (!box) return;
+  wireTags2(box, c, {
+    rerender: () => { const b = $('#form-dialog .t2-card'); if (!b) return; b.outerHTML = tags2Html(c); wireFormTagBox(c); },
+    showTab: () => {}, openCard: () => {}, openListAdd: (x) => openCardListAdd(x), toast, friendlyError,
   });
 }
 /** 🏷 לפני סגירה / מעבר: שינויים בתגיות שלא נשמרו → אישור / ביטול */
@@ -1644,7 +1653,7 @@ function openForm(c = {}, opts = {}) {
       </div>
       <div class="legacy-fields" hidden>${orgRow(c)}</div>
     </fieldset>
-    ${tagsEditorHtml(c)}
+    ${c.contact_id ? `<div class="t2-inform">${tags2Html(c)}</div>` : `<p class="muted small">🏷 ${h(t('tgTitle'))}: ${h({ yi: 'נאכן אפהיטן — אינעם כרטיס', he: 'אחרי השמירה – בכרטיס', en: 'after saving — in the card' }[getLang()] || 'אחרי השמירה – בכרטיס')}</p>`}
 
     <fieldset><legend>${t('secEnglish')}</legend>
       <div class="grid" dir="ltr">
@@ -1745,6 +1754,7 @@ function openForm(c = {}, opts = {}) {
 
   wireForm(form, c);
   wireTagsEditor(form);
+  if (c.contact_id) wireFormTagBox(c);
   wireWorkForm(form);
   // א נייער קאנטאקט מיט א נאמען פון פריער (למשל פונעם טופס פון א שמחה) — גלייך די הצעה אויף ענגליש
   if (!c.contact_id) {
@@ -1986,9 +1996,12 @@ function warnMarital(form) {
 async function submit(form, original) {
   form._relPending?.(); // א קשר וואס מ'האט אויסגעקליבן אבער נישט צוגעלייגט
   const { contact, phones } = collect(form, original);
+  // 🏷 התגיות (המסך החדש) נשמרות יחד עם כפתור השמירה
+  if (original?.contact_id && tags2Dirty()) { try { await tags2Save(original); } catch (err) { toast(friendlyError(err), 'error'); return; } }
   // עץ התגיות
   const tg = readTagsEditor(form, original);
   if (tg.error) { toast(tg.error, 'error'); $('.tg-missing', form)?.scrollIntoView({ block: 'center' }); return; }
+  if (original?.contact_id && !$('.tg-edit', form)) { const cur = state.contacts.find((x) => String(x.contact_id) === String(original.contact_id)); if (cur) tg.tags = cur.tags ?? tg.tags; }
   contact.tags = tg.tags;
   contact.work = readWorkForm(form, original);
   // שם חסר — חלון אזהרה (לא רק הודעה קטנה)
