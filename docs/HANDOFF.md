@@ -3,6 +3,8 @@
 > נכתב בסוף השיחה האחרונה בחשבון האישי של הרב, לפני המעבר לחשבון הצוות **Khal Ungvar** (Claude Team).
 > מי שממשיך: לקרוא את כל הקובץ לפני שנוגעים במשהו. השיחה הקודמת **לא** זמינה לך — רק הריפו, הגיליון, והזיכרון (Memory) של Claude.
 > הריפו **ציבורי**: אין כאן סודות ולא מידע אישי של אנשים, וגם אתה לא מוסיף כאלה.
+>
+> **⛔ כלל קבוע (מ-25/11/2026): לא בונים שום דבר בחשבון הדאטאבייס (khalungvardatabase).** כל מה שרץ שם הועבר לפרויקט "Mosdos Ungvar Tools (admin)" ב-admin@ (`AKfycbyv9meo…yemwP`): דפי משפחה, בדיקת JBD, קו 929. כל בנייה חדשה — רק בחשבונות החדשים (admin@ / office@). החשבון הישן נשאר רק כגיבוי עד המחיקה (~24/12). מה שכתוב למטה על "הפרויקט הישן" הוא היסטוריה.
 
 ---
 
@@ -175,7 +177,8 @@
 | פרויקט | קובץ בריפו | חשבון | שימוש |
 | --- | --- | --- | --- |
 | Mosdos Ungvar SMS (פעיל לאתר) | `sms.gs` | admin@ | SMS/טלפון/Stripe/runJobs. `CONFIG.SMS_URL` |
-| Mosdos Ungvar SMS (ישן) | `sms.gs` (המצב הנוכחי שלו) | דאטאבייס, id `1Umt0ZqV…sery0K` | **JBD + קו זמני** בלבד כרגע |
+| Mosdos Ungvar SMS (ישן) | — | דאטאבייס, id `1Umt0ZqV…sery0K` | ⛔ לא בשימוש מ-25/11 — לא בונים בו כלום, ממתין למחיקה |
+| Mosdos Ungvar Tools (admin) | העתק של הישן | admin@ | דפי משפחה (`f/fam.js`), בדיקת JBD (`js/jbd.js`), קו 929 (`GV_URL` ב-worker). `AKfycbyv9meo…yemwP` |
 | Guard / מוסדות | `mosad.gs` | admin@ | אתרי המוסדות (ישיבה). `MOSAD_URL` |
 | Help AI | `help-ai.gs` | admin@ | עוזר AI באתר (Gemini). `HELP_AI_URL` |
 | Images | `images.gs` | admin@ | תמונות לדרייב. `IMAGES_URL` |
