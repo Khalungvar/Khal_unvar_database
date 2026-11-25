@@ -2682,3 +2682,21 @@ select.need-fill, input.need-fill { outline: 2px solid #c0392b; outline-offset: 
 .t2-help[open] > summary { background:#6b665c; color:#fff; border-color:#6b665c }
 .t2-helpbox { position:absolute; top:24px; inset-inline-start:0; z-index:30; width:min(520px, 86vw); background:#fffdf7; border:1px solid #d9d2c3; border-radius:10px; box-shadow:0 6px 22px rgba(0,0,0,.14); padding:10px 14px; font-weight:400; font-size:.84rem; line-height:1.5; color:#333 }
 .t2-helpbox p { margin:6px 0 0 }
+/* 🏷 בחירת תגיות בסגנון הכרטיס (רשימות / סינון / עריכה קבוצתית) */
+.t2p { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin:8px 0 }
+.t2p-col { background:#fbf8f1; border:1px solid #e3dccd; border-radius:10px; padding:8px 10px; min-width:0 }
+.t2p-col h4 { margin:0 0 6px; font-size:.92rem; color:#7a1f1f }
+.t2p-sub { margin:6px 0 }
+.t2p-sub > b { display:block; font-size:.8rem; color:#6b665c; margin-bottom:3px }
+.t2p-org { border:1px solid #e3dccd; background:#fff; border-radius:8px; padding:5px 7px; margin:4px 0 }
+.t2p-lv { display:flex; flex-wrap:wrap; gap:4px; margin-top:3px }
+.t2p-c { display:inline-flex; align-items:center; gap:3px; font-size:.8rem; border:1px solid #d9d2c3; border-radius:12px; padding:1px 8px; background:#fff; cursor:pointer; user-select:none }
+.t2p-c input { margin:0 }
+.t2p-c.t2p-ob { border:0; padding:0; font-weight:700; font-size:.86rem; background:none }
+.t2p-c:has(input:checked) { background:#e8f1ff; border-color:#7aa7e6 }
+.t2p-c.t2p-ob:has(input:checked) { background:none; color:#1a5fb4 }
+.l2-per { display:flex; flex-direction:column; gap:3px; margin:6px 0; font-size:.85rem }
+.l2-close { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:6px 0 }
+.t2-inform { margin:10px 0 }
+.t2-nosend.on { background:#fdecea; border-color:#e39b94 }
+@media (max-width: 760px) { .t2p { grid-template-columns:1fr } }
