@@ -5,8 +5,8 @@
 import { otherSheet, currentToken } from './google.js';
 import { CONFIG } from './config.js';
 import { state, saveCellEdits, saveRecord, reloadMessages, displayName } from './data.js';
-// 🔎 בדיקת JBD של איש קשר אחד: עדיין בפרויקט הישן (שם הכניסה ל-JBD / The Vibe), עד שיעבור ל-admin@
-const JBD_URL = 'https://script.google.com/macros/s/AKfycbzK63Qd9P3Gb-255-gVFGvqkF_NddBjJ9i5yHKrnaK_E8PwLsB_7WDO6Lh2iyqO1vPZ/exec';
+// 🔎 בדיקת JBD של איש קשר אחד: בפרויקט "Mosdos Ungvar Tools (admin)" (שם הכניסה ל-JBD / The Vibe)
+const JBD_URL = 'https://script.google.com/macros/s/AKfycbyv9meo6icqEcUbUJjsJ-3rX0RXQoCX5sLScBciAk1W0q9b3jvOR3DF939vnmGyemwP/exec';
 import { escapeHtml as h, nowStamp, formatPhone, detectArea } from './util.js';
 
 const HEAD = ['contact_id', 'priority', 'name', 'sys_address', 'sys_phones', 'status', 'jbd_name', 'jbd_address', 'jbd_phone', 'note', 'checked_at', 'decision', 'source'];
