@@ -194,7 +194,7 @@ function formHtml(c) {
       </div>
       ${c.fee ? `<label class="cp-chk"><input type="checkbox" name="fee"${F.fee ? ' checked' : ''}> ${h(T0.fee(money(feeOf(totalOf().base) || 0)))}</label>` : ''}
       <label class="cp-chk"><input type="checkbox" name="anon"${F.anon ? ' checked' : ''}> ${h(T0.anon)}</label>
-      <input name="website" class="cp-hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <input name="website" class="cp-hp" tabindex="-1" autocomplete="off" aria-hidden="true" style="left:0;top:0;pointer-events:none">
       <p class="cp-msg" role="alert"></p>
       <button type="submit" class="pb-btn gold cp-pay">${h(F.monthly && !F.pkg ? T0.payM(money(totalOf().total)) : T0.pay(money(totalOf().total)))}</button>
       <p class="cp-sec">${h(T0.secure)} ${h(T0.receipt)}<br><span dir="ltr">Khal Ungvar · 501(c)(3) · EIN 11-2330829</span></p>
