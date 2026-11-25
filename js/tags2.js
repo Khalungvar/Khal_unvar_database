@@ -55,6 +55,13 @@ const TX = {
   gen: ['צווייטער און דריטער דור אין אונגוואר', 'דור שני ושלישי באונגוואר', '2nd/3rd generation in Ungvar'],
   genAuto: ['אויטאמאטיש: דער טאטע איז א מתפלל', 'אוטומטי: האבא מתפלל', 'auto: the father davens here'],
   genAuto1: ['אויטאמאטיש: דער טאטע איז אנ"ש', 'אוטומטי: האבא אנ"ש', 'auto: the father is Anash'],
+  helpT: ['ווי ווערט די קירבה באשטימט', 'איך נקבעת הקירבה', 'How closeness is set'],
+  helpIntro: ['די דרגה איז לויט די נאנטסטע תגית אין כרטיס. ווער עס איז א מתפלל שבת קבוע דארף מען נישט צייכענען אויך ימות החול — די העכערע דרגה באשטימט.', 'הדרגה נקבעת לפי התגית הכי קרובה שיש בכרטיס. מי שמתפלל שבת קבוע לא צריך לסמן גם ימות החול, כי הדרגה הגבוהה כבר קובעת.', 'The level comes from the closest tag on the card. Someone who davens Shabbos regularly needs no weekday mark too — the higher level decides.'],
+  help1: ['נאר מיט דער האנט.', 'רק ידני.', 'manual only.'],
+  help2: ['מתפלל שבת קבוע אדער ימות החול קבוע · לומדי ביהמ"ד והשיעורים · תלמיד אדער צוות אקטיוו אין א ישיבה/כולל · חבורה אקטיוו · רבני ביהמ"ד · רבנים משפחה ומחותנים · משפחת קליין · נדבה אין די לעצטע 3 יאר מיט נאך אן אקטיווע תגית.', 'מתפלל שבת קבוע או ימות החול קבוע · לומדי ביהמ"ד והשיעורים · תלמיד או צוות פעיל בישיבה או בכולל · חבורה פעיל · רבני ביהמ"ד · רבנים משפחה ומחותנים · משפחת קליין · תורם ב-3 השנים האחרונות שיש לו עוד תגית פעילה.', 'Davens Shabbos or weekdays regularly · learns in the Beis Medrash/shiurim · active talmid or staff in a yeshiva/kollel · active group · Rabbonim of the shul · Rabbonim family & mechutonim · Klein family · donor in the last 3 years who has another active tag.'],
+  help3: ['שבת אמאל · שבת לשעבר · תלמיד אדער אברך לשעבר · חבורה אמאל · עלטערן פון אן אקטיוון תלמיד · צווייטער און דריטער דור אין אונגוואר · בלום-פרענקל · דנציגער · רבנים קשר קרוב · תלמידי רבותינו · ידיד · נדבה אין 3 יאר אן אן אקטיווע תגית · נדבה פאר 3 ביז 5 יאר.', 'שבת לפעמים · שבת לשעבר · תלמיד או אברך לשעבר · חבורה לפעמים · הורה לתלמיד פעיל · דור שני ושלישי באונגוואר · בלום-פרענקל · דנציגר · רבנים קשר קרוב · תלמידי רבותינו · ידיד · תורם ב-3 שנים בלי תגית פעילה · תורם לפני 3 עד 5 שנים.', 'Shabbos sometimes · former Shabbos · former talmid or avreich · group sometimes · parent of an active talmid · 2nd/3rd generation in Ungvar · Blum-Frenkel · Danziger · Rabbonim close · Talmidim of our Rebbes · friend · donor in 3 years with no active tag · donor 3–5 years ago.'],
+  help4: ['ימות החול אמאל · ימות החול לשעבר · עלטערן פון א תלמיד לשעבר · חבורה לשעבר · רבנים קשר רחוק · חסידי אלכסנדר · רשימת הרבנית · נדבה מער ווי 5 יאר צוריק.', 'ימות החול לפעמים · ימות החול לשעבר · הורה לתלמיד לשעבר · חבורה לשעבר · רבנים קשר רחוק · חסידי אלכסנדר · רשימת הרבנית · תורם לפני יותר מ-5 שנים.', 'Weekdays sometimes · former weekdays · parent of a former talmid · former group · Rabbonim distant · Alexander chassidim · Rebbetzin\'s list · donor more than 5 years ago.'],
+  help5: ['גארנישט נישט געצייכנט.', 'אין שום סימון.', 'nothing marked.'],
   anashOnly: ['אנ"ש — נאר מיט דער האנט', 'אנ"ש — רק ידני', 'Anash — manual only'],
   lists: ['ליסטעס', 'רשימות', 'Lists'], wl: ['שמחת בית אונגוואר', 'שמחת בית אונגוואר', 'Simchas Beis Ungvar'],
   neshei: ['נשי אונגוואר', 'נשי אונגוואר', 'Neshei Ungvar'], luach: ['לוח שנה', 'לוח שנה', 'Luach'],
@@ -316,12 +323,18 @@ function genSw(c) {
   return `<button type="button" class="t2-sw t2-sw-s${g.on ? ' on' : ''}" data-act="gen" aria-pressed="${g.on ? 'true' : 'false'}"${tip ? ` title="${h(tip)}"` : ''}><i></i> ${h(tx('gen'))}${g.on && g.auto && !g.manual ? ' 🤖' : ''}</button>`;
 }
 
+function barHelp() {
+  const names = ['b1', 'b2', 'b3', 'b4', 'b5'];
+  return `<details class="t2-help"><summary aria-label="${h(tx('helpT'))}" title="${h(tx('helpT'))}">?</summary><div class="t2-helpbox">
+    <b>${h(tx('helpT'))}</b><p>${h(tx('helpIntro'))}</p>
+    ${names.map((n, i) => `<p><b>${i + 1} · ${h(tx(n))}</b> – ${h(tx(`help${i + 1}`))}</p>`).join('')}</div></details>`;
+}
 function barRow(c) {
   const a = autoBar(c, [...D.list, ...tagsOf(c).filter((x) => x.fam)]);
   const m = D.list.find((x) => x.p[0] === BAR);
   const v = m ? Number(m.v) : a.lv;
   const names = ['b1', 'b2', 'b3', 'b4', 'b5'];
-  return `<div class="t2-barh"><span>${h(tx('bar'))}: <b>${h(m ? tx('manual') : tx('auto'))}</b></span>${m ? `<button type="button" class="linkish" data-act="barauto">${h(tx('backAuto'))}</button>` : ''}</div>
+  return `<div class="t2-barh"><span>${h(tx('bar'))}: <b>${h(m ? tx('manual') : tx('auto'))}</b>${barHelp()}</span>${m ? `<button type="button" class="linkish" data-act="barauto">${h(tx('backAuto'))}</button>` : ''}</div>
     <div class="t2-bar">${names.map((n, i) => `<button type="button" class="${i + 1 >= v ? 'on' : ''}${i === 0 ? ' top' : ''}${i + 1 === v ? ' cur' : ''}" data-act="bar" data-v="${i + 1}">${i + 1} · ${h(tx(n))}</button>`).join('')}</div>
     <div class="t2-byrow"><p class="muted small">${m ? `${h(tx('wasAuto'))}: ${a.lv} · ${h(tx(names[a.lv - 1]))}${a.why ? ` (${h(a.why)})` : ''}` : a.why ? `${h(tx('by'))}: ${h(a.why)}` : ''} · ${h(tx('anashOnly'))}</p>${genSw(c)}</div>`;
 }
