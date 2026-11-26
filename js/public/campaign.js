@@ -94,12 +94,12 @@ async function guard(body) {
 
 let DATA = null; let SLUG = ''; let SCREEN = false;
 // 🎞 סרט תמונות נע בראש הדף: img/<slug>-gallery.json = [{src, cap}] (אם אין קובץ — אין סרט)
-let GAL = null; let CAMP_LANGS = null; let BANNER = null; const REEL_T0 = Date.now(); const REEL_PX = 38; // מהירות הסרט: פיקסלים לשנייה
+let GAL = null; let CAMP_LANGS = null; let BANNER = null; let STATIC = null; const REEL_T0 = Date.now(); const REEL_PX = 38; // מהירות הסרט: פיקסלים לשנייה
 let GAL_P = null;
 function loadGallery() { GAL_P = GAL_P || loadGallery0(); return GAL_P; }
 async function loadGallery0() {
   GAL = [];
-  try { const r = await fetch(`img/${encodeURIComponent(SLUG)}-gallery.json`); if (r.ok) { const j = await r.json(); const items = Array.isArray(j) ? j : j?.items; if (Array.isArray(items)) GAL = items.filter((x) => x && x.src); if (Array.isArray(j?.langs) && j.langs.length) CAMP_LANGS = j.langs.filter((l) => LANGS.includes(l)); if (j?.both) { BOTH = true; LANG = 'yi'; } if (j?.banner) BANNER = j.banner; } } catch { /* */ }
+  try { const r = await fetch(`img/${encodeURIComponent(SLUG)}-gallery.json`); if (r.ok) { const j = await r.json(); const items = Array.isArray(j) ? j : j?.items; if (Array.isArray(items)) GAL = items.filter((x) => x && x.src); if (Array.isArray(j?.langs) && j.langs.length) CAMP_LANGS = j.langs.filter((l) => LANGS.includes(l)); if (j?.both) { BOTH = true; LANG = 'yi'; } if (j?.banner) BANNER = j.banner; if (j?.campaign?.slug) STATIC = j.campaign; } } catch { /* */ }
   if (GAL.length && !document.getElementById('cp-reel-css')) {
     const st = document.createElement('style'); st.id = 'cp-reel-css';
     st.textContent = `.cp-main{min-width:0}.cp-reel{--s:34px;--g:10px;position:relative;height:210px;width:100%;overflow:hidden;contain:inline-size;direction:ltr;background:linear-gradient(180deg,#ecd28c,#c9a23f 55%,#9c7425)}
@@ -242,7 +242,7 @@ function dedOf(form) {
 }
 function formHtml(c) {
   const amts = String(c.amounts || '36,54,100,180,360,500,1000').split(/[,\s]+/).map(Number).filter((x) => x > 0);
-  const ready = DATA.pay && DATA.ifields;
+  const ready = DATA.pay && (DATA.ifields || DATA.pending);
   const T0 = L();
   const E = BOTH ? T.en : T0; // בדף דו-לשוני: משבצת הכרטיס והפרטים באנגלית בלבד
   const donor = `<p class="cp-l">${h(E.you)}</p>
@@ -378,9 +378,32 @@ function pay(form) {
   }, () => fail('need-card'), 30000);
 }
 
+async function loadIfFrames() {
+  try { await loadIfields(); } catch { DATA.pay = false; render(); return; }
+  const ifr = $$('.cp-if');
+  await Promise.all(ifr.map((f) => new Promise((ok) => { f.addEventListener('load', ok, { once: true }); setTimeout(ok, 8000); f.src = `https://cdn.cardknox.com/ifields/${IF_VER}/ifield.htm`; })));
+  setupIfields();
+}
 async function load() {
+  const gp = guard({ action: 'webCampaign', c: SLUG, preview: new URLSearchParams(location.search).get('preview') || '' }).catch(() => ({ error: 'net' }));
   const gal = SCREEN ? Promise.resolve() : loadGallery();
-  try { DATA = await guard({ action: 'webCampaign', c: SLUG, preview: new URLSearchParams(location.search).get('preview') || '' }); } catch { DATA = { error: 'net' }; }
+  // קמפיין עם פרטים קבועים בקובץ התמונות: מציגים את כל הדף מיד, והשרת עונה ברקע (רק בשביל התשלום)
+  if (!SCREEN) {
+    await gal;
+    if (STATIC && !DATA) {
+      DATA = { campaign: STATIC, raised: 0, donors: 0, recent: [], taken: {}, pay: true, ifields: '', pending: true };
+      if (!F.amount && !F.pkg) { const a = String(STATIC.amounts || '').split(/[,\s]+/).map(Number).filter((x) => x > 0); F.amount = a[3] || a[0] || 180; }
+      if (CAMP_LANGS && CAMP_LANGS.length && !CAMP_LANGS.includes(LANG)) LANG = CAMP_LANGS[0];
+      applyLang(); render();
+      const g = await gp;
+      if (!g.campaign) { DATA = g; render(); return; } // נגמר / כבוי / תקלה
+      Object.assign(DATA, { raised: g.raised, donors: g.donors, recent: g.recent || [], taken: g.taken || {}, pay: g.pay, ifields: g.ifields, pending: false });
+      if (!(g.pay && g.ifields)) { render(); return; }
+      if (window.setAccount && IF_VER) setupIfields(); else await loadIfFrames();
+      return;
+    }
+  }
+  DATA = await gp;
   if (DATA.campaign) {
     if (!F.amount && !F.pkg) { const a = String(DATA.campaign.amounts || '').split(/[,\s]+/).map(Number).filter((x) => x > 0); F.amount = a[3] || a[0] || 180; }
   }
@@ -390,12 +413,7 @@ async function load() {
   if (CAMP_LANGS && CAMP_LANGS.length && !CAMP_LANGS.includes(LANG)) LANG = CAMP_LANGS[0]; // שפות שהקמפיין לא תומך בהן — לא מציגים
   applyLang();
   render(); if (!SCREEN && !needIf) setupIfields();
-  if (needIf) {
-    try { await loadIfields(); } catch { DATA.pay = false; render(); return; }
-    const ifr = $$('.cp-if');
-    await Promise.all(ifr.map((f) => new Promise((ok) => { f.addEventListener('load', ok, { once: true }); setTimeout(ok, 8000); f.src = `https://cdn.cardknox.com/ifields/${IF_VER}/ifield.htm`; })));
-    setupIfields();
-  }
+  if (needIf) await loadIfFrames();
 }
 
 const FORM_CSS = `.cp-ded{margin:6px 0 10px;border:1px solid #e8dcc4;border-radius:10px;padding:8px 12px;background:#fffdf8}
