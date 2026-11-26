@@ -1436,6 +1436,9 @@ dialog > .actions, dialog :not(form) > .actions:last-child {
 .l2-bar.bad { background: #fdecea; border-color: #e7a19a; color: #8a2a1f; }
 .l2-fam { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-inline-end: 4px; vertical-align: middle; }
 .l2-miss { margin-top: 8px; font-size: 13px; }
+.lb-table tr.l2-misshead td { background: var(--line); color: var(--accent); font-weight: 700; padding: 7px 10px; border-top: 2px solid var(--accent); }
+.lb-table tr.l2-missrow { opacity: .6; cursor: pointer; }
+.lb-table tr.l2-missrow:hover { opacity: 1; }
 .l2-dur { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; }
 .l2-durn { width: 70px !important; }
 .l2-year { width: 90px !important; }
