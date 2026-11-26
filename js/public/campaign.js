@@ -112,7 +112,7 @@ async function loadGallery0() {
 .cp-reel-logo img{height:100%;width:100%;object-fit:contain;filter:drop-shadow(0 10px 14px rgba(0,0,0,.55)) drop-shadow(0 3px 4px rgba(0,0,0,.45))}
 .cp-bnr > .cp-reel-logo{top:calc(var(--h) * .155);height:calc(var(--h) * 1.045);transform:translateX(-50%);z-index:3}
 .cp-reel + .cp-pic{min-height:0;padding-top:14px}
-body.cp-banner .cp-top{display:none}body.cp-both .pb-bar{display:none}
+body.cp-banner{overflow-x:clip}body.cp-banner .cp-top{display:none}body.cp-both .pb-bar{display:none}
 body.cp-both .cp-pkg b,body.cp-both .cp-pkg em,body.cp-both .cp-h{white-space:pre-line}body.cp-banner #cp-root{margin-top:0}
 .cp-bnr{--h:340px;width:100vw;margin:0 calc(50% - 50vw) 18px;position:relative}
 .cp-bnr .cp-reel{height:var(--h);--s:46px;--g:12px}
