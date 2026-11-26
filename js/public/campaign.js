@@ -325,7 +325,7 @@ function render() {
   document.title = `${tr(c, 'title')} – Khal Ungvar`;
   if (SCREEN) { root.innerHTML = screenHtml(c); return; }
   const bnr = !!(GAL && GAL.length);
-  document.body.classList.toggle('cp-banner', bnr);
+  document.body.classList.toggle('cp-banner', bnr); document.documentElement.style.overflowX = bnr ? 'clip' : ''; // הבאנר ברוחב 100vw — בלי גלילה הצידה
   const three = !!(c.ys || (c.letters && c.letters.length)); // שלושה טורים: מכתבים · אפשרויות · טופס
   root.innerHTML = `${bnr ? bannerHtml(c) : ''}${three
     ? `<div class="cp-grid3"><div class="cp-c-let">${lettersHtml(c)}</div><div class="cp-c-opt">${heroHtml(c)}${c.ys ? ysHtml(c) : pkgsHtml(c)}${recentHtml(c)}</div><div class="cp-c-form">${formHtml(c)}</div></div>`
