@@ -340,7 +340,7 @@ function rcpBlock(D, c, vals, empties, { cls = 'mx-rcp', style = '', attrs = '' 
 function boxesHtml(D, vals, empties, edit) {
   // edit: דער טעקסט אין .mx-boxtx (מ'רעדאגירט אים אויפן בלאט), און קנעפלעך: ✥ שלעפן · ✕ אויסמעקן · ↔ ברייט
   return (D.boxes || []).map((b) => `<div class="mx-box${edit ? ' mx-drag' : ''}" data-part="box:${h(b.id)}" dir="${dirv(b.dir)}"
-    style="left:${Number(b.x) || 0}in;top:${Number(b.y) || 0}in;width:${Number(b.w) || 3}in;font-family:'${css(b.font || 'Frank Ruhl Libre')}';font-size:${Number(b.size) || 12}pt">${edit
+    style="left:${Number(b.x) || 0}in;top:${Number(b.y) || 0}in;width:${Number(b.w) || 3}in;font-family:'${css(b.font || 'Frank Ruhl Libre')}';font-size:${Number(b.size) || 12}pt;tab-size:0.5in">${edit
     ? `<div class="mx-boxtx">${fillHtml(cleanHtml(b.html), vals, empties)}</div><span class="mx-boxtools" contenteditable="false"><span class="mx-boxmove" title="גרירה">✥</span><span class="mx-boxdel" title="מחיקה">✕</span></span><span class="mx-boxrs" contenteditable="false" title="רוחב"></span>`
     : fillHtml(cleanHtml(b.html), vals, empties)}</div>`).join('');
 }
@@ -419,7 +419,9 @@ export function letterGeo(D) {
   const logo = L.design === 'org' && !banner ? orgLogo(L.org) : '';
   // בלאנק פונעם מוסד (א גאנצער בלאט) — אפגעהיט אין "פרטים לקבלות"
   const blank = L.design === 'blank' ? joinImg(orgDetailsOf(L.org) || {}, 'blank_img') : '';
-  const m = L.margins || { top: 0.7, side: 0.8, bottom: 0.7 };
+  const m0 = L.margins || { top: 0.7, side: 0.8, bottom: 0.7 };
+  // שוליים: לינקס און רעכטס באזונדער (פון דעם סרגל); אויב נישט — "side" פאר ביידע
+  const m = { ...m0, left: Number(m0.left ?? m0.side), right: Number(m0.right ?? m0.side) };
   const win = L.window ? (L.win || { x: 0.875, y: 2.25, w: 4, h: 1 }) : null;
   const winBottom = win ? win.y + win.h + 0.2 : 0;
   const bh = Number(L.bannerH) || 1.6;
@@ -444,7 +446,7 @@ export function sigHtml(D) {
     : det.signature_img ? `<img src="${imgSrc(det.signature_img)}" alt="">` : ''}<div>${h(det.signer_he || '')}</div></div>`;
 }
 /** די סטיילס פונעם טעקסט (שריפט, גרייס, שורות) */
-export const bodyStyle = (L) => `font-family:'${css(L.font)}';font-size:${Number(L.size) || 13}pt;line-height:${Number(L.lineH) || 1.5};--pa:${Number(L.paraAfter ?? 0.55)}em`;
+export const bodyStyle = (L) => `font-family:'${css(L.font)}';font-size:${Number(L.size) || 13}pt;line-height:${Number(L.lineH) || 1.5};--pa:${Number(L.paraAfter ?? 0.55)}em;tab-size:${Number(L.tabSize) || 0.5}in`;
 /** א סימן מים (טעקסט אדער בילד) הינטער'ן טעקסט */
 export function watermarkHtml(D) {
   const w = D.ltr?.wm;
@@ -481,12 +483,12 @@ export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties =
     ${L.design === 'blank' && !G.blank && (edit || draft) ? `<div class="mx-noblank">📄 ${h(L.org || '')}: אין עדיין בלאנק למוסד — מעלים ב"פרטים לקבלות"</div>` : ''}
     ${watermarkHtml(D)}
     ${banner && first ? `<img class="mx-banner" src="${imgSrc(banner)}" style="top:0.3in;left:0;right:0;width:100%;height:${bh}in" alt="">` : ''}
-    ${logo && first ? `<div class="mx-band" style="top:0.3in;left:${m.side}in;right:${m.side}in"><img src="${imgSrc(logo)}" alt=""><div dir="rtl">${h(det.org_name_he || L.org)}</div></div>` : ''}
+    ${logo && first ? `<div class="mx-band" style="top:0.3in;left:${m.left}in;right:${m.right}in"><img src="${imgSrc(logo)}" alt=""><div dir="rtl">${h(det.org_name_he || L.org)}</div></div>` : ''}
     ${winBlock}
-    ${cont ? `<div class="mx-cont" dir="${dirv(L.dir)}" style="left:${m.side}in;right:${m.side}in;top:${m.top}in">${h(L.dir === 'ltr' ? 'continued' : 'המשך')} · ${h(vals.שם_מלא || vals.Name || '')} · ${cont + 1}</div>` : ''}
-    <div class="mx-body" dir="${dirv(L.dir)}" style="left:${m.side}in;right:${m.side}in;top:${first ? G.top1 : G.topN}in;bottom:${first ? G.bottom1 : G.bottom}in;${bodyStyle(L)}">
+    ${cont ? `<div class="mx-cont" dir="${dirv(L.dir)}" style="left:${m.left}in;right:${m.right}in;top:${m.top}in">${h(L.dir === 'ltr' ? 'continued' : 'המשך')} · ${h(vals.שם_מלא || vals.Name || '')} · ${cont + 1}</div>` : ''}
+    <div class="mx-body" dir="${dirv(L.dir)}" style="left:${m.left}in;right:${m.right}in;top:${first ? G.top1 : G.topN}in;bottom:${first ? G.bottom1 : G.bottom}in;${bodyStyle(L)}">
       ${body}${sig}</div>
-    ${foot && !(L.rcSlot && first) ? `<div class="mx-foot" style="left:${m.side}in;right:${m.side}in;bottom:${Math.max(0.3, m.bottom - 0.3)}in">${foot}</div>` : ''}
+    ${foot && !(L.rcSlot && first) ? `<div class="mx-foot" style="left:${m.left}in;right:${m.right}in;bottom:${Math.max(0.3, m.bottom - 0.3)}in">${foot}</div>` : ''}
     ${L.rcSlot && first ? `<div class="mx-rcslot" style="top:${G.H - RX_H}in"><div class="mx-rccut">✂</div>${ctx?.receipt || (edit || draft ? `<div class="mx-rcsample">${sampleReceiptHtml(L.org)}</div>` : '')}</div>` : ''}
     ${first ? boxesHtml(D, vals, empties, edit) : ''}
     ${num ? `<div class="mx-num">${h(num)}</div>` : ''}
