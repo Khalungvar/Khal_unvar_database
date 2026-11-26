@@ -1745,6 +1745,35 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .wr-sheet .mx-letter { box-shadow: none; }
 .wr-sheets .mx-box, .wr-sheets .mx-win { z-index: 3; }
 .wr-flow { position: absolute; z-index: 2; }
+.wr-canvas.mm-canvas { padding: 30px 20px 20px 34px; }
+/* 📏 סרגלים */
+.wr-ruler { position: absolute; z-index: 5; background: #faf7f0; pointer-events: none; overflow: hidden; }
+.wr-ruler-h { top: -22px; left: 0; height: 20px; border-bottom: 1px solid #bbb; }
+.wr-ruler-v { left: -22px; top: 0; width: 20px; border-right: 1px solid #bbb; }
+.wr-ruler svg { display: block; stroke: #888; stroke-width: 1; fill: #555; font: 9px sans-serif; }
+.wr-ruler svg text { stroke: none; }
+.wr-rsel { position: absolute; background: rgba(37,99,235,.2); }
+.wr-rsel-h { top: 0; bottom: 0; } .wr-rsel-v { left: 0; right: 0; }
+#wr-pos { font-variant-numeric: tabular-nums; color: #2563eb; }
+/* 📝 תיבות טקסט על הבלאט */
+.wr-sheets .mx-box.mx-drag { border: 1px dashed rgba(37,99,235,.35); min-height: 1.3em; }
+.mx-drag.sel { outline: 2px solid #2563eb; outline-offset: 1px; }
+.mx-box.editing { border: 1px dashed #2563eb; cursor: text; background: rgba(255,255,255,.4); }
+.mx-boxtx { min-height: 1.2em; outline: none; }
+.mx-boxtools { position: absolute; top: -21px; inset-inline-end: 0; display: none; gap: 3px; }
+.mx-box.sel .mx-boxtools, .mx-box.editing .mx-boxtools, .mx-box.mx-drag:hover .mx-boxtools { display: flex; }
+.mx-boxtools span { background: #2563eb; color: #fff; border-radius: 4px; font: 12px/1.4 sans-serif; padding: 0 6px; cursor: pointer; user-select: none; }
+.mx-boxtools .mx-boxmove { cursor: move; }
+.mx-boxtools .mx-boxdel { background: #b91c1c; }
+.mx-boxrs { position: absolute; right: -6px; bottom: -6px; width: 11px; height: 11px; background: #2563eb; border: 2px solid #fff; border-radius: 3px; cursor: ew-resize; display: none; }
+.mx-box.sel .mx-boxrs, .mx-box.editing .mx-boxrs { display: block; }
+.mx-guide { position: absolute; z-index: 20; pointer-events: none; background: #e0306a; }
+.mx-guide.gv { top: 0; bottom: 0; width: 1px; } .mx-guide.gh { left: 0; right: 0; height: 1px; }
+/* «» תפריט שדות: שדה · הסבר · דוגמה */
+.wr-fmenu .wr-mi { display: flex; gap: 8px; align-items: baseline; min-width: 360px; }
+.wr-fmenu .wr-fk { font-weight: 600; white-space: nowrap; }
+.wr-fmenu .wr-fdesc { color: #666; font-size: 12px; }
+.wr-fmenu .wr-fsample { color: #2563eb; font-size: 12px; margin-inline-start: auto; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
 .wr-body { outline: none; min-height: 1in; cursor: text; color: #1f1a17; }
 .wr-body p { margin: 0 0 0.55em; }
 .wr-body [style*="page-break-before"] { height: 0; border-top: 1px dashed #b9a06a; margin: 6px 0; position: relative; }
