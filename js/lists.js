@@ -886,7 +886,12 @@ function rmBtn(r, edit) { return edit ? `<button type="button" class="linkish lb
 function tabHtml(tab, rows, ch, edit) {
   const mem = current.cr.meta.mem || {};
   const removed = current.cr.remove.filter(live);
-  const missLine = (list) => (list.length ? `<details class="l2-miss"><summary>${h(t('L2missingList', { n: list.length }))}</summary>${list.map((r) => `<button type="button" class="linkish" data-open="${h(r.key)}">${h(nm(r.c))}</button>`).join(' · ')}</details>` : '');
+  // 📵 חסרים: שורות בסוף הטבלה, אחרי כותרת מפרידה (רק על המסך — לא בהדפסה / PDF / Excel)
+  const missRows = (list, cols, kind) => (list.length ? `<tr class="l2-misshead no-print"><td colspan="${cols}">${h(L3({
+    phones: [`📵 עס פעלט א טעלעפאן (${list.length}) — גייען נישט אריין אין Excel און שיקן`, `📵 חסר טלפון (${list.length}) — לא ייכללו ב-Excel ובשליחה`, `📵 Missing phone (${list.length}) — not in Excel or sending`],
+    mail: [`📭 עס פעלט אן אדרעס (${list.length}) — גייען נישט אריין אין Excel און שיקן`, `📭 חסרה כתובת (${list.length}) — לא ייכללו ב-Excel ובשליחה`, `📭 Missing address (${list.length}) — not in Excel or sending`],
+    email: [`✉ עס פעלט אן אימעיל (${list.length}) — גייען נישט אריין אין Excel און שיקן`, `✉ חסר מייל (${list.length}) — לא ייכללו ב-Excel ובשליחה`, `✉ Missing email (${list.length}) — not in Excel or sending`],
+  }[kind]))}</td></tr>${list.map((r) => `<tr class="l2-missrow no-print" data-open="${h(r.key)}"><td>${rowName(r)}</td><td colspan="${cols - 1}"></td></tr>`).join('')}` : '');
   const nosendLine = (list) => (list.length ? `<p class="muted small">📭 ${h(t('L2nosendList', { n: list.length }))}: ${list.map((r) => h(nm(r.c))).join(' · ')}</p>` : '');
   if (tab === 'names') {
     const nExt = rows.filter((r) => r.ext).length;
@@ -901,8 +906,8 @@ function tabHtml(tab, rows, ch, edit) {
     const c = ch.phones;
     return `<div class="l2-actions"><button type="button" class="btn" data-x="phones">Excel</button><button type="button" class="btn" data-pdf="phones">PDF</button>${famLinkBtns()}</div>
       <table class="lb-table"><thead><tr><th>${h(t('colNameHe'))}</th>${PHONE_KEYS.map(([, l]) => `<th>${h(t(l))}</th>`).join('')}<th class="print-only">✓</th></tr></thead>
-      <tbody>${c.rows.map((r) => `<tr data-open="${h(r.key)}"><td>${rowName(r)}</td>${PHONE_KEYS.map(([k]) => `<td dir="ltr">${h(phonesOfRow(r)[k] || '')}</td>`).join('')}<td class="print-only"></td></tr>`).join('')}</tbody></table>
-      ${missLine(c.missing)}${nosendLine(c.nosend)}`;
+      <tbody>${c.rows.map((r) => `<tr data-open="${h(r.key)}"><td>${rowName(r)}</td>${PHONE_KEYS.map(([k]) => `<td dir="ltr">${h(phonesOfRow(r)[k] || '')}</td>`).join('')}<td class="print-only"></td></tr>`).join('')}${missRows(c.missing, PHONE_KEYS.length + 2, 'phones')}</tbody></table>
+      ${nosendLine(c.nosend)}`;
   }
   if (tab === 'mail') {
     const c = ch.mail; const mode = mem.mailMode || 'one';
@@ -913,16 +918,16 @@ function tabHtml(tab, rows, ch, edit) {
         ${current.list_id ? `<button type="button" class="btn primary" id="l2-mm">✉ ${h(t('L2mailMerge'))}</button>` : ''}<button type="button" class="btn" data-x="mail">Excel</button><button type="button" class="btn" data-pdf="mail">PDF</button>${famLinkBtns()}</div>
       <p class="muted small">${h(t('L2mailCount', { n: recips.length, p: c.rows.length }))}</p>
       <table class="lb-table"><thead><tr><th>${h(t('mailingName'))}</th><th>${h(t('address'))}</th><th>City</th><th>ZIP</th></tr></thead>
-      <tbody>${recips.map((x) => `<tr data-open="${h(x.contact_id)}"><td dir="ltr">${h(mailingName(x) || nm(x))}</td><td dir="ltr">${h(x.address || '')}</td><td dir="ltr">${h([x.city, x.state].filter(Boolean).join(', '))}</td><td dir="ltr">${h(x.zip || '')}</td></tr>`).join('')}</tbody></table>
-      ${missLine(c.missing)}${nosendLine(c.nosend)}`;
+      <tbody>${recips.map((x) => `<tr data-open="${h(x.contact_id)}"><td dir="ltr">${h(mailingName(x) || nm(x))}</td><td dir="ltr">${h(x.address || '')}</td><td dir="ltr">${h([x.city, x.state].filter(Boolean).join(', '))}</td><td dir="ltr">${h(x.zip || '')}</td></tr>`).join('')}${missRows(c.missing, 4, 'mail')}</tbody></table>
+      ${nosendLine(c.nosend)}`;
   }
   if (tab === 'email') {
     const c = ch.email; const both = Boolean(mem.email2);
     return `<div class="l2-actions"><label class="check"><input type="checkbox" data-mem="email2"${both ? ' checked' : ''}> ${h(t('L2email2'))}</label>
         <span class="spacer"></span><button type="button" class="btn primary" id="l2-mail">✉ ${h(t('L2sendEmail'))}</button><button type="button" class="btn" data-x="email">Excel</button><button type="button" class="btn" data-pdf="email">PDF</button>${famLinkBtns()}</div>
       <table class="lb-table"><thead><tr><th>${h(t('colNameHe'))}</th><th>Email 1</th><th>Email 2</th></tr></thead>
-      <tbody>${c.rows.map((r) => `<tr data-open="${h(r.key)}"><td>${rowName(r)}</td><td dir="ltr">${h(phonesOfRow(r).email_1 || '')}</td><td dir="ltr">${h(phonesOfRow(r).email_2 || '')}</td></tr>`).join('')}</tbody></table>
-      ${missLine(c.missing)}${nosendLine(c.nosend)}`;
+      <tbody>${c.rows.map((r) => `<tr data-open="${h(r.key)}"><td>${rowName(r)}</td><td dir="ltr">${h(phonesOfRow(r).email_1 || '')}</td><td dir="ltr">${h(phonesOfRow(r).email_2 || '')}</td></tr>`).join('')}${missRows(c.missing, 3, 'email')}</tbody></table>
+      ${nosendLine(c.nosend)}`;
   }
   // פרטים
   const cols = detailCols(); const sel = mem.cols || ['name_he', 'mailing', 'address', 'city', 'zip', 'mobile'];
