@@ -3222,8 +3222,7 @@ function wcStats_(campaign, mode, packages) {
   out.recent = mine.slice().sort(function (a, b) { return S(b[iCr]).localeCompare(S(a[iCr])); }).slice(0, 30).map(function (r) {
     const anon = /\[anon\]/.test(S(r[iNote]));
     const nm = anon ? { he: '', en: '' } : name(r);
-    const ded = [S(r[iDt]), S(r[iDx])].filter(String).join(' ');
-    return { he: nm.he, en: nm.en, anon: anon, amount: mode === 'names' ? null : Number(r[iA]) || 0, ded: anon ? '' : ded.slice(0, 80), monthly: /\[monthly\]/.test(S(r[iNote])) };
+    return { he: nm.he, en: nm.en, anon: anon, amount: mode === 'names' ? null : Number(r[iA]) || 0, ded: '', monthly: /\[monthly\]/.test(S(r[iNote])) };
   });
   return out;
 }
@@ -3293,7 +3292,7 @@ function webDonate_(req) {
       if (S(s2.Result) === 'S') sched = S(s2.ScheduleId); else schedErr = S(s2.Error).slice(0, 120) || 'schedule-failed';
     } catch (err) { schedErr = String(err).slice(0, 120); }
   }
-  try { wcRecord_(o, p, { total: total, base: base, fee: fee, first: first, last: last, phone: ph, email: email, last4: last4, ref: S(r.xRefNum), inv: inv, pkg: pkg, anon: req.anon === true, monthly: monthly, months: months, day: day, sel: sel, sched: sched, schedErr: schedErr, dedType: wcClean_(req.dedType, 20), dedText: wcClean_(req.dedText, 120), lang: S(req.lang).slice(0, 2) }); }
+  try { wcRecord_(o, p, { total: total, base: base, fee: fee, first: first, last: last, phone: ph, email: email, last4: last4, ref: S(r.xRefNum), inv: inv, pkg: pkg, anon: req.anon === true, monthly: monthly, months: months, day: day, sel: sel, sched: sched, schedErr: schedErr, dedType: wcClean_(req.dedType, 60), dedText: wcClean_(req.dedText, 1000), lang: S(req.lang).slice(0, 2) }); }
   catch (err) { Logger.log('webDonate record ' + err); }
   try { cache.removeAll(['webcamp:' + slug, 'webcamp:' + slug + ':p', 'webcamp:*']); } catch (e) { /* */ }
   return { ok: true, ref: S(r.xRefNum), amount: total, last4: last4, monthly: monthly, sched: !!sched, schedErr: schedErr ? true : false };
