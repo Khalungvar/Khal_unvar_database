@@ -37,7 +37,7 @@ const EMPTY = () => ({
   v: 2, base: '', tags: TAGSEL('a'), areas: [], family: [], donation: DON(), lists: [],
   except: { tags: TAGSEL('both'), areas: [], family: [], donation: null, lists: [] },
   marital: [], includeDeceased: false, includeInactive: false, includeNoSend: false,
-  close: [], gen: false, big: false,
+  close: [], gen: false, big: false, has: [],
   add: [], remove: [], ext: [],
   meta: { note: '', editors: [], viewers: [], firstTab: 'names', mem: {}, sep: [], notDup: [] },
 });
@@ -57,7 +57,7 @@ export function normalize(raw) {
     e.add = (raw.add || []).map(asEntry); e.remove = (raw.remove || []).map(asEntry);
     return e;
   }
-  return {
+  const out = {
     ...e, ...raw,
     tags: { ...TAGSEL('a'), ...(raw.tags || {}) },
     donation: { ...DON(), ...(raw.donation || {}) },
@@ -65,6 +65,9 @@ export function normalize(raw) {
     add: (raw.add || []).map(asEntry), remove: (raw.remove || []).map(asEntry), ext: raw.ext || [],
     meta: { ...e.meta, ...(raw.meta || {}) },
   };
+  // 🎉 "שמחת בית אונגוואר" איז יעצט א תגית (_wl) אין "לויט תגיות"
+  if (out.base === 'wedding') { out.base = 'tags'; out.tags = { ...out.tags, keys: [...new Set([...(out.tags.keys || []), '_wl'])] }; }
+  return out;
 }
 const live = (x) => !x.until || x.until >= todayIso();
 
@@ -186,10 +189,16 @@ function donors(q) {
 function tagMatch(c, sel) {
   if (!sel || !sel.keys.length) return false;
   const list = tagsOf(c);
+  const hit = (lst, pre, mode) => lst.some((x) => pre.every((v, i) => String(x.p[i]) === v) && (mode === 'both' || (mode === 'f' ? x.s === 'f' : x.s !== 'f')));
   return sel.keys.some((key) => {
-    const pre = key.split('>');
     const mode = sel.st === 'per' ? (sel.per[key] || 'a') : sel.st;
-    return list.some((x) => pre.every((v, i) => String(x.p[i]) === v) && (mode === 'both' || (mode === 'f' ? x.s === 'f' : x.s !== 'f')));
+    if (key === '_wl') return /^(true|1|yes|כן)$/i.test(String(c.wedding_list ?? '').trim()); // 🎉 שמחת בית אונגוואר
+    // "הורים" (...>par): אבא או שווער נכנס כשאחד הילדים / החתנים שלו הוא תלמיד שם (...>40) במצב שנבחר
+    if (key.endsWith('>par')) {
+      const pre = [...key.slice(0, -4).split('>'), '40'];
+      return [...uni(of(rels().sons, [c.contact_id]), of(rels().sil, [c.contact_id]))].some((k) => { const kc = contactOf(k); return kc && hit(tagsOf(kc), pre, mode); });
+    }
+    return hit(list, key.split('>'), mode);
   });
 }
 const areaMatch = (c, areas) => areas.some((a) => (a === NO_AREA ? !String(c.area || '').trim() : c.area === a));
@@ -540,6 +549,13 @@ export function subscribers(name) {
   });
   return out;
 }
+/** 📱✉🏠 "רק מי שיש לו": לפחות אחד מהדרכים שנבחרו */
+function hasWay(c, ways) {
+  const p = ui.phonesOf?.(c) || {};
+  return ways.some((w) => (w === 'mob' ? [p.mobile, p.wife_mobile, p.other_phone].some((x) => digits(x).length >= 7)
+    : w === 'mail' ? [p.email_1, p.email_2].some((x) => emailOk(x))
+      : w === 'addr' ? Boolean(String(c.address || '').trim()) : false));
+}
 export function evaluate(raw, seen = new Set()) {
   const subName = raw && raw.__name;
   const cr = normalize(raw);
@@ -547,8 +563,9 @@ export function evaluate(raw, seen = new Set()) {
     && (cr.includeInactive || isTrue(c.is_active) || c.is_active === '' || c.is_active === undefined)
     && (!cr.marital.length || cr.marital.includes(c.marital_status))
     && (!(cr.close || []).length || cr.close.map(Number).includes(barOf(c)))
-    && (!cr.gen || genOn(c)) && (!cr.big || bigDonor(c));
-  const base = cr.base === 'tags' ? setFrom(cr.tags, 'tags') : cr.base === 'area' ? setFrom(cr.areas, 'area')
+    && (!cr.gen || genOn(c)) && (!cr.big || bigDonor(c))
+    && (!(cr.has || []).length || hasWay(c, cr.has));
+  const base = cr.base === 'all' ? new Set(state.contacts.map((c) => String(c.contact_id))) : cr.base === 'tags' ? setFrom(cr.tags, 'tags') : cr.base === 'area' ? setFrom(cr.areas, 'area')
     : cr.base === 'family' ? setFrom(cr.family, 'family') : cr.base === 'donation' ? setFrom(cr.donation, 'donation')
     : cr.base === 'wedding' ? new Set(state.contacts.filter((c) => /^(true|1|yes|כן)$/i.test(String(c.wedding_list ?? '').trim())).map((c) => String(c.contact_id))) : new Set();
   const fam = cr.base === 'family' ? famIds(cr.family) : new Map();
@@ -1556,13 +1573,24 @@ function tagPick(sel, prefix) {
       ${kids.length ? `<ul class="l2-tkids"${open ? '' : ' hidden'}>${kids.map((k) => node([...path, k.id], depth + 1)).join('')}</ul>` : ''}</li>`;
   };
   const grp = (g, title) => { const rs = tagRoots().filter((r) => r.group === g); return rs.length ? `<div class="tg-sel-g tg-g${g === 'old' ? 'old' : g}"><b>${h(title)}</b><ul class="l2-tree">${rs.map((r) => node([r.id], 0)).join('')}</ul></div>` : ''; };
-  return `<div class="l2-st">${h(t('L2status'))} ${[['a', 'L2stA'], ['f', 'L2stF'], ['both', 'L2stBoth'], ['per', 'L2stPer']].map(([v, l]) => `<label class="check"><input type="radio" name="${prefix}st" value="${v}"${sel.st === v ? ' checked' : ''}> ${h(t(l))}</label>`).join('')}</div>
+  // מצב: שני כפתורים (פעיל / לשעבר — אחד או שניהם) + "מצב שונה לכל תגית"
+  const per = sel.st === 'per'; const aOn = sel.st === 'a' || sel.st === 'both'; const fOn = sel.st === 'f' || sel.st === 'both';
+  return `<div class="l2-st"><b>${h(t('L2status'))}</b>
+      ${per ? '' : `<label class="l2-btn"><input type="checkbox" name="${prefix}sta"${aOn ? ' checked' : ''}> ${h(L3(['פעיל', 'פעיל', 'Active']))}</label>
+      <label class="l2-btn"><input type="checkbox" name="${prefix}stf"${fOn ? ' checked' : ''}> ${h(L3(['לשעבר', 'לשעבר', 'Former']))}</label>`}
+      <label class="check"><input type="checkbox" name="${prefix}stper"${per ? ' checked' : ''}> ${h(L3(['אנדער מצב פאר יעדע תגית', 'מצב שונה לכל תגית', 'Different status per tag']))}</label></div>
     ${sel.st === 'per' && keys.size ? `<div class="l2-per">${[...keys].map((key) => `<div><span>${h(t2KeyLabel(key))}</span> <select data-${prefix}per="${h(key)}">${[['a', 'L2stA'], ['f', 'L2stF'], ['both', 'L2stBoth']].map(([v, l]) => `<option value="${v}"${(sel.per[key] || 'a') === v ? ' selected' : ''}>${h(t(l))}</option>`).join('')}</select></div>`).join('')}</div>` : ''}
-    ${t2PickHtml([...keys], `data-${prefix}k`)}`;
+    ${t2PickHtml([...keys], `data-${prefix}k`, { parents: true })}`;
 }
 function readTagPick(root, prefix, prev) {
   const keys = $$(`[data-${prefix}k]:checked`, root).map((x) => x.getAttribute(`data-${prefix}k`));
-  const st = $(`[name=${prefix}st]:checked`, root)?.value || prev.st;
+  const q = (n) => $(`[name=${prefix}${n}]`, root);
+  let st = prev.st;
+  if (q('stper')) {
+    if (q('stper').checked) st = 'per';
+    else if (q('sta') && q('stf')) st = q('sta').checked && q('stf').checked ? 'both' : q('stf').checked ? 'f' : 'a';
+    else st = prev.st === 'per' ? 'a' : prev.st; // יצא עכשיו מ"לכל תגית"
+  }
   const per = {};
   $$(`[data-${prefix}per]`, root).forEach((s) => { per[s.getAttribute(`data-${prefix}per`)] = s.value; });
   keys.forEach((k) => { if (!per[k]) per[k] = prev.per?.[k] || 'a'; });
@@ -1639,7 +1667,8 @@ function listPick(sel, withEx) {
   return `<div class="l2-lists">${opts.map((l) => `<div><label class="check"><input type="checkbox" data-${withEx ? 'il' : 'xl'}="${h(l.list_id)}"${on.has(String(l.list_id)) ? ' checked' : ''}> 📋 ${h(l.name)}</label>
     ${withEx ? `<label class="check muted small"><input type="checkbox" data-ilex="${h(l.list_id)}"${on.get(String(l.list_id))?.ex === false ? '' : ' checked'}> ${h(t('L2exApplies'))}</label>` : ''}</div>`).join('')}</div>`;
 }
-const BASES = [['tags', '🏷', 'L2bTags'], ['area', '📍', 'L2bArea'], ['family', '👪', 'L2bFamily'], ['donation', '💰', 'L2bDonation'], ['wedding', '🎉', 'weddingList']];
+const BASES = [['tags', '🏷', 'L2bTags'], ['area', '📍', 'L2bArea'], ['family', '👪', 'L2bFamily'], ['donation', '💰', 'L2bDonation'], ['all', '🏛', ['כלל מוסדות אונגוואר', 'כלל מוסדות אונגוואר', 'All Ungvar institutions']]];
+const baseLabel = (l) => (Array.isArray(l) ? L3(l) : t(l));
 
 function openSettings() {
   const cr = current.cr; const ex = cr.except;
@@ -1647,6 +1676,8 @@ function openSettings() {
   const pub = cr.meta.pub || {};
   const own = isOwner({ created_by: current.created_by }) || state.isAdmin;
   const scopeOpts = [['', t('L2allOrgs')], ...ORG_TYPES.flatMap((k) => (state.lists[k] || []).map((v) => [`${k}|${v}`, v]))];
+  const XPARTS = () => [['tags', '🏷', 'L2bTags', () => tagPick(ex.tags, 'x')], ['area', '📍', 'L2bArea', () => areaPick(ex.areas, 'x')], ['family', '👪', 'L2bFamily', () => famPick(ex.family, 'x')],
+    ['donation', '💰', 'L2bDonation', () => donPick(ex.donation || DON(), 'x')], ['lists', '📋', 'L2fromLists', () => listPick(ex.lists.map((id) => ({ id })), false)]];
   const xParts = { tags: ex.tags.keys.length > 0, area: ex.areas.length > 0, family: ex.family.length > 0, donation: Boolean(ex.donation), lists: ex.lists.length > 0 };
   const dlg = dialog(`<h2>⚙ ${h(t('L2settings'))}</h2>
     <form id="l2-set" class="l2-set" novalidate>
@@ -1679,20 +1710,25 @@ function openSettings() {
       <p class="muted small" id="l2-editurl"><bdi dir="ltr">${h(editSlugOf(pub) ? PUB_BASE + editSlugOf(pub) : '')}</bdi></p>
       <p class="muted small">⚠ מה שמשנים בקישור העריכה נכנס מיד למאגר, בלי אישור (אפשר לבטל ב"📜 שינויים מהמשפחה"). כבוי = מי שנכנס בקישור הזה לא רואה כלום.</p>
     </fieldset>` : `<fieldset><legend>✚ ${h(t('L2whoIn'))}</legend>
-      <div class="l2-row">${BASES.map(([k, ic, l]) => `<label class="check l2-base"><input type="radio" name="base" value="${k}"${cr.base === k ? ' checked' : ''}> ${ic} ${h(t(l))}</label>`).join('')}</div>
+      <div class="l2-row l2-btns">${BASES.map(([k, ic, l]) => `<label class="l2-btn l2-base"><input type="radio" name="base" value="${k}"${cr.base === k ? ' checked' : ''}> ${ic} ${h(baseLabel(l))}</label>`).join('')}</div>
       <div class="l2-basebox" data-for="tags"${cr.base === 'tags' ? '' : ' hidden'}>${tagPick(cr.tags, 'i')}</div>
       <div class="l2-basebox" data-for="area"${cr.base === 'area' ? '' : ' hidden'}>${areaPick(cr.areas, 'i')}</div>
       <div class="l2-basebox" data-for="family"${cr.base === 'family' ? '' : ' hidden'}>${famPick(cr.family, 'i')}</div>
       <div class="l2-basebox" data-for="donation"${cr.base === 'donation' ? '' : ' hidden'}>${donPick(cr.donation, 'i')}</div>
-      <h4>＋ ${h(t('L2fromLists'))}</h4>${listPick(cr.lists, true)}
-    </fieldset>`}
+    </fieldset>
+    <details class="l2-listsbox"${(cr.lists || []).length ? ' open' : ''}><summary><b>📋 ${h(L3(['צולייגן נאך פארטיגע רשימות צו די רשימה', 'הוסף עוד רשימות מוכנות לרשימה הזאת', 'Add more ready lists to this list']))}</b>
+      <span class="muted small">${h(L3(['(ווערט נישט באאיינפלוסט פון די תגיות)', '(לא יושפע מהתגיות המוגדרות)', '(not affected by the tags above)']))}</span>${(cr.lists || []).length ? ` <span class="count-pill">${cr.lists.length}</span>` : ''}</summary>
+      ${listPick(cr.lists, true)}</details>`}
     ${fam ? '' : `<fieldset><legend>⊖ ${h(t('L2except'))}</legend>
-      ${[['tags', '🏷', 'L2bTags', () => tagPick(ex.tags, 'x')], ['area', '📍', 'L2bArea', () => areaPick(ex.areas, 'x')], ['family', '👪', 'L2bFamily', () => famPick(ex.family, 'x')],
-        ['donation', '💰', 'L2bDonation', () => donPick(ex.donation || DON(), 'x')], ['lists', '📋', 'L2fromLists', () => listPick(ex.lists.map((id) => ({ id })), false)]]
-        .map(([k, ic, l, fn]) => `<details class="l2-xpart" data-xp="${k}"${xParts[k] ? ' open' : ''}><summary><label class="check"><input type="checkbox" data-xon="${k}"${xParts[k] ? ' checked' : ''}> ${ic} ${h(t(l))}</label></summary><div class="l2-xbody">${fn()}</div></details>`).join('')}
+      <div class="l2-row l2-btns">${XPARTS()
+        .map(([k, ic, l]) => `<label class="l2-btn"><input type="checkbox" data-xon="${k}"${xParts[k] ? ' checked' : ''}> ${ic} ${h(t(l))}</label>`).join('')}</div>
+      ${XPARTS().map(([k, , , fn]) => `<div class="l2-basebox l2-xpart" data-xp="${k}"${xParts[k] ? '' : ' hidden'}><div class="l2-xbody">${fn()}</div></div>`).join('')}
     </fieldset>`}
     <fieldset><legend>${h(t('L2filters'))}</legend>
       <div class="tags lb-chips" data-marital>${(state.lists.marital_status || []).map((m) => `<button type="button" class="chip toggle${cr.marital.includes(m) ? ' on' : ''}" data-v="${h(m)}">${h(m)}</button>`).join('')}</div>
+      <div class="l2-row l2-btns l2-has"><b>${h(L3(['נאר ווער עס האט:', 'רק מי שיש לו:', 'Only those with:']))}</b>${[['mob', '📱', ['סעל', 'נייד', 'Cell']], ['mail', '✉', ['אימעיל', 'מייל', 'Email']], ['addr', '🏠', ['אדרעס', 'כתובת', 'Address']]]
+        .map(([k, ic, l]) => `<label class="l2-btn"><input type="checkbox" data-has="${k}"${(cr.has || []).includes(k) ? ' checked' : ''}> ${ic} ${h(L3(l))}</label>`).join('')}
+        <span class="muted small">${h(L3(['ליידיג = אלע', 'בלי בחירה = כולם', 'none = all']))}</span></div>
       <label class="check"><input type="checkbox" name="dead"${cr.includeDeceased ? ' checked' : ''}> ${h(t('lbInclDeceased'))}</label>
       <label class="check"><input type="checkbox" name="inact"${cr.includeInactive ? ' checked' : ''}> ${h(t('inclInactive'))}</label>
       <label class="check"><input type="checkbox" name="nosend"${cr.includeNoSend ? ' checked' : ''}> 📭 ${h(t('L2inclNoSend'))}</label>
@@ -1727,6 +1763,7 @@ function openSettings() {
       },
       marital: $$('[data-marital] .chip.on', form).map((b) => b.dataset.v),
       includeDeceased: form.elements.dead.checked, includeInactive: form.elements.inact.checked, includeNoSend: form.elements.nosend.checked,
+      has: $$('[data-has]:checked', form).map((x) => x.dataset.has),
       close: $$('[data-close]:checked', form).map((x) => Number(x.dataset.close)), gen: form.elements.gen.checked, big: form.elements.big.checked,
       meta: { ...cr.meta, note: form.elements.note.value.trim(), firstTab: form.elements.firstTab.value,
         ...(fam ? { pub: { slug: slugOf(form.elements.slug.value), on: form.elements.pubOn.checked, edit: { key: editKey, on: form.elements.editOn.checked } }, autoTag: form.elements.autoTag.value || '', famTitle: form.elements.famTitle.value.trim() } : {}) },
@@ -1735,9 +1772,14 @@ function openSettings() {
   const preview = () => { try { $('#l2-preview', dlg).textContent = t('lbCount', { n: evaluate(read()).length }); } catch { /* */ } };
   const rerenderPart = (sel, html) => { const box = $(sel, form); if (box) box.outerHTML = html; };
   form.addEventListener('change', (e) => {
-    if (e.target.name === 'base') $$('.l2-basebox', form).forEach((b) => { b.hidden = b.dataset.for !== e.target.value; });
-    if (e.target.matches('[name=ist], [name=xst], [data-ik], [data-xk]')) {
-      const which = e.target.matches('[name=ist], [data-ik]') ? 'i' : 'x';
+    if (e.target.name === 'base') $$('.l2-basebox[data-for]', form).forEach((b) => { b.hidden = b.dataset.for !== e.target.value; });
+    if (e.target.matches('[data-xon]')) { const b = $(`[data-xp="${e.target.dataset.xon}"]`, form); if (b) b.hidden = !e.target.checked; }
+    if (e.target.matches('[name$=sta], [name$=stf]') && !e.target.checked) { // לפחות אחד: מכבים את האחרון → השני נדלק
+      const other = $(`[name="${e.target.name.slice(0, -1)}${e.target.name.endsWith('a') ? 'f' : 'a'}"]`, form);
+      if (other && !other.checked) other.checked = true;
+    }
+    if (e.target.matches('[name^=ist], [name^=xst], [data-ik], [data-xk]')) {
+      const which = e.target.matches('[name^=ist], [data-ik]') ? 'i' : 'x';
       const box = which === 'i' ? $('[data-for=tags]', form) : $('[data-xp=tags] .l2-xbody', form);
       const sel = readTagPick(box, which, which === 'i' ? cr.tags : ex.tags);
       if (sel.st === 'per' || e.target.name) { box.innerHTML = tagPick(sel, which); (which === 'i' ? cr : ex).tags = sel; }
@@ -1748,7 +1790,7 @@ function openSettings() {
       if (['target', 'time'].includes(e.target.dataset.dk)) { if (e.target.dataset.dk === 'target') q.value = ''; rerenderPart(`[data-don="${pre}"]`, donPick(q, pre)); }
     }
     if (e.target.matches('[data-xk], [data-xl], [data-xfam], [data-xrel]') || e.target.closest('.l2-xpart')) {
-      const part = e.target.closest('.l2-xpart'); const cb = part && $('[data-xon]', part);
+      const part = e.target.closest('.l2-xpart'); const cb = part && $(`[data-xon="${part.dataset.xp}"]`, form);
       if (cb && !e.target.matches('[data-xon]')) cb.checked = true;
     }
     preview();
@@ -1761,7 +1803,7 @@ function openSettings() {
       return;
     }
     const chip = e.target.closest('.lb-chips .chip');
-    if (chip) { chip.classList.toggle('on'); const part = chip.closest('.l2-xpart'); if (part) $('[data-xon]', part).checked = true; preview(); return; }
+    if (chip) { chip.classList.toggle('on'); const part = chip.closest('.l2-xpart'); if (part) $(`[data-xon="${part.dataset.xp}"]`, form).checked = true; preview(); return; }
     const ab = e.target.closest('[data-allbut]');
     if (ab) { $$(`[data-area="${ab.dataset.allbut}"] .chip`, form).forEach((c) => c.classList.add('on')); $('[data-xon=area]', form).checked = true; preview(); return; }
     const rv = e.target.closest('[data-revoke]');
@@ -1941,6 +1983,7 @@ export function cardListsHtml(c) {
     if (m.row.manual) return `✋ ${t('clManual')}${m.row.until ? ` · ⏳ ${t('clUntil')} ${m.row.until}` : ''}`;
     if (m.row.from) return `↪ ${t('clVia', { name: listById(m.row.from)?.name || '' })}`;
     if (m.row.ev) return `📸 ${t('clViaEvent', { name: (state.faceEvents || []).find((e) => String(e.event_id) === m.row.ev)?.name || '' })}`;
+    if (m.cr.base === 'all') return L3(['כלל מוסדות אונגוואר', 'כלל מוסדות אונגוואר', 'All Ungvar institutions']);
     return BASE_LBL[m.cr.base] ? t(BASE_LBL[m.cr.base]) : '';
   };
   return `<section class="card-lists">
