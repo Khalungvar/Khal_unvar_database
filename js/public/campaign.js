@@ -78,10 +78,10 @@ async function guard(body) {
 
 let DATA = null; let SLUG = ''; let SCREEN = false;
 // 🎞 סרט תמונות נע בראש הדף: img/<slug>-gallery.json = [{src, cap}] (אם אין קובץ — אין סרט)
-let GAL = null; const REEL_T0 = Date.now(); const REEL_PX = 38; // מהירות הסרט: פיקסלים לשנייה
+let GAL = null; let CAMP_LANGS = null; const REEL_T0 = Date.now(); const REEL_PX = 38; // מהירות הסרט: פיקסלים לשנייה
 async function loadGallery() {
   if (GAL !== null) return; GAL = [];
-  try { const r = await fetch(`img/${encodeURIComponent(SLUG)}-gallery.json`); if (r.ok) { const j = await r.json(); if (Array.isArray(j)) GAL = j.filter((x) => x && x.src); } } catch { /* */ }
+  try { const r = await fetch(`img/${encodeURIComponent(SLUG)}-gallery.json`); if (r.ok) { const j = await r.json(); const items = Array.isArray(j) ? j : j?.items; if (Array.isArray(items)) GAL = items.filter((x) => x && x.src); if (Array.isArray(j?.langs) && j.langs.length) CAMP_LANGS = j.langs.filter((l) => LANGS.includes(l)); } } catch { /* */ }
   if (GAL.length && !document.getElementById('cp-reel-css')) {
     const st = document.createElement('style'); st.id = 'cp-reel-css';
     st.textContent = `.cp-main{min-width:0}.cp-reel{--s:34px;--g:10px;position:relative;height:210px;width:100%;overflow:hidden;contain:inline-size;direction:ltr;background:linear-gradient(180deg,#ecd28c,#c9a23f 55%,#9c7425)}
@@ -98,6 +98,11 @@ body.cp-banner .cp-top{display:none}body.cp-banner #cp-root{margin-top:0}
 .cp-bnr{--h:340px;width:100vw;margin:0 calc(50% - 50vw) 18px;position:relative}
 .cp-bnr .cp-reel{height:var(--h);--s:46px;--g:12px}
 .cp-bnr .cp-pic{min-height:calc(var(--h) * .24);padding:14px max(22px,calc(50vw - 574px)) 16px}
+.cp-bnr .cp-pic.two{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;direction:ltr}
+.cp-bnr .cp-pic.two > div{max-width:calc(50% - var(--h) * .55)}
+.cp-bnr .cp-pic.two .yi{direction:rtl;text-align:right}.cp-bnr .cp-pic.two .en{direction:ltr;text-align:left}
+@media (max-width:900px){.cp-bnr .cp-pic.two{padding-top:calc(var(--h) * .22 + 8px)}.cp-bnr .cp-pic.two > div{max-width:50%}.cp-bnr .cp-pic.two h1{font-size:24px}}
+@media (max-width:640px){.cp-bnr .cp-pic.two h1{font-size:19px}.cp-bnr .cp-pic.two small{font-size:11px}}
 @keyframes cpReel{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 @media (max-width:640px){.cp-bnr{--h:190px}.cp-reel{height:170px}.cp-reel,.cp-bnr .cp-reel{--s:24px;--g:7px}.cp-reel figcaption{font-size:12px;padding:16px calc(var(--s) + 4px) 5px}}`;
     document.head.appendChild(st);
@@ -115,7 +120,7 @@ let reelResize = false;
 function bannerHtml(c) {
   const logo = /#logo$/.test(c.image || '');
   const src = logo ? c.image.replace(/#logo$/, '') : '';
-  return `<section class="cp-bnr">${reelHtml(c, '')}${src ? `<div class="cp-reel-logo"><img src="${h(src)}" alt="${h(tr(c, 'title'))}"></div>` : ''}<div class="cp-pic"><div><small>${h(tr(c, 'sub'))}</small><h1>${h(tr(c, 'title'))}</h1></div></div></section>`;
+  return `<section class="cp-bnr">${reelHtml(c, '')}${src ? `<div class="cp-reel-logo"><img src="${h(src)}" alt="${h(tr(c, 'title'))}"></div>` : ''}${CAMP_LANGS && CAMP_LANGS.length === 2 ? `<div class="cp-pic two">${['en', 'yi'].filter((l) => CAMP_LANGS.includes(l)).map((l) => `<div class="${l}" lang="${l}"><small>${h(c[`sub_${l}`] || '')}</small><h1>${h(c[`title_${l}`] || '')}</h1></div>`).join('')}</div>` : `<div class="cp-pic"><div><small>${h(tr(c, 'sub'))}</small><h1>${h(tr(c, 'title'))}</h1></div></div>`}</section>`;
 }
 function reelHtml(c, logoSrc) {
   const one = GAL.map((g) => `<figure><img src="${h(g.src)}" alt="${h(g.cap || '')}"${g.w && g.h ? ` width="${Number(g.w)}" height="${Number(g.h)}"` : ''}>${g.cap ? `<figcaption>${h(g.cap)}</figcaption>` : ''}</figure>`).join('');
@@ -126,7 +131,8 @@ const F = { amount: 0, pkg: '', preset: '', monthly: false, months: 0, fee: true
 function applyLang() {
   document.documentElement.lang = LANG; document.documentElement.dir = LANG === 'en' ? 'ltr' : 'rtl';
   $$('[data-t]').forEach((e) => { const v = L()[e.dataset.t]; if (typeof v === 'string') e.textContent = v; });
-  $$('[data-lang]').forEach((b) => b.classList.toggle('on', b.dataset.lang === LANG));
+  $$('[data-lang]').forEach((b) => { b.classList.toggle('on', b.dataset.lang === LANG); b.hidden = !!(CAMP_LANGS && !CAMP_LANGS.includes(b.dataset.lang)); });
+  $$('.pb-langs > span').forEach((sp) => { let p = sp.previousElementSibling; let vis = false; while (p) { if (p.matches('[data-lang]') && !p.hidden) vis = true; p = p.previousElementSibling; } sp.hidden = !!sp.nextElementSibling?.hidden || !vis; });
 }
 function setLang(l) { LANG = l; lsSet('lang', l); applyLang(); render(); }
 
@@ -323,10 +329,19 @@ async function load() {
   try { DATA = await guard({ action: 'webCampaign', c: SLUG, preview: new URLSearchParams(location.search).get('preview') || '' }); } catch { DATA = { error: 'net' }; }
   if (DATA.campaign) {
     if (!F.amount && !F.pkg) { const a = String(DATA.campaign.amounts || '').split(/[,\s]+/).map(Number).filter((x) => x > 0); F.amount = a[3] || a[0] || 180; }
-    if (!SCREEN && DATA.pay && DATA.ifields) { try { await loadIfields(); } catch { DATA.pay = false; } }
   }
+  // קודם מציגים את הדף; שדות הכרטיס של Sola נטענים ברקע (בלי לעכב את התצוגה)
+  const needIf = !SCREEN && DATA.campaign && DATA.pay && DATA.ifields && !(window.setAccount && IF_VER);
   await gal;
-  render(); if (!SCREEN) setupIfields();
+  if (CAMP_LANGS && CAMP_LANGS.length && !CAMP_LANGS.includes(LANG)) LANG = CAMP_LANGS[0]; // שפות שהקמפיין לא תומך בהן — לא מציגים
+  applyLang();
+  render(); if (!SCREEN && !needIf) setupIfields();
+  if (needIf) {
+    try { await loadIfields(); } catch { DATA.pay = false; render(); return; }
+    const ifr = $$('.cp-if');
+    await Promise.all(ifr.map((f) => new Promise((ok) => { f.addEventListener('load', ok, { once: true }); setTimeout(ok, 8000); f.src = `https://cdn.cardknox.com/ifields/${IF_VER}/ifield.htm`; })));
+    setupIfields();
+  }
 }
 
 export function startCampaign() {
