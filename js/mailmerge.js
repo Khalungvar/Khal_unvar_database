@@ -36,6 +36,9 @@ const FIELD_DESC = {
   Title: 'תואר באנגלית', Name: 'השם למשלוח (Mr. & Mrs.)', First: 'שם פרטי באנגלית', 'Legal/First': 'שם חוקי פרטי — ואם אין, השם הפרטי', LegalName: 'שם חוקי מלא (פרטי + משפחה)', Last: 'משפחה באנגלית', Wife: 'שם האשה באנגלית',
   Address: 'כתובת (עם c/o)', Street: 'רחוב ומספר בלבד', City: 'עיר, מדינה ומיקוד', State: 'מדינה (State)', ZIP: 'מיקוד', Country: 'ארץ (כשלא ארה"ב)', AddressLine: 'כל הכתובת בשורה אחת',
   Date: 'תאריך היום באנגלית', ISSUED: 'תאריך הקבלה באנגלית', DonationDate: 'תאריך התרומה באנגלית',
+  DonDate: 'תאריך התרומה', DonHebDate: 'תאריך עברי של התרומה', DonAmount: 'סכום', DonPaid: 'שולם', DonDue: 'נשאר', DonPaidDate: 'תאריך התשלום', DonMethod: 'אמצעי תשלום',
+  DonCheck: 'מספר צ\'ק', DonDedication: 'הקדשה', DonCampaign: 'קמפיין', DonEvent: 'אירוע', DonNote: 'הערה',
+  TotalAmount: 'סה"כ סכום', TotalPaid: 'סה"כ שולם', TotalDue: 'סה"כ נשאר', DonCount: 'מספר תרומות',
 };
 const SEV = { red: 3, yellow: 2, info: 1 };
 
@@ -1100,6 +1103,125 @@ function sheetsHtml(n, c) {
   const [, H] = letterDims(D);
   return Array.from({ length: n }, (_, i) => `<div class="wr-sheet" style="top:${i * (H + GAP)}in">${letterHtml(D, c, { edit: true, cont: i, bodyOverride: '' })}</div>`).join('');
 }
+/** ⇥ טאב: א טאב-צייכן (מיט white-space:pre), די עצירות לויט tab-size; Shift+Tab = אראפנעמען דעם פריערדיגן */
+const TAB_HTML = '<span style="white-space:pre">\t</span>';
+function tabKey(el, back) {
+  if (!back) { insertHtmlAt(el, TAB_HTML); return; }
+  restoreSel(el);
+  const s = window.getSelection();
+  if (!s.rangeCount) return;
+  let n = s.anchorNode; const off = s.anchorOffset;
+  let prev = null;
+  if (n.nodeType === 3) prev = off === 0 ? n.previousSibling : (n.textContent.slice(off - 1, off) === '\t' ? n : null);
+  else prev = n.childNodes[off - 1] || null;
+  if (n.nodeType === 3 && n.parentElement?.textContent === '\t') prev = n.parentElement;
+  if (prev && prev.nodeType === 3 && prev.textContent.endsWith('\t')) { prev.textContent = prev.textContent.slice(0, -1); return; }
+  if (prev && prev.nodeType === 1 && prev.textContent === '\t') prev.remove();
+}
+/** די בלאקן פאר "שוליים לפסקה": די אויסגעקליבענע, אדער וואו דער קורסאר איז */
+function indentBlocks(body) {
+  const sel = selBlocks(body).filter((x) => !isPgBrk(x));
+  if (sel.length) return sel;
+  const s = window.getSelection();
+  if (!s.rangeCount || !body.contains(s.anchorNode)) return [];
+  let n = s.anchorNode.nodeType === 1 ? s.anchorNode : s.anchorNode.parentElement;
+  while (n && n.parentElement !== body) n = n.parentElement;
+  return n ? [n] : [];
+}
+const pxIn = (v) => (parseFloat(v) || 0) / 96;
+/** די סימנים אויפן סרגל: שולי הדף, און די שוליים פון דער פסקה */
+function placeMarks() {
+  const doc = $('#mm-canvas .wr-doc');
+  if (!doc || !D || D.kind !== 'ltr') return;
+  const G = letterGeo(D);
+  const { m, W, H } = G;
+  const set = (sel, css) => { const el = $(sel, doc); if (el) Object.assign(el.style, css); return el; };
+  set('.wr-rg-l', { left: '0', width: `${m.left}in` });
+  set('.wr-rg-r', { left: `${W - m.right}in`, width: `${m.right}in` });
+  set('[data-mh="left"]', { left: `${m.left}in` });
+  set('[data-mh="right"]', { left: `${W - m.right}in` });
+  set('.wr-rg-t', { top: '0', height: `${G.top1}in` });
+  set('.wr-rg-b', { top: `${H - G.bottom1}in`, height: `${G.bottom1}in` });
+  set('[data-mh="top"]', { top: `${G.top1}in` });
+  set('[data-mh="bottom"]', { top: `${H - G.bottom1}in` });
+  const body = $('.wr-body', doc);
+  const bl = body && !editBox ? indentBlocks(body)[0] : null;
+  const marks = $$('.wr-ind', doc);
+  if (!bl) { marks.forEach((x) => { x.hidden = true; }); return; }
+  const cs = getComputedStyle(bl);
+  const rtl = cs.direction === 'rtl';
+  const ps = pxIn(cs.paddingInlineStart) + pxIn(cs.marginInlineStart); const pe = pxIn(cs.paddingInlineEnd) + pxIn(cs.marginInlineEnd); const ti = pxIn(cs.textIndent);
+  const fl = m.left; const fr = W - m.right;
+  const startX = rtl ? fr - ps : fl + ps;
+  const firstX = rtl ? startX - ti : startX + ti;
+  const endX = rtl ? fl + pe : fr - pe;
+  marks.forEach((x) => { x.hidden = false; });
+  set('[data-ind="first"]', { left: `${firstX}in` });
+  set('[data-ind="start"]', { left: `${startX}in` });
+  set('[data-ind="end"]', { left: `${endX}in` });
+}
+/** גרירה אויפן סרגל: שולי הדף (┃) און שוליים פאר דער פסקה (▼▲) */
+function wireRuler() {
+  const doc = $('#mm-canvas .wr-doc');
+  const canvas = $('#mm-canvas');
+  if (!doc || !canEditT(current())) return;
+  const body = $('.wr-body', doc);
+  const q16 = (v) => Math.round(v * 16) / 16; // 1/16 אינטש
+  const marg = () => { const m0 = D.ltr.margins || { top: 0.7, side: 0.8, bottom: 0.7 }; D.ltr.margins = { ...m0, left: Number(m0.left ?? m0.side), right: Number(m0.right ?? m0.side) }; return D.ltr.margins; };
+  const tip = (txt) => { const p = $('#wr-pos'); if (p) p.textContent = txt; };
+  $$('[data-mh], [data-ind]', doc).forEach((hd) => {
+    hd.onpointerdown = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const scale = Number(canvas.dataset.scale || 1); const ppi = 96 * scale;
+      const r0 = doc.getBoundingClientRect();
+      const G = letterGeo(D); const { W, H } = G;
+      const mh = hd.dataset.mh; const ind = hd.dataset.ind;
+      const blocks = ind && body ? indentBlocks(body) : [];
+      if (ind && !blocks.length) return;
+      hd.setPointerCapture(e.pointerId);
+      hd.onpointermove = (ev) => {
+        const x = q16((ev.clientX - r0.left) / ppi); const y = q16((ev.clientY - r0.top) / ppi);
+        if (mh) {
+          const m = marg();
+          if (mh === 'left') m.left = Math.max(0, Math.min(x, W - m.right - 1));
+          if (mh === 'right') m.right = Math.max(0, Math.min(W - x, W - m.left - 1));
+          if (mh === 'top') m.top = Math.max(0, Math.min(y, H / 2));
+          if (mh === 'bottom') m.bottom = Math.max(0, Math.min(H - y, H / 2));
+          const fl = $('.wr-flow', doc); const G2 = letterGeo(D);
+          if (fl) { fl.style.left = `${m.left}in`; fl.style.right = `${m.right}in`; fl.style.top = `${G2.top1}in`; }
+          tip(`${{ left: 'שוליים שמאל', right: 'שוליים ימין', top: 'שוליים למעלה', bottom: 'שוליים למטה' }[mh]}: ${m[mh].toFixed(2)}″`);
+        } else {
+          const G2 = letterGeo(D); const fl0 = G2.m.left; const fr0 = W - G2.m.right;
+          blocks.forEach((bl) => {
+            const cs = getComputedStyle(bl); const rtl = cs.direction === 'rtl';
+            let ps = pxIn(cs.paddingInlineStart); let pe = pxIn(cs.paddingInlineEnd); let ti = pxIn(cs.textIndent);
+            const startX = rtl ? fr0 - ps : fl0 + ps; const firstX = rtl ? startX - ti : startX + ti;
+            if (ind === 'first') ti = rtl ? startX - x : x - startX;
+            if (ind === 'start') { ps = Math.max(0, rtl ? fr0 - x : x - fl0); const ns = rtl ? fr0 - ps : fl0 + ps; ti = rtl ? ns - firstX : firstX - ns; }
+            if (ind === 'end') pe = Math.max(0, rtl ? x - fl0 : fr0 - x);
+            bl.style.paddingInlineStart = ps > 0.001 ? `${q16(ps)}in` : '';
+            bl.style.paddingInlineEnd = pe > 0.001 ? `${q16(pe)}in` : '';
+            bl.style.textIndent = Math.abs(ti) > 0.001 ? `${q16(ti)}in` : '';
+          });
+          tip(`${{ first: 'שורה ראשונה', start: 'תחילת השורות', end: 'סוף השורות' }[ind]}: ${x.toFixed(2)}″`);
+        }
+        placeMarks();
+      };
+      hd.onpointerup = () => {
+        hd.onpointermove = null;
+        if (mh) { scheduleSave(); refreshStage(); } else { body?._save?.(); placeMarks(); }
+      };
+    };
+    if (hd.dataset.mh) {
+      hd.ondblclick = () => {
+        const m = marg();
+        numDialog(t('wrMCustom'), [['top', t('mxMarginTop'), m.top, 0, 6, 0.05], ['right', 'שוליים ימין', m.right, 0, 6, 0.05], ['left', 'שוליים שמאל', m.left, 0, 6, 0.05], ['bottom', t('mxMarginBottom'), m.bottom, 0, 6, 0.05]],
+          (o) => { D.ltr.margins = { ...m, ...o, side: Math.min(o.left, o.right) }; scheduleSave(); renderMailMerge(); });
+      };
+    }
+  });
+  placeMarks();
+}
 /** 📏 סרגלים (אינטשעס, כמו בוורד): למעלה ובצד; השאטן = וואו דער אויסגעקליבענער טייל איז */
 function rulersHtml(W, H) {
   const ticks = (len, horiz) => {
@@ -1111,8 +1233,14 @@ function rulersHtml(W, H) {
     }
     return o;
   };
-  return `<div class="wr-ruler wr-ruler-h" style="width:${W}in"><svg width="${W * 96}" height="20">${ticks(W, true)}</svg><div class="wr-rsel wr-rsel-h" hidden></div></div>
-    <div class="wr-ruler wr-ruler-v" style="height:${H}in"><svg width="20" height="${H * 96}">${ticks(H, false)}</svg><div class="wr-rsel wr-rsel-v" hidden></div></div>`;
+  // אפור = מחוץ לטקסט · ┃ = שולי הדף (גוררים; לחיצה כפולה = מספר) · ▼ שורה ראשונה · ▲ תחילת השורות · ▲ סוף השורות (לפסקה)
+  return `<div class="wr-ruler wr-ruler-h" style="width:${W}in"><svg width="${W * 96}" height="20">${ticks(W, true)}</svg><div class="wr-rsel wr-rsel-h" hidden></div>
+      <div class="wr-rgray wr-rg-l"></div><div class="wr-rgray wr-rg-r"></div>
+      <div class="wr-rmh wr-rmh-x" data-mh="left" title="שוליים — גרירה · לחיצה כפולה = מספר"></div><div class="wr-rmh wr-rmh-x" data-mh="right" title="שוליים — גרירה · לחיצה כפולה = מספר"></div>
+      <div class="wr-ind wr-ind-first" data-ind="first" title="שורה ראשונה של הפסקה" hidden>▼</div><div class="wr-ind wr-ind-start" data-ind="start" title="תחילת השורות בפסקה" hidden>▲</div><div class="wr-ind wr-ind-end" data-ind="end" title="סוף השורות בפסקה" hidden>▲</div></div>
+    <div class="wr-ruler wr-ruler-v" style="height:${H}in"><svg width="20" height="${H * 96}">${ticks(H, false)}</svg><div class="wr-rsel wr-rsel-v" hidden></div>
+      <div class="wr-rgray wr-rg-t"></div><div class="wr-rgray wr-rg-b"></div>
+      <div class="wr-rmh wr-rmh-y" data-mh="top" title="שוליים עליונים — גרירה · לחיצה כפולה = מספר"></div><div class="wr-rmh wr-rmh-y" data-mh="bottom" title="שוליים תחתונים — גרירה · לחיצה כפולה = מספר"></div></div>`;
 }
 function wordDocHtml(c, ro) {
   const L = D.ltr;
@@ -1121,7 +1249,7 @@ function wordDocHtml(c, ro) {
   return `<div class="wr-doc" data-n="1" style="width:${G.W}in;height:${G.H}in">
       ${rulersHtml(G.W, G.H)}
       <div class="wr-sheets">${sheetsHtml(1, c)}</div>
-      <div class="wr-flow" style="left:${G.m.side}in;right:${G.m.side}in;top:${G.top1}in">
+      <div class="wr-flow" style="left:${G.m.left}in;right:${G.m.right}in;top:${G.top1}in">
         <div class="wr-body mx-body-ed" contenteditable="${ro ? 'false' : 'true'}" spellcheck="false" dir="${L.dir === 'ltr' ? 'ltr' : 'rtl'}" style="${bodyStyle(L)}">${body}</div>
         ${sigHtml(D)}
       </div>
@@ -1353,6 +1481,23 @@ function wireWordGlobal() {
   if (wrGlobal) return;
   wrGlobal = true;
   document.addEventListener('selectionchange', syncRibbon);
+  document.addEventListener('selectionchange', () => { if ($('#mm-canvas .wr-ruler-h')) placeMarks(); });
+  // א תפריט וואס גייט ארויס פונעם מסך — אריבער אהין וואו עס איז פלאץ
+  document.addEventListener('toggle', (e) => {
+    const d = e.target;
+    if (!d.matches?.('details.wr-dd') || !d.open) return;
+    const mn = d.querySelector(':scope > .wr-menu');
+    if (!mn) return;
+    mn.style.position = ''; mn.style.left = ''; mn.style.right = ''; mn.style.top = ''; mn.style.maxHeight = '';
+    const r = mn.getBoundingClientRect(); const vw = window.innerWidth;
+    if (r.left >= 4 && r.right <= vw - 4) return;
+    const sr = d.querySelector('summary').getBoundingClientRect();
+    mn.style.position = 'fixed';
+    mn.style.top = `${sr.bottom + 2}px`;
+    mn.style.right = 'auto';
+    mn.style.left = `${Math.max(8, Math.min(document.documentElement.dir === 'rtl' ? sr.right - r.width : sr.left, vw - r.width - 8))}px`;
+    mn.style.maxHeight = `${Math.max(200, window.innerHeight - sr.bottom - 16)}px`;
+  }, true);
   document.addEventListener('click', (e) => {
     $$('.wr-dd[open]').forEach((d) => { if (!d.contains(e.target)) d.open = false; });
   });
@@ -1475,7 +1620,7 @@ function wireWord(main) {
         let nx = cells[cells.indexOf(c) + (e.shiftKey ? -1 : 1)];
         if (!nx && !e.shiftKey) { tableOp('rowBelow'); nx = c.closest('tr').nextElementSibling?.cells[0]; }
         if (nx) { const r = document.createRange(); r.selectNodeContents(nx); r.collapse(true); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
-      } else document.execCommand('insertText', false, '    ');
+      } else { tabKey(body, e.shiftKey); save(); }
     }
   });
   // א פעלד «...»: קליקן = אויסקלייבן (כדי מ'זאל אים קענען מאכן בולד / גרעסער / א קאליר)
@@ -1509,6 +1654,7 @@ function wireWord(main) {
   (document.fonts?.ready || Promise.resolve()).then(() => { layoutPages(); fitWord(); });
   $$('img', st).forEach((im) => { if (!im.complete) im.addEventListener('load', () => layoutPages(), { once: true }); });
   ensureBodyImages();
+  wireRuler();
 }
 /** בילדער אינעם טעקסט וואס זענען נאך נישט געלאדן (drv:) */
 function ensureBodyImages() {
@@ -2885,6 +3031,7 @@ function startBoxEdit(el) {
   editBox = tx;
   tx._save = () => { part.html = cleanHtml(chipsToTokens(tx)); scheduleSave(); };
   tx.addEventListener('input', tx._save);
+  tx.addEventListener('keydown', (e) => { if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) { e.preventDefault(); tabKey(tx, e.shiftKey); tx._save(); } });
   tx.focus();
   const r = document.createRange(); r.selectNodeContents(tx); r.collapse(false);
   const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
