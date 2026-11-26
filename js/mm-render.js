@@ -247,6 +247,13 @@ export function valuesFor(D, c, ctx = null) {
     Last: nz(c.last_name_en),
     Wife: nz(c.wife_name_en) ? wifeEn(c) : '',
     Address: [careOf(c), nz(c.address)].filter(Boolean).join('\n'),
+    Title: nz(c.title_en),
+    LegalName: [nz(c.legal_first_name) || nz(c.first_name_en), nz(c.last_name_en)].filter(Boolean).join(' '),
+    Street: nz(c.address),
+    State: nz(c.state),
+    ZIP: nz(c.zip),
+    AddressLine: [nz(c.address), cityLine(c)].filter(Boolean).join(', '),
+    אזור: nz(c.area),
     City: cityLine(c),
     Country: countryOf(c),
     תאריך: he ? `${he} לפ"ק` : '',
@@ -286,7 +293,7 @@ export function valuesFor(D, c, ctx = null) {
       תואר: isTrue(c.wife_is_rebbetzin) ? 'הרבנית' : 'מרת', שם_פרטי: nz(c.wife_name_he),
       שם: [c.wife_name_he, c.last_name_he].map(nz).filter(Boolean).join(' '), שם_מלא: widowHe(c), אשה: '',
       First: wFirstEn, 'Legal/First': wFirstEn, Wife: '', first: wFirstEn, wife: '', hebrew: widowHe(c),
-      legal: [wFirstEn, c.last_name_en].map(nz).filter(Boolean).join(' '),
+      legal: [wFirstEn, c.last_name_en].map(nz).filter(Boolean).join(' '), LegalName: [wFirstEn, c.last_name_en].map(nz).filter(Boolean).join(' '),
     });
   }
   return v;
@@ -331,8 +338,11 @@ function rcpBlock(D, c, vals, empties, { cls = 'mx-rcp', style = '', attrs = '' 
 
 // ---------- פרייע טעקסט קעסטלעך (קאנווערט / בריוו) ----------
 function boxesHtml(D, vals, empties, edit) {
+  // edit: דער טעקסט אין .mx-boxtx (מ'רעדאגירט אים אויפן בלאט), און קנעפלעך: ✥ שלעפן · ✕ אויסמעקן · ↔ ברייט
   return (D.boxes || []).map((b) => `<div class="mx-box${edit ? ' mx-drag' : ''}" data-part="box:${h(b.id)}" dir="${dirv(b.dir)}"
-    style="left:${Number(b.x) || 0}in;top:${Number(b.y) || 0}in;width:${Number(b.w) || 3}in;font-family:'${css(b.font || 'Frank Ruhl Libre')}';font-size:${Number(b.size) || 12}pt">${fillHtml(cleanHtml(b.html), vals, empties)}</div>`).join('');
+    style="left:${Number(b.x) || 0}in;top:${Number(b.y) || 0}in;width:${Number(b.w) || 3}in;font-family:'${css(b.font || 'Frank Ruhl Libre')}';font-size:${Number(b.size) || 12}pt">${edit
+    ? `<div class="mx-boxtx">${fillHtml(cleanHtml(b.html), vals, empties)}</div><span class="mx-boxtools" contenteditable="false"><span class="mx-boxmove" title="גרירה">✥</span><span class="mx-boxdel" title="מחיקה">✕</span></span><span class="mx-boxrs" contenteditable="false" title="רוחב"></span>`
+    : fillHtml(cleanHtml(b.html), vals, empties)}</div>`).join('');
 }
 
 // ---------- קאנווערט ----------
