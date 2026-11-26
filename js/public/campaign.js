@@ -119,9 +119,9 @@ body.cp-both .cp-pkg b,body.cp-both .cp-pkg em,body.cp-both .cp-h{white-space:pr
 .cp-bnr .cp-pic{min-height:calc(var(--h) * .24);padding:14px max(22px,calc(50vw - 574px)) 16px}
 .cp-bnr .cp-pic.two{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;direction:ltr}
 .cp-bnr .cp-pic.two > div{max-width:calc(50% - var(--h) * .55)}
-.cp-bnr .cp-pic.two .yi{direction:rtl;text-align:right}.cp-bnr .cp-pic.two .en{direction:ltr;text-align:left}
-@media (max-width:900px){.cp-bnr .cp-pic.two{padding-top:calc(var(--h) * .22 + 8px)}.cp-bnr .cp-pic.two > div{max-width:50%}.cp-bnr .cp-pic.two h1{font-size:24px}}
-@media (max-width:640px){.cp-bnr .cp-pic.two h1{font-size:19px}.cp-bnr .cp-pic.two small{font-size:11px}}
+.cp-bnr .cp-pic.two h1{font-size:clamp(22px,2.5vw,32px);white-space:nowrap}.cp-bnr .cp-pic.two .yi{direction:rtl;text-align:right}.cp-bnr .cp-pic.two .en{direction:ltr;text-align:left}
+@media (max-width:900px){.cp-bnr .cp-pic.two{padding-top:calc(var(--h) * .22 + 8px)}.cp-bnr .cp-pic.two > div{max-width:50%}.cp-bnr .cp-pic.two h1{font-size:24px;white-space:normal}}
+@media (max-width:640px){.cp-bnr .cp-pic.two h1{font-size:18px;white-space:normal}.cp-bnr .cp-pic.two small{font-size:11px}}
 @keyframes cpReel{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 @media (max-width:640px){.cp-bnr{--h:190px}.cp-reel{height:170px}.cp-reel,.cp-bnr .cp-reel{--s:24px;--g:7px}.cp-reel figcaption{font-size:12px;padding:16px calc(var(--s) + 4px) 5px}}`;
     document.head.appendChild(st);
@@ -145,7 +145,7 @@ function reelHtml(c, logoSrc) {
   const one = GAL.map((g) => `<figure><img src="${h(g.src)}" alt="${h(g.cap || '')}"${g.w && g.h ? ` width="${Number(g.w)}" height="${Number(g.h)}"` : ''}>${g.cap ? `<figcaption>${h(g.cap)}</figcaption>` : ''}</figure>`).join('');
   return `<div class="cp-reel"><div class="cp-reel-track">${one}${one}</div>${logoSrc ? `<div class="cp-reel-logo"><img src="${h(logoSrc)}" alt="${h(tr(c, 'title'))}"></div>` : ''}</div>`;
 }
-const F = { amount: 0, pkg: '', preset: '', monthly: false, months: 0, fee: true, anon: false };
+const F = { amount: 0, pkg: '', preset: '', monthly: false, months: 0, fee: true, anon: false, dedT: '', dedOpen: false };
 
 function applyLang() {
   document.body.classList.toggle('cp-both', BOTH);
@@ -209,11 +209,46 @@ function recentHtml(c) {
 }
 const feeOf = (a) => Math.round(a * 0.03 * 100) / 100;
 function totalOf() { const c = DATA.campaign; const a = F.pkg ? Number(c.packages.find((p) => p.id === F.pkg)?.amount) || 0 : F.amount; return { base: a, total: Math.round((a + (c.fee && F.fee ? feeOf(a) : 0)) * 100) / 100 }; }
+// ---------- הקדשה: לע"נ (שם, בן/בת, שם האב, יום היארצייט) · לזכות (שם, תאריך, הערה) · לרפו"ש (שם, בן/בת, שם האם) ----------
+const DED = {
+  yi: { title: 'לזכר / לזכות', types: ['לע"נ', 'לזכות', 'לרפו"ש'], pick: '— אויסקלייבן —', name: 'נאמען', bn: ['בן', 'בת'], father: 'נאמען פונעם טאטן', mother: 'נאמען פון די מאמע', yahr: 'יארצייט', date: 'דאטום (נישט מוז)', note: 'באמערקונג', day: 'טאג', month: 'חודש' },
+  he: { title: 'הקדשה', types: ['לע"נ', 'לזכות', 'לרפו"ש'], pick: '— בחירה —', name: 'שם', bn: ['בן', 'בת'], father: 'שם האב', mother: 'שם האם', yahr: 'יום היארצייט', date: 'תאריך (לא חובה)', note: 'הערה', day: 'יום', month: 'חודש' },
+  en: { title: 'Dedication', types: ['In memory of', 'In honor of', 'For the recovery of'], pick: '— choose —', name: 'Name', bn: ['son of', 'daughter of'], father: "Father's name", mother: "Mother's name", yahr: 'Yahrzeit', date: 'Date (optional)', note: 'Note', day: 'Day', month: 'Month' },
+};
+const HDAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט', 'י', 'יא', 'יב', 'יג', 'יד', 'טו', 'טז', 'יז', 'יח', 'יט', 'כ', 'כא', 'כב', 'כג', 'כד', 'כה', 'כו', 'כז', 'כח', 'כט', 'ל'].map((d) => (d.length === 1 ? `${d}'` : `${d[0]}"${d[1]}`));
+const HMONTHS = ['תשרי', 'חשון', 'כסלו', 'טבת', 'שבט', 'אדר', 'אדר א\'', 'אדר ב\'', 'ניסן', 'אייר', 'סיון', 'תמוז', 'אב', 'אלול'];
+const dedL = () => DED[BOTH ? 'yi' : LANG] || DED.yi;
+function dedHtml() {
+  const D = dedL(); const sel = (n, opts, ph) => `<select name="${n}"><option value="">${h(ph)}</option>${opts.map((o) => `<option>${h(o)}</option>`).join('')}</select>`;
+  return `<details class="cp-ded" data-t="${h(F.dedT ?? '')}"${F.dedOpen ? ' open' : ''}><summary>${h(D.title)}</summary>
+    <select name="dedType"><option value="">${h(D.pick)}</option>${D.types.map((t, i) => `<option value="${i}"${String(F.dedT) === String(i) ? ' selected' : ''}>${h(t)}</option>`).join('')}</select>
+    <div class="cp-dedf" data-for="0 1 2"><input name="d_name" maxlength="40" placeholder="${h(D.name)}"></div>
+    <div class="cp-dedf cp-row" data-for="0 2"><select name="d_bn">${D.bn.map((b) => `<option>${h(b)}</option>`).join('')}</select><input name="d_father" data-for="0" maxlength="30" placeholder="${h(D.father)}"><input name="d_mother" data-for="2" maxlength="30" placeholder="${h(D.mother)}"></div>
+    <p class="cp-l cp-dedf" data-for="0">${h(D.yahr)}</p><p class="cp-l cp-dedf" data-for="1">${h(D.date)}</p>
+    <div class="cp-dedf cp-row" data-for="0 1">${sel('d_day', HDAYS, D.day)}${sel('d_month', HMONTHS, D.month)}</div>
+    <div class="cp-dedf" data-for="1"><input name="d_note" maxlength="40" placeholder="${h(D.note)}"></div>
+  </details>`;
+}
+/** ההקדשה כפי שנשמרת: סוג + טקסט אחד (עד 120 תווים) */
+function dedOf(form) {
+  const t = form.dedType?.value ?? ''; if (t === '' || !form.d_name?.value.trim()) return { type: '', text: '' };
+  const D = DED.yi; const v = (k) => (form[k]?.value || '').trim();
+  const date = [v('d_day'), v('d_month')].filter(Boolean).join(' ');
+  let text = v('d_name');
+  if (t === '0') text = [text, v('d_father') ? `${v('d_bn')} ${v('d_father')}` : '', date ? `· יארצייט ${date}` : ''].filter(Boolean).join(' ');
+  if (t === '1') text = [text, date ? `· ${date}` : '', v('d_note') ? `· ${v('d_note')}` : ''].filter(Boolean).join(' ');
+  if (t === '2') text = [text, v('d_mother') ? `${v('d_bn')} ${v('d_mother')}` : ''].filter(Boolean).join(' ');
+  return { type: D.types[Number(t)] || '', text: text.slice(0, 120) };
+}
 function formHtml(c) {
   const amts = String(c.amounts || '36,54,100,180,360,500,1000').split(/[,\s]+/).map(Number).filter((x) => x > 0);
   const ready = DATA.pay && DATA.ifields;
   const T0 = L();
-  return `<section class="pb-card cp-form" id="cp-form"><h2 class="cp-h">${h(T0.give)}</h2>
+  const E = BOTH ? T.en : T0; // בדף דו-לשוני: משבצת הכרטיס והפרטים באנגלית בלבד
+  const donor = `<p class="cp-l">${h(E.you)}</p>
+      <div class="cp-row"><input name="first" autocomplete="given-name" placeholder="${h(E.first)}" required><input name="last" autocomplete="family-name" placeholder="${h(E.last)}" required></div>
+      <div class="cp-row"><input name="phone" type="tel" dir="ltr" autocomplete="tel" placeholder="${h(E.phone)}"><input name="email" type="email" dir="ltr" autocomplete="email" placeholder="${h(E.email)}"></div>`;
+  return `<section class="pb-card cp-form" id="cp-form"><h2 class="cp-h"${BOTH ? ' style="text-align:center"' : ''}>${h(BOTH ? T.en.give : T0.give)}</h2>
     ${ready ? '' : `<p class="cp-soon">${h(T0.soon)}</p>`}
     <form ${ready ? '' : 'inert class="cp-off"'} autocomplete="on">
       ${c.monthly && !F.pkg ? `<div class="cp-tog"><button type="button" data-mon="0" class="${F.monthly ? '' : 'on'}">${h(T0.once)}</button><button type="button" data-mon="1" class="${F.monthly ? 'on' : ''}">${h(T0.monthly)}</button></div>
@@ -222,20 +257,18 @@ function formHtml(c) {
         <input type="number" min="1" step="1" inputmode="decimal" name="custom" placeholder="${h(T0.other)}" value="${amts.includes(F.amount) || !F.amount ? '' : F.amount}"></div>`}
       ${F.preset ? `<p class="cp-pkgsel">✓ <b>${h(tr(c.packages.find((p) => p.id === F.preset), 'name'))}</b> — ${money(F.amount)} × ${F.months}</p>` : ''}
       ${F.pkg ? `<p class="cp-pkgsel">✓ <b>${h(tr(c.packages.find((p) => p.id === F.pkg), 'name'))}</b> — ${money(totalOf().base)} <button type="button" class="cp-link" data-unpkg>✕</button></p>` : ''}
-      <p class="cp-l">${h(T0.ded)}</p>
-      <div class="cp-row"><select name="dedType">${T0.dedTypes.map((x) => `<option>${h(x)}</option>`).join('')}</select><input name="dedText" maxlength="120" placeholder="${h(T0.dedText)}"></div>
-      <p class="cp-l">${h(T0.you)}</p>
-      <div class="cp-row"><input name="first" autocomplete="given-name" placeholder="${h(T0.first)}" required><input name="last" autocomplete="family-name" placeholder="${h(T0.last)}" required></div>
-      <div class="cp-row"><input name="phone" type="tel" dir="ltr" autocomplete="tel" placeholder="${h(T0.phone)}"><input name="email" type="email" dir="ltr" autocomplete="email" placeholder="${h(T0.email)}"></div>
+      ${dedHtml()}
+      ${BOTH ? '' : donor}
       <div class="cp-card" dir="ltr">
-        <label>${h(T0.card)}<iframe class="cp-if" data-ifields-id="card-number" data-ifields-placeholder="Card number" src="${IF_VER ? `https://cdn.cardknox.com/ifields/${IF_VER}/ifield.htm` : 'about:blank'}" title="card"></iframe></label>
-        <div class="cp-row"><label>${h(T0.exp)}<input name="exp" inputmode="numeric" maxlength="5" placeholder="MM/YY" autocomplete="cc-exp"></label>
-          <label>${h(T0.cvv)}<iframe class="cp-if" data-ifields-id="cvv" data-ifields-placeholder="CVV" src="${IF_VER ? `https://cdn.cardknox.com/ifields/${IF_VER}/ifield.htm` : 'about:blank'}" title="cvv"></iframe></label></div>
+        ${BOTH ? donor : ''}
+        <label>${h(E.card)}<iframe class="cp-if" data-ifields-id="card-number" data-ifields-placeholder="Card number" src="${IF_VER ? `https://cdn.cardknox.com/ifields/${IF_VER}/ifield.htm` : 'about:blank'}" title="card"></iframe></label>
+        <div class="cp-row"><label>${h(E.exp)}<input name="exp" inputmode="numeric" maxlength="5" placeholder="MM/YY" autocomplete="cc-exp"></label>
+          <label>${h(E.cvv)}<iframe class="cp-if" data-ifields-id="cvv" data-ifields-placeholder="CVV" src="${IF_VER ? `https://cdn.cardknox.com/ifields/${IF_VER}/ifield.htm` : 'about:blank'}" title="cvv"></iframe></label></div>
         <input type="hidden" data-ifields-id="card-number-token" name="xCardNum"><input type="hidden" data-ifields-id="cvv-token" name="xCVV">
         <label data-ifields-id="card-data-error" class="cp-err"></label>
       </div>
       ${c.fee ? `<label class="cp-chk"><input type="checkbox" name="fee"${F.fee ? ' checked' : ''}> ${h(T0.fee(money(feeOf(totalOf().base) || 0)))}</label>` : ''}
-      <label class="cp-chk"><input type="checkbox" name="anon"${F.anon ? ' checked' : ''}> ${h(T0.anon)}</label>
+      ${c.donors_mode === 'none' ? '' : `<label class="cp-chk"><input type="checkbox" name="anon"${F.anon ? ' checked' : ''}> ${h(T0.anon)}</label>`}
       <input name="website" class="cp-hp" tabindex="-1" autocomplete="off" aria-hidden="true" style="left:0;top:0;pointer-events:none">
       <p class="cp-msg" role="alert"></p>
       <button type="submit" class="pb-btn gold cp-pay">${h(F.monthly && !F.pkg ? T0.payM(money(totalOf().total)) : T0.pay(money(totalOf().total)))}</button>
@@ -291,10 +324,9 @@ function wire() {
   const keep = lsGet('donor') || {};
   ['first', 'last', 'phone', 'email'].forEach((k) => { if (form[k] && keep[k]) form[k].value = keep[k]; });
   const rerender = () => {
-    const vals = {}; ['first', 'last', 'phone', 'email', 'dedText', 'exp'].forEach((k) => { if (form[k]) vals[k] = form[k].value; });
-    const dt = form.dedType?.selectedIndex || 0;
+    const vals = {}; ['first', 'last', 'phone', 'email', 'exp', 'd_name', 'd_bn', 'd_father', 'd_mother', 'd_day', 'd_month', 'd_note'].forEach((k) => { if (form[k]) vals[k] = form[k].value; });
     render();
-    const f2 = $('#cp-form form'); Object.entries(vals).forEach(([k, v]) => { if (f2[k]) f2[k].value = v; }); if (f2.dedType) f2.dedType.selectedIndex = dt;
+    const f2 = $('#cp-form form'); Object.entries(vals).forEach(([k, v]) => { if (f2[k]) f2[k].value = v; });
     setupIfields();
   };
   $$('[data-pkg]').forEach((b) => { b.onclick = () => {
@@ -310,6 +342,8 @@ function wire() {
   if (form.custom) form.custom.onchange = () => { F.preset = ''; F.amount = Math.max(0, Number(form.custom.value) || 0); rerender(); };
   if (form.months) form.months.onchange = () => { F.preset = ''; F.months = Number(form.months.value) || 0; rerender(); };
   if (form.fee) form.fee.onchange = () => { F.fee = form.fee.checked; rerender(); };
+  const ded = $('.cp-ded', form);
+  if (ded) { ded.ontoggle = () => { F.dedOpen = ded.open; }; form.dedType.onchange = () => { F.dedT = form.dedType.value; ded.dataset.t = F.dedT; }; }
   if (form.anon) form.anon.onchange = () => { F.anon = form.anon.checked; };
   if (form.exp) form.exp.oninput = () => { let v = form.exp.value.replace(/\D/g, '').slice(0, 4); if (v.length > 2) v = `${v.slice(0, 2)}/${v.slice(2)}`; form.exp.value = v; };
   form.onsubmit = (e) => { e.preventDefault(); pay(form); };
@@ -333,7 +367,7 @@ function pay(form) {
     try {
       const j = await guard({ action: 'webDonate', c: SLUG, amount: base, pkg: F.pkg, monthly: F.monthly && !F.pkg, months: F.months, fee: !!(DATA.campaign.fee && F.fee), anon: F.anon,
         first: form.first.value.trim(), last: form.last.value.trim(), phone: form.phone.value.trim(), email: form.email.value.trim(),
-        dedType: form.dedType.value, dedText: form.dedText.value.trim(), card, cvv, exp, website: form.website.value, lang: LANG });
+        dedType: dedOf(form).type, dedText: dedOf(form).text, card, cvv, exp, website: form.website.value, lang: LANG });
       if (j.error) return fail(j.error, j.error === 'declined' ? j.msg : '');
       $('#cp-form').innerHTML = `<h2 class="cp-h">${h(T0.thanks)}</h2><p>${h(T0.thanksTxt(money(j.amount), j.last4 || ''))}</p>
         ${j.monthly ? `<p>${h(j.sched ? T0.thanksM : T0.schedErr)}</p>` : ''}
@@ -364,7 +398,18 @@ async function load() {
   }
 }
 
+const FORM_CSS = `.cp-ded{margin:6px 0 10px;border:1px solid #e8dcc4;border-radius:10px;padding:8px 12px;background:#fffdf8}
+.cp-ded summary{cursor:pointer;font-weight:600;color:#7a1219;padding:2px 0}
+.cp-ded[open] summary{margin-bottom:8px}.cp-ded select,.cp-ded input{margin-bottom:8px;width:100%}
+.cp-ded .cp-dedf{display:none}.cp-ded .cp-row{gap:8px}
+.cp-ded[data-t="0"] [data-for~="0"],.cp-ded[data-t="1"] [data-for~="1"],.cp-ded[data-t="2"] [data-for~="2"]{display:block}
+.cp-ded[data-t="0"] .cp-row[data-for~="0"],.cp-ded[data-t="1"] .cp-row[data-for~="1"],.cp-ded[data-t="2"] .cp-row[data-for~="2"]{display:flex}
+.cp-ded .cp-row > input[data-for]{display:none}.cp-ded[data-t="0"] input[data-for="0"],.cp-ded[data-t="2"] input[data-for="2"]{display:block}
+.cp-ded .cp-row select[name=d_bn]{flex:0 0 90px}
+body.cp-both .cp-amts input[name=custom]{border:2px solid #c9a23f}
+.cp-card .cp-l{margin-top:0}`;
 export function startCampaign() {
+  if (!document.getElementById('cp-form-css')) { const st = document.createElement('style'); st.id = 'cp-form-css'; st.textContent = FORM_CSS; document.head.appendChild(st); }
   const qs = new URLSearchParams(location.search);
   SLUG = (qs.get('c') || '').trim().toLowerCase();
   SCREEN = qs.get('screen') === '1' && !!SLUG;
