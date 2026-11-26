@@ -551,7 +551,7 @@ body.cp-both .cp-amts input[name=custom]{border:2px solid #c9a23f}
 .cp-ysg.cp-gold{background:linear-gradient(135deg,#fffaf0,#f8ebc8);border-color:#dcc07a}
 .cp-ysg.cp-silver{background:linear-gradient(135deg,#fbfbfc,#eceff3);border-color:#c9ced6}
 .cp-ysp{text-align:center}.cp-ysp>span{white-space:nowrap;margin:0 4px}
-.cp-yso{display:flex;gap:6px}.cp-yso button{flex:1;border:1px solid #c9a23f;background:#fff;border-radius:9px;padding:7px 4px;font:inherit;font-weight:700;font-size:15px;color:#5a1010;cursor:pointer}.cp-yso button.on{background:#7a1219;color:#fff;border-color:#7a1219}
+.cp-yso{display:flex;flex-direction:column;gap:6px}.cp-yso button{flex:1;border:1px solid #c9a23f;background:#fff;border-radius:9px;padding:7px 4px;font:inherit;font-weight:700;font-size:15px;color:#5a1010;cursor:pointer}.cp-yso button.on{background:#7a1219;color:#fff;border-color:#7a1219}
 .cp-ysg{container-type:inline-size}.cp-yss{display:flex;flex-direction:column;gap:5px;min-width:0}
 .cp-ys-h{text-align:center;font-size:1.2em}.cp-ys-c{text-align:center}.cp-ys-c span{white-space:nowrap}
 .cp-ysmir{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;row-gap:6px;align-items:start;background:linear-gradient(#d8cdb5,#d8cdb5) center top/1px 100% no-repeat}
