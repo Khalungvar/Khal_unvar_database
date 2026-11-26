@@ -17,7 +17,7 @@
   "title_en": "Ungvar Kollelim",
   "sub_yi": "חנוכה תשפ\"ז",
   "sub_en": "Chanukah 5787",
-  "desc_yi": "ימי החנוכה זענען די צייט צו אויסהאלטן לומדי התורה. ווי עס ווערט גע’פסק’נט להלכה און מבואר בספה”ק די סגולה.\nאין די יעצטיגע טעג פון חנוכה גייען מיר ארויס מיט א וויכטיגע קאמפיין, כדי מיר זאלן קענען ווייטער אנגיין מיט די עבודת הקודש און אויסהאלטן די כוללים ולהגדיל תורה ולהאדירה.\nב”ה אונזער מבצר הכוללים שטייט פעסט,\nמיט קע”ה 132 אברכים מצויינים\nוואס הארעווען על התורה דורך אויס די טאג\nחבורות לומדים הלכה למעשה, מקצועות ,להוראה.\nחבורות לומדים גמרא בעיון, סוגיות, בקיאות.",
+  "desc_yi": "",
   "desc_en": "",
   "image": "img/orhatorah-logo.webp#logo",
   "goal": "",
@@ -27,97 +27,77 @@
   "fee": true,
   "org": "קהל אונגוואר",
   "end_date": "2026-12-19",
-  "packages": [
-   {
-    "id": "all-y",
-    "name_he": "כל הסדרים – שנה שלמה",
-    "name_yi": "אלע סדרים – א גאנץ יאר",
-    "name_en": "All sedorim – full year",
-    "amount": 18000,
-    "note_he": "תשלום אחד",
-    "note_yi": "איינמאל",
-    "note_en": "One payment",
-    "head_he": "החזק אברך אחד",
-    "head_yi": "האלט אויס איין אינגערמאן",
-    "head_en": "Sponsor one Yungerman"
-   },
-   {
-    "id": "all-y-12",
-    "name_he": "כל הסדרים – שנה שלמה",
-    "name_yi": "אלע סדרים – א גאנץ יאר",
-    "name_en": "All sedorim – full year",
-    "amount": 1500,
-    "note_he": "12 תשלומים חודשיים",
-    "note_yi": "12 חודשליכע צאלונגען",
-    "note_en": "12 monthly payments",
-    "months": 12
-   },
-   {
-    "id": "all-m",
-    "name_he": "כל הסדרים – חודש אחד",
-    "name_yi": "אלע סדרים – איין חודש",
-    "name_en": "All sedorim – one month",
-    "amount": 1500,
-    "note_he": "תשלום אחד",
-    "note_yi": "איינמאל",
-    "note_en": "One payment"
-   },
-   {
-    "id": "all-m-12",
-    "name_he": "כל הסדרים – חודש אחד",
-    "name_yi": "אלע סדרים – איין חודש",
-    "name_en": "All sedorim – one month",
-    "amount": 125,
-    "note_he": "12 תשלומים חודשיים",
-    "note_yi": "12 חודשליכע צאלונגען",
-    "note_en": "12 monthly payments",
-    "months": 12
-   },
-   {
-    "id": "am-m",
-    "name_he": "סדר בוקר/צהריים – חודש אחד",
-    "name_yi": "סדר בוקר/צהריים – איין חודש",
-    "name_en": "Morning/afternoon seder – one month",
-    "amount": 700,
-    "note_he": "תשלום אחד",
-    "note_yi": "איינמאל",
-    "note_en": "One payment"
-   },
-   {
-    "id": "am-m-12",
-    "name_he": "סדר בוקר/צהריים – חודש אחד",
-    "name_yi": "סדר בוקר/צהריים – איין חודש",
-    "name_en": "Morning/afternoon seder – one month",
-    "amount": 58,
-    "note_he": "12 תשלומים חודשיים",
-    "note_yi": "12 חודשליכע צאלונגען",
-    "note_en": "12 monthly payments",
-    "months": 12
-   },
-   {
-    "id": "pm-m",
-    "name_he": "סדר לפנות בוקר/ערב – חודש אחד",
-    "name_yi": "סדר לפנות בוקר/ערב – איין חודש",
-    "name_en": "Early-morning/evening seder – one month",
-    "amount": 360,
-    "note_he": "תשלום אחד",
-    "note_yi": "איינמאל",
-    "note_en": "One payment"
-   },
-   {
-    "id": "pm-m-12",
-    "name_he": "סדר לפנות בוקר/ערב – חודש אחד",
-    "name_yi": "סדר לפנות בוקר/ערב – איין חודש",
-    "name_en": "Early-morning/evening seder – one month",
-    "amount": 30,
-    "note_he": "12 תשלומים חודשיים",
-    "note_yi": "12 חודשליכע צאלונגען",
-    "note_en": "12 monthly payments",
-    "months": 12
-   }
-  ],
+  "packages": [],
   "match": null,
-  "event_date": ""
+  "event_date": "",
+  "ys": {
+   "head_yi": "שותפות יששכר וזבולון",
+   "head_en": "Yissachar–Zevulun Partnership",
+   "sub_yi": "האלט אויס אן אינגערמאן",
+   "sub_en": "Sponsor a Yungerman",
+   "lbl": {
+    "year_yi": "שנה שלימה",
+    "year_en": "Full year",
+    "month_yi": "חודש",
+    "month_en": "Month",
+    "pick_yi": "אדער קלייבט אויס חדשים:",
+    "pick_en": "or choose months:",
+    "payments_yi": "צאלונגען",
+    "payments_en": "Payments",
+    "once_yi": "איינמאל",
+    "once_en": "One payment",
+    "day_yi": "יעדן חודש דעם",
+    "day_en": "Charge on day",
+    "firstNow_yi": "די ערשטע צאלונג גייט היינט, די איבריגע יעדן חודש אינעם אויסגעקליבענעם טאג.",
+    "firstNow_en": "First payment today; the rest monthly on the chosen day."
+   },
+   "groups": [
+    {
+     "id": "day",
+     "name_yi": "יום שלם – אלע סדרים",
+     "name_en": "Full day – all sedorim",
+     "month": 1400
+    },
+    {
+     "id": "am",
+     "name_yi": "סדר לפני / אחרי צהריים",
+     "name_en": "Morning or afternoon seder",
+     "month": 700
+    },
+    {
+     "id": "pm",
+     "name_yi": "סדר לפנות בוקר / ערב",
+     "name_en": "Early-morning or evening seder",
+     "month": 360
+    }
+   ],
+   "months": [
+    "טבת",
+    "שבט",
+    "אדר א'",
+    "אדר ב'",
+    "ניסן",
+    "אייר",
+    "סיון",
+    "תמוז",
+    "אב",
+    "אלול"
+   ]
+  },
+  "letters": [
+   {
+    "src": "img/orhatorah-letter-1.webp",
+    "alt": "בקשת והבטחת כ\"ק מרן אדמו\"ר זצוקללה\"ה",
+    "w": 1065,
+    "h": 1000
+   },
+   {
+    "src": "img/orhatorah-letter-2.webp",
+    "alt": "מכתב בקשה מאת כ\"ק מרן אדמו\"ר שליט\"א",
+    "w": 1080,
+    "h": 840
+   }
+  ]
  },
  "items": [
   {
