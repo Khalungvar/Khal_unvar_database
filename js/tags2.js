@@ -41,6 +41,8 @@ const TX = {
   tr: ['תלמידי רבותינו', 'תלמידי רבותינו', 'Talmidim'],
   parent: ['הורה לתלמיד', 'הורה לתלמיד', 'Parent of a talmid'],
   addParent: ['+ הורה לתלמיד', '+ הורה לתלמיד', '+ parent of a talmid'],
+  parentsBtn: ['עלטערן', 'הורים', 'Parents'],
+  wedding: ['שמחת בית אונגוואר', 'שמחת בית אונגוואר', 'Simchas Bais Ungvar'],
   child: ['וועלכעס קינד?', 'איזה ילד?', 'Which child?'],
   noKids: ['קיין קינדער אין משפחה-לשונית. לייגט צו דאס קינד דארט.', 'אין ילדים בלשונית המשפחה. הוסיפו את הילד שם.', 'No children in the family tab — add the child there first.'],
   family: ['משפחה', 'משפחה', 'Family'], friend: ['ידיד', 'ידיד', 'Friend'],
@@ -539,6 +541,8 @@ export const bigDonor = (c) => donorInfo(c).sum >= BIG_DONOR;
 
 /** שם קצר של מפתח תגית ("1>o:ביהמ\"ד בארא פארק>301" → "בארא פארק · שבת קבוע") */
 export function t2KeyLabel(key) {
+  if (key === '_wl') return tx('wedding');
+  if (String(key).endsWith('>par')) return `${t2KeyLabel(String(key).slice(0, -4))} · ${tx('parentsBtn')}`;
   const p = String(key).split('>');
   const [r] = p;
   if (r === NAGID && p.length === 1) return tx('nagid');
@@ -548,11 +552,12 @@ export function t2KeyLabel(key) {
 }
 
 /** 🏷 בחירת תגיות בסגנון הכרטיס (3 טורים) – לרשימות, לסינון ולעריכה קבוצתית.
- *  attr = שם התכונה של התיבות (למשל data-ik); הערך = המפתח (נתיב בעץ, עם >) */
-export function t2PickHtml(keys, attr) {
+ *  attr = שם התכונה של התיבות (למשל data-ik); הערך = המפתח (נתיב בעץ, עם >)
+ *  opt.parents: ליד "צוות/תלמיד" גם "הורים" (מפתח ...>par — ההורים של התלמידים; רק לרשימות, לא נשמר על אנשים) */
+export function t2PickHtml(keys, attr, opt = {}) {
   const K = new Set(keys || []);
   const cb = (key, label, cls = '') => `<label class="t2p-c${cls}${K.has(key) ? ' on' : ''}"><input type="checkbox" ${attr}="${h(key)}"${K.has(key) ? ' checked' : ''}> ${h(label)}</label>`;
-  const box = (root, o, lv, title) => `<div class="t2p-org">${cb(`${root}>o:${o}`, title, ' t2p-ob')}<div class="t2p-lv">${lv.map((id) => cb(`${root}>o:${o}>${id}`, lvName(id))).join('')}</div></div>`;
+  const box = (root, o, lv, title) => `<div class="t2p-org">${cb(`${root}>o:${o}`, title, ' t2p-ob')}<div class="t2p-lv">${lv.map((id) => cb(`${root}>o:${o}>${id}`, lvName(id))).join('')}${opt.parents && root === YK ? cb(`${root}>o:${o}>par`, tx('parentsBtn')) : ''}</div></div>`;
   const sub = (title, inner) => (inner ? `<div class="t2p-sub"><b>${h(title)}</b>${inner}</div>` : '');
   const c1 = bmOrgs().map((o) => box(BM, o, BM_LV, short(o))).join('');
   const c2 = sub(tx('yeshivos'), yOrgs().map((o) => box(YK, o, YK_LV, o)).join(''))
@@ -562,6 +567,6 @@ export function t2PickHtml(keys, attr) {
   const c3 = sub(tx('family'), `<div class="t2p-lv">${FAM_BTN.filter((id) => !lvName(id).startsWith('#')).map((id) => cb(`${FAM}>${id}`, lvName(id))).join('')}${cb(FRIEND, tx('friend'))}</div>`)
     + sub(tx('rabbonim'), `<div class="t2p-lv">${cb(RB, tx('rabbonim'), ' t2p-ob')}${RB_LV.map((id) => cb(`${RB}>${id}`, lvName(id))).join('')}</div>`)
     + sub(tx('nagid'), `<div class="t2p-lv">${cb(NAGID, tx('nagid'))}</div>`)
-    + sub(tx('lists'), `<div class="t2p-lv">${cb(`${CH}>o:${NESHEI_ORG}`, tx('neshei'))}${cb(`${LISTS}>${LUACH}`, tx('luach'))}</div>`);
+    + sub(tx('lists'), `<div class="t2p-lv">${cb(`${CH}>o:${NESHEI_ORG}`, tx('neshei'))}${cb(`${LISTS}>${LUACH}`, tx('luach'))}${opt.parents ? cb('_wl', tx('wedding')) : ''}</div>`);
   return `<div class="t2p"><div class="t2p-col"><h4>${h(tx('c1'))}</h4>${c1}</div><div class="t2p-col"><h4>${h(tx('c2'))}</h4>${c2}</div><div class="t2p-col"><h4>${h(tx('c3'))}</h4>${c3}</div></div>`;
 }
