@@ -1746,6 +1746,7 @@ function printDialog(which = 'draft') {
       <label class="check"><input type="radio" name="wrpd" value="one"${which === 'one' ? ' checked' : ''}${c ? '' : ' disabled'}> ${h(t('wrPdOne'))}${c ? ` — ${h(nameOf(c))}` : ''}</label>
       <label class="check"><input type="radio" name="wrpd" value="all"${which === 'all' ? ' checked' : ''}${outAll().length ? '' : ' disabled'}> ${h(t('wrPdAll', { n: outAll().length }))}${skipN() ? ` <span class="muted small">(${h(L3([`${skipN()} מיט פראבלעמען — איבערגעהיפט`, `${skipN()} עם בעיות — דולגו`, `${skipN()} with problems — skipped`]))})</span>` : ''}</label>
       <div class="mx-range wr-pd-range">${h(t('mxRange'))} <input type="number" id="mx-from" min="1" value="1"> – <input type="number" id="mx-to" min="1" value="${outAll().length || 1}"></div>
+      <div class="mx-redwarn" id="wrpd-rangewarn" hidden></div>
       ${red && !D.skipProbs ? `<div class="mx-redwarn">⚠ ${h(t('mxRedWarn'))}</div>` : ''}
       ${D.ltr.rcSlot ? `<p class="mx-pending small">🧾 ${h(t('wrRcFromReceipts'))} <button type="button" class="btn small-btn" id="wrpd-rc">${h(t('wrOpenReceipts'))}</button></p>` : ''}
       ${D.ltr.page && D.ltr.page !== 'letter' ? `<p class="muted small">📄 ${h(t('wrPdPaper', { size: letterDims(D).join('" × ') }))}"</p>` : ''}
@@ -1757,7 +1758,18 @@ function printDialog(which = 'draft') {
       ${D.ltr.pairEnv ? `<button type="button" class="btn" id="wrpd-pair">✉+📄 ${h(t('mxPairBtn'))}</button>` : ''}
       <button type="button" class="btn" data-x>${h(t('cancel'))}</button></div>`);
   const what = () => $('input[name=wrpd]:checked', dlg)?.value || 'draft';
-  const sync = () => { $('.wr-pd-range', dlg).hidden = what() !== 'all'; const m = $('#wrpd-mail', dlg); if (m) m.disabled = what() !== 'all'; const p = $('#wrpd-pair', dlg); if (p) p.disabled = what() !== 'all'; };
+  // ⚠ "פון–ביז" נישט אלע — א בולטע ווארענונג
+  const rangeWarn = () => {
+    const wv = $('#wrpd-rangewarn', dlg); if (!wv) return;
+    const tot = outAll().length;
+    const from = Math.max(1, Number($('#mx-from', dlg).value) || 1);
+    const to = Math.min(tot, Number($('#mx-to', dlg).value) || tot);
+    const n = Math.max(0, to - from + 1);
+    wv.hidden = what() !== 'all' || n >= tot;
+    wv.textContent = `⚠ ${L3([`עס וועלן ארויסגיין נאר ${n} פון ${tot}`, `ייצאו רק ${n} מתוך ${tot}`, `Only ${n} of ${tot} will be output`])}`;
+  };
+  $$('#mx-from, #mx-to', dlg).forEach((x) => { x.addEventListener('input', rangeWarn); });
+  const sync = () => { rangeWarn(); $('.wr-pd-range', dlg).hidden = what() !== 'all'; const m = $('#wrpd-mail', dlg); if (m) m.disabled = what() !== 'all'; const p = $('#wrpd-pair', dlg); if (p) p.disabled = what() !== 'all'; };
   $$('input[name=wrpd]', dlg).forEach((r) => { r.onchange = sync; });
   sync();
   const run = async (how) => {
