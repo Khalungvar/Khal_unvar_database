@@ -3229,6 +3229,13 @@ function wcStats_(campaign, mode, packages) {
 }
 function wcClean_(v, n) { v = String(v || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, n); return /^[=+\-@]/.test(v) ? "'" + v : v; }
 /** תרומה מהאתר: cc:Sale ב-Sola, ואם חודשי — CreateSchedule (מהחודש הבא). נרשם ב-Donations + WebDonations. */
+/** התאריך הבא שבו יום החודש = day, לפחות שבוע מהיום (התשלום הראשון יורד מיד) */
+function wcNextDay_(day) {
+  const t = new Date(); const min = new Date(t.getTime() + 7 * 864e5);
+  let d = new Date(t.getFullYear(), t.getMonth(), day);
+  while (d < min) d = new Date(d.getFullYear(), d.getMonth() + 1, day);
+  return d;
+}
 function webDonate_(req) {
   if (S(req.website)) return { ok: true }; // הוניג-טאפ
   const props = PropertiesService.getScriptProperties();
@@ -3246,6 +3253,8 @@ function webDonate_(req) {
   const total = Math.round((base + fee) * 100) / 100;
   const monthly = p.monthly && req.monthly === true && !pkg;
   const months = Math.max(0, Math.min(120, Math.floor(Number(req.months) || 0)));
+  const day = Math.max(0, Math.min(28, Math.floor(Number(req.day) || 0))); // יום החיוב בחודש (הוראת קבע)
+  const sel = wcClean_(req.sel, 120); // מה נבחר (שותפות: קבוצה + שנה/חודשים)
   const first = wcClean_(req.first, 40), last = wcClean_(req.last, 40);
   if (!first || !last) return { error: 'need-name' };
   let ph = S(req.phone).replace(/\D/g, ''); if (ph.length === 11 && ph.charAt(0) === '1') ph = ph.slice(1);
@@ -3273,9 +3282,9 @@ function webDonate_(req) {
   const last4 = S(r.xMaskedCardNumber).replace(/\D/g, '').slice(-4);
   let sched = '', schedErr = '';
   if (monthly && S(r.xToken)) {
-    const d = new Date(); d.setMonth(d.getMonth() + 1);
+    const d = day ? wcNextDay_(day) : (function () { const x = new Date(); x.setMonth(x.getMonth() + 1); return x; })();
     const body = { SoftwareName: WC_SW[0], SoftwareVersion: WC_SW[1], IntervalType: 'month', IntervalCount: 1, Amount: Number(total.toFixed(2)),
-      StartDate: Utilities.formatDate(d, 'America/New_York', 'yyyy-MM-dd'), Description: S(o.campaign).slice(0, 100), CustReceipt: !!email, Invoice: inv + 'M',
+      StartDate: Utilities.formatDate(d, 'America/New_York', 'yyyy-MM-dd'), Description: (S(o.campaign) + (sel ? ' · ' + sel : '')).slice(0, 100), CustReceipt: !!email, Invoice: inv + 'M',
       NewCustomer: { BillFirstName: first, BillLastName: last, Email: email, BillMobile: ph, CustomerNotes: 'ungvar.org ' + slug },
       NewPaymentMethod: { Token: S(r.xToken), TokenType: 'cc' } };
     if (months > 1) body.TotalPayments = months - 1;
@@ -3284,7 +3293,7 @@ function webDonate_(req) {
       if (S(s2.Result) === 'S') sched = S(s2.ScheduleId); else schedErr = S(s2.Error).slice(0, 120) || 'schedule-failed';
     } catch (err) { schedErr = String(err).slice(0, 120); }
   }
-  try { wcRecord_(o, p, { total: total, base: base, fee: fee, first: first, last: last, phone: ph, email: email, last4: last4, ref: S(r.xRefNum), inv: inv, pkg: pkg, anon: req.anon === true, monthly: monthly, months: months, sched: sched, schedErr: schedErr, dedType: wcClean_(req.dedType, 20), dedText: wcClean_(req.dedText, 120), lang: S(req.lang).slice(0, 2) }); }
+  try { wcRecord_(o, p, { total: total, base: base, fee: fee, first: first, last: last, phone: ph, email: email, last4: last4, ref: S(r.xRefNum), inv: inv, pkg: pkg, anon: req.anon === true, monthly: monthly, months: months, day: day, sel: sel, sched: sched, schedErr: schedErr, dedType: wcClean_(req.dedType, 20), dedText: wcClean_(req.dedText, 120), lang: S(req.lang).slice(0, 2) }); }
   catch (err) { Logger.log('webDonate record ' + err); }
   try { cache.removeAll(['webcamp:' + slug, 'webcamp:' + slug + ':p', 'webcamp:*']); } catch (e) { /* */ }
   return { ok: true, ref: S(r.xRefNum), amount: total, last4: last4, monthly: monthly, sched: !!sched, schedErr: schedErr ? true : false };
@@ -3316,7 +3325,7 @@ function wcRecord_(o, p, d) {
     const today = Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd');
     const ym = /(תש\S*)\s*$/.exec(S(o.campaign));
     const tags = (d.anon ? ' [anon]' : '') + (d.monthly ? ' [monthly]' : '') + (d.pkg ? ' [pkg:' + S(d.pkg.id) + ']' : '');
-    const note = 'אתר ungvar.org' + (d.pkg ? ' · ' + S(d.pkg.name_he || d.pkg.name_en) : '') + (d.monthly ? ' · הוראת קבע' + (d.months ? ' ' + d.months + ' חודשים' : '') : '') + (cid ? '' : ' · ' + [d.phone, d.email].filter(String).join(' ')) + tags;
+    const note = 'אתר ungvar.org' + (d.sel ? ' · ' + d.sel : '') + (d.pkg ? ' · ' + S(d.pkg.name_he || d.pkg.name_en) : '') + (d.monthly ? ' · הוראת קבע' + (d.months ? ' ' + d.months + ' חודשים' : '') + (d.day ? ' ב-' + d.day + ' לחודש' : '') : '') + (cid ? '' : ' · ' + [d.phone, d.email].filter(String).join(' ')) + tags;
     const rec = { donation_id: String(nid), contact_id: cid, date: today, event_year: ym ? ym[1] : '', event_note: note, amount_usd: d.total, is_paid: 'TRUE', paid_date: today,
       payment_method: 'כרטיס אשראי', card_last4: d.last4, payment_note: 'Sola ' + d.ref + (d.fee ? ' · כולל עמלה $' + d.fee : '') + (d.sched ? ' · Schedule ' + d.sched : '') + (d.schedErr ? ' · ⚠ הוראת קבע לא נוצרה' : ''),
       dedication_type: d.dedText ? d.dedType : '', dedication_text: d.dedText, created_at: now(), created_by: 'ungvar.org', updated_at: now(), updated_by: 'ungvar.org',
@@ -3325,7 +3334,7 @@ function wcRecord_(o, p, d) {
     let wsh = book.getSheetByName('WebDonations');
     const WH = ['at', 'donation_id', 'contact_id', 'slug', 'campaign', 'amount', 'fee', 'first', 'last', 'phone', 'email', 'last4', 'ref', 'invoice', 'package', 'monthly', 'months', 'schedule', 'schedule_error', 'dedication', 'anon', 'lang'];
     if (!wsh) { wsh = book.insertSheet('WebDonations'); wsh.getRange(1, 1, 1, WH.length).setValues([WH]); wsh.setFrozenRows(1); }
-    wsh.appendRow([now(), String(nid), cid, S(o.slug), S(o.campaign), d.total, d.fee, d.first, d.last, d.phone, d.email, d.last4, d.ref, d.inv, d.pkg ? S(d.pkg.id) : '', d.monthly ? 'TRUE' : '', d.months || '', d.sched, d.schedErr, [d.dedType, d.dedText].filter(String).join(' '), d.anon ? 'TRUE' : '', d.lang]);
+    wsh.appendRow([now(), String(nid), cid, S(o.slug), S(o.campaign), d.total, d.fee, d.first, d.last, d.phone, d.email, d.last4, d.ref, d.inv, d.pkg ? S(d.pkg.id) : (d.sel || ''), d.monthly ? 'TRUE' : '', d.months || '', d.sched, d.schedErr, [d.dedType, d.dedText].filter(String).join(' '), d.anon ? 'TRUE' : '', d.lang]);
   } finally { lock.releaseLock(); }
 }
 
