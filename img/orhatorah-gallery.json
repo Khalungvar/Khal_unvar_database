@@ -56,19 +56,30 @@
      "id": "day",
      "name_yi": "יום שלם – אלע סדרים",
      "name_en": "Full day – all sedorim",
-     "month": 1400
+     "month": 1400,
+     "tone": "gold"
     },
     {
      "id": "am",
      "name_yi": "סדר לפני / אחרי צהריים",
      "name_en": "Morning or afternoon seder",
-     "month": 700
+     "month": 700,
+     "tone": "silver",
+     "opts": [
+      "סדר לפני צהריים",
+      "סדר אחר הצהריים"
+     ]
     },
     {
      "id": "pm",
      "name_yi": "סדר לפנות בוקר / ערב",
      "name_en": "Early-morning or evening seder",
-     "month": 360
+     "month": 360,
+     "tone": "silver",
+     "opts": [
+      "סדר לפנות בוקר",
+      "סדר ערב"
+     ]
     }
    ],
    "months": [
@@ -81,7 +92,25 @@
     "סיון",
     "תמוז",
     "אב",
-    "אלול"
+    "אלול",
+    "תשרי",
+    "חשון",
+    "כסליו"
+   ],
+   "months_en": [
+    "Teves",
+    "Shevat",
+    "Adar I",
+    "Adar II",
+    "Nissan",
+    "Iyar",
+    "Sivan",
+    "Tammuz",
+    "Av",
+    "Elul",
+    "Tishrei",
+    "Cheshvan",
+    "Kislev"
    ]
   },
   "letters": [
@@ -97,7 +126,24 @@
     "w": 1080,
     "h": 840
    }
-  ]
+  ],
+  "phone_box": {
+   "head_yi": "שטיצט די לומדי התורה!",
+   "line_yi": "אויטאמאטישע טעלעפאן ליין 24/6:",
+   "num": "845.609.0400",
+   "en": [
+    "Automated Line 24/6",
+    "All Major CC Accepted",
+    "Receipts Available"
+   ]
+  },
+  "checks": {
+   "payee": "Kollel Ungvar",
+   "addr": [
+    "1578 53rd Street",
+    "Brooklyn, NY 11219"
+   ]
+  }
  },
  "items": [
   {
