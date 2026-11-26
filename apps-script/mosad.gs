@@ -3346,7 +3346,7 @@ function wcRecord_(o, p, d) {
 //    מפתח: Script Properties → TW_LINE_KEY (אותו מפתח במשתני הסביבה של הפונקציה ב-Twilio).
 // =====================================================================================
 function twDonation_(req) {
-  const props = PropertiesService.getScriptProperties();
+  let props = PropertiesService.getScriptProperties();
   const key = S(props.getProperty('TW_LINE_KEY'));
   if (!key || S(req.k) !== key) return { error: 'no' };
   const call = S(req.call).replace(/[^A-Za-z0-9]/g, '').slice(0, 40);
@@ -3369,7 +3369,13 @@ function twDonation_(req) {
     return { ok: true, id: id };
   }
   if (req.stage === 'rec') {
-    const info = JSON.parse(props.getProperty(pk) || 'null');
+    let info = JSON.parse(props.getProperty(pk) || 'null');
+    // ההקלטה יכולה להגיע לפני שהתרומה נרשמה (השומר איטי) — מחכים, ואם אין בכלל → רושמים מהנתונים שבאו עם ההקלטה
+    for (let w = 0; !info && w < 6; w++) {
+      if (w === 0 && req.paid && Number(req.paid.amount) >= 1 && !CacheService.getScriptCache().get('twpay:' + call)) twDonation_({ k: req.k, c: req.c, call: call, stage: 'paid', amount: req.paid.amount, conf: req.paid.conf, last4: req.paid.last4, from: req.paid.from });
+      else Utilities.sleep(4000);
+      props = PropertiesService.getScriptProperties(); info = JSON.parse(props.getProperty(pk) || 'null');
+    }
     if (!info) return { error: 'no-donation' };
     const audio = S(req.audio); if (!audio || audio.length > 4000000) return { error: 'bad-audio' };
     const mime = /^audio\/[a-z0-9.\-]+$/i.test(S(req.mime)) ? S(req.mime) : 'audio/mpeg';
