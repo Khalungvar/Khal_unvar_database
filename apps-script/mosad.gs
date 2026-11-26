@@ -191,6 +191,7 @@ function doPost(e) {
     if (req.action === 'webBooks') return out(webBooks_()); // 🌐 ungvar.org: ספרים ומחירים (בלי כניסה)
     if (req.action === 'webCampaign') return out(webCampaign_(req)); // 🌐 ungvar.org: דף קמפיין (בלי כניסה)
     if (req.action === 'webDonate') return out(webDonate_(req)); // 🌐 ungvar.org: תרומה בכרטיס דרך Sola (בלי כניסה)
+    if (req.action === 'twDonation') return out(twDonation_(req)); // ☎ קו התרומות הטלפוני (Twilio) — עם מפתח
     if (KPUB[req.action]) { const KM = mosadOf(req.mosad); if (!KM) return out({ error: 'no-mosad' }); return out(KPUB[req.action](KM, req)); } // 🍳 דף המטבח (סיסמה, אן גוגל)
     if (PUBLIC[req.action]) { const PM = mosadOf(req.mosad); if (!PM) return out({ error: 'no-mosad' }); return out(PUBLIC[req.action](PM, req)); } // דער טופס רישום (אן לאגאין)
     const email = whoIs(req.token);
@@ -3220,7 +3221,7 @@ function wcStats_(campaign, mode, packages) {
     return { he: [S(c[ci('title_he')]), S(c[ci('first_name_he')]), S(c[ci('last_name_he')])].filter(String).join(' '), en: [S(c[ci('title_en')]), S(c[ci('first_name_en')]), S(c[ci('last_name_en')])].filter(String).join(' ') };
   };
   out.recent = mine.slice().sort(function (a, b) { return S(b[iCr]).localeCompare(S(a[iCr])); }).slice(0, 30).map(function (r) {
-    const anon = /\[anon\]/.test(S(r[iNote]));
+    const anon = /\[anon\]/.test(S(r[iNote])) || (/\[phone\]/.test(S(r[iNote])) && !cs[S(r[iId])]); // טלפון בלי איש קשר מזוהה → אנונימי (השם מתמלול)
     const nm = anon ? { he: '', en: '' } : name(r);
     return { he: nm.he, en: nm.en, anon: anon, amount: mode === 'names' ? null : Number(r[iA]) || 0, ded: '', monthly: /\[monthly\]/.test(S(r[iNote])) };
   });
@@ -3323,18 +3324,86 @@ function wcRecord_(o, p, d) {
     const nid = Math.max.apply(null, [0].concat(ids)) + 1;
     const today = Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd');
     const ym = /(תש\S*)\s*$/.exec(S(o.campaign));
-    const tags = (d.anon ? ' [anon]' : '') + (d.monthly ? ' [monthly]' : '') + (d.pkg ? ' [pkg:' + S(d.pkg.id) + ']' : '');
-    const note = 'אתר ungvar.org' + (d.sel ? ' · ' + d.sel : '') + (d.pkg ? ' · ' + S(d.pkg.name_he || d.pkg.name_en) : '') + (d.monthly ? ' · הוראת קבע' + (d.months ? ' ' + d.months + ' חודשים' : '') + (d.day ? ' ב-' + d.day + ' לחודש' : '') : '') + (cid ? '' : ' · ' + [d.phone, d.email].filter(String).join(' ')) + tags;
+    const tags = (d.anon ? ' [anon]' : '') + (d.phoneLine ? ' [phone]' : '') + (d.monthly ? ' [monthly]' : '') + (d.pkg ? ' [pkg:' + S(d.pkg.id) + ']' : '');
+    const note = (d.src || 'אתר ungvar.org') + (d.sel ? ' · ' + d.sel : '') + (d.pkg ? ' · ' + S(d.pkg.name_he || d.pkg.name_en) : '') + (d.monthly ? ' · הוראת קבע' + (d.months ? ' ' + d.months + ' חודשים' : '') + (d.day ? ' ב-' + d.day + ' לחודש' : '') : '') + (cid ? '' : ' · ' + [d.phone, d.email].filter(String).join(' ')) + tags;
     const rec = { donation_id: String(nid), contact_id: cid, date: today, event_year: ym ? ym[1] : '', event_note: note, amount_usd: d.total, is_paid: 'TRUE', paid_date: today,
-      payment_method: 'כרטיס אשראי', card_last4: d.last4, payment_note: 'Sola ' + d.ref + (d.fee ? ' · כולל עמלה $' + d.fee : '') + (d.sched ? ' · Schedule ' + d.sched : '') + (d.schedErr ? ' · ⚠ הוראת קבע לא נוצרה' : ''),
-      dedication_type: d.dedText ? d.dedType : '', dedication_text: d.dedText, created_at: now(), created_by: 'ungvar.org', updated_at: now(), updated_by: 'ungvar.org',
+      payment_method: 'כרטיס אשראי', card_last4: d.last4, payment_note: (d.via || 'Sola') + ' ' + d.ref + (d.fee ? ' · כולל עמלה $' + d.fee : '') + (d.sched ? ' · Schedule ' + d.sched : '') + (d.schedErr ? ' · ⚠ הוראת קבע לא נוצרה' : ''),
+      dedication_type: d.dedText ? d.dedType : '', dedication_text: d.dedText, created_at: now(), created_by: d.by || 'ungvar.org', updated_at: now(), updated_by: d.by || 'ungvar.org',
       donor_name: d.first + ' ' + d.last, campaign: S(o.campaign), org: S(o.org) };
     dsh.getRange(lastRow + 1, 1, 1, hd.length).setNumberFormat('@').setValues([hd.map(function (k) { return rec[k] === undefined ? '' : String(rec[k]); })]);
     let wsh = book.getSheetByName('WebDonations');
     const WH = ['at', 'donation_id', 'contact_id', 'slug', 'campaign', 'amount', 'fee', 'first', 'last', 'phone', 'email', 'last4', 'ref', 'invoice', 'package', 'monthly', 'months', 'schedule', 'schedule_error', 'dedication', 'anon', 'lang'];
     if (!wsh) { wsh = book.insertSheet('WebDonations'); wsh.getRange(1, 1, 1, WH.length).setValues([WH]); wsh.setFrozenRows(1); }
     wsh.appendRow([now(), String(nid), cid, S(o.slug), S(o.campaign), d.total, d.fee, d.first, d.last, d.phone, d.email, d.last4, d.ref, d.inv, d.pkg ? S(d.pkg.id) : (d.sel || ''), d.monthly ? 'TRUE' : '', d.months || '', d.sched, d.schedErr, [d.dedType, d.dedText].filter(String).join(' '), d.anon ? 'TRUE' : '', d.lang]);
+    return String(nid);
   } finally { lock.releaseLock(); }
+}
+
+// =====================================================================================
+// ☎ קו התרומות הטלפוני — (845) 609-0400 ב-Twilio (קמפיין אור התורה). הקוד של הקו: twilio/line.js (Twilio Functions).
+//    stage 'paid' = התשלום עבר (Stripe דרך <Pay>) → שורה ב-Donations + WebDonations.
+//    stage 'rec'  = הקלטת השם (+ אימייל לקבלה) → נשמרת בדרייב "מוסדות אונגוואר/קו תרומות טלפוני", Gemini מתמלל, ונרשם ליד התרומה.
+//    מפתח: Script Properties → TW_LINE_KEY (אותו מפתח במשתני הסביבה של הפונקציה ב-Twilio).
+// =====================================================================================
+function twDonation_(req) {
+  const props = PropertiesService.getScriptProperties();
+  const key = S(props.getProperty('TW_LINE_KEY'));
+  if (!key || S(req.k) !== key) return { error: 'no' };
+  const call = S(req.call).replace(/[^A-Za-z0-9]/g, '').slice(0, 40);
+  if (!/^CA/.test(call)) return { error: 'bad-call' };
+  const slug = S(req.c || 'orhatorah').toLowerCase();
+  const o = wcRows_().filter(function (x) { return S(x.slug).toLowerCase() === slug; })[0];
+  if (!o) return { error: 'not-found' };
+  const pk = 'twcall:' + call;
+  if (req.stage === 'paid') {
+    const cache = CacheService.getScriptCache();
+    const had = props.getProperty(pk); if (had) return { ok: true, dup: true, id: JSON.parse(had).id };
+    if (cache.get('twpay:' + call)) return { ok: true, dup: true };
+    cache.put('twpay:' + call, '1', 600);
+    const total = Math.round(Number(req.amount) * 100) / 100;
+    if (!(total >= 1 && total <= 50000)) return { error: 'bad-amount' };
+    let ph = S(req.from).replace(/\D/g, ''); if (ph.length === 11 && ph.charAt(0) === '1') ph = ph.slice(1); if (ph.length !== 10) ph = '';
+    const id = wcRecord_(o, wcPublic_(o), { total: total, base: total, fee: 0, first: 'Phone', last: 'donor', phone: ph, email: '', last4: S(req.last4).replace(/\D/g, '').slice(-4), ref: wcClean_(req.conf, 60), inv: call, pkg: null, anon: false, monthly: false, months: 0, day: 0, sel: '', sched: '', schedErr: '', dedType: '', dedText: '', lang: 'en', via: 'Stripe', src: 'קו טלפון 845-609-0400', by: 'phone line', phoneLine: true });
+    props.setProperty(pk, JSON.stringify({ id: id, at: now() }));
+    try { cache.removeAll(['webcamp:' + slug, 'webcamp:' + slug + ':p', 'webcamp:*']); } catch (e) { /* */ }
+    return { ok: true, id: id };
+  }
+  if (req.stage === 'rec') {
+    const info = JSON.parse(props.getProperty(pk) || 'null');
+    if (!info) return { error: 'no-donation' };
+    const audio = S(req.audio); if (!audio || audio.length > 4000000) return { error: 'bad-audio' };
+    const mime = /^audio\/[a-z0-9.\-]+$/i.test(S(req.mime)) ? S(req.mime) : 'audio/mpeg';
+    const file = folderPath(['מוסדות אונגוואר', 'קו תרומות טלפוני']).createFile(Utilities.newBlob(Utilities.base64Decode(audio), mime, 'תרומה ' + info.id + ' ' + Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd HHmm') + (mime === 'audio/wav' ? '.wav' : '.mp3')));
+    let name = '', email = '';
+    try {
+      const j = kaGemini_([{ text: ['A donor to a Jewish synagogue/kollel in Brooklyn called our phone donation line and, after the beep, said his or her name and maybe an email address (for a receipt).',
+        'Names are often Jewish/Yiddish/Hebrew (e.g. Yoel Teitelbaum, Chaim Weiss). Email addresses may be spelled letter by letter or said like "at gmail dot com".',
+        'Return ONLY JSON: {"name": "the full name in English letters, empty if none", "email": "the email address in normal form, empty if none or unclear"}'].join('\n') },
+        { inline_data: { mime_type: mime, data: audio } }], 200);
+      name = wcClean_(j.name, 80); email = S(j.email).trim().toLowerCase().slice(0, 100);
+      if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) email = '';
+    } catch (err) { /* בלי תמלול — יש את ההקלטה */ }
+    const book = SpreadsheetApp.openById(MAIN_ID);
+    const link = file.getUrl();
+    ['Donations', 'WebDonations'].forEach(function (t) {
+      const sh = book.getSheetByName(t); if (!sh) return;
+      const v = sh.getDataRange().getValues(); const hd = v[0].map(S); const ic = hd.indexOf('donation_id');
+      for (let i = v.length - 1; i > 0; i--) {
+        if (S(v[i][ic]) !== String(info.id)) continue;
+        const set = function (k, val) { const c = hd.indexOf(k); if (c >= 0 && val !== '') sh.getRange(i + 1, c + 1).setNumberFormat('@').setValue(String(val)); };
+        if (t === 'Donations') {
+          if (name) set('donor_name', name);
+          set('event_note', S(v[i][hd.indexOf('event_note')]) + ' · 🎙 ' + link + (email ? ' · ' + email + ' (מתמלול — לבדוק)' : ''));
+        } else {
+          if (name) { const sp = name.split(' '); set('first', sp.shift()); set('last', sp.join(' ')); }
+          set('email', email);
+        }
+        break;
+      }
+    });
+    return { ok: true, name: !!name, email: !!email };
+  }
+  return { error: 'bad-stage' };
 }
 
 // =====================================================================================
