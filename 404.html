@@ -10,6 +10,11 @@
 <body>
 <main id="fam"></main>
 <script>
+  // ungvar.org/OrHatorah בכל צורת כתיבה (אותיות קטנות/גדולות) → דף הקמפיין
+  if (/^\/orhatorah\/?$/i.test(location.pathname)) {
+    try { if (!localStorage.getItem('pub:lang')) localStorage.setItem('pub:lang', '"yi"'); } catch (e) { /* */ }
+    location.replace('/campaign.html?c=orhatorah' + (location.search ? '&' + location.search.slice(1) : ''));
+  }
   // ungvar.org/f/<כתובת> — דף משפחה. כל השאר: לא נמצא.
   if (/^\/f\/[^/]+\/?$/.test(location.pathname)) {
     var s = document.createElement('script'); s.type = 'module'; s.src = '/f/fam.js?v=19'; document.body.appendChild(s);
