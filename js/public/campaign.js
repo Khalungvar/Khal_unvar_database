@@ -68,8 +68,24 @@ const T = {
     err: { 'need-name': 'Please enter your first and last name.', 'bad-phone': 'Invalid phone number.', 'bad-email': 'Invalid email.', 'bad-exp': 'Invalid expiry (MM/YY).', 'bad-amount': 'Please choose an amount.', 'need-card': 'Please enter your card details.', declined: 'The card was declined.', 'too-many': 'Too many attempts. Please try later.', 'not-ready': 'Online donations are not active yet.', gateway: 'Connection problem. Please try again.', other: 'Something went wrong. Please try again.' },
   },
 };
-const L = () => T[LANG];
-const tr = (o, k) => o?.[`${k}_${LANG}`] || o?.[`${k}_he`] || o?.[`${k}_yi`] || o?.[`${k}_en`] || '';
+// מצב "שתי השפות ביחד" (both בקובץ התמונות): אידיש + אנגלית באותו דף, בלי בחירת שפה
+let BOTH = false; let BOTH_T = null;
+const ISO = (t) => `\u2068${t}\u2069`; // בידוד כיווניות: אנגלית בתוך דף מימין לשמאל
+function bothDict() {
+  if (BOTH_T) return BOTH_T; const a = T.yi; const b = T.en; BOTH_T = {};
+  Object.keys(a).forEach((k) => {
+    const x = a[k]; const y = b[k];
+    if (typeof x === 'string' && typeof y === 'string') BOTH_T[k] = x === y ? x : `${ISO(x)} · ${ISO(y)}`;
+    else if (typeof x === 'function' && typeof y === 'function') BOTH_T[k] = (...v) => `${ISO(x(...v))} · ${ISO(y(...v))}`;
+    else BOTH_T[k] = x;
+  });
+  return BOTH_T;
+}
+const L = () => (BOTH ? bothDict() : T[LANG]);
+const tr = (o, k) => {
+  if (BOTH) { const v = [o?.[`${k}_yi`], o?.[`${k}_en`]].filter(Boolean); const j = [...new Set(v)].map(ISO).join('\n'); if (j) return j; }
+  return o?.[`${k}_${LANG}`] || o?.[`${k}_he`] || o?.[`${k}_yi`] || o?.[`${k}_en`] || '';
+};
 
 async function guard(body) {
   const r = await fetch(CONFIG.MOSAD_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
@@ -78,10 +94,12 @@ async function guard(body) {
 
 let DATA = null; let SLUG = ''; let SCREEN = false;
 // 🎞 סרט תמונות נע בראש הדף: img/<slug>-gallery.json = [{src, cap}] (אם אין קובץ — אין סרט)
-let GAL = null; let CAMP_LANGS = null; const REEL_T0 = Date.now(); const REEL_PX = 38; // מהירות הסרט: פיקסלים לשנייה
-async function loadGallery() {
-  if (GAL !== null) return; GAL = [];
-  try { const r = await fetch(`img/${encodeURIComponent(SLUG)}-gallery.json`); if (r.ok) { const j = await r.json(); const items = Array.isArray(j) ? j : j?.items; if (Array.isArray(items)) GAL = items.filter((x) => x && x.src); if (Array.isArray(j?.langs) && j.langs.length) CAMP_LANGS = j.langs.filter((l) => LANGS.includes(l)); } } catch { /* */ }
+let GAL = null; let CAMP_LANGS = null; let BANNER = null; const REEL_T0 = Date.now(); const REEL_PX = 38; // מהירות הסרט: פיקסלים לשנייה
+let GAL_P = null;
+function loadGallery() { GAL_P = GAL_P || loadGallery0(); return GAL_P; }
+async function loadGallery0() {
+  GAL = [];
+  try { const r = await fetch(`img/${encodeURIComponent(SLUG)}-gallery.json`); if (r.ok) { const j = await r.json(); const items = Array.isArray(j) ? j : j?.items; if (Array.isArray(items)) GAL = items.filter((x) => x && x.src); if (Array.isArray(j?.langs) && j.langs.length) CAMP_LANGS = j.langs.filter((l) => LANGS.includes(l)); if (j?.both) { BOTH = true; LANG = 'yi'; } if (j?.banner) BANNER = j.banner; } } catch { /* */ }
   if (GAL.length && !document.getElementById('cp-reel-css')) {
     const st = document.createElement('style'); st.id = 'cp-reel-css';
     st.textContent = `.cp-main{min-width:0}.cp-reel{--s:34px;--g:10px;position:relative;height:210px;width:100%;overflow:hidden;contain:inline-size;direction:ltr;background:linear-gradient(180deg,#ecd28c,#c9a23f 55%,#9c7425)}
@@ -94,7 +112,8 @@ async function loadGallery() {
 .cp-reel-logo img{height:100%;width:100%;object-fit:contain;filter:drop-shadow(0 10px 14px rgba(0,0,0,.55)) drop-shadow(0 3px 4px rgba(0,0,0,.45))}
 .cp-bnr > .cp-reel-logo{top:calc(var(--h) * .155);height:calc(var(--h) * 1.045);transform:translateX(-50%);z-index:3}
 .cp-reel + .cp-pic{min-height:0;padding-top:14px}
-body.cp-banner .cp-top{display:none}body.cp-banner #cp-root{margin-top:0}
+body.cp-banner .cp-top{display:none}body.cp-both .pb-bar{display:none}
+body.cp-both .cp-pkg b,body.cp-both .cp-pkg em,body.cp-both .cp-h{white-space:pre-line}body.cp-banner #cp-root{margin-top:0}
 .cp-bnr{--h:340px;width:100vw;margin:0 calc(50% - 50vw) 18px;position:relative}
 .cp-bnr .cp-reel{height:var(--h);--s:46px;--g:12px}
 .cp-bnr .cp-pic{min-height:calc(var(--h) * .24);padding:14px max(22px,calc(50vw - 574px)) 16px}
@@ -129,6 +148,7 @@ function reelHtml(c, logoSrc) {
 const F = { amount: 0, pkg: '', preset: '', monthly: false, months: 0, fee: true, anon: false };
 
 function applyLang() {
+  document.body.classList.toggle('cp-both', BOTH);
   document.documentElement.lang = LANG; document.documentElement.dir = LANG === 'en' ? 'ltr' : 'rtl';
   $$('[data-t]').forEach((e) => { const v = L()[e.dataset.t]; if (typeof v === 'string') e.textContent = v; });
   $$('[data-lang]').forEach((b) => { b.classList.toggle('on', b.dataset.lang === LANG); b.hidden = !!(CAMP_LANGS && !CAMP_LANGS.includes(b.dataset.lang)); });
@@ -351,5 +371,18 @@ export function startCampaign() {
   if (SCREEN) { document.body.classList.add('cp-screen'); setInterval(load, 20000); }
   $$('[data-lang]').forEach((b) => { b.onclick = () => setLang(b.dataset.lang); });
   applyLang();
+  // הבאנר מוצג מיד מקובץ התמונות, עוד לפני שהנתונים מגיעים מהשרת
+  const pre = () => document.documentElement.classList.remove('cp-pre');
+  setTimeout(pre, 3000);
+  if (!SCREEN && SLUG) {
+    loadGallery().then(() => {
+      if (GAL.length && BANNER && !DATA) {
+        if (CAMP_LANGS && CAMP_LANGS.length && !CAMP_LANGS.includes(LANG)) LANG = CAMP_LANGS[0];
+        applyLang(); document.body.classList.add('cp-banner');
+        const root = $('#cp-root'); if (root) { root.innerHTML = `${bannerHtml(BANNER)}<section class="pb-card"><p class="pb-sub">…</p></section>`; fixReel(); }
+      }
+      pre();
+    });
+  } else pre();
   load();
 }
