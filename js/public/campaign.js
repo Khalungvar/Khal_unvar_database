@@ -145,7 +145,7 @@ function reelHtml(c, logoSrc) {
   const one = GAL.map((g) => `<figure><img src="${h(g.src)}" alt="${h(g.cap || '')}"${g.w && g.h ? ` width="${Number(g.w)}" height="${Number(g.h)}"` : ''}>${g.cap ? `<figcaption>${h(g.cap)}</figcaption>` : ''}</figure>`).join('');
   return `<div class="cp-reel"><div class="cp-reel-track">${one}${one}</div>${logoSrc ? `<div class="cp-reel-logo"><img src="${h(logoSrc)}" alt="${h(tr(c, 'title'))}"></div>` : ''}</div>`;
 }
-const F = { amount: 0, pkg: '', preset: '', monthly: false, months: 0, fee: true, anon: false, dedT: '', dedOpen: false, ys: null, yso: {}, n: 1, day: Math.min(28, new Date().getDate()) };
+const F = { amount: 0, pkg: '', preset: '', monthly: false, months: 0, fee: true, anon: false, ded: [{ t: '' }], dedOpen: false, ys: null, yso: {}, n: 1, day: Math.min(28, new Date().getDate()) };
 
 function applyLang() {
   document.body.classList.toggle('cp-both', BOTH);
@@ -261,41 +261,56 @@ function recentHtml(c) {
   if (c.donors_mode === 'none' || !DATA.recent.length) return '';
   return `<section class="pb-card"><h2 class="cp-h">${h(L().recent)}</h2><div class="cp-wall">${DATA.recent.map((d) => {
     const nm = d.anon ? L().anonName : (LANG === 'en' ? d.en || d.he : d.he || d.en);
-    return `<div class="cp-dn"><div><b><bdi>${h(nm)}</bdi></b>${d.ded ? `<small dir="auto">${h(d.ded)}</small>` : ''}</div>${d.amount != null ? `<span class="cp-amt">${money(d.amount)}${d.monthly ? h(L().perMonth) : ''}</span>` : ''}</div>`;
+    return `<div class="cp-dn"><div><b><bdi>${h(nm)}</bdi></b></div>${d.amount != null ? `<span class="cp-amt">${money(d.amount)}${d.monthly ? h(L().perMonth) : ''}</span>` : ''}</div>`;
   }).join('')}</div></section>`;
 }
 const feeOf = (a) => Math.round(a * 0.03 * 100) / 100;
 function totalOf() { const c = DATA.campaign; const a = F.pkg ? Number(c.packages.find((p) => p.id === F.pkg)?.amount) || 0 : F.amount; return { base: a, total: Math.round((a + (c.fee && F.fee ? feeOf(a) : 0)) * 100) / 100 }; }
 // ---------- הקדשה: לע"נ (שם, בן/בת, שם האב, יום היארצייט) · לזכות (שם, תאריך, הערה) · לרפו"ש (שם, בן/בת, שם האם) ----------
 const DED = {
-  yi: { title: 'לזכר / לזכות', types: ['לע"נ', 'לזכות', 'לרפו"ש'], pick: '— אויסקלייבן · Select —', name: 'נאמען', bn: ['בן', 'בת'], father: 'נאמען פונעם טאטן', mother: 'נאמען פון די מאמע', yahr: 'יארצייט', date: 'דאטום (נישט מוז)', note: 'באמערקונג', day: 'טאג', month: 'חודש' },
-  he: { title: 'הקדשה', types: ['לע"נ', 'לזכות', 'לרפו"ש'], pick: '— בחירה —', name: 'שם', bn: ['בן', 'בת'], father: 'שם האב', mother: 'שם האם', yahr: 'יום היארצייט', date: 'תאריך (לא חובה)', note: 'הערה', day: 'יום', month: 'חודש' },
-  en: { title: 'Dedication', types: ['In memory of', 'In honor of', 'For the recovery of'], pick: '— choose —', name: 'Name', bn: ['son of', 'daughter of'], father: "Father's name", mother: "Mother's name", yahr: 'Yahrzeit', date: 'Date (optional)', note: 'Note', day: 'Day', month: 'Month' },
+  yi: { title: 'לזכר / לזכות', types: ['לע"נ', 'לזכות', 'לרפו"ש'], pick: '— אויסקלייבן · Select —', name: 'נאמען', bn: ['בן', 'בת'], father: 'נאמען פונעם טאטן', mother: 'נאמען פון די מאמע', yahr: 'יארצייט', date: 'דאטום (נישט מוז)', note: 'באמערקונג', day: 'טאג', month: 'חודש', add: '+ נאך א נאמען · Add name' },
+  he: { title: 'הקדשה', types: ['לע"נ', 'לזכות', 'לרפו"ש'], pick: '— בחירה —', name: 'שם', bn: ['בן', 'בת'], father: 'שם האב', mother: 'שם האם', yahr: 'יום היארצייט', date: 'תאריך (לא חובה)', note: 'הערה', day: 'יום', month: 'חודש', add: '+ שם נוסף' },
+  en: { title: 'Dedication', types: ['In memory of', 'In honor of', 'For the recovery of'], pick: '— choose —', name: 'Name', bn: ['son of', 'daughter of'], father: "Father's name", mother: "Mother's name", yahr: 'Yahrzeit', date: 'Date (optional)', note: 'Note', day: 'Day', month: 'Month', add: '+ Add name' },
 };
 const HDAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט', 'י', 'יא', 'יב', 'יג', 'יד', 'טו', 'טז', 'יז', 'יח', 'יט', 'כ', 'כא', 'כב', 'כג', 'כד', 'כה', 'כו', 'כז', 'כח', 'כט', 'ל'].map((d) => (d.length === 1 ? `${d}'` : `${d[0]}"${d[1]}`));
 const HMONTHS = ['תשרי', 'חשון', 'כסלו', 'טבת', 'שבט', 'אדר', 'אדר א\'', 'אדר ב\'', 'ניסן', 'אייר', 'סיון', 'תמוז', 'אב', 'אלול'];
 const dedL = () => DED[BOTH ? 'yi' : LANG] || DED.yi;
+const DED_K = ['t', 'name', 'bn', 'father', 'mother', 'day', 'month', 'note'];
+const dedN = (k, i) => (k === 't' ? `dedType_${i}` : `d_${k}_${i}`);
+/** כל השמות שבהקדשה, כפי שהוקלדו (בשביל שמירה בזמן רינדור מחדש, הוספה/הסרה, ושליחה) */
+function readDed(form) {
+  return F.ded.map((_, i) => Object.fromEntries(DED_K.map((k) => [k, form?.[dedN(k, i)]?.value ?? ''])));
+}
+function writeDed(form, arr) { arr.forEach((o, i) => DED_K.forEach((k) => { const el = form?.[dedN(k, i)]; if (el && o[k] != null) el.value = o[k]; })); }
 function dedHtml() {
   const D = dedL(); const sel = (n, opts, ph) => `<select name="${n}"><option value="">${h(ph)}</option>${opts.map((o) => `<option>${h(o)}</option>`).join('')}</select>`;
-  return `<details class="cp-ded" data-t="${h(F.dedT ?? '')}"${F.dedOpen ? ' open' : ''}><summary>${h(D.title)}</summary>
-    <select name="dedType"><option value="">${h(D.pick)}</option>${D.types.map((t, i) => `<option value="${i}"${String(F.dedT) === String(i) ? ' selected' : ''}>${h(t)}</option>`).join('')}</select>
-    <div class="cp-dedf" data-for="0 1 2"><input name="d_name" maxlength="40" placeholder="${h(D.name)}"></div>
-    <div class="cp-dedf cp-row" data-for="0 2"><select name="d_bn">${D.bn.map((b) => `<option>${h(b)}</option>`).join('')}</select><input name="d_father" data-for="0" maxlength="30" placeholder="${h(D.father)}"><input name="d_mother" data-for="2" maxlength="30" placeholder="${h(D.mother)}"></div>
+  const one = (e, i) => `<div class="cp-dede" data-t="${h(e.t ?? '')}">${i ? `<button type="button" class="cp-dedrm" data-dedrm="${i}" aria-label="remove">✕</button>` : ''}
+    <select name="${dedN('t', i)}" data-dedt="${i}"><option value="">${h(D.pick)}</option>${D.types.map((t, j) => `<option value="${j}"${String(e.t) === String(j) ? ' selected' : ''}>${h(t)}</option>`).join('')}</select>
+    <div class="cp-dedf" data-for="0 1 2"><input name="${dedN('name', i)}" maxlength="40" placeholder="${h(D.name)}"></div>
+    <div class="cp-dedf cp-row" data-for="0 2"><select name="${dedN('bn', i)}">${D.bn.map((b) => `<option>${h(b)}</option>`).join('')}</select><input name="${dedN('father', i)}" data-for="0" maxlength="30" placeholder="${h(D.father)}"><input name="${dedN('mother', i)}" data-for="2" maxlength="30" placeholder="${h(D.mother)}"></div>
     <p class="cp-l cp-dedf" data-for="0">${h(D.yahr)}</p><p class="cp-l cp-dedf" data-for="1">${h(D.date)}</p>
-    <div class="cp-dedf cp-row" data-for="0 1">${sel('d_day', HDAYS, D.day)}${sel('d_month', HMONTHS, D.month)}</div>
-    <div class="cp-dedf" data-for="1"><input name="d_note" maxlength="40" placeholder="${h(D.note)}"></div>
+    <div class="cp-dedf cp-row" data-for="0 1">${sel(dedN('day', i), HDAYS, D.day)}${sel(dedN('month', i), HMONTHS, D.month)}</div>
+    <div class="cp-dedf" data-for="1"><input name="${dedN('note', i)}" maxlength="40" placeholder="${h(D.note)}"></div></div>`;
+  return `<details class="cp-ded"${F.dedOpen ? ' open' : ''}><summary>${h(D.title)}</summary>
+    ${F.ded.map(one).join('')}
+    <button type="button" class="cp-dedadd" data-dedadd>${h(D.add)}</button>
   </details>`;
 }
-/** ההקדשה כפי שנשמרת: סוג + טקסט אחד (עד 120 תווים) */
+/** ההקדשה כפי שנשמרת: סוג + טקסט. כמה שמות: הסוגים מחוברים ב-" / ", וכל שם עם הסוג שלו, מופרדים ב-" | " */
 function dedOf(form) {
-  const t = form.dedType?.value ?? ''; if (t === '' || !form.d_name?.value.trim()) return { type: '', text: '' };
-  const D = DED.yi; const v = (k) => (form[k]?.value || '').trim();
-  const date = [v('d_day'), v('d_month')].filter(Boolean).join(' ');
-  let text = v('d_name');
-  if (t === '0') text = [text, v('d_father') ? `${v('d_bn')} ${v('d_father')}` : '', date ? `· יארצייט ${date}` : ''].filter(Boolean).join(' ');
-  if (t === '1') text = [text, date ? `· ${date}` : '', v('d_note') ? `· ${v('d_note')}` : ''].filter(Boolean).join(' ');
-  if (t === '2') text = [text, v('d_mother') ? `${v('d_bn')} ${v('d_mother')}` : ''].filter(Boolean).join(' ');
-  return { type: D.types[Number(t)] || '', text: text.slice(0, 120) };
+  const D = DED.yi;
+  const list = readDed(form).filter((e) => e.t !== '' && e.name.trim()).map((e) => {
+    const v = (k) => String(e[k] || '').trim(); const t = e.t;
+    const date = [v('day'), v('month')].filter(Boolean).join(' ');
+    let text = v('name');
+    if (t === '0') text = [text, v('father') ? `${v('bn')} ${v('father')}` : '', date ? `· יארצייט ${date}` : ''].filter(Boolean).join(' ');
+    if (t === '1') text = [text, date ? `· ${date}` : '', v('note') ? `· ${v('note')}` : ''].filter(Boolean).join(' ');
+    if (t === '2') text = [text, v('mother') ? `${v('bn')} ${v('mother')}` : ''].filter(Boolean).join(' ');
+    return { type: D.types[Number(t)] || '', text };
+  });
+  if (!list.length) return { type: '', text: '' };
+  if (list.length === 1) return { type: list[0].type, text: list[0].text.slice(0, 1000) };
+  return { type: [...new Set(list.map((x) => x.type))].join(' / '), text: list.map((x) => `${x.type} ${x.text}`).join(' | ').slice(0, 1000) };
 }
 function formHtml(c) {
   const amts = String(c.amounts || '36,54,100,180,360,500,1000').split(/[,\s]+/).map(Number).filter((x) => x > 0);
@@ -384,10 +399,11 @@ function wire() {
   // שומרים ערכים שהוקלדו כשמרנדרים מחדש (שינוי סכום וכו')
   const keep = lsGet('donor') || {};
   ['first', 'last', 'phone', 'email'].forEach((k) => { if (form[k] && keep[k]) form[k].value = keep[k]; });
-  const rerender = () => {
-    const vals = {}; ['first', 'last', 'phone', 'email', 'exp', 'd_name', 'd_bn', 'd_father', 'd_mother', 'd_day', 'd_month', 'd_note'].forEach((k) => { if (form[k]) vals[k] = form[k].value; });
+  const rerender = (dedArr) => {
+    const vals = {}; ['first', 'last', 'phone', 'email', 'exp'].forEach((k) => { if (form[k]) vals[k] = form[k].value; });
+    const dv = dedArr || readDed(form);
     render();
-    const f2 = $('#cp-form form'); Object.entries(vals).forEach(([k, v]) => { if (f2[k]) f2[k].value = v; });
+    const f2 = $('#cp-form form'); Object.entries(vals).forEach(([k, v]) => { if (f2[k]) f2[k].value = v; }); writeDed(f2, dv);
     setupIfields();
   };
   $$('[data-pkg]').forEach((b) => { b.onclick = () => {
@@ -416,7 +432,12 @@ function wire() {
   if (form.months) form.months.onchange = () => { F.preset = ''; F.months = Number(form.months.value) || 0; rerender(); };
   if (form.fee) form.fee.onchange = () => { F.fee = form.fee.checked; rerender(); };
   const ded = $('.cp-ded', form);
-  if (ded) { ded.ontoggle = () => { F.dedOpen = ded.open; }; form.dedType.onchange = () => { F.dedT = form.dedType.value; ded.dataset.t = F.dedT; }; }
+  if (ded) {
+    ded.ontoggle = () => { F.dedOpen = ded.open; };
+    $$('[data-dedt]', ded).forEach((sl) => { sl.onchange = () => { const i = Number(sl.dataset.dedt); F.ded[i].t = sl.value; sl.closest('.cp-dede').dataset.t = sl.value; }; });
+    const add = $('[data-dedadd]', ded); if (add) add.onclick = () => { const arr = readDed(form); F.ded.push({ t: '' }); arr.push({}); rerender(arr); };
+    $$('[data-dedrm]', ded).forEach((b) => { b.onclick = () => { const i = Number(b.dataset.dedrm); const arr = readDed(form); arr.splice(i, 1); F.ded.splice(i, 1); rerender(arr); }; });
+  }
   if (form.anon) form.anon.onchange = () => { F.anon = form.anon.checked; };
   if (form.exp) form.exp.oninput = () => { let v = form.exp.value.replace(/\D/g, '').slice(0, 4); if (v.length > 2) v = `${v.slice(0, 2)}/${v.slice(2)}`; form.exp.value = v; };
   form.onsubmit = (e) => { e.preventDefault(); pay(form); };
@@ -493,10 +514,14 @@ const FORM_CSS = `.cp-ded{margin:6px 0 10px;border:1px solid #e8dcc4;border-radi
 .cp-ded summary{cursor:pointer;font-weight:600;color:#7a1219;padding:2px 0}
 .cp-ded[open] summary{margin-bottom:8px}.cp-ded select,.cp-ded input{margin-bottom:8px;width:100%}
 .cp-ded .cp-dedf{display:none}.cp-ded .cp-row{gap:8px}
-.cp-ded[data-t="0"] [data-for~="0"],.cp-ded[data-t="1"] [data-for~="1"],.cp-ded[data-t="2"] [data-for~="2"]{display:block}
-.cp-ded[data-t="0"] .cp-row[data-for~="0"],.cp-ded[data-t="1"] .cp-row[data-for~="1"],.cp-ded[data-t="2"] .cp-row[data-for~="2"]{display:flex}
-.cp-ded .cp-row > input[data-for]{display:none}.cp-ded[data-t="0"] input[data-for="0"],.cp-ded[data-t="2"] input[data-for="2"]{display:block}
-.cp-ded .cp-row select[name=d_bn]{flex:0 0 90px}
+.cp-dede{position:relative}.cp-dede+.cp-dede{border-top:1px dashed #d8cdb5;padding-top:10px}
+.cp-dede+.cp-dede>select[data-dedt]{width:calc(100% - 36px)}
+.cp-dedrm{position:absolute;top:10px;inset-inline-end:0;width:30px;height:30px;border:1px solid #e0cfa8;border-radius:8px;background:#fff;color:#7a1219;cursor:pointer;font-size:14px;line-height:1}
+.cp-dedadd{display:block;width:100%;border:1.5px dashed #c9a23f;background:#fffaf0;color:#7a1219;border-radius:9px;padding:7px;font:inherit;font-weight:600;cursor:pointer;margin:2px 0 6px}
+.cp-dede[data-t="0"] [data-for~="0"],.cp-dede[data-t="1"] [data-for~="1"],.cp-dede[data-t="2"] [data-for~="2"]{display:block}
+.cp-dede[data-t="0"] .cp-row[data-for~="0"],.cp-dede[data-t="1"] .cp-row[data-for~="1"],.cp-dede[data-t="2"] .cp-row[data-for~="2"]{display:flex}
+.cp-ded .cp-row > input[data-for]{display:none}.cp-dede[data-t="0"] input[data-for="0"],.cp-dede[data-t="2"] input[data-for="2"]{display:block}
+.cp-ded .cp-row select[name^=d_bn]{flex:0 0 90px}
 body.cp-both .cp-amts input[name=custom]{border:2px solid #c9a23f}
 .cp-card .cp-l{margin-top:0}
 .cp-grid3{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.15fr) 380px;gap:16px;align-items:start}
