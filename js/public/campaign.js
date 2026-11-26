@@ -210,17 +210,24 @@ function ysHtml(c) {
     return `<div class="cp-yss"${lg === 'en' ? ' dir="ltr"' : ''}><button type="button" class="cp-ysy${on && F.ys.year ? ' on' : ''}" data-ysy="${h(g.id)}">${h(k(lb, 'year'))} — ${money(m * 12)}</button>
       <small class="cp-ysor">${h(k(lb, 'pick'))}</small>
       <div class="cp-ysm">${(y.months || []).map((mo, i) => `<button type="button" data-ysm="${h(g.id)}|${h(mo)}" class="${on && !F.ys.year && F.ys.months.includes(mo) ? 'on' : ''}">${h(lg === 'en' ? mEn[i] || mo : mo)}</button>`).join('')}</div></div>`; };
-  return `<section class="pb-card cp-ys"><h2 class="cp-h">${h(tr(y, 'head'))}</h2>${tr(y, 'sub') ? `<p class="cp-ys-sub">${h(tr(y, 'sub'))}</p>` : ''}
+  // מראה (BOTH): שורה 1 — כפתורי שנה; שורה 2 — "קלייבט אויס" | מחיר לחודש | "choose"; שורה 3 — חודשים. ימין אידיש, שמאל אנגלית
+  const mir = (g, on) => { const m = Number(g.month);
+    const yb = (lg) => `<button type="button" class="cp-ysy cp-m-${lg}${on && F.ys.year ? ' on' : ''}" data-ysy="${h(g.id)}"${lg === 'en' ? ' dir="ltr"' : ''}>${h(lb[`year_${lg}`])} — ${money(m * 12)}</button>`;
+    const mb = (lg) => `<div class="cp-ysm cp-m-${lg}"${lg === 'en' ? ' dir="ltr"' : ''}>${(y.months || []).map((mo, i) => `<button type="button" data-ysm="${h(g.id)}|${h(mo)}" class="${on && !F.ys.year && F.ys.months.includes(mo) ? 'on' : ''}">${h(lg === 'en' ? mEn[i] || mo : mo)}</button>`).join('')}</div>`;
+    return `<div class="cp-ysmir">${yb('yi')}${yb('en')}
+      <div class="cp-ysorrow"><small>${h(lb.pick_yi)}</small><b>${money(m)} · ${h(lb.month_yi)} · ${h(ISO(lb.month_en))}</b><small dir="ltr">${h(lb.pick_en)}</small></div>
+      ${mb('yi')}${mb('en')}</div>`; };
+  const head = BOTH ? `<h2 class="cp-h cp-ys-h">${h(y.head_yi)}</h2>${y.sub_yi ? `<p class="cp-ys-sub cp-ys-c"><span>${h(y.sub_yi)}</span> | <span>${h(ISO(y.sub_en || ''))}</span></p>` : ''}`
+    : `<h2 class="cp-h">${h(tr(y, 'head'))}</h2>${tr(y, 'sub') ? `<p class="cp-ys-sub">${h(tr(y, 'sub'))}</p>` : ''}`;
+  return `<section class="pb-card cp-ys">${head}
     ${y.groups.map((g) => {
       const on = F.ys && F.ys.g === g.id; const m = Number(g.month);
       const top = g.opts?.length
         ? `<div class="cp-yso">${g.opts.map((o, i) => `<button type="button" data-yso="${h(g.id)}|${i}" class="${(F.yso[g.id] || 0) === i ? 'on' : ''}">${h(o)}</button>`).join('')}</div>`
         : `<b class="cp-ysn">${h(BOTH ? `${g.name_yi} | ${ISO(g.name_en)}` : tr(g, 'name'))}</b>`;
-      const price = BOTH ? `<span>${h(lb.year_yi)} · ${h(ISO(lb.year_en))} <b>${money(m * 12)}</b></span> | <span>${h(lb.month_yi)} · ${h(ISO(lb.month_en))} <b>${money(m)}</b></span>`
-        : `${h(tr(lb, 'year'))} <b>${money(m * 12)}</b> · ${h(tr(lb, 'month'))} <b>${money(m)}</b>`;
+      const price = `${h(tr(lb, 'year'))} <b>${money(m * 12)}</b> · ${h(tr(lb, 'month'))} <b>${money(m)}</b>`;
       return `<div class="cp-ysg${g.tone ? ` cp-${h(g.tone)}` : ''}${on ? ' on' : ''}">${top}
-        <small class="cp-ysp">${price}</small>
-        ${BOTH ? `<div class="cp-ysmir">${side(g, on, 'yi')}${side(g, on, 'en')}</div>` : side(g, on, '')}
+        ${BOTH ? mir(g, on) : `<small class="cp-ysp">${price}</small>${side(g, on, '')}`}
       </div>`;
     }).join('')}</section>`;
 }
@@ -542,9 +549,13 @@ body.cp-both .cp-amts input[name=custom]{border:2px solid #c9a23f}
 .cp-ysp{text-align:center}.cp-ysp>span{white-space:nowrap;margin:0 4px}
 .cp-yso{display:flex;gap:6px}.cp-yso button{flex:1;border:1px solid #c9a23f;background:#fff;border-radius:9px;padding:7px 4px;font:inherit;font-weight:700;font-size:15px;color:#5a1010;cursor:pointer}.cp-yso button.on{background:#7a1219;color:#fff;border-color:#7a1219}
 .cp-ysg{container-type:inline-size}.cp-yss{display:flex;flex-direction:column;gap:5px;min-width:0}
-.cp-ysmir{display:grid;grid-template-columns:1fr 1fr;gap:0}.cp-ysmir>.cp-yss:first-child{padding-inline-end:8px}.cp-ysmir>.cp-yss+.cp-yss{padding-inline-start:8px;border-inline-start:1px solid #d8cdb5}
-.cp-ysmir .cp-ysy{font-size:13px;padding:6px 4px}.cp-ysmir .cp-ysor{font-size:11.5px}.cp-ysmir .cp-ysm{gap:4px}.cp-ysmir .cp-ysm button{font-size:12px;padding:3px 6px}
-@container (max-width:330px){.cp-ysmir{grid-template-columns:1fr;gap:10px}.cp-ysmir>.cp-yss:first-child{padding:0}.cp-ysmir>.cp-yss+.cp-yss{border:0;border-top:1px solid #d8cdb5;padding:10px 0 0}}
+.cp-ys-h{text-align:center;font-size:1.2em}.cp-ys-c{text-align:center}.cp-ys-c span{white-space:nowrap}
+.cp-ysmir{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;row-gap:6px;align-items:start;background:linear-gradient(#d8cdb5,#d8cdb5) center top/1px 100% no-repeat}
+.cp-ysorrow{grid-column:1/-1;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px}.cp-ysorrow small[dir=ltr]{text-align:left}
+.cp-ysorrow small{color:#8a7a68;font-size:11.5px}.cp-ysorrow b{font-size:12.5px;color:#5a1010;white-space:nowrap;background:rgba(255,255,255,.85);padding:1px 8px;border-radius:10px;border:1px solid #e0cfa8}
+.cp-ysmir .cp-ysy{font-size:13px;padding:6px 4px}.cp-ysmir .cp-ysm{gap:4px}.cp-ysmir .cp-ysm button{font-size:12px;padding:3px 6px}
+.cp-ysmir .cp-ysm.cp-m-en{gap:3px}.cp-ysmir .cp-ysm.cp-m-en button{font-size:10.5px;padding:3px 4px;letter-spacing:-.1px}
+@container (max-width:330px){.cp-ysmir{grid-template-columns:1fr;background:none}.cp-ysmir .cp-ysm.cp-m-en{border-top:1px solid #d8cdb5;padding-top:8px}}
 .cp-ysn{font-size:17px;color:#5a1010;white-space:pre-line}.cp-ysp{color:#6b5a48}.cp-ysor{color:#8a7a68}
 .cp-ysy{border:1px solid #c9a23f;background:#fff;border-radius:9px;padding:8px;font-weight:600;cursor:pointer}.cp-ysy.on{background:#7a1219;color:#fff;border-color:#7a1219}
 .cp-ysm{display:flex;flex-wrap:wrap;gap:6px}.cp-ysm button{border:1px solid #e0cfa8;background:#fff;border-radius:8px;padding:5px 9px;cursor:pointer;font-size:14px}.cp-ysm button.on{background:#7a1219;color:#fff;border-color:#7a1219}
