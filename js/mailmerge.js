@@ -26,8 +26,17 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 const KINDS = [['env', '✉', 'mxEnvelopes'], ['lbl', '🏷', 'mxLabels'], ['ltr', '📄', 'mxLetters']];
 const SHEETS_NAME = '__label_sheets__';
-const TOKENS_HE = ['פנייה', 'תואר', 'שם_מלא', 'שם', 'שם_פרטי', 'משפחה', 'אשה', 'תאריך', 'תאריך_לועזי', 'סכום', 'שולם', 'נשאר', 'תאריך_נדבה', 'הקדשה', 'קאמפיין', 'עבור/FOR', 'תאריך_הנפקה'];
-const TOKENS_EN = ['Name', 'First', 'Legal/First', 'Last', 'Wife', 'Address', 'City', 'Country', 'Date', 'ISSUED', 'DonationDate'];
+const TOKENS_HE = ['פנייה', 'תואר', 'שם_מלא', 'שם', 'שם_פרטי', 'משפחה', 'אשה', 'אזור', 'תאריך', 'תאריך_לועזי', 'סכום', 'שולם', 'נשאר', 'תאריך_נדבה', 'הקדשה', 'קאמפיין', 'עבור/FOR', 'תאריך_הנפקה'];
+const TOKENS_EN = ['Title', 'Name', 'First', 'Legal/First', 'LegalName', 'Last', 'Wife', 'Address', 'Street', 'City', 'State', 'ZIP', 'Country', 'AddressLine', 'Date', 'ISSUED', 'DonationDate'];
+/** הסבר קצר לכל שדה (בתפריט השדות, ליד דוגמה מהנמען הנוכחי) */
+const FIELD_DESC = {
+  פנייה: 'הפנייה שבהגדרות המכתב', תואר: 'התואר (הרב, ר\'...)', שם_מלא: 'תואר + שם + משפחה', שם: 'שם + משפחה', שם_פרטי: 'שם פרטי', משפחה: 'שם משפחה', אשה: 'שם האשה', אזור: 'אזור / שכונה',
+  תאריך: 'תאריך עברי של היום', תאריך_לועזי: 'תאריך לועזי של היום (בעברית)', סכום: 'סכום ההתחייבות / התרומה', שולם: 'כמה שולם', נשאר: 'כמה נשאר', תאריך_נדבה: 'תאריך התרומה (עברי)',
+  הקדשה: 'ההקדשה', קאמפיין: 'שם הקמפיין', 'עבור/FOR': 'עבור (כמו בקבלה)', תאריך_הנפקה: 'תאריך הקבלה (עברי)',
+  Title: 'תואר באנגלית', Name: 'השם למשלוח (Mr. & Mrs.)', First: 'שם פרטי באנגלית', 'Legal/First': 'שם חוקי פרטי — ואם אין, השם הפרטי', LegalName: 'שם חוקי מלא (פרטי + משפחה)', Last: 'משפחה באנגלית', Wife: 'שם האשה באנגלית',
+  Address: 'כתובת (עם c/o)', Street: 'רחוב ומספר בלבד', City: 'עיר, מדינה ומיקוד', State: 'מדינה (State)', ZIP: 'מיקוד', Country: 'ארץ (כשלא ארה"ב)', AddressLine: 'כל הכתובת בשורה אחת',
+  Date: 'תאריך היום באנגלית', ISSUED: 'תאריך הקבלה באנגלית', DonationDate: 'תאריך התרומה באנגלית',
+};
 const SEV = { red: 3, yellow: 2, info: 1 };
 
 let view = 'home';
@@ -916,14 +925,22 @@ function ribbonHome() {
       <button type="button" class="wr-b wr-wide" id="wr-find" title="Ctrl+F">🔍 ${h(t('wrFind'))}</button>
       <button type="button" class="wr-b wr-wide" id="wr-replace" title="Ctrl+H">⇄ ${h(t('wrReplace'))}</button>
       <button type="button" class="wr-b wr-wide" data-wcmd="selectAll" title="Ctrl+A">⬚ ${h(t('wrSelectAll'))}</button></div>`)
-    + group(t('wrFields'), bigdd('«»', t('wrFieldsBtn'), allFieldsMenu(), 'wr-allfields'));
+    + group(t('wrFields'), fieldsBtns());
 }
-/** אלע פעלדער: פערזענליך, נדבות, סכומים */
-function allFieldsMenu() {
-  return `<div class="wr-mh">${h(t('wrPersonal'))}</div>${TOKENS_HE.map((k) => mi(`data-field="${h(k)}"`, `«${h(k)}»`)).join('')}
-    ${TOKENS_EN.map((k) => mi(`dir="ltr" data-field="${h(k)}"`, `«${h(k)}»`)).join('')}
-    <div class="wr-mh">${h(t('wrDonations'))} (${h(t('wrRepRow'))})</div>${DON_TOKENS.map((k) => mi(`data-field="${h(k)}"`, `«${h(k)}»`)).join('')}
-    <div class="wr-mh">${h(t('wrTotals'))}</div>${[...TOTAL_TOKENS, ...TOTAL_TOKENS_EN].map((k) => mi(`data-field="${h(k)}"`, `«${h(k)}»`)).join('')}`;
+/** שורות בתפריט שדות: «שדה» · הסבר · דוגמה מהנמען הנוכחי */
+function fieldItems(keys, en, sv) {
+  return keys.map((k) => mi(`data-field="${h(k)}"${en ? ' dir="ltr"' : ''}`, `<span class="wr-fk">«${h(k)}»</span>${FIELD_DESC[k] ? ` <span class="wr-fdesc" dir="rtl">${h(FIELD_DESC[k])}</span>` : ''}${sv?.[k] ? ` <span class="wr-fsample">${h(String(sv[k]).replace(/\n/g, ' · ').slice(0, 40))}</span>` : ''}`)).join('');
+}
+const sampleVals = () => { try { const c = viewRows()[idx]; return c ? valuesFor(D, c) : {}; } catch { return {}; } };
+/** שני כפתורים: שדות בעברית · שדות באנגלית */
+function fieldsBtns() {
+  const sv = sampleVals();
+  return bigdd('«א»', t('wrFieldsHe'), `<div class="wr-mh">${h(t('wrPersonal'))}</div>${fieldItems(TOKENS_HE, false, sv)}
+      <div class="wr-mh">${h(t('wrDonations'))} (${h(t('wrRepRow'))})</div>${fieldItems(DON_TOKENS, false, sv)}
+      <div class="wr-mh">${h(t('wrTotals'))}</div>${fieldItems(TOTAL_TOKENS, false, sv)}`, 'wr-allfields wr-fmenu')
+    + bigdd('«A»', t('wrFieldsEn'), `<div class="wr-mh">${h(t('wrPersonal'))}</div>${fieldItems(TOKENS_EN, true, sv)}
+      <div class="wr-mh">${h(t('wrDonations'))} (${h(t('wrRepRow'))})</div>${fieldItems(DON_TOKENS_EN, true, sv)}
+      <div class="wr-mh">${h(t('wrTotals'))}</div>${fieldItems(TOTAL_TOKENS_EN, true, sv)}`, 'wr-allfields wr-fmenu');
 }
 function foreColorDd() {
   return dd('wr-color', '<span class="wr-fc">A</span>▾', t('wrFontColor'), `${mi('data-fore="#000000"', h(t('wrAuto')))}
@@ -969,6 +986,7 @@ function ribbonInsert() {
       ${mi('id="wr-table-dlg"', h(t('wrInsertTable')))}`))
     + group(t('wrIllus'), bigdd('🖼', t('wrPicture'), `${mi('id="wr-img-pc"', `💻 ${h(t('wrPicPc'))}`)}${mi('id="wr-img-drive"', `📁 ${h(t('wrPicDrive'))}`)}
       <input type="file" accept="image/*" id="wr-img-file" hidden>`))
+    + group(t('mxBoxes'), big('wr-addbox', '📝', t('mxAddBox'), ' title="לחיצה כפולה על תיבה = כתיבה בה · גרירה = הזזה · חיצים = 1 מ&quot;מ (Shift = 1 ס&quot;מ)"'))
     + group(t('wrLinks'), big('wr-link', '🔗', t('wrLink'), ' title="Ctrl+K"'))
     + group(t('rcReceipt'), big('wr-rcslot', '🧾', t('wrRcSlot'), `${D.ltr.rcSlot ? ' aria-pressed="true"' : ''} title="${h(t('wrRcSlotTip'))}"`))
     + group(t('wrTextGroup'), `${bigdd('📅', t('wrDate'), `${mi('data-date="he"', `${h(t('wrDateTodayHe'))} <span class="muted small">«תאריך»</span>`)}
@@ -1014,8 +1032,9 @@ function ribbonLayout() {
       <button type="button" class="wr-b wr-wide${L.dir === 'ltr' ? ' on' : ''}" data-docdir="ltr">${h(t('mxLtr'))}</button></div>`);
 }
 function fieldMenu(he, en) {
-  return `<div class="wr-mh">${h(t('wrFieldsHe'))}</div>${he.map((k) => mi(`data-field="${h(k)}"`, `«${h(k)}»`)).join('')}
-    <div class="wr-mh">${h(t('wrFieldsEn'))}</div>${en.map((k) => mi(`dir="ltr" data-field="${h(k)}"`, `«${h(k)}»`)).join('')}`;
+  const sv = sampleVals();
+  return `<div class="wr-mh">${h(t('wrFieldsHe'))}</div>${fieldItems(he, false, sv)}
+    <div class="wr-mh">${h(t('wrFieldsEn'))}</div>${fieldItems(en, true, sv)}`;
 }
 function ribbonMail(c, vr) {
   return group(t('wrStartGroup'), big('wr-rcp', '👥', t('wrSelectRcp')) + `<span class="wr-note">${h(t('mmCount', { n: rows.length }))}</span>`)
@@ -1035,7 +1054,7 @@ function ribbonMail(c, vr) {
 function ribbonFields() {
   const F = D.ltr.reps?.don || {};
   const camps = allCampaigns().map((c) => c.name);
-  return group(t('wrPersonal'), bigdd('«»', t('wrFieldsBtn'), fieldMenu(TOKENS_HE, TOKENS_EN)))
+  return group(t('wrPersonal'), fieldsBtns())
     + group(t('wrDonations'), `${big('wr-rep-don', '🔁', t('wrRepRow'))}
       ${bigdd('«»', t('wrFieldsBtn'), fieldMenu(DON_TOKENS, DON_TOKENS_EN))}
       ${bigdd('Σ', t('wrTotals'), fieldMenu(TOTAL_TOKENS, TOTAL_TOKENS_EN))}
@@ -1081,11 +1100,26 @@ function sheetsHtml(n, c) {
   const [, H] = letterDims(D);
   return Array.from({ length: n }, (_, i) => `<div class="wr-sheet" style="top:${i * (H + GAP)}in">${letterHtml(D, c, { edit: true, cont: i, bodyOverride: '' })}</div>`).join('');
 }
+/** 📏 סרגלים (אינטשעס, כמו בוורד): למעלה ובצד; השאטן = וואו דער אויסגעקליבענער טייל איז */
+function rulersHtml(W, H) {
+  const ticks = (len, horiz) => {
+    let o = '';
+    for (let i = 0; i <= Math.round(len * 8); i += 1) {
+      const p = i * 12; const t2 = i % 8 === 0 ? 9 : i % 4 === 0 ? 6 : i % 2 === 0 ? 4 : 2.5;
+      o += horiz ? `<line x1="${p}" y1="20" x2="${p}" y2="${20 - t2}"/>` : `<line x1="20" y1="${p}" x2="${20 - t2}" y2="${p}"/>`;
+      if (i % 8 === 0 && i) o += horiz ? `<text x="${p + 2}" y="9">${i / 8}</text>` : `<text x="3" y="${p - 2}">${i / 8}</text>`;
+    }
+    return o;
+  };
+  return `<div class="wr-ruler wr-ruler-h" style="width:${W}in"><svg width="${W * 96}" height="20">${ticks(W, true)}</svg><div class="wr-rsel wr-rsel-h" hidden></div></div>
+    <div class="wr-ruler wr-ruler-v" style="height:${H}in"><svg width="20" height="${H * 96}">${ticks(H, false)}</svg><div class="wr-rsel wr-rsel-v" hidden></div></div>`;
+}
 function wordDocHtml(c, ro) {
   const L = D.ltr;
   const G = letterGeo(D);
   const body = resolveImgs(tokensToChips(cleanHtml(L.html))).trim() || '<p><br></p>';
   return `<div class="wr-doc" data-n="1" style="width:${G.W}in;height:${G.H}in">
+      ${rulersHtml(G.W, G.H)}
       <div class="wr-sheets">${sheetsHtml(1, c)}</div>
       <div class="wr-flow" style="left:${G.m.side}in;right:${G.m.side}in;top:${G.top1}in">
         <div class="wr-body mx-body-ed" contenteditable="${ro ? 'false' : 'true'}" spellcheck="false" dir="${L.dir === 'ltr' ? 'ltr' : 'rtl'}" style="${bodyStyle(L)}">${body}</div>
@@ -1129,6 +1163,7 @@ function wordStageHtml() {
     <div class="wr-status">
       <span id="wr-pages">${h(t('wrPageOf', { i: 1, n: 1 }))}</span>
       <span id="wr-words"></span>
+      <span id="wr-pos" dir="ltr"></span>
       <span id="wr-painter-note">${painter ? `🖌 ${h(t('wrPainterOn'))}` : ''}</span>
       <span class="spacer"></span>
       <span class="mx-zoom"><button type="button" class="wr-b" id="mx-zoom-out" title="−">−</button>
@@ -1144,7 +1179,7 @@ function fitWord() {
   const doc = sc?.firstElementChild;
   if (!doc) return;
   fitIn(canvas);
-  const avail = canvas.clientWidth - 40;
+  const avail = canvas.clientWidth - 70; // + די סרגלען
   const fit = Math.min(1.3, avail / doc.offsetWidth);
   const scale = fit * zoom;
   doc.style.transform = `scale(${scale})`;
@@ -1252,7 +1287,8 @@ function layoutPages() {
   if (w) w.textContent = t('wrWords', { n: (body.innerText.match(/\S+/g) || []).length });
 }
 
-const wbody = () => $('#mm-canvas .wr-body');
+/** דער טעקסט וואס מ'שרייבט: א תיבת טקסט (אויב מ'שרייבט אין איר) אדער דער בריוו */
+const wbody = () => (editBox && editBox.isConnected ? editBox : $('#mm-canvas .wr-body'));
 const cellAt = () => {
   const b = wbody();
   const n = wrRange?.startContainer;
@@ -2255,18 +2291,19 @@ function numDialog(title, fields, onOk) {
 function wireRibbon(main) {
   const st = $('#mx-stage', main);
   const rb = $('.wr-ribbon', st);
-  const body = $('.wr-body', st);
+  const bodyEl = $('.wr-body', st);
+  const B = () => (editBox && editBox.isConnected ? editBox : bodyEl); // א תיבת טקסט וואס מ'שרייבט אין איר — אדער דער בריוו
   const exec = (cmd, val = null, css = false) => {
-    if (!body) return;
-    restoreSel(body);
+    if (!B()) return;
+    restoreSel(B());
     // בולד / שיף / אונטערגעשטראכן אויף פעלדער «...» (דער בלעטערער רירט נישט אן קעסטלעך וואס מ'קען נישט טוישן)
     let want = null;
     if (['bold', 'italic', 'underline'].includes(cmd)) { try { want = !document.queryCommandState(cmd); } catch { want = true; } }
     document.execCommand('styleWithCSS', false, css);
     document.execCommand(cmd, false, val);
     document.execCommand('styleWithCSS', false, false);
-    if (want !== null) styleChips(body, cmd, want);
-    body._save?.();
+    if (want !== null) styleChips(B(), cmd, want);
+    B()._save?.();
     syncRibbon();
   };
   const closeDd = (b) => { const d = b.closest('details'); if (d) d.open = false; };
@@ -2276,23 +2313,23 @@ function wireRibbon(main) {
     b.onclick = () => {
       const cmd = b.dataset.wcmd;
       if (cmd.startsWith('pdir-')) {
-        if (!body) return;
-        restoreSel(body);
+        if (!B()) return;
+        restoreSel(B());
         const dir = cmd.slice(5);
-        (selBlocks(body).length ? selBlocks(body) : [body.firstElementChild]).forEach((el) => {
+        (selBlocks(B()).length ? selBlocks(B()) : [B().firstElementChild]).forEach((el) => {
           if (!el) return;
           el.setAttribute('dir', dir);
           el.style.textAlign = dir === 'rtl' ? 'right' : 'left';
         });
-        body._save?.();
+        B()._save?.();
         return;
       }
-      if (cmd === 'cut' || cmd === 'copy') { if (body) { restoreSel(body); document.execCommand(cmd); if (cmd === 'cut') body._save?.(); } return; }
+      if (cmd === 'cut' || cmd === 'copy') { if (B()) { restoreSel(B()); document.execCommand(cmd); if (cmd === 'cut') B()._save?.(); } return; }
       exec(cmd);
     };
   });
   $('#wr-paste', rb)?.addEventListener('click', async () => {
-    if (!body) return;
+    if (!B()) return;
     try {
       let html = '';
       let txt = '';
@@ -2303,22 +2340,22 @@ function wireRibbon(main) {
           else if (it.types.includes('text/plain')) txt = await (await it.getType('text/plain')).text();
         }
       } else txt = await navigator.clipboard.readText();
-      restoreSel(body);
-      pasteInto(body, html, txt);
+      restoreSel(B());
+      pasteInto(B(), html, txt);
     } catch { ui.toast(t('wrPasteKeys')); }
   });
   const pb = $('#wr-painter', rb);
   if (pb) {
     let clickT = null;
     pb.onclick = () => {
-      if (!body) return;
+      if (!B()) return;
       clearTimeout(clickT);
       if (painter) { painter = null; updatePainter(); return; }
-      clickT = setTimeout(() => takePainter(body, false), 220);
+      clickT = setTimeout(() => takePainter(B(), false), 220);
     };
-    pb.ondblclick = () => { clearTimeout(clickT); if (body) takePainter(body, true); };
+    pb.ondblclick = () => { clearTimeout(clickT); if (B()) takePainter(B(), true); };
   }
-  $$('[data-case]', rb).forEach((b) => { b.onclick = () => { closeDd(b); if (body) changeCase(body, b.dataset.case); }; });
+  $$('[data-case]', rb).forEach((b) => { b.onclick = () => { closeDd(b); if (B()) changeCase(B(), b.dataset.case); }; });
   $('#wr-find', rb)?.addEventListener('click', () => findDialog(false));
   $('#wr-replace', rb)?.addEventListener('click', () => findDialog(true));
   const f = $('#wr-font', rb);
@@ -2326,72 +2363,72 @@ function wireRibbon(main) {
   const z = $('#wr-size', rb);
   if (z) {
     z.onchange = () => {
-      if (!body) return;
-      restoreSel(body);
+      if (!B()) return;
+      restoreSel(B());
       document.execCommand('styleWithCSS', false, false);
       document.execCommand('fontSize', false, '7');
-      $$('font[size="7"]', body).forEach((x) => { const sp = document.createElement('span'); sp.style.fontSize = `${z.value}pt`; sp.innerHTML = x.innerHTML; x.replaceWith(sp); });
-      body._save?.();
+      $$('font[size="7"]', B()).forEach((x) => { const sp = document.createElement('span'); sp.style.fontSize = `${z.value}pt`; sp.innerHTML = x.innerHTML; x.replaceWith(sp); });
+      B()._save?.();
     };
   }
   $$('[data-hilite]', rb).forEach((b) => { b.onclick = () => { exec('hiliteColor', b.dataset.hilite, true); closeDd(b); }; });
   $$('[data-fore]', rb).forEach((b) => { b.onclick = () => { exec('foreColor', b.dataset.fore, true); $$('.wr-fc', rb).forEach((x) => { x.style.borderColor = b.dataset.fore; }); closeDd(b); }; });
   $$('.wr-forecustom', rb).forEach((fc) => { fc.onchange = () => exec('foreColor', fc.value, true); });
-  $$('[data-outline]', rb).forEach((b) => { b.onclick = () => { closeDd(b); if (body) styleSelection(body, { webkitTextStroke: b.dataset.outline ? `0.6px ${b.dataset.outline}` : '' }); }; });
+  $$('[data-outline]', rb).forEach((b) => { b.onclick = () => { closeDd(b); if (B()) styleSelection(B(), { webkitTextStroke: b.dataset.outline ? `0.6px ${b.dataset.outline}` : '' }); }; });
   $$('[data-outw]', rb).forEach((b) => {
     b.onclick = () => {
       closeDd(b);
-      if (!body) return;
-      restoreSel(body);
+      if (!B()) return;
+      restoreSel(B());
       const node = window.getSelection().anchorNode;
       const el = node && (node.nodeType === 1 ? node : node.parentElement);
       const color = (el && getComputedStyle(el).webkitTextStrokeColor) || '#000000';
-      styleSelection(body, { webkitTextStroke: `${b.dataset.outw}px ${color}` });
+      styleSelection(B(), { webkitTextStroke: `${b.dataset.outw}px ${color}` });
     };
   });
   $$('[data-linesp]', rb).forEach((b) => {
     b.onclick = () => {
       closeDd(b);
-      if (!body) return;
-      restoreSel(body);
-      const bl = selBlocks(body);
-      if (bl.length) { bl.forEach((el) => { el.style.lineHeight = b.dataset.linesp; }); body._save?.(); }
+      if (!B()) return;
+      restoreSel(B());
+      const bl = selBlocks(B());
+      if (bl.length) { bl.forEach((el) => { el.style.lineHeight = b.dataset.linesp; }); B()._save?.(); }
       else { D.ltr.lineH = Number(b.dataset.linesp); scheduleSave(); refreshStage(); }
     };
   });
   const paraSp = (attr, prop) => $$(`[data-${attr}]`, rb).forEach((b) => {
     b.onclick = () => {
       closeDd(b);
-      if (!body) return;
-      restoreSel(body);
-      selBlocks(body).forEach((el) => {
+      if (!B()) return;
+      restoreSel(B());
+      selBlocks(B()).forEach((el) => {
         const v = `${b.dataset[attr]}pt`;
         if (prop === 'marginTop' && el.dataset.pbm !== undefined) el.dataset.pbm = v; else el.style[prop] = v;
       });
-      body._save?.();
+      B()._save?.();
     };
   });
   paraSp('spb', 'marginTop');
   paraSp('spa', 'marginBottom');
   // הוספה
-  $('#wr-pgbrk', rb)?.addEventListener('click', () => body && insertPageBreak(body));
+  $('#wr-pgbrk', rb)?.addEventListener('click', () => B() && insertPageBreak(B()));
   $$('[data-date]', rb).forEach((b) => {
     b.onclick = () => {
       closeDd(b);
-      if (!body) return;
+      if (!B()) return;
       const k = b.dataset.date === 'he' ? 'תאריך' : D.ltr.dir === 'ltr' ? 'Date' : 'תאריך_לועזי';
-      insertChip(body, k);
+      insertChip(B(), k);
     };
   });
-  $('#wr-date-other', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); if (body) dateDialog(body); });
-  $('#wr-sig-mine', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); if (body) insertMySig(body); });
+  $('#wr-date-other', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); if (B()) dateDialog(B()); });
+  $('#wr-sig-mine', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); if (B()) insertMySig(B()); });
   $('#wr-sig-setup', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); sigDialog('mine'); });
   $('#wr-sig-temp', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); sigDialog('temp'); });
   $$('[data-field]', rb).forEach((b) => {
     b.onclick = () => {
       closeDd(b);
-      if (!body) return;
-      insertChip(body, b.dataset.field);
+      if (!B()) return;
+      insertChip(B(), b.dataset.field);
     };
   });
   const grid = $('#wr-grid', rb);
@@ -2416,6 +2453,7 @@ function wireRibbon(main) {
   if (imgFile) imgFile.onchange = () => { if (imgFile.files[0]) imageFromPc(imgFile.files[0]); };
   $('#wr-img-drive', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); imageFromDrive(); });
   $('#wr-link', rb)?.addEventListener('click', () => linkDialog());
+  $('#wr-addbox', rb)?.addEventListener('click', () => addBoxNow());
   $('#wr-rcslot', rb)?.addEventListener('click', () => { D.ltr.rcSlot = !D.ltr.rcSlot; scheduleSave(); refreshStage(); });
   $('#wr-sig', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); D.ltr.sig = !D.ltr.sig; scheduleSave(); refreshStage(); });
   // עיצוב: סימן מים
@@ -2460,7 +2498,7 @@ function wireRibbon(main) {
     numDialog(t('wrSizeCustom'), [['pw', `${t('mxWidth')} (in)`, D.ltr.pw || 8.5, 3, 30, 0.01], ['ph', `${t('mxHeight')} (in)`, D.ltr.ph || 11, 3, 30, 0.01]],
       (o) => { D.ltr.page = 'custom'; D.ltr.pw = o.pw; D.ltr.ph = o.ph; scheduleSave(); renderMailMerge(); });
   });
-  $$('[data-cols]', rb).forEach((b) => { b.onclick = () => { closeDd(b); if (body) setColumns(body, b.dataset.cols); }; });
+  $$('[data-cols]', rb).forEach((b) => { b.onclick = () => { closeDd(b); if (B()) setColumns(B(), b.dataset.cols); }; });
   $$('[data-docdir]', rb).forEach((b) => { b.onclick = () => { D.ltr.dir = b.dataset.docdir; scheduleSave(); renderMailMerge(); }; });
   // דברי דואר
   $('#wr-win', rb)?.addEventListener('click', () => { D.ltr.window = !D.ltr.window; scheduleSave(); renderMailMerge(); });
@@ -2490,7 +2528,7 @@ function wireRibbon(main) {
   $$('[data-shade]', rb).forEach((b) => { b.onclick = () => { closeDd(b); tableOp('shade', b.dataset.shade); }; });
   // תמונה
   const iw = $('#wr-img-w', rb);
-  if (iw) iw.onchange = () => { if (selImg) { selImg.style.width = `${Number(iw.value) || 3}in`; selImg.style.maxWidth = '100%'; body?._save?.(); } };
+  if (iw) iw.onchange = () => { if (selImg) { selImg.style.width = `${Number(iw.value) || 3}in`; selImg.style.maxWidth = '100%'; B()?._save?.(); } };
   $$('[data-imgwrap]', rb).forEach((b) => {
     b.onclick = () => {
       if (!selImg) return;
@@ -2499,11 +2537,11 @@ function wireRibbon(main) {
       if (k === 'right') Object.assign(selImg.style, { float: 'right', margin: '0 0 6px 12px' });
       if (k === 'left') Object.assign(selImg.style, { float: 'left', margin: '0 12px 6px 0' });
       if (k === 'center') Object.assign(selImg.style, { display: 'block', margin: '6px auto' });
-      body?._save?.();
+      B()?._save?.();
       setTab('img');
     };
   });
-  $('#wr-img-del', rb)?.addEventListener('click', () => { if (selImg) { selImg.remove(); selImg = null; body?._save?.(); syncRibbon(); } });
+  $('#wr-img-del', rb)?.addEventListener('click', () => { if (selImg) { selImg.remove(); selImg = null; B()?._save?.(); syncRibbon(); } });
   // הגדרות: [data-k], בילדער
   $$('[data-k]', rb).forEach((el) => { el.addEventListener('change', () => applyK(el)); });
   wireUploads(rb);
@@ -2807,39 +2845,188 @@ function wireStageButtons(main, sc) {
   $('#mx-send', sc)?.addEventListener('click', () => sendEmails());
 }
 
-/** שלעפן מיטן מויז: צוריק-אדרעס, נמען, פענצטער, טעקסט קעסטלעך */
+/** שלעפן מיטן מויז: צוריק-אדרעס, נמען, פענצטער, טעקסט קעסטלעך.
+ *  קליק = אויסקלייבן (פייל-קנעפלעך רירן: 1 מ"מ, מיט Shift 1 ס"מ) · צוויי קליקס אויף א קעסטל = שרייבן אין אים
+ *  בשעת'ן שלעפן: קווים צום מיטן פונעם בלאט און צו אנדערע טיילן (עס "קלעבט" זיך צו) */
+let selPart = '';      // דער טייל וואס איז אויסגעקליבן (ret / rcp / win / box:id)
+let editBox = null;    // .mx-boxtx וואס מ'שרייבט יעצט אין אים
+const partOf = (key) => (key === 'ret' ? D.ret : key === 'rcp' ? D.rcp : key === 'win' ? D.ltr?.win : (D.boxes || []).find((b) => `box:${b.id}` === key));
+const IN = 96;
+function partRect(el) { const p = partOf(el.dataset.part) || {}; return { x: Number(p.x) || 0, y: Number(p.y) || 0, w: el.offsetWidth / IN, h: el.offsetHeight / IN }; }
+/** די סרגלען: א שאטן וואו דער אויסגעקליבענער טייל איז, און די פאזיציע אונטן */
+function showPos(el) {
+  const doc = $('#mm-canvas .wr-doc');
+  const pos = $('#wr-pos');
+  if (!el) { $$('.wr-rsel', doc || document).forEach((x) => { x.hidden = true; }); if (pos) pos.textContent = ''; return; }
+  const r = partRect(el);
+  const hs = $('.wr-rsel-h', doc || document); const vs = $('.wr-rsel-v', doc || document);
+  if (hs) { hs.hidden = false; hs.style.left = `${r.x}in`; hs.style.width = `${r.w}in`; }
+  if (vs) { vs.hidden = false; vs.style.top = `${r.y}in`; vs.style.height = `${r.h}in`; }
+  if (pos) pos.textContent = `↔ ${r.x.toFixed(2)}″ · ↕ ${r.y.toFixed(2)}″ · ${r.w.toFixed(2)}″ × ${r.h.toFixed(2)}″`;
+}
+function selectPart(key) {
+  selPart = key || '';
+  if (key?.startsWith('box:')) selBox = key.slice(4);
+  const canvas = $('#mm-canvas');
+  if (!canvas) return;
+  $$('.mx-drag', canvas).forEach((x) => x.classList.toggle('sel', x.dataset.part === selPart));
+  showPos(selPart ? $(`.mx-drag[data-part="${CSS.escape(selPart)}"]`, canvas) : null);
+}
+/** שרייבן אינעם קעסטל: די פעלדער ווערן «קעסטלעך», און דער ריבן ארבעט אויף אים */
+function startBoxEdit(el) {
+  const part = partOf(el.dataset.part);
+  const tx = $('.mx-boxtx', el);
+  if (!part || !tx || !canEditT(current())) return;
+  if (editBox && editBox !== tx) endBoxEdit(false);
+  tx.innerHTML = tokensToChips(cleanHtml(part.html)) || '<p><br></p>';
+  tx.contentEditable = 'true';
+  tx.spellcheck = false;
+  el.classList.add('editing');
+  editBox = tx;
+  tx._save = () => { part.html = cleanHtml(chipsToTokens(tx)); scheduleSave(); };
+  tx.addEventListener('input', tx._save);
+  tx.focus();
+  const r = document.createRange(); r.selectNodeContents(tx); r.collapse(false);
+  const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+  wrRange = r.cloneRange();
+  selectPart(el.dataset.part);
+}
+function endBoxEdit(redraw = true) {
+  if (!editBox) return;
+  const tx = editBox;
+  editBox = null;
+  tx._save?.();
+  if (redraw) refreshStage();
+}
+let dragWired = false;
+function wireDragGlobal() {
+  if (dragWired) return;
+  dragWired = true;
+  // א קליק אינדרויסן פונעם קעסטל (נישט אויפן ריבן) — פארטיג מיטן שרייבן
+  document.addEventListener('pointerdown', (e) => {
+    if (!editBox) return;
+    const tg = e.target;
+    if (editBox.contains(tg) || tg.closest?.('.wr-ribbon, .wr-tabs, .wr-dd, dialog')) return;
+    endBoxEdit();
+  }, true);
+  document.addEventListener('keydown', (e) => {
+    const canvas = $('#mm-canvas');
+    if (!canvas || !selPart) return;
+    if (editBox) { if (e.key === 'Escape') { e.preventDefault(); endBoxEdit(); } return; }
+    const ae = document.activeElement;
+    if (ae && (ae.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) return;
+    const el = $(`.mx-drag[data-part="${CSS.escape(selPart)}"]`, canvas);
+    const part = partOf(selPart);
+    if (!el || !part || !canEditT(current())) return;
+    const step = e.shiftKey ? 0.4 : 0.04; // 1 ס"מ / 1 מ"מ
+    const mv = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+    if (mv) {
+      e.preventDefault();
+      part.x = Math.max(0, Math.round(((Number(part.x) || 0) + mv[0]) * 100) / 100);
+      part.y = Math.max(0, Math.round(((Number(part.y) || 0) + mv[1]) * 100) / 100);
+      el.style.left = `${part.x}in`; el.style.top = `${part.y}in`;
+      showPos(el);
+      scheduleSave();
+      return;
+    }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selPart.startsWith('box:')) { e.preventDefault(); delBox(selPart); return; }
+    if (e.key === 'Enter' && selPart.startsWith('box:')) { e.preventDefault(); startBoxEdit(el); }
+    if (e.key === 'Escape') selectPart('');
+  });
+}
+function delBox(key) {
+  D.boxes = (D.boxes || []).filter((b) => `box:${b.id}` !== key);
+  if (selPart === key) selPart = '';
+  selBox = '';
+  editBox = null;
+  scheduleSave();
+  if (D.kind === 'ltr') refreshStage(); else renderMailMerge();
+}
+/** א נייע תיבת טקסט אינמיטן פונעם בלאט — גלייך צום שרייבן */
+function addBoxNow() {
+  const [W, H] = D.kind === 'ltr' ? letterDims(D) : pageSize(D);
+  const id = `b${Date.now().toString(36)}`;
+  const w = Math.min(3, Math.max(1, W - 1));
+  D.boxes = [...(D.boxes || []), { id, x: Math.round((W - w) / 2 * 100) / 100, y: Math.round(Math.min(H / 2, 4) * 100) / 100, w, html: '<p><br></p>', dir: D.kind === 'ltr' ? D.ltr.dir : 'rtl', font: 'Frank Ruhl Libre', size: 14 }];
+  selPart = `box:${id}`; selBox = id;
+  scheduleSave();
+  refreshStage();
+  const el = $(`#mm-canvas .mx-drag[data-part="box:${id}"]`);
+  if (el) startBoxEdit(el);
+}
 function wireDrag() {
   const canvas = $('#mm-canvas');
   if (!canvas || !canEditT(current())) return;
+  wireDragGlobal();
+  editBox = null;
+  // אין "עריכה" (נישט תצוגה מקדימה): די פעלדער אין די קעסטלעך ווי «קעסטלעך», פונקט ווי אינעם בריוו
+  if (D.kind === 'ltr' && ltrEdit) $$('.mx-box.mx-drag', canvas).forEach((el) => { const p2 = partOf(el.dataset.part); const tx = $('.mx-boxtx', el); if (p2 && tx) tx.innerHTML = tokensToChips(cleanHtml(p2.html)); });
   $$('.mx-drag', canvas).forEach((el) => {
+    el.ondblclick = (e) => { if (el.dataset.part?.startsWith('box:') && !el.classList.contains('editing')) { e.preventDefault(); startBoxEdit(el); } };
     el.onpointerdown = (e) => {
       const partKey = el.dataset.part;
-      const part = partKey === 'ret' ? D.ret : partKey === 'rcp' ? D.rcp : partKey === 'win' ? D.ltr.win : D.boxes.find((b) => `box:${b.id}` === partKey);
+      const part = partOf(partKey);
       if (!part) return;
+      if (e.target.closest('.mx-boxdel')) { e.preventDefault(); delBox(partKey); return; }
+      // שרייבן אינעם קעסטל: דער מויז ארבעט ווי אין טעקסט (מ'שלעפט נאר מיט ✥)
+      if (el.classList.contains('editing') && !e.target.closest('.mx-boxmove, .mx-boxrs')) return;
       e.preventDefault();
-      if (partKey.startsWith('box:') && selBox !== partKey.slice(4)) { selBox = partKey.slice(4); }
+      if (selPart !== partKey) selectPart(partKey);
       const scale = Number(canvas.dataset.scale || 1);
       const ppi = 96 * scale;
-      const start = { x: e.clientX, y: e.clientY, px: Number(part.x) || 0, py: Number(part.y) || 0 };
+      const resize = Boolean(e.target.closest('.mx-boxrs'));
+      const start = { x: e.clientX, y: e.clientY, px: Number(part.x) || 0, py: Number(part.y) || 0, pw: Number(part.w) || el.offsetWidth / IN };
+      // די ליניעס צו וועלכע מ'קלעבט זיך: דער מיטן פונעם בלאט, און די קאנטן / מיטן פון די אנדערע טיילן
+      const host = el.parentElement;
+      const pw = host.offsetWidth / IN; const ph = (host.offsetHeight || 0) / IN;
+      const others = $$('.mx-drag', host).filter((x) => x !== el).map(partRect);
+      const vx = [pw / 2, ...others.flatMap((r) => [r.x, r.x + r.w / 2, r.x + r.w])];
+      const hy = [ph / 2, ...others.flatMap((r) => [r.y, r.y + r.h / 2, r.y + r.h])];
+      const guide = (cls) => { let g = $(`.mx-guide.${cls}`, host); if (!g) { g = document.createElement('div'); g.className = `mx-guide ${cls}`; host.append(g); } return g; };
+      const gv = guide('gv'); const gh = guide('gh'); gv.hidden = true; gh.hidden = true;
       el.setPointerCapture(e.pointerId);
       el.classList.add('dragging');
       el.onpointermove = (ev) => {
-        part.x = Math.max(0, Math.round((start.px + (ev.clientX - start.x) / ppi) * 100) / 100);
-        part.y = Math.max(0, Math.round((start.py + (ev.clientY - start.y) / ppi) * 100) / 100);
+        if (resize) {
+          const dx = (ev.clientX - start.x) / ppi;
+          part.w = Math.max(0.5, Math.round((start.pw + dx) * 100) / 100);
+          el.style.width = `${part.w}in`;
+          showPos(el);
+          return;
+        }
+        let x = start.px + (ev.clientX - start.x) / ppi;
+        let y = start.py + (ev.clientY - start.y) / ppi;
+        const w = el.offsetWidth / IN; const h2 = el.offsetHeight / IN;
+        const snap = 0.07;
+        gv.hidden = true; gh.hidden = true;
+        if (!ev.altKey) {
+          // X: דער לינקער קאנט / מיטן / רעכטער קאנט פונעם טייל
+          let best = null;
+          vx.forEach((L) => [[x, 0], [x + w / 2, w / 2], [x + w, w]].forEach(([v, off]) => { const d = Math.abs(v - L); if (d < snap && (!best || d < best.d)) best = { d, x: L - off, L }; }));
+          if (best) { x = best.x; gv.hidden = false; gv.style.left = `${best.L}in`; }
+          let bestY = null;
+          hy.forEach((L) => [[y, 0], [y + h2 / 2, h2 / 2], [y + h2, h2]].forEach(([v, off]) => { const d = Math.abs(v - L); if (d < snap && (!bestY || d < bestY.d)) bestY = { d, y: L - off, L }; }));
+          if (bestY) { y = bestY.y; gh.hidden = false; gh.style.top = `${bestY.L}in`; }
+        }
+        part.x = Math.max(0, Math.round(x * 100) / 100);
+        part.y = Math.max(0, Math.round(y * 100) / 100);
         el.style.left = `${part.x}in`;
         el.style.top = `${part.y}in`;
+        showPos(el);
       };
       el.onpointerup = () => {
         el.onpointermove = null;
         el.classList.remove('dragging');
-        if (start.px !== part.x || start.py !== part.y) {
+        gv.hidden = true; gh.hidden = true;
+        if (start.px !== part.x || start.py !== part.y || (resize && start.pw !== part.w)) {
           scheduleSave();
-          if (partKey === 'win') renderMailMerge();
-          else if (partKey.startsWith('box:')) renderMailMerge();
+          if (D.kind !== 'ltr' && (partKey === 'win' || partKey.startsWith('box:'))) renderMailMerge();
+          else if (partKey === 'win') refreshStage();
         }
       };
     };
   });
+  if (selPart) selectPart(selPart);
 }
 
 // ---------- א קליינער דיאלאג ----------
