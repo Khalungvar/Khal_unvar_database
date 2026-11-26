@@ -1770,10 +1770,22 @@ table thead th[data-sort="desc"]::after { content: ' ▼'; opacity: .9; }
 .mx-guide { position: absolute; z-index: 20; pointer-events: none; background: #e0306a; }
 .mx-guide.gv { top: 0; bottom: 0; width: 1px; } .mx-guide.gh { left: 0; right: 0; height: 1px; }
 /* «» תפריט שדות: שדה · הסבר · דוגמה */
-.wr-fmenu .wr-mi { display: flex; gap: 8px; align-items: baseline; min-width: 360px; }
+.wr-fmenu .wr-menu { display: block; width: min(560px, 94vw); }
+.wr-fmenu .wr-mh { display: block; margin-top: 4px; }
+.wr-fmenu .wr-mi { display: grid; grid-template-columns: 150px 1fr 170px; gap: 8px; align-items: baseline; width: 100%; text-align: start; }
 .wr-fmenu .wr-fk { font-weight: 600; white-space: nowrap; }
 .wr-fmenu .wr-fdesc { color: #666; font-size: 12px; }
-.wr-fmenu .wr-fsample { color: #2563eb; font-size: 12px; margin-inline-start: auto; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.wr-fmenu .wr-fsample { color: #2563eb; font-size: 12px; text-align: end; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 📏 סימנים על הסרגל */
+.wr-ruler .wr-rgray { position: absolute; background: rgba(0,0,0,.13); pointer-events: none; }
+.wr-ruler-h .wr-rgray { top: 0; bottom: 0; } .wr-ruler-v .wr-rgray { left: 0; right: 0; }
+.wr-rmh, .wr-ind { position: absolute; pointer-events: auto; z-index: 2; }
+.wr-rmh-x { top: 0; bottom: 0; width: 7px; margin-left: -3px; cursor: ew-resize; background: linear-gradient(#7a1219, #7a1219) center/2px 100% no-repeat; }
+.wr-rmh-y { left: 0; right: 0; height: 7px; margin-top: -3px; cursor: ns-resize; background: linear-gradient(#7a1219, #7a1219) center/100% 2px no-repeat; }
+.wr-rmh:hover { background-color: rgba(122,18,25,.15); }
+.wr-ind { width: 12px; margin-left: -6px; font-size: 11px; line-height: 10px; text-align: center; color: #2563eb; cursor: ew-resize; user-select: none; }
+.wr-ind-first { top: 0; } .wr-ind-start, .wr-ind-end { bottom: 0; }
+.wr-ruler { overflow: visible; }
 .wr-body { outline: none; min-height: 1in; cursor: text; color: #1f1a17; }
 .wr-body p { margin: 0 0 0.55em; }
 .wr-body [style*="page-break-before"] { height: 0; border-top: 1px dashed #b9a06a; margin: 6px 0; position: relative; }
