@@ -129,16 +129,16 @@
   ],
   "phone_box": {
    "head_yi": "שטיצט די לומדי התורה!",
-   "line_yi": "אויטאמאטישע טעלעפאן ליין 24/6:",
+   "line_yi": "גיבט אייער נדבה דורכ'ן אויטאמאטישן טעלעפאן ליין 24/6:",
    "num": "845.609.0400",
    "en": [
-    "Automated Line 24/6",
+    "Automated Donation Line 24/6",
     "All Major CC Accepted",
     "Receipts Available"
    ]
   },
   "checks": {
-   "payee": "Kollel Ungvar",
+   "payee": "Khal Ungvar",
    "addr": [
     "1578 53rd Street",
     "Brooklyn, NY 11219"
