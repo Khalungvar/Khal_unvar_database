@@ -3,7 +3,8 @@
 // די נמענים: א רשימה / איין מענטש / אריינקלעבן. א פראבלעמען-שטרייף, פאָרויסזיכט, דרוקן / PDF, און אליין-שפייכלערן.
 import { customFontNames } from './fonts.js';
 import { state, saveRecord, deleteRecord, allUsers, orgDetailsOf } from './data.js';
-import { t } from './i18n.js';
+import { t, getLang } from './i18n.js';
+const L3 = (a) => a[{ yi: 0, he: 1, en: 2 }[getLang()] ?? 0];
 import { escapeHtml as h, shrinkImage, nowStamp, detectArea } from './util.js';
 import { isoToHebrewText, todayIso } from './hebdate.js';
 import { openReceipts, openOrgDetails } from './receipts.js';
@@ -488,8 +489,15 @@ function barHtml() {
   const cls = w >= 3 ? 'red' : w === 2 ? 'yellow' : 'green';
   const chips = [...probs.entries()].sort((a, b) => SEV[b[1].sev] - SEV[a[1].sev]).map(([k, p]) => `<button type="button" class="mx-pchip ${p.sev}${onlyType === k ? ' on' : ''}" data-ptype="${k}">${h(t(PROB_LABEL[k]))} <b>${p.items.length}</b></button>`).join('');
   return `<div class="mx-bar ${cls}">${w ? '' : `✓ ${h(t('mxAllGood'))}`}${chips}
-    ${byRow.size ? `<label class="check small"><input type="checkbox" id="mx-only" ${onlyType ? 'checked' : ''}> ${h(t('mxOnlyProblems'))}</label>` : ''}</div>`;
+    ${byRow.size ? `<label class="check small"><input type="checkbox" id="mx-only" ${onlyType ? 'checked' : ''}> ${h(t('mxOnlyProblems'))}</label>
+      <label class="check small"><input type="checkbox" id="mx-skipp" ${D.skipProbs ? 'checked' : ''}> ${h(L3(['סיים ומזג אן די מיט פראבלעמען', 'סיים ומזג בלי הנמענים עם בעיות', 'Finish & merge without the problem ones']))}${D.skipProbs ? ` <b>(${skipN()})</b>` : ''}</label>` : ''}</div>`;
 }
+const finishLbl = () => `⎙ ${h(t('wrFinish'))}${skipN() ? ` <small>(${h(L3([`${skipN()} איבערגעהיפט`, `${skipN()} דולגו`, `${skipN()} skipped`]))})</small>` : ''}`;
+/** נמען מיט א פראבלעם (נישט נאר "אינפא") */
+const hasProb = (c) => (byRow.get(keyOf(c)) || []).some((k) => probs.get(k)?.sev !== 'info');
+/** די נמענים פאר "סיים ומזג": אלע, אדער (ווען אנגעצייכנט) אן די מיט פראבלעמען */
+const outAll = () => (D?.skipProbs ? rows.filter((c) => !hasProb(c)) : rows);
+const skipN = () => (D?.skipProbs ? rows.length - outAll().length : 0);
 /** די נמענים וואס מ'ווייזט אין דער פאָרויסזיכט */
 function viewRows() {
   if (!onlyType) return rows;
@@ -1281,7 +1289,7 @@ function wordStageHtml() {
         <button type="button" class="wr-q" data-wcmd="redo" title="${h(t('wrRedo'))} (Ctrl+Y)">↷</button>
         <span class="wr-qsep"></span>
         <button type="button" class="wr-q" id="wr-print" title="${h(t('wrPrint'))} (Ctrl+P)">🖨</button>
-        <button type="button" class="wr-q wr-q-txt" id="wr-finish" title="${h(t('wrFinish'))}">⎙ ${h(t('wrFinish'))}</button>
+        <button type="button" class="wr-q wr-q-txt" id="wr-finish" title="${h(t('wrFinish'))}">${finishLbl()}</button>
       </span>
       <span class="wr-tabnames">${tabsHtml()}</span>
     </div>
@@ -1736,9 +1744,9 @@ function printDialog(which = 'draft') {
       <b>${h(t('wrPdWhat'))}</b>
       <label class="check"><input type="radio" name="wrpd" value="draft"${which === 'draft' ? ' checked' : ''}> ${h(t('wrPdDraft'))}</label>
       <label class="check"><input type="radio" name="wrpd" value="one"${which === 'one' ? ' checked' : ''}${c ? '' : ' disabled'}> ${h(t('wrPdOne'))}${c ? ` — ${h(nameOf(c))}` : ''}</label>
-      <label class="check"><input type="radio" name="wrpd" value="all"${which === 'all' ? ' checked' : ''}${rows.length ? '' : ' disabled'}> ${h(t('wrPdAll', { n: rows.length }))}</label>
-      <div class="mx-range wr-pd-range">${h(t('mxRange'))} <input type="number" id="mx-from" min="1" value="1"> – <input type="number" id="mx-to" min="1" value="${rows.length || 1}"></div>
-      ${red ? `<div class="mx-redwarn">⚠ ${h(t('mxRedWarn'))}</div>` : ''}
+      <label class="check"><input type="radio" name="wrpd" value="all"${which === 'all' ? ' checked' : ''}${outAll().length ? '' : ' disabled'}> ${h(t('wrPdAll', { n: outAll().length }))}${skipN() ? ` <span class="muted small">(${h(L3([`${skipN()} מיט פראבלעמען — איבערגעהיפט`, `${skipN()} עם בעיות — דולגו`, `${skipN()} with problems — skipped`]))})</span>` : ''}</label>
+      <div class="mx-range wr-pd-range">${h(t('mxRange'))} <input type="number" id="mx-from" min="1" value="1"> – <input type="number" id="mx-to" min="1" value="${outAll().length || 1}"></div>
+      ${red && !D.skipProbs ? `<div class="mx-redwarn">⚠ ${h(t('mxRedWarn'))}</div>` : ''}
       ${D.ltr.rcSlot ? `<p class="mx-pending small">🧾 ${h(t('wrRcFromReceipts'))} <button type="button" class="btn small-btn" id="wrpd-rc">${h(t('wrOpenReceipts'))}</button></p>` : ''}
       ${D.ltr.page && D.ltr.page !== 'letter' ? `<p class="muted small">📄 ${h(t('wrPdPaper', { size: letterDims(D).join('" × ') }))}"</p>` : ''}
     </div>
@@ -2957,6 +2965,8 @@ function wireBar(main) {
       refreshStage();
     };
   });
+  const sk = $('#mx-skipp', main);
+  if (sk) sk.onchange = () => { D.skipProbs = sk.checked; scheduleSave(); $('#mx-bar-wrap').innerHTML = barHtml(); wireBar(main); const f = $('#wr-finish'); if (f) f.innerHTML = finishLbl(); };
   const only = $('#mx-only', main);
   if (only) only.onchange = () => { onlyType = only.checked ? '*' : ''; idx = 0; $('#mx-bar-wrap').innerHTML = barHtml(); wireBar(main); refreshStage(); };
 }
@@ -3243,16 +3253,17 @@ function openSheets() {
 
 // ---------- דרוקן / PDF ----------
 function rangeRows() {
+  const all = outAll();
   const from = Math.max(1, Number($('#mx-from')?.value) || 1);
-  const to = Math.min(rows.length, Number($('#mx-to')?.value) || rows.length);
-  return rows.slice(from - 1, Math.max(from - 1, to));
+  const to = Math.min(all.length, Number($('#mx-to')?.value) || all.length);
+  return all.slice(from - 1, Math.max(from - 1, to));
 }
 function pagesFor(D2, list, { nums = false, start = 0 } = {}) {
   if (D2.kind === 'lbl') return labelPages(D2, list, { all: false, nums: nums ? list.map((_, i) => String(start + i + 1)) : null });
   return list.flatMap((c, i) => (D2.kind === 'ltr' ? letterPages(D2, c, { num: nums ? String(start + i + 1) : '' }) : [envHtml(D2, c, { num: nums ? String(start + i + 1) : '' })]));
 }
 function confirmRed() {
-  if (worst() < 3) return true;
+  if (worst() < 3 || D.skipProbs) return true;
   const n = [...probs.values()].filter((p) => p.sev === 'red').reduce((s, p) => s + p.items.length, 0);
   return confirm(t('mxRedConfirm', { n }));
 }
