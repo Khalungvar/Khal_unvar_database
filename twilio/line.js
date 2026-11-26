@@ -28,6 +28,15 @@ async function guard(context, body) {
   try { return JSON.parse(t); } catch (e) { return { error: 'bad-reply', raw: t.slice(0, 200) }; }
 }
 
+// השומר (Apps Script) לפעמים איטי (3–15 שניות), ול-Twilio Function יש 10 שניות בלבד —
+// לכן לא מחכים לו יותר מ-ms: הבקשה כבר נשלחה והשומר ממשיך לבד. כפילות נחסמת בשומר (לפי CallSid).
+function guardSoon(context, body, ms) {
+  return Promise.race([guard(context, body).catch((e) => ({ error: String(e && e.message) })), new Promise((r) => setTimeout(() => r({ pending: true }), ms))]);
+}
+function paidBody(event, n) {
+  return { stage: 'paid', call: event.CallSid, from: event.From, amount: n, conf: event.PaymentConfirmationCode || '', last4: event.PaymentCardNumber || '' };
+}
+
 function askAmount(tw) {
   const g = tw.gather({ input: 'dtmf', finishOnKey: '#', timeout: 10, action: url('amount'), actionOnEmptyResult: true });
   say(g, 'Please enter the amount of your donation in whole dollars, followed by the pound key.');
@@ -92,16 +101,13 @@ exports.handler = async function (context, event, callback) {
         say(g, 'Sorry, the payment did not go through, and your card was not charged. To try again, press 1. To change the amount, press 2.');
         return done();
       }
-      let g0 = {};
-      try {
-        g0 = await guard(context, { stage: 'paid', call: event.CallSid, from: event.From, amount: n, conf: event.PaymentConfirmationCode || '', last4: event.PaymentCardNumber || '' });
-        if (!g0.ok) console.error('guard paid', JSON.stringify(g0));
-      } catch (e) { console.error('guard paid failed', e && e.message); }
+      const g0 = await guardSoon(context, paidBody(event, n), 3500);
+      if (!g0.ok) console.log('guard paid', JSON.stringify(g0));
       say(tw, 'Thank you! Your donation of ' + money(n) + ' was received successfully.');
       say(tw, 'After the beep, please say your full name. If you would like a receipt by email, please also say your email address, slowly. Then press the pound key.');
       tw.record({
         maxLength: 40, timeout: 5, finishOnKey: '#', playBeep: true, trim: 'trim-silence',
-        action: url('bye'), recordingStatusCallback: url('rec', { call: event.CallSid }), recordingStatusCallbackEvent: 'completed'
+        action: url('bye'), recordingStatusCallback: url('rec', { call: event.CallSid, a: n, c: event.PaymentConfirmationCode || '', l: String(event.PaymentCardNumber || '').slice(-4), f: event.From || '' }), recordingStatusCallbackEvent: 'completed'
       });
       say(tw, 'Thank you and may you be blessed. Goodbye.');
       tw.hangup();
@@ -122,10 +128,9 @@ exports.handler = async function (context, event, callback) {
       const r = await fetch(event.RecordingUrl + '.mp3', { headers: { Authorization: auth } });
       if (!r.ok) { console.error('rec fetch', r.status); return callback(null, {}); }
       const audio = Buffer.from(await r.arrayBuffer()).toString('base64');
-      try {
-        const res = await guard(context, { stage: 'rec', call: event.call || event.CallSid, audio, mime: 'audio/mpeg' });
-        console.log('guard rec', JSON.stringify(res));
-      } catch (e) { console.error('guard rec failed', e && e.message); }
+      const call = event.call || event.CallSid;
+      const res = await guardSoon(context, { stage: 'rec', call, audio, mime: 'audio/mpeg', paid: { amount: parseInt(event.a, 10), conf: event.c || '', last4: event.l || '', from: event.f || '' } }, 8000);
+      console.log('guard rec', JSON.stringify(res));
       return callback(null, {});
     }
 
