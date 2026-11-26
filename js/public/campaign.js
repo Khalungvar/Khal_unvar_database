@@ -145,7 +145,7 @@ function reelHtml(c, logoSrc) {
   const one = GAL.map((g) => `<figure><img src="${h(g.src)}" alt="${h(g.cap || '')}"${g.w && g.h ? ` width="${Number(g.w)}" height="${Number(g.h)}"` : ''}>${g.cap ? `<figcaption>${h(g.cap)}</figcaption>` : ''}</figure>`).join('');
   return `<div class="cp-reel"><div class="cp-reel-track">${one}${one}</div>${logoSrc ? `<div class="cp-reel-logo"><img src="${h(logoSrc)}" alt="${h(tr(c, 'title'))}"></div>` : ''}</div>`;
 }
-const F = { amount: 0, pkg: '', preset: '', monthly: false, months: 0, fee: true, anon: false, dedT: '', dedOpen: false };
+const F = { amount: 0, pkg: '', preset: '', monthly: false, months: 0, fee: true, anon: false, dedT: '', dedOpen: false, ys: null, n: 1, day: Math.min(28, new Date().getDate()) };
 
 function applyLang() {
   document.body.classList.toggle('cp-both', BOTH);
@@ -179,6 +179,7 @@ function heroHtml(c) {
   const logo = /#logo$/.test(c.image || ''); // תמונה שמסתיימת ב-#logo = לוגו במרכז (לא רקע)
   const img = c.image && !logo ? `style="background-image:linear-gradient(180deg,rgba(40,10,10,.05),rgba(40,10,10,.65)),url('${h(c.image)}')"` : '';
   const reel = GAL && GAL.length;
+  if (reel && !tr(c, 'desc') && c.donors_mode === 'none' && !goal && !c.match) return ''; // אין מה להציג
   return `<section class="pb-card cp-hero">
     ${logo && !reel ? `<div style="text-align:center;padding:14px 10px 4px"><img src="${h(c.image.replace(/#logo$/, ''))}" alt="${h(tr(c, 'title'))}" style="width:min(320px,80%);height:auto"></div>` : ''}
     ${reel ? '' : `<div class="cp-pic${c.image && !logo ? ' has-img' : ''}" ${img}><div><small>${h(tr(c, 'sub'))}</small><h1>${h(tr(c, 'title'))}</h1></div></div>`}
@@ -189,6 +190,41 @@ function heroHtml(c) {
       ${goal ? `<div class="cp-track"><i style="width:${pct}%"></i></div>` : ''}
       <div class="cp-stats">${goal ? `<span><b>${pct}%</b> ${h(L().pctGoal)}</span>` : ''}<span><b>${DATA.donors}</b> ${h(L().donors)}</span>${left ? `<span>${h(left)}</span>` : ''}</div>`}
     </div></section>`;
+}
+// ---------- שותפות יששכר וזבולון: 3 קבוצות, שנה שלימה או חודשים לבחירה, תשלומים + יום חיוב ----------
+const YS_N_YEAR = [1, 2, 3, 6, 10, 12]; const YS_N_MONTHS = [1, 2, 3, 4];
+const ysGroup = (c) => (F.ys ? (c.ys?.groups || []).find((g) => g.id === F.ys.g) : null);
+function ysTotal(c) { const g = ysGroup(c); if (!g) return 0; return F.ys.year ? Number(g.month) * 12 : Number(g.month) * F.ys.months.length; }
+function ysApply(c) {
+  const tot = ysTotal(c); const opts = F.ys.year ? YS_N_YEAR : YS_N_MONTHS; if (!opts.includes(F.n)) F.n = 1;
+  F.pkg = ''; F.preset = ''; F.amount = Math.round((tot / F.n) * 100) / 100; F.monthly = F.n > 1; F.months = F.n > 1 ? F.n : 0;
+}
+/** מה נבחר — נשמר ברשומת התרומה (בשביל שטר ידני) */
+function ysSel(c) { const g = ysGroup(c); if (!g) return ''; return `${g.name_yi || g.name_en} · ${F.ys.year ? 'שנה שלימה' : F.ys.months.join(', ')} · ${money(ysTotal(c))}`; }
+function ysHtml(c) {
+  const y = c.ys; const lb = y.lbl || {};
+  return `<section class="pb-card cp-ys"><h2 class="cp-h">${h(tr(y, 'head'))}</h2>${tr(y, 'sub') ? `<p class="cp-ys-sub">${h(tr(y, 'sub'))}</p>` : ''}
+    ${y.groups.map((g) => {
+      const on = F.ys && F.ys.g === g.id; const m = Number(g.month);
+      return `<div class="cp-ysg${on ? ' on' : ''}"><b class="cp-ysn">${h(tr(g, 'name'))}</b>
+        <small class="cp-ysp">${h(tr(lb, 'year'))} <b>${money(m * 12)}</b> · ${h(tr(lb, 'month'))} <b>${money(m)}</b></small>
+        <button type="button" class="cp-ysy${on && F.ys.year ? ' on' : ''}" data-ysy="${h(g.id)}">${h(tr(lb, 'year'))} — ${money(m * 12)}</button>
+        <small class="cp-ysor">${h(tr(lb, 'pick'))}</small>
+        <div class="cp-ysm">${(y.months || []).map((mo) => `<button type="button" data-ysm="${h(g.id)}|${h(mo)}" class="${on && !F.ys.year && F.ys.months.includes(mo) ? 'on' : ''}">${h(mo)}</button>`).join('')}</div>
+      </div>`;
+    }).join('')}</section>`;
+}
+function ysFormHtml(c) {
+  const g = ysGroup(c); if (!g) return ''; const y = c.ys; const lb = y.lbl || {}; const tot = ysTotal(c);
+  const opts = F.ys.year ? YS_N_YEAR : YS_N_MONTHS;
+  return `<div class="cp-yssum"><p class="cp-pkgsel">✓ <b>${h(tr(g, 'name'))}</b><br>${h(F.ys.year ? tr(lb, 'year') : F.ys.months.join(', '))} — <b>${money(tot)}</b> <button type="button" class="cp-link" data-unys>✕</button></p>
+    <div class="cp-row"><label class="cp-l">${h(tr(lb, 'payments'))}<select name="ysn">${opts.map((n) => `<option value="${n}"${F.n === n ? ' selected' : ''}>${n === 1 ? h(tr(lb, 'once')) : `${n} × ${money(Math.round((tot / n) * 100) / 100)}`}</option>`).join('')}</select></label>
+    ${F.n > 1 ? `<label class="cp-l">${h(tr(lb, 'day'))}<select name="ysd">${Array.from({ length: 28 }, (_, i) => i + 1).map((d) => `<option value="${d}"${F.day === d ? ' selected' : ''}>${d}</option>`).join('')}</select></label>` : ''}</div>
+    ${F.n > 1 ? `<p class="cp-ysnote">${h(tr(lb, 'firstNow'))}</p>` : ''}</div>`;
+}
+function lettersHtml(c) {
+  const L2 = c.letters || []; if (!L2.length) return '';
+  return `<section class="cp-letters">${L2.map((l) => `<a href="${h(l.src)}" class="cp-let" data-zoom><img src="${h(l.src)}" alt="${h(l.alt || '')}" loading="lazy"${l.w ? ` width="${Number(l.w)}" height="${Number(l.h)}"` : ''}></a>`).join('')}</section>`;
 }
 function pkgsHtml(c) {
   if (!c.packages.length) return '';
@@ -251,9 +287,10 @@ function formHtml(c) {
   return `<section class="pb-card cp-form" id="cp-form"><h2 class="cp-h"${BOTH ? ' style="text-align:center"' : ''}>${h(BOTH ? T.en.give : T0.give)}</h2>
     ${ready ? '' : `<p class="cp-soon">${h(T0.soon)}</p>`}
     <form ${ready ? '' : 'inert class="cp-off"'} autocomplete="on">
-      ${c.monthly && !F.pkg ? `<div class="cp-tog"><button type="button" data-mon="0" class="${F.monthly ? '' : 'on'}">${h(T0.once)}</button><button type="button" data-mon="1" class="${F.monthly ? 'on' : ''}">${h(T0.monthly)}</button></div>
+      ${c.monthly && !F.pkg && !F.ys ? `<div class="cp-tog"><button type="button" data-mon="0" class="${F.monthly ? '' : 'on'}">${h(T0.once)}</button><button type="button" data-mon="1" class="${F.monthly ? 'on' : ''}">${h(T0.monthly)}</button></div>
         ${F.monthly ? `<label class="cp-l">${h(T0.months)} <select name="months"><option value="0">${h(T0.monthsAll)}</option>${[3, 6, 10, 12, 18, 24, 36].map((m) => `<option value="${m}"${F.months === m ? ' selected' : ''}>${m}</option>`).join('')}</select></label>` : ''}` : ''}
-      ${F.pkg ? '' : `<div class="cp-amts">${amts.map((a) => `<button type="button" data-amt="${a}" class="${F.amount === a ? 'on' : ''}">${money(a)}</button>`).join('')}
+      ${F.ys ? ysFormHtml(c) : ''}
+      ${F.pkg || F.ys ? '' : `<div class="cp-amts">${amts.map((a) => `<button type="button" data-amt="${a}" class="${F.amount === a ? 'on' : ''}">${money(a)}</button>`).join('')}
         <input type="number" min="1" step="1" inputmode="decimal" name="custom" placeholder="${h(T0.other)}" value="${amts.includes(F.amount) || !F.amount ? '' : F.amount}"></div>`}
       ${F.preset ? `<p class="cp-pkgsel">✓ <b>${h(tr(c.packages.find((p) => p.id === F.preset), 'name'))}</b> — ${money(F.amount)} × ${F.months}</p>` : ''}
       ${F.pkg ? `<p class="cp-pkgsel">✓ <b>${h(tr(c.packages.find((p) => p.id === F.pkg), 'name'))}</b> — ${money(totalOf().base)} <button type="button" class="cp-link" data-unpkg>✕</button></p>` : ''}
@@ -289,7 +326,10 @@ function render() {
   if (SCREEN) { root.innerHTML = screenHtml(c); return; }
   const bnr = !!(GAL && GAL.length);
   document.body.classList.toggle('cp-banner', bnr);
-  root.innerHTML = `${bnr ? bannerHtml(c) : ''}<div class="cp-grid"><div class="cp-main">${heroHtml(c)}${pkgsHtml(c)}${recentHtml(c)}</div><div class="cp-side">${formHtml(c)}</div></div>`;
+  const three = !!(c.ys || (c.letters && c.letters.length)); // שלושה טורים: מכתבים · אפשרויות · טופס
+  root.innerHTML = `${bnr ? bannerHtml(c) : ''}${three
+    ? `<div class="cp-grid3"><div class="cp-c-let">${lettersHtml(c)}</div><div class="cp-c-opt">${heroHtml(c)}${c.ys ? ysHtml(c) : pkgsHtml(c)}${recentHtml(c)}</div><div class="cp-c-form">${formHtml(c)}</div></div>`
+    : `<div class="cp-grid"><div class="cp-main">${heroHtml(c)}${pkgsHtml(c)}${recentHtml(c)}</div><div class="cp-side">${formHtml(c)}</div></div>`}`;
   if (bnr) { fixReel(); if (!reelResize) { reelResize = true; addEventListener('resize', fixReel); } }
   wire();
 }
@@ -337,6 +377,17 @@ function wire() {
     } else { F.preset = ''; F.pkg = F.pkg === b.dataset.pkg ? '' : b.dataset.pkg; F.monthly = false; F.months = 0; }
     rerender(); $('#cp-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
   $$('[data-unpkg]').forEach((b) => { b.onclick = () => { F.pkg = ''; rerender(); }; });
+  const ysChanged = () => { if (F.ys) ysApply(c); else { F.monthly = false; F.months = 0; F.n = 1; const a = String(c.amounts || '').split(/[,\s]+/).map(Number).filter((x) => x > 0); F.amount = a[3] || a[0] || 180; } rerender(); };
+  $$('[data-ysy]').forEach((b) => { b.onclick = () => { const g = b.dataset.ysy; F.ys = F.ys && F.ys.g === g && F.ys.year ? null : { g, year: true, months: [] }; ysChanged(); }; });
+  $$('[data-ysm]').forEach((b) => { b.onclick = () => {
+    const [g, mo] = b.dataset.ysm.split('|'); if (!F.ys || F.ys.g !== g || F.ys.year) F.ys = { g, year: false, months: [] };
+    const i = F.ys.months.indexOf(mo); if (i >= 0) F.ys.months.splice(i, 1); else F.ys.months.push(mo);
+    const order = c.ys?.months || []; F.ys.months.sort((a, z) => order.indexOf(a) - order.indexOf(z));
+    if (!F.ys.months.length) F.ys = null; ysChanged(); }; });
+  $$('[data-unys]').forEach((b) => { b.onclick = () => { F.ys = null; ysChanged(); }; });
+  if (form.ysn) form.ysn.onchange = () => { F.n = Number(form.ysn.value) || 1; ysApply(c); rerender(); };
+  if (form.ysd) form.ysd.onchange = () => { F.day = Number(form.ysd.value) || 1; };
+  $$('[data-zoom]').forEach((a) => { a.onclick = (e) => { e.preventDefault(); const o = document.createElement('div'); o.className = 'cp-zoom'; o.innerHTML = `<img src="${h(a.getAttribute('href'))}" alt="">`; o.onclick = () => o.remove(); document.body.appendChild(o); }; });
   $$('[data-amt]').forEach((b) => { b.onclick = () => { F.preset = ''; F.amount = Number(b.dataset.amt); rerender(); }; });
   $$('[data-mon]').forEach((b) => { b.onclick = () => { F.preset = ''; F.monthly = b.dataset.mon === '1'; rerender(); }; });
   if (form.custom) form.custom.onchange = () => { F.preset = ''; F.amount = Math.max(0, Number(form.custom.value) || 0); rerender(); };
@@ -365,14 +416,14 @@ function pay(form) {
     const card = $('[data-ifields-id="card-number-token"]', form).value; const cvv = $('[data-ifields-id="cvv-token"]', form).value;
     if (!card || !cvv) return fail('need-card');
     try {
-      const j = await guard({ action: 'webDonate', c: SLUG, amount: base, pkg: F.pkg, monthly: F.monthly && !F.pkg, months: F.months, fee: !!(DATA.campaign.fee && F.fee), anon: F.anon,
+      const j = await guard({ action: 'webDonate', c: SLUG, amount: base, pkg: F.pkg, monthly: F.monthly && !F.pkg, months: F.months, day: F.ys && F.n > 1 ? F.day : 0, sel: F.ys ? ysSel(DATA.campaign) : '', fee: !!(DATA.campaign.fee && F.fee), anon: F.anon,
         first: form.first.value.trim(), last: form.last.value.trim(), phone: form.phone.value.trim(), email: form.email.value.trim(),
         dedType: dedOf(form).type, dedText: dedOf(form).text, card, cvv, exp, website: form.website.value, lang: LANG });
       if (j.error) return fail(j.error, j.error === 'declined' ? j.msg : '');
       $('#cp-form').innerHTML = `<h2 class="cp-h">${h(T0.thanks)}</h2><p>${h(T0.thanksTxt(money(j.amount), j.last4 || ''))}</p>
         ${j.monthly ? `<p>${h(j.sched ? T0.thanksM : T0.schedErr)}</p>` : ''}
         <p><button type="button" class="pb-btn primary" data-again>${h(T0.again)}</button></p>`;
-      $('[data-again]').onclick = () => { F.pkg = ''; F.preset = ''; load(); };
+      $('[data-again]').onclick = () => { F.pkg = ''; F.preset = ''; F.ys = null; F.n = 1; F.monthly = false; F.months = 0; load(); };
       setTimeout(load, 4000);
     } catch { fail('gateway'); }
   }, () => fail('need-card'), 30000);
@@ -425,7 +476,19 @@ const FORM_CSS = `.cp-ded{margin:6px 0 10px;border:1px solid #e8dcc4;border-radi
 .cp-ded .cp-row > input[data-for]{display:none}.cp-ded[data-t="0"] input[data-for="0"],.cp-ded[data-t="2"] input[data-for="2"]{display:block}
 .cp-ded .cp-row select[name=d_bn]{flex:0 0 90px}
 body.cp-both .cp-amts input[name=custom]{border:2px solid #c9a23f}
-.cp-card .cp-l{margin-top:0}`;
+.cp-card .cp-l{margin-top:0}
+.cp-grid3{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.15fr) 380px;gap:16px;align-items:start}
+.cp-c-opt{display:flex;flex-direction:column;gap:16px;min-width:0}.cp-c-form{position:sticky;top:12px}
+.cp-letters{display:flex;flex-direction:column;gap:12px}.cp-let{display:block;border-radius:12px;overflow:hidden;box-shadow:0 4px 14px rgba(60,20,10,.25);cursor:zoom-in}.cp-let img{display:block;width:100%;height:auto}
+.cp-zoom{position:fixed;inset:0;background:rgba(20,8,6,.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:12px;cursor:zoom-out}.cp-zoom img{max-width:100%;max-height:100%;border-radius:10px}
+.cp-ys-sub{margin:-6px 0 10px;color:#7a5a3a}
+.cp-ysg{border:1px solid #e8dcc4;border-radius:12px;padding:12px;margin-bottom:12px;background:#fffdf8;display:flex;flex-direction:column;gap:7px}
+.cp-ysg.on{border-color:#c9a23f;box-shadow:0 0 0 2px rgba(201,162,63,.35)}
+.cp-ysn{font-size:17px;color:#5a1010;white-space:pre-line}.cp-ysp{color:#6b5a48}.cp-ysor{color:#8a7a68}
+.cp-ysy{border:1px solid #c9a23f;background:#fff;border-radius:9px;padding:8px;font-weight:600;cursor:pointer}.cp-ysy.on{background:#7a1219;color:#fff;border-color:#7a1219}
+.cp-ysm{display:flex;flex-wrap:wrap;gap:6px}.cp-ysm button{border:1px solid #e0cfa8;background:#fff;border-radius:8px;padding:5px 9px;cursor:pointer;font-size:14px}.cp-ysm button.on{background:#7a1219;color:#fff;border-color:#7a1219}
+.cp-yssum b{white-space:pre-line}.cp-yssum .cp-row{gap:8px}.cp-yssum label{flex:1}.cp-yssum select{width:100%}.cp-ysnote{font-size:12px;color:#7a5a3a;margin:2px 0 8px}
+@media (max-width:1000px){.cp-grid3{grid-template-columns:1fr}.cp-c-opt{order:1}.cp-c-form{order:2;position:static}.cp-c-let{order:3}}`;
 export function startCampaign() {
   if (!document.getElementById('cp-form-css')) { const st = document.createElement('style'); st.id = 'cp-form-css'; st.textContent = FORM_CSS; document.head.appendChild(st); }
   const qs = new URLSearchParams(location.search);
