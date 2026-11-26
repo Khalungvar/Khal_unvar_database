@@ -3193,7 +3193,7 @@ function webCampaign_(req) {
     const st = wcStats_(S(o.campaign), p.donors_mode, p.packages);
     res = { campaign: p, raised: st.raised, donors: st.donors, recent: st.recent, taken: st.taken, ifields: S(PropertiesService.getScriptProperties().getProperty('SOLA_IFIELDS_KEY')), pay: !!PropertiesService.getScriptProperties().getProperty('SOLA_XKEY'), at: now() };
   }
-  try { cache.put(ck, JSON.stringify(res), 20); } catch (e) { /* */ }
+  try { cache.put(ck, JSON.stringify(res), res.campaign && res.campaign.donors_mode === 'none' && !Number(res.campaign.goal) ? 600 : 20); } catch (e) { /* */ }
   return res;
 }
 function wcStats_(campaign, mode, packages) {
