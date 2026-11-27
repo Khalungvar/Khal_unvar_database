@@ -41,6 +41,13 @@ const EMPTY = () => ({
   add: [], remove: [], ext: [],
   meta: { note: '', editors: [], viewers: [], firstTab: 'names', mem: {}, sep: [], notDup: [] },
 });
+const ROW_BASES = ['tags', 'area', 'family', 'donation'];
+/** שורה נוספת של הגדרה: { mode: and|or, base, tags, areas, family, donation } */
+function normRow(r, st) {
+  const x = r || {};
+  return { mode: x.mode === 'or' ? 'or' : 'and', base: ROW_BASES.includes(x.base) ? x.base : 'tags',
+    tags: { ...TAGSEL(st), ...(x.tags || {}) }, areas: x.areas || [], family: x.family || [], donation: { ...DON(), ...(x.donation || {}) } };
+}
 const asEntry = (x) => (typeof x === 'object' && x ? x : { id: String(x) });
 
 /** פון א געשפייכלערטן JSON (אויך די אלטע פארמע) → די נייע פארמע */
@@ -65,6 +72,9 @@ export function normalize(raw) {
     add: (raw.add || []).map(asEntry), remove: (raw.remove || []).map(asEntry), ext: raw.ext || [],
     meta: { ...e.meta, ...(raw.meta || {}) },
   };
+  // ➕ עוד הגדרות: "רק מי שגם" / "ועוד מי ש" (מי נכלל) · "וגם חוץ מ" (חוץ מ)
+  out.more = (raw.more || []).map((r) => normRow(r, 'a'));
+  out.except.more = (raw.except?.more || []).map((r) => normRow(r, 'both'));
   // 🎉 "שמחת בית אונגוואר" איז יעצט א תגית (_wl) אין "לויט תגיות"
   if (out.base === 'wedding') { out.base = 'tags'; out.tags = { ...out.tags, keys: [...new Set([...(out.tags.keys || []), '_wl'])] }; }
   return out;
@@ -219,6 +229,14 @@ function famIds(fam) {
   });
   return m;
 }
+/** האנשים של שורה נוספת; null = השורה עוד ריקה (לא משנה כלום) */
+function rowSet(r) {
+  if (r.base === 'tags') return r.tags?.keys?.length ? setFrom(r.tags, 'tags') : null;
+  if (r.base === 'area') return r.areas?.length ? setFrom(r.areas, 'area') : null;
+  if (r.base === 'family') return r.family?.length ? setFrom(r.family, 'family') : null;
+  if (r.base === 'donation') return setFrom(r.donation || DON(), 'donation');
+  return null;
+}
 function setFrom(part, kind) {
   const ids = new Set();
   if (kind === 'tags') state.contacts.forEach((c) => { if (tagMatch(c, part)) ids.add(String(c.contact_id)); });
@@ -235,6 +253,7 @@ function exceptIds(ex, seen) {
   if (ex.areas?.length) add(setFrom(ex.areas, 'area'));
   if (ex.family?.length) add(setFrom(ex.family, 'family'));
   if (ex.donation) add(setFrom(ex.donation, 'donation'));
+  (ex.more || []).forEach((r) => { const s = rowSet(r); if (s) add(s); }); // ➕ "וגם חוץ מ"
   (ex.lists || []).forEach((lid) => {
     const l = listById(lid);
     if (l && !seen.has(String(lid))) evaluate(parseSaved(l).cr, new Set([...seen, String(lid)])).forEach((r) => out.add(r.key));
@@ -565,9 +584,15 @@ export function evaluate(raw, seen = new Set()) {
     && (!(cr.close || []).length || cr.close.map(Number).includes(barOf(c)))
     && (!cr.gen || genOn(c)) && (!cr.big || bigDonor(c))
     && (!(cr.has || []).length || hasWay(c, cr.has));
-  const base = cr.base === 'all' ? new Set(state.contacts.map((c) => String(c.contact_id))) : cr.base === 'tags' ? setFrom(cr.tags, 'tags') : cr.base === 'area' ? setFrom(cr.areas, 'area')
+  let base = cr.base === 'all' ? new Set(state.contacts.map((c) => String(c.contact_id))) : cr.base === 'tags' ? setFrom(cr.tags, 'tags') : cr.base === 'area' ? setFrom(cr.areas, 'area')
     : cr.base === 'family' ? setFrom(cr.family, 'family') : cr.base === 'donation' ? setFrom(cr.donation, 'donation')
     : cr.base === 'wedding' ? new Set(state.contacts.filter((c) => /^(true|1|yes|כן)$/i.test(String(c.wedding_list ?? '').trim())).map((c) => String(c.contact_id))) : new Set();
+  // ➕ עוד הגדרות, לפי הסדר: "רק מי שגם" מצמצם, "ועוד מי ש" מוסיף
+  (cr.more || []).forEach((r) => {
+    const s = rowSet(r);
+    if (!s) return;
+    if (r.mode === 'or') s.forEach((x) => base.add(x)); else base = new Set([...base].filter((x) => s.has(x)));
+  });
   const fam = cr.base === 'family' ? famIds(cr.family) : new Map();
   const don = cr.base === 'donation' ? donors(cr.donation) : null;
   const ex = exceptIds(cr.except, seen);
@@ -1675,8 +1700,34 @@ function listPick(sel, withEx) {
 const BASES = [['tags', '🏷', 'L2bTags'], ['area', '📍', 'L2bArea'], ['family', '👪', 'L2bFamily'], ['donation', '💰', 'L2bDonation'], ['all', '🏛', ['כלל מוסדות אונגוואר', 'כלל מוסדות אונגוואר', 'All Ungvar institutions']]];
 const baseLabel = (l) => (Array.isArray(l) ? L3(l) : t(l));
 
+// ➕ עוד הגדרות: שורות נוספות ב"מי נכלל" (רק מי שגם / ועוד מי ש) וב"חוץ מ" (וגם חוץ מ)
+const MORE_LBL = {
+  and: ['נאר ווער עס איז אויך', 'רק מי שגם', 'Only those who are also'],
+  or: ['און נאך ווער עס איז', 'ועוד מי ש', 'And also whoever is'],
+  x: ['און אויך חוץ פון', 'וגם חוץ מ', 'And also except'],
+};
+const MORE_TYPES = [['tags', '🏷', 'L2bTags'], ['area', '📍', 'L2bArea'], ['family', '👪', 'L2bFamily'], ['donation', '💰', 'L2bDonation']];
+function moreBody(r, pre) {
+  if (r.base === 'area') return areaPick(r.areas, pre);
+  if (r.base === 'family') return famPick(r.family, pre);
+  if (r.base === 'donation') return donPick(r.donation, pre);
+  return tagPick(r.tags, pre);
+}
+function moreRowsHtml(rows, kind) {
+  return rows.map((r, i) => {
+    const pre = `${kind === 'x' ? 'y' : 'r'}${i}`;
+    return `<div class="l2-more" data-mk="${kind}" data-mi="${i}" data-mpre="${pre}">
+      <div class="l2-more-head"><b class="l2-more-lbl">${h(L3(MORE_LBL[kind === 'x' ? 'x' : r.mode]))}…</b>
+        <span class="l2-row l2-btns">${MORE_TYPES.map(([k, ic, l]) => `<label class="l2-btn"><input type="radio" name="${pre}type" value="${k}" data-mtype${r.base === k ? ' checked' : ''}> ${ic} ${h(t(l))}</label>`).join('')}</span>
+        <button type="button" class="btn small-btn" data-mdel title="${h(L3(['אראפנעמען', 'הסר', 'Remove']))}">✕</button></div>
+      <div class="l2-basebox l2-more-body">${moreBody(r, pre)}</div></div>`;
+  }).join('');
+}
+
 function openSettings() {
   const cr = current.cr; const ex = cr.except;
+  const moreI = (cr.more || []).map((r) => normRow(r, 'a'));
+  const moreX = (ex.more || []).map((r) => normRow(r, 'both'));
   const fam = cr.meta.kind === 'family';
   const pub = cr.meta.pub || {};
   const own = isOwner({ created_by: current.created_by }) || state.isAdmin;
@@ -1720,6 +1771,9 @@ function openSettings() {
       <div class="l2-basebox" data-for="area"${cr.base === 'area' ? '' : ' hidden'}>${areaPick(cr.areas, 'i')}</div>
       <div class="l2-basebox" data-for="family"${cr.base === 'family' ? '' : ' hidden'}>${famPick(cr.family, 'i')}</div>
       <div class="l2-basebox" data-for="donation"${cr.base === 'donation' ? '' : ' hidden'}>${donPick(cr.donation, 'i')}</div>
+      <div class="l2-more-list" data-mlist="i">${moreRowsHtml(moreI, 'i')}</div>
+      <div class="l2-row l2-more-add"><button type="button" class="btn small-btn" data-madd="and">➕ ${h(L3(MORE_LBL.and))}…</button>
+        <button type="button" class="btn small-btn" data-madd="or">➕ ${h(L3(MORE_LBL.or))}…</button></div>
     </fieldset>
     <details class="l2-listsbox"${(cr.lists || []).length ? ' open' : ''}><summary><b>📋 ${h(L3(['צולייגן נאך פארטיגע רשימות צו די רשימה', 'הוסף עוד רשימות מוכנות לרשימה הזאת', 'Add more ready lists to this list']))}</b>
       <span class="muted small">${h(L3(['(ווערט נישט באאיינפלוסט פון די תגיות)', '(לא יושפע מהתגיות המוגדרות)', '(not affected by the tags above)']))}</span>${(cr.lists || []).length ? ` <span class="count-pill">${cr.lists.length}</span>` : ''}</summary>
@@ -1728,6 +1782,8 @@ function openSettings() {
       <div class="l2-row l2-btns">${XPARTS()
         .map(([k, ic, l]) => `<label class="l2-btn"><input type="checkbox" data-xon="${k}"${xParts[k] ? ' checked' : ''}> ${ic} ${h(t(l))}</label>`).join('')}</div>
       ${XPARTS().map(([k, , , fn]) => `<div class="l2-basebox l2-xpart" data-xp="${k}"${xParts[k] ? '' : ' hidden'}><div class="l2-xbody">${fn()}</div></div>`).join('')}
+      <div class="l2-more-list" data-mlist="x">${moreRowsHtml(moreX, 'x')}</div>
+      <div class="l2-row l2-more-add"><button type="button" class="btn small-btn" data-madd="x">➕ ${h(L3(MORE_LBL.x))}…</button></div>
     </fieldset>`}
     <fieldset><legend>${h(t('L2filters'))}</legend>
       <div class="tags lb-chips" data-marital>${(state.lists.marital_status || []).map((m) => `<button type="button" class="chip toggle${cr.marital.includes(m) ? ' on' : ''}" data-v="${h(m)}">${h(m)}</button>`).join('')}</div>
@@ -1748,6 +1804,21 @@ function openSettings() {
       <button type="button" class="btn" data-close>${h(t('cancel'))}</button><button type="submit" class="btn primary">${h(t('saveBtn'))}</button></div>
     </form>`, true);
   const form = $('#l2-set', dlg);
+  // השורות הנוספות: קוראים מהמסך (כדי לא לאבד בחירות כשמוסיפים / מוחקים / מחליפים סוג)
+  const syncMore = (kind) => {
+    const rows = kind === 'x' ? moreX : moreI;
+    $$(`.l2-more[data-mk="${kind}"]`, form).forEach((el) => {
+      const i = Number(el.dataset.mi); const pre = el.dataset.mpre; const r = rows[i];
+      if (!r) return;
+      const body = $('.l2-more-body', el);
+      if (r.base === 'tags') r.tags = readTagPick(body, pre, r.tags);
+      if (r.base === 'area') r.areas = $$(`[data-area="${pre}"] .chip.on`, body).map((b) => b.dataset.v);
+      if (r.base === 'family') r.family = readFam(body, pre);
+      if (r.base === 'donation') r.donation = readDon(body, pre) || DON();
+    });
+    return rows.map((r) => ({ ...r }));
+  };
+  const drawMore = (kind) => { const box = $(`[data-mlist="${kind}"]`, form); if (box) box.innerHTML = moreRowsHtml(kind === 'x' ? moreX : moreI, kind); };
   const read = () => {
     const base = $('[name=base]:checked', form)?.value || '';
     const on = (k) => Boolean($(`[data-xon="${k}"]`, form)?.checked);
@@ -1759,7 +1830,9 @@ function openSettings() {
       family: readFam(form, 'i'),
       donation: readDon(form, 'i') || DON(),
       lists: $$('[data-il]:checked', form).map((x) => ({ id: x.dataset.il, ex: $(`[data-ilex="${x.dataset.il}"]`, form)?.checked !== false })),
+      more: fam ? [] : syncMore('i'),
       except: {
+        more: fam ? [] : syncMore('x'),
         tags: on('tags') ? readTagPick($('[data-xp=tags]', form), 'x', ex.tags) : TAGSEL('both'),
         areas: on('area') ? $$('[data-area=x] .chip.on', form).map((b) => b.dataset.v) : [],
         family: on('family') ? famX : [],
@@ -1777,6 +1850,25 @@ function openSettings() {
   const preview = () => { try { $('#l2-preview', dlg).textContent = t('lbCount', { n: evaluate(read()).length }); } catch { /* */ } };
   const rerenderPart = (sel, html) => { const box = $(sel, form); if (box) box.outerHTML = html; };
   form.addEventListener('change', (e) => {
+    const mrow = e.target.closest('.l2-more');
+    if (mrow) {
+      const kind = mrow.dataset.mk; const rows = kind === 'x' ? moreX : moreI; const i = Number(mrow.dataset.mi); const pre = mrow.dataset.mpre;
+      if (e.target.matches('[data-mtype]')) { syncMore(kind); rows[i].base = e.target.value; drawMore(kind); preview(); return; }
+      if (rows[i]?.base === 'tags' && (e.target.name || e.target.matches(`[data-${pre}k]`))) {
+        const body = $('.l2-more-body', mrow); const sel = readTagPick(body, pre, rows[i].tags);
+        if (sel.st === 'per' || e.target.name) { body.innerHTML = tagPick(sel, pre); rows[i].tags = sel; }
+      }
+      if (e.target.matches('[data-dk]') && ['target', 'time'].includes(e.target.dataset.dk)) {
+        const q = readDon(mrow, pre); if (e.target.dataset.dk === 'target') q.value = ''; rows[i].donation = q;
+        const box = $(`[data-don="${pre}"]`, mrow); if (box) box.outerHTML = donPick(q, pre);
+      }
+      if (e.target.matches('[name$=sta], [name$=stf]') && !e.target.checked) {
+        const other = $(`[name="${e.target.name.slice(0, -1)}${e.target.name.endsWith('a') ? 'f' : 'a'}"]`, form);
+        if (other && !other.checked) other.checked = true;
+      }
+      preview();
+      return;
+    }
     if (e.target.name === 'base') $$('.l2-basebox[data-for]', form).forEach((b) => { b.hidden = b.dataset.for !== e.target.value; });
     if (e.target.matches('[data-xon]')) { const b = $(`[data-xp="${e.target.dataset.xon}"]`, form); if (b) b.hidden = !e.target.checked; }
     if (e.target.matches('[name$=sta], [name$=stf]') && !e.target.checked) { // לפחות אחד: מכבים את האחרון → השני נדלק
@@ -1801,6 +1893,21 @@ function openSettings() {
     preview();
   });
   form.addEventListener('click', (e) => {
+    const madd = e.target.closest('[data-madd]');
+    if (madd) {
+      const kind = madd.dataset.madd === 'x' ? 'x' : 'i';
+      syncMore(kind);
+      (kind === 'x' ? moreX : moreI).push(normRow({ mode: madd.dataset.madd === 'or' ? 'or' : 'and', base: 'tags' }, kind === 'x' ? 'both' : 'a'));
+      drawMore(kind); preview();
+      return;
+    }
+    const mdel = e.target.closest('[data-mdel]');
+    if (mdel) {
+      const row = mdel.closest('.l2-more'); const kind = row.dataset.mk;
+      syncMore(kind); (kind === 'x' ? moreX : moreI).splice(Number(row.dataset.mi), 1);
+      drawMore(kind); preview();
+      return;
+    }
     const tg = e.target.closest('[data-tog]');
     if (tg) {
       const li = tg.closest('.l2-tn'); const ul = li && li.querySelector(':scope > .l2-tkids');
