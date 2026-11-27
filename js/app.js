@@ -5,7 +5,7 @@ import {
 } from './google.js';
 import {
   state, loadAll, displayName, trashContact, orgLogo, NESHEI_ORG, getHistory, getPhoto, savePhoto, saveOriginalToDrive, saveContact, saveKvitel, addListValue, addRelation, removeRelation,
-  hostOf, guestsOf, ADDR_FIELDS, migratePhotosToDrive,
+  hostOf, guestsOf, ADDR_FIELDS, migratePhotosToDrive, bulkSetContactFields,
 } from './data.js';
 import { CONFIG } from './config.js';
 import { suggest, details, placesEnabled, placesError } from './places.js';
@@ -40,7 +40,7 @@ import { initUpdateCheck } from './update.js';
 import { strictMember, tagsOf as tagEntries } from './tags.js';
 import { initSms, openCalls, renderCalls, smsCardHtml, wireSmsCard } from './sms.js';
 import { workCardHtml, workFormHtml, wireWorkForm, readWorkForm, workSearchText } from './work.js';
-import { tags2Html, wireTags2, tags2Guard, tags2Dirty, tags2Discard, tags2Save } from './tags2.js';
+import { tags2Html, wireTags2, tags2Guard, tags2Dirty, tags2Discard, tags2Save, tags2NewFields, NEW_ID as TAGS_NEW_ID } from './tags2.js';
 import { initTags, cardTagsHtml, wireCardTags, rowChipsHtml, roleMarks, GROUPS as TAG_GROUPS, tagsEditorHtml, wireTagsEditor, readTagsEditor, applyMaritalRule, nesheiFromTags, hasUnchecked, markChecked, hasRealTags, roots as tagRoots, isLegacyNode, childrenOf as tagChildren, nameOf as tagName, pathKey as tagKey, matchesTagSel, STATUSES as TAG_ST, UNCHECKED as TAG_U } from './tags.js';
 import { initSimchos, openSimchos, renderSimchos, gliyonForEmail, openSimchosWeek } from './simchos.js';
 import { initFaces, openFaces, renderFaces } from './faces.js';
@@ -1655,6 +1655,9 @@ function openForm(c = {}, opts = {}) {
   const v = (k) => h(c[k] ?? '');
   const isNew = !c.contact_id;
   const form = $('#contact-form');
+  // 🏷 איש קשר חדש: מסך התגיות עובד על טיוטה, ונשמר יחד עם איש הקשר
+  if (isNew) tags2Discard();
+  const tagC = isNew ? { ...c, contact_id: TAGS_NEW_ID } : c;
 
   form.innerHTML = `
     <button type="button" class="x-close" id="form-x" aria-label="${t('close')}">✕</button>
@@ -1676,7 +1679,7 @@ function openForm(c = {}, opts = {}) {
       </div>
       <div class="legacy-fields" hidden>${orgRow(c)}</div>
     </fieldset>
-    ${c.contact_id ? `<div class="t2-inform">${tags2Html(c)}</div>` : `<p class="muted small">🏷 ${h(t('tgTitle'))}: ${h({ yi: 'נאכן אפהיטן — אינעם כרטיס', he: 'אחרי השמירה – בכרטיס', en: 'after saving — in the card' }[getLang()] || 'אחרי השמירה – בכרטיס')}</p>`}
+    <div class="t2-inform">${tags2Html(tagC)}</div>
 
     <fieldset><legend>${t('secEnglish')}</legend>
       <div class="grid" dir="ltr">
@@ -1777,7 +1780,7 @@ function openForm(c = {}, opts = {}) {
 
   wireForm(form, c);
   wireTagsEditor(form);
-  if (c.contact_id) wireFormTagBox(c);
+  wireFormTagBox(tagC);
   wireWorkForm(form);
   // א נייער קאנטאקט מיט א נאמען פון פריער (למשל פונעם טופס פון א שמחה) — גלייך די הצעה אויף ענגליש
   if (!c.contact_id) {
@@ -2026,6 +2029,8 @@ async function submit(form, original) {
   if (tg.error) { toast(tg.error, 'error'); $('.tg-missing', form)?.scrollIntoView({ block: 'center' }); return; }
   if (original?.contact_id && !$('.tg-edit', form)) { const cur = state.contacts.find((x) => String(x.contact_id) === String(original.contact_id)); if (cur) tg.tags = cur.tags ?? tg.tags; }
   contact.tags = tg.tags;
+  // 🏷 איש קשר חדש: התגיות שסומנו בטופס — נשמרות מיד אחרי שנוצר (עם שורת היסטוריה)
+  const newTags = !original?.contact_id ? tags2NewFields() : null;
   contact.work = readWorkForm(form, original);
   // שם חסר — חלון אזהרה (לא רק הודעה קטנה)
   if (!String(contact.first_name_he || '').trim() && !original?.contact_id) { warnMissing(form, 'חסר שם פרטי', 'צריך למלא שם פרטי בעברית לפני השמירה.', 'first_name_he'); return; }
@@ -2079,6 +2084,7 @@ async function submit(form, original) {
     const id = await saveContact(contact, phones);
     // שוין געשפייכלערט: ווען עפעס נאכדעם פאלט (קשרים), זאל א צווייטער "שפייכלערן" נישט מאכן א טאפלטן מענטש
     if (!original.contact_id) { original.contact_id = id; original._createdNow = true; }
+    if (newTags) { try { await bulkSetContactFields([{ c: { contact_id: id }, set: newTags.set }], newTags.note); tags2Discard(); } catch (err) { toast(friendlyError(err), 'error'); } }
     for (const rel of form._relRemoves || []) await removeRelation(rel);
     for (const add of form._relAdds || []) { await addRelation(id, add.type, add.b); await afterRelation(id, add.type, add.b); }
     // "פעלן פרטים" → To Do כללי (אלע זעען)
