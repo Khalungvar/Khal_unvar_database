@@ -238,7 +238,6 @@ function renderLobby() {
     ${lobbyOpen === 'area' ? `<div class="lobby-choose">
       <span class="muted">${h(t('lobbyChoose'))}</span>
       ${areas.map((a) => `<button type="button" class="btn primary" data-area="${h(a)}">${h(a)} <span class="count-pill">${areaCount(a)}</span></button>`).join('')}
-      <button type="button" class="btn" data-area="${NO_AREA}">${h(t('noArea'))} <span class="count-pill">${areaCount(NO_AREA)}</span></button>
     </div>` : ''}`;
 }
 
