@@ -47,20 +47,20 @@ function goPay(tw, context, n) {
     paymentConnector: context.CONNECTOR || 'Stripe_Connector',
     chargeAmount: Number(n).toFixed(2), currency: 'usd',
     description: 'Ohr HaTorah donation (phone line)',
-    postalCode: true, securityCode: true, timeout: 8, maxAttempts: 3,
+    postalCode: true, securityCode: true, timeout: 3, maxAttempts: 3,
     language: 'en-US', action: url('paid', { a: n })
   });
   const P = (attrs, text) => say(pay.prompt(attrs), text);
-  P({ for: 'payment-card-number', attempt: '1' }, money(n) + '. To change the amount, press star. Please enter your card number, followed by the pound key.');
-  P({ for: 'payment-card-number', errorType: 'timeout' }, 'Please enter your card number, followed by the pound key.');
-  P({ for: 'payment-card-number', errorType: 'invalid-card-number' }, 'That card number is not valid. Please enter your card number again, followed by the pound key.');
-  P({ for: 'payment-card-number', errorType: 'invalid-card-type' }, 'That card type is not accepted. Please enter a different card number, followed by the pound key.');
+  P({ for: 'payment-card-number', attempt: '1' }, money(n) + '. To change the amount, press star. Please enter your card number.');
+  P({ for: 'payment-card-number', errorType: 'timeout' }, 'Please enter your card number.');
+  P({ for: 'payment-card-number', errorType: 'invalid-card-number' }, 'That card number is not valid. Please enter your card number again.');
+  P({ for: 'payment-card-number', errorType: 'invalid-card-type' }, 'That card type is not accepted. Please enter a different card number.');
   P({ for: 'expiration-date' }, 'Please enter the expiration date: two digits for the month, and two digits for the year.');
   P({ for: 'expiration-date', errorType: 'timeout invalid-date' }, 'That date is not valid. Please enter the expiration date: two digits for the month, and two digits for the year.');
-  P({ for: 'security-code' }, 'Please enter the security code on your card, followed by the pound key.');
-  P({ for: 'security-code', errorType: 'timeout invalid-security-code' }, 'That code is not valid. Please enter the security code on your card, followed by the pound key.');
-  P({ for: 'postal-code' }, 'Please enter the billing zip code, followed by the pound key.');
-  P({ for: 'postal-code', errorType: 'timeout invalid-postal-code' }, 'That zip code is not valid. Please enter the billing zip code, followed by the pound key.');
+  P({ for: 'security-code' }, 'Please enter the security code on your card.');
+  P({ for: 'security-code', errorType: 'timeout invalid-security-code' }, 'That code is not valid. Please enter the security code on your card.');
+  P({ for: 'postal-code' }, 'Please enter the billing zip code.');
+  P({ for: 'postal-code', errorType: 'timeout invalid-postal-code' }, 'That zip code is not valid. Please enter the billing zip code.');
   P({ for: 'payment-processing' }, 'Please wait while we process your payment.');
 }
 
@@ -84,7 +84,7 @@ exports.handler = async function (context, event, callback) {
   try {
     // ---------- פתיחה ----------
     if (!step) {
-      say(tw, 'Ungvar Kollelim, Ohr HaTorah campaign.');
+      say(tw, 'Ohr HaTorah campaign for Ungvar Kollelim, welcome.');
       askAmount(tw);
       return done();
     }
@@ -119,7 +119,7 @@ exports.handler = async function (context, event, callback) {
       const g0 = await guardSoon(context, { stage: 'paid', call: event.CallSid, from: q.f, amount: n, conf: q.c, last4: q.l }, 600);
       if (!g0.ok) console.log('guard paid', JSON.stringify(g0));
       say(tw, 'Thank you! Your donation of ' + money(n) + ' was received.');
-      say(tw, 'After the beep, please say your full name, then press the pound key.');
+      say(tw, 'After the beep, please say your full name.');
       tw.record({
         maxLength: 15, timeout: 3, finishOnKey: '#', playBeep: true, trim: 'trim-silence',
         action: url('receipt', q), recordingStatusCallback: url('rec', Object.assign({ call: event.CallSid, kind: 'name' }, q)), recordingStatusCallbackEvent: 'completed'
@@ -146,8 +146,8 @@ exports.handler = async function (context, event, callback) {
     if (step === 'receipt2') {
       if (event.Digits !== '1') { bye(tw); return done(); }
       const q = paidQ(event, event.a);
-      say(tw, 'After the beep, please say your email address, then press the pound key.');
-      tw.record({ maxLength: 30, timeout: 4, finishOnKey: '#', playBeep: true, trim: 'trim-silence', action: url('email', Object.assign({ n: 1 }, q)) });
+      say(tw, 'After the beep, please say your email address.');
+      tw.record({ maxLength: 30, timeout: 3, finishOnKey: '#', playBeep: true, trim: 'trim-silence', action: url('email', Object.assign({ n: 1 }, q)) });
       bye(tw);
       return done();
     }
@@ -182,8 +182,8 @@ exports.handler = async function (context, event, callback) {
       if (!r.ok && k < 4) { tw.pause({ length: 2 }); tw.redirect(url('emailchk', Object.assign({ n, k: k + 1 }, q))); return done(); }
       // לא הבנו / לא הגיע
       if (n < 2) {
-        say(tw, 'Sorry, we could not understand the email address. After the beep, please say it again, slowly, then press the pound key.');
-        tw.record({ maxLength: 30, timeout: 4, finishOnKey: '#', playBeep: true, trim: 'trim-silence', action: url('email', Object.assign({ n: n + 1 }, q)) });
+        say(tw, 'Sorry, we could not understand the email address. After the beep, please say it again, slowly.');
+        tw.record({ maxLength: 30, timeout: 3, finishOnKey: '#', playBeep: true, trim: 'trim-silence', action: url('email', Object.assign({ n: n + 1 }, q)) });
         bye(tw);
         return done();
       }
@@ -198,8 +198,8 @@ exports.handler = async function (context, event, callback) {
         return done();
       }
       if (event.Digits === '2' && n < 3) {
-        say(tw, 'After the beep, please say your email address again, slowly, then press the pound key.');
-        tw.record({ maxLength: 30, timeout: 4, finishOnKey: '#', playBeep: true, trim: 'trim-silence', action: url('email', Object.assign({ n: n + 1 }, q)) });
+        say(tw, 'After the beep, please say your email address again, slowly.');
+        tw.record({ maxLength: 30, timeout: 3, finishOnKey: '#', playBeep: true, trim: 'trim-silence', action: url('email', Object.assign({ n: n + 1 }, q)) });
         bye(tw);
         return done();
       }
