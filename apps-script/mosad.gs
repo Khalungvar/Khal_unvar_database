@@ -3351,10 +3351,33 @@ function twDonation_(req) {
   if (!key || S(req.k) !== key) return { error: 'no' };
   const call = S(req.call).replace(/[^A-Za-z0-9]/g, '').slice(0, 40);
   if (!/^CA/.test(call)) return { error: 'bad-call' };
+  const pk = 'twcall:' + call;
+  const ek = 'twemail:' + call;
+  // 📧 אימייל לקבלה בזמן השיחה: email = הקלטה → Gemini (נשמר במטמון), emailget = שאילתה מהקו (מהיר), emailok = אושר ע"י המתקשר
+  if (req.stage === 'email') {
+    const audio = S(req.audio); if (!audio || audio.length > 4000000) return { error: 'bad-audio' };
+    const mime = /^audio\/[a-z0-9.\-]+$/i.test(S(req.mime)) ? S(req.mime) : 'audio/mpeg';
+    const n = Math.max(1, Math.min(5, Number(req.n) || 1));
+    let email = '';
+    try {
+      const j = kaGemini_([{ text: ['A caller to a donation phone line said his or her email address after a beep (to receive a receipt). It may be spelled letter by letter, or said like "yklein at gmail dot com".',
+        'Return ONLY JSON: {"email": "the email address in normal written form, all lowercase, no spaces; empty if none or unclear"}'].join('\n') },
+        { inline_data: { mime_type: mime, data: audio } }], 1000);
+      email = S(j.email).trim().toLowerCase().replace(/\s+/g, '').slice(0, 100);
+      if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) email = '';
+    } catch (err) { /* */ }
+    let fid = '';
+    try { fid = folderPath(['מוסדות אונגוואר', 'קו תרומות טלפוני']).createFile(Utilities.newBlob(Utilities.base64Decode(audio), mime, 'אימייל ' + call.slice(-8) + ' ' + n + ' ' + Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd HHmm') + '.mp3')).getUrl(); } catch (err) { /* */ }
+    CacheService.getScriptCache().put(ek + ':' + n, JSON.stringify({ email: email, file: fid }), 1800);
+    return { ok: true, email: !!email };
+  }
+  if (req.stage === 'emailget') {
+    const v = CacheService.getScriptCache().get(ek + ':' + Math.max(1, Math.min(5, Number(req.n) || 1)));
+    return v ? Object.assign({ ok: true }, JSON.parse(v)) : { pending: true };
+  }
   const slug = S(req.c || 'orhatorah').toLowerCase();
   const o = wcRows_().filter(function (x) { return S(x.slug).toLowerCase() === slug; })[0];
   if (!o) return { error: 'not-found' };
-  const pk = 'twcall:' + call;
   if (req.stage === 'paid') {
     const cache = CacheService.getScriptCache();
     const had = props.getProperty(pk); if (had) return { ok: true, dup: true, id: JSON.parse(had).id };
@@ -3369,13 +3392,7 @@ function twDonation_(req) {
     return { ok: true, id: id };
   }
   if (req.stage === 'rec') {
-    let info = JSON.parse(props.getProperty(pk) || 'null');
-    // ההקלטה יכולה להגיע לפני שהתרומה נרשמה (השומר איטי) — מחכים, ואם אין בכלל → רושמים מהנתונים שבאו עם ההקלטה
-    for (let w = 0; !info && w < 6; w++) {
-      if (w === 0 && req.paid && Number(req.paid.amount) >= 1 && !CacheService.getScriptCache().get('twpay:' + call)) twDonation_({ k: req.k, c: req.c, call: call, stage: 'paid', amount: req.paid.amount, conf: req.paid.conf, last4: req.paid.last4, from: req.paid.from });
-      else Utilities.sleep(4000);
-      props = PropertiesService.getScriptProperties(); info = JSON.parse(props.getProperty(pk) || 'null');
-    }
+    const info = twWaitPaid_(req, call, pk);
     if (!info) return { error: 'no-donation' };
     const audio = S(req.audio); if (!audio || audio.length > 4000000) return { error: 'bad-audio' };
     const mime = /^audio\/[a-z0-9.\-]+$/i.test(S(req.mime)) ? S(req.mime) : 'audio/mpeg';
@@ -3385,8 +3402,8 @@ function twDonation_(req) {
       const j = kaGemini_([{ text: ['A donor to a Jewish synagogue/kollel in Brooklyn called our phone donation line and, after the beep, said his or her name and maybe an email address (for a receipt).',
         'Names are often Jewish/Yiddish/Hebrew (e.g. Yoel Teitelbaum, Chaim Weiss). Email addresses may be spelled letter by letter or said like "at gmail dot com".',
         'Return ONLY JSON: {"name": "the full name in English letters, empty if none", "email": "the email address in normal form, empty if none or unclear"}'].join('\n') },
-        { inline_data: { mime_type: mime, data: audio } }], 200);
-      name = wcClean_(j.name, 80); email = S(j.email).trim().toLowerCase().slice(0, 100);
+        { inline_data: { mime_type: mime, data: audio } }], 1000);
+      name = wcClean_(j.name, 80); email = req.kind === 'name' ? '' : S(j.email).trim().toLowerCase().slice(0, 100);
       if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) email = '';
     } catch (err) { /* בלי תמלול — יש את ההקלטה */ }
     const book = SpreadsheetApp.openById(MAIN_ID);
@@ -3409,7 +3426,41 @@ function twDonation_(req) {
     });
     return { ok: true, name: !!name, email: !!email };
   }
+  if (req.stage === 'emailok') {
+    const email = S(req.email).trim().toLowerCase().slice(0, 100);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: 'bad-email' };
+    const info = twWaitPaid_(req, call, pk);
+    if (!info) return { error: 'no-donation' };
+    twSetCells_(info.id, { email: email }, ' · 📧 ' + email + ' (אושר בטלפון)');
+    PropertiesService.getScriptProperties().setProperty('twmail:' + call, JSON.stringify({ id: info.id, email: email, at: now() }));
+    return { ok: true, id: info.id };
+  }
   return { error: 'bad-stage' };
+}
+/** מחכה שהתרומה תירשם (השומר איטי); אם אין בכלל — רושם מהנתונים שבאו עם הבקשה (req.paid) */
+function twWaitPaid_(req, call, pk) {
+  let info = JSON.parse(PropertiesService.getScriptProperties().getProperty(pk) || 'null');
+  for (let w = 0; !info && w < 6; w++) {
+    if (w === 0 && req.paid && Number(req.paid.amount) >= 1 && !CacheService.getScriptCache().get('twpay:' + call)) twDonation_({ k: req.k, c: req.c, call: call, stage: 'paid', amount: req.paid.amount, conf: req.paid.conf, last4: req.paid.last4, from: req.paid.from });
+    else Utilities.sleep(4000);
+    info = JSON.parse(PropertiesService.getScriptProperties().getProperty(pk) || 'null');
+  }
+  return info;
+}
+/** עדכון שורת התרומה: WebDonations לפי שדות, ו-Donations: הוספה ל-event_note */
+function twSetCells_(id, web, noteAdd) {
+  const book = SpreadsheetApp.openById(MAIN_ID);
+  ['Donations', 'WebDonations'].forEach(function (t) {
+    const sh = book.getSheetByName(t); if (!sh) return;
+    const v = sh.getDataRange().getValues(); const hd = v[0].map(S); const ic = hd.indexOf('donation_id');
+    for (let i = v.length - 1; i > 0; i--) {
+      if (S(v[i][ic]) !== String(id)) continue;
+      const set = function (k, val) { const c = hd.indexOf(k); if (c >= 0 && val !== '') sh.getRange(i + 1, c + 1).setNumberFormat('@').setValue(String(val)); };
+      if (t === 'Donations') { if (noteAdd) set('event_note', S(v[i][hd.indexOf('event_note')]) + noteAdd); }
+      else Object.keys(web || {}).forEach(function (k) { set(k, web[k]); });
+      break;
+    }
+  });
 }
 
 // =====================================================================================
