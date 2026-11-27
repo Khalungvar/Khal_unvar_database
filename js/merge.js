@@ -59,7 +59,7 @@ export function openMerge(a) {
     if (!confirm(t('mgConfirm', { drop: ui.fullNameHe(pair.drop), id: pair.drop.contact_id, keep: pair.keep.contact_id }))) return;
     // 🎩 המצב המשפחתי שנבחר והתואר לא מתאימים (בחור ↔ מו"ה) — הצעה
     const fx = titleForStatus(String(pair.keep.marital_status || '').trim() === String(contact.marital_status || '').trim() ? '-' : pair.keep.marital_status, contact.marital_status, contact.title_he, contact.title_en);
-    if (fx && confirm(`המצב המשפחתי "${contact.marital_status}" והתואר "${contact.title_he}" לא מתאימים. להחליף את התואר ל־${fx.he}${fx.enChanged ? ` (ובאנגלית ${fx.en})` : ''}?`)) {
+    if (fx && confirm(`המצב המשפחתי "${contact.marital_status}" והתואר "${contact.title_he}" לא מתאימים. להחליף את התואר ל־${fx.label}?`)) {
       contact.title_he = fx.he; if (fx.enChanged) contact.title_en = fx.en;
     }
     go.disabled = true;
