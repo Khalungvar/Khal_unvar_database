@@ -66,7 +66,7 @@ import {
 } from './scope.js';
 import {
   normalize, digits, formatPhone, isTrue, isAlive, splitTags, joinTags,
-  gematriaCodes, primaryCode, parseCodeQuery, mailingName, detectArea, escapeHtml as h, shrinkImage,
+  gematriaCodes, primaryCode, parseCodeQuery, mailingName, detectArea, escapeHtml as h, shrinkImage, titleForStatus,
 } from './util.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -1547,6 +1547,19 @@ function wireLivesWith(form, c) {
     };
   };
   f('lw_on').addEventListener('change', () => { show(); if (f('lw_on').checked && !lwIdOf(form)) f('lw_who').focus(); });
+  // 🎩 מצב משפחתי השתנה → הצעה להתאים את התואר (בחור ↔ מו"ה). רק הצעה: כן / לא
+  let stPrev = f('marital_status').value;
+  const setSel = (el, v) => { if (!el) return; if (![...el.options].some((o) => o.value === v)) el.append(new Option(v, v)); el.value = v; };
+  f('marital_status').addEventListener('change', async () => {
+    const was = stPrev; stPrev = f('marital_status').value;
+    const fx = titleForStatus(was, f('marital_status').value, f('title_he').value, f('title_en')?.value);
+    if (!fx) return;
+    const ans = await choose('🎩 תואר', `המצב המשפחתי השתנה ל"${maritalLabel(f('marital_status').value)}". להחליף את התואר ל־${fx.he}${fx.enChanged ? ` (ובאנגלית ${fx.en})` : ''}?`,
+      [['yes', `כן, ${fx.he}`, true], ['no', 'לא']]);
+    if (ans !== 'yes') return;
+    setSel(f('title_he'), fx.he);
+    if (fx.enChanged) setSel(f('title_en'), fx.en);
+  });
   // ער האט חתונה געהאט → פרעגן צי ער וואוינט נאך דארט
   f('marital_status').addEventListener('change', async () => {
     if (f('marital_status').value !== 'נשוי' || !f('lw_on').checked || !lwIdOf(form)) return;
