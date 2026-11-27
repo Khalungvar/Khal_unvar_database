@@ -714,7 +714,15 @@ export function channel(rows, kind, ignore = false) {
   if (kind === 'mail') {
     const has = use.filter((r) => hasAddr(r.c));
     const groups = new Map();
-    has.forEach((r) => { const k = addrKey(r.c); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(r); });
+    // בית אחד = רק מי שמסומן "גר אצל" מישהו שגם הוא ברשימה (שכנים / באותה כתובת — כל אחד מעטפה משלו)
+    const inList = new Set(has.map((r) => String(r.c.contact_id)));
+    has.forEach((r) => {
+      const host = hostOf(r.c);
+      const k = host && inList.has(String(host.contact_id)) ? String(host.contact_id) : String(r.c.contact_id);
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(r);
+    });
+    groups.forEach((g, k) => { g.host = k; });
     return { rows: has, missing: use.filter((r) => !hasAddr(r.c)), nosend, groups: [...groups.values()] };
   }
   return { rows: use, missing: [], nosend };
@@ -724,7 +732,7 @@ export function mailRecipients(ch, mode = 'one') {
   if (mode === 'each') return ch.rows.map((r) => r.c);
   return ch.groups.map((g) => {
     if (g.length === 1) return g[0].c;
-    const head = headOf(g);
+    const head = g.find((x) => String(x.c.contact_id) === String(g.host)) || headOf(g);
     if (mode === 'all') return { ...head.c, _mailing: g.map((x) => mailingName(x.c)).filter(Boolean).join(' / ') };
     return head.c;
   });
