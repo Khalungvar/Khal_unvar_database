@@ -11,6 +11,7 @@ import { isTrue, escapeHtml as h } from './util.js';
 import { yearLabel, yearFromLabel } from './hebdate.js';
 import { money, donorName, openDonationForm } from './donations.js';
 import { downloadXlsx } from './excel.js';
+import { letterTemplates } from './mailmerge.js';
 
 const sheet = () => otherSheet(CONFIG.SPREADSHEET_ID);
 const stamp = () => new Date().toISOString().slice(0, 16).replace('T', ' ');
@@ -26,7 +27,7 @@ export const ENTITIES = [
 const DEFAULTS = {
   name_he: '', name_yi: '', name_en: '', type: 'magbis', entity: 'Khal Ungvar', ein: '11-2330829', processor: 'sola',
   start_date: '', end_date: '', event_date: '', goods_desc: '', goods_value: '', methods: [], recurring: true, fee: true, fee_pct: 3,
-  gabbaim: [], notify: [], receipt_auto: true, receipt_for: '', letter: '', tiers: [], years_back: 3,
+  gabbaim: [], notify: [], receipt_auto: true, receipt_for: '', receipt_letter: '', letter: '', tiers: [], years_back: 3,
   match: { on: false, mult: 2, sponsor: '', cap: '' }, extras: { journal: false, seating: false, tickets: false },
 };
 
@@ -147,6 +148,7 @@ export async function openCampSettings(c, { toast = () => {}, after = () => {} }
         <details><summary>קבלה ומכתב תודה</summary><div class="wc-grid">
           ${chk('receipt_auto', s.receipt_auto, 'לשלוח קבלה אוטומטית לתורמים מהאתר')}
           ${inp('receipt_for', 'מה לכתוב בקבלה בשורה "For" (ריק = שם הקמפיין)', s.receipt_for)}
+          <label>מכתב לקבלה (נשלח עם הקבלה האוטומטית)<select name="receipt_letter"><option value="">— בלי מכתב (קבלה בלבד) —</option>${letterTemplates().map((x) => `<option value="${h(x.id)}"${String(x.id) === String(s.receipt_letter || '') ? ' selected' : ''}>${h(x.name)}</option>`).join('')}</select></label>
           <label style="grid-column:1/-1">נוסח מכתב (אפשר: {name} {amount} {campaign} {last_year} {suggested})<textarea name="letter" rows="4">${h(s.letter)}</textarea></label>
         </div></details>
         <details><summary>אירוע: התאמה (Matching), ז'ורנל, הושבה, כרטיסים</summary><div class="wc-grid">
@@ -176,7 +178,7 @@ export async function openCampSettings(c, { toast = () => {}, after = () => {} }
         entity: f.entity.value.trim(), ein: f.ein.value.trim(), processor: f.processor.value, goods_desc: f.goods_desc.value.trim(),
         goods_value: f.goods_value.value === '' ? '' : Number(f.goods_value.value), fee_pct: Number(f.fee_pct.value) || 0,
         recurring: f.recurring.checked, fee: f.fee.checked, methods: vals('methods'), tiers, gabbaim: vals('gabbaim'), notify: vals('notify'),
-        receipt_auto: f.receipt_auto.checked, receipt_for: f.receipt_for.value.trim(), letter: f.letter.value,
+        receipt_auto: f.receipt_auto.checked, receipt_for: f.receipt_for.value.trim(), receipt_letter: f.receipt_letter.value, letter: f.letter.value,
         match: { on: f.match_on.checked, mult: Number(f.match_mult.value) || 2, sponsor: f.match_sponsor.value.trim(), cap: f.match_cap.value === '' ? '' : Number(f.match_cap.value) },
         extras: { journal: f.ex_journal.checked, seating: f.ex_seating.checked, tickets: f.ex_tickets.checked },
       };
