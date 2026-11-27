@@ -358,7 +358,7 @@ export function tags2Html(c) {
   if (!D || D.id !== String(c.contact_id)) { D = freshDraft(c); D.sig = sigOf(D); }
   const leg = legacyLines(c);
   return `<section class="t2-card" data-cid="${h(c.contact_id)}">
-    <div class="t2-dirty"${tags2Dirty() ? '' : ' hidden'}><span>⚠ ${h(tx('dirty'))}</span><button type="button" class="btn primary small-btn" data-act="save">${h(tx('save'))}</button><button type="button" class="btn small-btn" data-act="discard">${h(tx('cancel'))}</button></div>
+    <div class="t2-dirty"${tags2Dirty() && String(c.contact_id) !== NEW_ID ? '' : ' hidden'}><span>⚠ ${h(tx('dirty'))}</span><button type="button" class="btn primary small-btn" data-act="save">${h(tx('save'))}</button><button type="button" class="btn small-btn" data-act="discard">${h(tx('cancel'))}</button></div>
     <h3>🏷 ${h(tx('title'))}<span class="t2-clips"><a href="https://drive.google.com/file/d/1BDlGeRzUQXU83twafPZ7-LamFyIUHzMS/view" target="_blank" rel="noopener">▶ הסבר אויף די תגיות (קליפ)</a><a href="https://drive.google.com/file/d/1GSrobrNHR1A3Cfi5L-25HOwODzSJbGPO/view" target="_blank" rel="noopener" dir="ltr">▶ Tags explained (clip)</a></span></h3>
     <div class="t2-cols">${colBm()}${colY(c)}${col3(c)}</div>
     ${leg.length ? `<p class="t2-legacy muted small">◦ ${h(tx('legacy'))}: ${h(leg.map((x) => x.p.map((q) => (isOrg(q) ? org(q) : nameOf(q))).join(' › ') + (x.s === 'f' ? ` (${tx('former')})` : '')).join(' · '))}</p>` : ''}
@@ -393,9 +393,19 @@ export function tags2Changes(c) {
   return out;
 }
 
+const clean = (lst) => lst.filter((x) => !x._new && !x._newY && x.p.length).map((x) => { const y = { ...x }; delete y._type; return y; });
+/** איש קשר חדש (עוד אין מספר): המסך עובד על טיוטה עם המספר הזה, והתגיות נכנסות לשמירה של איש הקשר עצמו */
+export const NEW_ID = '__new';
+/** התגיות שסימנו בטופס של איש קשר חדש → שדות לשמירה (null = לא סימנו כלום) */
+export function tags2NewFields() {
+  if (!D || D.id !== NEW_ID || !tags2Dirty()) return null;
+  const set = { tags: serialize(clean(D.list)) };
+  if (D.wl) { set.wedding_list = 'TRUE'; set.wedding_set = 'on'; }
+  if (D.neshei) set.wife_in_neshei = 'TRUE';
+  return { set, note: `🏷 ${tags2Changes({}).join(' · ')}`.slice(0, 900) };
+}
 export async function tags2Save(c) {
-  if (!D || !tags2Dirty()) return;
-  const clean = (lst) => lst.filter((x) => !x._new && !x._newY && x.p.length).map((x) => { const y = { ...x }; delete y._type; return y; });
+  if (!D || !tags2Dirty() || D.id === NEW_ID) return;
   const set = { tags: serialize(clean(D.list)) };
   const cc = byIdC(D.id) || c;
   if (D.wl !== isTrue(cc.wedding_list)) { set.wedding_list = D.wl ? 'TRUE' : ''; set.wedding_set = D.wl ? 'on' : 'off'; }
@@ -468,7 +478,7 @@ export function wireTags2(box, c, opts) {
     if (a) { e.preventDefault(); opts.openCard(a.dataset.open); return; }
     const el = e.target.closest('button[data-act]'); if (!el) return;
     const act = el.dataset.act; const i = Number(el.dataset.i);
-    if (act === 'save') { el.disabled = true; try { await tags2Save(c); opts.toast(tx('saved')); } catch (err) { opts.toast(opts.friendlyError(err), 'error'); } redraw(); return; }
+    if (act === 'save') { if (D?.id === NEW_ID) return; el.disabled = true; try { await tags2Save(c); opts.toast(tx('saved')); } catch (err) { opts.toast(opts.friendlyError(err), 'error'); } redraw(); return; }
     if (act === 'discard') { D = null; redraw(); return; }
     if (act === 'money') { opts.showTab('money'); return; }
     if (act === 'listadd') { opts.openListAdd(c); return; }
