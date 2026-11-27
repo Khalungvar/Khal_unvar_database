@@ -201,7 +201,26 @@ const CLEAR_CSS = '.mx-out,.mx-page,.mx-letter,.rd-letter,.rc-doc{background:tra
  * עמודים → PDF. pages = [{ html, W, H, scale }] (html כבר עטוף ב-mx-out).
  * בלי רקע PDF — כמו קודם (JPEG לכל עמוד). עם רקע PDF — ה-PDF המקורי מאחורה + שכבה שקופה מעליו.
  */
+// הרבה עמודים: בונים בחלקים של 300 ומאחדים בסוף — אחרת הדפדפן נגמר לו הזיכרון (נתקע / "Array buffer allocation failed")
+const PDF_CHUNK = 300;
 export async function pagesToPdf(pages, onProgress = () => {}) {
+  if (pages.length <= PDF_CHUNK) return pagesToPdfOne(pages, onProgress);
+  const { PDFDocument } = await pdflib();
+  const out = await PDFDocument.create();
+  for (let s = 0; s < pages.length; s += PDF_CHUNK) {
+    // eslint-disable-next-line no-await-in-loop
+    const bytes = await pagesToPdfOne(pages.slice(s, s + PDF_CHUNK), (i) => onProgress(s + i, pages.length));
+    // eslint-disable-next-line no-await-in-loop
+    const src = await PDFDocument.load(bytes);
+    // eslint-disable-next-line no-await-in-loop
+    const got = await out.copyPages(src, src.getPageIndices());
+    got.forEach((pg) => out.addPage(pg));
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((r) => { setTimeout(r, 0); });
+  }
+  return out.save();
+}
+async function pagesToPdfOne(pages, onProgress = () => {}) {
   if (!pages.some((p) => hasPdfBg(p.html))) {
     const jpgs = [];
     for (let i = 0; i < pages.length; i += 1) {
