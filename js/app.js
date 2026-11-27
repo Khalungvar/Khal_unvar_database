@@ -1554,10 +1554,10 @@ function wireLivesWith(form, c) {
     const was = stPrev; stPrev = f('marital_status').value;
     const fx = titleForStatus(was, f('marital_status').value, f('title_he').value, f('title_en')?.value);
     if (!fx) return;
-    const ans = await choose('🎩 תואר', `המצב המשפחתי השתנה ל"${maritalLabel(f('marital_status').value)}". להחליף את התואר ל־${fx.he}${fx.enChanged ? ` (ובאנגלית ${fx.en})` : ''}?`,
-      [['yes', `כן, ${fx.he}`, true], ['no', 'לא']]);
+    const ans = await choose('🎩 תואר', `המצב המשפחתי השתנה ל"${maritalLabel(f('marital_status').value)}". להחליף את התואר ל־${fx.label}?`,
+      [['yes', `כן, ${fx.heChanged ? fx.he : fx.en}`, true], ['no', 'לא']]);
     if (ans !== 'yes') return;
-    setSel(f('title_he'), fx.he);
+    if (fx.heChanged) setSel(f('title_he'), fx.he);
     if (fx.enChanged) setSel(f('title_en'), fx.en);
   });
   // ער האט חתונה געהאט → פרעגן צי ער וואוינט נאך דארט
