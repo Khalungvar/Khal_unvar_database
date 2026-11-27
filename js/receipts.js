@@ -17,7 +17,7 @@ import { allCampaigns } from './campaigns.js';
 import { downloadXlsx } from './excel.js';
 import { emailOf, emailLayout, sendJobs, needsGmail } from './mail.js';
 import { ensureGmailScope, hasGmailScope } from './google.js';
-import { htmlToJpeg, jpegsToPdf } from './pdf.js';
+import { pagesToPdf, DPI_OUT } from './pdfbg.js';
 import { savedInScope, parseSaved, evaluate } from './lists.js';
 import { submitRequest } from './requests.js';
 import { letterSizeFor, letterTemplates, letterPagesFor, letterHasReceipt, openMailMergeFor, mySigObj } from './mailmerge.js';
@@ -279,9 +279,9 @@ function askAddress(contactId) {
 
 export async function receiptPdf(c, letter = '') {
   const pages = [];
-  const page = async (html, W, H, scale = 1.8) => {
-    const j = await htmlToJpeg(`<div class="mx-out" dir="ltr" style="width:${W}in;height:${H}in">${html}</div>`, { widthIn: W, heightIn: H, scale });
-    pages.push(Object.assign(j, { pageW: W * 72, pageH: H * 72 }));
+  // כל העמודים → PDF אחד (${DPI_OUT} DPI; מכתב עם רקע PDF — ה-PDF המקורי מאחורה)
+  const page = async (html, W, H) => {
+    pages.push({ html: `<div class="mx-out" dir="ltr" style="width:${W}in;height:${H}in">${html}</div>`, W, H, scale: DPI_OUT / 96 });
   };
   const ct = letter && c.contact_id ? ui.contactById(c.contact_id) : null;
   if (ct) {
@@ -293,8 +293,8 @@ export async function receiptPdf(c, letter = '') {
     else if (needsFullPage(c)) { for (const x of receiptFullPages(c)) await page(x, 8.5, 11); } else if (!slot) await page(receiptHtml(c), 8.5, RX_H);
   } else if (c.kind === 'invoice') await page(invoiceHtml(c), 8.5, 11);
   else if (needsFullPage(c)) { for (const x of receiptFullPages(c)) await page(x, 8.5, 11); }
-  else await page(receiptHtml(c), 8.5, RX_H, 2.2); // א PDF אין דער גרייס פון א דריטל בלאט
-  const bytes = jpegsToPdf(pages, { margin: 0 });
+  else await page(receiptHtml(c), 8.5, RX_H); // א PDF אין דער גרייס פון א דריטל בלאט
+  const bytes = await pagesToPdf(pages);
   let bin = '';
   for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(bin);
