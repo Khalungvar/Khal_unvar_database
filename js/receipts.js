@@ -16,7 +16,9 @@ import { campaignOptions } from './campaigns.js';
 import { allCampaigns } from './campaigns.js';
 import { downloadXlsx } from './excel.js';
 import { emailOf, emailLayout, sendJobs, needsGmail } from './mail.js';
-import { ensureGmailScope, hasGmailScope } from './google.js';
+import { ensureGmailScope, hasGmailScope, readTabs, appendRow, updateRange, otherSheet, dirtyTabs } from './google.js';
+import { CONFIG } from './config.js';
+import { nowStamp } from './util.js';
 import { pagesToPdf, DPI_OUT } from './pdfbg.js';
 import { savedInScope, parseSaved, evaluate } from './lists.js';
 import { submitRequest } from './requests.js';
@@ -114,6 +116,7 @@ export function renderReceipts() {
   const camps = allCampaigns().filter((c) => c.list.length);
   main.innerHTML = `<div class="camp-page-head"><h2>🧾 Invoice &amp; Receipt</h2><span class="spacer"></span>
       <button type="button" class="btn" id="rc-lobby">${h(t('lobbyBack'))}</button></div>
+    <div class="ar-bar" id="ar-bar">${arBarHtml()}</div>
     <div class="rc-kinds">${KINDS.map(([k, l]) => `<button type="button" class="nc-kind${f.kind === k ? ' on' : ''}" data-kind="${k}"><b>${h(t(l))}</b><span>${h(t(`${l}Help`))}</span></button>`).join('')}</div>
     <div class="toolbar rc-filters">
       ${f.kind === 'campaign'
@@ -171,6 +174,7 @@ export function renderReceipts() {
   doSearch();
   const rerender = () => renderReceipts();
   $('#rc-lobby', main).onclick = () => ui.showView('lobby');
+  wireArBar(main);
   $$('[data-kind]', main).forEach((b) => { b.onclick = () => { f.kind = b.dataset.kind; rerender(); }; });
   $('#rc-org', main)?.addEventListener('change', (e) => { f.org = e.target.value; rerender(); });
   $('#rc-campaign', main)?.addEventListener('change', (e) => { f.campaign = e.target.value; rerender(); });
@@ -277,13 +281,13 @@ function askAddress(contactId) {
   return e;
 }
 
-export async function receiptPdf(c, letter = '') {
+export async function receiptPdf(c, letter = '', { ct: ctOver = null } = {}) {
   const pages = [];
   // כל העמודים → PDF אחד (${DPI_OUT} DPI; מכתב עם רקע PDF — ה-PDF המקורי מאחורה)
   const page = async (html, W, H) => {
     pages.push({ html: `<div class="mx-out" dir="ltr" style="width:${W}in;height:${H}in">${html}</div>`, W, H, scale: DPI_OUT / 96 });
   };
-  const ct = letter && c.contact_id ? ui.contactById(c.contact_id) : null;
+  const ct = letter ? (ctOver || (c.contact_id ? ui.contactById(c.contact_id) : null)) : null;
   if (ct) {
     // דער בריוו (מיט דער קבלה אונטן, ווען ער האט "ייבוא קבלה"); אנדערש — דער בריוו און נאכדעם די קבלה
     const slot = letterHasReceipt(letter);
@@ -1884,3 +1888,183 @@ export function orgDetailsAdminHtml() {
         <span class="small ${ok ? 'share-ok' : 'share-no'}">${ok ? `✓ ${h(d.legal_name)}${d.ein ? ` · EIN ${h(d.ein)}` : ''}` : `⚠ ${h(t('rcNoDetails'))}`}</span></button>`;
     }).join('')}</div></div>`;
 }
+
+// ---------- 🤖 קבלות אוטומטיות במייל: תרומות מהקו הטלפוני ומהאתר (לשונית WebDonations) ----------
+// כל גבאי שהאתר פתוח אצלו בודק כל 5 דקות. לכל תרומה: מספר קבלה רגיל → PDF עם המכתב (והקבלה למטה) → מייל מ-office@.
+// כדי שלא תצא קבלה פעמיים כששני גבאים פתוחים: "תפיסה" בלשונית AutoReceipts, ורק הראשון שולח.
+// מצב בדיקה: הכל נשלח לכתובת הבדיקה (office@), גם תרומה בלי אימייל. במצב רגיל — רק למי שנתן אימייל.
+const AR_LOG = 'AutoReceipts';
+const AR_CFG = 'AutoReceiptCfg';
+const AR_HEAD = ['at', 'donation_id', 'status', 'receipt_no', 'to', 'by', 'note'];
+const AR_EVERY = 5 * 60 * 1000;
+const AR_MAX = 5; // בכל סבב
+let arTimer = null;
+let arBusy = false;
+let arCfgCache = null;
+const arLast = { at: '', msg: '', n: 0 };
+const sleep = (ms) => new Promise((r) => { setTimeout(r, ms); });
+const defLetter = () => (letterTemplates().find((x) => /פת שחרית לקבלה/.test(x.name)) || {}).id || '';
+
+async function arTab(name, head) {
+  try {
+    const v = (await readTabs([name]))[name] || [];
+    if (v.length) return v;
+  } catch {
+    try { await otherSheet(CONFIG.SPREADSHEET_ID).addTab(name); } catch { /* כבר קיימת */ }
+  }
+  await appendRow(name, head);
+  return [head];
+}
+async function arCfg(fresh = false) {
+  if (arCfgCache && !fresh) return arCfgCache;
+  const rows = await arTab(AR_CFG, ['key', 'value']);
+  const kv = Object.fromEntries(rows.slice(1).filter((r) => r[0]).map((r) => [String(r[0]), String(r[1] ?? '')]));
+  arCfgCache = { on: kv.on ?? '1', mode: kv.mode || 'test', letter: kv.letter ?? defLetter(), test_to: kv.test_to || CONFIG.ORG_EMAIL || '' };
+  return arCfgCache;
+}
+async function arSaveCfg(cfg) {
+  await arTab(AR_CFG, ['key', 'value']);
+  const rows = [['key', 'value'], ...['on', 'mode', 'letter', 'test_to'].map((k) => [k, String(cfg[k] ?? '')])];
+  await updateRange(`${AR_CFG}!A1:B${rows.length}`, rows);
+  arCfgCache = { ...cfg };
+}
+const arObjs = (rows) => { const [hd = [], ...b] = rows || []; return b.map((r) => Object.fromEntries(hd.map((k, i) => [String(k), r[i] ?? '']))); };
+const FINAL = new Set(['sent', 'test', 'error', 'skip']);
+/** מה קרה עד עכשיו עם תרומה (לפי הלשונית AutoReceipts) */
+function arState(log, id, mode) {
+  const mine = log.filter((r) => String(r.donation_id) === String(id));
+  if (mine.some((r) => r.status === 'sent' || r.status === 'skip')) return 'done';
+  if (mode === 'test' && mine.some((r) => r.status === 'test')) return 'done';
+  const errs = mine.filter((r) => r.status === 'error');
+  if (errs.length >= 3) return 'failed';
+  const lastFinal = mine.reduce((k, r, i) => (FINAL.has(r.status) ? i : k), -1);
+  const after = mine.slice(lastFinal + 1);
+  const ago = (r) => Date.now() - new Date(String(r.at).replace(' ', 'T')).getTime();
+  if (after.some((r) => r.status === 'claim' && ago(r) < 10 * 60000)) return 'busy';
+  if (errs.length && ago(errs[errs.length - 1]) < 60 * 60000) return 'wait';
+  return 'todo';
+}
+/** סבב אחד. מחזיר כמה נשלחו */
+async function arRun({ manual = false } = {}) {
+  if (arBusy || !state.isAllowed || !ui) return 0;
+  arBusy = true;
+  let n = 0;
+  try {
+    const cfg = await arCfg(true);
+    if (cfg.on !== '1' && !manual) { arLast.msg = 'כבוי'; return 0; }
+    if (!cfg.letter || !letterTemplates().some((x) => String(x.id) === String(cfg.letter))) { arLast.msg = 'לא נבחר מכתב'; return 0; }
+    if (needsGmail() && !hasGmailScope()) { arLast.msg = 'השליחה מוגדרת "מהמייל שלי" — צריך office@'; return 0; }
+    await arTab(AR_LOG, AR_HEAD);
+    const tabs = await readTabs(['WebDonations', AR_LOG]);
+    const web = arObjs(tabs.WebDonations).filter((w) => w.donation_id);
+    let log = arObjs(tabs[AR_LOG]);
+    const todo = web.filter((w) => (String(w.email).trim() || cfg.mode === 'test') && arState(log, w.donation_id, cfg.mode) === 'todo').slice(0, AR_MAX);
+    arLast.at = nowStamp();
+    if (!todo.length) { arLast.msg = 'אין קבלות ממתינות'; return 0; }
+    if (todo.some((w) => !state.donations.some((d) => String(d.donation_id) === String(w.donation_id)))) { dirtyTabs.add('Donations'); dirtyTabs.add('Receipts'); await loadAll(); }
+    for (const w of todo) {
+      const id = String(w.donation_id);
+      const tok = Math.random().toString(36).slice(2, 10);
+      await appendRow(AR_LOG, [nowStamp(), id, 'claim', '', '', state.email, tok]);
+      await sleep(4000);
+      log = arObjs((await readTabs([AR_LOG]))[AR_LOG]);
+      const rowsId = log.filter((r) => String(r.donation_id) === id);
+      const lastFinal = rowsId.reduce((k, r, i) => (FINAL.has(r.status) ? i : k), -1);
+      const first = rowsId.slice(lastFinal + 1).find((r) => r.status === 'claim');
+      if (!first || String(first.note) !== tok) continue; // גבאי אחר לקח אותה
+      const to = cfg.mode === 'test' ? cfg.test_to : String(w.email).trim();
+      let status = cfg.mode === 'test' ? 'test' : 'sent';
+      let no = '';
+      let note = '';
+      try {
+        const d = state.donations.find((x) => String(x.donation_id) === id);
+        if (!d) throw new Error('התרומה לא נמצאה בגיליון התרומות');
+        const name = d.contact_id ? '' : (String(d.donor_name || '').trim() || [w.first, w.last].filter(Boolean).join(' '));
+        const c = { kind: 'receipt', org: effectiveOrg(d), contact_id: d.contact_id || '', donor_name: name, ids: [id], amount: Number(d.amount_usd) || 0, period: '', list: [d] };
+        const det = orgDetailsOf(c.org);
+        if (!det || !det.legal_name) throw new Error(`חסרים פרטי מוסד לקבלה: ${c.org}`);
+        const [x] = await issueDocs([issueOf(c)]);
+        const full = { ...c, receipt_no: x.receipt_no, issued_at: x.issued_at, reprint: x.reprint, meta: x.meta };
+        no = x.receipt_no;
+        const ct = c.contact_id ? ui.contactById(c.contact_id) : null;
+        const synth = ct || { contact_id: '', first_name_en: w.first || name, last_name_en: w.last || '', first_name_he: name, email: w.email || '' };
+        const m = mailContent(full);
+        const b64 = await receiptPdf(full, cfg.letter, { ct: synth });
+        const { html, inline } = emailLayout(c.org, m.html, [], '', { banner: m.banner });
+        const subject = cfg.mode === 'test' ? `[בדיקה → ${String(w.email).trim() || 'אין אימייל'}] ${m.subject}` : m.subject;
+        const r = await sendJobs([{ to, contact_id: c.contact_id, subject, html, text: m.text, inline, kind: 'receipt', org: c.org, fromName: m.fromName,
+          attachments: [{ name: `${no}.pdf`, mime: 'application/pdf', b64 }] }], { fromName: m.fromName });
+        if (r.errors) throw new Error('המייל לא יצא');
+        n += 1;
+      } catch (err) {
+        status = 'error';
+        note = String(err?.message || err).slice(0, 200);
+      }
+      await appendRow(AR_LOG, [nowStamp(), id, status, no, to, state.email, note]);
+    }
+    arLast.msg = n ? `נשלחו ${n}` : 'לא נשלח (ראה ביומן)';
+    arLast.n += n;
+    return n;
+  } catch (err) {
+    arLast.msg = `שגיאה: ${String(err?.message || err).slice(0, 120)}`;
+    return n;
+  } finally {
+    arBusy = false;
+    const bar = document.getElementById('ar-bar');
+    if (bar) { bar.innerHTML = arBarHtml(); wireArBar(bar.parentElement); }
+  }
+}
+/** מתחיל את הבדיקה ברקע (נקרא אחרי הכניסה, לכל גבאי) */
+export function startAutoReceipts() {
+  if (arTimer || !state.isAllowed) return;
+  setTimeout(() => { arRun().catch(() => {}); }, 60000);
+  arTimer = setInterval(() => { arRun().catch(() => {}); }, AR_EVERY);
+}
+function arBarHtml() {
+  const c = arCfgCache;
+  const L = c ? letterTemplates().find((x) => String(x.id) === String(c.letter)) : null;
+  const st = !c ? '…' : c.on !== '1' ? '⏸ כבוי' : c.mode === 'test' ? `🧪 בדיקה — הכל נשלח ל-${h(c.test_to)}` : '✅ פועל — נשלח לתורמים';
+  return `🤖 <b>קבלות אוטומטיות במייל</b> (קו טלפוני + אתר): ${st}${L ? ` · 📄 ${h(L.name)}` : ''}
+    ${arLast.at ? `<span class="muted small"> · בדיקה אחרונה ${h(arLast.at.slice(11, 16))}: ${h(arLast.msg)}</span>` : ''}
+    <button type="button" class="btn small-btn" id="ar-set">⚙ הגדרות ויומן</button>
+    <button type="button" class="btn small-btn" id="ar-now"${arBusy ? ' disabled' : ''}>${arBusy ? '⏳ שולח…' : '▶ בדוק עכשיו'}</button>`;
+}
+function wireArBar(root) {
+  if (!root) return;
+  if (!arCfgCache) arCfg().then(() => { const b = document.getElementById('ar-bar'); if (b) { b.innerHTML = arBarHtml(); wireArBar(b.parentElement); } }).catch(() => {});
+  const set = root.querySelector('#ar-set');
+  if (set) set.onclick = () => arDialog();
+  const now = root.querySelector('#ar-now');
+  if (now) now.onclick = () => { now.disabled = true; now.textContent = '⏳ שולח…'; arRun({ manual: true }).then((k) => { if (k) loadAll().then(() => renderReceipts()).catch(() => {}); }); };
+}
+async function arDialog() {
+  const cfg = { ...(await arCfg(true)) };
+  const log = arObjs((await arTab(AR_LOG, AR_HEAD))).filter((r) => r.status !== 'claim').slice(-40).reverse();
+  const SL = { sent: '✅ נשלח', test: '🧪 בדיקה', error: '⚠ נכשל', skip: '⏭ דילוג' };
+  const dlg = document.createElement('dialog');
+  dlg.className = 'sheet ar-dlg';
+  dlg.innerHTML = `<h3>🤖 קבלות אוטומטיות במייל</h3>
+    <p class="muted small">תרומות מהקו הטלפוני (רק מי שאישר אימייל) ומדף הקמפיין באתר. כל גבאי שהאתר פתוח אצלו בודק כל 5 דקות, ושולח מ-office@.</p>
+    <label class="check"><input type="checkbox" id="ar-on"${cfg.on === '1' ? ' checked' : ''}> פועל</label>
+    <fieldset class="ar-mode"><legend>למי לשלוח</legend>
+      <label class="check"><input type="radio" name="ar-mode" value="test"${cfg.mode === 'test' ? ' checked' : ''}> 🧪 בדיקה — הכל לכתובת: <input id="ar-testto" dir="ltr" value="${h(cfg.test_to)}"></label>
+      <label class="check"><input type="radio" name="ar-mode" value="live"${cfg.mode === 'live' ? ' checked' : ''}> ✅ לתורמים עצמם</label></fieldset>
+    <label>📄 המכתב (עם "ייבוא קבלה") <select id="ar-letter"><option value="">—</option>${letterTemplates().map((x) => `<option value="${h(x.id)}"${String(x.id) === String(cfg.letter) ? ' selected' : ''}>${h(x.name)}${letterHasReceipt(x.id) ? ' 🧾' : ''}</option>`).join('')}</select></label>
+    <h4>יומן</h4>
+    ${log.length ? `<table class="lapsed-table no-sort ar-log"><thead><tr><th>מתי</th><th>תרומה</th><th>מצב</th><th>קבלה</th><th>אל</th><th>הערה</th></tr></thead><tbody>
+      ${log.map((r) => `<tr><td dir="ltr">${h(String(r.at).slice(5, 16))}</td><td>${h(r.donation_id)}</td><td>${SL[r.status] || h(r.status)}</td><td>${h(r.receipt_no)}</td><td dir="ltr">${h(r.to)}</td><td class="small">${h(r.note)}</td></tr>`).join('')}</tbody></table>`
+      : '<p class="muted">עדיין לא נשלח כלום.</p>'}
+    <div class="dialog-actions"><button type="button" class="btn primary" id="ar-save">שמור</button><button type="button" class="btn" id="ar-close">סגור</button></div>`;
+  document.body.append(dlg);
+  dlg.addEventListener('close', () => dlg.remove());
+  dlg.querySelector('#ar-close').onclick = () => dlg.close();
+  dlg.querySelector('#ar-save').onclick = async () => {
+    const mode = dlg.querySelector('[name="ar-mode"]:checked')?.value || 'test';
+    const nc = { on: dlg.querySelector('#ar-on').checked ? '1' : '0', mode, letter: dlg.querySelector('#ar-letter').value, test_to: dlg.querySelector('#ar-testto').value.trim() || CONFIG.ORG_EMAIL };
+    if (mode === 'live' && cfg.mode !== 'live' && !confirm('מעכשיו הקבלות יישלחו לתורמים עצמם (כולל מי שקיבל עד עכשיו רק בדיקה ונתן אימייל). להמשיך?')) return;
+    try { await arSaveCfg(nc); ui.toast('✓ נשמר'); dlg.close(); const b = document.getElementById('ar-bar'); if (b) { b.innerHTML = arBarHtml(); wireArBar(b.parentElement); } } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  };
+  dlg.showModal();
+}
+/** "בדוק עכשיו" (גם בלי שהמתג פועל) */
+export const runAutoReceiptsNow = () => arRun({ manual: true });
