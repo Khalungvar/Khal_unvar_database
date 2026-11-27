@@ -539,7 +539,7 @@ async function save() {
       const ok = await askTitles(fx);
       if (ok === null) return false;
       ok.forEach((r) => {
-        ED.set(`${r.id}|c:title_he`, { v: r.x.he, o: ED.get(`${r.id}|c:title_he`)?.o ?? String(r.c.title_he ?? '') });
+        if (r.x.heChanged) ED.set(`${r.id}|c:title_he`, { v: r.x.he, o: ED.get(`${r.id}|c:title_he`)?.o ?? String(r.c.title_he ?? '') });
         if (r.x.enChanged) ED.set(`${r.id}|c:title_en`, { v: r.x.en, o: ED.get(`${r.id}|c:title_en`)?.o ?? String(r.c.title_en ?? '') });
       });
     }
