@@ -138,6 +138,8 @@ export function mailingName(c) {
   const married = c.marital_status === 'נשוי';
   const join = (...parts) => parts.filter(Boolean).join(' ');
   if (!first && !last) return null; // אין שם באנגלית — אי אפשר לפנות בדואר
+  // 👑 Grand Rabbi — תמיד רק "Grand Rabbi" + שם משפחה (בלי שם פרטי ובלי Rebbetzin)
+  if (/^grand rabbi$/i.test(title) && husbandAlive) return last ? `Grand Rabbi ${last}` : null;
 
   if (married && husbandAlive && wifeAlive) return join(`${title} & ${wifeTitle}`, first, last);
   // אלמנה — Mrs./Rebbetzin + השם שלה (גם כשהמצב המשפחתי לא "נשוי")
