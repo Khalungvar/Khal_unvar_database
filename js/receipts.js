@@ -594,6 +594,13 @@ function receiptName(name) {
   const c = allCampaigns().find((x) => x.name === name) || { name, kind: 'once', series: name };
   return String(settingsOf(c).receipt_for || '').trim() || name;
 }
+/** המכתב לקבלה של הקמפיין (מהגדרות הקמפיין). ריק = קבלה בלבד, בלי מכתב */
+function campaignLetter(name) {
+  if (!name || !settingsCached()) return '';
+  const c = allCampaigns().find((x) => x.name === name) || { name, kind: 'once', series: name };
+  const id = String(settingsOf(c).receipt_letter || '');
+  return id && letterTemplates().some((x) => String(x.id) === id) ? id : '';
+}
 function forWhat(c) {
   if (c.kind === 'year') return `שנת ${c.period}`;
   const d = c.list?.[0] || {};
@@ -1961,7 +1968,6 @@ async function arRun({ manual = false } = {}) {
     const cfg = await arCfg(true);
     await loadSettings().catch(() => null);
     if (cfg.on !== '1' && !manual) { arLast.msg = 'כבוי'; return 0; }
-    if (!cfg.letter || !letterTemplates().some((x) => String(x.id) === String(cfg.letter))) { arLast.msg = 'לא נבחר מכתב'; return 0; }
     if (needsGmail() && !hasGmailScope()) { arLast.msg = 'השליחה מוגדרת "מהמייל שלי" — צריך office@'; return 0; }
     await arTab(AR_LOG, AR_HEAD);
     const tabs = await readTabs(['WebDonations', AR_LOG]);
@@ -1999,7 +2005,7 @@ async function arRun({ manual = false } = {}) {
         const ct = c.contact_id ? ui.contactById(c.contact_id) : null;
         const synth = ct || { contact_id: '', first_name_en: w.first || name, last_name_en: w.last || '', first_name_he: name, email: w.email || '' };
         const m = mailContent(full);
-        const b64 = await receiptPdf(full, cfg.letter, { ct: synth });
+        const b64 = await receiptPdf(full, campaignLetter(d.campaign), { ct: synth }); // המכתב של הקמפיין; בלי — קבלה בלבד
         const { html, inline } = emailLayout(c.org, m.html, [], '', { banner: m.banner });
         const subject = cfg.mode === 'test' ? `[בדיקה → ${String(w.email).trim() || 'אין אימייל'}] ${m.subject}` : m.subject;
         const r = await sendJobs([{ to, contact_id: c.contact_id, subject, html, text: m.text, inline, kind: 'receipt', org: c.org, fromName: m.fromName,
@@ -2033,9 +2039,8 @@ export function startAutoReceipts() {
 }
 function arBarHtml() {
   const c = arCfgCache;
-  const L = c ? letterTemplates().find((x) => String(x.id) === String(c.letter)) : null;
   const st = !c ? '…' : c.on !== '1' ? '⏸ כבוי' : c.mode === 'test' ? `🧪 בדיקה — הכל נשלח ל-${h(c.test_to)}` : '✅ פועל — נשלח לתורמים';
-  return `🤖 <b>קבלות אוטומטיות במייל</b> (קו טלפוני + אתר): ${st}${L ? ` · 📄 ${h(L.name)}` : ''}
+  return `🤖 <b>קבלות אוטומטיות במייל</b> (קו טלפוני + אתר): ${st}
     ${arLast.at ? `<span class="muted small"> · בדיקה אחרונה ${h(arLast.at.slice(11, 16))}: ${h(arLast.msg)}</span>` : ''}
     <button type="button" class="btn small-btn" id="ar-set">⚙ הגדרות ויומן</button>
     <button type="button" class="btn small-btn" id="ar-now"${arBusy ? ' disabled' : ''}>${arBusy ? '⏳ שולח…' : '▶ בדוק עכשיו'}</button>`;
@@ -2060,7 +2065,7 @@ async function arDialog() {
     <fieldset class="ar-mode"><legend>למי לשלוח</legend>
       <label class="check"><input type="radio" name="ar-mode" value="test"${cfg.mode === 'test' ? ' checked' : ''}> 🧪 בדיקה — הכל לכתובת: <input id="ar-testto" dir="ltr" value="${h(cfg.test_to)}"></label>
       <label class="check"><input type="radio" name="ar-mode" value="live"${cfg.mode === 'live' ? ' checked' : ''}> ✅ לתורמים עצמם</label></fieldset>
-    <label>📄 המכתב (עם "ייבוא קבלה") <select id="ar-letter"><option value="">—</option>${letterTemplates().map((x) => `<option value="${h(x.id)}"${String(x.id) === String(cfg.letter) ? ' selected' : ''}>${h(x.name)}${letterHasReceipt(x.id) ? ' 🧾' : ''}</option>`).join('')}</select></label>
+    <p class="muted small">📄 המכתב נבחר בהגדרות של כל קמפיין (⚙ הגדרות קמפיין › קבלה ומכתב תודה). תרומה בלי קמפיין, או לקמפיין בלי מכתב — קבלה בלבד.</p>
     <h4>יומן</h4>
     ${log.length ? `<table class="lapsed-table no-sort ar-log"><thead><tr><th>מתי</th><th>תרומה</th><th>מצב</th><th>קבלה</th><th>אל</th><th>הערה</th></tr></thead><tbody>
       ${log.map((r) => `<tr><td dir="ltr">${h(String(r.at).slice(5, 16))}</td><td>${h(r.donation_id)}</td><td>${SL[r.status] || h(r.status)}</td><td>${h(r.receipt_no)}</td><td dir="ltr">${h(r.to)}</td><td class="small">${h(r.note)}</td></tr>`).join('')}</tbody></table>`
@@ -2071,7 +2076,7 @@ async function arDialog() {
   dlg.querySelector('#ar-close').onclick = () => dlg.close();
   dlg.querySelector('#ar-save').onclick = async () => {
     const mode = dlg.querySelector('[name="ar-mode"]:checked')?.value || 'test';
-    const nc = { on: dlg.querySelector('#ar-on').checked ? '1' : '0', mode, letter: dlg.querySelector('#ar-letter').value, test_to: dlg.querySelector('#ar-testto').value.trim() || CONFIG.ORG_EMAIL };
+    const nc = { on: dlg.querySelector('#ar-on').checked ? '1' : '0', mode, letter: cfg.letter || '', test_to: dlg.querySelector('#ar-testto').value.trim() || CONFIG.ORG_EMAIL };
     if (mode === 'live' && cfg.mode !== 'live' && !confirm('מעכשיו הקבלות יישלחו לתורמים עצמם (כולל מי שקיבל עד עכשיו רק בדיקה ונתן אימייל). להמשיך?')) return;
     try { await arSaveCfg(nc); ui.toast('✓ נשמר'); dlg.close(); const b = document.getElementById('ar-bar'); if (b) { b.innerHTML = arBarHtml(); wireArBar(b.parentElement); } } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
   };
