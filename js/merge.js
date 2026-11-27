@@ -3,7 +3,7 @@
 // אריבערגעפירט, און דער צווייטער כרטיס גייט אין "מיסט". א גבאי — א בקשה צו א מנהל.
 import { state, loadAll, mergeContactPair } from './data.js';
 import { t } from './i18n.js';
-import { escapeHtml as h, splitTags, joinTags, digits, isTrue } from './util.js';
+import { escapeHtml as h, splitTags, joinTags, digits, isTrue, titleForStatus } from './util.js';
 import { mergeOrgTags } from './orgtags.js';
 import { submitRequest } from './requests.js';
 
@@ -57,6 +57,11 @@ export function openMerge(a) {
     const { contact, phones } = combined(form, pair);
     const go = $('#mg-go', form);
     if (!confirm(t('mgConfirm', { drop: ui.fullNameHe(pair.drop), id: pair.drop.contact_id, keep: pair.keep.contact_id }))) return;
+    // 🎩 המצב המשפחתי שנבחר והתואר לא מתאימים (בחור ↔ מו"ה) — הצעה
+    const fx = titleForStatus(String(pair.keep.marital_status || '').trim() === String(contact.marital_status || '').trim() ? '-' : pair.keep.marital_status, contact.marital_status, contact.title_he, contact.title_en);
+    if (fx && confirm(`המצב המשפחתי "${contact.marital_status}" והתואר "${contact.title_he}" לא מתאימים. להחליף את התואר ל־${fx.he}${fx.enChanged ? ` (ובאנגלית ${fx.en})` : ''}?`)) {
+      contact.title_he = fx.he; if (fx.enChanged) contact.title_en = fx.en;
+    }
     go.disabled = true;
     try {
       if (!state.isAdmin) {
