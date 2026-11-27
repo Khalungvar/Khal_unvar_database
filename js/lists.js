@@ -1629,7 +1629,8 @@ function readTagPick(root, prefix, prev) {
 const allAreas = () => [...(state.lists.area || []), NO_AREA];
 const areaLabel = (a) => (a === NO_AREA ? t('noArea') : a);
 function areaPick(sel, prefix) {
-  return `<div class="tags lb-chips" data-area="${prefix}">${allAreas().map((a) => `<button type="button" class="chip toggle${sel.includes(a) ? ' on' : ''}" data-v="${h(a)}">${h(areaLabel(a))}</button>`).join('')}</div>
+  // "ללא אזור" — רק ברשימה ישנה שכבר בחרה בו (לכל כרטיס יש היום אזור)
+  return `<div class="tags lb-chips" data-area="${prefix}">${allAreas().filter((a) => a !== NO_AREA || sel.includes(a)).map((a) => `<button type="button" class="chip toggle${sel.includes(a) ? ' on' : ''}" data-v="${h(a)}">${h(areaLabel(a))}</button>`).join('')}</div>
     ${prefix === 'x' ? `<button type="button" class="linkish" data-allbut="${prefix}">${h(t('L2allBut'))}</button>` : ''}`;
 }
 /** ברשימה רגילה: "לפי משפחה" = בוחרים רשימות משפחות שמורות (עד 4, כל אחת בצבע) */
