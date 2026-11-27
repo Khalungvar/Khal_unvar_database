@@ -2767,3 +2767,5 @@ select.need-fill, input.need-fill { outline: 2px solid #c0392b; outline-offset: 
 .pb-row legend { font-weight: 600; padding: 0 4px; }
 .pb-btns { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
 .pb-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+/* קבלה שקופה במכתב — הרקע נראה מאחוריה */
+.mx-rcclear .rx, .mx-rcclear .rx-side, .mx-rcclear .rx-main, .mx-rcclear .rx-cut span { background: transparent !important; }
