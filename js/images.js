@@ -107,7 +107,7 @@ export async function storeImage(data, name = 'image') {
   if (byData.has(data)) return `drv:${byData.get(data)}`;
   try {
     // בילדער פאר בריוו → די טעקע "תמונות למכתבים" (מ'קען זיי נאכאמאל נוצן)
-    const r = await call({ action: 'img_put', data, name, folder: ['letter', 'watermark'].includes(name) ? 'letters' : '' });
+    const r = await call({ action: 'img_put', data, name, folder: ['letter', 'watermark'].includes(name) ? 'letters' : '' }, 120000); // קבצים גדולים (PDF, תמונה מלאה) — זמן ארוך
     if (!r.id) { helperOk = false; return data; }
     helperOk = true;
     remember(r.id, data);
@@ -144,7 +144,7 @@ export async function fetchImages(ids) {
   }
   for (let i = 0; i < need.length; i += 10) {
     try {
-      const r = await call({ action: 'img_get', ids: need.slice(i, i + 10) }, 8000);
+      const r = await call({ action: 'img_get', ids: need.slice(i, i + 10) }, 30000);
       Object.entries(r.images || {}).forEach(([id, d]) => { remember(id, d); cachePut(id, d); });
       if (r.images) helperOk = true;
     } catch { /* נעקסטע מאל */ }
