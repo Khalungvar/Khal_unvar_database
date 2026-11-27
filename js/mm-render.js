@@ -6,6 +6,7 @@ import { imageOf } from './images.js';
 import { isoToHebrewText, todayIso } from './hebdate.js';
 import { money } from './donations.js';
 import { joinImg, sampleReceiptHtml, RX_H } from './receipts.js';
+import { pdfBgHtml } from './pdfbg.js';
 
 // ---------- גרייסן ----------
 export const ENVELOPES = [
@@ -481,6 +482,7 @@ export function letterHtml(D, c, { edit = false, num = '', ctx = null, empties =
     ${L.design === 'bg' && D.background_data ? `<img class="mx-letter-bg" src="${imgSrc(D.background_data)}" style="opacity:${D.bg.opacity}" alt="">` : ''}
     ${L.design === 'blank' && G.blank ? `<img class="mx-letter-bg" src="${imgSrc(G.blank)}" style="opacity:1" alt="">` : ''}
     ${L.design === 'blank' && !G.blank && (edit || draft) ? `<div class="mx-noblank">📄 ${h(L.org || '')}: אין עדיין בלאנק למוסד — מעלים ב"פרטים לקבלות"</div>` : ''}
+    ${pdfBgHtml(D, cont + 1, G.W, G.H, { edit })}
     ${watermarkHtml(D)}
     ${banner && first ? `<img class="mx-banner" src="${imgSrc(banner)}" style="top:0.3in;left:0;right:0;width:100%;height:${bh}in" alt="">` : ''}
     ${logo && first ? `<div class="mx-band" style="top:0.3in;left:${m.left}in;right:${m.right}in"><img src="${imgSrc(logo)}" alt=""><div dir="rtl">${h(det.org_name_he || L.org)}</div></div>` : ''}
