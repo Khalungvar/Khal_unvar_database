@@ -5,7 +5,7 @@ import { yearFromLabel, fromHebrew, monthsOf, toHebrew, monthHe, yearLabel, mont
 import { umbrellaName } from './scope.js';
 import { parseOrgTags, mergeOrgTags, entry as otEntry, OLD_GROUP } from './orgtags.js';
 import { t } from './i18n.js';
-import { escapeHtml as h, formatPhone, digits, normalize, detectArea, splitTags, joinTags } from './util.js';
+import { escapeHtml as h, formatPhone, digits, normalize, detectArea, splitTags, joinTags, titleForStatus } from './util.js';
 import { downloadXlsx } from './excel.js';
 import { suggestFirstName, suggestLastName, suggestHeFirstName, suggestHeLastName } from './names.js';
 
@@ -575,6 +575,21 @@ function renderPreview(box, ui) {
     // א טעג אויף יעדן — מ'זאל וויסן פון וואו ער איז געקומען, און קענען דורכגיין / געפינען אלע
     const tag = $('#imp-tag', prev).value.trim();
     if ((!list.length && !merges.length) || !confirm(t('impConfirm2', { n: list.length, m: merges.length }))) return;
+    // 🎩 תואר שלא מתאים למצב המשפחתי (בחור ↔ מו"ה) — הצעה, מסמנים מה להחליף
+    const fx = [];
+    list.forEach((r) => { const x = titleForStatus('', r.contact.marital_status, r.contact.title_he, r.contact.title_en); if (x) fx.push({ r, x, he0: r.contact.title_he, en0: r.contact.title_en }); });
+    merges.forEach((r) => {
+      const ex = state.contacts.find((c) => String(c.contact_id) === String(r.matchId)) || {};
+      const st = String(ex.marital_status || '').trim() || String(r.contact.marital_status || '').trim(); // המיזוג ממלא רק שדה ריק
+      const he = String(ex.title_he || '').trim() || r.contact.title_he; const en = String(ex.title_en || '').trim() || r.contact.title_en;
+      const x = titleForStatus(String(ex.marital_status || '').trim() || '-', st, he, en);
+      if (x) fx.push({ r, x, he0: he, en0: en, merge: true });
+    });
+    if (fx.length) {
+      const ok = await askTitlesImp(fx);
+      if (ok === null) return;
+      ok.forEach((f) => { f.r.titleFix = f.x; if (!f.merge) { f.r.contact.title_he = f.x.he; if (f.x.enChanged) f.r.contact.title_en = f.x.en; } });
+    }
     go.disabled = true; $('#imp-cancel', prev).disabled = true;
     const bar = $('#imp-progress', prev); bar.hidden = false;
     try {
@@ -597,6 +612,7 @@ function renderPreview(box, ui) {
           const prevP = byId.get(String(r.matchId)) || { c: {}, p: {} };
           // דער טעג פון דעם אימפארט — אויך ביי די געמערדזשטע (מ'זאל זען וואס איז געקומען פון דער רשימה)
           const m = mergePatch(r.matchId, { ...r, contact: { ...r.contact, community_tags: joinTags([...splitTags(r.contact.community_tags), ...(tag ? [tag] : [])]) } }, prevP);
+          if (r.titleFix) { m.c.title_he = r.titleFix.he; if (r.titleFix.enChanged) m.c.title_en = r.titleFix.en; } // 🎩 אושר להחליף
           byId.set(String(r.matchId), { c: { ...prevP.c, ...m.c }, p: { ...prevP.p, ...m.p } });
         });
         mergedN = byId.size;
@@ -664,4 +680,23 @@ function renderPreview(box, ui) {
       go.disabled = false; $('#imp-cancel', prev).disabled = false;
     }
   };
+}
+
+/** 🎩 יבוא: תארים שלא מתאימים למצב המשפחתי — מסמנים מה להחליף. מחזיר את המסומנים, או null = ביטול */
+function askTitlesImp(fx) {
+  return new Promise((resolve) => {
+    const d = document.createElement('dialog');
+    d.className = 'sheet';
+    const nm = (r) => [r.contact.title_he, r.contact.first_name_he, r.contact.last_name_he].filter(Boolean).join(' ') || [r.contact.first_name_en, r.contact.last_name_en].filter(Boolean).join(' ') || `#${r.n}`;
+    d.innerHTML = `<h3>🎩 להתאים את התואר למצב המשפחתי?</h3><p>אצל ${fx.length} אנשים התואר לא מתאים למצב המשפחתי. מה שמסומן — יוחלף:</p>
+      <table class="lb-table"><thead><tr><th></th><th>שורה</th><th>מצב</th><th>תואר עכשיו</th><th>יוחלף ל־</th></tr></thead>
+      <tbody>${fx.map((f, i) => `<tr><td><input type="checkbox" data-ti="${i}" checked></td><td>${h(nm(f.r))}</td><td>${h(f.r.contact.marital_status || '')}</td><td dir="auto">${h(f.he0 || '')}${f.en0 ? ` · ${h(f.en0)}` : ''}</td><td dir="auto"><b>${h(f.x.he)}</b>${f.x.enChanged ? ` · ${h(f.x.en)}` : ''}</td></tr>`).join('')}</tbody></table>
+      <div class="dialog-actions"><button type="button" class="btn primary" data-a="go">המשך (עם ההחלפות המסומנות)</button><button type="button" class="btn" data-a="x">ביטול</button></div>`;
+    document.body.append(d);
+    let done = false; const fin = (v) => { if (done) return; done = true; d.close(); d.remove(); resolve(v); };
+    d.addEventListener('close', () => fin(null));
+    d.querySelector('[data-a="go"]').onclick = () => fin(fx.filter((f, i) => d.querySelector(`[data-ti="${i}"]`).checked));
+    d.querySelector('[data-a="x"]').onclick = () => fin(null);
+    d.showModal();
+  });
 }
