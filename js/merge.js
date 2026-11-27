@@ -60,7 +60,7 @@ export function openMerge(a) {
     // 🎩 המצב המשפחתי שנבחר והתואר לא מתאימים (בחור ↔ מו"ה) — הצעה
     const fx = titleForStatus(String(pair.keep.marital_status || '').trim() === String(contact.marital_status || '').trim() ? '-' : pair.keep.marital_status, contact.marital_status, contact.title_he, contact.title_en);
     if (fx && confirm(`המצב המשפחתי "${contact.marital_status}" והתואר "${contact.title_he}" לא מתאימים. להחליף את התואר ל־${fx.label}?`)) {
-      contact.title_he = fx.he; if (fx.enChanged) contact.title_en = fx.en;
+      if (fx.heChanged) contact.title_he = fx.he; if (fx.enChanged) contact.title_en = fx.en;
     }
     go.disabled = true;
     try {
