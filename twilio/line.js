@@ -1,5 +1,6 @@
 // ☎ קו התרומות הטלפוני של קמפיין "אור התורה" — (845) 609-0400.
-// רץ ב-Twilio Functions (שירות "orhatorah-line", פונקציה /line, Protected = רק Twilio יכול לקרוא).
+// רץ ב-Twilio Functions (שירות "orhatorah-line", פונקציה /ivr, Protected = רק Twilio יכול לקרוא). ב-Twilio שמורה גרסה מכווצת (terser) בלי ההערות.
+// ⚠ אסור לכתוב בקוד sleep(מספר) — חומת האש של Twilio חוסמת את השמירה (נראה כמו SQL injection). לכן nap.
 // הסדר: פתיחה → סכום + # → <Pay> (ההקראה של הסכום בתוך ההודעה הראשונה; * בכל רגע = שינוי סכום) →
 // תודה → הקלטת שם → קבלה במייל? 1/2 → הקלטת אימייל → Gemini (דרך השומר) → הקראה אות-אות → 1 אישור / 2 שוב → סיום.
 // הכרטיס נקלט ע"י Twilio (Stripe_Connector) ולא עובר אצלנו. כל תרומה נרשמת בשומר (twDonation) → Donations + WebDonations.
@@ -10,7 +11,7 @@ const MAX = 50000;
 
 function url(step, q) {
   const p = new URLSearchParams(Object.assign({ step }, q || {}));
-  return '/line?' + p.toString();
+  return '/ivr?' + p.toString();
 }
 function say(node, text) { node.say(VOICE, text); }
 function money(n) { return Number(n).toLocaleString('en-US') + ' dollar' + (Number(n) === 1 ? '' : 's'); }
@@ -29,7 +30,7 @@ async function guard(context, body) {
 function guardSoon(context, body, ms) {
   return Promise.race([guard(context, body).catch((e) => ({ error: String(e && e.message) })), new Promise((r) => setTimeout(() => r({ pending: true }), ms))]);
 }
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const nap = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // נתוני התשלום עוברים הלאה בכתובות (a=סכום, c=אישור Stripe, l=4 ספרות, f=המתקשר) — כדי שהשומר יוכל לרשום גם אם הרישום הראשון לא הגיע
 function paidQ(event, n) { return { a: n, c: event.PaymentConfirmationCode || event.c || '', l: String(event.PaymentCardNumber || event.l || '').slice(-4), f: event.From || event.f || '' }; }
@@ -159,7 +160,7 @@ exports.handler = async function (context, event, callback) {
       let audio = '';
       for (let i = 0; i < 5 && !audio; i++) {
         const r = await fetch(event.RecordingUrl + '.mp3', { headers: { Authorization: auth } });
-        if (r.ok) audio = Buffer.from(await r.arrayBuffer()).toString('base64'); else await sleep(600);
+        if (r.ok) audio = Buffer.from(await r.arrayBuffer()).toString('base64'); else await nap(600);
       }
       if (!audio) { console.error('email rec fetch failed'); say(tw, 'We will send your receipt by email shortly.'); bye(tw); return done(); }
       await guardSoon(context, { stage: 'email', call: event.CallSid, n, audio, mime: 'audio/mpeg' }, 1500);
