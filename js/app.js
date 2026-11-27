@@ -97,23 +97,32 @@ function friendlyError(err) {
   return t('error', { msg: err.message });
 }
 
-/** חלון בחירה עם כמה כפתורים. מחזיר את הערך שנבחר, או null. */
+/** חלון בחירה עם כמה כפתורים. מחזיר את הערך שנבחר, או null.
+ *  בתור: כששתי שאלות באות יחד (למשל תואר + "עדיין גר שם?") — אחת אחרי השנייה, לא אחת על השנייה */
+let chooseQ = Promise.resolve();
 function choose(title, text, options, boldFirst = '') {
+  const p = chooseQ.then(() => chooseNow(title, text, options, boldFirst));
+  chooseQ = p.catch(() => {});
+  return p;
+}
+function chooseNow(title, text, options, boldFirst = '') {
   const dlg = $('#choice-dialog');
   $('#choice-title', dlg).textContent = title;
   $('#choice-text', dlg).innerHTML = (boldFirst ? `<b>${h(boldFirst)}</b>\n\n` : '') + h(text);
   const box = $('#choice-buttons', dlg);
   box.innerHTML = '';
   return new Promise((resolve) => {
+    let picked = null;
     options.forEach(([value, label, primary]) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = primary ? 'btn primary' : 'btn';
       b.textContent = label;
-      b.onclick = () => { dlg.close(); resolve(value); };
+      b.onclick = () => { picked = value; dlg.close(); };
       box.append(b);
     });
-    dlg.onclose = () => resolve(null);
+    // נפתר רק כשהחלון באמת נסגר — כך החלון הבא בתור לא נפתח לפני הזמן
+    dlg.onclose = () => { dlg.onclose = null; resolve(picked); };
     dlg.showModal();
   });
 }
