@@ -2769,3 +2769,9 @@ select.need-fill, input.need-fill { outline: 2px solid #c0392b; outline-offset: 
 .pb-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
 /* קבלה שקופה במכתב — הרקע נראה מאחוריה */
 .mx-rcclear .rx, .mx-rcclear .rx-side, .mx-rcclear .rx-main, .mx-rcclear .rx-cut span { background: transparent !important; }
+/* 🤖 קבלות אוטומטיות במייל */
+.ar-bar { background: #f6f1e4; border: 1px solid #e3d3ad; border-radius: 8px; padding: 6px 10px; margin: 0 0 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ar-dlg { max-width: min(860px, 96vw); }
+.ar-dlg .ar-mode { border: 1px solid #e3d3ad; border-radius: 8px; padding: 4px 10px 8px; margin: 8px 0; }
+.ar-dlg .ar-mode input[type="text"], .ar-dlg #ar-testto { width: 16em; }
+.ar-log td { font-size: 12px; }
