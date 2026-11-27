@@ -1521,6 +1521,21 @@ function wireWordGlobal() {
     else if (ctl && k === 'p') { e.preventDefault(); printDialog('draft'); }
     else if (ctl && (k === 'f' || k === 'h')) { e.preventDefault(); findDialog(k === 'h'); }
     else if (ctl && k === 'k' && ltrEdit) { e.preventDefault(); linkDialog(); }
+    else if (ctl && k === 'a' && !e.shiftKey && !e.altKey) {
+      // Ctrl+A — רק הטקסט של המכתב, לא כל האתר (גם כשהלחיצה הייתה על השוליים / הסרגל)
+      const ae = document.activeElement;
+      const inField = ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || (ae.isContentEditable && !ae.closest('.wr-body')));
+      const body = $('#mx-stage .wr-body');
+      if (!inField && body) {
+        e.preventDefault();
+        if (body.isContentEditable) body.focus({ preventScroll: true });
+        const r = document.createRange();
+        r.selectNodeContents(body);
+        const s = window.getSelection();
+        s.removeAllRanges(); s.addRange(r);
+        syncRibbon();
+      }
+    }
     else if (k === 'escape' && painter) { painter = null; updatePainter(); }
   });
   window.addEventListener('beforeunload', (e) => {
@@ -2605,6 +2620,16 @@ function wireRibbon(main) {
         return;
       }
       if (cmd === 'cut' || cmd === 'copy') { if (B()) { restoreSel(B()); document.execCommand(cmd); if (cmd === 'cut') B()._save?.(); } return; }
+      if (cmd === 'selectAll') {
+        // רק התוכן של המכתב (או של התיבה), לא כל האתר
+        const el = B();
+        if (!el) return;
+        if (el.isContentEditable) el.focus({ preventScroll: true });
+        const r = document.createRange(); r.selectNodeContents(el);
+        const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+        syncRibbon();
+        return;
+      }
       exec(cmd);
     };
   });
