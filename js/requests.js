@@ -129,7 +129,13 @@ async function decide(r, status) {
     if (ans === null) return;
     note = ans.trim();
   }
-  if (status === 'approved') await TYPES[r.type].apply(parse(r));
+  // הכרטיס / הפריט כבר נמחק — האישור סוגר את הבקשה בכל זאת (לא נשארת תקועה)
+  if (status === 'approved') {
+    try { await TYPES[r.type].apply(parse(r)); } catch (err) {
+      if (String(err?.message) !== t('rqGone')) throw err;
+      note = 'כבר נמחק — הבקשה נסגרה';
+    }
+  }
   await saveRecord('Requests', 'request_id', {
     ...r, status, decided_by: state.email, decided_at: nowStamp(),
     decision_note: [r.decision_note, note && `${displayName(state.email)}: ${note}`].filter(Boolean).join(' · '),
@@ -214,7 +220,9 @@ function wireCardLinks(root) {
 
 /** אין איזור אישי: מיינע בקשות און זייער סטאטוס. */
 export function myRequestsHtml() {
-  const mine = (state.requests || []).filter((r) => String(r.requested_by).toLowerCase() === state.email && TYPES[r.type]).slice(-15).reverse();
+  // ממתינות למעלה; שאושרו / נדחו — למטה (מהחדשה לישנה)
+  const mine = (state.requests || []).filter((r) => String(r.requested_by).toLowerCase() === state.email && TYPES[r.type]).slice(-15).reverse()
+    .sort((a, b) => Number(!!a.status && a.status !== 'pending') - Number(!!b.status && b.status !== 'pending'));
   if (!mine.length) return '';
   return `<section class="pm-section rq-mine"><h3>📨 ${h(t('rqMine'))}</h3><div class="rq-list">${mine.map((r) => rowHtml(r, { who: false })).join('')}</div></section>`;
 }
