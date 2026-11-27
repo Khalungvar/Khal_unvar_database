@@ -2,7 +2,7 @@
 // למעלה: סינונים (חיפוש, פעיל/נפטר, מצב משפחתי, אזור, תגיות, רשימה, משפחה, ⚠ חסר, 💝 תרומות בשורות "תרם / לא תרם").
 // קבוצות עמודות: שמות / כתובת / טלפונים / אימייל / אחר / 🏷 תגיות (לחצנים). שומרים רק תאים ששונו (יומן שינויים, בדיקת "מישהו אחר שינה").
 import { state, loadAll, saveCellEdits, guestsOf, hostOf, ADDR_FIELDS, saveSavedList } from './data.js';
-import { escapeHtml as h, isTrue, isAlive, digits } from './util.js';
+import { escapeHtml as h, isTrue, isAlive, digits, titleForStatus } from './util.js';
 import { t2PickHtml } from './tags2.js';
 import { tagSelHtml, readTagSel, matchesTagSel, storedTags, serialize, pathKey, pathLabel } from './tags.js';
 import { allCampaigns } from './campaigns.js';
@@ -525,6 +525,24 @@ async function save() {
       if (now !== e.o && now !== e.v) conf.push({ key, c, f, now, e });
     });
     if (conf.length && !(await askConflicts(conf))) return false;
+    // 🎩 מצב משפחתי השתנה → הצעה להתאים את התואר (הגבאי מסמן מה להחליף)
+    const fx = [];
+    ED.forEach((e, key) => {
+      const i = key.indexOf('|'); const id = key.slice(0, i); const f = key.slice(i + 1);
+      if (f !== 'c:marital_status') return;
+      const c = ui.contactById(id); if (!c) return;
+      const cur = (k) => (ED.has(`${id}|c:${k}`) ? String(ED.get(`${id}|c:${k}`).v) : String(c[k] ?? ''));
+      const x = titleForStatus(e.o, e.v, cur('title_he'), cur('title_en'));
+      if (x) fx.push({ id, c, x, he0: cur('title_he'), en0: cur('title_en') });
+    });
+    if (fx.length) {
+      const ok = await askTitles(fx);
+      if (ok === null) return false;
+      ok.forEach((r) => {
+        ED.set(`${r.id}|c:title_he`, { v: r.x.he, o: ED.get(`${r.id}|c:title_he`)?.o ?? String(r.c.title_he ?? '') });
+        if (r.x.enChanged) ED.set(`${r.id}|c:title_en`, { v: r.x.en, o: ED.get(`${r.id}|c:title_en`)?.o ?? String(r.c.title_en ?? '') });
+      });
+    }
     const by = new Map();
     const get = (id) => { const k = String(id); if (!by.has(k)) by.set(k, { id: k, contact: {}, phones: {} }); return by.get(k); };
     ED.forEach((e, key) => {
@@ -549,6 +567,19 @@ async function save() {
     saving = false;
     const b = $('#be-save'); if (b) { b.textContent = '💾 שמירה'; b.disabled = !ED.size; }
   }
+}
+/** 🎩 רשימת ההצעות להחלפת תואר — מסמנים מה להחליף. מחזיר את המסומנים, או null = ביטול */
+function askTitles(fx) {
+  return new Promise((resolve) => {
+    const d = dlg(`<h3>🎩 להתאים את התואר למצב המשפחתי?</h3><p>אצל ${fx.length} אנשים המצב המשפחתי השתנה והתואר לא מתאים. מה שמסומן — יוחלף:</p>
+      <div class="be-conf"><table class="lb-table"><thead><tr><th></th><th>איש קשר</th><th>תואר עכשיו</th><th>יוחלף ל־</th></tr></thead>
+      <tbody>${fx.map((r, i) => `<tr><td><input type="checkbox" data-ti="${i}" checked></td><td>${h(nameHe(r.c))}</td><td dir="auto">${h(r.he0)}${r.en0 ? ` · ${h(r.en0)}` : ''}</td><td dir="auto"><b>${h(r.x.he)}</b>${r.x.enChanged ? ` · ${h(r.x.en)}` : ''}</td></tr>`).join('')}</tbody></table></div>
+      <div class="actions"><button type="button" class="btn primary" data-a="go">שמור (עם ההחלפות המסומנות)</button>
+      <span class="spacer"></span><button type="button" class="btn" data-x>ביטול</button></div>`);
+    let done = false; const fin = (v) => { if (done) return; done = true; d.close(); resolve(v); };
+    d.onclose = () => fin(null);
+    $('[data-a="go"]', d).onclick = () => fin(fx.filter((r, i) => $(`[data-ti="${i}"]`, d).checked));
+  });
 }
 function askConflicts(conf) {
   return new Promise((resolve) => {
