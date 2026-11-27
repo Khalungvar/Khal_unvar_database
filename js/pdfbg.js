@@ -2,7 +2,8 @@
 // על המסך: pdf.js מצייר את העמוד לתמונה (רק לתצוגה). בייצוא: pdf-lib שם את עמוד ה-PDF המקורי מאחורה,
 // ומעליו שכבה שקופה (PNG, 300 DPI) עם הטקסט, הכתובת והקבלה.
 // הגדרות (D.ltr.pdfbg = [שכבה, ...]): { ref: 'drv:<id>', name, on: all|first|rest|list, list: '1,3-4', pg: עמוד ב-PDF,
-//   fit: fit|fill|stretch|pct, pct, x, y (הזזה באינצ'ים), op: שקיפות }
+//   fit: fit|fill|stretch|pct, pct, x, y (הזזה באינצ'ים), op: שקיפות, kind: 'img' לתמונה (במקום PDF) }
+// תמונה: נשמרת בגודל מלא, ובייצוא נכנסת ל-PDF כמו שהיא (בלי לצייר אותה מחדש). 100% = רוחב הדף.
 import { imageOf, isDrv, fetchImages } from './images.js';
 import { htmlToJpeg, jpegsToPdf } from './pdf.js';
 
@@ -97,6 +98,25 @@ function kick(ref, pg) {
     if (pg) pngs.set(`${ref}|${pg}`, await renderPng(ref, Math.min(pg, info.n)));
   })().then(() => { busy.delete(key); readyFn?.(); }, () => { busy.delete(key); failed.add(key); readyFn?.(); });
 }
+const dims = new Map(); // ref → [w, h] פיקסלים (תמונה)
+/** גודל התמונה בפיקסלים */
+export async function bgImgInfo(ref) {
+  if (dims.has(ref)) return dims.get(ref);
+  const d = await dataOf(ref);
+  if (!d) throw new Error('img-missing');
+  const im = new Image();
+  im.src = d;
+  await im.decode();
+  const o = [im.naturalWidth || 1, im.naturalHeight || 1];
+  dims.set(ref, o);
+  return o;
+}
+function kickImg(ref) {
+  const key = `${ref}|img`;
+  if (busy.has(key) || failed.has(key)) return;
+  busy.add(key);
+  bgImgInfo(ref).then(() => { busy.delete(key); readyFn?.(); }, () => { busy.delete(key); failed.add(key); readyFn?.(); });
+}
 export const pdfFailed = (ref) => [...failed].some((k) => k.startsWith(`${ref}|`));
 
 function pageSet(s) {
@@ -136,19 +156,43 @@ export function pdfBgHtml(D, n, W, H, { edit = false } = {}) {
   const all = Array.isArray(D?.ltr?.pdfbg) ? D.ltr.pdfbg : [];
   return all.map((l, i) => {
     if (!l || !l.ref || !layerOn(l, n)) return '';
-    const info = infos.get(l.ref);
-    if (!info) { kick(l.ref, 0); return edit ? `<div class="mx-pdfbg-wait">📄 ${pdfFailed(l.ref) ? 'PDF ✗' : 'PDF…'}</div>` : ''; }
-    const pg = Math.min(info.n, Math.max(1, Number(l.pg) || 1));
-    const [sw, sh] = info.sizes[pg - 1];
-    const r = layerRect(l, W, H, sw, sh);
-    const src = pngs.get(`${l.ref}|${pg}`);
-    if (!src) kick(l.ref, pg);
+    const img = l.kind === 'img';
     const op = Math.min(1, Math.max(0.05, Number(l.op) || 1));
-    const meta = encodeURIComponent(JSON.stringify({ ref: l.ref, pg, x: r.x, y: r.y, w: r.w, h: r.h, op }));
+    // ההגדרות עצמן — בייצוא מחשבים מהן את המקום (גם אם הקובץ עוד לא נטען כאן)
+    const meta = encodeURIComponent(JSON.stringify({ kind: img ? 'img' : 'pdf', ref: l.ref, pg: Math.max(1, Number(l.pg) || 1), fit: l.fit || 'fit', pct: Number(l.pct) || 100, x: Number(l.x) || 0, y: Number(l.y) || 0, op }));
+    const dm = img ? dims.get(l.ref) : null;
+    const info = img ? null : infos.get(l.ref);
+    if (img ? !dm || !imageOf(l.ref) : !info) {
+      if (img) kickImg(l.ref); else kick(l.ref, 0);
+      const bad = img ? failed.has(`${l.ref}|img`) : pdfFailed(l.ref);
+      return edit ? `<div class="mx-pdfbg-wait">${img ? '🖼' : '📄'} ${bad ? '✗' : '…'}</div>` : `<span class="mx-pdfbg" data-pdfbg="${meta}" hidden></span>`;
+    }
+    let sw; let sh; let src;
+    if (img) { sw = W; sh = (W * dm[1]) / dm[0]; src = imageOf(l.ref); }
+    else {
+      const pg = Math.min(info.n, Math.max(1, Number(l.pg) || 1));
+      [sw, sh] = info.sizes[pg - 1];
+      src = pngs.get(`${l.ref}|${pg}`);
+      if (!src) kick(l.ref, pg);
+    }
+    const r = layerRect(l, W, H, sw, sh);
     return `<img class="mx-pdfbg${edit && dragOn ? ' mx-pdfbg-drag' : ''}" data-pdfbg="${meta}" data-li="${i}" src="${src || BLANK}" style="left:${r.x}in;top:${r.y}in;width:${r.w}in;height:${r.h}in;opacity:${op}" alt="">`;
   }).join('');
 }
 export const hasPdfBg = (html) => /class="mx-pdfbg/.test(String(html || ''));
+
+/** תמונה → pdf-lib: PNG/JPEG כמו שהם; שאר הסוגים (webp/gif) — דרך canvas ל-PNG, באותו גודל */
+async function embedImage(doc, d) {
+  if (/^data:image\/png/i.test(d)) return doc.embedPng(b64Bytes(d));
+  if (/^data:image\/jpe?g/i.test(d)) return doc.embedJpg(b64Bytes(d));
+  const im = new Image();
+  im.src = d;
+  await im.decode();
+  const c = document.createElement('canvas');
+  c.width = im.naturalWidth; c.height = im.naturalHeight;
+  c.getContext('2d').drawImage(im, 0, 0);
+  return doc.embedPng(b64Bytes(c.toDataURL('image/png')));
+}
 
 // בייצוא: הדף עצמו שקוף, כדי שה-PDF שמאחורה ייראה
 const CLEAR_CSS = '.mx-out,.mx-page,.mx-letter,.rd-letter,.rc-doc{background:transparent!important}';
@@ -180,17 +224,35 @@ export async function pagesToPdf(pages, onProgress = () => {}) {
     tmp.querySelectorAll('.mx-pdfbg-wait').forEach((e) => e.remove());
     const page = out.addPage([W * 72, H * 72]);
     for (const L of layers) {
-      const key = `${L.ref}|${L.pg}`;
+      if (L.kind === 'img') {
+        let im = emb.get(L.ref);
+        if (!im) {
+          // eslint-disable-next-line no-await-in-loop
+          const d = await dataOf(L.ref);
+          if (!d) throw new Error('img-missing');
+          // eslint-disable-next-line no-await-in-loop
+          im = await embedImage(out, d);
+          emb.set(L.ref, im);
+        }
+        const r = layerRect(L, W, H, W, (W * im.height) / im.width);
+        page.drawImage(im, { x: r.x * 72, y: (H - r.y - r.h) * 72, width: r.w * 72, height: r.h * 72, opacity: L.op });
+        continue;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      const info = await pdfInfo(L.ref);
+      const pg = Math.min(info.n, Math.max(1, Number(L.pg) || 1));
+      const key = `${L.ref}|${pg}`;
       let ep = emb.get(key);
       if (!ep) {
         // eslint-disable-next-line no-await-in-loop
         const d = await dataOf(L.ref);
         if (!d) throw new Error('pdf-missing');
         // eslint-disable-next-line no-await-in-loop
-        [ep] = await out.embedPdf(b64Bytes(d), [L.pg - 1]);
+        [ep] = await out.embedPdf(b64Bytes(d), [pg - 1]);
         emb.set(key, ep);
       }
-      page.drawPage(ep, { x: L.x * 72, y: (H - L.y - L.h) * 72, width: L.w * 72, height: L.h * 72, opacity: L.op });
+      const r = layerRect(L, W, H, ...info.sizes[pg - 1]);
+      page.drawPage(ep, { x: r.x * 72, y: (H - r.y - r.h) * 72, width: r.w * 72, height: r.h * 72, opacity: L.op });
     }
     const scale = pages[i].scale || DPI_OUT / 96;
     if (layers.length) {
