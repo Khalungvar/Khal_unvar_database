@@ -11,7 +11,7 @@ import { openReceipts, openOrgDetails } from './receipts.js';
 import { evaluate, parseSaved, savedInScope, channel, mailRecipients } from './lists.js';
 import { umbrellaName, getScope } from './scope.js';
 import { allCampaigns } from './campaigns.js';
-import { htmlToJpeg, jpegsToPdf } from './pdf.js';
+import { onPdfBgReady, setBgDrag, bgDragOn, pagesToPdf, printPdfBytes, hasPdfBg, pdfInfo, fileToDataUrl, DPI_OUT } from './pdfbg.js';
 import { emailOf, emailLayout, sendJobs, needsGmail } from './mail.js';
 import { ensureGmailScope } from './google.js';
 import { helperOn, storeImage, fetchImages, imageOf, isDrv, listImages } from './images.js';
@@ -1024,7 +1024,8 @@ function ribbonDesign() {
     + group(t('wrPageBg'), bigdd('💧', t('wrWatermark'), `${mi('data-wm=""', h(t('wrNoWm')), !w.on)}
       ${['טיוטה', 'דוגמה', 'העתק', 'DRAFT', 'COPY', 'SAMPLE'].map((x) => mi(`data-wm="${h(x)}"`, `<span class="wr-wmprev">${h(x)}</span>`, w.on && w.type !== 'img' && w.text === x)).join('')}
       ${mi('id="wr-wm-custom"', h(t('wrWmCustom')))}${mi('id="wr-wm-img"', `🖼 ${h(t('wrWmImage'))}`)}
-      <input type="file" accept="image/*" id="wr-wm-file" hidden>`));
+      <input type="file" accept="image/*" id="wr-wm-file" hidden>`)
+      + big('wr-pdfbg', '📄', `רקע PDF${(L.pdfbg || []).length ? ` (${L.pdfbg.length})` : ''}`, ' title="קובץ PDF מאחורי המכתב — נשמר בלי הקטנה, ויוצא בדיוק כמו שהוא"'));
 }
 function ribbonLayout() {
   const L = D.ltr;
@@ -2202,7 +2203,7 @@ async function insertImageData(data, drvId) {
 async function imageFromPc(file) {
   if (!helperOn()) { ui.toast(t('wrImgNoHelper'), 'error'); return; }
   try {
-    const data = await shrinkImage(file, 1600, 1500000);
+    const data = await fullImage(file, 3300, 8000000);
     const v = await storeImage(data, 'letter');
     if (!isDrv(v)) { ui.toast(t('wrImgNoHelper'), 'error'); return; }
     insertImageData(data, v.slice(4));
@@ -2426,6 +2427,119 @@ function setColumns(body, n) {
   blocks.forEach((b) => div.append(b));
   body._save?.();
 }
+/** תמונה לשמירה בדרייב באיכות מלאה: אם היא לא גדולה מדי — הקובץ המקורי כמו שהוא;
+ *  אחרת מקטינים בעדינות (JPEG לתמונות JPEG, כדי לא לאבד פיקסלים; PNG נשאר PNG בשביל השקיפות) */
+async function fullImage(file, maxPx, limit) {
+  if (/^image\/(png|jpe?g|gif|webp)$/i.test(file.type) && file.size * 1.37 <= limit) return fileToDataUrl(file);
+  return shrinkImage(file, maxPx, limit, /jpe?g/i.test(file.type));
+}
+// ---------- 📄 רקע PDF (בלי הקטנה; בייצוא — ה-PDF המקורי מאחורה) ----------
+const PB_ON = [['all', 'כל העמודים'], ['first', 'עמוד ראשון'], ['rest', 'מהעמוד השני והלאה'], ['list', 'עמודים מסוימים']];
+const PB_FIT = [['fit', 'התאם לדף (כולו נראה)'], ['fill', 'מלא את הדף (נחתך)'], ['stretch', 'מתח לגודל הדף'], ['pct', 'גודל באחוזים']];
+function pdfBgDialog() {
+  if (!helperOn()) { ui.toast('כדי לשמור PDF צריך את עוזר התמונות (דרייב)', 'error'); return; }
+  if (!Array.isArray(D.ltr.pdfbg)) D.ltr.pdfbg = [];
+  const dlg = dialog(`<h3>📄 רקע PDF</h3>
+    <div id="pb-list"></div>
+    <div class="pb-actions"><label class="btn">➕ הוסף קובץ PDF<input type="file" accept="application/pdf,.pdf" id="pb-file" hidden></label>
+      <label class="check"><input type="checkbox" id="pb-drag"${bgDragOn() ? ' checked' : ''}> ✥ הזזת הרקע בגרירה על הדף</label></div>
+    <p class="muted small">ה-PDF נשמר כמו שהוא, בלי הקטנה. בייצוא ל-PDF, בהדפסה ובקבלות: ה-PDF המקורי מאחורה, והטקסט מעליו ב-${DPI_OUT} DPI.
+      גודל הדף נשאר לפי הגדרות המכתב.</p>
+    <div class="dialog-actions"><button type="button" class="btn primary" data-x>סגור</button></div>`, true);
+  const L = D.ltr.pdfbg;
+  const changed = (rebuild = false) => { scheduleSave(); refreshStage(); if (rebuild) render(); };
+  const opt = (list, v) => list.map(([k, l]) => `<option value="${k}"${String(v) === k ? ' selected' : ''}>${h(l)}</option>`).join('');
+  function render() {
+    const box = $('#pb-list', dlg);
+    if (!box) return;
+    box.innerHTML = L.length ? L.map((l, i) => {
+      const info = null;
+      return `<fieldset class="pb-row" data-i="${i}"><legend>📄 ${h(l.name || 'PDF')} <span class="muted small" data-pbn="${i}"></span></legend>
+        <div class="mm-grid">
+          <label>על איזה עמוד במכתב<select data-pb="on">${opt(PB_ON, l.on || 'all')}</select></label>
+          ${l.on === 'list' ? `<label>עמודים (למשל 1,3-4)<input data-pb="list" dir="ltr" value="${h(l.list || '')}"></label>` : ''}
+          <label>איזה עמוד מתוך ה-PDF<input type="number" data-pb="pg" min="1" step="1" value="${Number(l.pg) || 1}"></label>
+          <label>התאמה לדף<select data-pb="fit">${opt(PB_FIT, l.fit || 'fit')}</select></label>
+          ${l.fit === 'pct' ? `<label>גודל %<input type="number" data-pb="pct" min="5" max="500" step="1" value="${Number(l.pct) || 100}"></label>` : ''}
+          <label>הזזה ימינה/שמאלה (אינץ')<input type="number" data-pb="x" step="0.05" value="${Number(l.x) || 0}"></label>
+          <label>הזזה למעלה/למטה (אינץ')<input type="number" data-pb="y" step="0.05" value="${Number(l.y) || 0}"></label>
+          <label>שקיפות<input type="range" data-pb="op" min="0.05" max="1" step="0.05" value="${Number(l.op) || 1}"></label>
+        </div>
+        <div class="pb-btns"><button type="button" class="btn small-btn" data-pbreset>↺ איפוס הזזה</button>
+          ${i ? '<button type="button" class="btn small-btn" data-pbup>▲ קודם</button>' : ''}
+          <button type="button" class="btn small-btn danger" data-pbdel>🗑 הסר</button></div>${info || ''}</fieldset>`;
+    }).join('') : '<p class="muted">אין עדיין רקע PDF במכתב הזה.</p>';
+    // מספר העמודים בכל PDF
+    L.forEach((l, i) => {
+      pdfInfo(l.ref).then((inf) => { const e = $(`[data-pbn="${i}"]`, dlg); if (e) e.textContent = `· ${inf.n} עמודים · ${inf.sizes[0].map((x) => x.toFixed(2)).join('×')}″`; const pg = $(`[data-i="${i}"] [data-pb="pg"]`, dlg); if (pg) pg.max = inf.n; })
+        .catch(() => { const e = $(`[data-pbn="${i}"]`, dlg); if (e) e.textContent = '· ⚠ לא נפתח (אולי מוגן בסיסמה)'; });
+    });
+    $$('[data-pb]', dlg).forEach((el) => {
+      const i = Number(el.closest('[data-i]').dataset.i);
+      const k = el.dataset.pb;
+      el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => {
+        L[i][k] = ['on', 'fit', 'list'].includes(k) ? el.value : Number(el.value);
+        changed(['on', 'fit'].includes(k));
+      });
+    });
+    $$('[data-pbreset]', dlg).forEach((b) => { b.onclick = () => { const l = L[Number(b.closest('[data-i]').dataset.i)]; l.x = 0; l.y = 0; changed(true); }; });
+    $$('[data-pbup]', dlg).forEach((b) => { b.onclick = () => { const i = Number(b.closest('[data-i]').dataset.i); [L[i - 1], L[i]] = [L[i], L[i - 1]]; changed(true); }; });
+    $$('[data-pbdel]', dlg).forEach((b) => { b.onclick = () => { if (!confirm('להסיר את הרקע הזה?')) return; L.splice(Number(b.closest('[data-i]').dataset.i), 1); changed(true); }; });
+  }
+  render();
+  $('#pb-drag', dlg).onchange = (e) => { setBgDrag(e.target.checked); refreshStage(); };
+  $('#pb-file', dlg).onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 25e6) { ui.toast('הקובץ גדול מדי (עד 25MB)', 'error'); return; }
+    ui.toast('מעלה את ה-PDF לדרייב…');
+    try {
+      const data = await fileToDataUrl(file);
+      if (!/^data:application\/pdf/i.test(data)) { ui.toast('זה לא קובץ PDF', 'error'); return; }
+      const v = await storeImage(data, 'pdfbg');
+      if (!isDrv(v)) { ui.toast(t('wrImgNoHelper'), 'error'); return; }
+      await pdfInfo(v);
+      L.push({ ref: v, name: file.name.replace(/\.pdf$/i, '').slice(0, 60), on: L.length ? 'rest' : 'all', pg: 1, fit: 'fit', pct: 100, x: 0, y: 0, op: 1 });
+      changed(true);
+      ui.toast('✓ הרקע נוסף');
+    } catch (err) { ui.toast(/password|pdf|Invalid/i.test(String(err && (err.name || err.message))) ? 'ה-PDF לא נפתח (אולי מוגן בסיסמה או פגום)' : ui.friendlyError(err), 'error'); }
+  };
+}
+/** גרירת רקע PDF על הדף (כש"הזזה בגרירה" מסומן) */
+function wirePdfBgDrag() {
+  const cv = $('#mm-canvas');
+  if (!cv || D?.kind !== 'ltr') return;
+  cv.classList.toggle('mx-bgdrag', bgDragOn());
+  $$('.mx-pdfbg-drag', cv).forEach((el) => {
+    el.onpointerdown = (e) => {
+      const l = D.ltr.pdfbg?.[Number(el.dataset.li)];
+      if (!l) return;
+      e.preventDefault();
+      const k = el.getBoundingClientRect().width / ((parseFloat(el.style.width) || 1) * 96);
+      const sx = e.clientX; const sy = e.clientY;
+      const x0 = Number(l.x) || 0; const y0 = Number(l.y) || 0;
+      const left0 = parseFloat(el.style.left) || 0; const top0 = parseFloat(el.style.top) || 0;
+      el.setPointerCapture(e.pointerId);
+      el.onpointermove = (m) => {
+        const dx = (m.clientX - sx) / k / 96; const dy = (m.clientY - sy) / k / 96;
+        l.x = Math.round((x0 + dx) * 100) / 100; l.y = Math.round((y0 + dy) * 100) / 100;
+        el.style.left = `${left0 + dx}in`; el.style.top = `${top0 + dy}in`;
+      };
+      el.onpointerup = () => { el.onpointermove = null; el.onpointerup = null; scheduleSave(); refreshStage(); };
+    };
+  });
+}
+// כשעמוד PDF נטען — לצייר מחדש (לא באמצע כתיבה)
+let pbWaiting = false;
+onPdfBgReady(() => {
+  if (!D || D.kind !== 'ltr' || !$('#mx-stage')) return;
+  const typing = document.activeElement?.closest?.('.wr-body, .mx-boxtx');
+  if (!typing) { refreshStage(); return; }
+  if (pbWaiting) return;
+  pbWaiting = true;
+  document.activeElement.addEventListener('blur', () => { pbWaiting = false; if ($('#mx-stage')) refreshStage(); }, { once: true });
+});
+
 // ---------- סימן מים ----------
 function wmCustomDialog() {
   const w = D.ltr.wm || {};
@@ -2633,6 +2747,7 @@ function wireRibbon(main) {
     };
   });
   $('#wr-wm-custom', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); wmCustomDialog(); });
+  $('#wr-pdfbg', rb)?.addEventListener('click', () => pdfBgDialog());
   const wmFile = $('#wr-wm-file', rb);
   $('#wr-wm-img', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); wmFile.click(); });
   if (wmFile) {
@@ -2640,7 +2755,7 @@ function wireRibbon(main) {
       const file = wmFile.files[0];
       if (!file) return;
       try {
-        const data = await shrinkImage(file, 1600, 1500000);
+        const data = await fullImage(file, 2400, 6000000);
         const v = await storeImage(data, 'watermark');
         if (!isDrv(v)) { ui.toast(t('wrImgNoHelper'), 'error'); return; }
         D.ltr.wm = { on: true, type: 'img', img: v, op: 0.15, scale: 60 };
@@ -2835,7 +2950,8 @@ function wireUploads(root, skipStage = false) {
       const isBg = inp.dataset.upload === 'background_data';
       try {
         // מיט דעם עוזר התמונות (דרייב) — א גרעסערע בילד, שיין פאר דרוקן
-        D[inp.dataset.upload] = await shrinkImage(file, big ? (isBg ? 2400 : 900) : (isBg ? 900 : 500), big ? 1500000 : 45000);
+        // בדרייב — בגודל מלא (רקע עד 300 DPI לדף גדול), לא מוקטן לאיכות נמוכה
+        D[inp.dataset.upload] = big ? await fullImage(file, isBg ? 5100 : 1800, isBg ? 12000000 : 4000000) : await shrinkImage(file, isBg ? 900 : 500, 45000);
         scheduleSave(300);
         renderMailMerge();
       } catch (err) { ui.toast(t(err.message === 'too-big' ? 'mmImageTooBig' : 'mmImageBad'), 'error'); }
@@ -2998,6 +3114,7 @@ function wireStage(main) {
   if (D.kind === 'ltr') wireWord(main);
   else wireStageButtons(main, $('#mx-stage', main));
   wireDrag();
+  wirePdfBgDrag();
 }
 function wireStageButtons(main, sc) {
   const vr = () => viewRows();
@@ -3319,6 +3436,17 @@ async function fitted(pages) {
   return out;
 }
 async function printPages(pages, [W, H]) {
+  // עם רקע PDF: דרך PDF (ה-PDF המקורי מאחורה) — הדפסה ישירה מהדפדפן הייתה מקטינה אותו
+  if (pages.some(hasPdfBg)) {
+    const prog = dialog(`<h3>🖨</h3><p id="mx-prog">0 / ${pages.length}</p>`);
+    try {
+      const html = await fitted(pages);
+      const bytes = await pagesToPdf(html.map((x) => ({ html: `<div dir="ltr" class="mx-out" style="width:${W}in;height:${H}in">${x}</div>`, W, H, scale: html.length > 120 ? 2.5 : DPI_OUT / 96 })),
+        (i, n) => { const p = $('#mx-prog', prog); if (p) p.textContent = `${i} / ${n}`; });
+      printPdfBytes(bytes, D?.name || 'print');
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); } finally { prog.close(); }
+    return;
+  }
   let area = $('#mx-print-area');
   if (!area) { area = document.createElement('div'); area.id = 'mx-print-area'; area.dir = 'ltr'; document.body.append(area); }
   area.innerHTML = (await fitted(pages)).join('');
@@ -3336,14 +3464,9 @@ async function downloadPdf(pages, [W, H], name) {
   const prog = dialog(`<h3>⬇ PDF</h3><p id="mx-prog">0 / ${pages.length}</p>`);
   try {
     const html = await fitted(pages);
-    const jpgs = [];
-    for (let i = 0; i < html.length; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
-      jpgs.push(await htmlToJpeg(`<div dir="ltr" class="mx-out" style="width:${W}in;height:${H}in">${html[i]}</div>`, { widthIn: W, heightIn: H, scale: html.length > 60 ? 1.6 : 2 }));
-      const p = $('#mx-prog', prog);
-      if (p) p.textContent = `${i + 1} / ${html.length}`;
-    }
-    const bytes = jpegsToPdf(jpgs, { pageW: W * 72, pageH: H * 72, margin: 0 });
+    // ${DPI_OUT} DPI (הרבה עמודים — קצת פחות, שלא ייתקע); עם רקע PDF — ה-PDF המקורי מאחורה
+    const bytes = await pagesToPdf(html.map((x) => ({ html: `<div dir="ltr" class="mx-out" style="width:${W}in;height:${H}in">${x}</div>`, W, H, scale: html.length > 120 ? 2.5 : DPI_OUT / 96 })),
+      (i, n) => { const p = $('#mx-prog', prog); if (p) p.textContent = `${i} / ${n}`; });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
     a.download = `${String(name || 'mail-merge').replace(/[\\/:*?"<>|]+/g, '_')}.pdf`;
@@ -3376,11 +3499,9 @@ async function sendEmails() {
       const { html, inline } = emailLayout(org, body);
       imgs.forEach((d, i) => inline.push({ cid: `bimg${i + 1}`, dataUrl: d }));
       const pgs = await fitted(letterPages(D, c));
-      const jpgs = [];
       const [PW, PH] = pageSize(D);
       // eslint-disable-next-line no-await-in-loop
-      for (const pg of pgs) jpgs.push(await htmlToJpeg(`<div dir="ltr" class="mx-out" style="width:${PW}in;height:${PH}in">${pg}</div>`, { widthIn: PW, heightIn: PH, scale: 1.6 }));
-      const bytes = jpegsToPdf(jpgs, { pageW: PW * 72, pageH: PH * 72, margin: 0 });
+      const bytes = await pagesToPdf(pgs.map((pg) => ({ html: `<div dir="ltr" class="mx-out" style="width:${PW}in;height:${PH}in">${pg}</div>`, W: PW, H: PH, scale: 2.5 })));
       let bin = '';
       for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       jobs.push({
