@@ -588,7 +588,7 @@ function renderPreview(box, ui) {
     if (fx.length) {
       const ok = await askTitlesImp(fx);
       if (ok === null) return;
-      ok.forEach((f) => { f.r.titleFix = f.x; if (!f.merge) { f.r.contact.title_he = f.x.he; if (f.x.enChanged) f.r.contact.title_en = f.x.en; } });
+      ok.forEach((f) => { f.r.titleFix = f.x; if (!f.merge) { if (f.x.heChanged) f.r.contact.title_he = f.x.he; if (f.x.enChanged) f.r.contact.title_en = f.x.en; } });
     }
     go.disabled = true; $('#imp-cancel', prev).disabled = true;
     const bar = $('#imp-progress', prev); bar.hidden = false;
@@ -612,7 +612,7 @@ function renderPreview(box, ui) {
           const prevP = byId.get(String(r.matchId)) || { c: {}, p: {} };
           // דער טעג פון דעם אימפארט — אויך ביי די געמערדזשטע (מ'זאל זען וואס איז געקומען פון דער רשימה)
           const m = mergePatch(r.matchId, { ...r, contact: { ...r.contact, community_tags: joinTags([...splitTags(r.contact.community_tags), ...(tag ? [tag] : [])]) } }, prevP);
-          if (r.titleFix) { m.c.title_he = r.titleFix.he; if (r.titleFix.enChanged) m.c.title_en = r.titleFix.en; } // 🎩 אושר להחליף
+          if (r.titleFix) { if (r.titleFix.heChanged) m.c.title_he = r.titleFix.he; if (r.titleFix.enChanged) m.c.title_en = r.titleFix.en; } // 🎩 אושר להחליף
           byId.set(String(r.matchId), { c: { ...prevP.c, ...m.c }, p: { ...prevP.p, ...m.p } });
         });
         mergedN = byId.size;
