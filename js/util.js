@@ -240,3 +240,23 @@ export function shrinkImage(file, maxPx, limit = 45000, jpegFirst = false) {
     img.src = URL.createObjectURL(file);
   });
 }
+
+/**
+ * 🎩 התאמת תואר למצב משפחתי (רק הצעה — הגבאי מאשר):
+ * בחור → נשוי / גרוש / אלמן, והתואר "הבה"ח" או "הבחור" → מו"ה.  ל"בחור", והתואר "מו"ה" → הבה"ח.
+ * כל תואר אחר (הרב, הרה"ג, כ"ק, הרבנית...) — לא נוגעים. באנגלית: גם בחור וגם נשוי = Mr. (רק משלימים כשריק).
+ * מחזיר null כשאין מה להציע, אחרת { he, en, enChanged }
+ */
+const ST_MARRIED = ['נשוי', 'גרוש', 'אלמן'];
+const T_BOCHUR = /^(הבה"ח|הבחור)$/;
+export function titleForStatus(oldSt, newSt, titleHe, titleEn) {
+  const o = String(oldSt || '').trim(); const n = String(newSt || '').trim();
+  const he = String(titleHe || '').trim(); const en = String(titleEn || '').trim();
+  if (o === n) return null;
+  let nhe = '';
+  if (ST_MARRIED.includes(n) && T_BOCHUR.test(he)) nhe = 'מו"ה';
+  else if (n === 'בחור' && he === 'מו"ה') nhe = 'הבה"ח';
+  if (!nhe) return null;
+  const nen = !en || /^mr\.?$/i.test(en) ? 'Mr.' : en;
+  return { he: nhe, en: nen, enChanged: nen !== en };
+}
