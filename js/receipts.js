@@ -14,6 +14,7 @@ import { effectiveOrg, umbrellaName, entityOrgs, isEntityOrg, campaignOrg } from
 import { money, orgSelect } from './donations.js';
 import { campaignOptions } from './campaigns.js';
 import { allCampaigns } from './campaigns.js';
+import { loadSettings, settingsCached, settingsOf } from './campx.js';
 import { downloadXlsx } from './excel.js';
 import { emailOf, emailLayout, sendJobs, needsGmail } from './mail.js';
 import { ensureGmailScope, hasGmailScope, readTabs, appendRow, updateRange, otherSheet, dirtyTabs } from './google.js';
@@ -48,6 +49,7 @@ export function initReceipts(helpers) {
 
 /** עפנט דעם בלאט. preset = { kind, org, campaign, ... } */
 export function openReceipts(preset = {}) {
+  loadSettings().catch(() => null);
   f = { ...(f || defaults()), ...preset };
   ui.showView('receipts');
 }
@@ -321,7 +323,7 @@ function mailContent(c) {
       ${row(c.kind === 'invoice' ? 'Invoice #' : 'Receipt #', h(no))}
       ${row('For', h(c.forText || forWhat(c)))}
     </table>
-    <p style="font-size:13px;color:#6b5a3a;margin:6px 0 0">📎 ${h(t('rcMailAttached'))}</p>`;
+    <p style="font-size:13px;color:#6b5a3a;margin:6px 0 0">&#128206; ${h(t('rcMailAttached'))}</p>`;
   const text = [L.heDate, L.salLine, L.body, L.closing, L.sigText, L.signer, '', `${kindEn} #${no}: ${money(c.amount)}`].filter((x) => x != null).join('\n\n');
   return { subject, html, text, banner: L.banner, fromName: L.he || L.legal };
 }
@@ -586,10 +588,16 @@ function yearlyFor(c) {
 }
 
 /** וואס די נדבה איז געווען: קאמפיין / סיבה (פאר דעם בריוו). */
+/** "שם לקבלה" מהגדרות הקמפיין (ריק = שם הקמפיין עצמו) */
+function receiptName(name) {
+  if (!name || !settingsCached()) return name;
+  const c = allCampaigns().find((x) => x.name === name) || { name, kind: 'once', series: name };
+  return String(settingsOf(c).receipt_for || '').trim() || name;
+}
 function forWhat(c) {
   if (c.kind === 'year') return `שנת ${c.period}`;
   const d = c.list?.[0] || {};
-  return c.period && c.kind === 'campaign' ? c.period : (d.campaign || splitTags(d.event_tags).join(', ') || 'נדבה');
+  return c.period && c.kind === 'campaign' ? receiptName(c.period) : (receiptName(d.campaign) || splitTags(d.event_tags).join(', ') || 'נדבה');
 }
 
 function fillText(text, c, ct) {
@@ -1951,6 +1959,7 @@ async function arRun({ manual = false } = {}) {
   let n = 0;
   try {
     const cfg = await arCfg(true);
+    await loadSettings().catch(() => null);
     if (cfg.on !== '1' && !manual) { arLast.msg = 'כבוי'; return 0; }
     if (!cfg.letter || !letterTemplates().some((x) => String(x.id) === String(cfg.letter))) { arLast.msg = 'לא נבחר מכתב'; return 0; }
     if (needsGmail() && !hasGmailScope()) { arLast.msg = 'השליחה מוגדרת "מהמייל שלי" — צריך office@'; return 0; }
@@ -2017,6 +2026,7 @@ async function arRun({ manual = false } = {}) {
 /** מתחיל את הבדיקה ברקע (נקרא אחרי הכניסה, לכל גבאי) */
 export function startAutoReceipts() {
   if (arTimer || !state.isAllowed) return;
+  loadSettings().catch(() => null);
   setTimeout(() => { arRun().catch(() => {}); }, 60000);
   arTimer = setInterval(() => { arRun().catch(() => {}); }, AR_EVERY);
 }
