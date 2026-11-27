@@ -112,8 +112,10 @@ export function titleEnOf(c) {
   if (/^(Dr\.?|Prof\.?)$/i.test(en)) return en;
   const he = String(c?.title_he || '').trim();
   const hit = he && HE2EN.find(([rx]) => rx.test(he));
-  if (hit) return hit[1];
-  return en || '';
+  const out = hit ? hit[1] : en || '';
+  // 👩 רווקה — Ms. (גם כשבעברית "מרת")
+  if (String(c?.marital_status || '').trim() === 'רווקה' && /^mrs\.?$/i.test(out)) return 'Ms.';
+  return out;
 }
 const WOMAN_T = /^(Mrs\.?|Ms\.?|Miss|Rebbetzin)$/i;
 /** כרטיס של ארגון / עסק: אין שם פרטי (לא בעברית ולא באנגלית) ואין תואר */
@@ -253,10 +255,13 @@ export function titleForStatus(oldSt, newSt, titleHe, titleEn) {
   const o = String(oldSt || '').trim(); const n = String(newSt || '').trim();
   const he = String(titleHe || '').trim(); const en = String(titleEn || '').trim();
   if (o === n) return null;
+  // 👩 אשה: בעברית תמיד "מרת"; באנגלית — רווקה = Ms., נשואה / אלמנה / גרושה = Mrs.
+  if (n === 'רווקה' && /^mrs\.?$/i.test(en)) return { he, en: 'Ms.', heChanged: false, enChanged: true, label: 'Ms.' };
+  if (o === 'רווקה' && ST_MARRIED.includes(n) && /^(ms|miss)\.?$/i.test(en)) return { he, en: 'Mrs.', heChanged: false, enChanged: true, label: 'Mrs.' };
   let nhe = '';
   if (ST_MARRIED.includes(n) && T_BOCHUR.test(he)) nhe = 'מו"ה';
   else if (n === 'בחור' && he === 'מו"ה') nhe = 'הבה"ח';
   if (!nhe) return null;
   const nen = !en || /^mr\.?$/i.test(en) ? 'Mr.' : en;
-  return { he: nhe, en: nen, enChanged: nen !== en };
+  return { he: nhe, en: nen, heChanged: true, enChanged: nen !== en, label: nen !== en ? `${nhe} (ובאנגלית ${nen})` : nhe };
 }
