@@ -545,7 +545,7 @@ function payText(d) {
 
 function descText(d) {
   const parts = [];
-  if (d.campaign) parts.push(d.campaign);
+  if (d.campaign) parts.push(receiptName(d.campaign));
   else {
     const tags = splitTags(d.event_tags).join(', ');
     if (tags) parts.push([tags, d.event_year].filter(Boolean).join(' '));
