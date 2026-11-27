@@ -1979,7 +1979,8 @@ async function arRun({ manual = false } = {}) {
       log = arObjs((await readTabs([AR_LOG]))[AR_LOG]);
       const rowsId = log.filter((r) => String(r.donation_id) === id);
       const lastFinal = rowsId.reduce((k, r, i) => (FINAL.has(r.status) ? i : k), -1);
-      const first = rowsId.slice(lastFinal + 1).find((r) => r.status === 'claim');
+      const fresh = (r) => Date.now() - new Date(String(r.at).replace(' ', 'T')).getTime() < 10 * 60000; // תביעה ישנה שנתקעה לא חוסמת
+      const first = rowsId.slice(lastFinal + 1).find((r) => r.status === 'claim' && fresh(r));
       if (!first || String(first.note) !== tok) continue; // גבאי אחר לקח אותה
       const to = cfg.mode === 'test' ? cfg.test_to : String(w.email).trim();
       let status = cfg.mode === 'test' ? 'test' : 'sent';
