@@ -2757,3 +2757,13 @@ select.need-fill, input.need-fill { outline: 2px solid #c0392b; outline-offset: 
 .t2-inform { margin:10px 0 }
 .t2-nosend.on { background:#fdecea; border-color:#e39b94 }
 @media (max-width: 760px) { .t2p { grid-template-columns:1fr } }
+/* 📄 רקע PDF במכתבים (עורך המכתבים) */
+.mx-pdfbg { position: absolute; max-width: none; pointer-events: none; z-index: 0; user-select: none; }
+.mx-pdfbg-wait { position: absolute; top: 0.1in; left: 0.1in; z-index: 1; font-size: 11px; color: #8a6d2e; background: #fff8e6; border: 1px dashed #c9a23f; border-radius: 4px; padding: 1px 6px; pointer-events: none; }
+#mm-canvas.mx-bgdrag .wr-flow, #mm-canvas.mx-bgdrag .mx-body, #mm-canvas.mx-bgdrag .mx-drag, #mm-canvas.mx-bgdrag .wr-body { pointer-events: none !important; }
+#mm-canvas.mx-bgdrag .mx-pdfbg-drag { pointer-events: auto; cursor: move; z-index: 40; outline: 2px dashed #c09040; outline-offset: -2px; }
+.mx-out .mx-pdfbg-wait, #mx-print-area .mx-pdfbg-wait { display: none; }
+.pb-row { border: 1px solid #e3d3ad; border-radius: 8px; padding: 6px 10px 8px; margin: 0 0 10px; }
+.pb-row legend { font-weight: 600; padding: 0 4px; }
+.pb-btns { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.pb-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
