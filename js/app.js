@@ -23,7 +23,7 @@ import {
 import {
   initCampaigns, renderCampaignSide, renderCampaignMain, showCampaign, renderDonHub,
 } from './campaigns.js';
-import { initReceipts, renderReceipts, openReceipts, printForDonation, openOrgDetails, openQuickReceipt, cancelDoc } from './receipts.js';
+import { initReceipts, renderReceipts, openReceipts, printForDonation, openOrgDetails, openQuickReceipt, cancelDoc, startAutoReceipts } from './receipts.js';
 import { initSortTables } from './sorttables.js';
 import { initLists, renderListsSide, renderBuilder, openOverview, listsCanLeave, listsDirty, exportContacts, linkPendingExt, cardListsHtml, wireCardLists, cardListsCount, refreshFamPagesFor, openCardListAdd } from './lists.js';
 import { initAdmin, renderAdmin, adminDirty, setAdminTab } from './admin.js';
@@ -144,6 +144,7 @@ async function enterApp() {
   initTags({ toast, friendlyError });
   refreshAll();
   showView('lobby');
+  startAutoReceipts(); // 🤖 קבלות במייל לתרומות מהטלפון ומהאתר — ברקע
   // ungvar.org/kol → /login/?go=kol : ישר למסך של קול אונגוואר
   const go = new URLSearchParams(location.search).get('go');
   if (go) { history.replaceState(history.state, '', location.pathname); if (go === 'kol') openKol(); }
