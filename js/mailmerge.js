@@ -11,7 +11,7 @@ import { openReceipts, openOrgDetails } from './receipts.js';
 import { evaluate, parseSaved, savedInScope, channel, mailRecipients } from './lists.js';
 import { umbrellaName, getScope } from './scope.js';
 import { allCampaigns } from './campaigns.js';
-import { onPdfBgReady, setBgDrag, bgDragOn, pagesToPdf, printPdfBytes, hasPdfBg, pdfInfo, fileToDataUrl, DPI_OUT } from './pdfbg.js';
+import { onPdfBgReady, setBgDrag, bgDragOn, pagesToPdf, printPdfBytes, hasPdfBg, pdfInfo, bgImgInfo, fileToDataUrl, DPI_OUT } from './pdfbg.js';
 import { emailOf, emailLayout, sendJobs, needsGmail } from './mail.js';
 import { ensureGmailScope } from './google.js';
 import { helperOn, storeImage, fetchImages, imageOf, isDrv, listImages } from './images.js';
@@ -999,7 +999,8 @@ function ribbonInsert() {
       <input type="file" accept="image/*" id="wr-img-file" hidden>`))
     + group(t('mxBoxes'), big('wr-addbox', '📝', t('mxAddBox'), ' title="לחיצה כפולה על תיבה = כתיבה בה · גרירה = הזזה · חיצים = 1 מ&quot;מ (Shift = 1 ס&quot;מ)"'))
     + group(t('wrLinks'), big('wr-link', '🔗', t('wrLink'), ' title="Ctrl+K"'))
-    + group(t('rcReceipt'), big('wr-rcslot', '🧾', t('wrRcSlot'), `${D.ltr.rcSlot ? ' aria-pressed="true"' : ''} title="${h(t('wrRcSlotTip'))}"`))
+    + group(t('rcReceipt'), big('wr-rcslot', '🧾', t('wrRcSlot'), `${D.ltr.rcSlot ? ' aria-pressed="true"' : ''} title="${h(t('wrRcSlotTip'))}"`)
+      + (D.ltr.rcSlot ? big('wr-rcclear', '🫥', 'קבלה שקופה', `${D.ltr.rcClear ? ' aria-pressed="true"' : ''} title="הקבלה בלי רקע לבן — הרקע (PDF / תמונה) נראה מאחוריה"`) : ''))
     + group(t('wrTextGroup'), `${bigdd('📅', t('wrDate'), `${mi('data-date="he"', `${h(t('wrDateTodayHe'))} <span class="muted small">«תאריך»</span>`)}
         ${mi('data-date="greg"', `${h(t('wrDateTodayGreg'))} <span class="muted small">«${D.ltr.dir === 'ltr' ? 'Date' : 'תאריך_לועזי'}»</span>`)}
         ${mi('id="wr-date-other"', `🗓 ${h(t('wrDateOther'))}`)}`)}
@@ -1025,7 +1026,7 @@ function ribbonDesign() {
       ${['טיוטה', 'דוגמה', 'העתק', 'DRAFT', 'COPY', 'SAMPLE'].map((x) => mi(`data-wm="${h(x)}"`, `<span class="wr-wmprev">${h(x)}</span>`, w.on && w.type !== 'img' && w.text === x)).join('')}
       ${mi('id="wr-wm-custom"', h(t('wrWmCustom')))}${mi('id="wr-wm-img"', `🖼 ${h(t('wrWmImage'))}`)}
       <input type="file" accept="image/*" id="wr-wm-file" hidden>`)
-      + big('wr-pdfbg', '📄', `רקע PDF${(L.pdfbg || []).length ? ` (${L.pdfbg.length})` : ''}`, ' title="קובץ PDF מאחורי המכתב — נשמר בלי הקטנה, ויוצא בדיוק כמו שהוא"'));
+      + big('wr-pdfbg', '📄', `רקע PDF / תמונה${(L.pdfbg || []).length ? ` (${L.pdfbg.length})` : ''}`, ' title="קובץ PDF או תמונה מאחורי המכתב — נשמר בלי הקטנה, ויוצא בדיוק כמו שהוא"'));
 }
 function ribbonLayout() {
   const L = D.ltr;
@@ -2454,12 +2455,13 @@ const PB_FIT = [['fit', 'התאם לדף (כולו נראה)'], ['fill', 'מלא
 function pdfBgDialog() {
   if (!helperOn()) { ui.toast('כדי לשמור PDF צריך את עוזר התמונות (דרייב)', 'error'); return; }
   if (!Array.isArray(D.ltr.pdfbg)) D.ltr.pdfbg = [];
-  const dlg = dialog(`<h3>📄 רקע PDF</h3>
+  const dlg = dialog(`<h3>📄 רקע PDF / תמונה</h3>
     <div id="pb-list"></div>
     <div class="pb-actions"><label class="btn">➕ הוסף קובץ PDF<input type="file" accept="application/pdf,.pdf" id="pb-file" hidden></label>
+      <label class="btn">🖼 הוסף תמונה<input type="file" accept="image/*" id="pb-img" hidden></label>
       <label class="check"><input type="checkbox" id="pb-drag"${bgDragOn() ? ' checked' : ''}> ✥ הזזת הרקע בגרירה על הדף</label></div>
-    <p class="muted small">ה-PDF נשמר כמו שהוא, בלי הקטנה. בייצוא ל-PDF, בהדפסה ובקבלות: ה-PDF המקורי מאחורה, והטקסט מעליו ב-${DPI_OUT} DPI.
-      גודל הדף נשאר לפי הגדרות המכתב.</p>
+    <p class="muted small">ה-PDF והתמונה נשמרים כמו שהם, בלי הקטנה. בייצוא ל-PDF, בהדפסה ובקבלות: הקובץ המקורי מאחורה, והטקסט מעליו ב-${DPI_OUT} DPI.
+      גודל הדף נשאר לפי הגדרות המכתב. תמונה ב-100% = ברוחב הדף. רוצים שהרקע ייראה גם מאחורי הקבלה? "קבלה שקופה" בלשונית "הוספה".</p>
     <div class="dialog-actions"><button type="button" class="btn primary" data-x>סגור</button></div>`, true);
   const L = D.ltr.pdfbg;
   const changed = (rebuild = false) => { scheduleSave(); refreshStage(); if (rebuild) render(); };
@@ -2469,11 +2471,11 @@ function pdfBgDialog() {
     if (!box) return;
     box.innerHTML = L.length ? L.map((l, i) => {
       const info = null;
-      return `<fieldset class="pb-row" data-i="${i}"><legend>📄 ${h(l.name || 'PDF')} <span class="muted small" data-pbn="${i}"></span></legend>
+      return `<fieldset class="pb-row" data-i="${i}"><legend>${l.kind === 'img' ? '🖼' : '📄'} ${h(l.name || (l.kind === 'img' ? 'תמונה' : 'PDF'))} <span class="muted small" data-pbn="${i}"></span></legend>
         <div class="mm-grid">
           <label>על איזה עמוד במכתב<select data-pb="on">${opt(PB_ON, l.on || 'all')}</select></label>
           ${l.on === 'list' ? `<label>עמודים (למשל 1,3-4)<input data-pb="list" dir="ltr" value="${h(l.list || '')}"></label>` : ''}
-          <label>איזה עמוד מתוך ה-PDF<input type="number" data-pb="pg" min="1" step="1" value="${Number(l.pg) || 1}"></label>
+          ${l.kind === 'img' ? '' : `<label>איזה עמוד מתוך ה-PDF<input type="number" data-pb="pg" min="1" step="1" value="${Number(l.pg) || 1}"></label>`}
           <label>התאמה לדף<select data-pb="fit">${opt(PB_FIT, l.fit || 'fit')}</select></label>
           ${l.fit === 'pct' ? `<label>גודל %<input type="number" data-pb="pct" min="5" max="500" step="1" value="${Number(l.pct) || 100}"></label>` : ''}
           <label>הזזה ימינה/שמאלה (אינץ')<input type="number" data-pb="x" step="0.05" value="${Number(l.x) || 0}"></label>
@@ -2486,6 +2488,11 @@ function pdfBgDialog() {
     }).join('') : '<p class="muted">אין עדיין רקע PDF במכתב הזה.</p>';
     // מספר העמודים בכל PDF
     L.forEach((l, i) => {
+      if (l.kind === 'img') {
+        bgImgInfo(l.ref).then(([w, hh]) => { const e = $(`[data-pbn="${i}"]`, dlg); if (e) e.textContent = `· ${w}×${hh} פיקסלים · ${Math.round(w / 8.5)} DPI ברוחב דף`; })
+          .catch(() => { const e = $(`[data-pbn="${i}"]`, dlg); if (e) e.textContent = '· ⚠ התמונה לא נטענה'; });
+        return;
+      }
       pdfInfo(l.ref).then((inf) => { const e = $(`[data-pbn="${i}"]`, dlg); if (e) e.textContent = `· ${inf.n} עמודים · ${inf.sizes[0].map((x) => x.toFixed(2)).join('×')}″`; const pg = $(`[data-i="${i}"] [data-pb="pg"]`, dlg); if (pg) pg.max = inf.n; })
         .catch(() => { const e = $(`[data-pbn="${i}"]`, dlg); if (e) e.textContent = '· ⚠ לא נפתח (אולי מוגן בסיסמה)'; });
     });
@@ -2503,6 +2510,22 @@ function pdfBgDialog() {
   }
   render();
   $('#pb-drag', dlg).onchange = (e) => { setBgDrag(e.target.checked); refreshStage(); };
+  $('#pb-img', dlg).onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 25e6) { ui.toast('הקובץ גדול מדי (עד 25MB)', 'error'); return; }
+    ui.toast('מעלה את התמונה לדרייב…');
+    try {
+      const data = await fileToDataUrl(file); // בגודל מלא, בלי הקטנה
+      if (!/^data:image\//i.test(data)) { ui.toast('זו לא תמונה', 'error'); return; }
+      const v = await storeImage(data, 'pdfbg');
+      if (!isDrv(v)) { ui.toast(t('wrImgNoHelper'), 'error'); return; }
+      await bgImgInfo(v);
+      L.push({ kind: 'img', ref: v, name: file.name.replace(/\.[a-z0-9]+$/i, '').slice(0, 60), on: L.length ? 'rest' : 'all', pg: 1, fit: 'fit', pct: 100, x: 0, y: 0, op: 1 });
+      changed(true);
+      ui.toast('✓ התמונה נוספה');
+    } catch (err) { ui.toast(ui.friendlyError(err), 'error'); }
+  };
   $('#pb-file', dlg).onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -2760,6 +2783,7 @@ function wireRibbon(main) {
   $('#wr-link', rb)?.addEventListener('click', () => linkDialog());
   $('#wr-addbox', rb)?.addEventListener('click', () => addBoxNow());
   $('#wr-rcslot', rb)?.addEventListener('click', () => { D.ltr.rcSlot = !D.ltr.rcSlot; scheduleSave(); refreshStage(); });
+  $('#wr-rcclear', rb)?.addEventListener('click', () => { D.ltr.rcClear = !D.ltr.rcClear; scheduleSave(); refreshStage(); });
   $('#wr-sig', rb)?.addEventListener('click', (e) => { closeDd(e.currentTarget); D.ltr.sig = !D.ltr.sig; scheduleSave(); refreshStage(); });
   // עיצוב: סימן מים
   $$('[data-wm]', rb).forEach((b) => {
