@@ -2775,3 +2775,10 @@ select.need-fill, input.need-fill { outline: 2px solid #c0392b; outline-offset: 
 .ar-dlg .ar-mode { border: 1px solid #e3d3ad; border-radius: 8px; padding: 4px 10px 8px; margin: 8px 0; }
 .ar-dlg .ar-mode input[type="text"], .ar-dlg #ar-testto { width: 16em; }
 .ar-log td { font-size: 12px; }
+/* ➕ עוד הגדרות ברשימות */
+.l2-more { margin-top: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; background: color-mix(in srgb, var(--accent) 4%, transparent); }
+.l2-more-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.l2-more-lbl { white-space: nowrap; }
+.l2-more-head [data-mdel] { margin-inline-start: auto; }
+.l2-more-body { margin-top: 6px; }
+.l2-more-add { margin-top: 8px; gap: 8px; }
